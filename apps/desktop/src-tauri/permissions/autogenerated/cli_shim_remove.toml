@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-cli-shim-remove"
+description = "Enables the cli_shim_remove command without any pre-configured scope."
+commands.allow = ["cli_shim_remove"]
+
+[[permission]]
+identifier = "deny-cli-shim-remove"
+description = "Denies the cli_shim_remove command without any pre-configured scope."
+commands.deny = ["cli_shim_remove"]

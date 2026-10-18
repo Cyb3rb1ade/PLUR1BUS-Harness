@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plur1bus.return/1",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "plur1bus.return/1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inReplyTo": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "done",
+        "done_with_concerns",
+        "blocked",
+        "needs_context",
+        "declined",
+        "partial"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "doneWhen": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "met": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterion",
+          "met",
+          "evidence"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 80
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "what": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "ref",
+          "what"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 80
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "ref",
+          "kind"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 80
+    },
+    "concerns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "maxItems": 80
+    },
+    "blockedBy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "needs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "maxItems": 80
+    },
+    "assumptionsChecked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "claim": {
+            "type": "string",
+            "minLength": 1
+          },
+          "result": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "claim",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 80
+    },
+    "learned": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fact": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "fact",
+          "source"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 80
+    },
+    "suggestedNext": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "maxItems": 80
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolCalls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "tokens",
+        "toolCalls",
+        "durationMs"
+      ],
+      "additionalProperties": false
+    },
+    "output": {},
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "maxItems": 80
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "inReplyTo",
+    "status",
+    "summary",
+    "doneWhen",
+    "changes",
+    "artifacts",
+    "concerns",
+    "blockedBy",
+    "needs",
+    "assumptionsChecked",
+    "learned",
+    "suggestedNext",
+    "usage"
+  ],
+  "additionalProperties": false
+}

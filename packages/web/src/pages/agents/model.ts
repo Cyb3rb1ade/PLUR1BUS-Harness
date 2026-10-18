@@ -1,7 +1,4 @@
-// Agents data and the create protocol. Agents live in config key `agents.<id>` ({ displayName, createdAt, skills }); there are
-// no lifecycle RPCs (docs/web-ui.md F38/F39). Creation is idempotent on the client: one `Attempt` (random key + createdAt) per
-// create attempt; before writing, the current configuration is read and an existing entry carrying this attempt's createdAt and
-// name is OUR earlier write (lost response), so the retry reports success without writing again.
+// Agent creation uses the server saga with one actor-bound idempotency key per attempt.
 import { getApi } from "../../api/shared.ts";
 
 export type AgentState = "active" | "paused" | "archived";
@@ -67,18 +64,16 @@ export type CreateInput = { id: string; name: string; skills: readonly string[] 
 export type CreateFailure = "taken" | "conflict" | "invalid" | "forbidden" | "unavailable" | "failed";
 export type CreateOutcome = { ok: true; already: boolean; agent: Agent } | { ok: false; kind: CreateFailure; detail?: string };
 
-/** Read, check, write with `ifRevision`. Safe to call again after any failure with the same attempt. */
+/** Retries send the same idempotency key; only the server decides whether the write already committed. */
 export async function createAgent(a: Attempt, v: CreateInput): Promise<CreateOutcome> {
   try {
-    const cur = await readAgents();
-    const ex = cur.agents.find((x) => x.id === v.id);
-    if (ex) return ex.createdAt === a.createdAt && ex.name === v.name ? { ok: true, already: true, agent: ex } : { ok: false, kind: "taken" };
-    await getApi().rpc("config.set", { changes: [{ key: `agents.${v.id}`, value: { displayName: v.name, createdAt: a.createdAt, skills: [...v.skills] } }], ifRevision: cur.revision });
-    return { ok: true, already: false, agent: { id: v.id, name: v.name, createdAt: a.createdAt, skills: [...v.skills], state: "active" } };
+    const result = await getApi().rpc("agent.create", { name: v.id, displayName: v.name, skills: [...v.skills], idempotencyKey: a.key });
+    return { ok: true, already: isObj(result) && result.replayed === true, agent: { id: v.id, name: v.name, createdAt: a.createdAt, skills: [...v.skills], state: "active" } };
   } catch (e) {
     const o = (typeof e === "object" && e !== null ? e : {}) as { kind?: unknown; errorCode?: unknown; message?: unknown };
     if (o.kind === "forbidden") return { ok: false, kind: "forbidden" };
     if (o.kind === "unavailable") return { ok: false, kind: "unavailable" };
+    if (o.errorCode === "E_AGENT_EXISTS") return { ok: false, kind: "taken" };
     if (o.errorCode === "E_CONFLICT") return { ok: false, kind: "conflict" };
     if (o.errorCode === "E_CONFIG_INVALID") return { ok: false, kind: "invalid", detail: typeof o.message === "string" ? o.message : "" };
     return { ok: false, kind: "failed" };

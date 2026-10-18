@@ -6,6 +6,7 @@ import { Badge } from "../../components/card.ts";
 import { PageState } from "../../components/page-state.ts";
 import { t } from "../../i18n.ts";
 import type { View } from "../../view.ts";
+import { ModelSwitch } from "./model-switch-view.ts";
 import { Composer } from "./composer.ts";
 import { ChatController } from "./controller.ts";
 import type { Entry } from "./model.ts";
@@ -98,6 +99,7 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
     }, tr.entries.length === 0 ? h("p", { class: "chat-empty" }, t("chat.transcript.empty")) : tr.entries.map((e) => h(Message, { key: e.id, e, agent }))),
     h("div", { class: "sr-only", role: "status" }, status),
     notice ? h("p", { class: "chat-notice", role: "alert" }, t(notice)) : null,
+    h(ModelSwitch, { key: ctl.sessionId, sessionId: ctl.sessionId, running }),
     h(Composer, {
       label: t("chat.compose.label", { agent }), placeholder: t("chat.compose.placeholder", { agent }), value: draft, onInput: setDraft,
       onSend: () => { void submit(); }, sendLabel: t("chat.send"), ready: !ctl.sending.value, running,

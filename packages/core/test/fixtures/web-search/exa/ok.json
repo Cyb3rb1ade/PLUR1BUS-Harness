@@ -1,0 +1,31 @@
+{
+  "requestId": "0123456789abcdef0123456789abcdef",
+  "resolvedSearchType": "neural",
+  "results": [
+    {
+      "id": "https://docs.example.org/guides/memory-benchmarks",
+      "title": "Memory benchmarks for agent harnesses",
+      "url": "https://docs.example.org/guides/memory-benchmarks",
+      "publishedDate": "2026-09-30T08:15:00.000Z",
+      "author": "Example Docs Team",
+      "score": 0.4412,
+      "text": "How a harness is measured: recall at k, latency and cost, with a worked example. The page goes on at length about fixtures."
+    },
+    {
+      "id": "https://blog.example.net/recall-quality",
+      "title": "Recall quality in practice",
+      "url": "https://blog.example.net/recall-quality",
+      "publishedDate": null,
+      "author": null,
+      "highlights": ["A short field report.", "It compares three harnesses."],
+      "highlightScores": [0.5, 0.4]
+    },
+    {
+      "id": "mailto:someone@example.net",
+      "title": "Not a web page",
+      "url": "mailto:someone@example.net",
+      "text": "dropped by the normaliser"
+    }
+  ],
+  "costDollars": { "total": 0.005, "search": { "neural": 0.005 }, "contents": { "text": 0.0 } }
+}

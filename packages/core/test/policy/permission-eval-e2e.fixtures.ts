@@ -171,7 +171,9 @@ export async function makeWorld(o: WorldOpts = {}): Promise<World> {
   pathTool("fs.read", "fs.read", "read", "low");
   pathTool("fs.write", "fs.write", "local-write", "low");
   pathTool("fs.delete", "fs.delete", "local-destructive", "high");
-  for (const [name, capability, effect, risk] of [["shell.run", "shell.exec", "local-write", "medium"], ["grant.create", "harness.admin", "local-write", "critical"], ["approval.decide", "harness.admin", "local-write", "critical"], ["pay", "money.spend", "money", "critical"]] as const) {
+  // `grant.create`/`approval.decide` are now real RPC methods (D109 §9.4 reserves the whole `grant.`/`approval.`
+  // namespace for tools), so the harness-admin tools this fixture needs use the non-reserved `perm.` prefix instead.
+  for (const [name, capability, effect, risk] of [["shell.run", "shell.exec", "local-write", "medium"], ["perm.grant", "harness.admin", "local-write", "critical"], ["perm.approve", "harness.admin", "local-write", "critical"], ["pay", "money.spend", "money", "critical"]] as const) {
     reg.register({ name, description: name, inputSchema: { type: "object", additionalProperties: true, properties: {} }, capability, effect, risk, trust: "first-party", classify: () => ({ flags: { outsideRoots: false, sandboxed: true } }), execute: exec(name) });
   }
 

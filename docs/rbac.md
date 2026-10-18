@@ -129,7 +129,7 @@ through untouched. A refusal is `E_DENIED` with the reason code, a missing or fa
 the installation owner (RULING R8), so today's behaviour is unchanged until the M3 Harness API supplies sessions.
 
 Secured now: `memory.forget` (→ `memory.forget` on the agent), `agent.status` (→ `agent.read`), `jobs.run`,
-`models.setOverride` and `models.removeManual` (→ `models.write`), `logs.query` and `logs.tail` (→ `logs.query`, Owner/Admin only, D4), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
+`models.setOverride` and `models.removeManual` (→ `models.write`), `logs.query`, `logs.tail` and `logs.levels` (→ `logs.query`, Owner/Admin only, D4/D111), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
 `admin.migrate`, `admin.embedding.*`, `admin.reembed.*`). A test pins that every `admin.*` method in the schema has a rule.
 The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` → `jobs.run` (Owner, Admin, Operator), `dreams.schedule.set|enable|disable` → `settings.write` (Owner, Admin); the reads `dreams.status|log|schedule.get` stay open like `jobs.list|history`. `dreams.diary` → `agent.manage` on the agent resource (Owner, Admin, member with manage); a viewer is denied and does not see a foreign agent's diary.
 
@@ -305,6 +305,7 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `inbox.markRead`, `inbox.dismiss` | `inbox.write` | All five, human principals only; own entries only, foreign ids change nothing |
 | `session.list` | `admin.sessions.read` | All five; Member own only; Owner/Admin/Operator/Viewer may filter all metadata |
 | `session.get`, `session.resume`, `session.events` | `admin.sessions.transcript` | All five; own session or live audited Break-Glass grant |
+| `session.model.set` | `admin.sessions.write` | Human Owner, Admin, Operator, Member; own idle direct session and `agent.use`; never WebMCP |
 | `session.create`, `session.submit`, `session.cancel`, `session.archive` | `admin.sessions.write` | Owner, Admin, Operator, Member; own session and `agent.use` required |
 | `memory.list`, `memory.show` | `admin.memory.read` | All five; optional `targetUserId` requires `agent.read` and live library `memory.user.read` authorization |
 | `pairing.qr` | `admin.pairing.read` | Owner, Admin; existing payload only, no code issuance |
@@ -430,3 +431,10 @@ The internal `admin.api.person.resolve` and `admin.api.invite.validate` methods 
 
 | `admin.api.person.resolve` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |
 | `admin.api.invite.validate` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |
+
+Remote trust challenge and acknowledgement use the additive human-only `remote.device.write` action (Owner/Admin/Operator/Member; Viewer denied) and cookie sessions with CSRF. Nonce-only pairing proof and one-use code redemption are reviewed bootstrap exceptions: no delegated identity or normal session is manufactured. All four private device services use the existing DeviceStore and a separately authenticated API service credential without a delegated principal.
+
+| `admin.api.device.pair` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.challenge` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.prove` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.announce` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |

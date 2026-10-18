@@ -2,9 +2,12 @@
 // takes no parser dependency for a read-only detect step. Objects are built with null prototypes' semantics copied
 // onto plain objects via defineProperty, so a "__proto__" key is data, never a prototype change.
 
-const WS = new Set([" ", "\t", "\n", "\r", "\v", "\f", " ", "﻿", " ", " "]);
+// WhiteSpace (JSON5 spec 5.1: TAB, VT, FF, SP, NBSP, BOM and every Unicode Space_Separator) and LineTerminators (LF, CR, U+2028, U+2029).
+const WS = new Set(["\t", "\n", "\v", "\f", "\r", " ", "\u00a0", "\u1680", "\u2028", "\u2029", "\u202f", "\u205f", "\u3000", "\ufeff", ...Array.from({ length: 11 }, (_, k) => String.fromCharCode(0x2000 + k))]);
 const ID_START = /[A-Za-z_$À-￿]/;
 const ID_PART = /[A-Za-z0-9_$À-￿‌‍]/;
+
+const isIdPart = (c: string): boolean => c !== "" && !WS.has(c) && ID_PART.test(c);
 
 export function parseJson5(text: string): unknown {
   let i = 0;
@@ -13,7 +16,7 @@ export function parseJson5(text: string): unknown {
     for (;;) {
       const c = text[i];
       if (c !== undefined && WS.has(c)) { i++; continue; }
-      if (c === "/" && text[i + 1] === "/") { while (i < text.length && text[i] !== "\n" && text[i] !== "\r") i++; continue; }
+      if (c === "/" && text[i + 1] === "/") { while (i < text.length && text[i] !== "\n" && text[i] !== "\r" && text[i] !== "\u2028" && text[i] !== "\u2029") i++; continue; }
       if (c === "/" && text[i + 1] === "*") { const end = text.indexOf("*/", i + 2); if (end < 0) fail("unterminated comment"); i = end + 2; continue; }
       return;
     }
@@ -56,7 +59,7 @@ export function parseJson5(text: string): unknown {
     while (i < text.length) {
       const c = text[i]!;
       if (c === "\\" && text[i + 1] === "u") { i += 2; out += String.fromCharCode(hex(4)); continue; }
-      if (out === "" ? !ID_START.test(c) : !ID_PART.test(c)) break;
+      if (WS.has(c) || (out === "" ? !ID_START.test(c) : !ID_PART.test(c))) break;
       out += c; i++;
     }
     if (out === "") fail("expected a key");
@@ -65,6 +68,7 @@ export function parseJson5(text: string): unknown {
   const number = (): number => {
     const m = /^[+-]?(Infinity|NaN|0[xX][0-9a-fA-F]+|(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?)/.exec(text.slice(i));
     if (!m) fail("bad number");
+    if (/^[+-]?0[0-9]/.test(m![0])) fail("leading zero in number");
     i += m![0].length;
     const s = m![0];
     const sign = s.startsWith("-") ? -1 : 1;
@@ -75,7 +79,7 @@ export function parseJson5(text: string): unknown {
     return sign * Number(body);
   };
   const word = (w: string, v: unknown): unknown => {
-    if (text.startsWith(w, i) && !ID_PART.test(text[i + w.length] ?? "")) { i += w.length; return v; }
+    if (text.startsWith(w, i) && !isIdPart(text[i + w.length] ?? "")) { i += w.length; return v; }
     return fail("unexpected token");
   };
   const value = (depth: number): unknown => {

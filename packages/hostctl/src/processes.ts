@@ -8,7 +8,7 @@ export type Spawn = (program: string, args: string[], options: SpawnOptions) => 
 export interface ProcessOptions { spawn?: Spawn; killTree?: (child: ChildProcess) => Promise<void>; baseEnv?: NodeJS.ProcessEnv }
 interface Job { id: string; owner: string; session: string; child: ChildProcess; output: Buffer; truncated: boolean; timedOut: boolean; terminating: boolean; done: boolean; exitCode: number | null; timer: ReturnType<typeof setTimeout>; finished: Promise<void>; abort: () => void; signal: AbortSignal }
 const owner = (c: RunContext) => JSON.stringify([c.agentId, c.principal, c.sessionId ?? '']);
-const blockedEnv = /secret|token|password|credential|private|^NODE_OPTIONS$|^LD_|^DYLD_|^PYTHONPATH$|^BASH_ENV$|^ENV$|^PSModulePath$/i;
+const blockedEnv = /secret|token|password|credential|private|^NODE_OPTIONS$|^LD_|^DYLD_|^PYTHONPATH$|^BASH_ENV$|^ENV$|^PSModulePath$|^PERL5(?:OPT|LIB)$|^RUBY(?:OPT|LIB)$|^PYTHON(?:STARTUP|HOME)$|^NODE_PATH$|^_?JAVA_TOOL_OPTIONS$|^_JAVA_OPTIONS$|^JDK_JAVA_OPTIONS$|^CLASSPATH$|^GIT_SSH_COMMAND$|^GIT_EXTERNAL_DIFF$|^LESSOPEN$|^PROMPT_COMMAND$|^GCONV_PATH$/i;
 const dangerous = /(?:^|[\s/\\])(?:format(?:\.com)?|diskpart(?:\.exe)?|mkfs(?:\.[\w]+)?|sudo|doas|pkexec|runas)(?:\s|$)|\brm\s+[^\n]*-[a-z]*r[a-z]*f[a-z]*\s+["']?\/(?:["']?(?:\s|$))|\breg(?:\.exe)?\s+(?:delete|load|restore)\b|HKEY_LOCAL_MACHINE|\\Device\\|\\\\\.\\/i;
 export async function killTree(child: ChildProcess): Promise<void> {
   if (!child.pid) return;

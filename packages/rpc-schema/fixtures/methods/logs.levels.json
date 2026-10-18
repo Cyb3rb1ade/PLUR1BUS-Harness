@@ -1,0 +1,2 @@
+{ "params": { "defaultLevel": "info", "levels": { "harness:core": "debug", "provider:openai": "warn" }, "unset": [ "host:desktop" ], "traceUntil": "2026-10-15T09:00:00Z" },
+  "result": { "defaultLevel": "info", "levels": { "harness:core": "debug", "provider:openai": "warn" }, "traceUntil": "2026-10-15T09:00:00Z" } }

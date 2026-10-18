@@ -59,6 +59,7 @@ test("full keyboard traversal: ordered accessible names, wrap and visible 3:1 fo
             ...(section === "connections" ? ["Add remote", "Attach native local", "Refresh", ...(width < 1024 ? ["Choose connection"] : [])] : []),
             ...(width <= 1600 ? [section === "settings" ? "About this page" : "Connection details"] : []),
             ...(section === "settings" && subpage === "runtime" ? ["Refresh status", "Unlock secrets with the system keyring", "Start PLUR1BUS at login"] : []),
+            ...(section === "settings" && subpage === "advanced" ? ["Add CLI directory to my PATH", "Install command-line tool", "Remove command-line tool", "Open redacted diagnostics", "Uninstall PLUR1BUS"] : []),
             ...(section === "settings" && subpage === "general" ? ["System", "Light", "Dark", "System", "English", "Deutsch"] : []),
           ]), "How preferences work",
         ];

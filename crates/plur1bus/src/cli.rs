@@ -185,6 +185,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AuditCmd,
     },
+    /// [experimental] Diagnostic logs: query and tail through the core
+    Logs {
+        #[command(subcommand)]
+        sub: crate::commands::logs::LogsCmd,
+    },
     /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
     ///
     /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
@@ -1078,6 +1083,12 @@ pub enum SessionCmd {
 
 #[derive(clap::Args, Debug)]
 pub struct ChatArgs {
+    /// Configured model profile for this session; warns and asks before switching
+    #[arg(long, value_name = "PROFILE")]
+    pub model: Option<String>,
+    /// Confirm the model switch for scripts (including --json)
+    #[arg(long)]
+    pub yes: bool,
     /// The agent to talk to (default: the only registered agent)
     #[arg(long)]
     pub agent: Option<String>,
@@ -1360,6 +1371,11 @@ pub enum GrantCmd {
         #[arg(long)]
         limit: Option<u32>,
     },
+    /// [experimental] Show one grant of the calling person
+    Show {
+        /// the grant id (grt_...)
+        id: String,
+    },
     /// [experimental] Give an agent a standing permission (scope task, session or always)
     ///
     /// `once` grants exist only as the answer to a request: use `plur1bus approval approve`.
@@ -1389,6 +1405,11 @@ pub enum ApprovalCmd {
     },
     /// [experimental] The pending queue: requests waiting for a person (approval list --status pending)
     Pending,
+    /// [experimental] Show one approval request
+    Show {
+        /// the request id (apr_...)
+        id: String,
+    },
     /// [experimental] Approve a pending request after showing exactly what it asks for
     ///
     /// The request (command line or diff summary, targets, risk) is printed first. In a terminal you confirm with
@@ -1417,6 +1438,12 @@ pub enum ApprovalCmd {
     },
     /// [experimental] Verify the HMAC chain of the approval store; exit 1 and the first broken position if it breaks
     Verify,
+    /// [experimental] Redacted approval-related HMAC-chain entries of the calling person
+    Audit {
+        /// at most this many (1-500, default 100)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=500))]
+        limit: Option<u32>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
