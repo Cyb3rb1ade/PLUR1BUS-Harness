@@ -29,9 +29,9 @@ const isWrite = (m: string): boolean => m.split(".").some((s) => WRITE_VERBS.has
 
 /** Core methods that carry no RBAC rule on purpose. Each reason is a statement the doc or the code makes. */
 const UNRULED: Record<string, string> = {
-  "core.auth": "handshake; no principal exists yet",
+  "core.auth": "handshake; local-owner token or HM4 scoped personal-token validation before a principal exists",
   "core.status": "docs/rbac.md 'Not yet secured': core.*",
-  "core.shutdown": "docs/rbac.md 'Not yet secured': core.*; reachable only with the local token",
+  "core.shutdown": "docs/rbac.md 'Not yet secured': core.*; local token only; HM4 scoped clients are denied by the transport allowlist",
   "core.adopt": "docs/rbac.md 'Not yet secured': core.*; adoption nonce check, supervisor only",
   "events.unsubscribe": "connection-bound subscription, no data of its own",
   "memory.recall": "docs/rbac.md 'Not yet secured': memory.recall; the engine ACL filters per principal",

@@ -648,3 +648,14 @@ fn rpc_version_const_matches_the_schema() {
         .unwrap()
         .contains(&format!("/{}/", plur1bus_rpc::RPC_VERSION)));
 }
+
+#[test]
+fn core_auth_preserves_owner_tokens_and_supports_scoped_client_tokens() {
+    for token in [
+        "0".repeat(64),
+        format!("plb_123456789abc_{}", "x".repeat(43)),
+    ] {
+        let value = serde_json::json!({ "token": token });
+        round_trip::<types::CoreAuthParams>(&value, "core.auth token variants");
+    }
+}

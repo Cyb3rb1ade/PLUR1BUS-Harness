@@ -5200,7 +5200,7 @@ Human-only principals; self or authenticated administrator, codes revealed only 
   "properties": {
     "token": {
       "type": "string",
-      "minLength": 64,
+      "minLength": 60,
       "maxLength": 64
     },
     "api": {
