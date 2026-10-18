@@ -55,7 +55,7 @@ describe("composition openTurnComposition", () => {
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["capabilities", "close", "collab", "discoveryCredentials", "mining", "openai", "sessions", "skillReview", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["capabilities", "close", "collab", "discoveryCredentials", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
       assert.equal(c.skillReview.status().state, "engine-unavailable");
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
@@ -99,6 +99,20 @@ describe("composition openTurnComposition", () => {
     try {
       const unknown = { wireFormat: "chat_completions", entries: [], profile: { id: "ghost", display_name: "g", kind: "api_key", capabilities: ["chat"], auth_header_scheme: "Authorization: Bearer {token}", secret_ref: "g.key", policy_status: "allowed", policy_source: "s", policy_checked: "2026-10-08" } };
       assert.equal(c.discoveryCredentials(unknown as never), undefined);
+    } finally { await c.close(); identity.close(); }
+  });
+
+  it("one provider without a billing class is refused and reported; the good one stays composed (no all-or-nothing)", async () => {
+    const def = (id: string, over: Record<string, unknown> = {}) => ({ wireFormat: "chat_completions", defaultModel: "m", entries: [], ...over,
+      profile: { id, display_name: id, kind: "api_key", capabilities: ["chat"], auth_header_scheme: "Authorization: Bearer {token}", base_url: "https://fixture.invalid/v1", secret_ref: `${id}.key`, policy_status: "allowed", policy_source: "s", policy_checked: "2026-10-08" } });
+    const { composition: c, identity, lines } = await open({ options: { definitions: { good: def("good"), bad: def("bad", { billingPath: "enterprise" }) } as never } });
+    try {
+      assert.deepEqual(c.refusedProviders.map(r => [r.provider, r.code]), [["bad", "E_CONFIG_INVALID"]]);
+      const logged = lines.find(l => l[0] === "error" && /refused/.test(l[1]));
+      assert.ok(logged, "the refusal is logged");
+      assert.equal(logged![2]?.provider, "bad");
+      assert.equal(logged![2]?.code, "E_CONFIG_INVALID");
+      assert.equal(lines.some(l => /turn providers unavailable/.test(l[1])), false, "the composition root no longer disables every provider");
     } finally { await c.close(); identity.close(); }
   });
 

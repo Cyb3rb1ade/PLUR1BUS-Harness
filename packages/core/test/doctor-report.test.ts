@@ -85,3 +85,12 @@ it("reports the absent skill-artifact queue without claiming that mining is enab
   const report = await methods["doctor.report"]!({}, ctxOf()) as { groups: { checks: { id: string; status: string; summary: string }[] }[] };
   const check = report.groups[0]!.checks.find(c => c.id === "skills.mining"); assert.equal(check?.status, "skipped"); assert.match(check!.summary, /no skill-artifact proposal API/);
 });
+
+it("lists composition problems (a refused turn provider) as failing checks next to the provisioning checks", async () => {
+  const methods = guardMethods(buildDoctorMethods({ home: "/fixture", clock: () => 1000, check: async () => ({ schema: "1staid.check/1", checks: [{ id: "models.cache", status: "ok", summary: "fine" }] }),
+    compositionChecks: () => [{ id: "providers.broken", status: "fail", summary: "provider broken refused (E_CONFIG_INVALID): billing path \"enterprise\" is not one of plan" }] }), { resolve: () => ({ kind: "person", role: "viewer", userId: "person-alice" }), now: () => 1000 });
+  const report = await methods["doctor.report"]!({}, ctxOf()) as { groups: { checks: { id: string; status: string; summary: string }[] }[] };
+  const checks = report.groups.flatMap(g => g.checks);
+  assert.deepEqual(checks.filter(c => c.id === "providers.broken").map(c => c.status), ["fail"]);
+  assert.ok(checks.some(c => c.id === "models.cache"), "the provisioning checks stay");
+});

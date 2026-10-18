@@ -25,6 +25,7 @@ export interface ChatRequest {
   /** Internal background role: the same router/budget, with no tool execution. */
   role?: "summarize" | "decision";
   taskBoundary?: import("../triage/runtime.ts").TaskBoundary; maxOutputTokens?: number;
+  modelProfile?: string;
   sessionId: string; agentId: string;
   turnId?: string; projectId?: string; headlessJobId?: string; toolView?: readonly string[]; principal?: string; authenticatedPerson?: string; caller?: import("@plur1bus/rpc-schema").CallerIdentity;
   /** The RPC connection's resolved approver (D109 §5): `person` null for a non-person principal; `surface` its derived trust level. */
@@ -47,7 +48,8 @@ export interface ChatProvider {
   stream(req: ChatRequest): AsyncIterable<ChatChunk>;
   /** Resolved profile candidates before context assembly (including possible fallbacks). */
   roleModels?: (role: "summarize") => import("./tokens.ts").ContextModel[];
-  contextModels?: (text: string) => import("./tokens.ts").ContextModel[];
+  modelProfiles?: () => readonly string[];
+  contextModels?: (text: string, profile?: string) => import("./tokens.ts").ContextModel[];
 }
 
 export interface FakeProviderOptions {

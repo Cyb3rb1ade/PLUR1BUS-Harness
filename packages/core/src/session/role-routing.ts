@@ -52,7 +52,10 @@ export function createSessionRoleProvider(create: typeof createTurnProvider, opt
   };
   return { id: main.id, telemetry: main.telemetry,
     roleModels() { return (candidates ?? []).map(c => ({ provider:c.provider,model:c.model })); },
-    contextModels(_text) {
+    modelProfiles() { return Object.keys(options.profiles).filter(name => options.profiles[name]?.length); },
+    contextModels(_text, profile) {
+      // A session-selected model profile (session.setModel) is the turn's profile; reserve for it alone.
+      if (profile) return (options.profiles[profile] ?? []).map(c => ({ provider: c.provider, model: c.model }));
       // Context reservation is conservative over configured class profiles; it never invokes triage a second time.
       const names = new Set([options.profile ?? 'default']);
       for (const modelClass of MODEL_CLASSES) try { const name = options.profileForClass?.(modelClass); if (name) names.add(name); } catch { /* invalid file falls back at the turn boundary */ }
