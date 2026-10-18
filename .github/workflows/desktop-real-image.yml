@@ -1,0 +1,40 @@
+name: desktop real-image compatibility
+on:
+  pull_request:
+    paths: ['apps/desktop/**', 'containers/**', '.github/workflows/desktop-real-image.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-real-image-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-image:
+    # Informational by explicit D1 phase-3 decision. A missing desktop contract is reported,
+    # never replaced by the synthetic desktop harness or an owner-token bypass.
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+      - name: Build actual M8 image without publication or PR secrets
+        env:
+          PLUR1BUS_BUILD_PLATFORM: linux/amd64
+        run: containers/build.sh docker p1t-d1-real-image:ci
+      - name: Probe immutable local image identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          image_id=$(docker image inspect --format '{{.Id}}' p1t-d1-real-image:ci)
+          node apps/desktop/scripts/real-image-probe.mjs --runtime docker --image "$image_id" --report "$RUNNER_TEMP/d1-real-image.json"
+      - name: Compatibility evidence (no raw runtime environment)
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: desktop-real-image-compatibility
+          path: ${{ runner.temp }}/d1-real-image.json
+          if-no-files-found: warn
+          retention-days: 7

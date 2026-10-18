@@ -40,10 +40,12 @@ async fn install_happy_path_emits_steps_in_order() {
         let spec = s.containers.get(&installed.container).unwrap();
         assert_eq!(spec.memory_mib, 3072);
         assert_eq!(spec.host_port, Some(installed.port));
+        assert!(spec.volumes.iter().any(|(_, p, _)| p == "/state"));
+        assert!(spec.volumes.iter().any(|(_, p, _)| p == "/state/models"));
         assert!(spec
-            .volumes
+            .env
             .iter()
-            .any(|(_, p, _)| p == "/var/lib/plur1bus"));
+            .any(|(key, value)| key == "PLUR1BUS_HOME" && value == "/state"));
     }
 }
 #[tokio::test]
@@ -486,24 +488,27 @@ fn create_spec_is_exact_for_both_native_adapters() {
     );
     let a = create_argv(&s).unwrap();
     let v = serde_json::to_value(create_body(&s).unwrap()).unwrap();
+    assert!(s
+        .env
+        .iter()
+        .any(|(key, value)| key == "PLUR1BUS_HOME" && value == "/state"));
+    assert!(!s
+        .volumes
+        .iter()
+        .any(|(_, target, _)| target.starts_with("/var/lib/")));
+
     assert_eq!(
         s.volumes,
         vec![
-            ("plur1bus-state".into(), "/var/lib/plur1bus".into(), false),
-            (
-                "plur1bus-models".into(),
-                "/var/lib/plur1bus-models".into(),
-                false
-            )
+            ("plur1bus-state".into(), "/state".into(), false),
+            ("plur1bus-models".into(), "/state/models".into(), false)
         ]
     );
     assert!(a.windows(2).any(|p| p == ["-p", "127.0.0.1:18742:18700"]));
+    assert!(a.windows(2).any(|p| p == ["-v", "plur1bus-state:/state"]));
     assert!(a
         .windows(2)
-        .any(|p| p == ["-v", "plur1bus-state:/var/lib/plur1bus"]));
-    assert!(a
-        .windows(2)
-        .any(|p| p == ["-v", "plur1bus-models:/var/lib/plur1bus-models"]));
+        .any(|p| p == ["-v", "plur1bus-models:/state/models"]));
     assert!(!a
         .iter()
         .any(|p| p.contains("restart") || p == "--privileged"));
