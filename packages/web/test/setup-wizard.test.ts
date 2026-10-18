@@ -17,7 +17,7 @@ describe("setup wizard: flow", opts, () => {
       await stepHeading(page, "Your account").waitFor();
       await page.locator("main").getByText(/signed in as owner/i).waitFor(); // the session loads after the heading appears
       assert.match((await page.locator("main").textContent()) ?? "", /signed in as owner/i);
-      assert.equal(await page.locator("ol.setup-progress li").count(), 8);
+      assert.equal(await page.locator("ol.setup-progress li").count(), 9);
       assert.equal(await page.locator("ol.setup-progress li[aria-current=step]").count(), 1);
       await toSwitchboard(app);
       await page.getByText("cannot be done from the browser yet").waitFor();
@@ -56,8 +56,8 @@ describe("setup wizard: flow", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app, "#/setup?mode=bundled");
       await stepHeading(app.page, "Name & persona").waitFor();
-      assert.equal(await app.page.locator("ol.setup-progress li").count(), 7);
-      assert.match((await app.page.locator(".setup-count").textContent()) ?? "", /Step 1 of 7/);
+      assert.equal(await app.page.locator("ol.setup-progress li").count(), 8);
+      assert.match((await app.page.locator(".setup-count").textContent()) ?? "", /Step 1 of 8/);
       assert.equal(await app.page.locator("ol.setup-progress").getByText("Your account").count(), 0);
     });
   });
@@ -68,10 +68,10 @@ describe("setup wizard: flow", opts, () => {
       const { page } = app;
       await stepHeading(page, "Your account").waitFor();
       const live = page.locator("main [role=status][aria-live=polite]").first();
-      assert.equal(((await live.textContent()) ?? "").trim(), "Step 1 of 8: Your account");
+      assert.equal(((await live.textContent()) ?? "").trim(), "Step 1 of 9: Your account");
       await next(page);
       await stepHeading(page, "Name & persona").waitFor();
-      assert.equal(((await live.textContent()) ?? "").trim(), "Step 2 of 8: Name & persona");
+      assert.equal(((await live.textContent()) ?? "").trim(), "Step 2 of 9: Name & persona");
       await page.waitForFunction(() => document.activeElement?.tagName === "H2" && document.activeElement?.textContent === "Name & persona");
     });
   });
@@ -81,6 +81,8 @@ describe("setup wizard: flow", opts, () => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
       await toSwitchboard(app);
+      await page.getByRole("button", { name: "Back" }).click();
+      await stepHeading(page, /Decision model/).waitFor();
       await page.getByRole("button", { name: "Back" }).click();
       await stepHeading(page, /Main model/).waitFor();
       assert.equal(await page.getByLabel("Chat model").inputValue(), "anthropic/claude-x");
@@ -105,8 +107,11 @@ describe("setup wizard: resume and storage", opts, () => {
       await toSwitchboard(app);
       await page.reload();
       await stepHeading(page, /Switchboard/).waitFor();
-      assert.match((await page.locator(".setup-count").textContent()) ?? "", /Step 4 of 8/);
+      assert.match((await page.locator(".setup-count").textContent()) ?? "", /Step 5 of 9/);
       await page.getByRole("button", { name: "Back" }).click();
+      await stepHeading(page, /Decision model/).waitFor();
+      await page.getByRole("button", { name: "Back" }).click();
+      await stepHeading(page, /Main model/).waitFor();
       await page.getByRole("button", { name: "Back" }).click();
       assert.equal(await page.getByLabel("Display name").inputValue(), "Hal");
       const dump = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
@@ -176,6 +181,7 @@ describe("setup wizard: validation and failures", opts, () => {
       await page.getByText("Choose a model, or skip this step.").waitFor();
       assert.equal(calls(app, "agent.create").length, 1);
       await skip(page);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
       await stepHeading(page, /Switchboard/).waitFor();
       assert.equal(calls(app, "agent.create").length, 1);
     });
@@ -191,6 +197,7 @@ describe("setup wizard: validation and failures", opts, () => {
         await page.getByText(models === null ? /does not offer this setting yet/ : /No chat models were found/).waitFor();
         await page.getByText(/Signing in to a provider is not available/).waitFor();
         await skip(page);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
         await stepHeading(page, /Switchboard/).waitFor();
       });
     }

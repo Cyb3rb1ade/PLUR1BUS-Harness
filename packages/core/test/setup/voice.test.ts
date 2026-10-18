@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { setupStepsFor, SETUP_STEPS, voiceSetupSelection } from '../../src/setup/model.ts';
 import { initial, load, save, stepsFor } from '../../../web/src/pages/setup/model.ts';
 import type { VoiceLanguage } from '@plur1bus/rpc-schema';
-it('matches the existing wizard step definitions exactly: eight standalone, seven bundled', () => {
+it('matches the existing wizard step definitions exactly: nine standalone, eight bundled', () => {
   const source = readFileSync(new URL('../../../web/src/pages/setup/model.ts', import.meta.url), 'utf8');
   const ui = [...source.matchAll(/\{ id: "(\w+)", skippable: (true|false), unavailable: (true|false) \}/g)].map(m => ({ id: m[1], skippable: m[2] === 'true', unavailable: m[3] === 'true' }));
-  assert.deepEqual(SETUP_STEPS, ui); assert.equal(setupStepsFor(false).length,8); assert.equal(setupStepsFor(true).length,7);
+  assert.deepEqual(SETUP_STEPS, ui); assert.equal(setupStepsFor(false).length,9); assert.equal(setupStepsFor(true).length,8);
 });
 it('never preselects a model needing licence confirmation', () => {
   const models = [{ modelId:'research-voice', role:'tts' as const, sizeBytes:1, licenceId:'research-only', needsConfirmation:true, installed:false }];

@@ -257,3 +257,14 @@ test("D110 workflow lint rejects an offline job using a provider credential", ()
   const r = lintTree({ ".github/workflows/ci.yml": 'jobs:\n  offline:\n    env:\n      KEY: ${{ secrets.OPENAI_API_KEY }}\n' });
   assert.equal(r.status, 1); assert.match(r.stderr, /HYG-015/);
 });
+test('HYG-003 permits Rust test container mounts without per-file exceptions and still rejects commands', () => {
+  const mounts = readFileSync(join(fixtureDir, 'HYG-003-mounts.txt'), 'utf8');
+  const allowed = lintTree({ 'crates/example/tests/container.rs': mounts });
+  assert.equal(allowed.status, 0, allowed.stderr);
+  const state = '/' + 'state', forget = '/' + 'forget';
+  for (const text of [fixture('HYG-003', 'reject'), `dispatch(${JSON.stringify(forget)});`, `dispatch(${JSON.stringify(state)});`, mounts.split('\n')[0] + ` dispatch(${JSON.stringify(forget)});`, mounts.split('\n')[0] + ` dispatch(${JSON.stringify(state)});`]) {
+    const denied = lintTree({ 'crates/example/tests/container.rs': text });
+    assert.equal(denied.status, 1, text);
+    assert.match(denied.stderr, /HYG-003/);
+  }
+});
