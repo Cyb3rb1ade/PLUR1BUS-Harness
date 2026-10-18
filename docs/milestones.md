@@ -183,6 +183,14 @@ criteria are met on this codebase:
 
 ### M3 — Harness API, users/roles, agent management, web UI skeleton
 
+**Housekeeping Phase G (2026-10-18, branch `codex/housekeeping-1018`):** Core shutdown/start-failure cleanup now detaches
+both log-redaction subscriptions; `discovery/redaction-lifecycle.test.ts` observes actual post-shutdown delivery through
+the Core. Windows absolute executables receive the unavailable-backend explanation. `docs:check` prints unified diffs on
+drift (`scripts/doc-diff.test.mjs`, also run by lint). HYG-003 recognises Rust-test container mounts by context, with the
+file-specific desktop exemptions removed and command rejection retained. Sessions tests open the intended route before
+login; chat cancellation waits for restored focus; login concurrency uses a gate rather than an elapsed-time threshold.
+The existing stronger-Argon2-rehash KNOWN GAP remains unchanged. No milestone acceptance beyond these fixes is implied.
+
 **Goal.** One deny-by-default authorization chokepoint, and the first screens: Memory (incl. Dreams) and Models, in PLUR1BUS optics.
 
 **Scope**

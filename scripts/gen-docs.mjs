@@ -7,6 +7,7 @@
 // The binary is $PLUR1BUS_BIN, default target/debug/plur1bus(.exe) under the repo root; `pnpm docs:gen` and
 // `pnpm docs:check` build it first. The comparison ignores CRLF vs LF so a Windows checkout with
 // core.autocrlf does not read as stale.
+import { docDiff } from "./doc-diff.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -283,7 +284,7 @@ for (const [path, content] of [["docs/rpc.md", rpc], ["docs/cli.md", cli], ["doc
   if (check) {
     let cur = "";
     try { cur = readFileSync(url, "utf8"); } catch { /* missing counts as stale */ }
-    if (lf(cur) !== lf(content)) { console.error(`stale: ${path} (run pnpm docs:gen)`); stale += 1; }
+    if (lf(cur) !== lf(content)) { console.error(`stale: ${path} (run pnpm docs:gen)`); console.error(docDiff(path, cur, content)); stale += 1; }
   } else writeFileSync(url, lf(content));
 }
 if (stale) process.exit(1);
