@@ -47,8 +47,9 @@ no-op executions do not constitute native acceptance.
 
 Both `docker buildx build` and independent `container build` completed successfully.
 The Apple helper preloads pinned base indexes and copies a stable context; it does not
-call Docker. Native arm64 builds were exercised locally; the workflow builds both
-arm64 and amd64, with SBOM/provenance and an informational Trivy report.
+call Docker. Native arm64 builds were exercised locally; the workflow builds amd64
+on pull requests and both arm64 and amd64 (each natively) on main, version tags and manual
+runs, with SBOM/provenance and an informational Trivy report.
 
 Both real runtime tests passed with `PLUR1BUS_IT_CONTAINERS=1`: stack up, a second up,
 healthy status, `plur1bus --version`, down and retained state volumes. In addition,
