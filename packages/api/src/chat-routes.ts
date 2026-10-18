@@ -12,7 +12,7 @@ function inlineSchema(value:any,refs:readonly string[]=[]):any {
   if(value.$ref){const ref=value.$ref;if(typeof ref!=="string"||!ref.startsWith("#/$defs/")||refs.includes(ref))throw Error("unsupported chat schema reference");const target=ref.slice(2).split("/").reduce((v:any,key:string)=>v[key],SCHEMA);const {$ref:_,...rest}=value;return inlineSchema({...target,...rest},[...refs,ref]);}
   return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,inlineSchema(v,refs)]));
 }
-function rpcMethod(name:string){return name==="create-agent"?"create":name==="messages"?"get":name;}
+function rpcMethod(name:string){return name==="create-agent"?"create":name==="messages"?"get":name==="model-get"?"model.get":name==="model-set"?"model.set":name;}
 function bodySchema(name:string) {
   const method=rpcMethod(name);
   const schema=JSON.parse(JSON.stringify(defs.methods[`chat.${method}`].params));
@@ -32,6 +32,8 @@ const routes = [
   ["archive","POST","/api/v1/chats/{sessionId}/archive","write"], ["restore","POST","/api/v1/chats/{sessionId}/restore","write"],
   ["fork","POST","/api/v1/chats/{sessionId}/fork","write"], ["export","POST","/api/v1/chats/{sessionId}/export","read"],
   ["delete","DELETE","/api/v1/chats/{sessionId}","delete"],
+  // Per-chat model and reasoning choice; the person is the authenticated principal, never a caller in the body.
+  ["model-get","GET","/api/v1/chats/{sessionId}/model","read"], ["model-set","PATCH","/api/v1/chats/{sessionId}/model","write"],
 ] as const;
 export const CHAT_ROUTES: readonly RouteSpec[] = routes.map(([name,method,path,scope]) => ({ id:`chats.${name}`,method,path,summary:`Own direct chat ${name}`,tag:"chats",auth:"any",authz:{action:`chat:${scope}`},csrf:method!=="GET",rate:method==="GET"?"read":"write",stability:"experimental",since:"1.0.0",...(method!=="GET"?{requestBody:bodySchema(name)}:{}),...(method==="GET"?{extra:{400:{description:"Unknown, duplicate or invalid chat query",schema:{$ref:"#/components/schemas/Error"}}}}:{}),successStatus:name==="create"||name==="create-agent"||name==="fork"?201:200,success:{description:"Principal-bound direct-chat result; incognito transcripts are volatile.",schema:inlineSchema(defs.methods[`chat.${rpcMethod(name)}`].result)} }));
 function query(i: HandlerInput, fields: readonly string[]) {

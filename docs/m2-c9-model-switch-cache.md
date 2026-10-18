@@ -10,7 +10,9 @@ CLI: `plur1bus chat --session <id> --model <configured-profile>` warns and asks;
 
 **Incognito chats:** the profile is kept in the session's own store, so a switch also works for ephemeral (incognito) sessions: the in-memory store holds it, nothing is persisted, and ownership, agent-use right and human-only rules are the same as for durable sessions.
 
-**KNOWN GAP / handoff to M3:** `packages/api/src/rpc-route.ts` currently allowlists chat methods and does not yet allow `session.model.set`. That transport is explicitly outside this package's scope. The browser control reports refusal safely, but end-to-end browser switching is not accepted until M3 adds this method through its authenticated caller, agent-rights and CSRF path. No API transport was changed. WebMCP explicitly forbids the method; core RBAC is human-only. All three Rust parity tables, schema fixtures, generated Python/schema capabilities and generated RPC/CLI docs are updated.
+**Web transport (2026-10-18):** the browser switches through `chat.model.get` / `chat.model.set` (`GET`/`PATCH /api/v1/chats/{id}/model`), whose identity is the authenticated person, never a `caller` from the browser; CSRF, rate limit and roles are those of every chat write, and `chat.model.set` is people-only and never a WebMCP tool. Both also carry the chat's reasoning choice (see [model-discovery.md](model-discovery.md#reasoning-levels)); `session.model.set` takes the same optional `reasoning`. The paragraph below is the history of the gap that closed.
+
+**KNOWN GAP / handoff to M3 (closed by the chat routes above):** `packages/api/src/rpc-route.ts` currently allowlists chat methods and does not yet allow `session.model.set`. That transport is explicitly outside this package's scope. The browser control reports refusal safely, but end-to-end browser switching is not accepted until M3 adds this method through its authenticated caller, agent-rights and CSRF path. No API transport was changed. WebMCP explicitly forbids the method; core RBAC is human-only. All three Rust parity tables, schema fixtures, generated Python/schema capabilities and generated RPC/CLI docs are updated.
 
 ## B5 nightly
 

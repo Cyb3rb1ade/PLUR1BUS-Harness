@@ -25,6 +25,9 @@ export interface ChatRequest {
   /** Internal background role: the same router/budget, with no tool execution. */
   role?: "summarize"; maxOutputTokens?: number;
   modelProfile?: string;
+  /** The chat's reasoning choice (a level of the harness scale); absent = provider default. Each attempt maps it onto the
+   *  candidate model's own levels (nearest supported) and wire parameter. */
+  reasoning?: import("./chat-models.ts").ReasoningChoice;
   sessionId: string; agentId: string;
   turnId?: string; projectId?: string; headlessJobId?: string; toolView?: readonly string[]; principal?: string; authenticatedPerson?: string; caller?: import("@plur1bus/rpc-schema").CallerIdentity;
   /** The RPC connection's resolved approver (D109 §5): `person` null for a non-person principal; `surface` its derived trust level. */

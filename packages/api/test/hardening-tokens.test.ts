@@ -29,7 +29,7 @@ const MIN_ROLE: Record<string, string> = {
   "passkeys.list": "viewer", "passkeys.options": "member", "passkeys.register": "member", "passkeys.change": "member",
   "chats.list": "viewer", "chats.create": "member", "chats.create-agent": "member", "chats.get": "viewer", "chats.update": "member",
   "chats.messages": "viewer", "chats.submit": "member", "chats.events": "viewer", "chats.cancel": "member", "chats.archive": "member",
-  "chats.restore": "member", "chats.fork": "member", "chats.export": "viewer", "chats.delete": "member", "ws.ticket": "admin", "ws.reserved": "admin",
+  "chats.restore": "member", "chats.fork": "member", "chats.export": "viewer", "chats.delete": "member", "chats.model-get": "viewer", "chats.model-set": "member", "ws.ticket": "admin", "ws.reserved": "admin",
   "remote.get": "admin", "remote.set": "admin", "remote.confirm": "admin", "remote.certificate": "admin",
   "remote.pairing.status": "admin", "remote.pairing.offer": "admin", "remote.trust.get": "viewer", "remote.trust.challenge": "member", "remote.trust.ack": "member", "remote.trust.rotate": "admin",
   "health": "operator", "agents.list": "viewer", "tokens.list": "viewer", "tokens.create": "member", "tokens.revoke": "member",

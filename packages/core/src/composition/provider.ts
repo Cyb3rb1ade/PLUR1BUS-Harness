@@ -19,6 +19,8 @@ import type { Served } from '../../../providers/src/router/types.ts';
 import type { GrantSource, Context } from '../policy/index.ts';
 import type { PolicyAudit } from '../policy/audit.ts';
 import type { ChatProvider, ChatRequest, ChatChunk } from '../session/provider.ts';
+import type { ReasoningDescriptor } from '../../../providers/src/reasoning.ts';
+import { directiveFor } from '../session/chat-models.ts';
 import { currentTrace, newTrace, withTrace } from '../logs/trace.ts';
 import { stage, type PipelineLog } from './trace.ts';
 import { turnContext, promptContext } from './context.ts';
@@ -86,6 +88,9 @@ export interface TurnProviderOptions {
   onPrompt?: (prompt: RenderedPrompt) => void;
   onUsage?: (record: CacheUsageRecord) => void;
   snapshot?: (request: ChatRequest, memory: string) => string;
+  /** Reasoning descriptor of one candidate (fitted to its wire). With a chat's reasoning choice, every attempt sends the
+   *  nearest level that candidate supports; a fallback model with other levels is mapped the same way. */
+  reasoningFor?: (provider: string, model: string) => ReasoningDescriptor;
 }
 const retryKinds = new Set(['rate_limit', 'overloaded', 'network', 'timeout']);
 /** One attempt as the turn's adapter wrapper observed it; the budget ticket settles from this when the router knows no usage. */
@@ -195,7 +200,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           return { name: spec.name, description: spec.description, parameters: spec.parameters ?? spec.input_schema ?? spec.parametersJsonSchema, ...(spec.strict === undefined ? {} : { strict: spec.strict }) } as ToolDefinition;
         });
         const mapped = request.messages.map(m => m.role === 'assistant' && m.toolCalls ? { ...m, toolCalls: m.toolCalls.map(t => ({ ...t, name: aliases.get(t.name) ?? t.name })) } : m);
-        const stream = c.adapter.stream({ ...request, messages: mapped, tools }, options);
+        const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(c.provider, c.model)) : undefined;
+        const stream = c.adapter.stream({ ...request, messages: mapped, tools, ...(directive ? { reasoning: directive } : {}) }, options);
         try { while (true) {
           if (attempt) attempt.invoked = true;
           const next = await (rendered ? promptContext.run(rendered, () => stream.next()) : stream.next());

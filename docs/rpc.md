@@ -824,6 +824,175 @@ Authenticated own direct-chat export. Identity is derived from the current princ
 }
 ```
 
+### `chat.model.get`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+The authenticated person's own direct chat: its model profile and reasoning choice, and the profiles it may pick with the reasoning levels each offers. Identity is derived from the current principal, never sent. chat:read scope and current agent read right. Incognito chats are answered from memory.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "defaultProfile",
+    "reasoning",
+    "revision",
+    "profiles"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "description": "The chat's own choice; null: it routes like any chat without one (defaultProfile or task class).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "defaultProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "profiles": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/ChatModelOption"
+      }
+    }
+  }
+}
+```
+
+### `chat.model.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by Nur lokal is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "expectedRevision"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "previousProfile",
+    "reasoning",
+    "effectiveReasoning",
+    "adjusted",
+    "revision"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string"
+    },
+    "previousProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "effectiveReasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "adjusted": {
+      "type": "boolean"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warning": {
+      "const": "cache-rebuild-cost-prefixes-preserved"
+    },
+    "costHint": {
+      "description": "The chosen level is high or above and higher than before: more output tokens are billed per answer.",
+      "const": "reasoning-cost-higher"
+    }
+  }
+}
+```
+
 ### `jobs.create`
 
 **Stability:** experimental · since 1.6.0
@@ -14292,7 +14461,7 @@ Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving t
 
 **Served by:** core
 
-Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained.
+Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained. reasoning (since the per-chat reasoning choice) sets the chat's reasoning level with the profile; absent keeps the stored choice.
 
 **params**
 
@@ -14324,6 +14493,9 @@ Preview a model-profile switch and its cache/cost warning; applies only with con
     "expectedRevision": {
       "type": "integer",
       "minimum": 0
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
     }
   }
 }
@@ -14365,6 +14537,9 @@ Preview a model-profile switch and its cache/cost warning; applies only with con
     },
     "warning": {
       "const": "cache-rebuild-cost-prefixes-preserved"
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
     }
   }
 }
@@ -21316,6 +21491,167 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "remember",
     "incognito"
   ]
+}
+```
+
+### `ChatReasoningChoice`
+
+```json
+{
+  "description": "A chat's reasoning / thinking intensity on the harness scale (cheapest first), or default: send nothing and let the provider decide. Each attempt maps it onto the model's own levels (nearest supported) and wire parameter.",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "enum": [
+    "default",
+    "off",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh"
+  ]
+}
+```
+
+### `ChatModelOption`
+
+```json
+{
+  "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "displayName",
+    "provider",
+    "model",
+    "local",
+    "selectable",
+    "reasoning"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "displayName": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "provider": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "local": {
+      "type": "boolean"
+    },
+    "selectable": {
+      "type": "boolean"
+    },
+    "disabledReason": {
+      "enum": [
+        "local-only",
+        "unavailable"
+      ]
+    },
+    "reasoning": {
+      "description": "What the primary model offers. kind none: no setting (the model reasons on its own or not at all). source: the provider's own model list (api), the curated table (table) or nothing known (unknown).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "levels",
+        "source"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "effort",
+            "budget",
+            "toggle"
+          ]
+        },
+        "levels": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "enum": [
+              "off",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          }
+        },
+        "default": {
+          "enum": [
+            "off",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        },
+        "source": {
+          "enum": [
+            "api",
+            "table",
+            "unknown"
+          ]
+        },
+        "note": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$"
+        },
+        "budgetTokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "off": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minimal": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "low": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "medium": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "xhigh": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "outputUsdPerMTok": {
+      "description": "USD per million output tokens from the price table, when known; reasoning tokens bill as output.",
+      "type": "number",
+      "minimum": 0
+    }
+  }
 }
 ```
 
