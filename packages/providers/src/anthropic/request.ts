@@ -2,6 +2,10 @@ import { isRecord, ProviderError } from "../errors.ts";
 import { validateRequest } from "../request.ts";
 import type { ChatMessage, ContentPart, JsonObject, ToolChoice } from "../types.ts";
 import type { AnthropicCacheOptions, AnthropicRequest } from "./types.ts";
+import { checkReasoningDirective } from "../reasoning.ts";
+
+/** Anthropic's smallest extended-thinking budget. */
+export const MIN_THINKING_BUDGET = 1024;
 
 export interface AnthropicBuildOptions {
   stream: boolean;
@@ -113,13 +117,26 @@ function checkPairing(turns: Turn[]): void {
 /**
  * The Messages API request body, as a plain object with a fixed key order (`model`, `max_tokens`, `system`,
  * `messages`, `tools`, `tool_choice`, `temperature`, `top_p`, `stop_sequences`, `stream`): the same request gives the
- * same bytes, which is what prompt caching keys on. Fail closed: whatever the wire cannot express (a leading assistant
+ * same bytes, which is what prompt caching keys on. A `thinking.budget_tokens` reasoning directive above 0 adds
+ * `thinking` after `tool_choice` and lifts `max_tokens` to budget + answer allowance (the wire demands max_tokens >
+ * budget). RULING: thinking signatures are not carried between rounds yet, so a request that continues a tool loop
+ * (its last assistant turn holds tool_use) is sent without `thinking`, which the API accepts; sending it would be a
+ * 400. Fail closed: whatever the wire cannot express (a leading assistant
  * turn, a tool result without its call, blank text, `responseFormat`, temperature above 1) is refused before any I/O.
  */
 export function buildAnthropicBody(req: AnthropicRequest, opts: AnthropicBuildOptions): Record<string, unknown> {
   validateRequest(req);
   if (req.temperature !== undefined && req.temperature > 1) throw bad("temperature must be within 0..1 for the Messages API");
   if (req.responseFormat !== undefined && req.responseFormat.type !== "text") throw bad(`responseFormat "${req.responseFormat.type}" is not supported by the Messages API`);
+  let thinkingBudget = 0;
+  if (req.reasoning !== undefined) {
+    const problem = checkReasoningDirective(req.reasoning, ["thinking.budget_tokens"], "Anthropic Messages");
+    if (problem) throw bad(problem);
+    thinkingBudget = req.reasoning.value as number;
+    if (thinkingBudget > 0 && thinkingBudget < MIN_THINKING_BUDGET) throw bad(`thinking.budget_tokens must be 0 or at least ${MIN_THINKING_BUDGET}`);
+    if (thinkingBudget > 0 && req.temperature !== undefined && req.temperature !== 1) throw bad("temperature cannot be set with extended thinking");
+    if (thinkingBudget > 0 && req.toolChoice !== undefined && req.toolChoice !== "auto" && req.toolChoice !== "none") throw bad("a forced tool choice cannot be combined with extended thinking");
+  }
 
   const ids = new ToolIds();
   const system: Block[] = [];
@@ -169,12 +186,16 @@ export function buildAnthropicBody(req: AnthropicRequest, opts: AnthropicBuildOp
     if (cache.messages === true) lastTurn.blocks[lastTurn.blocks.length - 1]!["cache_control"] = mark;
   }
 
-  const body: Record<string, unknown> = { model: req.model, max_tokens: req.maxTokens ?? opts.defaultMaxTokens };
+  const continuesToolLoop = turns.length >= 2 && turns[turns.length - 2]!.role === "assistant" && turns[turns.length - 2]!.blocks.some((b) => b.type === "tool_use");
+  const thinking = thinkingBudget > 0 && !continuesToolLoop;
+  const answer = req.maxTokens ?? opts.defaultMaxTokens;
+  const body: Record<string, unknown> = { model: req.model, max_tokens: thinking && answer <= thinkingBudget ? thinkingBudget + answer : answer };
   if (system.length > 0) body["system"] = system;
   body["messages"] = turns.map((t) => ({ role: t.role, content: t.blocks }));
   if (tools.length > 0) body["tools"] = tools;
   const toolChoice = wireToolChoice(req.toolChoice, req.parallelToolCalls);
   if (toolChoice !== undefined) body["tool_choice"] = toolChoice;
+  if (thinking) body["thinking"] = { type: "enabled", budget_tokens: thinkingBudget };
   if (req.temperature !== undefined) body["temperature"] = req.temperature;
   if (req.topP !== undefined) body["top_p"] = req.topP;
   if (req.stop !== undefined) body["stop_sequences"] = req.stop;

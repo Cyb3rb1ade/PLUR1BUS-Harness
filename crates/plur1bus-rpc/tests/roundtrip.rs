@@ -163,6 +163,16 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "chat.model.get" => check_pair::<types::ChatModelGetParams, types::ChatModelGetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.model.set" => check_pair::<types::ChatModelSetParams, types::ChatModelSetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "admin.api.device.pair" => check_pair::<
                 types::AdminApiDevicePairParams,
                 types::AdminApiDevicePairResult,

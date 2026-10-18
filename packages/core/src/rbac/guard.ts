@@ -56,6 +56,9 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "chat.fork": rule("chat:write", system),
   "chat.delete": rule("chat:delete", system),
   "chat.export": rule("chat:read", system),
+  "chat.model.get": rule("chat:read", system),
+  // A model or reasoning switch changes cost and routing for the person's own chat: people only, like session.model.set.
+  "chat.model.set": { ...rule("chat:write", system), humanOnly: true },
 
   "jobs.create": { ...rule("agent.manage", agent), humanOnly: true },
   "jobs.update": { ...rule("agent.list", system), humanOnly: true },

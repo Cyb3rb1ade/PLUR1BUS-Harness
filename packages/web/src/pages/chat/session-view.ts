@@ -9,7 +9,7 @@ import type { View } from "../../view.ts";
 import { ModelSwitch } from "./model-switch-view.ts";
 import { Composer } from "./composer.ts";
 import { ChatController } from "./controller.ts";
-import type { Entry } from "./model.ts";
+import { addNotice, type Entry } from "./model.ts";
 import { stateFor, takeDraft } from "./store.ts";
 
 function Message({ e, agent }: { e: Entry; agent: string }): View {
@@ -89,7 +89,8 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
     h("div", { class: "chat-head" },
       h("h2", null, session.title || t("chat.untitled")),
       h(Badge, null, agent),
-      incognito ? h(Badge, { tone: "info" }, t("chat.incognito")) : null),
+      incognito ? h(Badge, { tone: "info" }, t("chat.incognito")) : null,
+      h(ModelSwitch, { key: ctl.sessionId, sessionId: ctl.sessionId, running, onChanged: (note: string) => { ctl.tr.value = addNotice(ctl.tr.value, `model:${Date.now()}:${ctl.tr.value.entries.length}`, note); } })),
     liveState === "unavailable" ? h("p", { class: "chat-note" }, t("chat.live.polling")) : null,
     liveState === "retrying" ? h("p", { class: "chat-note", role: "status" }, t("chat.live.reconnecting")) : null,
     h("div", {
@@ -99,7 +100,6 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
     }, tr.entries.length === 0 ? h("p", { class: "chat-empty" }, t("chat.transcript.empty")) : tr.entries.map((e) => h(Message, { key: e.id, e, agent }))),
     h("div", { class: "sr-only", role: "status" }, status),
     notice ? h("p", { class: "chat-notice", role: "alert" }, t(notice)) : null,
-    h(ModelSwitch, { key: ctl.sessionId, sessionId: ctl.sessionId, running }),
     h(Composer, {
       label: t("chat.compose.label", { agent }), placeholder: t("chat.compose.placeholder", { agent }), value: draft, onInput: setDraft,
       onSend: () => { void submit(); }, sendLabel: t("chat.send"), ready: !ctl.sending.value, running,

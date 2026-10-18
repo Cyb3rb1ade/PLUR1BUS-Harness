@@ -148,6 +148,23 @@ const codex = createResponsesAdapter({
   plan's `usage_limit_reached` as a `rate_limit` that retrying does not fix, `invalid_prompt` from the usage policy as a
   content filter, `context_length_exceeded` → `context_length`.
 
+## Reasoning intensity (`src/reasoning.ts`)
+
+`ChatRequest.reasoning` is one wire-neutral directive, `{ vendorParam, value }`, built by the core from the model's catalog
+description and the chat's level (`off < minimal < low < medium < high < xhigh`; `nearestLevel`, `budgetFor`, `reasoningDirective`).
+Each adapter writes only the parameters its wire carries and refuses any other with `invalid_request` before I/O:
+
+| Adapter | `vendorParam` | On the wire |
+|---|---|---|
+| chat_completions | `reasoning_effort` | `reasoning_effort: "<value>"` (OpenAI, xAI, Ollama, LM Studio, vLLM) |
+| chat_completions | `reasoning.effort` | `reasoning: { effort }` (OpenRouter) |
+| chat_completions | `chat_template_kwargs.enable_thinking` | `chat_template_kwargs: { enable_thinking }` (Qwen3 behind vLLM/SGLang) |
+| Anthropic Messages | `thinking.budget_tokens` | `thinking: { type: "enabled", budget_tokens }` (0 sends nothing; at least 1024; `max_tokens` lifted above it; no `thinking` on a request that continues a tool loop) |
+| Gemini | `thinkingConfig.thinkingBudget`, `thinkingConfig.thinkingLevel` | `generationConfig.thinkingConfig` |
+| Responses | `reasoning.effort` | `reasoning.effort` (`none`..`xhigh`); an explicit `providerOptions.responses.reasoningEffort` still wins |
+
+The fields sit at fixed positions, so the same request keeps giving the same bytes.
+
 ## Wire formats in one profile
 
 ```json
