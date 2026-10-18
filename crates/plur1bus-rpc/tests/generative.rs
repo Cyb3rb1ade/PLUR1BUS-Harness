@@ -2249,6 +2249,8 @@ table! {
     Result "session.submit" SessionSubmitResult,
     Params "session.events" SessionEventsParams,
     Result "session.events" SessionEventsResult,
+    Params "session.model.set" SessionModelSetParams,
+    Result "session.model.set" SessionModelSetResult,
     Params "session.cancel" SessionCancelParams,
     Result "session.cancel" SessionCancelResult,
     Params "grant.list" GrantListParams,

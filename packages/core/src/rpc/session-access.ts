@@ -8,7 +8,7 @@ import { ownerOf } from "../session/methods.ts";
 import { RpcError } from "./errors.ts";
 export function sessionWriteAccess(d: { methods: Record<string, Handler>; sessions: () => SessionStore | null; ownership: (a: Principal, p: unknown) => string[]; validateCaller?: boolean }): Record<string, Handler> {
   const out: Record<string, Handler>={};
-  for (const method of ["session.create","session.submit","session.cancel","session.archive"]) {
+  for (const method of ["session.model.set","session.create","session.submit","session.cancel","session.archive"]) {
     const inner=d.methods[method];if(!inner)continue;
     out[method]=async(p,ctx)=>{
       const who=authenticatedPrincipal(ctx);
