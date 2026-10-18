@@ -13975,6 +13975,124 @@ Sets the caption of a medium (source `user`); the caption is a memory entry of t
 }
 ```
 
+### `secret.describe`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Owner and human only. Changes a secret description without supplying or exposing its value. Empty description clears it. Rejects any contiguous secret fragment of at least eight characters. Backend validates under its serialization; credential bytes and existing leases are unchanged. Audited before mutation.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "description"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SecretMeta"
+}
+```
+
+### `secret.grants.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Owner and human only. Read-only effective agent lease grants and separately labelled config references. Agent leases are currently disabled, so grants is empty; a configuration reference never grants authority. No secret values or lease handles.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentLeasesEnabled",
+    "grants",
+    "references"
+  ],
+  "properties": {
+    "agentLeasesEnabled": {
+      "const": false
+    },
+    "grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agentId",
+          "name",
+          "scope",
+          "present",
+          "leaseAllowed"
+        ],
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+          },
+          "scope": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "present": {
+            "type": "boolean"
+          },
+          "leaseAllowed": {
+            "const": false
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### `secret.set`
 
 **Stability:** experimental · since 1.5.0

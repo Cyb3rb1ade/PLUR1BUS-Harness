@@ -130,6 +130,16 @@ criteria are met on this codebase:
 
 ### M2 — Models, providers, auth, caching, budgets
 
+**Secret-store Phase E (2026-10-18, branch `codex/secrets-2`, stacked on #574/#570):** owner-only/human-only
+`secret.describe` edits metadata without rotating values or revoking leases; CLI text/clear and a separate Web dialog.
+Descriptions reject full values and contiguous fragments of at least eight characters, including retained text during
+rotation. Backend serialization preserves concurrent rotations and encrypted credential bytes. `secret.grants.list` and
+the owner Web read view distinguish an empty effective-grants list from configuration references; agents still cannot
+lease values. Grant writing awaits the owner decision in `docs/superpowers/specs/2026-10-18-agent-secret-lease-options.md`.
+Named evidence: `secrets/describe.test.ts`, backend contracts, RPC/RBAC matrix, Rust secret CLI and RPC parity, Web
+`secrets-describe.test.ts`/`secrets-noleak.test.ts`. The inherited basic privacy key now has a CLI setup question, preserving
+existing values and unattended behavior. No claim of full M2 or full package acceptance.
+
 **Goal.** Three chat wire formats, remote embedding/rerank, a data-driven auth engine that ships no `prohibited` profile, and a cache-stable prompt layout that is CI-enforced.
 
 **Scope**

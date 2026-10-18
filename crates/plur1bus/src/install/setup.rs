@@ -49,6 +49,8 @@ pub const PROMPTS: &[(&str, &str)] = &[
         "memory.mediaEmbedding",
         "Memory & media search: embedding models for text and media",
     ),
+    // Asked separately against the current configuration, preserving the installed value on reruns.
+    ("privacy.localOnly", "Use only local models (true or false)"),
 ];
 
 // No NC-licence question (ADR-006 amendment 2026-10-08): the default embedding model (EmbeddingGemma 2, Apache-2.0)
@@ -867,7 +869,9 @@ pub fn answer_config(
     });
     if !o.non_interactive {
         for (key, question) in PROMPTS {
-            if (host && *key == "agents") || *key == "memory.mediaEmbedding" {
+            if (host && *key == "agents")
+                || matches!(*key, "memory.mediaEmbedding" | "privacy.localOnly")
+            {
                 continue;
             }
             let (slot, valid): (&mut String, fn(&str) -> bool) = match *key {
@@ -927,6 +931,32 @@ fn config_changes(config: &Value, a: &ConfigAnswers, now: &str) -> Vec<(String, 
     changes
 }
 
+/// The basic privacy question preserves existing policy and is never assigned by unattended setup.
+fn answer_privacy(non_interactive: bool, config: &Value, ask: &mut dyn Prompter) -> Option<bool> {
+    if non_interactive {
+        return None;
+    }
+    let current = config["privacy"]["localOnly"].as_bool().unwrap_or(false);
+    let question = PROMPTS
+        .iter()
+        .find(|(key, _)| *key == "privacy.localOnly")
+        .unwrap()
+        .1;
+    loop {
+        let answer = ask.ask(
+            "privacy.localOnly",
+            question,
+            if current { "true" } else { "false" },
+        );
+        match answer.as_str() {
+            "true" if !current => return Some(true),
+            "false" if current => return Some(false),
+            "true" | "false" => return None,
+            _ => eprintln!("Answer true or false"),
+        }
+    }
+}
+
 fn step_config(
     out: &Out,
     layout: &Layout,
@@ -942,6 +972,9 @@ fn step_config(
     let answers = answer_config(o, profile, config["embedding"]["useClass"].as_str(), ask)?;
     let now = crate::commands::agent::rfc3339_now();
     let mut changes = config_changes(&config, &answers, &now);
+    if let Some(local_only) = answer_privacy(o.non_interactive, &config, ask) {
+        changes.push(("privacy.localOnly".to_string(), json!(local_only)));
+    }
     // Unattended first installation cannot obtain model/revision-specific human consent.
     // Preserve any existing embedding configuration: changing model/dimensions on rerun
     // would require validated re-embedding, and NC execution remains subject to the core licence gate.
@@ -1601,6 +1634,32 @@ mod tests {
     }
 
     #[test]
+    fn basic_privacy_question_preserves_policy_and_requires_an_interactive_choice() {
+        let mut ask = scripted(vec!["true"], false);
+        assert_eq!(answer_privacy(false, &json!({}), &mut ask), Some(true));
+        assert_eq!(ask.asked[0].0, "privacy.localOnly");
+        let mut preserved = scripted(vec![], false);
+        assert_eq!(
+            answer_privacy(
+                false,
+                &json!({"privacy":{"localOnly":true}}),
+                &mut preserved
+            ),
+            None
+        );
+        let mut unattended = scripted(vec!["false"], false);
+        assert_eq!(
+            answer_privacy(
+                true,
+                &json!({"privacy":{"localOnly":true}}),
+                &mut unattended
+            ),
+            None
+        );
+        assert!(unattended.asked.is_empty());
+    }
+
+    #[test]
     fn setup_asks_only_basic_tier_questions() {
         let schema: Value = serde_json::from_str(plur1bus_config::SCHEMA_JSON).unwrap();
         let mut keys = basic_tier_keys(&schema);
@@ -1614,7 +1673,7 @@ mod tests {
         // The media-search questions are asked by `answer_media`, not here.
         let expected: Vec<(String, String)> = PROMPTS
             .iter()
-            .filter(|(k, _)| *k != "memory.mediaEmbedding")
+            .filter(|(k, _)| !matches!(*k, "memory.mediaEmbedding" | "privacy.localOnly"))
             .map(|(k, q)| (k.to_string(), q.to_string()))
             .collect();
         assert_eq!(p.asked, expected);

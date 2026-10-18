@@ -153,10 +153,11 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
       if (!has(doc, name)) return null;
       return decrypt(doc, name);
     }),
-    put: (name, value, now, updatedBy, description) => serial("writing the encrypted store", () => {
+    put: (name, value, now, updatedBy, description, register) => serial("writing the encrypted store", () => {
       const doc = readDoc();
       const kept = nextDescription(has(doc, name) ? doc.entries[name]?.description : undefined, description);
-      checkDescription(kept, value); if (kept && has(doc, name)) checkDescription(kept, decrypt(doc, name));
+      checkDescription(kept, value);
+      if (kept && has(doc, name)) { const previous = decrypt(doc, name); register?.(previous); checkDescription(kept, previous); }
       const k = key(doc, true);
       const nonce = rand(NONCE_BYTES);
       const c = createCipheriv("aes-256-gcm", k, nonce);

@@ -8,13 +8,13 @@ export function createMemoryBackend(o: { available?: boolean } = {}): SecretBack
     available: o.available ?? true,
     async probe(): Promise<BackendProbe> { return self.available ? { available: true } : { available: false, reason: "memory-backend-off" }; },
     async get(name: string) { guard(); return entries.get(name)?.value ?? null; },
-    async put(name: string, value: string, now: Date, updatedBy?: string, description?: string): Promise<SecretMeta> {
+    async put(name: string, value: string, now: Date, updatedBy?: string, description?: string, register?: (value: string) => void): Promise<SecretMeta> {
       guard();
       const at = now.toISOString();
       const old = entries.get(name);
       const kept = nextDescription(old?.description, description);
       checkDescription(kept, value);
-      if (old) checkDescription(kept, old.value);
+      if (old) { register?.(old.value); checkDescription(kept, old.value); }
       entries.set(name, { value, createdAt: old?.createdAt ?? at, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) });
       return { name, backend: "memory", createdAt: old?.createdAt ?? at, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
     },

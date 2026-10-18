@@ -69,11 +69,11 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
       }
     },
     get: (name) => serial(() => guarded("reading from the keyring", async () => (await entry(name)).getPassword())),
-    put: (name, value, now, updatedBy, description) => serial(async () => {
+    put: (name, value, now, updatedBy, description, register) => serial(async () => {
       const idx = await readIndex();
       const current = await guarded("reading from the keyring", async () => (await entry(name)).getPassword());
       const kept = nextDescription(Object.hasOwn(idx.entries, name) ? idx.entries[name]?.description : undefined, description);
-      checkDescription(kept, value); if (current !== null) checkDescription(kept, current);
+      checkDescription(kept, value); if (current !== null) { register?.(current); checkDescription(kept, current); }
       await guarded("writing to the keyring", async () => (await entry(name)).setPassword(value));
       const at = now.toISOString();
       const createdAt = (Object.hasOwn(idx.entries, name) ? idx.entries[name]?.createdAt : undefined) ?? at;

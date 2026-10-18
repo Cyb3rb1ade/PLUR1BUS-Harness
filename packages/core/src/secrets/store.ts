@@ -128,7 +128,7 @@ export function createSecretStore(o: SecretStoreOptions) {
       audited(p, "secret.set", name, { backend: backend.kind });
       epoch++; writing++;
       try {
-        const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text);
+        const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text, previous => redaction.register(previous));
         // A copy of the old value in the other backend would come back when this one goes away: rotation removes it.
         if (s.other) {
           try { await s.other.delete(name); } catch { o.logger?.warn("stale secret copy could not be removed", { name }); }

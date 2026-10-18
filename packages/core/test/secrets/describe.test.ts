@@ -102,3 +102,13 @@ test('encrypted-file description edits keep the exact credential ciphertext and 
   assert.deepEqual([after.nonce, after.ct, after.tag], [before.nonce, before.ct, before.tag]);
   assert.deepEqual(readFileSync(join(dir, 'store.key')), key);
 });
+test('a retained description check registers a retired value read from a previous process before rotation', async () => {
+  const { createFileBackend } = await import('../../src/secrets/file-backend.ts');
+  const { tempDir } = await import('../helpers/temp-dir.ts');
+  const { secure } = await import('./helpers.ts');
+  const backend = createFileBackend({ dir: tempDir('p1b-description-redact-'), secure });
+  await backend.put('billing', 'retired-value-from-another-process', new Date(), 'owner', 'Production account');
+  const store = createSecretStore({ keyring: createMemoryBackend({ available: false }), file: backend, fileFallback: () => true, audit: createMemoryAuditSink() });
+  await store.set(owner, 'billing', 'replacement-credential-value');
+  assert.equal(store.redaction.redactor().text('retired-value-from-another-process').includes('retired-value-from-another-process'), false);
+});

@@ -166,6 +166,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
+* [`plur1bus secret describe`↴](#plur1bus-secret-describe)
 * [`plur1bus secret get`↴](#plur1bus-secret-get)
 * [`plur1bus secret rm`↴](#plur1bus-secret-rm)
 * [`plur1bus secret ls`↴](#plur1bus-secret-ls)
@@ -2627,6 +2628,7 @@ Values are read from stdin, never from arguments, and are printed only by `get -
 
 * `status` — [experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
 * `set` — [experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+* `describe` — [experimental] Change only a secret's description (owner only); never reads its value back to the caller
 * `get` — [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
 * `rm` — [experimental] Delete a secret from every available backend
 * `ls` — [experimental] List secret names (never values)
@@ -2657,6 +2659,23 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 ###### **Options:**
 
 * `--description <DESCRIPTION>` — what the secret is for (one line, at most 200 characters, never the value); the agent sees it in `secret_names`. Omitted, a replacement keeps the stored text; an empty text removes it
+
+
+
+## `plur1bus secret describe`
+
+[experimental] Change only a secret's description (owner only); never reads its value back to the caller
+
+**Usage:** `plur1bus secret describe [OPTIONS] <NAME> [TEXT]`
+
+###### **Arguments:**
+
+* `<NAME>`
+* `<TEXT>` — new description, one line of at most 200 characters
+
+###### **Options:**
+
+* `--clear` — remove the description
 
 
 

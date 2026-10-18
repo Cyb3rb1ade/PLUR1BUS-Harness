@@ -83,7 +83,7 @@ export interface SecretBackend {
   /** The value, or null when the name is absent. Throws SecretError `corrupt`/`storage`/`backend-unavailable`. */
   get(name: string): Promise<string | null>;
   /** Creates or replaces; keeps `createdAt` of an existing entry, and its description unless one is given (an empty one clears it). */
-  put(name: string, value: string, now: Date, updatedBy?: string, description?: string): Promise<SecretMeta>;
+  put(name: string, value: string, now: Date, updatedBy?: string, description?: string, register?: (value: string) => void): Promise<SecretMeta>;
   /** Changes only metadata, validating inside the backend's serialized operation. Values never leave this callback. */
   describe(name: string, description: string, now: Date, updatedBy?: string, register?: (value: string) => void): Promise<SecretMeta>;
   /** True when something was removed. */
