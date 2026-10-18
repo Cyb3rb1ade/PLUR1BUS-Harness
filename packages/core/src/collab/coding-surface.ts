@@ -6,6 +6,7 @@ import { authorize } from '../rbac/authorize.ts';
 import { authenticatedPrincipal } from '../rbac/guard.ts';
 import type { Handler } from '../rpc/server.ts';
 import { RpcError } from '../rpc/errors.ts';
+import { surfaceError } from '../rpc/surface-errors.ts';
 import type { Collab } from './service.ts';
 import type { CodingGate } from './coding-gate.ts';
 import type { ReturnEnvelope } from './handoff.ts';
@@ -48,7 +49,7 @@ export function codingCompletionTool(o: CodingCompletion, req: ChatRequest, pers
   } };
 }
 export function codingMethods(o: CodingCompletion): Record<string, Handler> {
-  return { 'task.complete': async (p, ctx) => complete(o, p, authenticatedPrincipal(ctx), ctx.signal) };
+  return { 'task.complete': async (p, ctx) => { try { return await complete(o, p, authenticatedPrincipal(ctx), ctx.signal); } catch (e) { return surfaceError(e); } } };
 }
 export function reviewHooks(o: CodingCompletion) {
   return {

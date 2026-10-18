@@ -76,3 +76,10 @@ export function activeDirectory(): AgentDirectoryPort {
 }
 
 export type { GR as GuardrailReason };
+
+/** Credentials can be registered after startup; trace redaction must follow the live broker set. */
+export function liveLogsRedactionPort(secrets: () => Iterable<string>): RedactionPort {
+  let key = '', cached = logsRedactionPort();
+  const current = () => { const values = [...secrets()], next = JSON.stringify(values); if (next !== key) { key = next; cached = logsRedactionPort(values); } return cached; };
+  return { text: s => current().text(s), value: v => current().value(v) };
+}

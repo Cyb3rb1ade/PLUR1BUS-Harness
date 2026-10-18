@@ -42,6 +42,8 @@
 
 ## Phase 5 — codex/m5-p5-chat-promotion
 
-- [ ] Merge dependencies and M3 P1 if open; explicit preview/selection to card/new/existing project with private source immutable.
-- [ ] Owner-only promotion tests; DE/EN Web action; update milestone evidence, architecture isolation and docs/demos/m5.md.
-- [ ] Commit and PR with final handoff; list remaining acceptance honestly.
+- [x] Merge dependencies and M3 P1 if open; explicit preview/selection to card/new/existing project with private source immutable.
+- [x] Owner-only promotion tests; DE/EN Web action; update milestone evidence, architecture isolation and docs/demos/m5.md.
+- [x] Commit and Draft PR with final handoff; remaining Web exposure acceptance explicitly blocked by API ownership decision.
+
+- [x] Owner explicitly approved minimal API allowlist exception on 2026-10-15; twelve methods and real HTTP/Core per-method acceptance are in separate commit 6aab258f. Existing RPC_RULES and M3 delegated route classification are asserted; no other API file changed.
