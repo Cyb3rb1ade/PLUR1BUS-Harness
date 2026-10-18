@@ -20,7 +20,7 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { home: string; clock: () => number; check?: () => Promise<unknown>; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
+export function buildDoctorMethods(o: { home: string; clock: () => number; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
   let cached: Report | null = null;
   let lastStarted = -Infinity;
   let inFlight: Promise<Report> | null = null;
@@ -46,8 +46,15 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; check
     });
     // These categories have no authoritative 1staid check in this revision. Report that explicitly; do not invent probes.
     for (const id of ["containers", "secrets", "certificates", "ports", "disks"]) if (!checks.some(c => c.id === id || c.id.startsWith(`${id}.`))) checks.push({ id, status: "skipped", summary: "No authoritative provisioning check is available in this installation." });
+    for (const c of o.compositionChecks?.() ?? []) if (!checks.some(x => x.id === c.id)) checks.push({ ...c, summary: safe(c.summary) });
     cached = { generatedAt: new Date(o.clock()).toISOString(), groups: [{ id: "provisioning", title: "Provisioning", checks }] };
     return cached;
+  }
+  function currentReport(report: Report): Report {
+    const copy = structuredClone(report);
+    const capability = o.capabilityStatus?.();
+    if (capability) copy.groups[0]?.checks.push({ id: 'capabilities.index', status: capability.sourceError ? 'fail' : capability.mode === 'fts5-only' ? 'warn' : 'ok', summary: `Capability index: ${capability.mode}. Last recheck: ${capability.lastRecheck ?? 'pending'}.` });
+    return copy;
   }
   function start(): Promise<Report> {
     if (inFlight) return inFlight;
@@ -62,13 +69,13 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; check
     if (p?.refresh === true) {
       if (authorize(principal, "doctor.run", { kind: "system" }, { now: o.clock() }).effect !== "allow") throw new RpcError("E_DENIED", "diagnostic refresh requires an operator");
       if (inFlight || o.clock() - lastStarted < 30000) throw new RpcError("E_CONFLICT", "diagnostics were refreshed recently", { reason: "refresh-rate-limit" });
-      return await start();
+      return currentReport(await start());
     }
-    if (inFlight) return await inFlight;
+    if (inFlight) return currentReport(await inFlight);
     // A failed startup snapshot must not leave readers without a report until an operator refreshes: retry lazily,
     // inside the same rate limit as a refresh.
-    if (!cached && o.clock() - lastStarted >= 30000) return await start();
+    if (!cached && o.clock() - lastStarted >= 30000) return currentReport(await start());
     if (!cached) throw new RpcError("E_NOT_AVAILABLE", "installation diagnostics are unavailable", { reason: "firstaid-unavailable" });
-    return structuredClone(cached);
+    return currentReport(cached);
   } };
 }

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { defaults, type HarnessConfig } from "@plur1bus/config-schema";
 import { composeAuth, type ProviderDefinition } from "../../src/composition/auth.ts";
 import { ProviderError } from "../../../providers/src/index.ts";
-import { RpcError } from "../../src/rpc/errors.ts";
 import { wireFixture, type Wire } from "../integration/wire-fixture.ts";
 import { fakeEgress, fakeSecretService, recordingLog } from "./helpers.ts";
 
@@ -48,14 +47,44 @@ describe("composition/auth composeAuth: what it derives from the definitions", (
     ["an unknown credential kind", () => definition("chat_completions", { kind: "mystery" })],
     ["a missing profile", () => ({ wireFormat: "chat_completions", entries: [] }) as unknown as Def],
   ];
-  for (const [name, make] of unclassified) it(`fail closed: ${name} refuses the provider at load with E_CONFIG_INVALID`, () => {
-    const good = definition("chat_completions", { id: "good" });
-    assert.throws(() => compose({ good, broken: make() }), (e) => {
-      assert.ok(e instanceof RpcError, `RpcError expected, got ${String(e)}`);
-      assert.equal(e.error, "E_CONFIG_INVALID");
-      assert.deepEqual(e.ids, { provider: "broken" });
-      return true;
-    });
+  for (const [name, make] of unclassified) it(`fail closed: ${name} refuses only that provider (E_CONFIG_INVALID, reported); the good one is composed`, () => {
+    const good = definition("chat_completions", { id: "good", model: "m-good" });
+    const c = compose({ good, broken: make() });
+    try {
+      assert.deepEqual(Object.keys(c.billing), ["good"], "the broken provider has no class and is not composed");
+      assert.deepEqual(Object.keys(c.families), ["good"]);
+      assert.deepEqual(c.profiles.default!.map((x) => x.provider), ["good"], "only the good provider is offered for turns");
+      assert.equal(c.refused.length, 1);
+      assert.equal(c.refused[0]!.provider, "broken");
+      assert.equal(c.refused[0]!.code, "E_CONFIG_INVALID");
+      assert.ok(c.refused[0]!.reason.length > 0);
+    } finally { c.close(); }
+  });
+
+  it("fail closed: every provider unclassified: no providers, no profiles, all reported", () => {
+    const c = compose({ a: definition("chat_completions", { id: "pa", billingPath: "enterprise" }), b: definition("chat_completions", { id: "pb", kind: "mystery" }) });
+    try {
+      assert.deepEqual([c.profiles, c.families, c.billing], [{}, {}, {}]);
+      assert.deepEqual(c.refused.map((r) => r.provider), ["a", "b"]);
+    } finally { c.close(); }
+  });
+
+  it("a model profile naming a refused provider loses that candidate (and the profile if none is left); other providers still compose", () => {
+    const cfg = config((x) => { x.modelProfiles = {
+      mixed: { strategy: "fallback", candidates: [{ model: "broken/m", weight: 1 }, { model: "good/m-good", weight: 1 }], params: {}, cache: { hint: "auto" } },
+      onlybad: { strategy: "fallback", candidates: [{ model: "broken/m", weight: 1 }], params: {}, cache: { hint: "auto" } },
+    }; });
+    const c = composeAuth({ config: cfg, definitions: { good: definition("chat_completions", { id: "g", model: "m-good" }), broken: definition("chat_completions", { id: "b", billingPath: "enterprise" }) }, secrets: fakeSecretService().service, egress: fakeEgress().egress });
+    try {
+      assert.deepEqual(c.profiles.mixed!.map((x) => x.provider), ["good"]);
+      assert.equal(c.profiles.onlybad, undefined);
+      assert.equal(c.refused[0]!.provider, "broken");
+    } finally { c.close(); }
+  });
+
+  it("a refused provider never serves a turn: no adapter is registered for it", () => {
+    const c = compose({ broken: definition("chat_completions", { id: "b", billingPath: "enterprise" }) });
+    try { assert.deepEqual(Object.values(c.profiles).flat(), []); } finally { c.close(); }
   });
 
   it("without modelProfiles a default profile is made from the providers that name a default model, in definition order", () => {

@@ -164,7 +164,7 @@ describe("B. every write method is forbidden in WebMCP or explicitly exposed", (
 describe("C. person-only methods turn agents away", () => {
   const personOnly = coreMethods.filter((m) => RPC_RULES[m] && policyFor(RPC_RULES[m]!.action)?.humanOnly);
   it("there are person-only methods (grant, approval, identity, ...)", () => {
-    for (const m of ["grant.create", "approval.decide", "identity.link.request", "device.revoke", "session.create"]) assert.ok(personOnly.includes(m), m);
+    for (const m of ["grant.create", "approval.decide", "identity.link.request", "device.revoke", "session.create", "session.model.set"]) assert.ok(personOnly.includes(m), m);
   });
   for (const m of personOnly) {
     it(`${m}: RBAC refuses an agent principal in every role`, async () => {
@@ -191,4 +191,10 @@ describe("C. person-only methods turn agents away", () => {
   it("documented person-only families are forbidden in WebMCP", () => {
     for (const m of coreMethods.filter((n) => /^(grant|approval|identity|breakglass|user|device|secret|auth|admin|inbox)\./.test(n))) assert.ok(isForbiddenMethod(m), m);
   });
+});
+
+// D103 discovery is an in-process tool over the admitted per-turn catalogue, not an RPC/WebMCP surface.
+it('capabilities.search stays dispatcher-only and cannot bypass RPC RBAC through a colliding name', () => {
+  assert.equal(Object.hasOwn(methods, 'capabilities.search'), false);
+  assert.equal(Object.hasOwn(RPC_RULES, 'capabilities.search'), false);
 });

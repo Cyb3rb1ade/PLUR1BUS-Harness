@@ -5,7 +5,7 @@ export type CapabilityKind = 'tool' | 'skill' | 'mcp-tool' | 'extension' | 'plug
 export interface CapabilityEntry {
   id: string; name: string; description: string; category: string; secondaryCategories?: readonly string[];
   kind: CapabilityKind; effect: Effect; risk: Risk; source: string; version: string;
-  useWhen?: string; notFor?: string; inputs?: string; enabled?: boolean;
+  generatedFields?: readonly string[]; useWhen?: string; notFor?: string; inputs?: string; enabled?: boolean;
 }
 export interface SearchFilters { category?: string; kind?: CapabilityKind; effect?: Effect; source?: string; limit?: number }
 export interface SearchHit { entry: CapabilityEntry; score: number; reasons: string[] }
@@ -20,7 +20,9 @@ export class CapabilityIndex {
   #revision = 0;
   #last: { key: string; items: SearchHit[]; hint?: string } | undefined;
   readonly #embedding: EmbeddingPort | undefined;
-  constructor(embedding?: EmbeddingPort) { this.#embedding = embedding; }
+  readonly #prior: ((entry: CapabilityEntry) => number) | undefined;
+  readonly #lexical: ((query: string, entries: readonly CapabilityEntry[]) => ReadonlyMap<string, number>) | undefined;
+  constructor(embedding?: EmbeddingPort, lexical?: (query: string, entries: readonly CapabilityEntry[]) => ReadonlyMap<string, number>, prior?: (entry: CapabilityEntry) => number) { this.#embedding = embedding; this.#lexical = lexical; this.#prior = prior; }
   upsert(entry: CapabilityEntry): void {
     if (!entry.id || !entry.name || !entry.description || !entry.version || !entry.source || !['tool', 'skill', 'mcp-tool', 'extension', 'plugin-command', 'channel-action'].includes(entry.kind) || !['read', 'local-write', 'local-destructive', 'external', 'money'].includes(entry.effect) || !['low', 'medium', 'high', 'critical'].includes(entry.risk) || !/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/.test(entry.category) || (entry.secondaryCategories?.length ?? 0) > 2) throw Error('invalid capability entry');
     const copy = structuredClone(entry); Object.freeze(copy.secondaryCategories); Object.freeze(copy);
@@ -34,6 +36,7 @@ export class CapabilityIndex {
     const entries = [...this.#entries.values()].filter(e => e.enabled !== false && (!filters.category || e.category === filters.category || e.secondaryCategories?.includes(filters.category)) && (!filters.kind || e.kind === filters.kind) && (!filters.effect || e.effect === filters.effect) && (!filters.source || e.source === filters.source));
     const docs = entries.map(e => tokens(textOf(e))); const average = docs.reduce((n, d) => n + d.length, 0) / (docs.length || 1);
     const terms = [...new Set(tokens(query))]; const semantic = this.#embedding?.score(query, entries);
+    const lexical = this.#lexical?.(query, entries);
     return entries.map((entry, i): SearchHit => {
       const doc = docs[i]!; let score = 0; const reasons: string[] = [];
       for (const term of terms) {
@@ -42,7 +45,9 @@ export class CapabilityIndex {
         score += Math.log(1 + (docs.length - df + .5) / (df + .5)) * tf * 2.2 / (tf + 1.2 * (.25 + .75 * doc.length / (average || 1)));
         reasons.push(`lexical:${term}`);
       }
+      if (lexical) { score = lexical.get(entry.id) ?? 0; if (score > 0) reasons.push('fts5'); }
       const embedding = semantic?.get(entry.id); if (embedding !== undefined && Number.isFinite(embedding) && embedding > 0) { score += embedding; reasons.push('embedding'); }
+      if (score > 0) { const prior = this.#prior?.(entry) ?? 0; score += prior; if (prior) reasons.push('usage-prior'); }
       if (!reasons.length) reasons.push('fallback:no lexical overlap');
       if (filters.category) reasons.push(`category:${filters.category}`);
       return { entry, score, reasons };

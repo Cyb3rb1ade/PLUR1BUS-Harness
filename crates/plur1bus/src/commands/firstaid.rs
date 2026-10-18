@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 27] = [
+const CHECK_IDS: [&str; 28] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -61,6 +61,7 @@ const CHECK_IDS: [&str; 27] = [
     "approvals.integrity",
     "dreams.last-runs",
     "remote.exposure",
+    "models.decision",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -382,6 +383,8 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         core_reachable,
     ));
     checks.push(check_remote_exposure(layout));
+    // Append-only: an `info` row, never a failure (the rule triage is a normal mode without a decision model).
+    checks.push(super::model::check_models_decision(layout));
     checks
 }
 
