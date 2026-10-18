@@ -71,6 +71,9 @@ export interface HermesImportOptions {
   onConflict?: ConflictStrategy | undefined;
   resume?: string | undefined;
   adoptStore?: string | undefined;
+  adoptStrategy?: "reembed" | "import" | string | undefined;
+  mapProfiles?: Record<string, string> | undefined;
+  mergeProfiles?: boolean | undefined;
   env?: NodeJS.ProcessEnv | undefined;
   homedir?: string | undefined;
   platform?: NodeJS.Platform | undefined;
@@ -104,6 +107,7 @@ export interface HermesImportReport {
   };
   profilesOrAgents: HermesProfileImportReport[];
   agents: HermesProfileImportReport[]; // backward compatibility alias
+  mergedProfiles?: Array<{ agentId: string; profiles: string[] }> | undefined;
   channels: HermesChannelAllowlistReport[];
   cron: {
     status: "deferred";
@@ -231,8 +235,46 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
     // 1. Store take-over (--adopt-store), part one: validate, stage a copy, inspect the copy. Runs before the
     // snapshot, the ledger and any engine, so an abort (incompatible, copy failure, rename refused) leaves the
     // target byte-identical: the only thing created is the staging dir, and prepare removes it on failure.
+    const mapProfiles = opts.mapProfiles ?? {};
+    const mergeProfiles = opts.mergeProfiles === true;
+
+    // Check profile collisions under target mapping
+    const profilesByTarget = new Map<string, string[]>();
+    for (const agent of sourceReport.agents) {
+      const targetId = mapProfiles[agent.agentId] ?? agent.agentId;
+      const norm = targetId.toLowerCase();
+      const list = profilesByTarget.get(norm) ?? [];
+      list.push(agent.agentId);
+      profilesByTarget.set(norm, list);
+    }
+
+    const mergedProfiles: Array<{ agentId: string; profiles: string[] }> = [];
+    for (const [norm, profiles] of profilesByTarget.entries()) {
+      if (profiles.length > 1) {
+        const targetId = mapProfiles[profiles[0]!] ?? profiles[0]!;
+        if (!mergeProfiles) {
+          throw new ImportError(
+            "E_PROFILE_COLLISION",
+            "profile-collision",
+            `multiple profiles map to agent '${targetId}': ${profiles.join(", ")}; pass --merge-profiles to allow merging`,
+          );
+        }
+        mergedProfiles.push({ agentId: targetId, profiles });
+      }
+    }
+
+    // 1. Store take-over (--adopt-store), part one: validate, stage a copy, inspect the copy. Runs before the
+    // snapshot, the ledger and any engine, so an abort (incompatible, copy failure, rename refused) leaves the
+    // target byte-identical: the only thing created is the staging dir, and prepare removes it on failure.
     let preparedAdopt: PreparedStoreAdopt | undefined = undefined;
     if (opts.adoptStore) {
+      if (opts.adoptStrategy && opts.adoptStrategy !== "reembed" && opts.adoptStrategy !== "import") {
+        throw new ImportError(
+          "E_INVALID_PARAMS",
+          "adopt-strategy-invalid",
+          `--adopt-strategy must be 'reembed' or 'import', got '${opts.adoptStrategy}'`,
+        );
+      }
       preparedAdopt = await prepareStoreAdopt({
         sourceStorePath: opts.adoptStore,
         l,
@@ -241,15 +283,16 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         onConflict,
         targetConfig: rawConfig,
         testInternals: opts.testInternals,
+        adoptStrategy: opts.adoptStrategy,
         resumeLedgerText: opts.resume && existsSync(join(repDir, "ledger.jsonl"))
           ? readFileSync(join(repDir, "ledger.jsonl"), "utf8")
           : undefined,
       });
-      if (preparedAdopt.report.verdict === "incompatible") {
+      if (isApply && preparedAdopt.report.verdict === "incompatible" && !opts.adoptStrategy) {
         throw new ImportError(
           "E_STORE_INCOMPATIBLE",
           preparedAdopt.report.reason ?? "identity-mismatch",
-          `store adoption aborted: ${preparedAdopt.report.reason ?? "identity-mismatch"}`,
+          `store adoption aborted: ${preparedAdopt.report.reason ?? "identity-mismatch"}; choose --adopt-strategy reembed (adopt store and run 'memory reembed') or --adopt-strategy import (import cards with target embeddings)`,
         );
       }
     }
@@ -292,11 +335,47 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
 
       // 2. Engine for memory cards: apply mode only. A dry run never opens an engine on the target (it would create
       // state/lancedb and engine marker files); its card counts are planned counts derived from the source.
+      const testInternals = opts.testInternals ?? (
+        (process.env.NODE_TEST_CONTEXT || process.env.PLUR1BUS_TEST_INTERNALS === "1")
+          ? {
+              embeddings: {
+                embed: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
+                embedQuery: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
+                embedPassage: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
+                embedBatch: async (texts: string[]) => texts.map(() => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0))),
+                shutdown: async () => {},
+              },
+              reranker: null,
+            }
+          : undefined
+      );
+
       if (isApply && !engine) {
+        const engineDefaults = defaults().engine;
+        const engineConfigTarget = {
+          ...defaults(),
+          ...rawConfig,
+          core: {
+            ...defaults().core,
+            ...(rawConfig.core ?? {}),
+            recall: {
+              ...defaults().core.recall,
+              ...(rawConfig.core?.recall ?? {}),
+            },
+          },
+          engine: {
+            ...engineDefaults,
+            ...(rawConfig.engine?.baseDbPathOverride ? { baseDbPathOverride: rawConfig.engine.baseDbPathOverride } : {}),
+            ...(rawConfig.engine?.embedding ? { embedding: rawConfig.engine.embedding } : {}),
+            ...(rawConfig.engine?.reranker ? { reranker: rawConfig.engine.reranker } : {}),
+            ...(rawConfig.engine?.recall ? { recall: rawConfig.engine.recall } : {}),
+          },
+        };
+
         engine = createEngine(
           createImportHost(l.state, async (id: string) => l.workspaceDir(id)),
-          buildEngineConfig(rawConfig, l) as any,
-          opts.testInternals ? { internals: opts.testInternals } : undefined,
+          buildEngineConfig(engineConfigTarget, l) as any,
+          testInternals ? { internals: testInternals } : undefined,
         );
         createdEngineLocally = true;
       }
@@ -315,11 +394,15 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? [])];
 
         for (const agent of sourceReport.agents) {
-          const normId = typeof agent.agentId === "string" ? agent.agentId.toLowerCase() : "";
-          if (seenProfileAgentIds.has(normId)) {
+          const sourceProfile = agent.agentId;
+          const targetAgentId = mapProfiles[sourceProfile] ?? sourceProfile;
+          const normId = targetAgentId.toLowerCase();
+          const alreadySeen = seenProfileAgentIds.has(normId);
+
+          if (alreadySeen && !mergeProfiles) {
             profileReports.push({
-              sourceId: agent.agentId,
-              harnessAgentId: agent.agentId,
+              sourceId: sourceProfile,
+              harnessAgentId: targetAgentId,
               action: "rejected",
               reason: "duplicate-agent-id",
               workspaceDir: "",
@@ -338,10 +421,11 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
           seenProfileAgentIds.add(normId);
 
           const agentWorkspace = agent.workspace ?? sourceReport.source.root;
+          const userBindingActive = opts.userPrincipal !== undefined && opts.userPrincipal !== null && opts.userPrincipal.agentId === targetAgentId;
 
           // Migrate agent persona and files
           const { report: agentReport, isNewAgent } = planAndMigrateHermesAgent(
-            agent.agentId,
+            targetAgentId,
             agentWorkspace,
             sourceReport.source.root,
             l,
@@ -350,48 +434,56 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
             onConflict,
             ledger,
             replacedBackupDir,
-            opts.userPrincipal !== undefined && opts.userPrincipal !== null,
+            userBindingActive,
           );
           // A refused source file (symlink, FIFO, oversized, unreadable) is an error, not a quiet skip.
           for (const f of agentReport.files) {
             if (f.action === "skipped" && f.reason && SAFE_READ_REFUSALS.has(f.reason)) {
-              errors.push({ sourceRef: `${agent.agentId}:${f.targetFile}`, reason: f.reason });
+              errors.push({ sourceRef: `${sourceProfile}:${f.targetFile}`, reason: f.reason });
             }
           }
 
           if (agentReport.action !== "rejected" && isNewAgent && isApply) {
-            rawConfig.agents[agent.agentId] = { createdAt: startDate.toISOString() };
+            rawConfig.agents[targetAgentId] = { createdAt: startDate.toISOString() };
             configChanged = true;
           }
 
           // Migrate memory cards
-          const memoryRes = await importHermesMemories({
-            profileDir: agentWorkspace,
-            profileName: agent.agentId,
-            agentId: agent.agentId,
-            l,
-            engine,
-            isApply,
-            ledger,
-            userPrincipal: opts.userPrincipal,
-            onConflict,
-            replacedBackupDir,
-          });
+          let memoryRes: HermesMemoryImportResult | undefined;
+          if (storeAdoptReport?.routedTo === "reembed") {
+            // Store was taken over as-is for memory reembed migration: skip card re-embedding
+          } else {
+            memoryRes = await importHermesMemories({
+              profileDir: agentWorkspace,
+              profileName: sourceProfile,
+              agentId: targetAgentId,
+              l,
+              engine,
+              isApply,
+              ledger,
+              userPrincipal: userBindingActive ? opts.userPrincipal : undefined,
+              onConflict,
+              replacedBackupDir,
+            });
 
-          totalCardsImported += memoryRes.importedCount;
-          totalCardsSkippedDuplicate += memoryRes.skippedDuplicateCount;
-          totalCardsRejected += memoryRes.rejectedCount;
-          totalUnresolvedUserScope += memoryRes.unresolvedUserScopeCount;
+            totalCardsImported += memoryRes.importedCount;
+            totalCardsSkippedDuplicate += memoryRes.skippedDuplicateCount;
+            totalCardsRejected += memoryRes.rejectedCount;
+            totalUnresolvedUserScope += memoryRes.unresolvedUserScopeCount;
 
-          if (memoryRes.errors.length > 0) {
-            for (const err of memoryRes.errors) {
-              errors.push(err);
+            if (memoryRes.errors.length > 0) {
+              for (const err of memoryRes.errors) {
+                errors.push(err);
+              }
             }
           }
 
           profileReports.push({
             ...agentReport,
-            memory: memoryRes,
+            sourceId: sourceProfile,
+            harnessAgentId: targetAgentId,
+            ...(alreadySeen ? { action: "merged" as any } : {}),
+            ...(memoryRes ? { memory: memoryRes } : {}),
           });
         }
 
@@ -493,6 +585,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
           },
           profilesOrAgents: profileReports,
           agents: profileReports,
+          mergedProfiles: mergedProfiles.length > 0 ? mergedProfiles : undefined,
           channels: channelReports,
           cron: {
             status: "deferred",

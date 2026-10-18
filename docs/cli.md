@@ -4073,7 +4073,7 @@ Examples:
 
 * `<SOURCE_TYPE>` — Source system to read (never modified)
 
-  Possible values: `openclaw`, `hermes`
+  Possible values: `openclaw`, `hermes`, `backfill`
 
 
 ###### **Options:**
@@ -4101,6 +4101,9 @@ Examples:
 * `--resume <RUN_ID>` — Resume an interrupted import run by run ID
 * `--force` — Force rollback: delete user-modified files created by the import instead of keeping them
 * `--adopt-store <PATH>` — Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
+* `--agent <AGENT>` — Target agent ID (required for backfill)
+* `--adopt-strategy <STRATEGY>` — Store adoption strategy when identity mismatches: 'reembed' or 'import'
+* `--merge-profiles` — Allow multiple Hermes profiles to merge into the same target agent
 
 
 

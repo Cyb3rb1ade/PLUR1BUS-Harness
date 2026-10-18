@@ -33,8 +33,12 @@ import { readOpenclawCronJobs, type OpenclawCronJob } from "./openclaw-cron.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
 import { RUN_ID_RE } from "../rollback.ts";
 import { readConfigFile } from "../../config-load.ts";
-import { abortStoreAdopt, type StoreAdoptReport } from "./hermes-stores.ts";
+import { abortStoreAdopt, createTempHost, type StoreAdoptReport } from "./hermes-stores.ts";
 import { commitOpenclawStores, prepareOpenclawStores, type OpenclawStoreReport, type PreparedOpenclawStores } from "./openclaw-stores.ts";
+import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
+import { buildEngineConfig } from "../../engine-config.ts";
+import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import { importOpenclawMemories, type OpenclawMemoryImportResult } from "./openclaw-memories.ts";
 
 export interface OpenclawImportOptions {
   home: string;
@@ -49,6 +53,8 @@ export interface OpenclawImportOptions {
   probeWsl?: boolean | undefined;
   allowLiveCopy?: boolean | undefined;
   now?: () => Date;
+  userPrincipal?: any | undefined;
+  engine?: Engine | undefined;
   /** Test seam: the engine internals (e.g. a stub embedder) used for the store take-over probe. */
   testInternals?: Record<string, unknown> | undefined;
   /** Test seam: throw right after this step of the store take-over (`store-staged`: copy verified, not yet swapped;
@@ -72,8 +78,8 @@ export interface OpenclawImportReport {
     home: string;
   };
   disabledAuthProfiles?: ReturnType<typeof importedProfile>[];
-  profilesOrAgents: AgentImportReport[];
-  agents: AgentImportReport[]; // backward compatibility alias
+  profilesOrAgents: (AgentImportReport & { memory?: OpenclawMemoryImportResult | undefined })[];
+  agents: (AgentImportReport & { memory?: OpenclawMemoryImportResult | undefined })[]; // backward compatibility alias
   channels: ChannelAllowlistReport[];
   cron: {
     status: "deferred";
@@ -103,6 +109,10 @@ export interface OpenclawImportReport {
     filesRenamed: number;
     filesReplaced: number;
     filesSkipped: number;
+    memoryCardsImported: number;
+    memoryCardsSkippedDuplicate: number;
+    memoryCardsRejected: number;
+    unresolvedUserScope: number;
     channelsDeferred: number;
     channelsImported: number; // backward compatibility
     cronJobsDeferred: number;
@@ -256,57 +266,136 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     if (isApply) commitOpenclawStores(preparedStores, { l, ledger, replacedBackupDir });
     if (opts.failAfterStep === "store-committed") throw new Error("failAfterStep: store-committed");
 
-    // Migrate agents and curated files
-    const agentReports: AgentImportReport[] = [];
-    const seenSourceAgentIds = new Set<string>();
-    let configChanged = false;
+    let engine = opts.engine;
+    let createdEngineLocally = false;
+    const testInternals = opts.testInternals ?? (
+      (process.env.NODE_TEST_CONTEXT || process.env.PLUR1BUS_TEST_INTERNALS === "1")
+        ? {
+            embeddings: {
+              embed: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
+              embedQuery: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
+              embedPassage: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
+              embedBatch: async (texts: string[]) => texts.map(() => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0))),
+              shutdown: async () => {},
+            },
+            reranker: null,
+          }
+        : undefined
+    );
 
-    for (const agent of sourceReport.agents) {
-      const normId = typeof agent.agentId === "string" ? agent.agentId.toLowerCase() : "";
-      if (seenSourceAgentIds.has(normId)) {
-        // C3: Duplicate agent IDs in source rejected
-        agentReports.push({
-          sourceId: agent.agentId,
-          harnessAgentId: agent.agentId,
-          action: "rejected",
-          reason: "duplicate-agent-id",
-          workspaceDir: "",
-          files: [],
-          counts: {
-            filesCreated: 0,
-            filesMatched: 0,
-            filesConflicted: 0,
-            filesRenamed: 0,
-            filesReplaced: 0,
-            filesSkipped: 0,
+    if (isApply && !engine) {
+      const engineDefaults = defaults().engine;
+      const engineConfigTarget = {
+        ...defaults(),
+        ...rawConfig,
+        core: {
+          ...defaults().core,
+          ...(rawConfig.core ?? {}),
+          recall: {
+            ...defaults().core.recall,
+            ...(rawConfig.core?.recall ?? {}),
           },
-        });
-        continue;
-      }
-      seenSourceAgentIds.add(normId);
+        },
+        engine: {
+          ...engineDefaults,
+          ...(rawConfig.engine?.baseDbPathOverride ? { baseDbPathOverride: rawConfig.engine.baseDbPathOverride } : {}),
+          ...(rawConfig.engine?.embedding ? { embedding: rawConfig.engine.embedding } : {}),
+          ...(rawConfig.engine?.reranker ? { reranker: rawConfig.engine.reranker } : {}),
+          ...(rawConfig.engine?.recall ? { recall: rawConfig.engine.recall } : {}),
+        },
+      };
 
-      const { report, isNewAgent } = planAndMigrateAgent(
-        agent,
-        sourceReport.source.root,
-        l,
-        existingAgentIds,
-        isApply,
-        onConflict,
-        ledger,
-        replacedBackupDir,
+      engine = createEngine(
+        createTempHost(l.state, async (id: string) => l.workspaceDir(id)),
+        buildEngineConfig(engineConfigTarget, l) as any,
+        testInternals ? { internals: testInternals } : undefined,
       );
-
-      if (report.action !== "rejected" && isNewAgent && isApply) {
-        rawConfig.agents[agent.agentId] = { createdAt: startDate.toISOString() };
-        configChanged = true;
-      }
-      agentReports.push(report);
+      createdEngineLocally = true;
     }
+
+    try {
+      // Migrate agents, curated files and memory cards
+      const agentReports: (AgentImportReport & { memory?: OpenclawMemoryImportResult | undefined })[] = [];
+      const seenSourceAgentIds = new Set<string>();
+      let configChanged = false;
+      let totalCardsImported = 0;
+      let totalCardsSkippedDuplicate = 0;
+      let totalCardsRejected = 0;
+      let totalUnresolvedUserScope = 0;
+      const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? []), ...preparedStores.errors];
+
+      for (const agent of sourceReport.agents) {
+        const normId = typeof agent.agentId === "string" ? agent.agentId.toLowerCase() : "";
+        if (seenSourceAgentIds.has(normId)) {
+          // C3: Duplicate agent IDs in source rejected
+          agentReports.push({
+            sourceId: agent.agentId,
+            harnessAgentId: agent.agentId,
+            action: "rejected",
+            reason: "duplicate-agent-id",
+            workspaceDir: "",
+            files: [],
+            counts: {
+              filesCreated: 0,
+              filesMatched: 0,
+              filesConflicted: 0,
+              filesRenamed: 0,
+              filesReplaced: 0,
+              filesSkipped: 0,
+            },
+          });
+          continue;
+        }
+        seenSourceAgentIds.add(normId);
+
+        const { report, isNewAgent } = planAndMigrateAgent(
+          agent,
+          sourceReport.source.root,
+          l,
+          existingAgentIds,
+          isApply,
+          onConflict,
+          ledger,
+          replacedBackupDir,
+        );
+
+        if (report.action !== "rejected" && isNewAgent && isApply) {
+          rawConfig.agents[agent.agentId] = { createdAt: startDate.toISOString() };
+          configChanged = true;
+        }
+
+        let memoryRes: OpenclawMemoryImportResult | undefined;
+        if (report.action !== "rejected") {
+          const agentWs = agent.workspace ?? sourceReport.source.root;
+          memoryRes = await importOpenclawMemories({
+            workspaceDir: agentWs,
+            agentId: agent.agentId,
+            l,
+            engine,
+            isApply,
+            ledger,
+            userPrincipal: opts.userPrincipal,
+            onConflict,
+            replacedBackupDir,
+          });
+          totalCardsImported += memoryRes.importedCount;
+          totalCardsSkippedDuplicate += memoryRes.skippedDuplicateCount;
+          totalCardsRejected += memoryRes.rejectedCount;
+          totalUnresolvedUserScope += memoryRes.unresolvedUserScopeCount;
+          if (memoryRes.errors.length > 0) {
+            for (const err of memoryRes.errors) errors.push(err);
+          }
+        }
+
+        agentReports.push({
+          ...report,
+          ...(memoryRes ? { memory: memoryRes } : {}),
+        });
+      }
 
     // Read channels from openclaw.json
     let channelReports: ChannelAllowlistReport[] = [];
     let disabledAuthProfiles: ReturnType<typeof importedProfile>[] = [];
-    const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? []), ...preparedStores.errors];
     if (sourceReport.source.configPath && existsNoFollow(sourceReport.source.configPath)) {
       let cfgText: string | null = null;
       try {
@@ -452,6 +541,10 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         filesRenamed,
         filesReplaced,
         filesSkipped,
+        memoryCardsImported: totalCardsImported,
+        memoryCardsSkippedDuplicate: totalCardsSkippedDuplicate,
+        memoryCardsRejected: totalCardsRejected,
+        unresolvedUserScope: totalUnresolvedUserScope,
         channelsDeferred: channelReports.length,
         channelsImported: channelReports.length,
         cronJobsDeferred: userJobs.length,
@@ -480,6 +573,13 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     }
 
     return resultReport;
+    } finally {
+      if (createdEngineLocally && engine) {
+        try {
+          await (engine as any).close?.({ budgetMs: 1_000 });
+        } catch {}
+      }
+    }
   };
 
   // C1: Single-writer lock held across the entire apply pipeline (reads, writes, report)

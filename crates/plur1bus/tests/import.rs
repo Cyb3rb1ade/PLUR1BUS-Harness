@@ -55,6 +55,69 @@ fn hermes_full_import_forwards_to_importer() {
 }
 
 #[test]
+fn hermes_adopt_strategy_and_merge_profiles_forward_to_importer() {
+    let home = tempfile::tempdir().unwrap();
+    let out = bin()
+        .env("PLUR1BUS_IMPORT_JS", fake())
+        .env("PLUR1BUS_NODE", "node")
+        .arg("--home")
+        .arg(home.path())
+        .args([
+            "--json",
+            "import",
+            "hermes",
+            "--adopt-strategy",
+            "reembed",
+            "--merge-profiles",
+            "--map",
+            "profile=work:agent=main",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v = json_of(&out);
+    let argv: Vec<String> = serde_json::from_value(v["argv"].clone()).unwrap();
+    assert!(argv.contains(&"hermes".to_string()));
+    assert!(argv.contains(&"--adopt-strategy".to_string()));
+    assert!(argv.contains(&"reembed".to_string()));
+    assert!(argv.contains(&"--merge-profiles".to_string()));
+    assert!(argv.contains(&"--map".to_string()));
+    assert!(argv.contains(&"profile=work:agent=main".to_string()));
+}
+
+#[test]
+fn backfill_import_forwards_agent_and_apply_to_importer() {
+    let home = tempfile::tempdir().unwrap();
+    let out = bin()
+        .env("PLUR1BUS_IMPORT_JS", fake())
+        .env("PLUR1BUS_NODE", "node")
+        .arg("--home")
+        .arg(home.path())
+        .args([
+            "--json",
+            "import",
+            "backfill",
+            "--agent",
+            "my-agent",
+            "--apply",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v = json_of(&out);
+    assert_eq!(v["schema"], "import.backfill/1");
+    let argv: Vec<String> = serde_json::from_value(v["argv"].clone()).unwrap();
+    assert_eq!(argv[0], "backfill");
+    assert!(argv.contains(&"--agent".to_string()));
+    assert!(argv.contains(&"my-agent".to_string()));
+    assert!(argv.contains(&"--apply".to_string()));
+}
+
+#[test]
 fn openclaw_full_import_forwards_to_importer() {
     let home = tempfile::tempdir().unwrap();
     let out = bin()

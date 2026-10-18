@@ -53,13 +53,17 @@ describe("M7 acceptance 3: Hermes soul, skills, cron, cards", () => {
     assert.match(renderHermes(r), /cron/i);
   });
 
-  it("KNOWN GAP: the OpenClaw importer has no memory-card path (nothing goes through memory.import)", { timeout }, async () => {
+  it("OpenClaw fixture: cards imported via memory.import with provenance, duplicate and conflict logic", { timeout }, async () => {
     const fx = await buildM7OpenclawFixture();
     try {
       const home = tempDir("p2-acc3-oc-");
       const r = await importOpenclaw({ home, source: fx.root, apply: true, testInternals: flatTestInternals() as any });
-      assert.ok(!("memoryCardsImported" in r.counts), "OpenClaw reports no card counts");
-      assert.ok(!ledgerOf(r.ledgerPath!).some((e) => e.entity === "memory"), "OpenClaw ledger has no memory entries");
+      assert.equal(r.counts.memoryCardsImported, 2, "alpha and beta MEMORY.md cards imported");
+      assert.equal(r.counts.unresolvedUserScope, 1, "alpha USER.md unlinked without userPrincipal");
+      const ledger = ledgerOf(r.ledgerPath!);
+      const memEntries = ledger.filter((e) => e.entity === "memory");
+      assert.ok(memEntries.length > 0, "OpenClaw ledger has memory entries");
+      assert.ok(memEntries.some((e) => e.action === "created"), "OpenClaw ledger has memory created entries");
       assert.equal(r.cron.status, "deferred");
       assert.ok(fx.root.length > 0 && CONTENT_MARKER.length > 0);
     } finally { fx.close(); }
