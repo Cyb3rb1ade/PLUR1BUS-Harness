@@ -1,12 +1,12 @@
 # @plur1bus/channels-matrix
 
-Matrix channel adapter (Client-Server API r0/v3 over `fetch`, zero runtime dependencies).
+Matrix channel adapter (Client-Server API r0/v3 over `fetch`, exact crypto dependency `@matrix-org/matrix-sdk-crypto-wasm@18.9.0` (WASM)).
 
 ## Scope
 
 - Text in and out, DMs and rooms, threads, replies, mentions, edits (`m.replace`), typing, media in and out
   (`m.image`/`m.file`/`m.audio`/`m.video`), reaction-based approvals (D109), `/link` (or `!link`) pairing in DMs.
-- **No end-to-end encryption.** Encrypted rooms are refused: one plain notice, then ignored. E2EE is a follow-up package.
+- **Persistent E2EE blocked.** Default mode is off. Experimental `e2ee.mode: memory` encrypts/decrypts with real WASM but loses keys and device verification on restart. Owner/admin SAS controls are in the Switchboard. Cross-signing bootstrap/recovery backup remain unavailable.
 - Operator guide: `docs/channels/matrix.md`.
 
 ## Manifest
@@ -16,7 +16,7 @@ Matrix channel adapter (Client-Server API r0/v3 over `fetch`, zero runtime depen
 ## Config (secret names only, see docs for the table)
 
 `homeserverUrl`, `userId`, `accessTokenSecret`, `deviceId?`, `autoJoin`, `allowlist`, `dmAllowlist`, `userAllowlist?`,
-`replyPolicy`, `maxMediaBytes`, `locale`, `enabled`. The access token is read from the host secret store and never appears in config.
+`replyPolicy`, `maxMediaBytes`, `locale`, `enabled`, `e2ee.mode` (off/memory), `e2ee.unverifiedDevices` (reject/allow, default reject). The access token is read from the host secret store and never appears in config.
 
 ## Ports (`src/port.ts`, `DUPLICATE` marker: candidate for a shared package)
 
@@ -40,4 +40,6 @@ Typecheck: `npx tsc -p tsconfig.base.json --noEmit` from the repo root, filtered
 - `/sync` uses `filter` to limit event types; the first sync is an initial sync that discards history.
 - Outbound text is split at 16000 UTF-8 bytes of Markdown source; fences are closed and reopened per chunk.
 - Retries reuse the transaction id, so the homeserver de-duplicates a retried send for the same device.
-- Edits must fit one event. Encrypted events and media (`file` with keys) are refused.
+- Edits must fit one event. Encrypted media (`file` with keys) remains refused; encrypted text requires the opt-in experimental memory mode.
+
+All Matrix config keys have restart class `module:matrix`. `channel.crypto` is the owner/admin-only hosted SAS RPC; the standalone adapter itself exposes no RPC listener.

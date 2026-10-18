@@ -11,6 +11,7 @@ import { createFsTools } from '../tools/fs/tools.ts';
 import { canonicalisePath, type PathRoot, type DenyEntry } from '../policy/paths-index.ts';
 import { CAPABILITIES } from '../policy/index.ts';
 import { HOST_TOOLS, createNodeHostContext, denyEntriesFor, isHostPlatform, type HostContext } from '../host-tools/index.ts';
+import { secretNamesTool, type SecretNamesPort } from '../tools/secret-names.ts';
 import { createExecTool } from '../tools/exec/tool.ts';
 import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint } from '../tools/exec/env.ts';
 import { createNodeProcessPort, systemTimers } from '../tools/exec/node-process.ts';
@@ -38,6 +39,8 @@ export interface ToolCompositionOptions {
   hostctl?: ReturnType<typeof createHostctlPool>;
   /** web.search over the configured SearXNG sidecar. Absent, the tool is not offered. */
   webSearch?: WebSearch;
+  /** secret_names: this agent's secret names, scope and presence (never values). Absent, the tool is not offered. */
+  secretNames?: SecretNamesPort;
   /** When set, exec.run child stdout/stderr are wrapped as untrusted `process.output.line` records. */
   output?: LogWriter;
   /** document.render (D100) over a headless Chromium. Absent, the tool is not offered. */
@@ -148,6 +151,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       catch (e) { throw new ToolAdapterError('tool-failed', (e instanceof WebFailure ? e : new WebFailure('internal-error', 'unexpected failure')).toResult()); }
     } });
   }
+  if (o.secretNames) registry.register(secretNamesTool(o.secretNames));
   for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) registry.register(tool);
   if (o.documents) {
     const browser = o.documents.browser;

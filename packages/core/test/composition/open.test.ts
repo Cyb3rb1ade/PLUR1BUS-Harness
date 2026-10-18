@@ -21,8 +21,8 @@ function recordingLogger() {
   return { logger: logger as never, lines };
 }
 
-async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string) => void = () => {}) {
-  const home = tmp.make(); const cfg = defaults(); cfg.agents.bernd = {};
+async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string) => void = () => {}, configure: (cfg: ReturnType<typeof defaults>) => void = () => {}) {
+  const home = tmp.make(); const cfg = defaults(); cfg.agents.bernd = {}; configure(cfg);
   prepare(home);
   const { logger, lines } = recordingLogger();
   const identity = createIdentityService({ dbPath: join(home, "identity.sqlite"), clock: Date.now, audit: () => {} });
@@ -38,10 +38,24 @@ async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string)
 }
 
 describe("composition openTurnComposition", () => {
+  it("D105: the bounded decision call is required only when modelRoles.decision is configured; without one the rule triage keeps the tool shortlist", async () => {
+    for (const role of [undefined, "triage"]) {
+      const seen: { requireTriage?: boolean; classifier: boolean }[] = [];
+      const providers = { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() { /* unused */ } } }] } };
+      const { composition: c, identity } = await open({ options: { providers, createTurnProvider: (o) => { seen.push({ ...(o.requireTriage === undefined ? {} : { requireTriage: o.requireTriage }), classifier: typeof o.classifyMessage === "function" }); return { id: "fixture", telemetry: {} as never, async *stream() { /* unused */ } } as never; } } }, () => {}, (cfg) => { if (role) cfg.modelRoles.decision = role; });
+      try {
+        const main = seen.find((o) => o.classifier || o.requireTriage !== undefined) ?? seen[0];
+        assert.ok(main, "the foreground provider was created");
+        assert.equal(main.requireTriage === true, role !== undefined, `requireTriage with decision role ${role ?? "(none)"}`);
+        assert.equal(main.classifier, role !== undefined, `classifier with decision role ${role ?? "(none)"}`);
+      } finally { await c.close(); identity.close(); }
+    }
+  });
+
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["close", "collab", "discoveryCredentials", "openai", "refusedProviders", "sessions", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["capabilities", "close", "collab", "discoveryCredentials", "openai", "refusedProviders", "sessions", "surfaceMethods", "voice"]);
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
       assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS].sort());

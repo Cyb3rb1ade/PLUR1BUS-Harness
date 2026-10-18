@@ -67,7 +67,11 @@ importers:
 
   packages/channels-email: {}
 
-  packages/channels-matrix: {}
+  packages/channels-matrix:
+    dependencies:
+      '@matrix-org/matrix-sdk-crypto-wasm':
+        specifier: 18.9.0
+        version: 18.9.0
 
   packages/channels-signal: {}
 
@@ -89,6 +93,9 @@ importers:
       '@cyb3rb1ade/plur1bus-memory':
         specifier: git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#6868b7b117cf7d59b24eb1e75f02aafc1a48f46c
         version: https://codeload.github.com/Cyb3rb1ade/openclaw-plur1bus-memory/tar.gz/6868b7b117cf7d59b24eb1e75f02aafc1a48f46c
+      '@matrix-org/matrix-sdk-crypto-wasm':
+        specifier: 18.9.0
+        version: 18.9.0
       '@modelcontextprotocol/sdk':
         specifier: 1.32.1
         version: 1.32.1
@@ -592,6 +599,10 @@ packages:
     os: [darwin, linux, win32]
     peerDependencies:
       apache-arrow: '>=15.0.0 <=18.1.0'
+
+  '@matrix-org/matrix-sdk-crypto-wasm@18.9.0':
+    resolution: {integrity: sha512-NtLzNDTEfNASBjNCTGZHuk7N0jrQhS6Zx2CM857rCHZYYh/rpbKGQNrJ7azktm4S1P5Jy3WU3nwJTGohGw26qQ==}
+    engines: {node: '>= 18'}
 
   '@modelcontextprotocol/sdk@1.32.1':
     resolution: {integrity: sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw==}
@@ -2101,6 +2112,8 @@ snapshots:
       '@lancedb/lancedb-linux-x64-musl': 0.26.2
       '@lancedb/lancedb-win32-arm64-msvc': 0.26.2
       '@lancedb/lancedb-win32-x64-msvc': 0.26.2
+
+  '@matrix-org/matrix-sdk-crypto-wasm@18.9.0': {}
 
   '@modelcontextprotocol/sdk@1.32.1':
     dependencies:

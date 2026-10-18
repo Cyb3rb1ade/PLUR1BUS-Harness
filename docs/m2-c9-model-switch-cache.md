@@ -8,6 +8,8 @@ The turn loop uses the confirmed profile for context-window selection and the re
 
 CLI: `plur1bus chat --session <id> --model <configured-profile>` warns and asks; pipes/JSON need `--yes`. The warning is on stderr even with `--yes`; stdout remains the raw chat RPC result. `LANG=de…` selects the German warning. The Web chat adds a DE/EN preview/confirm/cancel control that confirms the displayed profile/revision and resets on chat navigation.
 
+**Incognito chats:** the profile is kept in the session's own store, so a switch also works for ephemeral (incognito) sessions: the in-memory store holds it, nothing is persisted, and ownership, agent-use right and human-only rules are the same as for durable sessions.
+
 **KNOWN GAP / handoff to M3:** `packages/api/src/rpc-route.ts` currently allowlists chat methods and does not yet allow `session.model.set`. That transport is explicitly outside this package's scope. The browser control reports refusal safely, but end-to-end browser switching is not accepted until M3 adds this method through its authenticated caller, agent-rights and CSRF path. No API transport was changed. WebMCP explicitly forbids the method; core RBAC is human-only. All three Rust parity tables, schema fixtures, generated Python/schema capabilities and generated RPC/CLI docs are updated.
 
 ## B5 nightly

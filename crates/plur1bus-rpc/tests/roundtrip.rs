@@ -357,6 +357,13 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "channel.crypto" => {
+                check_pair::<types::ChannelCryptoParams, types::ChannelCryptoResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
             "channel.get" => check_pair::<types::ChannelGetParams, types::ChannelGetResult>(
                 name,
                 fixture,
@@ -1313,6 +1320,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "voice.realtime.stop" => check_pair::<
                 types::VoiceRealtimeStopParams,
                 types::VoiceRealtimeStopResult,
+            >(name, fixture, &root_schema),
+            "voice.session.create" => check_pair::<
+                types::VoiceSessionCreateParams,
+                types::VoiceSessionCreateResult,
             >(name, fixture, &root_schema),
             other => panic!("method fixture {other} has no Rust type mapping"),
         }

@@ -101,6 +101,9 @@ const ALLOW = new Map([
   ["crates/plur1bus/src/cli.rs", [/OpenClaw\/Hermes/, /^\s*Openclaw,$/, /\$OPENCLAW_STATE_DIR \/ \$OPENCLAW_PROFILE \/ ~\/\.openclaw/]],
   // The CLI-surface test runs the same `import openclaw --detect` command tests/import.rs runs (the importer's source enum),
   // so this one argv literal names the importer source, not an OpenClaw idiom.
+  // The desktop controller tests pin the bundled container's state mount point (`/state`, the image's volume and
+  // PLUR1BUS_HOME), a filesystem path inside the container, not a slash command.
+  ["apps/desktop/src-tauri/tests/controller.rs", [/p == "\/state"\)\)/, /key == "PLUR1BUS_HOME" && value == "\/state"\)\)/, /\("plur1bus-state"\.into\(\), "\/state"\.into\(\), false\),/]],
   ["crates/plur1bus/tests/cli_surface.rs", [/vec!\["import", "--detect", "openclaw"\]/]],
 ]);
 

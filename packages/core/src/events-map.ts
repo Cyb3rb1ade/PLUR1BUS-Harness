@@ -87,5 +87,5 @@ export function mapEngineEvent(name: string, payload: unknown): MappedEvent | nu
   const params = project(payload);
   if (!params) return null;
   if (name === "memory.proposal") return { method: name, params, audience: [params.sharerAgentId as string, params.proposerAgentId as string] };
-  return { method: name, params };
+  return { method: name, params, ...(typeof params.agentId === "string" ? { audience: [params.agentId] } : {}) };
 }
