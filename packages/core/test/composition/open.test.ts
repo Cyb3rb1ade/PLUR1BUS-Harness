@@ -11,7 +11,7 @@ import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { useTempDirs } from "./helpers.ts";
 
 const tmp = useTempDirs("p1b-open-comp-");
-const MEDIA_METHODS = ["media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
+const MEDIA_METHODS = ["task.complete", "media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
 const SEARCH_METHODS = ["media.search", "media.index.status", "media.index.pause", "media.index.resume", "media.index.reindex", "media.caption.set"];
 
 function recordingLogger() {
