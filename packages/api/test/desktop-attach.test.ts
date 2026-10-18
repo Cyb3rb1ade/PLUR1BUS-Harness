@@ -1,3 +1,5 @@
+import { AccountStore } from "../src/account-store.ts";
+import { bootstrapHash } from "../src/bootstrap.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildDesktopAttachHandlers } from "../src/desktop-attach-routes.ts";
@@ -29,8 +31,14 @@ test("native credentials never bypass the configured second-factor policy",async
  const r=rig(true);await assert.rejects(r.ticket(),e=>(e as any).reason==="second-factor-required");assert.equal(r.sessions.size,0);
 });
 test("remote listeners cannot bootstrap an Owner even if a proof would otherwise be valid",async()=>{
- const r=rig();const handlers=buildAccountHandlers(r.deps,undefined,r.deps.core,undefined,false);
- await assert.rejects(async()=>handlers["account.bootstrap"]!({body:{proof:"x",username:"first",password:"password"}} as HandlerInput),e=>(e as any).status===404);
+ const r=rig(),proof="p".repeat(43);
+ const accounts=new AccountStore({path:":memory:",resolve:async userId=>({userId,kind:"person",role:"owner",disabled:false,version:1})});
+ accounts.initializeBootstrap(bootstrapHash(proof));
+ try {
+   const handlers=buildAccountHandlers(r.deps,accounts,r.deps.core,undefined,false);
+   await assert.rejects(async()=>handlers["account.bootstrap"]!({body:{proof,username:"firstperson",password:"long-fixture-password"}} as HandlerInput),e=>(e as any).status===404);
+   assert.equal(accounts.hasOwnerAccount(),false);assert.equal(accounts.bootstrapState()?.consumed,false);
+ } finally {accounts.close();}
 });
 test("KNOWN GAP: native ticket redemption completes the existing TOTP/WebAuthn challenge while preserving device/origin/scopes",{todo:"Owner decision: bind native attach to the existing MFA continuation; mandatory MFA currently refuses attach without issuing a session"},async()=>{
  const r=rig(true);assert.equal((await r.ticket()).schema,"session.challenge/1");
