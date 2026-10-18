@@ -114,6 +114,7 @@ fn set_error(e: SetError) -> ExtError {
             "config-unavailable",
             "no valid configuration runs; fix config.json",
         ),
+        SetError::LocalOnly(policy) => ExtError::new("E_DENIED", policy.reason(), policy.message()),
         SetError::Io(d) => ExtError::new("E_INTERNAL", "io", d),
     }
 }

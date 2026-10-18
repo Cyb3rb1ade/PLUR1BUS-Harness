@@ -1104,7 +1104,11 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 * `--run` — Copy the planned migration into a new generation in throttled batches, validate it and switch
 * `--status` — Show the migration's phase and progress
 * `--abort` — Stop at the next batch boundary; --run continues the same migration
-* `--model <MODEL>` — Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+* `--model <MODEL>` — Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small, or the remote provider's model id with --provider (required with --plan)
+* `--provider <PROVIDER>` — Target provider, e.g. openai, openrouter, jina or ollama (default local-transformers); every direction between local and cloud is possible
+* `--base-url <BASE_URL>` — OpenAI-compatible endpoint of a remote target (openai may leave it out)
+* `--api-key-env <API_KEY_ENV>` — Name of the environment variable that holds the remote target's key (the key itself is never passed)
+* `--acknowledge-privacy` — Acknowledge now that every memory text goes to this remote target (needed when memory.embedding.privacyAck does not already admit it)
 * `--dimensions <DIMENSIONS>` — Target vector dimensions, when the model supports more than one
 * `--query-prefix <QUERY_PREFIX>` — Query prefix of the target model
 * `--passage-prefix <PASSAGE_PREFIX>` — Passage prefix of the target model

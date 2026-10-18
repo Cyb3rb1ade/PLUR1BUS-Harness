@@ -212,6 +212,14 @@ fn config_unavailable(id: &Value) -> Value {
 
 fn set_error_reply(id: &Value, e: SetError) -> Value {
     match e {
+        SetError::LocalOnly(policy) => error_reply(
+            id,
+            "E_DENIED",
+            &policy.message(),
+            Some(policy.reason()),
+            None,
+            None,
+        ),
         SetError::Invalid(errors) if errors == ["config-write-role"] => error_reply(
             id,
             "E_DENIED",

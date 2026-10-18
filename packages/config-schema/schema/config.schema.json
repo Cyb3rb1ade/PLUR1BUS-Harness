@@ -791,8 +791,8 @@
             "required": [],
             "description": "Sparse per-agent voice override; unset keys inherit voice.v3, like memory.embedding overrides."
           },
-          "privacy": {"description": "Per-agent privacy override; an unset key inherits the installation value.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {
-            "localOnly": {"description": "Only local models for this agent; overrides privacy.localOnly in both directions. The shared memory engine and media index stay local while the installation or any agent is local-only.", "type": "boolean", "x-restart": "core", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true}
+          "privacy": {"description": "Per-agent privacy override; an unset key inherits the installation value.", "type": "object", "additionalProperties": false, "x-restart": "live", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {
+            "localOnly": {"description": "Only local models for this agent; overrides privacy.localOnly in both directions. The shared memory engine and media index stay local while the installation or any agent is local-only.", "type": "boolean", "x-restart": "live", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true}
           }},
           "persona": {"description": "Inline persona text for a new agent (also scaffolded into SOUL.md).", "type": "string", "maxLength": 4000, "x-restart": "live", "x-tier": "basic"},
           "model": {"description": "Named model profile selected for this agent.", "type": "string", "minLength": 1, "maxLength": 128, "x-restart": "live", "x-tier": "basic"},
@@ -1155,13 +1155,13 @@
       "properties": {
         "localOnly": {
           "description": "Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly.",
-          "type": "boolean", "default": false, "x-restart": "core", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true
+          "type": "boolean", "default": false, "x-restart": "live", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true
         },
         "localEndpoints": {
           "description": "Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here.",
           "type": "array", "maxItems": 32, "uniqueItems": true, "default": [],
           "items": { "type": "string", "minLength": 8, "maxLength": 256, "pattern": "^https?://[^/?#@\\s]+/?$" },
-          "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true
+          "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true
         }
       }
     },

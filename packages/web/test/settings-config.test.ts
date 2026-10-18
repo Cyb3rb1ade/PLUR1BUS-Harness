@@ -422,3 +422,20 @@ describe("settings config: leaving through the shell", opts, () => {
     });
   });
 });
+
+
+describe("local-only II live settings", opts, () => {
+ for (const lang of ["en", "de"] as const) test(`agent pins, live explanation and 400px accessibility (${lang})`, async () => {
+  await withApp({locale:lang==="de"?"de-DE":"en-US",width:400,height:800},async app=>{
+   const id="home-agent-".repeat(9);
+   seedConfig(app.server.rpc,{privacy:{localOnly:false,localEndpoints:[]},agents:{[id]:{privacy:{localOnly:true}}}});
+   await openRoute(app.page,"#/settings/privacy",lang);
+   await app.page.locator("#cfg-privacy-localOnly").waitFor();
+   const text=await app.page.locator("main").innerText();
+   assert.ok(text.includes(id));assert.match(text,lang==="de"?/nächsten Modell|nächste Modell/:/next model request/);
+   assert.match(text,lang==="de"?/gemeinsam|Embedding/:/Embedding/);
+   assert.equal(await app.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   await expectAxeClean(app.page, `local-only privacy (${lang})`);
+  });
+ });
+});

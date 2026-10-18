@@ -1,6 +1,9 @@
 // settings area catalogue (Settings page, `/settings/<section>`): keys `settings.<topic>`; en and de have the same keys and
 // {placeholders}. The section labels are read by src/settings-sections.ts. The page agent adds its own keys below.
 export const en = {
+  "settings.privacy.sectionTitle": "Model privacy",
+  "settings.privacy.liveNotice": "Privacy changes apply to the next model request. Responses already running may finish. Web tools keep their own egress rules.",
+  "settings.privacy.sharedAgents": "Shared memory stays local because these agents require local-only: {agents}. Embedding, reranking and the engine’s model features are shared by all agents.",
   "settings.title": "Settings",
   "settings.nav": "Settings sections",
   "settings.section.general": "General",
@@ -105,6 +108,9 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "settings.privacy.sectionTitle": "Modell-Datenschutz",
+  "settings.privacy.liveNotice": "Datenschutzänderungen gelten beim nächsten Modellaufruf. Laufende Antworten dürfen zu Ende laufen. Für Web-Tools gelten weiterhin die eigenen Egress-Regeln.",
+  "settings.privacy.sharedAgents": "Der gemeinsame Speicher bleibt lokal, weil diese Agenten Nur lokal verlangen: {agents}. Embedding, Reranker und die Modellfunktionen der Engine werden von allen Agenten gemeinsam genutzt.",
   "settings.title": "Einstellungen",
   "settings.nav": "Einstellungsbereiche",
   "settings.section.general": "Allgemein",

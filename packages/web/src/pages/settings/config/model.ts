@@ -166,3 +166,9 @@ export function mapInvalid(text: string, keys: readonly string[]): { byKey: Reco
   return { byKey, rest };
 }
 
+
+/** Explain explicit pins; this is display metadata, never model-network admission. */
+export function localOnlyAgentSources(config: unknown): string[] {
+ const cfg=isObj(config)?config:{};const agents=isObj(cfg.agents)?cfg.agents:{};
+ return Object.entries(agents).filter(([,a])=>isObj(a)&&isObj(a.privacy)&&a.privacy.localOnly===true).map(([id])=>id).sort();
+}

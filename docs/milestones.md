@@ -21,6 +21,20 @@
 
 ---
 
+### 2026-10-18 addendum — local-only II (Phase C, stacked on #571 / #570)
+
+Implemented on `codex/local-only-2`: installation and agent local-only plus home-server origins have live restart
+class; per-request chat admission rechecks through tool rounds; standalone file fallback refreshes before admission;
+Doctor privacy is live over cached provisioning; Rust config admission and appended `privacy.local-only` diagnostics
+share tested policy vectors with Core. Settings explains which agents pin the shared engine. CLI Basic setup asks
+the privacy question. Running-engine endpoint inventory prevents future configuration from relabelling an old adapter.
+
+**Partial / not accepted:** #570/#571 are prerequisites. The pinned Engine contract remains 1.12; no engine pin
+change is made here. Hot reconfiguration / automatic engine-only restart for an unsafe privacy transition is open
+(desired behavior retained in a todo test); the safe transition currently requires an explicit migration and Core
+restart first. Actual reembed token/cost usage awaits Phase D's approved Engine network port and stays estimated
+with a todo test. This addendum changes neither milestone scope nor release acceptance.
+
 ## 2. Milestones
 
 **M1 is split in two, per owner decision 2026-09-22 (B15, "yes"):** M1a ends in an **owner gate** before M1b starts, so a mis-drawn extraction boundary is caught after three PRs rather than after ten.

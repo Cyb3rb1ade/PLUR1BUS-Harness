@@ -1,3 +1,4 @@
+import { engineModelEndpoints } from "./composition/embedding-policy.ts";
 import { authorize } from "./rbac/authorize.ts";
 import { buildEmbeddingSelectionSurface } from "./rpc/embedding-selection-surface.ts";
 import { creationDigest } from "./agents/saga.ts";
@@ -891,6 +892,15 @@ export function createCore(o: CoreOptions): Core {
       writeFileSync(l.coreToken, token, { mode: 0o600 });
       writeFileSync(path.join(l.run, "api-delegation.token"), apiToken, { mode: 0o600 });
       platform.securePath(path.join(l.run, "api-delegation.token"));
+      // A private, credential-free description of the bound endpoints lets Rust reject unsafe live transitions.
+      const engineModelsPath = path.join(l.run, "engine-models.json");
+      const endpoints = engineModelEndpoints(engineConfig as Record<string, unknown>).map(e => {
+        let endpoint: string | null = null;
+        try { if (e.endpoint) endpoint = new URL(e.endpoint).origin; } catch { /* unknown is fail closed */ }
+        return { role: e.role, endpoint };
+      });
+      writeFileSync(engineModelsPath, JSON.stringify({ version: 1, pid: process.pid, instanceId, endpoints }), { mode: 0o600 });
+      platform.securePath(engineModelsPath);
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
       await server.listen();
@@ -1007,7 +1017,7 @@ export function createCore(o: CoreOptions): Core {
 
   function removeRunFiles(): void {
     if (!wroteRunFiles) return; // a refused core never touches the running core's token and pid
-    rmSync(l.coreToken, { force: true }); rmSync(path.join(l.run, "api-delegation.token"), { force: true }); rmSync(l.corePid, { force: true }); wroteRunFiles = false;
+    rmSync(path.join(l.run, "engine-models.json"), { force: true }); rmSync(l.coreToken, { force: true }); rmSync(path.join(l.run, "api-delegation.token"), { force: true }); rmSync(l.corePid, { force: true }); wroteRunFiles = false;
   }
 
   /** Runs one shutdown step: a failure is logged and collected, never propagated. */
