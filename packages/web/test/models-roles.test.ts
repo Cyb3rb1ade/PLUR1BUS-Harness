@@ -37,7 +37,7 @@ describe("models: roles that may change the catalog (owner, admin)", opts, () =>
       await withApp({ server: { role } }, async (app) => {
         installCatalog(app.server.rpc); await open(app, hrefOf("beta", "beta-2"));
         await detailOf(app.page).getByRole("heading", { name: "Beta Manual", level: 2 }).waitFor();
-        for (const name of ["Add manual model", "Refresh", "Scan providers", "Mark 2 new as seen"]) assert.ok(await usable(app.page.getByRole("button", { name })), `${role}: ${name}`);
+        for (const name of ["Add manual model", "Refresh", "Scan now", "Mark 2 new as seen"]) assert.ok(await usable(app.page.getByRole("button", { name })), `${role}: ${name}`);
         assert.ok(await usable(app.page.getByRole("button", { name: "Edit overrides" })));
         assert.ok(await usable(app.page.getByRole("button", { name: "Remove manual model" })));
         assert.equal(await app.page.getByText(NOTE).count(), 0, "no read-only note for a role that may write");
@@ -75,7 +75,7 @@ describe("models: roles that may read but not change the catalog (operator, view
         installCatalog(app.server.rpc); await open(app);
         await link(app.page, /Gamma One/).waitFor();
         const ack = app.page.getByRole("button", { name: "Mark 2 new as seen" });
-        const scan = app.page.getByRole("button", { name: "Scan providers" });
+        const scan = app.page.getByRole("button", { name: "Scan now" });
         assert.ok(await usable(ack)); assert.ok(await usable(scan));
 
         app.server.rpc.handle("models.scan", () => { throw rpcError("E_DENIED", "no", "no-permission"); });
@@ -132,7 +132,7 @@ describe("models: a role without models.read", opts, () => {
       await app.page.locator(".page-state[data-state=forbidden]").waitFor();
       await app.page.getByRole("heading", { name: "Models", level: 1 }).waitFor();
       assert.equal(app.server.rpc.calls.filter((c) => c.method.startsWith("models.")).length, 0);
-      for (const name of ["Add manual model", "Scan providers", "Refresh"]) assert.equal(await app.page.getByRole("button", { name }).count(), 0, name);
+      for (const name of ["Add manual model", "Scan now", "Refresh"]) assert.equal(await app.page.getByRole("button", { name }).count(), 0, name);
       assert.equal(await app.page.locator(".model-list").count(), 0);
       await expectAxeClean(app.page, "member forbidden");
     });
@@ -153,7 +153,7 @@ describe("models: a role this UI does not know", opts, () => {
     await withApp({ server: { role: "auditor" } }, async (app) => {
       installCatalog(app.server.rpc); await open(app, hrefOf("beta", "beta-2"));
       await detailOf(app.page).getByRole("heading", { name: "Beta Manual", level: 2 }).waitFor();
-      for (const name of ["Add manual model", "Edit overrides", "Remove manual model", "Scan providers"]) assert.ok(await usable(app.page.getByRole("button", { name })), name);
+      for (const name of ["Add manual model", "Edit overrides", "Remove manual model", "Scan now"]) assert.ok(await usable(app.page.getByRole("button", { name })), name);
       assert.equal(await app.page.getByText(NOTE).count(), 0);
       app.server.rpc.handle("models.setOverride", () => { throw rpcError("E_DENIED", "no", "no-permission"); });
       await app.page.getByRole("button", { name: "Edit overrides" }).click();
