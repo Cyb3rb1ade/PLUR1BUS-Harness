@@ -389,7 +389,6 @@ test('finding 8: composeTools fs deny-list refuses ~/.ssh/id_ed25519 through the
 
 test('finding 8: exec.run through composition runs an allowlisted program after D109 approval', async () => {
   const home = await mkdtemp(join(tmpdir(), 'turn-exec-')); const r = await rig();
-'  const registry = await composeTools({ home, roots: [{ id: 'a1', path: home }], grants: r.stores.grants, audit: memoryAuditSink(), exec: { mode: 'allowlist', allowlist: [{ program: process.execPath }], envAllow: ['PATH'] } }, req());
   const registry = await composeTools({ home, roots: [{ id: 'a1', path: home }], grants: r.stores.grants, audit: memoryAuditSink(), sandbox: { required: false }, exec: { mode: 'allowlist', allowlist: [{ program: process.execPath }], envAllow: ['PATH'] } }, req());
   const f = await fixture(toolOnce('exec.run', () => ({ program: process.execPath, args: ['-e', 'console.log("exec via composition")'], cwd: home })), { registry, topK: 128, grants: r.stores.grants, grantUse: r.stores.grants,
     approval: { async request(ask) { const pending = r.service.request(ask); await tick(); const { id, nonce } = lastNonce(r); assert.equal(r.service.decide({ requestId: id, nonce, person: req().principal!, surface: 3, decision: 'approve' }).ok, true); return pending; }, begin: (answer, ask) => r.service.begin(answer, ask) } });
