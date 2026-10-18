@@ -48,6 +48,7 @@ from agent.memory_provider import (
 )
 
 from ._client import pmc
+from .existing import bound_client, client_token_path
 from .binding import Binding, BindingInvalid, HomeUnresolvable, read_binding, resolve_hermes_home
 from .journal import CaptureJournal, clean_code, is_journal_error
 from .mapping import (
@@ -185,14 +186,15 @@ class Plur1busMemoryProvider(MemoryProvider):
             )
         if b is None:
             return False, f"this Hermes home has no PLUR1BUS binding; {BIND_HINT}"
-        token = pmc.core_token_path(b.home)
+        scoped = client_token_path(home, b.home)
+        token = scoped or pmc.core_token_path(b.home)
         try:
             with open(token, "rb"):
                 pass
         except OSError:
             return (
                 False,
-                "the PLUR1BUS core is not running (no readable run/core.token); start it with `plur1bus daemon start`",
+                ("the existing Harness needs an approved Hermes client credential; ask the owner to provision it" if scoped else "the PLUR1BUS core is not running (no readable run/core.token); start it with `plur1bus daemon start`"),
             )
         return True, ""
 
@@ -245,8 +247,9 @@ class Plur1busMemoryProvider(MemoryProvider):
             return
         self._session_key = session_key_for(self._session_id, kwargs.get("gateway_session_key"))
         try:
-            self._rclient = self._factory(self._binding.home)
-            self._wclient = self._factory(self._binding.home)
+            factory = self._factory if self._factory is not _default_factory else lambda home: bound_client(self._hermes_home, home)
+            self._rclient = factory(self._binding.home)
+            self._wclient = factory(self._binding.home)
         except Exception as e:  # noqa: BLE001 - e.g. a binding home that is not absolute on this platform
             self._rclient = self._wclient = None
             self._journal = None

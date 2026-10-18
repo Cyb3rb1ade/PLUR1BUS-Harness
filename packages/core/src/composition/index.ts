@@ -223,7 +223,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const profilePolicy = (cfg.providers as { modelProfilePolicy?: Record<string, { allowCrossBilling?: unknown }> }).modelProfilePolicy ?? {};
     let collab: Collab | null = null;
     let coding: CodingCompletion | undefined;
-    const toolsForTurn = (req: ChatRequest) => composeTools({ home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, output: execOutput, ...(coding ? { coding } : {}), ...(collab ? { collaboration: {
+    const toolsForTurn = (req: ChatRequest) => composeTools({ sandbox: { required: cfg.tools.sandbox.required }, home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, output: execOutput, ...(coding ? { coding } : {}), ...(collab ? { collaboration: {
       ...(coding ? { review: reviewHooks(coding) } : {}),
       collab, enabled: () => d.config().collaboration.fanoutEnabled,
       repair: async (input: unknown, issues: readonly string[]) => {
