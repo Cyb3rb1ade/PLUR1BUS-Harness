@@ -169,6 +169,20 @@ fn describe(steps: &[StepResult], check: Option<&Value>) -> String {
             line
         })
         .collect();
+    // Setup asks no model question: say what is limited without a decision model and how to set it later.
+    let config = steps
+        .iter()
+        .find(|s| s.id == "config" && s.status == "done");
+    if config.is_some_and(|s| s.detail["decisionRole"]["set"] == false) {
+        lines.push(format!(
+            "note: {}",
+            crate::commands::model::decision_limits_sentence()
+        ));
+        lines.push(format!(
+            "      to enable them, {}",
+            crate::commands::model::DECISION_ROLE_HOW
+        ));
+    }
     if let Some(c) = check {
         lines.push(format!(
             "1staid check: {} ok, {} warn, {} fail{}",
@@ -188,4 +202,45 @@ fn describe(steps: &[StepResult], check: Option<&Value>) -> String {
         ));
     }
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config_step(decision_role: Value) -> StepResult {
+        StepResult {
+            id: "config",
+            status: "done",
+            reason: None,
+            detail: json!({ "decisionRole": decision_role }),
+        }
+    }
+
+    #[test]
+    fn describe_names_the_limited_features_only_without_a_decision_role() {
+        let without = describe(
+            &[config_step(
+                json!({ "set": false, "limited": ["messageTriage"] }),
+            )],
+            None,
+        );
+        assert!(
+            without.contains("note: no decision model role is set"),
+            "{without}"
+        );
+        assert!(without.contains("tool pre-selection"), "{without}");
+        assert!(
+            without.contains("plur1bus config set modelRoles.decision"),
+            "{without}"
+        );
+
+        let with = describe(&[config_step(json!({ "set": true, "limited": [] }))], None);
+        assert!(!with.contains("decision model role"), "{with}");
+
+        // A failed or skipped config step says nothing about the role.
+        let mut failed = config_step(json!({ "set": false }));
+        failed.status = "failed";
+        assert!(!describe(&[failed], None).contains("decision model role"));
+    }
 }

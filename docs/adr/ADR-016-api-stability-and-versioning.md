@@ -269,3 +269,7 @@ Additive under §2, `experimental` under §4, no schema version bump (methods si
 **Config.** `secrets.fileFallback.enabled` (`x-restart: live`, `x-tier: advanced`, default `false`).
 
 **New CLI `schema` ids (G15).** `secret.status/1`, `secret.set/1`, `secret.get/1`, `secret.rm/1`, `secret.ls/1` (`crates/plur1bus/src/commands/secret.rs`). Every new leaf's `about` starts with `[experimental] `.
+
+## Implementation record (decision role hint, 2026-10-18)
+
+**`1staid.check/1` ids stay append-only.** `models.decision` is appended after `remote.exposure` (`CHECK_IDS` grows from 27 to 28). It reports `info` (never `warn` or `fail`) while `modelRoles.decision` is unset and `ok` once it is set. `plur1bus setup` adds `detail.decisionRole` (`{ set, limited, hint }`) to its `config` step; no new RPC, config key or error code.

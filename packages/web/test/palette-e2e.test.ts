@@ -189,15 +189,24 @@ describe("palette: keyboard operation", opts, () => {
       await page.locator("dialog.palette").waitFor({ state: "detached" });
       assert.equal(await hash(page), "#/settings/general?focus=core.recall.softBudgetMs");
       await page.getByRole("heading", { name: "Settings", level: 1 }).waitFor();
-      await page.waitForFunction(() => document.activeElement?.tagName === "H1");
-      // Same page again: the query changes, focus must not be lost to <body>.
+      // ?focus=<key> ends on that setting's field (the heading only holds focus until the section has loaded).
+      await page.waitForFunction(() => document.activeElement?.id === "cfg-core-recall-softBudgetMs");
+      // Same page again: the query changes, focus must not be lost to <body>, not even for a moment. The field that had focus belongs
+      // to the section being left: if closing the dialog leaves focus there, it falls to <body> when the section re-renders.
       await open(page);
+      await page.evaluate(() => {
+        const w = window as unknown as { droppedToBody: boolean };
+        w.droppedToBody = false;
+        document.addEventListener("focusout", (e) => { if (e.relatedTarget === null) w.droppedToBody = true; }, true);
+      });
       await combo(page).fill("allow loopback");
       await dlg(page).getByRole("option", { name: /Allow loopback/ }).waitFor();
       await page.keyboard.press("Enter");
       await page.locator("dialog.palette").waitFor({ state: "detached" });
       assert.equal(await hash(page), "#/settings/network?focus=egress.allowLoopback");
+      // The running config has no egress.allowLoopback, so there is no field to focus: the page heading keeps it.
       await page.waitForFunction(() => document.activeElement?.tagName === "H1");
+      assert.equal(await page.evaluate(() => (window as unknown as { droppedToBody: boolean }).droppedToBody), false, "focus fell to <body> on the way");
       await open(page);
       await combo(page).fill("9464"); // current value, from config.get
       await dlg(page).getByRole("option", { name: /Port/ }).waitFor();
