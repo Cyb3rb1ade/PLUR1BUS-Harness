@@ -2,6 +2,7 @@ import { isRecord, ProviderError } from "../errors.ts";
 import { validateRequest } from "../request.ts";
 import { convertToolSchema } from "./schema.ts";
 import type { AssistantToolCall, ChatMessage, ChatRequest, ContentPart, ToolChoice } from "../types.ts";
+import { checkReasoningDirective } from "../reasoning.ts";
 
 const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const DATA_URL_RE = /^data:((?:image\/[a-z0-9.+-]{1,60})|application\/pdf);base64,([A-Za-z0-9+/]+={0,2})$/i;
@@ -163,6 +164,11 @@ export function buildGeminiBody(req: ChatRequest): Record<string, unknown> {
   if (req.temperature !== undefined) g["temperature"] = req.temperature;
   if (req.topP !== undefined) g["topP"] = req.topP;
   if (req.stop !== undefined) g["stopSequences"] = req.stop;
+  if (req.reasoning !== undefined) {
+    const problem = checkReasoningDirective(req.reasoning, ["thinkingConfig.thinkingBudget", "thinkingConfig.thinkingLevel"], "Gemini");
+    if (problem) throw bad(problem);
+    g["thinkingConfig"] = req.reasoning.vendorParam === "thinkingConfig.thinkingBudget" ? { thinkingBudget: req.reasoning.value } : { thinkingLevel: req.reasoning.value };
+  }
   if (req.responseFormat !== undefined && req.responseFormat.type !== "text") {
     g["responseMimeType"] = "application/json";
     if (req.responseFormat.type === "json_schema") g["responseJsonSchema"] = req.responseFormat.schema;
