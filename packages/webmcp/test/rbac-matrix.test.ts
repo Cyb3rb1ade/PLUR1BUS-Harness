@@ -33,7 +33,6 @@ const UNRULED: Record<string, string> = {
   "core.status": "docs/rbac.md 'Not yet secured': core.*",
   "core.shutdown": "docs/rbac.md 'Not yet secured': core.*; reachable only with the local token",
   "core.adopt": "docs/rbac.md 'Not yet secured': core.*; adoption nonce check, supervisor only",
-  "events.subscribe": "connection-bound subscription, no data of its own",
   "events.unsubscribe": "connection-bound subscription, no data of its own",
   "memory.recall": "docs/rbac.md 'Not yet secured': memory.recall; the engine ACL filters per principal",
   "memory.capture": "docs/rbac.md 'Not yet secured': memory.capture; the engine ACL decides",
