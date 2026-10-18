@@ -195,6 +195,23 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ModelLicenceCheckParams,
                 types::ModelLicenceCheckResult,
             >(name, fixture, &root_schema),
+            "device.pair" => check_pair::<types::DevicePairParams, types::DevicePairResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "admin.api.desktop.redeem" => check_pair::<
+                types::AdminApiDesktopRedeemParams,
+                types::AdminApiDesktopRedeemResult,
+            >(name, fixture, &root_schema),
+            "admin.api.desktop.token" => check_pair::<
+                types::AdminApiDesktopTokenParams,
+                types::AdminApiDesktopTokenResult,
+            >(name, fixture, &root_schema),
+            "admin.api.desktop.resolve" => check_pair::<
+                types::AdminApiDesktopResolveParams,
+                types::AdminApiDesktopResolveResult,
+            >(name, fixture, &root_schema),
             "device.list" => check_pair::<types::DeviceListParams, types::DeviceListResult>(
                 name,
                 fixture,

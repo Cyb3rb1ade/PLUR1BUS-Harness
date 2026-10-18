@@ -216,6 +216,22 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "device.pair": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.redeem": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.token": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.resolve": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "device.list": {
       "stability": "experimental",
       "since": "1.6.0"

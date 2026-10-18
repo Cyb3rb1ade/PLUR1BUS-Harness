@@ -110,7 +110,7 @@ fn pid_file_instance(ep: &Endpoints) -> Option<String> {
 pub(crate) fn rpc_endpoint(role: &Role) -> Endpoint {
     match role.kind {
         RoleKind::Core => Endpoint::Core,
-        RoleKind::Module => Endpoint::Module,
+        RoleKind::Api | RoleKind::Module => Endpoint::Module,
     }
 }
 

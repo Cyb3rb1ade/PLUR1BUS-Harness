@@ -2199,6 +2199,11 @@ pub enum PairingCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum DeviceCmd {
+    /// [experimental] Issue a person-bound desktop attach code valid for ten minutes
+    Pair {
+        #[arg(long, value_parser = ["desktop"])]
+        kind: String,
+    },
     /// [experimental] List your devices (Owner/Admin: all), including revoked devices
     List,
     /// [experimental] Revoke a device and close its connections immediately

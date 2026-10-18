@@ -163,7 +163,9 @@ pub fn classify_exit_for(
     requested: bool,
 ) -> ExitClass {
     match (kind, requested, code) {
-        (RoleKind::Core, ..) | (_, true, _) => classify_exit(code, signal, requested),
+        (RoleKind::Core | RoleKind::Api, ..) | (_, true, _) => {
+            classify_exit(code, signal, requested)
+        }
         (RoleKind::Module, false, Some(2)) => ExitClass::Fatal {
             reason: CrashReason::ManifestInvalid.to_string(),
         },
@@ -378,6 +380,7 @@ impl ChildState {
             "nextRestartAt": self.next_restart_at_ms,
             "kind": match self.kind {
                 RoleKind::Core => "core",
+                RoleKind::Api => "api",
                 RoleKind::Module => "module",
             },
         })
@@ -414,6 +417,7 @@ impl ChildState {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RoleKind {
     Core,
+    Api,
     Module,
 }
 
@@ -433,6 +437,13 @@ impl Role {
         }
     }
 
+    pub fn api() -> Role {
+        Role {
+            name: "api".into(),
+            kind: RoleKind::Api,
+        }
+    }
+
     pub fn module(name: &str) -> Role {
         Role {
             name: name.into(),
@@ -444,6 +455,7 @@ impl Role {
     pub fn method(&self, verb: &str) -> String {
         match self.kind {
             RoleKind::Core => format!("core.{verb}"),
+            RoleKind::Api => format!("api.{verb}"),
             RoleKind::Module => format!("module.{verb}"),
         }
     }

@@ -107,11 +107,11 @@ export class AccountStore implements UserDirectory {
   renewExpiredBootstrap(hash: string): boolean {
     return this.#safe(() => Number(this.#db.prepare("UPDATE bootstrap SET hash=?,expires_at=? WHERE id=1 AND consumed=0 AND expires_at<=?").run(hash, this.#now() + 15 * 60000, this.#now()).changes) === 1);
   }
-  async bootstrapOwner(username: string, passwordHash: string): Promise<void> {
+  async bootstrapOwner(username: string, passwordHash: string, beforeCommit?: () => void): Promise<void> {
     this.#safe(() => { this.#db.exec("BEGIN IMMEDIATE"); try {
       if (this.#db.prepare("SELECT person_id FROM accounts WHERE person_id='local-owner'").get() || (this.bootstrapState()?.consumed || (this.bootstrapState()?.expiresAt ?? 0) <= this.#now())) throw new ApiError(404, "E_NOT_FOUND", "bootstrap unavailable");
       this.#db.prepare("INSERT INTO accounts(person_id,username,password_hash,pending,created_at,updated_at) VALUES ('local-owner',?,?,0,?,?)").run(normalizeUsername(username), passwordHash, this.#now(), this.#now());
-      this.#db.prepare("UPDATE bootstrap SET consumed=1,hash=NULL WHERE id=1").run(); this.#db.exec("COMMIT");
+      this.#db.prepare("UPDATE bootstrap SET consumed=1,hash=NULL WHERE id=1").run(); beforeCommit?.(); this.#db.exec("COMMIT");
     } catch (e) { this.#db.exec("ROLLBACK"); if ((e as { errcode?: number }).errcode === 2067) throw conflict(); throw e; } });
     this.onChange?.("local-owner");
   }

@@ -684,3 +684,9 @@ Ordered by how much of the remaining acceptance each item unlocks.
 12. **M7 exit items.** On `main`: OpenClaw store take-over, routing a mismatched store into re-embedding, the `provenance: "imported"` test, identity back-fill. Added on branches `agy/m7-p1-openclaw-store` (#543) and `agy/m7-p2-provenance-backfill` (not on `main`): all four except a trigger surface for the back-fill; still open: cron import, card rollback, provenance after an edit.
 13. **Governance.** Independent reviewer reports (P6) and owner approval per milestone (P3) are not recorded after M1a; the §6.2 release checklist is untouched.
 
+
+### M3 native attach server contracts — 2026-10-18 implementation status
+
+Phase F (`codex/m3-desktop-attach`): P1 CLI code and Core device credentials, P2 transactional local bootstrap, P3 supervised loopback API with private publication, minimal meta, device-token redemption and one-use SPA tickets are implemented. Core/API and supervisor-to-SPA-cookie system regressions cover scope refusal, code/ticket replay, expiry, device/person revocation, API restart and stop cleanup. `api.supervised` is append-only in Doctor and the ops playbook. No Desktop SSH code was added.
+
+**Acceptance remains open:** Owner confirmation of the restricted scope and null fingerprint on HTTP loopback; native MFA continuation (executable todo in `packages/api/test/desktop-attach.test.ts`); installed SPA/native packaging and real tailnet/network end-to-end acceptance. Mandatory MFA currently refuses native redemption. These are not marked accepted by passing local transport tests. See [desktop attach contracts](desktop.md#native-attach-server-contracts-2026-10-18).

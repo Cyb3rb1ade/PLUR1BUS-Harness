@@ -198,3 +198,11 @@ First slice of the *Harness API* table, in `packages/api` (plan `docs/superpower
 - **Binding.** Loopback hosts only; `remote.publish` is not read yet.
 - **Errors.** `error/1` (ADR-016 §8, G15) with a member of the closed `ErrorCode` enum and a `reason`; no code was added.
 
+
+### Implementation note — native attach contracts, 2026-10-18
+
+The API is a first-party supervised `api` role, loopback only, with a private `run/api.json` publication after HTTP readiness. Its runtime entry ships in the Core payload for atomic setup/update. Public `/api/v1/meta` is minimal and has no person/account/host-path fields. Native device codes and hashed fixed-scope credentials remain Core-owned; one-use device/origin-bound SPA tickets are API-owned and produce restricted cookie sessions. Current authority and revocation are checked again on use. No attach path reads `run/api-owner.token`.
+
+First-owner registration uses the existing local proof with an exclusive API-process lock, transactional one-time consumption and a fail-closed audit-before-commit hook. The remote listeners cannot bootstrap an Owner. The production entry no longer initializes the legacy owner-token login credential; direct `createApiServer` users retain the explicit compatibility option.
+
+Acceptance is partial: HTTP loopback reports a null certificate fingerprint pending Owner confirmation, and native attach refuses an enrolled or mandatory second factor until a device/scope-preserving TOTP/WebAuthn continuation is implemented. It never bypasses MFA. This note authorizes no desktop SSH, tunnel, image or host-key UI implementation; see [desktop server contract status](../desktop.md#native-attach-server-contracts-2026-10-18).
