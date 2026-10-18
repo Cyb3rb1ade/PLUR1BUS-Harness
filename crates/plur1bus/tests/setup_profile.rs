@@ -195,27 +195,26 @@ fn rerun_without_use_class_keeps_the_recorded_class() {
 
 #[test]
 fn a_profile_change_is_refused_and_changes_nothing() {
-    for (first, second, hint) in [(
+    let (first, second, hint) = (
         "full",
         "host",
         "Hermes on an existing full installation arrives with HM4",
-    )] {
-        let e = Env::new();
-        let (code, v) = e.setup(&["--non-interactive", "--no-service", "--profile", first]);
-        assert_success(code, &v);
-        assert_eq!(v["manifest"]["profile"], first);
-        // A running supervisor keeps writing its logs; stop it so the tree holds still.
-        let stop = e.cmd(&["daemon", "stop"]).output().unwrap();
-        assert!(stop.status.success(), "{stop:?}");
-        let before = tree(&e.home);
-        let (code, v) = e.setup(&["--non-interactive", "--no-service", "--profile", second]);
-        assert_refused_as_profile_change(code, &v, hint);
-        assert_eq!(
-            tree(&e.home),
-            before,
-            "{first} -> {second} changed the home"
-        );
-    }
+    );
+    let e = Env::new();
+    let (code, v) = e.setup(&["--non-interactive", "--no-service", "--profile", first]);
+    assert_success(code, &v);
+    assert_eq!(v["manifest"]["profile"], first);
+    // A running supervisor keeps writing its logs; stop it so the tree holds still.
+    let stop = e.cmd(&["daemon", "stop"]).output().unwrap();
+    assert!(stop.status.success(), "{stop:?}");
+    let before = tree(&e.home);
+    let (code, v) = e.setup(&["--non-interactive", "--no-service", "--profile", second]);
+    assert_refused_as_profile_change(code, &v, hint);
+    assert_eq!(
+        tree(&e.home),
+        before,
+        "{first} -> {second} changed the home"
+    );
 }
 
 #[test]
