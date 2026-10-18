@@ -62,7 +62,7 @@ Writer-side redaction reuses `logs/redact.ts` and the shared data, before trunca
 sensitive keys/headers, vendor tokens, JWT/PEM, environment values, URL credentials/query/fragment,
 credential paths and optional PII (`redactPii`, false by default). `registerSecret(value)` adds known
 values of at least eight characters plus base64 and URL encodings to an in-memory registry
-capped at the 256 newest values (LRU). The secret store is not newly wired here. Pure hexadecimal hashes remain readable.
+capped at the 256 newest values (LRU). The secret store registers every value it sets, rotates, reveals or leases (`secrets/redaction.ts`); the registry fans out to the core log, the discovery and exec writers, the policy audit, `logs.query`/`logs.tail` and the doctor report. A retired or deleted value stays masked: the writer has no unregister. Pure hexadecimal hashes remain readable.
 Path matching uses the existing reader's lexical canonicalisation; filesystem/symlink-aware D109
 canonicalisation remains a follow-up. A redactor failure drops the original and writes only
 `log.redaction.failed` and its registered attempted event. No exception text is written.
