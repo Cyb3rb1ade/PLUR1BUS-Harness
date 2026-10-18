@@ -2189,6 +2189,8 @@ table! {
     Result "auth.status" AuthStatusResult,
     Params "channel.list" ChannelListParams,
     Result "channel.list" ChannelListResult,
+    Params "channel.crypto" ChannelCryptoParams,
+    Result "channel.crypto" ChannelCryptoResult,
     Params "channel.get" ChannelGetParams,
     Result "channel.get" ChannelGetResult,
     Params "channel.enable" ChannelEnableParams,
