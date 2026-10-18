@@ -21,8 +21,20 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Kanäle"
   },
   {
+    "slug": "chat-modelle",
+    "title": "Chat-Modelle und Denkstufe"
+  },
+  {
+    "slug": "cloud-embeddings",
+    "title": "Cloud-Embeddings und Cloud-Reranker"
+  },
+  {
     "slug": "container",
     "title": "Container"
+  },
+  {
+    "slug": "datenschutz",
+    "title": "Datenschutz und Modus „Nur lokal“"
   },
   {
     "slug": "desktop",
@@ -39,6 +51,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "freigaben",
     "title": "Freigaben und Berechtigungen"
+  },
+  {
+    "slug": "import-rollback",
+    "title": "Import rückgängig machen (Import-Rollback)"
   },
   {
     "slug": "lange-gespraeche",
@@ -77,8 +93,16 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Schnellstart"
   },
   {
+    "slug": "reembed",
+    "title": "Embedding-Modell wechseln (memory reembed)"
+  },
+  {
     "slug": "remote-access",
     "title": "Remote-Zugriff"
+  },
+  {
+    "slug": "secrets",
+    "title": "Secrets verwalten"
   },
   {
     "slug": "sprachfunktionen",
@@ -97,11 +121,15 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "breakglass": return import("./de/breakglass.ts").then(m => m.doc);
     case "budgets": return import("./de/budgets.ts").then(m => m.doc);
     case "channels": return import("./de/channels.ts").then(m => m.doc);
+    case "chat-modelle": return import("./de/chat-modelle.ts").then(m => m.doc);
+    case "cloud-embeddings": return import("./de/cloud-embeddings.ts").then(m => m.doc);
     case "container": return import("./de/container.ts").then(m => m.doc);
+    case "datenschutz": return import("./de/datenschutz.ts").then(m => m.doc);
     case "desktop": return import("./de/desktop.ts").then(m => m.doc);
     case "einladungen": return import("./de/einladungen.ts").then(m => m.doc);
     case "extensions": return import("./de/extensions.ts").then(m => m.doc);
     case "freigaben": return import("./de/freigaben.ts").then(m => m.doc);
+    case "import-rollback": return import("./de/import-rollback.ts").then(m => m.doc);
     case "lange-gespraeche": return import("./de/lange-gespraeche.ts").then(m => m.doc);
     case "media": return import("./de/media.ts").then(m => m.doc);
     case "mediensuche": return import("./de/mediensuche.ts").then(m => m.doc);
@@ -111,7 +139,9 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "projekte": return import("./de/projekte.ts").then(m => m.doc);
     case "providers": return import("./de/providers.ts").then(m => m.doc);
     case "quickstart": return import("./de/quickstart.ts").then(m => m.doc);
+    case "reembed": return import("./de/reembed.ts").then(m => m.doc);
     case "remote-access": return import("./de/remote-access.ts").then(m => m.doc);
+    case "secrets": return import("./de/secrets.ts").then(m => m.doc);
     case "sprachfunktionen": return import("./de/sprachfunktionen.ts").then(m => m.doc);
     case "wiederkehrende-aufgaben": return import("./de/wiederkehrende-aufgaben.ts").then(m => m.doc);
     default: return null;
