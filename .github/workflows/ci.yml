@@ -571,6 +571,57 @@ jobs:
             startup-models.md
           if-no-files-found: warn
 
+  perf-budgets:
+    name: budget catalogue (${{ matrix.os }}, advisory)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025, windows-11-arm, ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: '1.95' }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+      - name: install pinned dependencies
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          base="https://github.com/"
+          if [ -n "$GH_ENGINE_READ_TOKEN" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; fi
+          export GIT_CONFIG_COUNT=3
+          export GIT_CONFIG_KEY_0="url.${base}.insteadOf" GIT_CONFIG_VALUE_0='git@github.com:'
+          export GIT_CONFIG_KEY_1="url.${base}.insteadOf" GIT_CONFIG_VALUE_1='ssh://git@github.com/'
+          export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
+          pnpm install --frozen-lockfile
+      - run: pnpm prep
+      - run: cargo build --release -p plur1bus
+      - name: O6 dry hardware baseline (known incomplete coverage is explicit)
+        shell: bash
+        run: |
+          set +e
+          node scripts/bench/reference-hardware.mjs --out reference-ci
+          result=$?
+          if [ "$result" = 2 ]; then
+            echo '::warning::Reference collector reports known incomplete B10 coverage / B5 miss; see JSON and Markdown. No gate promotion.'
+          else
+            exit "$result"
+          fi
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: budgets-${{ matrix.os }}
+          path: |
+            reference-ci.json
+            reference-ci.md
+          if-no-files-found: error
+
   # D100 golden set (separate, append-only job): render one document per template and compare against the committed
   # references (visual diff). Chrome is pinned (CHROME_VERSION) because the references are only comparable to renders of that
   # build; byte-identical PNGs are not stable across versions, so pages are compared pixel-wise: per-channel tolerance 8/255,
