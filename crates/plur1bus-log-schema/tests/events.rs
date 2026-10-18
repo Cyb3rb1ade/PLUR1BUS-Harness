@@ -682,7 +682,7 @@ fn credential_named_config_properties() -> Vec<(String, Value)> {
 
 #[test]
 fn the_config_properties_that_only_name_a_secret_say_so_and_the_one_that_holds_a_value_is_known() {
-    // Seven properties are references ("Name of the secret holding …"): the value lives in the secret store, never in config.json.
+    // Eight properties are references ("Name of the secret holding …"): the value lives in the secret store, never in config.json.
     let found = credential_named_config_properties();
     let (refs, values): (Vec<_>, Vec<_>) = found.iter().partition(|(_, n)| {
         n["description"]
@@ -690,7 +690,7 @@ fn the_config_properties_that_only_name_a_secret_say_so_and_the_one_that_holds_a
             .unwrap_or("")
             .starts_with("Name of the secret")
     });
-    assert_eq!(refs.len(), 7, "{refs:?}");
+    assert_eq!(refs.len(), 8, "{refs:?}");
     let value_paths: Vec<&str> = values.iter().map(|(p, _)| p.as_str()).collect();
     assert_eq!(
         value_paths,

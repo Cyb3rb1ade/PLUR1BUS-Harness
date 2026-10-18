@@ -61,7 +61,7 @@ test('real verifier sandbox blocks network and kills a timed-out process', async
   const timeout = await sandboxVerifier(20).run(f.root, { kind: 'test', argv: ['node','hang.cjs'] }, { signal: new AbortController().signal, networkAllowed: false });
   assert.equal(timeout.ok, false); assert.equal(timeout.reason, 'timeout');
 });
-test('task.complete cannot be bypassed by a green report; only an authenticated human lead can use the audited override RPC', async t => {
+test('coding_complete tool and task.complete RPC cannot be bypassed by a green report; only an authenticated human lead can use the audited override RPC', async t => {
   const { createCollab } = await import('../../src/collab/service.ts');
   const { codingCompletionTool, codingMethods } = await import('../../src/collab/coding-surface.ts');
   const { ToolRegistry } = await import('../../src/tools/registry.ts');
@@ -78,9 +78,9 @@ test('task.complete cannot be bypassed by a green report; only an authenticated 
   const registry = new ToolRegistry(); registry.register(codingCompletionTool(o, { projectId: p.id } as never, () => owner));
   const dispatcher = new ToolDispatcher({ registry, approvals: { async request() { throw Error('unexpected ask'); } }, grants: { get: () => undefined, list: () => [] }, clock: { now: Date.now }, policyContext: () => ({ overrides: { 'shell.exec': 'allowed' } }) });
   const ctx = { agentId: 'worker', principal: owner.userId, surface: 1 as const, signal: new AbortController().signal };
-  const result = await dispatcher.call({ id: 'complete', name: 'task.complete', args: { projectId: p.id, cardId: card.id } }, ctx);
+  const result = await dispatcher.call({ id: 'complete', name: 'coding_complete', args: { projectId: p.id, cardId: card.id } }, ctx);
   assert.equal(result.isError, true); assert.equal(collab.boardStore.getCard(p.id, card.id).columnId, card.columnId);
-  const bypass = await dispatcher.call({ id: 'bypass', name: 'task.complete', args: { projectId: p.id, cardId: card.id, overrideNote: 'agent override' } }, ctx);
+  const bypass = await dispatcher.call({ id: 'bypass', name: 'coding_complete', args: { projectId: p.id, cardId: card.id, overrideNote: 'agent override' } }, ctx);
   assert.equal(bypass.isError, true);
   const methods = guardMethods(codingMethods(o), { resolve: () => owner, audit: { append() {} }, now: Date.now });
   const foreign = guardMethods(codingMethods(o), { resolve: () => ({ kind: 'person', userId: 'other', role: 'member' }), now: Date.now });
