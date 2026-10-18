@@ -9,7 +9,7 @@ Plur1bus provides a strict "Local only" privacy mode (`privacy.localOnly`) that 
 1. Open **Settings** (`#/settings/security` or `#/settings/general`).
 2. Navigate to the **Privacy & Network** card.
 3. Toggle the switch **Local only** to **Enabled**.
-4. To allow a self-hosted inference server on your home network, add its URL under **Local endpoints** (for example `http://192.168.1.50:11434`).
+4. To allow a self-hosted inference server on your home network, add its URL under **Local endpoints** (for example `http://100.64.0.10:8080`).
 5. Choose **Save changes**.
 
 ### CLI
@@ -29,7 +29,7 @@ plur1bus config set privacy.localOnly true
 Allow trusted home network or self-hosted endpoints:
 
 ```sh
-plur1bus config set privacy.localEndpoints '["http://192.168.1.50:11434"]'
+plur1bus config set privacy.localEndpoints '["http://100.64.0.10:8080"]'
 plur1bus config get privacy.localEndpoints
 ```
 

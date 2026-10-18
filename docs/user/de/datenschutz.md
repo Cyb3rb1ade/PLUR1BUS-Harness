@@ -9,7 +9,7 @@ Plur1bus bietet mit dem Schalter „Nur lokal“ (`privacy.localOnly`) eine stri
 1. Öffne die **Einstellungen** (`#/settings/security` oder `#/settings/general`).
 2. Scrolle zur Karte **Datenschutz & Netzwerk**.
 3. Schalte den Regler **Nur lokal** auf **Aktiviert**.
-4. Um einen selbst gehosteten Server im Heimnetz freizugeben, trage dessen Adresse unter **Lokale Endpunkte** ein (zum Beispiel `http://192.168.1.50:11434`).
+4. Um einen selbst gehosteten Server im Heimnetz freizugeben, trage dessen Adresse unter **Lokale Endpunkte** ein (zum Beispiel `http://100.64.0.10:8080`).
 5. Klicke auf **Änderungen speichern**.
 
 ### CLI
@@ -29,7 +29,7 @@ plur1bus config set privacy.localOnly true
 Eigene Heimserver und LAN-Endpunkte freigeben:
 
 ```sh
-plur1bus config set privacy.localEndpoints '["http://192.168.1.50:11434"]'
+plur1bus config set privacy.localEndpoints '["http://100.64.0.10:8080"]'
 plur1bus config get privacy.localEndpoints
 ```
 
