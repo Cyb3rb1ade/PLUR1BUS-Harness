@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { CallBudgetExceededError, type CallBudget } from '../budget/index.ts';
 import { homedir } from 'node:os';
-import { ToolRegistry, type ToolClassification, type ToolDef } from '../tools/registry.ts';
+import { ToolRegistry, type ToolClassification, type ToolDef, type ToolProcessSandbox } from '../tools/registry.ts';
 import { createFsTools } from '../tools/fs/tools.ts';
 import { canonicalisePath, type PathRoot, type DenyEntry } from '../policy/paths-index.ts';
 import { CAPABILITIES } from '../policy/index.ts';
@@ -27,6 +27,9 @@ import { WebFailure } from '../tools/web/failure.ts';
 import type { WebSearch } from '../tools/web/search.ts';
 import { WEB_SEARCH_DESCRIPTION, WEB_SEARCH_SCHEMA } from '../tools/web/tools.ts';
 import { DOCUMENT_RENDER_DESCRIPTION, DOCUMENT_RENDER_SCHEMA, reviewDocument, type DocumentRenderArgs, type ReviewBrowser, type TemplateId } from '../../../documents/src/index.ts';
+
+/** hostctl routes that launch processes, native apps or OS services through the hostctl worker (no sandbox policy yet). */
+const HOSTCTL_UNSANDBOXED = /^hostctl\.(?:proc\.(?:exec|start|shell)|app\.open|clipboard\.|notify|fs\.(?:search|trash))/;
 
 export interface ToolCompositionOptions {
   sandbox?: SandboxOptions;
@@ -152,7 +155,10 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     } });
   }
   if (o.secretNames) registry.register(secretNamesTool(o.secretNames));
-  for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) registry.register(/^hostctl\.(?:proc\.(?:exec|start|shell)|app\.open|clipboard\.|notify|fs\.(?:search|trash))/.test(tool.name) ? { ...tool, execute: async (args, ctx) => { if (o.sandbox?.required !== false) throw new Error('hostctl process sandbox adapter unavailable'); o.audit.append({ at: Date.now(), actor: { user: ctx.principal, host: 'local' }, action: 'sandbox.bypass', target: tool.name, detail: { required: false, sandboxed: false } }); return tool.execute(args, ctx); } } : tool);
+  // D106: hostctl's worker launches processes the harness sandbox cannot confine. The dispatcher enforces processSandbox on
+  // every call (refused while required; owner bypass audited before each launch), so the tool itself stays unwrapped.
+  const hostctlProcessSandbox: ToolProcessSandbox = { required: o.sandbox?.required !== false, recordBypass: launch => o.audit.append({ at: Date.now(), actor: { user: launch.principal, host: 'local' }, action: 'sandbox.bypass', target: launch.tool, detail: { required: false, sandboxed: false } }) };
+  for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) registry.register(HOSTCTL_UNSANDBOXED.test(tool.name) ? { ...tool, processSandbox: hostctlProcessSandbox } : tool);
   if (o.documents) {
     const browser = o.documents.browser;
     // Output is confined to the granted roots only: `requireRoot: true` refuses a path outside every root (no approval path).

@@ -128,6 +128,13 @@ export class ToolDispatcher {
           { issues: issues.slice(0, 10), hint: `Call ${tool.name} again with arguments that match its input schema.` });
       }
 
+      // 1b. D106 sandbox precondition: a tool whose processes the sandbox cannot confine does not run while the sandbox is
+      // required. Refused before the policy gate, so nobody is asked to approve a launch that cannot happen.
+      if (tool.processSandbox && tool.processSandbox.required !== false) {
+        this.#auditSoft("policy.decision", { ...this.#who(ctx, undefined), tool: tool.name, capability: tool.capability, outcome: "never", rule: "sandbox-unavailable" });
+        return fail("tool-denied", `${tool.name} launches host processes the sandbox cannot confine; refused while tools.sandbox.required is on`, "deny");
+      }
+
       // 2. policy gate.
       let call: Call;
       let classified: ToolClassification | undefined;
@@ -172,6 +179,11 @@ export class ToolDispatcher {
         if (refusal) return out(fail("tool-not-approved", refusal, "ask-refused"));
       }
       if (ctx.signal.aborted) return out(fail("aborted", "the call was aborted before it ran", via));
+      // D106 owner bypass: recorded before each launch; a launch that cannot be recorded does not happen.
+      if (tool.processSandbox) {
+        try { tool.processSandbox.recordBypass({ principal: ctx.principal, agentId: ctx.agentId, tool: tool.name, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}) }); }
+        catch { return out(fail("tool-denied", "the sandbox bypass could not be recorded; nothing runs unsandboxed and unrecorded", via)); }
+      }
 
       // 3. execute under the tool's own hard limits and the caller's abort.
       const ran = await this.#run(tool, args, ctx, classified);
