@@ -81,12 +81,13 @@ describe("settings config: sections and fields", opts, () => {
       assert.equal(await app.page.locator("#cfg-core-logLevel").count(), 0);
       assert.equal(await app.page.locator("#cfg-egress-allowLoopback").getAttribute("role"), "switch");
       await app.page.evaluate(() => { location.hash = "#/settings/models"; });
-      const roles = app.page.locator("#cfg-modelRoles");
+      const roles = app.page.locator("#cfg-modelRoles-chat");
       await roles.waitFor();
       const text = await app.page.locator("main").innerText();
       assert.ok(!text.includes("sk-secret-123") && !text.includes("sk-should-not-show"), "secret value shown");
-      assert.match(await roles.innerText(), /chat/);
-      assert.match(await app.page.locator(".cfg-field", { has: roles }).innerText(), /read-only/i);
+      assert.equal(await roles.inputValue(), "anthropic/claude-x");
+      assert.equal(await roles.isEnabled(), true);
+      assert.equal(await app.page.locator("#cfg-modelRoles-decision").count(), 1);
       assert.equal(await app.page.locator("#cfg-models-scan-enabled").getAttribute("role"), "switch");
     });
   });
@@ -316,7 +317,7 @@ describe("settings config: a11y and layout", opts, () => {
         await expectAxeClean(app.page, `review ${scheme}`);
         app.page.once("dialog", (d) => { void d.accept(); }); // the review still holds the edits; leaving the section asks first (covered above)
         await app.page.evaluate(() => { location.hash = "#/settings/models"; });
-        await app.page.locator("#cfg-modelRoles").waitFor();
+        await app.page.locator("#cfg-modelRoles-chat").waitFor();
         await expectAxeClean(app.page, `models ${scheme}`);
       });
     });
@@ -347,7 +348,7 @@ describe("settings config: a11y and layout", opts, () => {
       assert.equal(await wide(), false);
       app.page.once("dialog", (d) => { void d.accept(); }); // leaving the section with the edit asks first (covered above)
       await app.page.evaluate(() => { location.hash = "#/settings/models"; });
-      await app.page.locator("#cfg-modelRoles").waitFor();
+      await app.page.locator("#cfg-modelRoles-chat").waitFor();
       assert.equal(await wide(), false);
     });
   });

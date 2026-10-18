@@ -17,3 +17,5 @@ is a recommendation only.
 | X1 | [m8-d1-x1-hm-p6-2026-10.md](m8-d1-x1-hm-p6-2026-10.md) | acceptable with conditions | `3859b949` | 2026-10-16 |
 | HM2 (harness side) | [m8-d1-x1-hm-p6-2026-10.md](m8-d1-x1-hm-p6-2026-10.md) | acceptable with conditions (Linux only) | `3859b949` | 2026-10-16 |
 | HM3 | [m8-d1-x1-hm-p6-2026-10.md](m8-d1-x1-hm-p6-2026-10.md) | acceptable with conditions | `3859b949` | 2026-10-16 |
+| Security & Privacy additions (17./18.10.2026: Audience, D106, LocalOnly, Secrets, ChatModel, Reembed) | [2026-10-18-index.md](2026-10-18-index.md) | 2 not acceptable, 4 acceptable with conditions | `2b5a435c` | 2026-10-18 |
+

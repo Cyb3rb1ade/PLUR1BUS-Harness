@@ -162,6 +162,15 @@ fn firstaid_check_reports_the_decision_role_as_ok_once_it_is_set() {
     )
     .unwrap();
 
+    fs::create_dir_all(home.join("catalog")).unwrap();
+    fs::write(
+        home.join("catalog/models.json"),
+        json!({ "models": [
+        { "provider": "p", "id": "small", "aliases": [], "status": "available" }
+    ] })
+        .to_string(),
+    )
+    .unwrap();
     let mut cmd = bin();
     cmd.arg("--home")
         .arg(&home)
