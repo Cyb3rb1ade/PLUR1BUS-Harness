@@ -58,6 +58,7 @@ describe("decision hint: setup wizard", opts, () => {
       assert.ok(reads(app).some((p) => (p as { key?: string })?.key === "modelRoles.decision"), "the role is read, not assumed");
 
       await page.getByLabel("Chat model").selectOption("anthropic/claude-x"); await next(page);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
       await stepHeading(page, /Switchboard/).waitFor(); await skip(page);
       await stepHeading(page, /Memory/).waitFor(); await next(page);
       await stepHeading(page, /Language for voice features/).waitFor(); await skip(page);

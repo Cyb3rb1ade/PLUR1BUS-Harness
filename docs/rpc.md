@@ -10380,6 +10380,55 @@ Returns every installed extension and subscribes this connection to ext.changed.
 }
 ```
 
+### `models.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin model probe through the configured chat adapter and budget. Fixed prompt, no tools, memory or session writes. Ten second deadline. E_NOT_AVAILABLE reasons model-not-configured, model-test-timeout, model-test-failed. Embedding/reranking probes are not supported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "durationMs"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
 ### `models.list`
 
 **Stability:** experimental · since 1.5.0

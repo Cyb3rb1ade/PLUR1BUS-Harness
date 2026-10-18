@@ -130,6 +130,16 @@ criteria are met on this codebase:
 
 ### M2 — Models, providers, auth, caching, budgets
 
+**Phase A, model roles (2026-10-18, branch `codex/model-roles-ui`): partial.** Catalog-backed role selectors now use the
+existing revision-checked config review/save flow. A human-only `models.test` probes configured chat adapters through the
+production budget/router with no session, memory or tools. CLI and Web setup offer an explicit optional Decision choice;
+unattended setup never assigns it. Doctor reports the selected model and last catalog availability, including unknown and
+unavailable states. New model-role requests reread live role configuration. Tests: `model-roles.test.ts`,
+`composition/model-test.test.ts`, `session/maintenance.test.ts`, Rust setup/model CLI and RPC fixture parity.
+Still open: canonical local-only gating after #570, engine-role probes after Phase D, and a captioning role contract (the
+current `modelRoles` schema has eight roles; captioning is configured under `memory.mediaEmbedding.caption`). No milestone
+or full seven-phase package acceptance is claimed.
+
 **Goal.** Three chat wire formats, remote embedding/rerank, a data-driven auth engine that ships no `prohibited` profile, and a cache-stable prompt layout that is CI-enforced.
 
 **Scope**
