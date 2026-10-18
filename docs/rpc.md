@@ -4337,6 +4337,51 @@ Authenticated project agent.remove using ADR-007 object rights.
 }
 ```
 
+### `task.complete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Complete an assigned coding card after sandboxed verifiers and exact-tree review. Human project leads may override with an audited note.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "overrideNote": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `collab.session.replay`
 
 **Stability:** experimental · since 1.5.0
