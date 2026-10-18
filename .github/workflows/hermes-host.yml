@@ -311,3 +311,50 @@ jobs:
           name: real-hermes-${{ matrix.os }}-${{ matrix.hermes }}
           path: ${{ runner.temp }}/logs/
           retention-days: 7
+
+  hm4-contract:
+    name: HM4 scoped client and profile upgrade (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: '1.95' }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+      - name: install pinned dependencies
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          base="https://github.com/"
+          if [ -n "$GH_ENGINE_READ_TOKEN" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; fi
+          export GIT_CONFIG_COUNT=3
+          export GIT_CONFIG_KEY_0="url.${base}.insteadOf" GIT_CONFIG_VALUE_0='git@github.com:'
+          export GIT_CONFIG_KEY_1="url.${base}.insteadOf" GIT_CONFIG_VALUE_1='ssh://git@github.com/'
+          export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
+          pnpm install --frozen-lockfile
+      - run: pnpm prep
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with: { python-version: '3.11' }
+      - name: scoped token and real fake-Hermes client
+        env:
+          PYTHON: python
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 packages/core/test/hermes/scoped-client.test.ts packages/rpc-schema/test/hermes-client-auth.test.ts
+      - name: profile transaction and read-only dry-run
+        run: cargo test -p plur1bus --test hm4 --test setup_profile
+      - name: profile rollback and store inode preservation
+        run: cargo test -p plur1bus profile_upgrade
+      - name: Python provider and client offline suites
+        shell: bash
+        run: |
+          python -m unittest discover -s hosts/hermes/tests -t hosts/hermes
+          python -m unittest discover -s clients/python/plur1bus-memory-client/tests -t clients/python/plur1bus-memory-client

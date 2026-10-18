@@ -26,6 +26,17 @@ export interface ToolRunContext {
   classified?: ToolClassification;
 }
 
+/**
+ * D106: the tool launches host processes through a path the harness sandbox cannot confine (the hostctl worker). The
+ * dispatcher enforces it as a precondition of `call`: refused while `required` is on; with the owner's bypass
+ * (`tools.sandbox.required=false`) `recordBypass` writes the audit line before each launch, and a failed write refuses the
+ * call. Set by the composition root from trusted configuration, never from a tool argument.
+ */
+export interface ToolProcessSandbox {
+  required: boolean;
+  recordBypass(launch: { principal: string; agentId: string; tool: string; sessionId?: string }): void;
+}
+
 /** What the tool knows about a call that the policy needs (D109 §2). Flags are computed by the harness path layer, not the model. */
 export interface ToolClassification {
   flags?: Partial<CallFlags>;
@@ -49,6 +60,7 @@ export interface ToolDef {
   risk: Risk;
   trust?: ToolTrust;
   limits?: Partial<ToolLimits>;
+  processSandbox?: ToolProcessSandbox;
   classify?(args: unknown): ToolClassification | Promise<ToolClassification>;
   execute(args: unknown, ctx: ToolRunContext): Promise<unknown>;
 }
@@ -56,7 +68,7 @@ export interface ToolDef {
 export interface RegisteredTool extends Omit<ToolDef, "limits" | "trust"> { readonly limits: ToolLimits; readonly trust: ToolTrust }
 export interface ToolDescription { name: string; description: string; inputSchema: Record<string, unknown>; risk: Risk }
 
-export type RegistryReason = "name" | "description" | "schema" | "capability" | "effect" | "risk" | "limits" | "duplicate" | "reserved";
+export type RegistryReason = "name" | "description" | "schema" | "capability" | "effect" | "risk" | "limits" | "sandbox" | "duplicate" | "reserved";
 export class RegistryError extends Error {
   readonly reason: RegistryReason;
   constructor(reason: RegistryReason, message: string) { super(message); this.name = "RegistryError"; this.reason = reason; }
@@ -92,11 +104,13 @@ export class ToolRegistry {
     const maxResultBytes = d.limits?.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES;
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > HARD_MAX_TIMEOUT_MS) bad("limits", `timeoutMs must be 1..${HARD_MAX_TIMEOUT_MS}`);
     if (!Number.isInteger(maxResultBytes) || maxResultBytes < 1 || maxResultBytes > HARD_MAX_RESULT_BYTES) bad("limits", `maxResultBytes must be 1..${HARD_MAX_RESULT_BYTES}`);
+    if (d.processSandbox !== undefined && (d.processSandbox === null || typeof d.processSandbox !== "object" || typeof d.processSandbox.required !== "boolean" || typeof d.processSandbox.recordBypass !== "function")) bad("sandbox", "processSandbox needs a boolean required and a recordBypass function");
     let schema: Record<string, unknown>;
     try { schema = JSON.parse(JSON.stringify(d.inputSchema)) as Record<string, unknown>; } catch { return bad("schema", "inputSchema is not JSON"); }
     this.#tools.set(d.name, deepFreeze({
       name: d.name, ...(d.discovery ? { discovery: structuredClone(d.discovery) } : {}), description: d.description, inputSchema: schema, capability: cap.id, effect: d.effect, risk: d.risk,
       trust: d.trust ?? "untrusted", limits: { timeoutMs, maxResultBytes },
+      ...(d.processSandbox ? { processSandbox: { required: d.processSandbox.required, recordBypass: d.processSandbox.recordBypass } } : {}),
       ...(d.classify ? { classify: d.classify } : {}), execute: d.execute,
     }));
   }

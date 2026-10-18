@@ -391,6 +391,12 @@ pub enum OnConflict {
 /// `plur1bus setup` (spec §6.5, HB11).
 #[derive(Args, Debug)]
 pub struct SetupArgs {
+    /// Show the setup/profile-upgrade plan without changing files or services
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Restore a preserved interrupted profile-upgrade snapshot (daemon is stopped first)
+    #[arg(long)]
+    pub recover_profile: bool,
     /// Install in container mode on this host
     #[arg(long)]
     pub container: bool,

@@ -30,7 +30,7 @@ jsonschema = { version = "0.26", default-features = false }
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
 flate2 = "1"
 tar = { version = "0.4", default-features = false }
-zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 minisign-verify = "0.2"
 plur1bus-ext = { path = "../plur1bus-ext" }
 semver = "1"
