@@ -327,6 +327,13 @@ describe("secrets and PII", () => {
     w.registerSecret("fixture-late-secret"); w.write(...line("after fixture-late-secret"), { stream: "stdout" }); w.close();
     const [a, b] = rows(); assert.ok(a.attrs.text.includes("fixture-late-secret")); assert.ok(!b.attrs.text.includes("fixture-late-secret"));
   });
+  it("registerSecret keeps the newest 256 values", () => {
+    const { w } = mk();
+    w.registerSecret("fixture-secret-oldest");
+    for (let i = 0; i < 256; i++) w.registerSecret(`fixture-secret-${String(i).padStart(3, "0")}-xxxx`);
+    w.write(...line("still fixture-secret-oldest here"), { stream: "stdout" }); w.close();
+    assert.ok(rows()[0].attrs.text.includes("fixture-secret-oldest"));
+  });
   it("redactPii masks e-mail addresses only when enabled", () => {
     const on = mk({ redactPii: true }); on.w.write(...line("mail person@example.test"), { stream: "stdout" }); on.w.close();
     assert.ok(!rows()[0].attrs.text.includes("person@example.test"));

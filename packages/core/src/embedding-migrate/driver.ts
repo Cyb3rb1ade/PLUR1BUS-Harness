@@ -267,6 +267,9 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     }
     const rec = await d.engine.status(c.id);
     if (!rec || rec.state !== "ready_to_switch") throw new MigrationError("not-ready-to-switch", `the engine reports ${rec?.state ?? "no record"} for ${c.id}`);
+    if (rec.id !== c.id || rec.source.generation !== c.sourceGeneration || rec.target.generation === rec.source.generation) {
+      throw new MigrationError("not-ready-to-switch", "the engine migration record or source generation differs from the checkpoint; not switching");
+    }
     // The generation the engine finished must be the one this checkpoint planned: never write another vector space into the config.
     if (rec.target.generation !== c.targetGeneration || !sameSpace(rec.target.fingerprint, c.target)) {
       throw new MigrationError("not-ready-to-switch", `the engine's target for ${c.id} (generation, provider, model or dimensions) differs from the planned one; plan again`);

@@ -1,3 +1,4 @@
+import { passkeyLogin } from "../passkeys.ts";
 import { h } from "preact";
 import type { View } from "../view.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -20,7 +21,7 @@ function failureText(f: LoginFailure): string {
 type Err = { kind: "required" } | { kind: "failure"; failure: LoginFailure };
 
 export function LoginPage(): View {
-  const [account, setAccount] = useState(false); const [username, setUsername] = useState(""); const [password, setPassword] = useState(""); const [challenge, setChallenge] = useState<string | null>(null); const [code, setCode] = useState(""); const submitting = useRef(false);
+  const [webAuthnFactor, setWebAuthnFactor] = useState(false); const [account, setAccount] = useState(false); const [username, setUsername] = useState(""); const [password, setPassword] = useState(""); const [challenge, setChallenge] = useState<string | null>(null); const [code, setCode] = useState(""); const submitting = useRef(false);
   const [token, setToken] = useState("");
   const [reveal, setReveal] = useState(false);
   const [pending, setPending] = useState(false);
@@ -31,6 +32,7 @@ export function LoginPage(): View {
   const onSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
     if (submitting.current) return;
+    if (account && challenge && webAuthnFactor) { submitting.current = true; setPending(true); try { await passkeyLogin(username, challenge); } catch { setError({ kind: "failure", failure: { kind: "invalid-token" } }); } finally { submitting.current = false; setPending(false); } return; }
     if (account ? challenge ? code.trim() === "" : username.trim() === "" || password === "" : token.trim() === "") {
       setError({ kind: "required" });
       tokenRef.current?.focus();
@@ -43,7 +45,7 @@ export function LoginPage(): View {
     setPending(false);
     setToken(""); // the token lives in this field only until it has been sent, after a failure too
     setReveal(false); // and the next attempt starts masked
-    if (!result.ok && "challenge" in result) { setChallenge(result.challenge); return; }
+    if (!result.ok && "challenge" in result) { setChallenge(result.challenge); setWebAuthnFactor(result.mfa === "webauthn"); return; }
     if (!result.ok) {
       setError({ kind: "failure", failure: result.failure });
       tokenRef.current?.focus();
@@ -60,11 +62,13 @@ export function LoginPage(): View {
       h("p", { class: "wordmark big", "aria-hidden": "true" }, "PLUR", h("span", { class: "one" }, "1"), "BUS"),
       h("h1", { tabIndex: -1 }, t("login.title")),
       h("p", { class: "lead" }, t("login.lead")),
+      h("a", { href: "#/setup", class: "btn btn-quiet" }, t("join.title")),
       sessionNotice.value === "expired" ? h("p", { class: "form-notice", role: "status" }, t("login.notice.expired")) : null,
       h("button", { type: "button", class: "btn btn-quiet", disabled: pending, onClick: () => { setAccount(!account); setChallenge(null); setError(null); setToken(""); setPassword(""); setCode(""); } }, t(account ? "login.account.owner" : "login.account.use")),
+      h("button", { type: "button", class: "btn", disabled: pending || !username.trim(), onClick: async () => { if (submitting.current) return; submitting.current = true; setPending(true); try { await passkeyLogin(username, challenge ?? undefined); } catch { setError({ kind: "failure", failure: { kind: "invalid-token" } }); } finally { submitting.current = false; setPending(false); } } }, t("passkeys.login")),
       h("form", { noValidate: true, onSubmit },
         account ? h("div", null,
-          challenge ? h("label", { for: "login-totp" }, t("login.account.code"), h("input", { id: "login-totp", value: code, autocomplete: "one-time-code", onInput: (e: Event) => setCode((e.target as HTMLInputElement).value) })) : [
+          challenge ? webAuthnFactor ? h("p", { role: "status" }, t("passkeys.login")) : h("label", { for: "login-totp" }, t("login.account.code"), h("input", { id: "login-totp", value: code, autocomplete: "one-time-code", onInput: (e: Event) => setCode((e.target as HTMLInputElement).value) })) : [
             h("label", { for: "login-username" }, t("login.account.username"), h("input", { id: "login-username", value: username, autocomplete: "username", onInput: (e: Event) => setUsername((e.target as HTMLInputElement).value) })),
             h("label", { for: "login-password" }, t("login.account.password"), h("input", { id: "login-password", type: "password", value: password, autocomplete: "current-password", onInput: (e: Event) => setPassword((e.target as HTMLInputElement).value) })),
           ]) : h("div", { class: "field" },

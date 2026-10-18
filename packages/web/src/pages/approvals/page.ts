@@ -1,7 +1,7 @@
 // Approvals Page: approval.list, approval.get, approval.decide, approval.cancel, grant.list, grant.revoke.
 // Strict D109 layout: Capability, Tool, Targets, Action Hash, Summary, Options before Agent Rationale.
 import { h } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge, Card, type BadgeTone } from "../../components/card.ts";
 import { Page } from "../../components/page.ts";
@@ -329,7 +329,7 @@ function GrantsList(): View {
   const refocus = useRef(false);
   // The reloaded list releases the lock a successful revoke keeps shut (the old row is still on screen until then), and a row
   // that is gone took the focus with it.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (state.status !== "ok") return;
     lock.current = false;
     setBusyId(null);
@@ -451,7 +451,7 @@ function PendingApprovalsList(): View {
   const box = useRef<HTMLDivElement>(null);
   const refocus = useRef(false);
   // The decided card is gone after the reload and took the focus with it.
-  useEffect(() => { if (refocus.current && state.status === "ok") { refocus.current = false; restoreFocus(box.current); } }, [state]);
+  useLayoutEffect(() => { if (refocus.current && state.status === "ok") { refocus.current = false; restoreFocus(box.current); } }, [state]);
 
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
   if (state.status === "fail")

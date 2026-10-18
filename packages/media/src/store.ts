@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { safeId } from './files.ts';
 import { embedImage } from './adapters/_shared/metadata.ts';
+import { sniffFormat } from './adapters/_shared/images.ts';
 import { MediaError, failure, metadataEnabled, validateRequest } from './types.ts';
 import type { ImageRequest, ImageResult } from './types.ts';
 export interface Manifest {
@@ -67,6 +68,7 @@ export class OutputStore {
     const embed = metadataEnabled({ ...(this.options.embedMetadata === undefined ? {} : { global: this.options.embedMetadata }), ...(agentMetadata === undefined ? {} : { agent: agentMetadata }), ...(req.embedMetadata === undefined ? {} : { call: req.embedMetadata }) });
     const files = result.files.map((f, index) => {
       if (!['png', 'jpeg', 'webp'].includes(f.format) || !f.bytes.length) throw new MediaError('invalid_response');
+      if (!embed && sniffFormat(f.bytes) !== f.format) throw new MediaError('invalid_response');
       const bytes = embed ? embedImage(f.bytes, f.format as import('./types.ts').ImageFormat, { prompt: req.prompt, parameters, metadata: result.metadata }) : f.bytes;
       manifest.files.push({ path: `${index}.${f.format}`, sha256: hash(bytes), bytes: bytes.length, format: f.format }); return bytes;
     });

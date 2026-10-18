@@ -119,7 +119,11 @@ export class SocketMode {
           r = await this.#attempt(signal);
         } catch (e) {
           if (e instanceof SocketFatalError) return this.#fatal(e);
-          throw e;
+          // An unexpected error (a socket factory that throws) has no caller to report to in the background loop and its text can
+          // carry the ticket-bearing url: it ends the loop through the fatal path with a fixed code instead of escaping as an
+          // unhandled rejection.
+          this.#o.log("error", "channel.slack.connect-failed", { kind: "unexpected" });
+          return this.#fatal(new SocketFatalError("socket-factory"));
         }
         if ("retryMs" in r) {
           attempt++;
@@ -140,7 +144,11 @@ export class SocketMode {
           r = await this.#attempt(signal);
         } catch (e) {
           if (e instanceof SocketFatalError) return this.#fatal(e);
-          throw e;
+          // An unexpected error (a socket factory that throws) has no caller to report to in the background loop and its text can
+          // carry the ticket-bearing url: it ends the loop through the fatal path with a fixed code instead of escaping as an
+          // unhandled rejection.
+          this.#o.log("error", "channel.slack.connect-failed", { kind: "unexpected" });
+          return this.#fatal(new SocketFatalError("socket-factory"));
         }
         if ("retryMs" in r) {
           conn.close();

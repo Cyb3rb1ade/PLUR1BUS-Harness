@@ -15,6 +15,7 @@ describe("chat: double dispatch", opts, () => {
       chat.server.rpc.setDelay("session.submit", 300);
       const box = page.getByRole("textbox", { name: "Message to bernd" });
       await box.fill("once");
+      await page.locator('.chat-compose .btn-primary[aria-disabled="false"]').waitFor();
       await page.evaluate(() => {
         const ta = document.querySelector("textarea") as HTMLTextAreaElement;
         const send = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Send") as HTMLButtonElement;
@@ -33,6 +34,9 @@ describe("chat: double dispatch", opts, () => {
       chat.server.rpc.setDelay("session.create", 300);
       const box = page.getByRole("textbox", { name: "First message" });
       await box.fill("hello");
+      // Agent discovery and the draft's render must finish before testing two valid activations.
+      // Dispatching synthetic events while aria-disabled is true correctly sends nothing.
+      await page.locator('.chat-compose .btn-primary[aria-disabled="false"]').waitFor();
       await page.evaluate(() => {
         const ta = document.querySelector("textarea") as HTMLTextAreaElement;
         const start = Array.from(document.querySelectorAll("button")).find((b) => b.classList.contains("btn-primary") && b.closest(".chat-compose")) as HTMLButtonElement;
