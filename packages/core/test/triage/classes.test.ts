@@ -3,7 +3,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { chooseClass, escalate, applyAtBoundary, resolveClass, triage, triageWithClassifier, ruleClassifier, MODEL_CLASSES, CLASS_TABLE, type ModelClass, type ClassDistribution, type TriageDecision } from "../../src/triage/index.ts";
-import { mulberry32, gap, taskOf, decision, fixed, classIndex } from "./helpers.ts";
+import { mulberry32, taskOf, decision, fixed, classIndex } from "./helpers.ts";
 
 const d = (small: number, medium: number, large: number, frontier: number): ClassDistribution => ({ small, medium, large, frontier });
 
@@ -202,9 +202,11 @@ describe("triage(): validation of classifier decisions", () => {
     for (const garbage of [null, undefined, 5, "text", {}, { schema: "plur1bus.triage/1", shape: "single" }, { schema: "plur1bus.triage/1", shape: "single", tasks: "no" }]) assert.throws(() => triage("x", { classifier: () => garbage as never }), Error, JSON.stringify(garbage));
   });
 
-  it(gap("triage (classifier output validation)", "a classifier decision whose tasks field is missing or not an array is refused with the documented 'invalid triage decision' error", "a TypeError from iterating undefined escapes (the message is 'not iterable')"), { todo: gap("triage (classifier output validation)", "a classifier decision whose tasks field is missing or not an array is refused with the documented 'invalid triage decision' error", "a TypeError from iterating undefined escapes (the message is 'not iterable')") }, () => {
+  it("a classifier decision that is not an object, or whose tasks field is missing or not an array, is refused with the documented 'invalid triage decision' error", () => {
     assert.throws(() => triage("x", { classifier: () => ({ schema: "plur1bus.triage/1", shape: "single" }) as never }), /invalid triage decision/);
+    assert.throws(() => triage("x", { classifier: () => ({ schema: "plur1bus.triage/1", shape: "single", tasks: "no" }) as never }), /invalid triage decision/);
     assert.throws(() => triage("x", { classifier: () => null as never }), /invalid triage decision/);
+    assert.throws(() => triage("x", { classifier: () => undefined as never }), /invalid triage decision/);
   });
 });
 

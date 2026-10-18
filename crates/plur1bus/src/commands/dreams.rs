@@ -432,6 +432,20 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
         DreamsCmd::Disable { phase, agent } => {
             toggle(out, layout, &agent, phase.as_str(), false, &require)
         }
+        DreamsCmd::Diary { agent } => {
+            require(&agent);
+            let mut c = connect(out, layout);
+            let v = c
+                .call("dreams.diary", json!({ "agentId": agent }))
+                .unwrap_or_else(|e| out.from_rpc_error(&e));
+            out.ok("dreams.diary/1", &v, || {
+                if v["exists"].as_bool().unwrap_or(false) {
+                    v["text"].as_str().unwrap_or("").to_string()
+                } else {
+                    "no diary yet".to_string()
+                }
+            });
+        }
     }
 }
 

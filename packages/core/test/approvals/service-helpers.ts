@@ -70,7 +70,7 @@ const flagsOf = (f: Partial<CallFlags> = {}): CallFlags => ({ outsideRoots: true
 export function askFor(o: {
   capability?: string; tool?: string; effect?: Call["effect"]; flags?: Partial<CallFlags>; targets?: string[]; access?: "read" | "write";
   actionHash?: string; principal?: string; agentId?: string; sessionId?: string | null; taskId?: string | null; turnId?: string; callId?: string;
-  args?: unknown; ctx?: Partial<Context>; signal?: AbortSignal;
+  args?: unknown; ctx?: Partial<Context>; signal?: AbortSignal; reason?: string; diff?: string;
 } = {}): ApprovalAsk {
   const capability = o.capability ?? "fs.read";
   const call: Call = {
@@ -90,6 +90,7 @@ export function askFor(o: {
     ...(o.sessionId === null ? {} : { sessionId: o.sessionId ?? "s1" }), ...(o.taskId === null ? {} : { taskId: o.taskId ?? "t1" }),
     turnId: o.turnId ?? "turn1", park: d.park, signal: o.signal ?? new AbortController().signal,
     ...(call.targets ? { targets: call.targets } : {}), ...(call.access ? { access: call.access } : {}),
+    ...(o.reason !== undefined ? { reason: o.reason } : {}), ...(o.diff !== undefined ? { diff: o.diff } : {}),
   };
 }
 

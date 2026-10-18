@@ -47,14 +47,14 @@ describe("logs.* over RPC", () => {
       assert.equal(r.corrupt, 0);
     }
   });
-  it("Operator, Member and Viewer are refused logs.query and logs.tail with E_DENIED, and the refusal is audited", async () => {
+  it("Operator, Member and Viewer are refused logs.query, logs.tail and logs.levels with E_DENIED, and the refusal is audited", async () => {
     const before = audit.events.length;
     for (const role of ["operator", "member", "viewer"] as const) {
       who = { userId: "u2", role };
-      for (const m of ["logs.query", "logs.tail"]) await assert.rejects(c.call(m, {}), (e: any) => { assert.deepEqual(err(e), { error: "E_DENIED", reason: "role-denied" }, `${role} ${m}`); return true; });
+      for (const m of ["logs.query", "logs.tail", "logs.levels"]) await assert.rejects(c.call(m, {}), (e: any) => { assert.deepEqual(err(e), { error: "E_DENIED", reason: "role-denied" }, `${role} ${m}`); return true; });
     }
-    assert.equal(audit.events.length - before, 6);
-    assert.ok(audit.events.slice(before).every((e) => e.action === "rbac.denied" && (e.target === "logs.query" || e.target === "logs.tail")));
+    assert.equal(audit.events.length - before, 9);
+    assert.ok(audit.events.slice(before).every((e) => e.action === "rbac.denied" && (e.target === "logs.query" || e.target === "logs.tail" || e.target === "logs.levels")));
   });
   it("no principal is E_UNAUTHORIZED", async () => {
     who = null;
@@ -86,6 +86,18 @@ describe("logs.* over RPC", () => {
   });
   it("both methods are core methods in the schema, experimental", () => {
     const caps = buildCapabilities([], "core");
-    for (const m of ["logs.query", "logs.tail"]) assert.equal((caps.methods as any)[m]?.stability, "experimental", m);
+    for (const m of ["logs.query", "logs.tail", "logs.levels"]) assert.equal((caps.methods as any)[m]?.stability, "experimental", m);
+  });
+  it("Owner can read and set live levels over RPC; the change does not write config.json", async () => {
+    who = { userId: "u1", role: "owner" };
+    const before = await c.call<any>("logs.levels", {});
+    assert.equal(typeof before.defaultLevel, "string");
+    assert.equal(typeof before.levels, "object");
+    const set = await c.call<any>("logs.levels", { levels: { "provider:fake": "debug" } });
+    assert.equal(set.levels["provider:fake"], "debug");
+    const again = await c.call<any>("logs.levels", {});
+    assert.equal(again.levels["provider:fake"], "debug");
+    const cfg = JSON.parse(await import("node:fs").then((fs) => fs.readFileSync(layout(home).configPath, "utf8")));
+    assert.equal(cfg.logs?.levels, undefined);
   });
 });

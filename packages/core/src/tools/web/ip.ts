@@ -127,6 +127,7 @@ addV4("10.0.0.0/8", "private");
 addV4("100.64.0.0/10", "shared-address-space"); // CGNAT; also Alibaba metadata 100.100.100.200
 addV4("127.0.0.0/8", "loopback");
 addV4("169.254.0.0/16", "link-local"); // includes the cloud metadata address 169.254.169.254
+addV4("168.63.129.16/32", "cloud-metadata"); // Azure WireServer / host agent endpoint: a public-looking address that only answers inside the VM
 addV4("172.16.0.0/12", "private");
 addV4("192.0.0.0/24", "reserved");
 addV4("192.0.2.0/24", "reserved");

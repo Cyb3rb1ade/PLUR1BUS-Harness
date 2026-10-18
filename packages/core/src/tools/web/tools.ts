@@ -142,7 +142,7 @@ export function createWebTools(deps: { fetch: WebFetch; search: WebSearch }): { 
       inputSchema: WEB_SEARCH_SCHEMA,
       effect: "external",
       parallelSafe: true,
-      execute: (args, ctx) => guarded(() => deps.search.search(args as never, { signal: ctx.signal })),
+      execute: (args, ctx) => guarded(() => deps.search.search(args as never, { signal: ctx.signal, agentId: ctx.agentId })),
     },
   ];
   return { tools, index: WEB_CAPABILITIES };

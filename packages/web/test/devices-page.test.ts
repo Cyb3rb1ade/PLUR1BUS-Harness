@@ -5,21 +5,20 @@ import { after, before, describe, test } from "node:test";
 import { expectAxeClean } from "./axe.ts";
 import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
 import { rpcError } from "./mock-rpc.ts";
+import { remoteFixture } from "./remote-fixtures.ts";
 
 before(setup);
 after(teardown);
 const opts = { skip: browserSkip };
 
 const open = async (app: App, lang: "en" | "de" = "en"): Promise<void> => { await openRoute(app.page, "#/settings/devices", lang); };
-const publish = (app: App, value: unknown): void => {
-  app.server.rpc.handle("config.get", () => ({ key: "remote.publish", tier: "advanced", value, restartClass: "core", restart: "core", revision: "r1" }), { write: false });
-};
+const publish = (app: App, value: unknown) => remoteFixture(app, { publish: value as "local" | "tailnet" | "network" });
 const ID1 = "dev_00000000-0000-4000-8000-000000000001";
 const ID2 = "dev_00000000-0000-4000-8000-000000000002";
 type Dev = { id: string; name: string; platform: string; publicKey: string; fingerprint: string; pairedBy: string; pairedAt: number; lastSeenAt: number; scope: string[]; revoked: boolean; revokedAt?: number };
 const dev = (o: Partial<Dev> = {}): Dev => ({ id: ID1, name: "Pixel", platform: "android-14", publicKey: "k", fingerprint: "fp", pairedBy: "owner", pairedAt: 1_700_000_000_000, lastSeenAt: 1_700_000_100_000, scope: [], revoked: false, ...o });
 const listDevices = (app: App, v: Dev[] | (() => Dev[])): void => { app.server.rpc.handle("device.list", () => ({ devices: typeof v === "function" ? v() : v }), { write: false }); };
-const configCalls = (app: App): unknown[] => app.server.rpc.calls.filter((c) => c.method === "config.get").map((c) => c.params);
+const configCalls = (app: App): string[] => app.server.requests.filter(c => c.method === "GET" && c.url === "/api/v1/remote").map(c => c.url);
 
 describe("devices: gate", opts, () => {
   test("local: the card is hidden and a note says remote access is off", async () => {
@@ -27,17 +26,13 @@ describe("devices: gate", opts, () => {
       publish(app, "local"); await open(app);
       await app.page.getByRole("heading", { name: "Remote access is off" }).waitFor();
       assert.equal(await app.page.getByRole("group", { name: "Paired devices" }).count(), 0);
-      assert.deepEqual(configCalls(app), [{ key: "remote.publish" }]);
+      assert.deepEqual(configCalls(app), ["/api/v1/remote"]);
     });
   });
-  test("unknown key (E_NOT_FOUND / E_CONFIG_INVALID) and no config.get at all count as off", async () => {
-    for (const mk of [
-      (app: App) => { app.server.rpc.handle("config.get", () => { throw rpcError("E_NOT_FOUND", "no key"); }, { write: false }); },
-      (app: App) => { app.server.rpc.handle("config.get", () => { throw rpcError("E_CONFIG_INVALID", "unknown key"); }, { write: false }); },
-      (app: App) => { app.server.rpc.scenario("config.get", "unavailable"); },
-    ]) {
+  test("unserved remote status keeps the pairing card hidden", async () => {
+    for (const status of [404, 503]) {
       await withApp({}, async (app) => {
-        publish(app, "local"); mk(app);
+        publish(app, "local").setReadStatus(status);
         await open(app);
         await app.page.getByRole("heading", { name: "Remote access is off" }).waitFor();
       });
@@ -48,7 +43,7 @@ describe("devices: gate", opts, () => {
       publish(app, "tailnet"); listDevices(app, []); await open(app);
       await app.page.getByText("Published as tailnet").waitFor();
       await app.page.getByRole("group", { name: "Paired devices" }).getByText("No paired devices").waitFor();
-      await app.page.getByRole("group", { name: "Pair a device" }).getByRole("status").waitFor();
+      await app.page.getByRole("group", { name: "Pair a device" }).getByRole("button", { name: "Create pairing offer" }).waitFor();
       assert.deepEqual([...new Set(app.server.rpc.calls.map((c) => c.method))].filter((m) => !["config.get", "session.list", "device.list", "inbox.count"].includes(m)), []); // the shell lists sessions itself
     });
   });
@@ -88,8 +83,8 @@ describe("devices: gate", opts, () => {
   test("a link too long for the QR generator shows a hint and the link instead of a broken code", async () => {
     await withApp({}, async (app) => {
       publish(app, "tailnet");
-      const long = `plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ABCD-EFGH&pad=${"x".repeat(300)}`;
-      app.server.rpc.handle("pairing.qr", (p) => ({ link: (p as any).link, qr: { text: (p as any).link, mode: "byte", errorCorrection: "M", length: 400, maxLength: 2331, fits: true }, expiresAt: Date.now() + 3600000 }), { write: false });
+      const long = `plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ABCD-EFGH&pad=${"x".repeat(2400)}`;
+      app.server.rpc.handle("pairing.qr", (p) => ({ link: (p as any).link, qr: { text: (p as any).link, mode: "byte", errorCorrection: "M", length: 2500, maxLength: 2331, fits: false }, expiresAt: Date.now() + 3600000 }), { write: false });
       await open(app);
       const pairGroup = app.page.getByRole("group", { name: "Pair a device" });
       await pairGroup.getByLabel("Pairing link").fill(long);
@@ -100,12 +95,11 @@ describe("devices: gate", opts, () => {
   });
   test("loading, error with Try again", async () => {
     await withApp({}, async (app) => {
-      publish(app, "tailnet"); app.server.rpc.setDelay("config.get", 300);
-      app.server.rpc.scenario("config.get", "error", { code: "E_INTERNAL" });
+      const remote = publish(app, "tailnet"); remote.setDelay(300); remote.setReadStatus(500);
       await open(app);
       await app.page.locator(".page-state[data-state=loading]").waitFor();
       await app.page.getByRole("alert").waitFor();
-      app.server.rpc.scenario("config.get", "success");
+      remote.setReadStatus(200);
       await app.page.getByRole("button", { name: "Try again" }).click();
       await app.page.getByText("Published as tailnet").waitFor();
     });
@@ -122,7 +116,7 @@ describe("devices: gate", opts, () => {
       await app.page.locator(".page-state[data-state=forbidden]").waitFor();
     });
     await withApp({}, async (app) => {
-      publish(app, "tailnet"); app.server.rpc.scenario("config.get", "forbidden"); await open(app);
+      publish(app, "tailnet").setReadStatus(403); await open(app);
       await app.page.locator(".page-state[data-state=forbidden]").waitFor();
     });
   });

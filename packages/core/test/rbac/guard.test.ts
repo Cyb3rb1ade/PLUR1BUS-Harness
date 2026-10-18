@@ -15,6 +15,7 @@ const SCHEMA = JSON.parse(readFileSync(fileURLToPath(new URL("../../../rpc-schem
 
 const params: Record<string, unknown> = {
   "events.subscribe": {},
+  "voice.session.create": { agentId: "bernd" },
   "jobs.create": { agentId: "bernd" }, "jobs.update": { id: "user:fixture" }, "jobs.delete": { id: "user:fixture", confirm: true },
   "doctor.report": {}, "agent.activity.list": {},
   "media.preferences.get": {}, "media.preferences.set": {},
@@ -65,9 +66,9 @@ const params: Record<string, unknown> = {
   "models.removeManual": { provider: "p", model: "m" },
   "admin.migrate": {}, "admin.obsidian.detect": {}, "admin.obsidian.prepare": {}, "admin.obsidian.confirm": {},
   "admin.embedding.probe": {}, "admin.embedding.serve": {},
-  "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "audit.verify": {}, "logs.query": {}, "logs.tail": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {},
-  "grant.list": {}, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
-  "approval.list": {}, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" }, "approval.cancel": { id: "apr_1" }, "approval.verify": {},
+  "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "audit.verify": {}, "logs.query": {}, "logs.tail": {}, "logs.levels": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {}, "dreams.diary": { agentId: "bernd" },
+  "grant.list": {}, "grant.get": { id: "grt_1" }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
+  "approval.list": {}, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" }, "approval.cancel": { id: "apr_1" }, "approval.verify": {}, "approval.audit": {},
 };
 
 /** Stub handlers for every guarded method; they record that they ran. */

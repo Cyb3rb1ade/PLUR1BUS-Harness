@@ -99,6 +99,19 @@ describe("client", () => {
     assert.ok(performance.now() - t0 < 300, "fails before the timeout on ENOENT");
   });
 
+  it("a connect that completes while the event loop is stalled past connectTimeoutMs still succeeds (timers run before I/O)", async () => {
+    // In-process cores stall the loop (sync sqlite/engine work, a starved CI runner). The socket is connected in the kernel by then,
+    // but the expired timer is dispatched before the `connect` event; the client must let the pending I/O run before it gives up.
+    const a = address(); const srv = await fakeCore(a);
+    try {
+      const pending = connect({ address: a, token: TOKEN, connectTimeoutMs: 100, ...asPid(1) });
+      for (const end = Date.now() + 400; Date.now() < end;) { /* stall the loop, synchronously */ }
+      const c = await pending;
+      assert.deepEqual(await c.call("echo", { x: 2 }), { x: 2 });
+      await c.close();
+    } finally { srv.close(); }
+  });
+
   it("supports is true without capabilities and follows the map with them", async () => {
     const noCapsAddr = address();
     const noCaps = await fakeCore(noCapsAddr);

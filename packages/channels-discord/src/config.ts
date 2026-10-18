@@ -70,7 +70,7 @@ export function splitOptions(opts: Record<string, unknown>): Record<string, unkn
   const cfg: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(opts)) {
     if (DEP_KEYS.has(k)) continue;
-    if (!KEYS.has(k)) throw new RangeError(`unknown discord option ${JSON.stringify(k.slice(0, 40))}`);
+    if (!KEYS.has(k)) throw new RangeError("unknown discord option");
     cfg[k] = v;
   }
   return cfg;
@@ -84,7 +84,7 @@ function ids(v: unknown, field: string): ReadonlySet<string> {
 
 /** Validates the JSON config closed-world: unknown keys, bad ids and out-of-range limits are refused before anything runs. */
 export function parseConfig(cfg: Record<string, unknown>): ParsedConfig {
-  for (const k of Object.keys(cfg)) if (!KEYS.has(k)) throw new RangeError(`unknown discord config key ${JSON.stringify(k.slice(0, 40))}`);
+  for (const k of Object.keys(cfg)) if (!KEYS.has(k)) throw new RangeError("unknown discord config key");
   if (typeof cfg.tokenSecret !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(cfg.tokenSecret))
     throw new RangeError("tokenSecret must be a secret name");
   const applicationId = cfg.applicationId;
