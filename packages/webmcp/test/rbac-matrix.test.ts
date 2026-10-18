@@ -204,3 +204,9 @@ describe("D. the agent-facing secret name tool is neither an RPC method nor a We
     for (const m of coreMethods.filter((n) => n.startsWith("secret."))) { assert.ok(isForbiddenMethod(m), m); assert.ok(m in UNRULED, `${m} is owner-only inside the store`); }
   });
 });
+
+// D103 discovery is an in-process tool over the admitted per-turn catalogue, not an RPC/WebMCP surface.
+it('capabilities.search stays dispatcher-only and cannot bypass RPC RBAC through a colliding name', () => {
+  assert.equal(Object.hasOwn(methods, 'capabilities.search'), false);
+  assert.equal(Object.hasOwn(RPC_RULES, 'capabilities.search'), false);
+});
