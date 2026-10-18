@@ -111,6 +111,7 @@ describe("secrets: create, rotate, delete", opts, () => {
       await dlg.getByLabel("New value").fill("new-val");
       await dlg.getByRole("button", { name: "Save" }).click();
       await dlg.getByRole("button", { name: "Rotate now" }).click();
+      await dlg.waitFor({ state: "detached" });
       await app.page.getByText(/^anthropic\.apiKey: updated on /).waitFor();
       // rotate and empty the description
       await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
@@ -119,6 +120,7 @@ describe("secrets: create, rotate, delete", opts, () => {
       await dlg.getByLabel("New value").fill("newer-val");
       await dlg.getByRole("button", { name: "Save" }).click();
       await dlg.getByRole("button", { name: "Rotate now" }).click();
+      await dlg.waitFor({ state: "detached" });
       await app.page.getByText(/^anthropic\.apiKey: updated on /).waitFor();
       assert.deepEqual(calls(app, "secret.set").map((c) => c.params), [
         { name: "openai.key", value: "sk-test-123", description: "Shared OpenAI key" },
@@ -169,6 +171,7 @@ describe("secrets: create, rotate, delete", opts, () => {
       assert.equal(await dlg.getByLabel("New value").getAttribute("readonly"), "");
       assert.equal(await dlg.getByLabel("New value").getAttribute("type"), "password");
       await dlg.getByRole("button", { name: "Rotate now" }).click();
+      await dlg.waitFor({ state: "detached" });
       await app.page.getByText(/^anthropic\.apiKey: updated on /).waitFor();
       assert.deepEqual(calls(app, "secret.set").map((c) => c.params), [{ name: "anthropic.apiKey", value: "new-val" }]);
       // After the rotation the only thing the page says is the update time; the value is nowhere.

@@ -1,10 +1,12 @@
+import type { HarnessConfig } from "@plur1bus/config-schema";
+import { agentSecretRefs } from "../agents/secrets.ts";
 import { RpcError } from "../rpc/errors.ts";
 import type { Handler } from "../rpc/server.ts";
 import { SecretError, type SecretErrorCode } from "./types.ts";
 import type { SecretStore } from "./store.ts";
 import type { SecretPrincipal } from "./types.ts";
 
-export type SecretMethod = "secret.status" | "secret.list" | "secret.set" | "secret.get" | "secret.delete";
+export type SecretMethod = "secret.status" | "secret.list" | "secret.set" | "secret.get" | "secret.delete" | "secret.describe" | "secret.grants.list";
 
 const MAP: Record<SecretErrorCode, RpcError["error"]> = {
   denied: "E_DENIED", "not-found": "E_NOT_FOUND", "invalid-name": "E_INVALID_PARAMS", "invalid-value": "E_INVALID_PARAMS", "invalid-description": "E_INVALID_PARAMS", "invalid-ttl": "E_INVALID_PARAMS",
@@ -21,6 +23,7 @@ export function toRpcError(e: unknown): unknown {
 
 export interface SecretMethodDeps {
   store: SecretStore;
+  config?: () => HarnessConfig;
   /** Derives who is calling from the connection. A client can never name its own principal. Fail closed: a connection
    *  for which this answers anything but `owner` is refused every `secret.*` method. */
   principalOf: (ctx: Parameters<Handler>[1], method: SecretMethod, params: unknown) => SecretPrincipal | Promise<SecretPrincipal>;
@@ -32,6 +35,14 @@ export function buildSecretMethods(d: SecretMethodDeps): Record<SecretMethod, Ha
     try { return await fn(await d.principalOf(ctx, method, params), params ?? {}); } catch (e) { throw toRpcError(e); }
   };
   return {
+    "secret.describe": wrap("secret.describe", (p, a: { name: string; description: string }) => d.store.describe(p, a.name, a.description)),
+    "secret.grants.list": wrap("secret.grants.list", async p => {
+      // Listing gates on the owner in the store. Configuration references confer no lease authority.
+      const present = new Set((await d.store.list(p)).map(s => s.name));
+      const config = d.config?.();
+      const references = config ? Object.entries(config.agents).flatMap(([agentId, agent]) => agentSecretRefs(config, agent).map(ref => ({ agentId, ...ref, present: present.has(ref.name), leaseAllowed: false as const }))) : [];
+      return { agentLeasesEnabled: false, grants: [], references };
+    }),
     "secret.status": wrap("secret.status", (p) => d.store.status(p)),
     "secret.list": wrap("secret.list", async (p) => ({ secrets: await d.store.list(p) })),
     "secret.set": wrap("secret.set", (p, a: { name: string; value: string; description?: string }) => d.store.set(p, a.name, a.value, a.description)),

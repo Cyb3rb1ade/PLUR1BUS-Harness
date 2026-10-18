@@ -1,4 +1,4 @@
-import { SecretError, nextDescription, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
+import { SecretError, checkDescription, nextDescription, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
 
 /** The in-memory test backend (ADR-005 action 5). `available` can be flipped by a test. */
 export function createMemoryBackend(o: { available?: boolean } = {}): SecretBackend & { available: boolean; dump(): Map<string, string> } {
@@ -13,8 +13,20 @@ export function createMemoryBackend(o: { available?: boolean } = {}): SecretBack
       const at = now.toISOString();
       const old = entries.get(name);
       const kept = nextDescription(old?.description, description);
+      checkDescription(kept, value);
+      if (old) checkDescription(kept, old.value);
       entries.set(name, { value, createdAt: old?.createdAt ?? at, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) });
       return { name, backend: "memory", createdAt: old?.createdAt ?? at, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
+    },
+    async describe(name: string, description: string, now: Date, updatedBy?: string, register?: (value: string) => void): Promise<SecretMeta> {
+      guard(); const old = entries.get(name);
+      if (!old) throw new SecretError("not-found", "secret does not exist");
+      register?.(old.value); const text = checkDescription(description, old.value);
+      const next = { ...old, updatedAt: now.toISOString(), ...(updatedBy ? { updatedBy } : {}) };
+      if (text) next.description = text; else delete next.description;
+      entries.set(name, next);
+      const { value: _value, ...meta } = next;
+      return { ...meta, name, backend: "memory" };
     },
     async delete(name: string) { guard(); return entries.delete(name); },
     async list(): Promise<SecretMeta[]> {

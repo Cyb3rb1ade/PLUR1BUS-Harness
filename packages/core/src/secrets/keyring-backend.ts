@@ -1,4 +1,4 @@
-import { SecretError, backendFailure, isSecretName, nextDescription, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
+import { SecretError, backendFailure, isSecretName, checkDescription, nextDescription, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
 
 /** The slice of `@napi-rs/keyring` used here. */
 export interface KeyringEntry { getPassword(): string | null; setPassword(password: string): void; deletePassword?(): boolean; deleteCredential?(): boolean }
@@ -71,13 +71,25 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
     get: (name) => serial(() => guarded("reading from the keyring", async () => (await entry(name)).getPassword())),
     put: (name, value, now, updatedBy, description) => serial(async () => {
       const idx = await readIndex();
+      const current = await guarded("reading from the keyring", async () => (await entry(name)).getPassword());
+      const kept = nextDescription(Object.hasOwn(idx.entries, name) ? idx.entries[name]?.description : undefined, description);
+      checkDescription(kept, value); if (current !== null) checkDescription(kept, current);
       await guarded("writing to the keyring", async () => (await entry(name)).setPassword(value));
       const at = now.toISOString();
       const createdAt = (Object.hasOwn(idx.entries, name) ? idx.entries[name]?.createdAt : undefined) ?? at;
-      const kept = nextDescription(Object.hasOwn(idx.entries, name) ? idx.entries[name]?.description : undefined, description);
       idx.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
       await writeIndex(idx);
       return { name, backend: "keyring" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
+    }),
+    describe: (name, description, now, updatedBy, register) => serial(async () => {
+      const idx = await readIndex();
+      const value = await guarded("reading from the keyring", async () => (await entry(name)).getPassword());
+      if (value === null) throw new SecretError("not-found", "secret does not exist");
+      register?.(value); const text = checkDescription(description, value), at = now.toISOString();
+      const old = Object.hasOwn(idx.entries, name) ? idx.entries[name] : undefined;
+      idx.entries[name] = { createdAt: old?.createdAt ?? at, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(text ? { description: text } : {}) };
+      await writeIndex(idx);
+      return { name, backend: "keyring", ...idx.entries[name]! };
     }),
     delete: (name) => serial(async () => {
       const idx = await readIndex();

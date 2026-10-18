@@ -340,6 +340,8 @@ fn method_fixture(name: &str, f: &Value) {
         "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
         "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),
         "secret.list" => pair::<SecretListParams, SecretListResult>(name, f),
+        "secret.describe" => pair::<SecretDescribeParams, SecretDescribeResult>(name, f),
+        "secret.grants.list" => pair::<SecretGrantsListParams, SecretGrantsListResult>(name, f),
         "secret.set" => pair::<SecretSetParams, SecretMeta>(name, f),
         "secret.get" => pair::<SecretGetParams, SecretGetResult>(name, f),
         "secret.delete" => pair::<SecretDeleteParams, SecretDeleteResult>(name, f),

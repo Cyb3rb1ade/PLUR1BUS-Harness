@@ -53,8 +53,7 @@ export function checkValue(value: unknown): string {
  * The description to store: trimmed; `undefined` means "not given" (the caller keeps whatever is stored), the empty string
  * clears it. Free text for the agent and the owner, so it holds no control characters (a newline would let it pose as
  * another line of a prompt or a log) and is at most 200 code points. `value` is the secret being written: a description
- * that contains it is refused (the usual slip is pasting the key into the wrong field), but only for values long enough
- * that a hit is not just a letter that happens to occur in prose.
+ * that contains its full value or any contiguous fragment of eight or more code points is refused.
  */
 export function checkDescription(description: unknown, value?: string): string | undefined {
   if (description === undefined) return undefined;
@@ -63,7 +62,12 @@ export function checkDescription(description: unknown, value?: string): string |
   if ([...text].length > MAX_DESCRIPTION_CHARS) throw new SecretError("invalid-description", `secret description exceeds ${MAX_DESCRIPTION_CHARS} characters`);
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(text)) throw new SecretError("invalid-description", "secret description must be one line of plain text");
-  if (value !== undefined && value.length >= 8 && text.includes(value)) throw new SecretError("invalid-description", "secret description must not contain the secret value");
+  if (value !== undefined) {
+    if (value.length > 0 && text.includes(value)) throw new SecretError("invalid-description", "secret description must not contain the secret value");
+    const chars = [...text];
+    for (let i = 0; i + 8 <= chars.length; i++) if (value.includes(chars.slice(i, i + 8).join("")))
+      throw new SecretError("invalid-description", "secret description must not contain a secret fragment");
+  }
   return text;
 }
 
@@ -80,6 +84,8 @@ export interface SecretBackend {
   get(name: string): Promise<string | null>;
   /** Creates or replaces; keeps `createdAt` of an existing entry, and its description unless one is given (an empty one clears it). */
   put(name: string, value: string, now: Date, updatedBy?: string, description?: string): Promise<SecretMeta>;
+  /** Changes only metadata, validating inside the backend's serialized operation. Values never leave this callback. */
+  describe(name: string, description: string, now: Date, updatedBy?: string, register?: (value: string) => void): Promise<SecretMeta>;
   /** True when something was removed. */
   delete(name: string): Promise<boolean>;
   /** Names and metadata; never decrypts. */

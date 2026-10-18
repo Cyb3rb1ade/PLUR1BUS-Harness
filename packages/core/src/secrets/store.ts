@@ -119,6 +119,10 @@ export function createSecretStore(o: SecretStoreOptions) {
       checkName(name); checkValue(value);
       const text = checkDescription(description, value);
       redaction.register(value);
+      if (text) {
+        const previous = await find(name);
+        if (previous) checkDescription(text, previous.value);
+      }
       const s = await select();
       const backend = need(s);
       audited(p, "secret.set", name, { backend: backend.kind });
@@ -134,6 +138,18 @@ export function createSecretStore(o: SecretStoreOptions) {
         epoch++; writing--;
         leases.revokeName(name); // a rotated secret invalidates what was leased from the old value
       }
+    },
+
+    /** Owner-only metadata edit; the backend never writes the credential or revokes its leases. */
+    async describe(p: SecretPrincipal, name: string, description: string): Promise<SecretMeta> {
+      gate(p, "describe", typeof name === "string" ? name : null, ["owner"]);
+      checkName(name); const text = checkDescription(description);
+      if (text === undefined) throw new SecretError("invalid-description", "description is required");
+      const found = await find(name);
+      if (!found) throw new SecretError("not-found", "secret does not exist");
+      checkDescription(text, found.value);
+      audited(p, "secret.describe", name, { backend: found.from.kind });
+      return found.from.describe(name, text, now(), p.kind === "owner" ? p.id : undefined, value => redaction.register(value));
     },
 
     /** Metadata only: no value is read. */
