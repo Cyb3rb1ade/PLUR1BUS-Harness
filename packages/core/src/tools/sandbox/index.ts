@@ -1,3 +1,4 @@
+import { posix, win32 } from 'node:path';
 import { BoundedCapture } from './capture.ts';
 import { execFile } from 'node:child_process';
 import { createNodeProcessPort } from '../exec/node-process.ts';
@@ -10,7 +11,11 @@ export { preparePolicy } from './policy.ts';
 export * from './types.ts';
 /** Fixed argv only. The policy and executable installation path come from trusted composition. */
 export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolicy, options: { signal?: AbortSignal } = {}): Promise<SandboxResult> {
-  if (!argv.length || argv.some(s => typeof s !== 'string' || s.includes('\0')) || !argv[0]!.startsWith('/')) throw new SandboxFailure('sandbox requires an absolute executable and NUL-free argv');
+  if (!argv.length || argv.some(s => typeof s !== 'string' || s.includes('\0')) || !(process.platform === 'win32' ? win32 : posix).isAbsolute(argv[0]!)) throw new SandboxFailure('sandbox requires an absolute executable and NUL-free argv');
+  if (process.platform === 'win32') {
+    const unavailable = await detectSandbox(policy.limitsHelper);
+    throw new SandboxFailure(unavailable.reason);
+  }
   const p = await preparePolicy(policy);
   const detection = await detectSandbox(p.limitsHelper);
   if (!detection.available) throw new SandboxFailure(detection.reason);

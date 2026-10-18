@@ -101,9 +101,6 @@ const ALLOW = new Map([
   ["crates/plur1bus/src/cli.rs", [/OpenClaw\/Hermes/, /^\s*Openclaw,$/, /\$OPENCLAW_STATE_DIR \/ \$OPENCLAW_PROFILE \/ ~\/\.openclaw/]],
   // The CLI-surface test runs the same `import openclaw --detect` command tests/import.rs runs (the importer's source enum),
   // so this one argv literal names the importer source, not an OpenClaw idiom.
-  // The desktop controller tests pin the bundled container's state mount point (`/state`, the image's volume and
-  // PLUR1BUS_HOME), a filesystem path inside the container, not a slash command.
-  ["apps/desktop/src-tauri/tests/controller.rs", [/p == "\/state"\)\)/, /key == "PLUR1BUS_HOME" && value == "\/state"\)\)/, /\("plur1bus-state"\.into\(\), "\/state"\.into\(\), false\),/]],
   ["crates/plur1bus/tests/cli_surface.rs", [/vec!\["import", "--detect", "openclaw"\]/]],
 ]);
 
@@ -234,7 +231,17 @@ function walk(dir) {
       .split(/\r?\n/) // a Windows checkout (core.autocrlf) has CRLF; anchored allow-list regexes must still match
       .forEach((line, i) => {
         for (const { id, re, why, multi } of patterns) {
-          if (!multi && re.test(line) && !allow.some((a) => a.test(line))) {
+          // Remove only recognised mount literals from this rule's input; other commands on the same line still fail.
+          let commandLine = line;
+          if (id === "HYG-003" && /(?:^|\/)tests\/.*\.rs$/.test(rel)) {
+            const mounts = [
+              /\b(?:volumes|mounts)\b[^;\n]*?\b(?:p|path|target|destination)\s*==\s*"\/state"/g,
+              /"PLUR1BUS_HOME"[^;\n]*?\bvalue\s*==\s*"\/state"/g,
+              /\(\s*"[^"\n]+"\.into\(\),\s*"\/state"\.into\(\),\s*(?:true|false)\s*\)/g,
+            ];
+            for (const mount of mounts) commandLine = commandLine.replace(mount, match => match.replaceAll('"/state"', '"/container-state"'));
+          }
+          if (!multi && re.test(commandLine) && !allow.some((a) => a.test(line))) {
             console.error(`[${id}] ${rel}:${i + 1}: ${why}: ${line.trim().slice(0, 120)}`);
             bad += 1;
           }
