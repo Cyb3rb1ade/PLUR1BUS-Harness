@@ -133,3 +133,28 @@ describe("privacy.localOnly: doctor report", () => {
     assert.equal(row.status, "fail"); assert.equal(row.repair.kind, "hint");
   });
 });
+
+describe("privacy.localOnly: media index and captioning (shared, pinned while any agent is local-only)", () => {
+  const compose = async (provider: string, pinned: boolean) => {
+    const { composeMediaSearch } = await import("../../src/composition/media-search.ts");
+    const home = tmp.make();
+    const cfg = defaults(); cfg.memory.mediaEmbedding = { ...cfg.memory.mediaEmbedding, enabled: true, provider } as typeof cfg.memory.mediaEmbedding;
+    let built = 0;
+    const noop = async () => { throw new Error("unused"); };
+    const engine = { media: { index: noop, search: noop, remove: noop, setCaption: noop, status: noop, backfill: { start: noop, pause: noop, resume: noop, cancel: noop }, attachHost: () => { built++; } } };
+    const logger = { debug() {}, info() {}, warn() {}, error() {} };
+    const c = await composeMediaSearch({ home, config: () => cfg, engine, agents: { workspaceOf: () => home }, logger, store: null, budget: null, privacyPinned: () => pinned } as never);
+    return { c, built: () => built };
+  };
+  it("a cloud media embedding provider is not started; the index is disabled with the reason, never switched to another model", async () => {
+    const { c, built } = await compose("openai", true);
+    try {
+      assert.equal(c.kind, "disabled"); assert.equal(built(), 0);
+      await assert.rejects(c.port.search({ text: "x", limit: 1, scope: { agentId: "a1", workspace: "w" } as never }), (e: any) => e.error === "E_MEDIA_UNAVAILABLE" && /privacy\.localOnly/.test(e.message));
+    } finally { await c.close(); }
+  });
+  it("a local media provider keeps working under the pin", async () => {
+    const local = await compose("local", true);
+    try { assert.equal(local.c.kind, "engine"); } finally { await local.c.close(); }
+  });
+});
