@@ -187,15 +187,17 @@ jobs:
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SOAK_TURNS: "200" }
       - run: pnpm bench
   # M3 criteria 7/9: required after the complete pinned-Chromium local baseline and late authorization checks passed.
-  web-browser:
+  # Owner decision 2026-10-18: the browser suite runs as four shards behind one gate job. `web-browser-build` compiles
+  # the current-branch CLI once (the expensive Rust step) and hands it to the shards as an artifact; each shard runs the
+  # cheap esbuild `pnpm gen && pnpm build` itself, installs the lockfile-matched Chromium (browser files cached by
+  # lockfile hash) and runs its round-robin share of packages/web/test (scripts/ci/test-shards.mjs). The `web-browser`
+  # job keeps the check name the merge gate uses: it fails unless plan, build and every shard succeeded, and its shard
+  # check proves from the manifests the shards wrote that every test file ran exactly once.
+  web-browser-build:
     needs: plan
     if: needs.plan.outputs.proceed == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    env:
-      PLUR1BUS_WEB_E2E_REQUIRED: "1"
-      PLUR1BUS_WEB_TRANSPORT_REQUIRED: "1"
-      PLUR1BUS_BIN: ${{ github.workspace }}/target/debug/plur1bus
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
@@ -221,11 +223,111 @@ jobs:
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - name: build Core and CLI for served-stack browser acceptance
         run: pnpm gen && pnpm build && cargo build -p plur1bus
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-browser-cli
+          path: target/debug/plur1bus
+          if-no-files-found: error
+          retention-days: 1
+  web-browser-shard:
+    name: web-browser shard ${{ matrix.shard }}/${{ matrix.total }}
+    needs: [plan, web-browser-build]
+    if: needs.plan.outputs.proceed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        total: [4]
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      PLUR1BUS_WEB_E2E_REQUIRED: "1"
+      PLUR1BUS_WEB_TRANSPORT_REQUIRED: "1"
+      PLUR1BUS_BIN: ${{ github.workspace }}/target/debug/plur1bus
+      PLUR1BUS_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.total }}
+      PLUR1BUS_TEST_SHARD_MANIFEST: ${{ github.workspace }}/web-browser-shard-${{ matrix.shard }}.json
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - name: build Core (esbuild; the CLI comes from web-browser-build)
+        run: pnpm gen && pnpm build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-browser-cli
+          path: target/debug
+      - name: current-branch CLI from web-browser-build
+        run: chmod +x "$PLUR1BUS_BIN" && "$PLUR1BUS_BIN" --version
+      # The browser files are keyed by the lockfile (it pins Playwright and so the Chromium revision); the install step
+      # below still runs, adds the Linux libraries and downloads the browser on a miss.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - name: install lockfile-matched Chromium and Linux libraries
         run: pnpm --filter @plur1bus/web exec playwright install --with-deps chromium
-      - name: web browser suites (axe, keyboard, contrast, responsive and zoom)
+      - name: web browser suites (axe, keyboard, contrast, responsive and zoom), this shard's files
         run: pnpm --filter @plur1bus/web test
         timeout-minutes: 35
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: web-browser-shard-manifest-${{ matrix.shard }}
+          path: web-browser-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 7
+  web-browser:
+    needs: [plan, web-browser-build, web-browser-shard]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.plan.outputs.proceed == 'true'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: needs.plan.outputs.proceed == 'true'
+        with: { node-version: 24.21.0 }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.plan.outputs.proceed == 'true'
+        with:
+          pattern: web-browser-shard-manifest-*
+          path: web-browser-manifests
+      - name: every web test file ran in exactly one shard
+        if: needs.plan.outputs.proceed == 'true'
+        run: |
+          node --test scripts/ci/test-shards.test.mjs
+          node scripts/ci/test-shards.mjs verify --cwd=packages/web --dir=web-browser-manifests
+      - name: plan, build and every shard succeeded
+        if: always()
+        env:
+          PLAN: ${{ needs.plan.result }}
+          PROCEED: ${{ needs.plan.outputs.proceed }}
+          BUILD: ${{ needs.web-browser-build.result }}
+          SHARDS: ${{ needs.web-browser-shard.result }}
+        run: |
+          if [ "$PLAN" != success ]; then echo "::error::plan job: $PLAN"; exit 1; fi
+          if [ "$PROCEED" != true ]; then echo "plan.proceed is not true for this event: no browser run, nothing to gate"; exit 0; fi
+          if [ "$BUILD" != success ] || [ "$SHARDS" != success ]; then
+            echo "::error::web-browser-build: $BUILD, web-browser-shard (all shards): $SHARDS"
+            exit 1
+          fi
+          echo "web-browser-build and all shards succeeded"
   # OS service registration against the real service manager (Task 8, criterion 9): systemd user instance, launchd
   # GUI domain, Task Scheduler. Every registration uses the temp home's suffixed name (S10) and is removed again.
   # Ruling C5: Linux needs a user manager (lingering); if enabling it fails, the job keeps the unit-file tests
