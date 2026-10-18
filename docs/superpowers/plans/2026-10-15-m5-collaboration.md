@@ -36,9 +36,9 @@
 
 ## Phase 4 — codex/m5-p4-coding-gate-eval
 
-- [ ] Merge dependencies; independent sandbox/worktree verifier for Node, Python, Rust, Go, Java/Gradle; fixed argv, timeout, network policy.
-- [ ] task.complete gate, noted/audited override, reviewer at ≥200 lines and documentation gaps; verify lying delegate rejected.
-- [ ] ≥20 deterministic equal-token-budget single/peer cases; record numbers, keep fan-out off; commit and PR with handoff.
+- [x] Merge dependencies; independent sandbox/worktree verifier for Node, Python, Rust, Go, Java/Gradle; fixed argv, timeout, network policy.
+- [x] task.complete gate, noted/audited override, reviewer at ≥200 lines and documentation gaps; verify lying delegate rejected.
+- [x] ≥20 deterministic equal-token-budget single/peer cases; record numbers, keep fan-out off; commit and PR with handoff.
 
 ## Phase 5 — codex/m5-p5-chat-promotion
 
