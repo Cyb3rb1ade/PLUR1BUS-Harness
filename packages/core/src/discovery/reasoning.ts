@@ -13,6 +13,7 @@ import type { ProviderFamily } from "../toolcall/quirks.ts";
 
 export interface ReasoningRule {
   pattern: string; kind: ReasoningKind; levels?: ReasoningLevel[]; default?: ReasoningLevel; vendorParam?: ReasoningVendorParam;
+  adaptiveThinking?: true;
   values?: Partial<Record<ReasoningLevel, string | boolean>>; budget?: { min: number; max: number; default: number };
 }
 export interface CompiledReasoningTable { revision: string; sections: Map<string, { rule: ReasoningRule; re: RegExp }[]> }
@@ -49,6 +50,7 @@ export function loadReasoningTable(...args: [raw?: unknown]): CompiledReasoningT
         if (r.kind === "budget" && !(r.budget && Number.isSafeInteger(r.budget.min) && Number.isSafeInteger(r.budget.max) && Number.isSafeInteger(r.budget.default) && r.budget.min > 0 && r.budget.min <= r.budget.default && r.budget.default <= r.budget.max)) fail("budget needs integer min <= default <= max, min > 0");
         if (r.values !== undefined && (typeof r.values !== "object" || Object.entries(r.values).some(([k, v]) => !(r.levels ?? []).includes(k as ReasoningLevel) || !(typeof v === "string" ? /^[a-z]{1,16}$/.test(v) : typeof v === "boolean")))) fail("values must map listed levels to short lowercase words or booleans");
       }
+      if (r.adaptiveThinking !== undefined && (r.adaptiveThinking !== true || r.kind !== "effort" || r.vendorParam !== "output_config.effort")) fail("adaptiveThinking needs Anthropic effort");
       if (!ok) return;
       out.push({ rule: r as ReasoningRule, re: new RegExp(p) });
     });
@@ -65,7 +67,7 @@ export function lookupReasoning(t: CompiledReasoningTable, vendor: string | unde
 
 const fromRule = (r: ReasoningRule, source: "api" | "table"): ReasoningDescriptor => r.kind === "none"
   ? { kind: "none", levels: [], source }
-  : { kind: r.kind, levels: [...(r.levels ?? [])], ...(r.default ? { default: r.default } : {}), ...(r.vendorParam ? { vendorParam: r.vendorParam } : {}), ...(r.values ? { values: { ...r.values } } : {}), ...(r.budget ? { budget: { ...r.budget } } : {}), source };
+  : { kind: r.kind, levels: [...(r.levels ?? [])], ...(r.default ? { default: r.default } : {}), ...(r.vendorParam ? { vendorParam: r.vendorParam } : {}), ...(r.values ? { values: { ...r.values } } : {}), ...(r.adaptiveThinking ? {adaptiveThinking:true as const}:{}), ...(r.budget ? { budget: { ...r.budget } } : {}), source };
 
 /**
  * (a) API, (b) table, (c) unknown. The API decides whether a model reasons at all; where it says so without the details

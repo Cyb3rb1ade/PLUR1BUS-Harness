@@ -15,3 +15,5 @@ export function carryThinking<T extends object>(from: object, to: T): T {
 export function bindThinkingModel<T extends object>(result: T, model: string): T {
  const held=blocks.get(result);if(held)blocks.set(result,{...held,model});return result;
 }
+
+export function hasThinking(target: object): boolean {return blocks.has(target);}

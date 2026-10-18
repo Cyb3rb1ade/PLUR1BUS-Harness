@@ -95,3 +95,11 @@ test("Responses: the directive wins over the adapter default, an explicit provid
   invalid(() => buildResponsesBody({ model: "o", messages: hi, reasoning: { vendorParam: "reasoning.effort", value: "turbo" } }, opts), /none, minimal, low, medium, high or xhigh/);
   invalid(() => buildResponsesBody({ model: "o", messages: hi, reasoning: { vendorParam: "thinking.budget_tokens", value: 2048 } }, opts), /not supported by the Responses wire/);
 });
+
+test("adaptive effort explicitly enables thinking and keeps a single bounded output maximum",()=>{
+ const directive=reasoningDirective("high",{kind:"effort",levels:["high"],vendorParam:"output_config.effort",adaptiveThinking:true,source:"table"});
+ assert.deepEqual(directive,{vendorParam:"output_config.effort",value:"high",adaptiveThinking:true});
+ const body=buildAnthropicBody({model:"claude-opus-4-6",messages:hi,maxTokens:2048,reasoning:directive},{stream:false,defaultMaxTokens:4096});
+ assert.deepEqual(body.thinking,{type:"adaptive"});assert.deepEqual(body.output_config,{effort:"high"});assert.equal(body.max_tokens,2048);
+ invalid(()=>buildAnthropicBody({model:"c",messages:hi,temperature:0.7,reasoning:directive},{stream:false,defaultMaxTokens:4096}),/sampling controls/);
+});

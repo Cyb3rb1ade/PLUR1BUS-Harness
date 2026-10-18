@@ -5,17 +5,6 @@
   "vendors": {
     "anthropic": [
       {
-        "pattern": "^claude-opus-4-5(-\\d{8})?(-latest)?$",
-        "kind": "effort",
-        "levels": [
-          "low",
-          "medium",
-          "high"
-        ],
-        "default": "high",
-        "vendorParam": "output_config.effort"
-      },
-      {
         "pattern": "^claude-(opus|sonnet)-4-6(-\\d{8})?(-latest)?$",
         "kind": "effort",
         "levels": [
@@ -28,7 +17,8 @@
         "vendorParam": "output_config.effort",
         "values": {
           "xhigh": "max"
-        }
+        },
+        "adaptiveThinking": true
       },
       {
         "pattern": "^claude-opus-4-[78](-\\d{8})?(-latest)?$",
@@ -40,7 +30,8 @@
           "xhigh"
         ],
         "default": "high",
-        "vendorParam": "output_config.effort"
+        "vendorParam": "output_config.effort",
+        "adaptiveThinking": true
       },
       {
         "pattern": "^claude-(3-7-sonnet|(sonnet|opus|haiku)-4(-[0-9])?)(-\\d{8})?(-latest)?$",

@@ -151,6 +151,9 @@
               "minimum": 1
             }
           }
+        },
+        "adaptiveThinking": {
+          "const": true
         }
       },
       "allOf": [
@@ -185,6 +188,23 @@
               "levels",
               "vendorParam"
             ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "adaptiveThinking"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "const": "effort"
+              },
+              "vendorParam": {
+                "const": "output_config.effort"
+              }
+            }
           }
         }
       ]

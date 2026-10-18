@@ -1,4 +1,4 @@
-import { thinkingFor } from "./thinking.ts";
+import { thinkingFor, hasThinking } from "./thinking.ts";
 import { isRecord, ProviderError } from "../errors.ts";
 import { validateRequest } from "../request.ts";
 import type { ChatMessage, ContentPart, JsonObject, ToolChoice } from "../types.ts";
@@ -79,7 +79,9 @@ function parseCallInput(args: string, at: string): JsonObject {
 }
 
 function assistantBlocks(m: Extract<ChatMessage, { role: "assistant" }>, at: string, ids: ToolIds, model: string): Block[] {
-  const out: Block[] = thinkingFor(m,model).map(b=>({...b}));
+  const held=thinkingFor(m,model);
+  if(hasThinking(m)&&!held.length)throw bad("original signed thinking blocks belong to a different model");
+  const out: Block[] = held.map(b=>({...b}));
   if (typeof m.content === "string" && !blank(m.content)) out.push({ type: "text", text: m.content });
   for (const c of m.toolCalls ?? []) out.push({ type: "tool_use", id: ids.wire(c.id), name: c.name, input: parseCallInput(c.arguments, at) });
   if (out.length === 0) throw bad(`${at} is empty: an assistant message needs text or tool calls`);
@@ -188,11 +190,13 @@ export function buildAnthropicBody(req: AnthropicRequest, opts: AnthropicBuildOp
   }
 
   const continuesToolLoop = turns.length >= 2 && turns[turns.length - 2]!.role === "assistant" && turns[turns.length - 2]!.blocks.some((b) => b.type === "tool_use");
-  const thinking = thinkingBudget > 0;
+  const adaptive=req.reasoning?.adaptiveThinking === true;
+  if(adaptive && (req.temperature!==undefined || req.topP!==undefined))throw bad("sampling controls cannot be combined with adaptive thinking");
+  const thinking = thinkingBudget > 0 || adaptive;
   if(thinking && continuesToolLoop){
     const last=turns[turns.length-2]!;
     const blocks=last.blocks.filter(b=>b.type==="thinking"||b.type==="redacted_thinking");
-    if(!blocks.length || blocks.some(b=>b.type==="thinking"&&(typeof b["signature"]!=="string"||b["signature"]==="")))throw bad("extended-thinking tool continuation requires the original signed thinking blocks for this model");
+    if((thinkingBudget > 0 && !blocks.length) || blocks.some(b=>b.type==="thinking"&&(typeof b["signature"]!=="string"||b["signature"]==="")))throw bad("extended-thinking tool continuation requires the original signed thinking blocks for this model");
   }
   const answer = req.maxTokens ?? opts.defaultMaxTokens;
   const body: Record<string, unknown> = { model: req.model, max_tokens: anthropicOutputLimit(answer, thinkingBudget) };
@@ -202,7 +206,7 @@ export function buildAnthropicBody(req: AnthropicRequest, opts: AnthropicBuildOp
   const toolChoice = wireToolChoice(req.toolChoice, req.parallelToolCalls);
   if (toolChoice !== undefined) body["tool_choice"] = toolChoice;
   if(req.reasoning?.vendorParam === "output_config.effort")body["output_config"]={effort:req.reasoning.value};
-  if (thinking) body["thinking"] = { type: "enabled", budget_tokens: thinkingBudget };
+  if (thinking) body["thinking"] = adaptive ? {type:"adaptive"} : { type: "enabled", budget_tokens: thinkingBudget };
   if (req.temperature !== undefined) body["temperature"] = req.temperature;
   if (req.topP !== undefined) body["top_p"] = req.topP;
   if (req.stop !== undefined) body["stop_sequences"] = req.stop;

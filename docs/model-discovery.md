@@ -133,7 +133,9 @@ clients must reread their authorized `chat.model.get`, and receive no config, se
 
 Anthropic's [effort documentation](https://platform.claude.com/docs/en/build-with-claude/effort), checked 2026-10-18,
 states that top-level `output_config.effort` needs no beta header. The curated supported-model rules use that stable
-parameter; per-message effort remains outside this implementation. Older manual-thinking models retain token budgets.
+parameter; per-message effort remains outside this implementation. Curated 4.6/4.7/4.8 rules explicitly enable adaptive
+thinking with effort; effort alone would leave thinking off on those models. Opus 4.5 and older manual-thinking models
+retain their token-budget path. The table and schema carry this capability, without model-name rules in the request builder.
 See also [thinking with tools](https://platform.claude.com/docs/en/build-with-claude/extended-thinking).
 
 `scripts/check-reasoning-metadata.mjs` validates the JSON Schema and safe compiled patterns in CI's unit job. Models

@@ -160,7 +160,7 @@ Each adapter writes only the parameters its wire carries and refuses any other w
 | chat_completions | `reasoning.effort` | `reasoning: { effort }` (OpenRouter) |
 | chat_completions | `chat_template_kwargs.enable_thinking` | `chat_template_kwargs: { enable_thinking }` (Qwen3 behind vLLM/SGLang) |
 | Anthropic Messages | `thinking.budget_tokens` | `thinking: { type: "enabled", budget_tokens }` (0 sends nothing; at least 1024; `max_tokens` lifted above it; signed blocks are preserved on tool continuation) |
-| Anthropic Messages | `output_config.effort` | Stable top-level `output_config: { effort }`; curated supported models only, no beta header |
+| Anthropic Messages | `output_config.effort` | Stable top-level `output_config: { effort }`; curated supported models only, no beta header; `adaptiveThinking` explicitly enables the adaptive mode where needed |
 | Gemini | `thinkingConfig.thinkingBudget`, `thinkingConfig.thinkingLevel` | `generationConfig.thinkingConfig` |
 | Responses | `reasoning.effort` | `reasoning.effort` (`none`..`xhigh`); an explicit `providerOptions.responses.reasoningEffort` still wins |
 
