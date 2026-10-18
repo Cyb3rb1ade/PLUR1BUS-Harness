@@ -38,7 +38,8 @@ import { commitOpenclawStores, prepareOpenclawStores, type OpenclawStoreReport, 
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
 import { buildEngineConfig } from "../../engine-config.ts";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
-import { hasOpenclawCardFiles, importOpenclawMemories, readPriorCardLinks, type OpenclawMemoryImportResult, type OwnStoreCardMode } from "./openclaw-memories.ts";
+import { hasOpenclawCardFiles, importOpenclawMemories, type OpenclawMemoryImportResult } from "./openclaw-memories.ts";
+import { PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode } from "./card-links.ts";
 
 export interface OpenclawImportOptions {
   home: string;
@@ -330,9 +331,9 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         if (st.kind !== "agent" || !st.agentId) continue;
         const id = st.agentId.toLowerCase();
         const mode: OwnStoreCardMode = st.action === "re-embedding-migration"
-          ? { kind: "park", outcome: "pending-reembed", reason: "agent-store-reembed-migration" }
+          ? PARK_PENDING_REEMBED
           : st.action === "skipped"
-            ? { kind: "park", outcome: "deferred", reason: "agent-store-not-taken-over" }
+            ? PARK_DEFERRED
             : { kind: "link", priorLinks };
         const prev = ownStoreModes.get(id);
         // Several partitions for one agent: the most cautious verdict wins (pending-reembed > deferred > link).
