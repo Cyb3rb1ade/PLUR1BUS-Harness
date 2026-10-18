@@ -82,10 +82,13 @@ jobs:
           bwrap --ro-bind / / --unshare-all true && echo "bwrap ok"
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-toolchain.mjs
+      - run: node --test scripts/check-toolchain.test.mjs
       - name: config fixture drift (before generation)
         run: node packages/config-schema/src/gen-defaults.mjs --check
       - run: pnpm gen
       - run: pnpm build
+      # A cold full-program strict check needs >2 GiB (incremental only saves warm runs).
+      # Preserve the same compiler inputs/options; give V8 headroom on the 7 GiB macOS runner.
       - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm lint
         env:
           NODE_OPTIONS: ${{ runner.os == 'macOS' && '--max-old-space-size=4096' || '' }}
@@ -506,6 +509,67 @@ jobs:
         run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
       - name: lint workflows locally
         run: '"$(go env GOPATH)/bin/actionlint" -shellcheck= -config-file scripts/release/actionlint.yaml .github/workflows/*.yml'
+
+  # Independent advisory job. Existing jobs/gates are intentionally untouched.
+  perf-startup:
+    name: startup (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, target: darwin-arm64 }
+          - { os: windows-2025, target: win32-x64 }
+          - { os: windows-11-arm, target: win32-arm64 }
+          - { os: ubuntu-24.04, target: linux-x64 }
+          - { os: ubuntu-24.04-arm, target: linux-arm64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: '1.95' }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+      - name: install pinned dependencies
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          base="https://github.com/"
+          if [ -n "$GH_ENGINE_READ_TOKEN" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; fi
+          export GIT_CONFIG_COUNT=3
+          export GIT_CONFIG_KEY_0="url.${base}.insteadOf" GIT_CONFIG_VALUE_0='git@github.com:'
+          export GIT_CONFIG_KEY_1="url.${base}.insteadOf" GIT_CONFIG_VALUE_1='ssh://git@github.com/'
+          export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
+          pnpm install --frozen-lockfile
+      - run: pnpm prep
+      - run: cargo build --release -p plur1bus
+      - name: help isolation and measurement tests
+        run: node --experimental-strip-types --conditions=source --test --test-concurrency=1 tests/system/help-isolation.test.ts scripts/bench/metrics.test.mjs scripts/bench/startup.test.mjs
+      - name: measure B1 B8 B11 (30 starts, advisory timings)
+        env:
+          PERF_RUNNER_LABEL: ${{ matrix.os }}
+        run: node scripts/bench/startup.mjs --runs 30 --out startup-benchmark
+      - name: measure B8 with background model warming (advisory)
+        env:
+          PERF_RUNNER_LABEL: ${{ matrix.os }}
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/perf-models"
+          node scripts/bench/startup.mjs --runs 30 --real-models --models-cache "$RUNNER_TEMP/perf-models" --out startup-models
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: startup-${{ matrix.target }}
+          path: |
+            startup-benchmark.json
+            startup-benchmark.md
+            startup-models.json
+            startup-models.md
+          if-no-files-found: warn
 
   # D100 golden set (separate, append-only job): render one document per template and compare against the committed
   # references (visual diff). Chrome is pinned (CHROME_VERSION) because the references are only comparable to renders of that

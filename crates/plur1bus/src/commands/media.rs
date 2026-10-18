@@ -248,6 +248,18 @@ pub fn request(cmd: &MediaCmd) -> (&'static str, Value) {
         MediaCmd::Caption { sub } => super::media_search::caption_request(sub),
     }
 }
+/// How long `--wait` waits: ten minutes. Test seam: `PLUR1BUS_TEST_MEDIA_WAIT_MS` shortens it, only with
+/// `PLUR1BUS_ALLOW_TEST_INTERNALS=1`.
+fn wait_limit() -> Duration {
+    let test = std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1");
+    match std::env::var("PLUR1BUS_TEST_MEDIA_WAIT_MS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+    {
+        Some(ms) if test => Duration::from_millis(ms),
+        _ => Duration::from_secs(600),
+    }
+}
 pub fn run(out: &Out, layout: &Layout, cmd: MediaCmd) {
     let cmd = match cmd {
         MediaCmd::Search(a) => return super::media_search::run_search(out, layout, a),
@@ -277,18 +289,22 @@ pub fn run(out: &Out, layout: &Layout, cmd: MediaCmd) {
                         value = job;
                         break;
                     }
-                    Some("failed" | "cancelled") => out.fail(
-                        "E_NOT_AVAILABLE",
-                        "media job did not succeed",
-                        json!({"reason":job["error"]}),
-                    ),
+                    Some("failed" | "cancelled") => {
+                        let mut extra = json!({"reason": "media-job-failed"});
+                        match &job["error"] {
+                            Value::Null => {}
+                            Value::String(e) => extra["detail"] = json!(e),
+                            other => extra["detail"] = json!(other.to_string()),
+                        }
+                        out.fail("E_INTERNAL", "media job did not succeed", extra)
+                    }
                     _ => {}
                 }
-                if start.elapsed() > Duration::from_secs(600) {
+                if start.elapsed() > wait_limit() {
                     out.fail(
-                        "E_NOT_AVAILABLE",
+                        "E_INTERNAL",
                         "media wait timed out; job remains available",
-                        json!({"reason":"timeout"}),
+                        json!({"reason":"media-wait-timeout"}),
                     );
                 }
                 std::thread::sleep(Duration::from_millis(250));

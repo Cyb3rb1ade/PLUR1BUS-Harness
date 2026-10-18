@@ -14359,6 +14359,90 @@ Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving t
 }
 ```
 
+### `session.model.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId",
+    "profile"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "confirmed": {
+      "type": "boolean"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "previousProfile",
+    "revision",
+    "applied",
+    "warning"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string"
+    },
+    "previousProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "applied": {
+      "type": "boolean"
+    },
+    "warning": {
+      "const": "cache-rebuild-cost-prefixes-preserved"
+    }
+  }
+}
+```
+
 ### `session.create`
 
 **Stability:** experimental · since 1.5.0
