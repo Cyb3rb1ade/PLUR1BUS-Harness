@@ -1,67 +1,64 @@
 # Cloud embeddings and rerankers
 
-Plur1bus provides full support for cloud-hosted embedding and reranker models alongside local models, without favoring any specific provider. The German version of this page is [../de/cloud-embeddings.md](../de/cloud-embeddings.md).
+Plur1bus can use a hosted embedding model, and the Cohere reranker, instead of the local models. No provider is preferred, and a failing service is never silently replaced by a local model. The German version of this page is [../de/cloud-embeddings.md](../de/cloud-embeddings.md).
 
-## How to ("So geht's")
+There is no web UI for this yet. You set it in the configuration, under the keys `engine.embedding` and `engine.reranker`, with the CLI or in `config.json`.
 
-### Supported providers
+## How to
 
-- **OpenAI:** `openai` (`text-embedding-3-small`, `text-embedding-3-large`).
-- **OpenRouter:** `openrouter` (e.g. Qwen embeddings `qwen/qwen-2.5-coder`).
-- **Cohere:** `cohere` (`embed-multilingual-v3.0`, `rerank-v3.5`).
-- **Jina:** `jina` (`jina-embeddings-v3`, `jina-reranker-v2-base-multilingual`).
-- **Voyage:** `voyage` (`voyage-3`, `voyage-multilingual-2`, `rerank-2`).
-- **Self-hosted / Custom:** Any OpenAI-compatible server (vLLM, Ollama, Text Embeddings Inference) hosted on a remote server.
+### What is supported
 
-### Web UI
-
-1. Open **Settings → Memory** (`#/settings/memory`).
-2. Under **Embedding Model**, choose your provider and model name.
-3. Select your API key reference under **API Key Secret** (`apiKeyRef`).
-4. When selecting an external provider, a confirmation box appears. Check **I acknowledge that embedding requests leave localhost** (`privacyAck`).
-5. Choose **Save changes**.
+- **Embeddings:** any provider with an OpenAI-compatible embeddings endpoint: OpenAI (`openai`), OpenRouter (`openrouter`), Cohere's compatibility API (`cohere`), Jina (`jina`), Gemini's OpenAI endpoint, and your own server (vLLM, Ollama, Text Embeddings Inference). The provider id is a label you choose; the endpoint and model decide.
+- **Reranker:** only Cohere (`cohere`). Other providers are refused, not replaced by another model.
 
 ### CLI
 
-1. Store the provider API key in the secret store:
+1. Put the API key in an environment variable of the core process, for example `OPENAI_API_KEY`. The configuration only ever holds the variable's **name** (`apiKeyEnv`). The secret store is not connected to the memory engine yet, so a key stored with `plur1bus secret set` does not reach it.
+
+2. Record the privacy confirmation for the provider, for example for OpenAI. It is an object with the provider, a time stamp and the person who confirmed; the signed-in person is entered as `by` when you save. For a provider with its own `baseUrl`, add `"endpoint"` with exactly that address.
 
 ```sh
-printf %s "$OPENAI_API_KEY" | plur1bus secret set openai/api-key
+plur1bus config set memory.embedding.privacyAck '{"provider":"openai","acknowledgedAt":"<ISO-8601 date-time>","by":"<your person id>"}'
 ```
 
-2. Configure the embedding provider and model:
+3. Configure the embedding model. `provider`, `model`, `dimensions` (the vector size of that model) and `apiKeyEnv` are required; `baseUrl` is required for every provider except `openai`.
 
 ```sh
-plur1bus config set memory.embedding.provider openai
+plur1bus config set engine.embedding '{"provider":"openai","model":"text-embedding-3-small","dimensions":1536,"apiKeyEnv":"OPENAI_API_KEY"}'
 ```
 
-3. Confirm privacy acknowledgement for cloud endpoints:
+4. Optional, the Cohere reranker. It receives the recalled memory texts.
 
 ```sh
-plur1bus config set memory.embedding.privacyAck true
-plur1bus config set memory.reranker.privacyAck true
+plur1bus config set engine.reranker '{"provider":"cohere","apiKeyEnv":"COHERE_API_KEY"}'
 ```
 
-4. Verify your memory configuration:
+5. Check the result:
 
 ```sh
-plur1bus config get memory.embedding
+plur1bus config get engine.embedding
 ```
 
-## Good to know ("Gut zu wissen")
+An existing memory store is tied to the model that built it. Do not change `engine.embedding` by hand for it; move it with [reembed.md](reembed.md).
 
-- **Privacy confirmation is required:** Any embedding or reranker endpoint outside `localhost` or `127.0.0.1` requires explicit confirmation (`privacyAck: true`). If this confirmation is missing, requests are rejected.
-- **Secrets vs Config:** Never put plaintext API keys into `config.json`. Use `apiKeyRef` to reference a secret in the secret store, or `apiKeyEnv` to reference an environment variable. Configuration files containing plaintext keys fail schema validation.
-- **No silent fallback:** If your cloud embedding or reranker service is unavailable, Plur1bus reports the error and halts memory indexing. It never silently falls back to a different model or vector space, which would corrupt semantic search results.
+## Good to know
 
-## Error messages ("Fehlermeldungen")
+- **Privacy confirmation is required:** every embedding endpoint outside loopback (`localhost`, `127.0.0.0/8`, `::1`) needs `memory.embedding.privacyAck` for exactly that provider and endpoint. Changing the provider or address makes an old confirmation invalid. From the next release the reranker needs its own `memory.reranker.privacyAck`, bound to the provider.
+- **Keys never go into the configuration:** a plaintext `apiKey` or a `baseUrl` with a user name or password is refused. Use `apiKeyEnv`. The spelling `baseURL` is refused as well, because the engine would ignore it and call its default endpoint.
+- **No silent fallback:** a `fallback` model is refused. If the hosted service is unreachable, indexing and recall report the error; they never switch to another model or vector space, which would corrupt search results.
+- **Local only:** from the next release, `privacy.localOnly` refuses a cloud embedding or reranker endpoint ([privacy.md](privacy.md)).
 
-- `E_PRIVACY_ACK_REQUIRED`: The configured embedding or reranker endpoint is located outside localhost, but privacy acknowledgement (`memory.embedding.privacyAck` or `memory.reranker.privacyAck`) is missing or false.
-- `E_SECRET_NOT_FOUND`: The secret name specified in `apiKeyRef` does not exist in the secret store. Add it with `plur1bus secret set <NAME>`.
-- `E_KEY_IN_CONFIG`: A plaintext API key was found directly in the configuration. Remove the key and reference it via `apiKeyRef` instead.
+## Error messages
+
+- `E_DENIED` with reason `privacy-acknowledgment-required`: the endpoint is outside loopback and `memory.embedding.privacyAck` is missing. The reasons `privacy-acknowledgment-invalid` (incomplete record) and `privacy-acknowledgment-mismatch` (it names another provider or endpoint) mean the same: record the confirmation again for the provider in use.
+- `E_INVALID_PARAMS` with reason `engine-provider-config-incomplete`: `model`, `dimensions`, `apiKeyEnv` or, except for `openai`, `baseUrl` is missing. The reason `engine-provider-invalid` means the provider id is malformed.
+- `E_INVALID_PARAMS` with reason `secret-in-config`: a plaintext key, or credentials inside `baseUrl`. Remove them and name an environment variable in `apiKeyEnv`.
+- `E_INVALID_PARAMS` with reason `embedding-fallback-refused`: remove `fallback`; change models with `memory reembed`.
+- `E_NOT_AVAILABLE` with reason `engine-adapter-factory-unavailable`: the reranker provider has no adapter yet; only `cohere` works.
+- `E_DENIED` with reason `local-only` or `egress-denied`: see [privacy.md](privacy.md) (from the next release).
 
 ## Next
 
 - Migrate an existing store to a new embedding model: [reembed.md](reembed.md)
-- Manage secret keys securely: [secrets.md](secrets.md)
+- Privacy and Local only: [privacy.md](privacy.md)
 - Configure model providers and profiles: [providers.md](providers.md)

@@ -1,19 +1,19 @@
 # Managing secrets
 
-Plur1bus provides a dedicated secret store for sensitive API keys and tokens. Secrets are isolated from the main configuration, masked in all log outputs, and accessible to agents only by name. The German version of this page is [../de/secrets.md](../de/secrets.md).
+Plur1bus keeps API keys and tokens in a secret store, separate from the configuration. A value can be written and replaced, but it is never shown again. Only the owner can use the secret store. The German version of this page is [../de/secrets.md](../de/secrets.md).
 
-## How to ("So geht's")
+## How to
 
 ### Web UI
 
-1. Open **Settings → Secrets** (`#/settings/secrets`).
-2. **Add a secret:** Choose **New Secret**. Enter the unique name (e.g. `openai/api-key`), an optional description of what the secret is used for, and paste the value into the masked password field. The value is cleared from memory as soon as you submit.
-3. **Rotate a secret:** Choose **Rotate** next to an existing secret, provide the new value, and confirm.
-4. **Delete a secret:** Choose **Delete**. To prevent accidents, type the exact name of the secret before confirming.
+1. Open **Settings → Secrets** (`#/settings/secrets`). The page shows names and metadata only.
+2. **Add a secret:** choose **Add secret**, enter the name (for example `openai/api-key`) and paste the value into the masked field. The value is cleared as soon as you save. From the next release there is also an optional one-line description of what the secret is for.
+3. **Rotate a secret:** choose **Rotate**, enter the new value and confirm with **Rotate now**. The old value stops working at once and its leases are revoked.
+4. **Delete a secret:** choose **Delete** and confirm. The secret is removed from every backend and its leases are revoked; anything that uses it stops working.
 
 ### CLI
 
-Check which storage backend holds your secrets (system keyring or encrypted file):
+Check which backend holds your secrets (OS keyring or encrypted file):
 
 ```sh
 plur1bus secret status
@@ -31,33 +31,39 @@ Store or rotate a secret by piping its value through standard input:
 printf %s "$API_KEY" | plur1bus secret set <NAME>
 ```
 
-Inspect metadata (timestamps and description):
+Show metadata (backend, timestamps and, from the next release, the description):
 
 ```sh
 plur1bus secret get <NAME>
 ```
 
-Delete a secret from all storage backends:
+Delete a secret from every backend (`--yes` is required outside a terminal):
 
 ```sh
 plur1bus secret rm <NAME>
 ```
 
-## Good to know ("Gut zu wissen")
+From the next release, `secret set` also takes `--description` with a one-line text of at most 200 characters. Without it, a rotation keeps the stored description; an empty text removes it.
 
-- **Never in CLI arguments:** A secret value is never accepted as a command-line argument. If you type a value as an argument, Plur1bus immediately aborts with `value-in-argument` without echoing your input. Always pipe via standard input or use the Web UI.
-- **What agents see (`secret_names`):** Agents are only allowed to inspect the list of secret names (`secret_names`) they are granted access to. They can never read, retrieve, or log the underlying secret values. They pass references (`apiKeyRef`) to engine tools.
-- **Automatic redaction everywhere:** Secret values are automatically masked in all outputs: core logs (`core.log`), audit trails, diagnostic bundles (`1staid.bundle`), log queries (`logs.query`), and Doctor status checks.
-- **Storage backends:** Plur1bus uses your operating system keyring by default (macOS Keychain, Linux Secret Service, Windows Credential Manager). If no keyring daemon is available, it uses an encrypted local file.
+## Good to know
 
-## Error messages ("Fehlermeldungen")
+- **Never in an argument:** a secret value is never accepted as a command-line argument. If you type one, the command refuses without echoing it; treat what you typed as exposed (shell history, process list) and rotate it. Pipe the value through standard input, or use the web UI. The value may be up to 65536 bytes, and one trailing newline is removed.
+- **Names:** letters, digits and `. _ : / @ -`, starting with a letter or digit, at most 128 characters.
+- **What agents see (`secret_names`):** the tool `secret_names` lists the names, scope and presence of the secrets that the agent's own configuration refers to, such as a channel it serves or the provider of its model profile. It never shows a value, a length or a prefix, and an agent cannot ask about another agent. From the next release it also shows the description.
+- **Masked in output:** secret values the core holds are masked in its log output and in the audit trail and reports built from it, and a retired value stays masked after a rotation or deletion. The diagnostic bundle (`plur1bus 1staid bundle`) never contains secrets.
+- **Backends:** the OS keyring (macOS Keychain, Linux Secret Service, Windows Credential Manager) comes first. If none is usable, an encrypted file is used, but only when `secrets.fileFallback.enabled` is on. Without a backend, secret storage is not available.
+- **Revealing a value:** `plur1bus secret get <NAME> --reveal` prints the value. It is the only command that does, only the owner can run it, and every call is audited.
 
-- `E_SECRET_NOT_FOUND`: The requested secret does not exist in the store. Check available names with `plur1bus secret ls`.
-- `E_VALUE_IN_ARGUMENT`: A secret value was typed as a command-line argument. Use stdin piping instead: `printf %s "$VALUE" | plur1bus secret set <NAME>`.
-- `E_SECRET_DENIED`: Your role or agent lacks permission to access or modify this secret.
+## Error messages
+
+- `E_NOT_FOUND` (reason `not-found`): no secret has this name. Check the names with `plur1bus secret ls`.
+- `E_INVALID_PARAMS` with reason `value-in-argument`: a value was typed as an argument. Pipe it through standard input instead. The reason `value-from-stdin` means standard input is a terminal; the reason `stdin-unreadable` means it could not be read. The reasons `invalid-name` and `invalid-value` mean the name or value is malformed. From the next release, `invalid-description` means the description is too long, has more than one line, or contains the secret value.
+- `E_DENIED` (reason `denied`): secret operations are for the owner only.
+- `E_NOT_AVAILABLE` with reason `no-backend` or `backend-unavailable`: no keyring is usable and the file fallback is off, or the backend cannot be reached. Turn on `secrets.fileFallback.enabled` or fix the keyring.
+- `E_CANCELLED` (reason `declined`): you answered no to the confirmation of `secret rm`; nothing was changed.
 
 ## Next
 
 - Use secrets with model providers: [providers.md](providers.md)
-- Configure cloud embeddings: [cloud-embeddings.md](cloud-embeddings.md)
+- Cloud embeddings and the environment variable for their key: [cloud-embeddings.md](cloud-embeddings.md)
 - Operations and diagnostic bundles: [operations.md](operations.md)

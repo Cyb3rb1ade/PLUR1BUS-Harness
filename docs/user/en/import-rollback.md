@@ -1,50 +1,51 @@
 # Undoing an import (import rollback)
 
-When you import memory cards and skills from an external source (such as Hermes), Plur1bus records a detailed import report. The rollback feature lets you undo an import cleanly. The German version of this page is [../de/import-rollback.md](../de/import-rollback.md).
+Every import run that you apply with `--apply` records a report and a snapshot of the state before it. Rollback uses them to put Plur1bus back to that state. The German version of this page is [../de/import-rollback.md](../de/import-rollback.md).
 
-> **Availability notice:** Import rollback uses `memory.unimport` and is available starting with Plur1bus Engine 1.15.
+> **Availability:** rolling back what the import wrote to your installation (skills, files, configuration) works today. Undoing the imported **memory cards** is available from Engine 1.15. Until then a rollback reports them as `not-reverted (engine has no undo)` and leaves the memory store as it is.
 
-## How to ("So geht's")
+## How to
 
-### Web UI
+There is no web UI for this. Use the CLI.
 
-1. Open **Settings → Import & History** (`#/settings`).
-2. Select the past import run from the history table.
-3. Choose **Rollback Preview**: The modal calculates which imported cards and skills will be archived, and identifies any cards edited by users that will be kept.
-4. Choose **Apply Rollback** and confirm the operation.
-
-### CLI
-
-1. Inspect source details and prior import status:
+1. Inspect the source and what an import would find. This changes nothing:
 
 ```sh
 plur1bus import hermes --detect
 ```
 
-2. Run a dry-run rollback (default preview mode, modifies nothing):
+2. Preview the rollback of a run. Pass the `report.json` of the run, which lies in the `imports` folder of your Plur1bus home under the run id. Without `--apply` nothing is written.
 
 ```sh
 plur1bus import hermes --rollback <REPORT>
 ```
 
-3. Apply the rollback:
+3. Apply the rollback. Stop the core first; a rollback refuses to run while the core is running.
 
 ```sh
 plur1bus import hermes --rollback <REPORT> --apply
 ```
 
-## Good to know ("Gut zu wissen")
+The same works for `openclaw` instead of `hermes`.
 
-- **Archiving instead of deletion:** The memory engine invokes `memory.unimport`. Imported cards are archived rather than permanently purged or marked with tombstones.
-- **User-edited cards remain:** If you or an agent updated, corrected, or annotated an imported memory card after the initial import run, that card is recognized as user-modified. The rollback preserves all user-edited cards intact.
-- **Source system is never modified:** The source system (such as your Hermes state directory) is strictly read-only during both import and rollback.
-- **Re-import is always possible:** Undoing an import does not lock or corrupt the store. You can re-run an import at any time with adjusted mappings or conflict resolution options.
+## Good to know
 
-## Error messages ("Fehlermeldungen")
+- **Preview first:** the rollback is a dry run unless you add `--apply`. The report lists what would be removed, restored or kept.
+- **Your changes are kept:** a file that the import created and that you changed afterwards is not deleted. It is backed up, left in place and reported as `kept-modified`. The option `--force` deletes such files after the backup.
+- **Memory cards:** see the availability note above. A rollback never deletes or changes memory cards today.
+- **Fail closed:** a damaged or missing ledger, or a snapshot that does not match its report, stops the rollback instead of reporting success with imported files left behind.
+- **The source is never modified:** your Hermes or OpenClaw directory is only read, during the import and during the rollback.
+- **Run it once:** a run that was already rolled back is refused. You can import again at any time with other options.
 
-- `E_REPORT_NOT_FOUND`: The specified import report file does not exist or cannot be read.
-- `E_ENGINE_FEATURE_UNAVAILABLE`: Rollback was requested on an engine version prior to 1.15. Update your Plur1bus Engine to version 1.15 or newer.
-- `E_CONFLICT`: A conflicting unimport operation or concurrent write is active.
+## Error messages
+
+The importer reports its own error codes; the `reason` says what is wrong.
+
+- `E_ROLLBACK_INVALID` with reason `report-unreadable`, `report-missing` or `report-outside-home`: the report file cannot be read, does not exist, or is not the `report.json` of its run folder. Pass the file from the run's folder.
+- `E_ROLLBACK_INVALID` with reason `not-an-apply-report`: the run was only a preview, so there is nothing to undo. `already-rolled-back`: the run was undone before. `source-mismatch`: the report belongs to the other source (`hermes` or `openclaw`).
+- `E_ROLLBACK_INVALID` with reason `snapshot-missing`, `snapshot-corrupt`, `snapshot-invalid`, `ledger-corrupt` or `unsafe-symlink`: the saved state cannot be trusted, so nothing is restored.
+- `E_ROLLBACK_STALE` with reason `skills-changed-since`: your skills changed after that run. Roll back the later runs first.
+- Reason `target-running` (the importer's own error): the core is running. Stop it with `plur1bus daemon stop` and try again.
 
 ## Next
 

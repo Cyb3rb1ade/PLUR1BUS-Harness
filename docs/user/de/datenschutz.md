@@ -1,16 +1,17 @@
 # Datenschutz und Modus „Nur lokal“
 
-Plur1bus bietet mit dem Schalter „Nur lokal“ (`privacy.localOnly`) eine strikte Datenschutz-Einstellung, die garantiert, dass keine Modellanfragen, Embeddings oder Denkdaten ohne ausdrückliche Freigabe den eigenen Rechner verlassen. Die englische Version dieser Seite ist [../en/privacy.md](../en/privacy.md).
+Mit dem Schalter „Nur lokal“ (`privacy.localOnly`) verlässt keine Modellanfrage, kein Embedding und kein Reranker-Aufruf deinen Rechner, solange der Endpunkt nicht lokal ist. Die englische Version dieser Seite ist [../en/privacy.md](../en/privacy.md).
+
+> **Verfügbarkeit:** „Nur lokal“ ist ab der nächsten Version verfügbar. Frühere Versionen kennen `privacy.localOnly`, `privacy.localEndpoints` und `agents.<id>.privacy.localOnly` nicht.
 
 ## So geht's
 
 ### Web-UI
 
-1. Öffne die **Einstellungen** (`#/settings/security` oder `#/settings/general`).
-2. Scrolle zur Karte **Datenschutz & Netzwerk**.
-3. Schalte den Regler **Nur lokal** auf **Aktiviert**.
-4. Um einen selbst gehosteten Server im Heimnetz freizugeben, trage dessen Adresse unter **Lokale Endpunkte** ein (zum Beispiel `http://100.64.0.10:8080`).
-5. Klicke auf **Änderungen speichern**.
+1. Öffne **Einstellungen → Datenschutz** (`#/settings/privacy`).
+2. Schalte **privacy.localOnly** („Nur lokal“) ein.
+3. Um einen eigenen Modellserver außerhalb dieses Rechners freizugeben, trage seinen Origin unter **privacy.localEndpoints** ein (zum Beispiel `http://100.64.0.10:8080`): Schema, Host und optional Port, ohne Pfad.
+4. Wähle **Änderungen prüfen**, kontrolliere die Differenz und speichere. Beide Schlüssel starten den Core neu. Nur Owner und Admins dürfen sie ändern.
 
 ### CLI
 
@@ -26,31 +27,39 @@ Modus „Nur lokal“ aktivieren:
 plur1bus config set privacy.localOnly true
 ```
 
-Eigene Heimserver und LAN-Endpunkte freigeben:
+Eigenen Modellserver im Heimnetz freigeben:
 
 ```sh
 plur1bus config set privacy.localEndpoints '["http://100.64.0.10:8080"]'
 plur1bus config get privacy.localEndpoints
 ```
 
-### Einstellung pro Agent
+### Pro Agent
 
-Du kannst „Nur lokal“ auch gezielt für einzelne Agenten erzwingen, selbst wenn der globale Schalter deaktiviert ist:
+Ein Agent kann den Wert der Installation in beide Richtungen überschreiben. Setze ihn für einen einzelnen Agenten (in der Web-UI gibt es dafür keinen Schalter):
 
-- In der `config.json` unter `agents.<id>` den Wert `"privacy": { "localOnly": true }` eintragen.
-- In der Web-UI: Gehe zu **Agenten** (`#/agents/<id>`), wähle **Bearbeiten** und aktiviere die Option **Nur lokale Modelle erlauben**.
+```sh
+plur1bus config set agents.<id>.privacy.localOnly true
+```
+
+Ein nicht gesetzter Wert erbt `privacy.localOnly`; `false` hebt die Einschränkung nur für diesen Agenten auf.
 
 ## Gut zu wissen
 
-- **Was gesperrt wird:** Jeder Modellaufruf, der den Rechner verlässt, wird blockiert. Das betrifft Chat-Modelle, Cloud-Embeddings, Cloud-Reranker, Textkompaktierung, Sprachausgabe/-transkription und automatische Reasoning-Aufrufe.
-- **Was nicht gesperrt wird (Web-Tools):** Web-Tools wie Browser-Steuerung, Web-Recherche oder HTTP-Abfragen sind operative Werkzeuge, keine Modellaufrufe. Sie unterliegen den Werkzeug-Berechtigungen und Freigaben ([freigaben.md](freigaben.md)), nicht dem Modell-Egress-Filter.
-- **Auswirkung auf die gemeinsame Engine:** Hat ein Agent „Nur lokal“ aktiv, verweigert die gemeinsame Memory-Engine für diesen Agenten jegliche Nutzung von Cloud-Embeddings oder Cloud-Rerankern.
-- **Heimserver und Rebinding-Schutz:** `privacy.localEndpoints` erlaubt Adressen im lokalen Netzwerk (wie Ollama oder LocalAI im LAN). Die Egress-Prüfung verhindert DNS-Rebinding und Umgehungsversuche über Loopback-Aliase; nur explizit gelistete Adressen sind zugelassen.
+- **Was als lokal gilt:** ein Endpunkt auf Loopback (`localhost`, `127.0.0.0/8`, `::1`) oder genau einer der Origins in `privacy.localEndpoints`. Eine LAN-Adresse ist nie von sich aus lokal, und ein Name wird für die Entscheidung nicht aufgelöst.
+- **Was erfasst wird:** Chat- und Rollenmodelle (auch die Zusammenfassungen, die lange Gespräche verdichten), Embeddings, der Reranker, die Modellfunktionen der Memory-Engine, Sprache (nur lokale Modelle), Bildbeschreibungen, der Medienindex und die Mediengenerierung. Die Modellsuche listet Cloud-Modelle weiterhin, markiert als „nur lokal: gesperrt“.
+- **Kein stiller Fallback:** Ein abgelehntes Modell wird nie durch ein anderes ersetzt. Die Anfrage schlägt fehl und nennt den Grund.
+- **Web-Tools sind nicht betroffen:** `web.fetch` und `web.search` sind keine Modellaufrufe. Werkzeug-Berechtigungen, Freigaben ([freigaben.md](freigaben.md)) und die Egress-Regeln steuern sie, nicht `privacy.localOnly`.
+- **Gemeinsame Memory-Engine und Medienindex:** Alle Agenten schreiben hinein, deshalb bleiben beide lokal, solange die Installation oder irgendein Agent „Nur lokal“ hat. Ein Agent, der den Schalter für sich aufhebt, öffnet sie nie für ein Cloud-Modell.
+- **Egress gilt zusätzlich:** Ein lokaler Endpunkt muss auch die Regeln unter `egress.*` bestehen; Loopback braucht `egress.allowLoopback`.
+- **Doctor:** Die Prüfung `privacy.local-only` schlägt fehl, solange der Schalter an ist und noch ein Cloud-Modell konfiguriert ist, und listet auf, was abgelehnt wird.
 
 ## Fehlermeldungen
 
-- `E_MODEL_FORBIDDEN_LOCAL_ONLY` (oder `E_LOCAL_ONLY`): Der Modell- oder Embedding-Aufruf wurde blockiert, weil „Nur lokal“ aktiv ist und das Ziel ein externer Cloud-Anbieter ist. Wähle ein lokales Modell oder deaktiviere den Modus.
-- `E_EGRESS_BLOCKED`: Die ausgehende Netzwerkverbindung wurde blockiert, da die Zieladresse nicht in `privacy.localEndpoints` aufgeführt ist.
+Ablehnungen nutzen die geschlossenen Fehlercodes; der `reason` nennt die angewandte Regel.
+
+- `E_DENIED` mit reason `local-only`: Der Modell-, Embedding- oder Reranker-Endpunkt ist nicht lokal, während „Nur lokal“ gilt. Wähle ein lokales Modell, trage deinen eigenen Server in `privacy.localEndpoints` ein oder schalte den Schalter aus.
+- `E_DENIED` mit reason `egress-denied`: Die Egress-Regeln haben beim Start einen Endpunkt der Memory-Engine abgelehnt (zum Beispiel einen entfernten Embedding-Host). Trage den Host in `egress.allowHosts` ein; Loopback braucht zusätzlich `egress.allowLoopback`.
 
 ## Weiter
 

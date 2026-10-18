@@ -1,58 +1,64 @@
 # Embedding-Modell wechseln (memory reembed)
 
-Wenn du das Embedding-Modell wechselst, müssen bestehende Erinnerungskarten in den neuen Vektorraum überführt werden. Plur1bus unterstützt die Migration in alle Richtungen: lokal↔Cloud, Cloud→Cloud und lokal↔lokal. Die englische Version dieser Seite ist [../en/reembed.md](../en/reembed.md).
+Wenn du das Embedding-Modell wechselst, muss der Gedächtnis-Store in den neuen Vektorraum überführt werden. `plur1bus memory reembed` tut das ohne gemischten Vektorraum: Es baut neben der alten eine neue Generation von Vektoren auf und schaltet erst nach einer Prüfung um. Die englische Version dieser Seite ist [../en/reembed.md](../en/reembed.md).
+
+> **Verfügbarkeit:** Die Migration ist experimentell. Der Wechsel auf ein **lokales** Modell funktioniert wie unten beschrieben. Der Wechsel zu oder zwischen **Cloud**-Modellen (`--provider`, `--base-url`, `--api-key-env`, `--acknowledge-privacy`) ist ab der nächsten Version verfügbar.
+>
+> **Offener Punkt:** Die Memory-Engine bietet den Prüfschritt, den die Umschaltung braucht, noch nicht an. Bis dahin hält ein Lauf in der Phase `validating` an (`engine-validate-unavailable`) und schaltet nie eine ungeprüfte Generation um. Der alte Store bleibt aktiv.
 
 ## So geht's
 
-### Web-UI
+Dafür gibt es keine Web-UI. Nutze die CLI.
 
-1. Öffne **Erinnerungen & Träume** (`#/memories`).
-2. Klicke im Bereich **Store & Embeddings** auf **Embedding-Modell wechseln**.
-3. Wähle das Zielmodell und die gewünschte Vektordimension.
-4. Klicke auf **Migration planen**: Die Vorschau zeigt Kartenzahl, geschätzte Tokens und Dimensionsänderungen, ohne Daten zu ändern.
-5. Klicke auf **Migration starten**: Die Übertragung läuft in gedrosselten Stapeln. Ein Fortschrittsbalken zeigt den Status.
-6. Du kannst den Lauf jederzeit pausieren; der alte Store bleibt aktiv, bis die Migration vollständig abgeschlossen ist.
-
-### CLI
-
-1. Migration planen (Probelauf):
+1. Migration planen. Das kopiert nichts und zeigt ein Urteil, die Zahl der Zeilen und Stapel, den nötigen Speicherplatz und die Mindestdauer. Das Urteil `incompatible` endet mit Exit-Code 1 und nennt die Gründe.
 
 ```sh
-plur1bus memory reembed --plan --model <MODEL>
+plur1bus memory reembed --plan --model <MODEL> --dimensions <N>
 ```
 
-2. Migration ausführen:
+`--model` ist ein festgelegtes lokales Embedding-Modell. `--dimensions` brauchst du nur, wenn das Modell mehr als eine Größe unterstützt.
+
+2. Ausführen. Der Befehl fragt nach Bestätigung (`--yes` außerhalb eines Terminals), startet die Migration im Core und verfolgt den Fortschritt. `--no-wait` kehrt nach dem Start zurück, `--no-switch` kopiert und prüft, schaltet aber nicht um, `--throttle-ms` legt die Pause zwischen den Stapeln fest (Standard 250).
 
 ```sh
 plur1bus memory reembed --run
 ```
 
-3. Status und Fortschritt abfragen:
+3. Phase und Fortschritt abfragen:
 
 ```sh
 plur1bus memory reembed --status
 ```
 
-4. Laufende Migration sicher anhalten oder abbrechen:
+4. An der nächsten Stapelgrenze anhalten:
 
 ```sh
 plur1bus memory reembed --abort
 ```
 
-Ein erneuter Aufruf von `plur1bus memory reembed --run` setzt die Migration an der letzten Stapelgrenze fort.
+Ein erneuter Aufruf von `plur1bus memory reembed --run` setzt dieselbe Migration fort; ein angehaltener Lauf (Engine-Fehler, Core-Stopp) wird genauso fortgesetzt.
 
 ## Gut zu wissen
 
-- **Alle Richtungen möglich:** Migrationen funktionieren zwischen lokalen Modellen (z. B. `bge-small-en-v1.5`), zu Cloud-Modellen (`text-embedding-3-small`), zwischen verschiedenen Cloud-Anbietern oder wieder zurück zu lokalen Modellen.
-- **Alte Generation bleibt aktiv:** Die Migration erzeugt eine neue Generation im Hintergrund. Während `reembed --run` arbeitet, beantwortet die alte Generation weiterhin Suchanfragen. Die Umschaltung erfolgt erst, wenn alle Karten erfolgreich geprüft wurden.
-- **Budget-Stopp:** Erreicht eine Cloud-Migration ein Budget- oder Kontingentlimit, stoppt der Lauf sauber an der nächsten Stapelgrenze, ohne Datenverlust.
-- **Kein stiller Fallback:** Plur1bus mischt niemals Vektoren verschiedener Modelle. Suchanfragen greifen immer nur auf eine einheitliche, geprüfte Generation zu.
+- **Pro Installation:** Die Migration kopiert das Gedächtnis aller Agenten in eine neue Generation. Eine Option pro Agent gibt es nicht.
+- **Die alte Generation bleibt aktiv:** Der Abruf wird von der alten Generation beantwortet, bis die Konfiguration nach der Prüfung in einem Schritt ersetzt wird. Die alte Generation bleibt auf der Platte.
+- **Phasen:** `planned`, `running`, `validating`, `ready-to-switch`, `switched`; dazu `aborted` (angehalten, fortsetzbar) und `failed` (endgültig, neu planen).
+- **Immer nur ein Vorgang:** Solange ein Plan, Lauf oder eine Umschaltung läuft, wird ein weiterer abgelehnt.
+- **Cloud-Ziele (ab der nächsten Version):** Alle Richtungen funktionieren: lokal zu Cloud, Cloud zu lokal, Cloud zu Cloud. Der Plan zeigt, dass alle Kartentexte an den Anbieter gehen, die geschätzten Tokens und die geschätzten Kosten. Das Ziel braucht die Datenschutzbestätigung (`memory.embedding.privacyAck` oder `--acknowledge-privacy` beim Planen); „Nur lokal“ lehnt ein Cloud-Ziel ab; der Endpunkt muss die Egress-Regeln bestehen ([datenschutz.md](datenschutz.md)). Schlüssel gibst du als Name einer Umgebungsvariable an, nie als Wert ([cloud-embeddings.md](cloud-embeddings.md)).
+- **Budget-Stopp (Cloud-Ziele):** Vor jedem Stapel werden die geschätzten Tokens im Aufrufbudget `memory-reembed` reserviert. Ein hartes Limit hält den Lauf in der Phase `aborted` mit dem Fehler `budget-exceeded` an; `--run` macht weiter, sobald das Budget es erlaubt ([budgets.md](budgets.md)). Ein Ratenlimit oder ein vorübergehender Anbieterfehler wird mit wachsenden Pausen wiederholt, bevor der Lauf anhält.
+- **Kein stiller Fallback:** Vektoren verschiedener Modelle werden nie gemischt. Der Abruf nutzt nur die aktive, geprüfte Generation.
 
 ## Fehlermeldungen
 
-- `E_STORE_INCOMPATIBLE`: Die Vektordimension oder der Modell-Fingerprint des Stores passt nicht zur aktiven Konfiguration. Starte mit `plur1bus memory reembed --plan`.
-- `E_BUDGET_EXCEEDED`: Die Migration wurde angehalten, da das gesetzte Token- oder Kostenlimit erreicht wurde.
-- `E_MIGRATION_IN_PROGRESS`: Es läuft bereits eine Migration. Prüfe den Status mit `--status` oder brich sie mit `--abort` ab.
+Die Migration meldet die geschlossenen Fehlercodes; der `reason` sagt, was zutraf.
+
+- `E_CONFLICT` mit reason `migration-active` oder `migration-running`: Ein anderer Plan, Lauf oder eine Umschaltung läuft. Sieh mit `--status` nach oder stoppe sie mit `--abort`.
+- `E_CONFLICT` mit reason `not-runnable`, `not-abortable` oder `not-ready-to-switch`: Der Aufruf passt nicht zur aktuellen Phase.
+- `E_NOT_FOUND` mit reason `no-migration`: `--run` oder `--abort` ohne Plan. Plane zuerst.
+- `E_INVALID_PARAMS` mit reason `plan-refused`: Die Engine hat den Plan abgelehnt, zum Beispiel wegen zu wenig freiem Speicherplatz.
+- `E_NOT_AVAILABLE` mit reason `switch-unavailable`: Es wurde nichts geschrieben, die alte Konfiguration bleibt aktiv (kein Supervisor oder ein Ziel, mit dem die Engine nicht starten würde).
+- `E_STORAGE` mit reason `switch-failed`, `state-corrupt` oder `state-unreadable`: Die Konfiguration konnte nicht geschrieben werden oder die Checkpoint-Datei ist unbrauchbar.
+- Ab der nächsten Version bei Cloud-Zielen: `E_DENIED` mit reason `privacy-acknowledgment-required`, `local-only` oder `egress-denied` sowie `E_INVALID_PARAMS` mit reason `engine-provider-config-incomplete`.
 
 ## Weiter
 

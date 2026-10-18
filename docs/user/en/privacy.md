@@ -1,16 +1,17 @@
 # Privacy and "Local only" mode
 
-Plur1bus provides a strict "Local only" privacy mode (`privacy.localOnly`) that ensures no model prompts, embeddings, or reasoning data leave your machine without explicit permission. The German version of this page is [../de/datenschutz.md](../de/datenschutz.md).
+With the "Local only" switch (`privacy.localOnly`), no model prompt, embedding or reranker request leaves your machine unless the endpoint is local. The German version of this page is [../de/datenschutz.md](../de/datenschutz.md).
 
-## How to ("So geht's")
+> **Availability:** "Local only" is available from the next release. Earlier versions do not know `privacy.localOnly`, `privacy.localEndpoints` or `agents.<id>.privacy.localOnly`.
+
+## How to
 
 ### Web UI
 
-1. Open **Settings** (`#/settings/security` or `#/settings/general`).
-2. Navigate to the **Privacy & Network** card.
-3. Toggle the switch **Local only** to **Enabled**.
-4. To allow a self-hosted inference server on your home network, add its URL under **Local endpoints** (for example `http://100.64.0.10:8080`).
-5. Choose **Save changes**.
+1. Open **Settings → Privacy** (`#/settings/privacy`).
+2. Switch on **privacy.localOnly** ("Only local models").
+3. To allow a model server of your own outside this machine, add its origin under **privacy.localEndpoints** (for example `http://100.64.0.10:8080`): scheme, host and optional port, no path.
+4. Choose **Review changes**, check the diff and save. Both keys restart the core. Only an owner or admin can change them.
 
 ### CLI
 
@@ -26,31 +27,39 @@ Turn on local-only mode:
 plur1bus config set privacy.localOnly true
 ```
 
-Allow trusted home network or self-hosted endpoints:
+Allow a self-hosted model server in your home network:
 
 ```sh
 plur1bus config set privacy.localEndpoints '["http://100.64.0.10:8080"]'
 plur1bus config get privacy.localEndpoints
 ```
 
-### Per-agent override
+### Per agent
 
-You can enforce local-only execution for a specific agent even when the global switch is off:
+An agent can override the installation value in both directions. Set it for one agent (there is no switch for it in the web UI):
 
-- In `config.json` under `agents.<id>`, set `"privacy": { "localOnly": true }`.
-- In the Web UI: Go to **Agents** (`#/agents/<id>`), choose **Edit**, and check **Restrict to local models**.
+```sh
+plur1bus config set agents.<id>.privacy.localOnly true
+```
 
-## Good to know ("Gut zu wissen")
+An unset value inherits `privacy.localOnly`; `false` lifts the restriction for that agent only.
 
-- **What is blocked:** Every model inference call that leaves the machine is blocked. This includes chat models, cloud embeddings, cloud rerankers, compaction calls, voice synthesis/transcription, and automated reasoning probes.
-- **What is NOT blocked (Web tools):** Browser automation, HTTP fetches, and web search tools are operational tools, not model calls. They are controlled by tool permissions and approvals ([approvals.md](approvals.md)), not by `privacy.localOnly`.
-- **Shared Engine impact:** If an agent has local-only enabled, the shared memory engine strictly forbids calling cloud embeddings or cloud rerankers when indexing or searching that agent's cards.
-- **Home servers and rebinding protection:** `privacy.localEndpoints` allows local network addresses (such as Ollama or LocalAI on LAN). The egress firewall blocks loopback aliases and DNS rebinding attacks; only explicitly listed addresses are permitted.
+## Good to know
 
-## Error messages ("Fehlermeldungen")
+- **What counts as local:** an endpoint on loopback (`localhost`, `127.0.0.0/8`, `::1`) or exactly one of the origins in `privacy.localEndpoints`. A LAN address is never local by itself, and a name is not resolved to decide.
+- **What is covered:** chat and role models (including the summaries that compact long conversations), embeddings, the reranker, the memory engine's own model features, voice (local models only), captioning, the media index and media generation. Model discovery still lists cloud models, marked "local only: locked".
+- **No silent fallback:** a model that is refused is never replaced by another one. The request fails and says why.
+- **Web tools are not affected:** `web.fetch` and `web.search` are not model calls. Tool permissions, approvals ([approvals.md](approvals.md)) and the egress rules govern them, not `privacy.localOnly`.
+- **Shared memory engine and media index:** every agent writes into them, so they stay local while the installation or any agent is local-only. An agent that lifts the switch for itself never opens them to a cloud model.
+- **Egress still applies:** a local endpoint must also pass the `egress.*` rules; loopback needs `egress.allowLoopback`.
+- **Doctor:** the check `privacy.local-only` fails while the switch is on and a cloud model is still configured, and lists what will be refused.
 
-- `E_MODEL_FORBIDDEN_LOCAL_ONLY` (or `E_LOCAL_ONLY`): The requested model or embedding service points to an external cloud provider, but local-only mode is active. Choose a local model or disable local-only mode.
-- `E_EGRESS_BLOCKED`: The engine blocked an outgoing network connection because the destination IP or domain is not listed in `privacy.localEndpoints`.
+## Error messages
+
+Refusals use the closed error codes; the `reason` says which rule applied.
+
+- `E_DENIED` with reason `local-only`: the model, embedding or reranker endpoint is not local while "Local only" applies. Choose a local model, list your own server in `privacy.localEndpoints`, or turn the switch off.
+- `E_DENIED` with reason `egress-denied`: the egress rules refused an endpoint of the memory engine when it started (for example a remote embedding host). Add the host to `egress.allowHosts`; loopback also needs `egress.allowLoopback`.
 
 ## Next
 
