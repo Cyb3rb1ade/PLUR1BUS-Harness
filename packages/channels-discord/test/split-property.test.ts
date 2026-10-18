@@ -14,7 +14,7 @@
 // - What the code REMOVES: whitespace-only parts (Discord rejects empty content). Nothing else. So joining the parts, after
 //   removing the added closers and openers, gives back the input minus whitespace-only stretches.
 // - Surrogate pairs are never torn (the hard cut steps back by one unit). Grapheme clusters (ZWJ sequences, flags, CRLF,
-//   combining marks) ARE torn by the hard cut: see the KNOWN GAP in property 3b.
+//   combining marks) are kept whole too: see property 3b.
 // - Empty input: "", "\n" and "   " all give [] (the one empty part is dropped as whitespace-only).
 //
 // Replay: every generated case is derived from (seed, limit, index) alone, so `caseAt(seed, limit, index)` rebuilds exactly the
@@ -369,14 +369,16 @@ function recover(original: string, parts: readonly string[], limit: number): Tai
 
 /**
  * A dropped whitespace-only remainder after the last part only exists when the last piece ended at a cut: on a separator (space or
- * newline) or, for a hard cut, exactly at the window (the part, opener included, is the whole limit). Otherwise the missing tail
- * would be trimmed whitespace.
+ * newline) or, for a hard cut, exactly at the window (the part, opener included, is the whole limit), or at a grapheme boundary
+ * the cut was moved back to because the whitespace did not fit into the last part (a CRLF that straddles the limit). Otherwise the
+ * missing tail would be trimmed whitespace that did fit.
  */
 function trailingGapIsACut(c: Case, parts: readonly string[], tail: Tail): boolean {
   const last = tail.pieces[tail.pieces.length - 1];
   const gap = tail.gaps.find(([, e]) => e === c.text.length);
   if (!gap || !last) return true;
-  return /[ \n]$/.test(c.text.slice(last.start, last.end)) || (parts[parts.length - 1] as string).length === c.limit;
+  const lastPart = parts[parts.length - 1] as string;
+  return /[ \n]$/.test(c.text.slice(last.start, last.end)) || lastPart.length === c.limit || lastPart.length + (gap[1] - gap[0]) > c.limit;
 }
 
 // ---- running the splitter once per case -----------------------------------------------------------------------
@@ -532,16 +534,8 @@ function around(s: string, pos: number): string {
   return [...window].map((ch) => `U+${(ch.codePointAt(0) as number).toString(16).toUpperCase()}`).join(" ");
 }
 
-// KNOWN GAP (product deviation, found by this test): the hard cut at the budget only steps back over a surrogate pair. It does not
-// look at grapheme clusters, so a ZWJ sequence (family, technologist, rainbow flag), a flag pair, a skin-tone or VS16 emoji, a
-// combining mark or CRLF can be cut in two. The ZWJ and flag tears are reachable from channel.ts:320 (toPlatformMarkdown does not
-// touch them); the CRLF tear is not, because toPlatformMarkdown turns CRLF into LF before splitMessage runs.
-// First failing inputs: hand-picked "ZWJ family run, no separators" (cut at 2000 inside a family emoji, right after a U+200D),
-// first generated seed=20261012 index=11 (kind longword, limit 2000, cut at 4000 inside a family emoji) and, in the small-limit
-// set, seed=20261013 index=27 (limit 64). Replay with caseAt(20261012, 2000, 11).
 test(
   "property 3b: every cut falls on an extended grapheme cluster boundary (Intl.Segmenter)",
-  { todo: "KNOWN GAP: channels-discord splitMessage: erwartet Schnitte nur an Graphem-Grenzen, tatsächlich trennt der harte Schnitt ZWJ-Sequenzen, Flaggen und CRLF (erstes Beispiel: Handfall \"ZWJ family run, no separators\", erzeugt seed=20261012 index=11)" },
   () => {
     for (const { c, tail } of runs()) {
       const boundaries = graphemeBoundaries(c.text);

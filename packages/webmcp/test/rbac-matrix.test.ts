@@ -29,11 +29,10 @@ const isWrite = (m: string): boolean => m.split(".").some((s) => WRITE_VERBS.has
 
 /** Core methods that carry no RBAC rule on purpose. Each reason is a statement the doc or the code makes. */
 const UNRULED: Record<string, string> = {
-  "core.auth": "handshake; no principal exists yet",
+  "core.auth": "handshake; local-owner token or HM4 scoped personal-token validation before a principal exists",
   "core.status": "docs/rbac.md 'Not yet secured': core.*",
-  "core.shutdown": "docs/rbac.md 'Not yet secured': core.*; reachable only with the local token",
+  "core.shutdown": "docs/rbac.md 'Not yet secured': core.*; local token only; HM4 scoped clients are denied by the transport allowlist",
   "core.adopt": "docs/rbac.md 'Not yet secured': core.*; adoption nonce check, supervisor only",
-  "events.subscribe": "connection-bound subscription, no data of its own",
   "events.unsubscribe": "connection-bound subscription, no data of its own",
   "memory.recall": "docs/rbac.md 'Not yet secured': memory.recall; the engine ACL filters per principal",
   "memory.capture": "docs/rbac.md 'Not yet secured': memory.capture; the engine ACL decides",
@@ -164,7 +163,7 @@ describe("B. every write method is forbidden in WebMCP or explicitly exposed", (
 describe("C. person-only methods turn agents away", () => {
   const personOnly = coreMethods.filter((m) => RPC_RULES[m] && policyFor(RPC_RULES[m]!.action)?.humanOnly);
   it("there are person-only methods (grant, approval, identity, ...)", () => {
-    for (const m of ["grant.create", "approval.decide", "identity.link.request", "device.revoke", "session.create"]) assert.ok(personOnly.includes(m), m);
+    for (const m of ["grant.create", "approval.decide", "identity.link.request", "device.revoke", "session.create", "session.model.set"]) assert.ok(personOnly.includes(m), m);
   });
   for (const m of personOnly) {
     it(`${m}: RBAC refuses an agent principal in every role`, async () => {
@@ -191,4 +190,22 @@ describe("C. person-only methods turn agents away", () => {
   it("documented person-only families are forbidden in WebMCP", () => {
     for (const m of coreMethods.filter((n) => /^(grant|approval|identity|breakglass|user|device|secret|auth|admin|inbox)\./.test(n))) assert.ok(isForbiddenMethod(m), m);
   });
+});
+
+describe("D. the agent-facing secret name tool is neither an RPC method nor a WebMCP tool", () => {
+  it("secret_names is not in the schema, and no secret.* method is offered to an agent over WebMCP", () => {
+    assert.ok(!(Object.keys(methods)).includes("secret_names"));
+    const offered = selectMethods({ capabilities: buildCapabilities([]), schema: SCHEMA, include: Object.keys(methods) });
+    assert.deepEqual(offered.filter((m) => /^secrets?[._]/.test(m)), []);
+    assert.ok(!buildWebMcpTools({ capabilities: buildCapabilities([]), schema: SCHEMA, include: Object.keys(methods), call: async () => ({}) }).some((x) => /secret/i.test(x.name)));
+  });
+  it("every secret.* method stays owner-only in the store and forbidden in WebMCP", () => {
+    for (const m of coreMethods.filter((n) => n.startsWith("secret."))) { assert.ok(isForbiddenMethod(m), m); assert.ok(m in UNRULED, `${m} is owner-only inside the store`); }
+  });
+});
+
+// D103 discovery is an in-process tool over the admitted per-turn catalogue, not an RPC/WebMCP surface.
+it('capabilities.search stays dispatcher-only and cannot bypass RPC RBAC through a colliding name', () => {
+  assert.equal(Object.hasOwn(methods, 'capabilities.search'), false);
+  assert.equal(Object.hasOwn(RPC_RULES, 'capabilities.search'), false);
 });

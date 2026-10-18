@@ -1,0 +1,552 @@
+{
+  "version": "plur1bus.m5-fanout-eval/1",
+  "kind": "deterministic-fixture-replay",
+  "interpretation": "Routing and equal-budget regression only; no live-model quality advantage established. Fan-out remains off.",
+  "tokenBudgetPerCaseAndMode": 8192,
+  "fixtures": [
+    {
+      "id": "arithmetic-1",
+      "left": 3,
+      "right": 2,
+      "expected": "6"
+    },
+    {
+      "id": "arithmetic-2",
+      "left": 4,
+      "right": 3,
+      "expected": "12"
+    },
+    {
+      "id": "arithmetic-3",
+      "left": 5,
+      "right": 4,
+      "expected": "20"
+    },
+    {
+      "id": "arithmetic-4",
+      "left": 6,
+      "right": 5,
+      "expected": "30"
+    },
+    {
+      "id": "arithmetic-5",
+      "left": 7,
+      "right": 6,
+      "expected": "42"
+    },
+    {
+      "id": "arithmetic-6",
+      "left": 8,
+      "right": 7,
+      "expected": "56"
+    },
+    {
+      "id": "arithmetic-7",
+      "left": 9,
+      "right": 8,
+      "expected": "72"
+    },
+    {
+      "id": "arithmetic-8",
+      "left": 10,
+      "right": 2,
+      "expected": "20"
+    },
+    {
+      "id": "arithmetic-9",
+      "left": 11,
+      "right": 3,
+      "expected": "33"
+    },
+    {
+      "id": "arithmetic-10",
+      "left": 12,
+      "right": 4,
+      "expected": "48"
+    },
+    {
+      "id": "arithmetic-11",
+      "left": 13,
+      "right": 5,
+      "expected": "65"
+    },
+    {
+      "id": "arithmetic-12",
+      "left": 14,
+      "right": 6,
+      "expected": "84"
+    },
+    {
+      "id": "arithmetic-13",
+      "left": 15,
+      "right": 7,
+      "expected": "105"
+    },
+    {
+      "id": "arithmetic-14",
+      "left": 16,
+      "right": 8,
+      "expected": "128"
+    },
+    {
+      "id": "arithmetic-15",
+      "left": 17,
+      "right": 2,
+      "expected": "34"
+    },
+    {
+      "id": "arithmetic-16",
+      "left": 18,
+      "right": 3,
+      "expected": "54"
+    },
+    {
+      "id": "arithmetic-17",
+      "left": 19,
+      "right": 4,
+      "expected": "76"
+    },
+    {
+      "id": "arithmetic-18",
+      "left": 20,
+      "right": 5,
+      "expected": "100"
+    },
+    {
+      "id": "arithmetic-19",
+      "left": 21,
+      "right": 6,
+      "expected": "126"
+    },
+    {
+      "id": "arithmetic-20",
+      "left": 22,
+      "right": 7,
+      "expected": "154"
+    },
+    {
+      "id": "arithmetic-21",
+      "left": 23,
+      "right": 8,
+      "expected": "184"
+    },
+    {
+      "id": "arithmetic-22",
+      "left": 24,
+      "right": 2,
+      "expected": "48"
+    },
+    {
+      "id": "arithmetic-23",
+      "left": 25,
+      "right": 3,
+      "expected": "75"
+    },
+    {
+      "id": "arithmetic-24",
+      "left": 26,
+      "right": 4,
+      "expected": "104"
+    }
+  ],
+  "metrics": {
+    "single": {
+      "correct": 24,
+      "cases": 24,
+      "settledTokens": 576,
+      "modelCalls": 24
+    },
+    "peer": {
+      "correct": 24,
+      "cases": 24,
+      "settledTokens": 1728,
+      "modelCalls": 72
+    }
+  },
+  "rows": [
+    {
+      "id": "arithmetic-1",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-1",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-2",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-2",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-3",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-3",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-4",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-4",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-5",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-5",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-6",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-6",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-7",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-7",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-8",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-8",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-9",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-9",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-10",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-10",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-11",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-11",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-12",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-12",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-13",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-13",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-14",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-14",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-15",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-15",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-16",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-16",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-17",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-17",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-18",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-18",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-19",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-19",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-20",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-20",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-21",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-21",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-22",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-22",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-23",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-23",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    },
+    {
+      "id": "arithmetic-24",
+      "mode": "single",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 24,
+      "modelCalls": 1
+    },
+    {
+      "id": "arithmetic-24",
+      "mode": "peer",
+      "correct": true,
+      "tokenBudget": 8192,
+      "settledTokens": 72,
+      "modelCalls": 3
+    }
+  ]
+}

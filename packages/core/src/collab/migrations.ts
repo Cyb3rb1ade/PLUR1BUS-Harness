@@ -120,6 +120,8 @@ export const MIGRATIONS: readonly string[] = [
       json_object('id',id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),
       'cards',json_array(),'activity',json_array(),'comments',json_array()) FROM projects;
   `,
+  `ALTER TABLE spans ADD COLUMN session_id TEXT;`,
+  `ALTER TABLE spans ADD COLUMN target_kind TEXT; ALTER TABLE tasks ADD COLUMN target_kind TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -29,7 +29,7 @@ export function validateScopes(scopes: unknown): string[] {
   if (!Array.isArray(scopes) || scopes.length === 0 || scopes.length > MAX_SCOPES) throw scopeError(`scopes must be a list of 1 to ${MAX_SCOPES} RBAC actions`);
   const out = new Set<string>();
   for (const s of scopes) {
-    if (typeof s !== "string" || s.length > 64 || !SCOPE_SHAPE.test(s)) throw scopeError("a scope is an RBAC action name or `prefix.*`");
+    if (typeof s !== "string" || s.length > 64 || !SCOPE_SHAPE.test(s) && !["chat:read", "chat:write", "chat:delete"].includes(s)) throw scopeError("a scope is an RBAC action name or `prefix.*`");
     if (s.endsWith(".*")) { const p = s.slice(0, -1); if (!POLICY.some((a) => a.action.startsWith(p))) throw scopeError("no RBAC action matches that scope"); }
     else if (!policyFor(s)) throw scopeError("no such RBAC action");
     out.add(s);

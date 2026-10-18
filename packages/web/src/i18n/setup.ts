@@ -1,5 +1,12 @@
 // setup area catalogue (first-run wizard, `/setup`): keys `setup.<topic>`; en and de have the same keys and {placeholders}.
 export const en = {
+  "setup.step.decision": "Decision model",
+  "setup.decision.lead": "Optionally choose a configured model for triage. Leaving this empty keeps rule triage.",
+  "setup.decision.label": "Decision model",
+  "setup.decision.skip": "Skip (rule triage)",
+
+  "setup.err.embeddingUnavailable": "The selected embedding model is unavailable in the pinned engine. Choose multilingual-e5-small or a supported model; setup has not applied this selection.",
+  "setup.err.embeddingMigration": "Changing the embedding model requires the engine validation API. Keep the active model, or update the engine and run plur1bus memory reembed --plan followed by --run. Setup has not applied this selection.",
   "setup.lead": "A few steps to get PLUR1BUS ready. You can skip optional steps and come back later; your progress is kept in this browser.",
   "setup.progress": "Setup progress",
   "setup.stepOf": "Step {n} of {total}: {name}",
@@ -25,8 +32,8 @@ export const en = {
   "setup.err.unavailable": "This harness does not offer this setting yet. You can skip the step.",
   "setup.err.failed": "Saving failed. Check the connection and try again.",
   "setup.account.signedIn": "You are signed in as {user} ({role}).",
-  "setup.account.hint": "The owner token was exchanged for a session cookie; it is not stored by this page.",
-  "setup.account.token": "Owner token",
+  "setup.account.hint": "Read the one-time proof from the private run/api-bootstrap.token file. It expires after 15 minutes and creates your password account once.",
+  "setup.account.token": "One-time bootstrap proof",
   "setup.account.signIn": "Sign in",
   "setup.account.needSignIn": "Sign in with the owner token to continue.",
   "setup.account.failed": "Sign-in failed. Check the token and try again.",
@@ -101,6 +108,13 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "setup.step.decision": "Decision-Modell",
+  "setup.decision.lead": "Wähle optional ein konfiguriertes Modell für die Triage. Ohne Auswahl bleibt die Regel-Triage aktiv.",
+  "setup.decision.label": "Decision-Modell",
+  "setup.decision.skip": "Überspringen (Regel-Triage)",
+
+  "setup.err.embeddingUnavailable": "Das gewählte Embedding-Modell ist in der gepinnten Engine nicht verfügbar. Wähle multilingual-e5-small oder ein unterstütztes Modell; die Auswahl wurde nicht angewendet.",
+  "setup.err.embeddingMigration": "Ein Embedding-Modellwechsel benötigt die Validierungs-API der Engine. Behalte das aktive Modell oder aktualisiere die Engine und führe plur1bus memory reembed --plan und anschließend --run aus. Die Auswahl wurde nicht angewendet.",
   "setup.lead": "Ein paar Schritte, bis PLUR1BUS bereit ist. Optionale Schritte kannst du überspringen und später nachholen; dein Fortschritt bleibt in diesem Browser erhalten.",
   "setup.progress": "Fortschritt der Einrichtung",
   "setup.stepOf": "Schritt {n} von {total}: {name}",
@@ -126,8 +140,8 @@ export const de: Record<keyof typeof en, string> = {
   "setup.err.unavailable": "Dieses Harness bietet diese Einstellung noch nicht an. Du kannst den Schritt überspringen.",
   "setup.err.failed": "Speichern fehlgeschlagen. Prüfe die Verbindung und versuche es erneut.",
   "setup.account.signedIn": "Du bist angemeldet als {user} ({role}).",
-  "setup.account.hint": "Der Owner-Token wurde gegen ein Sitzungs-Cookie getauscht; diese Seite speichert ihn nicht.",
-  "setup.account.token": "Owner-Token",
+  "setup.account.hint": "Lies den Einmal-Nachweis aus der privaten Datei run/api-bootstrap.token. Er gilt 15 Minuten und erstellt einmalig dein Passwortkonto.",
+  "setup.account.token": "Einmaliger Bootstrap-Nachweis",
   "setup.account.signIn": "Anmelden",
   "setup.account.needSignIn": "Melde dich mit dem Owner-Token an, um fortzufahren.",
   "setup.account.failed": "Anmeldung fehlgeschlagen. Prüfe den Token und versuche es erneut.",

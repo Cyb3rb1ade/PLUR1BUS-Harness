@@ -37,7 +37,7 @@ describe("mapEngineEvent", () => {
 
   it("recall.completed drops phases and namespacePhases", () => {
     const m = mapEngineEvent("recall.completed", PAYLOADS["recall.completed"]);
-    assert.deepEqual(m, { method: "recall.completed", params: { agentId: "bernd", totalMs: 212, degraded: null } });
+    assert.deepEqual(m, { method: "recall.completed", params: { agentId: "bernd", totalMs: 212, degraded: null }, audience: ["bernd"] });
   });
 
   it("job.run drops counts, cost and keys", () => {

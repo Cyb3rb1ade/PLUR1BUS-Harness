@@ -185,6 +185,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AuditCmd,
     },
+    /// [experimental] Diagnostic logs: query and tail through the core
+    Logs {
+        #[command(subcommand)]
+        sub: crate::commands::logs::LogsCmd,
+    },
     /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
     ///
     /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
@@ -386,6 +391,12 @@ pub enum OnConflict {
 /// `plur1bus setup` (spec §6.5, HB11).
 #[derive(Args, Debug)]
 pub struct SetupArgs {
+    /// Show the setup/profile-upgrade plan without changing files or services
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Restore a preserved interrupted profile-upgrade snapshot (daemon is stopped first)
+    #[arg(long)]
+    pub recover_profile: bool,
     /// Install in container mode on this host
     #[arg(long)]
     pub container: bool,
@@ -810,6 +821,11 @@ pub enum DreamsCmd {
         #[arg(long)]
         agent: String,
     },
+    /// [experimental] Read the private dreaming diary of an agent
+    Diary {
+        #[arg(long)]
+        agent: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -1073,6 +1089,12 @@ pub enum SessionCmd {
 
 #[derive(clap::Args, Debug)]
 pub struct ChatArgs {
+    /// Configured model profile for this session; warns and asks before switching
+    #[arg(long, value_name = "PROFILE")]
+    pub model: Option<String>,
+    /// Confirm the model switch for scripts (including --json)
+    #[arg(long)]
+    pub yes: bool,
     /// The agent to talk to (default: the only registered agent)
     #[arg(long)]
     pub agent: Option<String>,

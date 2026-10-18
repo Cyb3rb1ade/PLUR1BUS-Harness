@@ -2,14 +2,17 @@
 // spread into `buildMethods`; nothing here decides anything the scheduler does not.
 import { requireAgent } from "../memory-ops.ts";
 import type { AgentRegistry } from "../agents.ts";
+import { createRedactor, type Redactor } from "../logs/redact.ts";
 import { RpcError } from "../rpc/errors.ts";
 import type { Handler } from "../rpc/server.ts";
 import type { DreamScheduler } from "./scheduler.ts";
 import type { DreamRun, Phase, ScheduleRow } from "./types.ts";
 
-export interface DreamsMethodDeps { dreams: () => DreamScheduler | null; agents: AgentRegistry; /** Why the scheduler is not running, when it failed to open. */ unavailableBecause?: () => string | undefined }
-
-
+export interface DreamsMethodDeps {
+  dreams: () => DreamScheduler | null; agents: AgentRegistry;
+  /** Why the scheduler is not running, when it failed to open. */ unavailableBecause?: () => string | undefined;
+  redactor?: Redactor;
+}
 
 const projectRun = (r: DreamRun) => ({
   runId: r.runId, agentId: r.agentId, phase: r.phase, jobId: r.jobId, partition: r.partition, idempotencyKey: r.idempotencyKey, claimed: r.claimed,
@@ -71,5 +74,14 @@ export function buildDreamsMethods(d: DreamsMethodDeps): Record<string, Handler>
       edit(p.agentId, p.phase, { ...(p.cron !== undefined ? { cron: p.cron } : {}), ...(p.timezone !== undefined ? { timezone: p.timezone } : {}), ...(p.enabled !== undefined ? { enabled: p.enabled } : {}) }),
     "dreams.enable": async (p: { agentId: string; phase: Phase }) => edit(p.agentId, p.phase, { enabled: true }),
     "dreams.disable": async (p: { agentId: string; phase: Phase }) => edit(p.agentId, p.phase, { enabled: false }),
+    "dreams.diary": async (p: { agentId: string }) => {
+      requireAgent(d.agents, p.agentId);
+      const r = sched().readDiary(p.agentId);
+      const redactor = d.redactor ?? createRedactor();
+      return {
+        agentId: p.agentId, path: r.path, exists: r.exists, bytes: r.bytes,
+        text: redactor.text(r.text), truncated: r.truncated,
+      };
+    },
   };
 }

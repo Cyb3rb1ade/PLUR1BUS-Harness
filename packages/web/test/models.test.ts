@@ -81,7 +81,7 @@ describe("models: states", opts, () => {
       seed(app.server.rpc, { models: [], newIds: new Set(), warnings: [] });
       await open(app);
       await app.page.getByRole("heading", { name: "No models in the catalog yet" }).waitFor();
-      await app.page.locator(".page-state").getByRole("button", { name: "Scan providers" }).waitFor();
+      await app.page.locator(".page-state").getByRole("button", { name: "Scan now" }).waitFor();
     });
   });
   test("error with retry, forbidden, unavailable (scenario and route missing)", async () => {
@@ -102,7 +102,7 @@ describe("models: states", opts, () => {
     await withApp({}, async (app) => { // /rpc not served at all: 404
       await open(app);
       await app.page.getByRole("heading", { name: "Not available" }).waitFor();
-      assert.equal(await app.page.getByRole("button", { name: "Scan providers" }).count(), 0, "no actions on an unavailable backend");
+      assert.equal(await app.page.getByRole("button", { name: "Scan now" }).count(), 0, "no actions on an unavailable backend");
     });
   });
 });
@@ -169,7 +169,7 @@ describe("models: scan", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); app.server.rpc.setDelay("models.scan", 400); await open(app);
       await link(app.page, /GPT-4o/).waitFor();
-      const btn = app.page.getByRole("button", { name: "Scan providers" });
+      const btn = app.page.getByRole("button", { name: "Scan now" });
       await btn.click();
       await app.page.getByRole("status").filter({ hasText: "Scan in progress" }).waitFor();
       assert.equal(await app.page.getByRole("button", { name: "Scanning…" }).getAttribute("aria-disabled"), "true");
@@ -180,6 +180,7 @@ describe("models: scan", opts, () => {
       await link(app.page, /GPT-5 mini/).waitFor(); // the list was reloaded
       assert.equal(calls(app, "models.scan").length, 1);
       assert.ok(calls(app, "models.scan")[0]!.csrf);
+      assert.equal(calls(app, "config.set").length, 0, "discovery never writes modelRoles or other configuration");
     });
   });
   test("a failing scan call shows an alert and keeps the catalog", async () => {
@@ -187,11 +188,11 @@ describe("models: scan", opts, () => {
       seed(app.server.rpc); await open(app);
       await link(app.page, /GPT-4o/).waitFor();
       app.server.rpc.handle("models.scan", () => { throw rpcError("E_INTERNAL", "boom"); });
-      await app.page.getByRole("button", { name: "Scan providers" }).click();
+      await app.page.getByRole("button", { name: "Scan now" }).click();
       await app.page.getByRole("alert").getByText("The scan could not be run.").waitFor();
       await link(app.page, /GPT-4o/).waitFor();
       app.server.rpc.handle("models.scan", () => { throw rpcError("E_DENIED", "no", "no-permission"); });
-      await app.page.getByRole("button", { name: "Scan providers" }).click();
+      await app.page.getByRole("button", { name: "Scan now" }).click();
       await app.page.getByRole("alert").getByText("You are not allowed to scan providers.").waitFor();
     });
   });
@@ -343,7 +344,7 @@ describe("models: layout, a11y, keyboard, language", opts, () => {
         await expectAxeClean(app.page, "dialog");
         await app.page.keyboard.press("Escape");
         if (width >= 1024) {
-          await app.page.getByRole("button", { name: "Scan providers" }).click();
+          await app.page.getByRole("button", { name: "Scan now" }).click();
           await app.page.locator("[data-scan-result]").waitFor();
           await expectAxeClean(app.page, "scan result");
         }
@@ -367,7 +368,7 @@ describe("models: layout, a11y, keyboard, language", opts, () => {
       seed(app.server.rpc);
       await openRoute(app.page, "#/models", "de");
       await app.page.getByRole("heading", { name: "Modelle", level: 1 }).waitFor();
-      await app.page.getByRole("button", { name: "Anbieter scannen" }).click();
+      await app.page.getByRole("button", { name: "Jetzt scannen" }).click();
       await app.page.getByText("2 neu, 1 nicht mehr verfügbar").waitFor();
       await app.page.getByRole("button", { name: /1 neue? als gesehen markieren|als gesehen markieren/ }).first().waitFor();
     });

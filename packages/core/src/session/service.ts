@@ -1,3 +1,4 @@
+import { runWithAgentScope, scopeFor } from "../agents/scope.ts";
 // Assembles the session subsystem for the core: store file, crash recovery, compactor with the pre-swap checkpoint,
 // the turn runner, the `session.*` handlers. Kept apart from core.ts so the wiring there is one contained block.
 import type { AgentRegistry } from "../agents.ts";
@@ -31,7 +32,7 @@ export interface SessionServiceDeps {
   approver?: SessionMethodDeps["approver"];
 }
 
-export interface SessionService { compactor: Compactor; pruner: ToolPruner; store: SessionStore; runner: TurnRunner; methods: Record<string, Handler>; recovered: number; close(budgetMs?: number): Promise<void> }
+export interface SessionService { ephemeral(): SessionService; forSession(id: string): SessionService; compactor: Compactor; pruner: ToolPruner; store: SessionStore; runner: TurnRunner; methods: Record<string, Handler>; recovered: number; close(budgetMs?: number): Promise<void> }
 
 export function openSessionService(d: SessionServiceDeps): SessionService {
   const store = new SessionStore({ path: d.dbPath, clock: d.clock });
@@ -60,21 +61,26 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     beforeSwap: async ({ sessionId }) => {
       const s = store.getSession(sessionId);
       if (!s || s.memoryMode === "incognito") return "skipped";
-      await d.memory.checkpoint({ agentId: s.agentId, reason: "compaction" });
+      await runWithAgentScope(scopeFor(s.agentId, d.agents.workspaceOf?.(s.agentId) ?? `agents/${s.agentId}/workspace`), () => d.memory.checkpoint({ agentId: s.agentId, reason: "compaction" }));
     },
     onError: (what, err) => d.logger.warn(`${what} failed`, { err }),
   });
   const runner = new TurnRunner({
+    workspace: id => d.agents.workspaceOf?.(id) ?? `agents/${id}/workspace`,
     store, compactor, ...(d.catalog ? { catalog: d.catalog } : {}), memory: d.memory, provider: d.provider, signal: d.signal,
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
-  const methods = buildSessionMethods({ store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
-  return {
+  const methods = buildSessionMethods({ storeFor: id => service.forSession(id).store, modelProfiles: () => d.provider()?.modelProfiles?.() ?? [], store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
+  let volatile: SessionService | undefined;
+  const service: SessionService = {
+    ephemeral: () => volatile ??= openSessionService({ ...d, dbPath: ":memory:" }),
+    forSession: id => volatile?.store.getSession(id) ? volatile : service,
     store, runner, compactor, pruner, methods, recovered,
     // A turn that ignores the shutdown abort is not waited for beyond the budget: it stays `running` in the file and the
     // next start marks it failed (recovery), so nothing is lost by closing the store under it.
     async close(budgetMs = 5_000) {
+      if (volatile) await volatile.close(budgetMs);
       maintenanceAbort.abort(Error("session-maintenance-closed"));
       compactor.stop();
       let timer: NodeJS.Timeout | undefined;
@@ -83,4 +89,5 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
       store.close();
     },
   };
+  return service;
 }

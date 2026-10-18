@@ -1,3 +1,4 @@
+import { channelMessageAllowed, channelOutputText } from "../../core/src/channels/behaviour.ts";
 import { randomBytes } from "node:crypto";
 import type { Channel, ChannelHealth, ChannelHost, OutboundMessage } from "../../core/src/channels/types.ts";
 import { ActionRegistry } from "./actions.ts";
@@ -316,6 +317,7 @@ export class SlackChannel implements Channel {
   }
 
   async sendTurn(turn: OutboundTurn): Promise<SentRef[]> {
+    turn = { ...turn, text: channelOutputText(this.#host, this.name, turn.chatId, "reply", turn.text) };
     if (!this.#api || !this.#ac) throw new Error("slack channel is not started");
     const t = this.#target(turn.chatId);
     const signal = this.#ac.signal;
@@ -369,6 +371,7 @@ export class SlackChannel implements Channel {
   }
 
   async edit(ref: SentRef, text: string): Promise<void> {
+    text = channelOutputText(this.#host, this.name, ref.chatId, "edit", text);
     if (!this.#api || !this.#ac) throw new Error("slack channel is not started");
     if (ref.kind === "file") throw new UnsupportedError("uploaded files cannot be edited");
     const t = this.#target(ref.chatId);
@@ -499,14 +502,9 @@ export class SlackChannel implements Channel {
       if (!this.#cfg.allow.has(channel)) return this.#drop("chat");
       const users = this.#cfg.users;
       const member = users !== undefined && users.has(user);
-      const hear =
-        this.#cfg.policy === "always"
-          ? users === undefined || member
-          : this.#cfg.policy === "allowlist"
-            ? member || mention
-            : mention && (users === undefined || member);
-      if (!hear) return this.#drop("not-addressed");
+      if (users !== undefined && !member && !(this.#cfg.policy === "allowlist" && mention)) return this.#drop("not-addressed");
     }
+    if (!channelMessageAllowed(this.#host, { channel: this.name, chatId: threadTs ? `${channel}:${threadTs}` : channel, chatKind: direct ? "direct" : "group", text: raw, addressed: direct || mention }, this.#cfg.policy, this.#cfg.users?.has(user) === true)) return this.#drop("not-addressed");
     if (!(await this.#claim(`msg:${channel}:${ts}`))) return;
     const chatId = threadTs ? `${channel}:${threadTs}` : channel;
     let attachments: Attachment[];
@@ -527,6 +525,7 @@ export class SlackChannel implements Channel {
       messageId: ts,
       sentAt: Math.round(Number(ts) * 1000),
       mention: direct || mention,
+      addressed: direct || mention,
       ...(threadTs !== undefined ? { threadId: threadTs } : {}),
       ...(attachments.length ? { attachments } : {}),
     };
@@ -665,6 +664,7 @@ export class SlackChannel implements Channel {
     const msgs = MESSAGES[this.#cfg.locale];
     const m = /^(status|link)(?:\s+(\S+))?$/i.exec((str(p.text) ?? "").trim());
     const verb = m?.[1]?.toLowerCase();
+    if (!channelMessageAllowed(this.#host, { channel: this.name, chatId: channel, chatKind: str(p.channel_name) === "directmessage" ? "direct" : "group", text: "", addressed: true, command: verb ?? "plur1bus" }, this.#cfg.policy)) return;
     let reply = msgs.usage(this.#deps.pairing !== undefined);
     if (verb === "status") reply = msgs.status;
     else if (verb === "link") {
@@ -690,6 +690,7 @@ export class SlackChannel implements Channel {
   async #ephemeral(channel: string, user: string, text: string): Promise<void> {
     if (!this.#api || !this.#ac) return;
     try {
+      text = channelOutputText(this.#host, this.name, channel, "reply", text);
       await this.#api.call("chat.postEphemeral", { channel, user, text: escapeSlackText(text) }, this.#ac.signal);
     } catch {
       this.#log("warn", "channel.slack.ephemeral-failed", {});
@@ -699,8 +700,9 @@ export class SlackChannel implements Channel {
   async #settle(channel: string, ts: string | undefined, text: string, suffix: string): Promise<void> {
     if (!ts || !TS.test(ts) || !this.#ac) return;
     try {
+      const limited = channelOutputText(this.#host, this.name, channel, "edit", `${text}\n\n${suffix}`);
       // chat.update without blocks replaces the whole message, so the buttons disappear.
-      await this.#post(channel, "chat.update", { channel, ts, text: `${text}\n\n${suffix}`, mrkdwn: true }, this.#ac.signal);
+      await this.#post(channel, "chat.update", { channel, ts, text: limited, mrkdwn: true }, this.#ac.signal);
     } catch {
       this.#log("warn", "channel.slack.settle-failed", {});
     }
@@ -779,7 +781,7 @@ export class SlackChannel implements Channel {
       } catch (e) {
         if (
           !(e instanceof SlackApiError) ||
-          !(["rate-limited", "network", "timeout"].includes(e.kind) || (e.kind === "http" && (e.status ?? 0) >= 500)) ||
+          !(["rate-limited", "network", "timeout"].includes(e.kind) || e.kind === "http") ||
           attempt >= MAX_SEND_RETRIES ||
           signal.aborted
         )

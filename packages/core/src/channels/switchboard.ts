@@ -1,3 +1,4 @@
+import { createEgress } from "../egress/service.ts";
 // The switchboard host: the one place that starts, stops and watches the channel adapters inside the core process.
 //
 // How channels run (R3 step 0): the adapters are libraries behind the core `Channel` contract. The core process hosts them with
@@ -15,6 +16,8 @@
 //  - Images a turn produced (media store) go back to the chat they were asked in.
 //
 // Nothing here is a second session model: every rule that matters is in the router, the stores and the approval service.
+import { BehaviourRateGate } from "./behaviour-context.ts";
+import { resolveBehaviour, type BehaviourContext, type ResolvedBehaviour } from "./behaviour.ts";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { HarnessConfig } from "@plur1bus/config-schema";
@@ -42,6 +45,7 @@ export interface ApprovalDecisionLike { promptId: string; chatId: string; sender
 
 /** A core `Channel` plus the optional adapter ports the host uses when the adapter has them. */
 export interface HostedChannel extends Channel {
+  cryptoVerification?(input: import("../../../channels-matrix/src/crypto-memory.ts").VerificationInput): Promise<Record<string, unknown>>;
   prompt?(req: ApprovalPromptLike): Promise<{ promptId: string; refs: readonly unknown[] }>;
   onDecision?(handler: (d: ApprovalDecisionLike) => void | Promise<void>): () => void;
   /** Sends a media-store image to a chat (bytes are read and verified by the adapter through the `outputs` port). */
@@ -182,6 +186,7 @@ class Host implements Switchboard {
   readonly #chain = new Map<string, Promise<void>>();
   readonly #secretValues = new Set<string>();
   readonly #kinds = new Map<string, ChatKind>();
+  readonly #outboundRates = new BehaviourRateGate();
   /** Outputs a chat may be sent: only what a turn of that very chat produced. */
   readonly #allowed = new Map<string, Set<string>>();
   readonly #pendingMedia = new Map<string, string[]>();
@@ -195,7 +200,7 @@ class Host implements Switchboard {
 
   constructor(o: SwitchboardOptions) {
     this.#o = o;
-    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log });
+    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, behaviour: (msg) => this.behaviour(msg) });
     this.#registry = new ChannelRegistry({ clock: o.clock, router, log: o.log, redact: (t) => this.#redact(t), ...o.registry });
     for (const b of o.bindings) this.#bindings.set(b.id, b);
     const r = this.#registry;
@@ -206,6 +211,11 @@ class Host implements Switchboard {
       probe: async (n) => { const h = await r.probe(n); return h && { ...h, ...(h.detail !== undefined ? { detail: this.#redact(h.detail) } : {}) }; },
       sendTo: (n, m) => r.sendTo(n, m),
       ownerTarget: (n, who) => this.#ownerTarget(n, who),
+      cryptoVerification: async (name, input) => {
+        const channel = this.#live.get(name);
+        if (!channel?.cryptoVerification) throw new Error("crypto verification unavailable");
+        return channel.cryptoVerification(input);
+      },
     };
     this.approvalEvents = {
       emit: (name, payload) => {
@@ -356,6 +366,7 @@ class Host implements Switchboard {
       logger,
       now: () => o.clock.now(),
       stateDir: this.#stateDirOf(id),
+      ...(id === "buzz" ? { egress: createEgress({ config: () => o.config.current().egress }) } : {}),
       ...(o.adapterDeps?.[id] ?? {}),
     };
   }
@@ -375,6 +386,23 @@ class Host implements Switchboard {
   scrubError(e: unknown): Error {
     const text = this.#redact(errText(e));
     return text === errText(e) && e instanceof Error ? e : new Error(text);
+  }
+
+  behaviour(context: BehaviourContext): ResolvedBehaviour {
+    if (context.chatId !== undefined) this.noteInbound({ channel: context.channel, chatId: context.chatId, chatKind: context.chatKind === "direct" || context.chatKind === "dm" ? "direct" : "group" } as InboundMessage);
+    const cfg = this.#o.config.current();
+    const agentId = this.#o.turns()?.agentId() ?? (Object.keys(cfg.agents).length === 1 ? Object.keys(cfg.agents)[0] : "main");
+    return resolveBehaviour(agentId ? cfg.agents[agentId]?.behaviour ?? {} : {}, { ...context, connection: context.channel });
+  }
+
+  output(input: { channel: string; chatId: string; kind: "reply" | "edit"; text: string }): string | null {
+    const chatKind = this.#kinds.get(chatKeyOf(input.channel, input.chatId)) ?? "direct";
+    const { profile } = this.behaviour({ channel: input.channel, chatKind });
+    const limit = input.kind === "edit" ? profile.rateLimits.editsPerMinute : profile.rateLimits.repliesPerHour;
+    if (profile.reply.policy === "never" || !this.#outboundRates.take(`${input.channel}\0${input.chatId}\0${input.kind}`, limit, this.#o.clock.now(), input.kind === "edit" ? 60_000 : 3_600_000)) return null;
+    let end = Math.min(input.text.length, profile.rateLimits.maxReplyChars);
+    if (end > 0 && /[\uD800-\uDBFF]/.test(input.text[end - 1]!) && end < input.text.length) end--;
+    return input.text.slice(0, end);
   }
 
   noteInbound(msg: InboundMessage): void {
@@ -445,7 +473,17 @@ class Host implements Switchboard {
       return t;
     };
     return {
-      findActive: async (chat: ChatKey) => turns().store.activeForChat(chatKeyOf(chat.channel, chat.chatId))?.id ?? null,
+      findActive: async (chat: ChatKey, forOwner?: { userId: string }) => {
+        const t = turns();
+        const active = t.store.activeForChat(chatKeyOf(chat.channel, chat.chatId));
+        if (!active) return null;
+        if (forOwner && active.owner !== deriveUserPrincipal(forOwner.userId)) {
+          // The chat key outlives the link: the handle now belongs to someone else, so the old person's conversation is closed, not shared.
+          t.store.archiveSession(active.id);
+          return null;
+        }
+        return active.id;
+      },
       create: async (chat, owner) => {
         const t = turns();
         const chatKey = chatKeyOf(chat.channel, chat.chatId);
@@ -453,7 +491,7 @@ class Host implements Switchboard {
           return t.store.createSession({ kind: "channel", agentId: t.agentId(), owner: deriveUserPrincipal(owner.userId), chatKey, title: `${chat.channel} chat` }).id;
         } catch (e) {
           const existing = t.store.activeForChat(chatKey); // a racing first message made it already
-          if (existing) return existing.id;
+          if (existing && (this.#kinds.get(chatKey) !== "direct" || existing.owner === deriveUserPrincipal(owner.userId))) return existing.id;
           throw e;
         }
       },
@@ -465,6 +503,8 @@ class Host implements Switchboard {
         const chat = parseChatKey(session.chatKey);
         if (!chat) throw new Error("malformed chat key");
         const kind = this.#kinds.get(session.chatKey);
+        // Defence in depth: a private chat's session only ever runs a turn for the person who owns it.
+        if (kind === "direct" && session.owner !== deriveUserPrincipal(input.userId)) throw new Error("session belongs to someone else");
         // D109 §5: a private chat with a linked person is surface T2; anything else (a group, an unknown chat) is the lower T1.
         const surface = kind === "direct" ? 2 : 1;
         const handle = t.runner.submit({
@@ -603,6 +643,8 @@ class Guarded implements HostedChannel {
     const sb = this.#sb;
     const wrapped: ChannelHost = {
       log: host.log,
+      behaviour: (context) => sb.behaviour(context),
+      output: (input) => sb.output(input),
       fail: (err) => host.fail(sb.scrubError(err)),
       receive: (msg) => { sb.noteInbound(msg); return host.receive(msg); },
     };

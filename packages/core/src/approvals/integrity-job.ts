@@ -20,10 +20,15 @@ export interface ApprovalsIntegrityJobDeps {
   rng?: () => number;
   /** After a successful verify: announce due grants / always-grant inbox sweep. Never fails the job. */
   onOk?: () => void;
+  /**
+   * The host skipped the start run (no store yet, nothing to verify): the first scheduled run is a day away instead of
+   * due now, so an absent store leaves no ledger row at start.
+   */
+  deferFirstRun?: boolean;
 }
 
 export function createApprovalsIntegrityJob(deps: ApprovalsIntegrityJobDeps): SystemJobHandler {
-  let lastRunAt: number | null = null;
+  let lastRunAt: number | null = deps.deferFirstRun ? deps.clock.now() : null;
   const rng = deps.rng ?? Math.random;
   return {
     get spec(): SystemJobSpec {

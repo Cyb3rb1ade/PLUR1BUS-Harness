@@ -74,3 +74,25 @@ Record the result per target in the release checklist (§6.2 of `docs/milestones
   `ext::recover` and `modules::install::recover`, tested in `ext_commit.rs` and `modules.rs`.
 - The OS service managers themselves: only the fake one runs in CI (`crates/plur1bus/tests/service_real.rs` needs
   `PLUR1BUS_SERVICE_TEST=1` and a real manager).
+
+## Release candidate evidence record (M8, 2026-10-15)
+
+Keep one record per native target; copy the commands' redacted JSON, OS version, candidate commit/digest,
+service identity and before/after PIDs into the release evidence. A simulated test or a successful service
+registration does **not** close the reboot row.
+
+| Target | Manager / start trigger | Registration evidence | Real reboot evidence |
+|---|---|---|---|
+| macOS arm64 | `launchctl print gui/$UID/<name>`; user login | open | manual, open |
+| Windows x64 | `Get-ScheduledTask -TaskName <name>`; configured logon trigger | open | manual, open |
+| Windows arm64 | same Task Scheduler checks on native ARM Windows | open | manual, open |
+| Linux x64 | `systemctl --user status <name>`; linger for boot without login | open | manual, open |
+| Linux arm64 | same systemd-user checks on native ARM Linux | open | manual, open |
+
+Obtain `<name>` from `plur1bus --home <throwaway-home> service status --json`, rather than assuming the
+unsuffixed service name. After the reboot, run `daemon status`, `service status` and `1staid check` against
+that same home. After `uninstall --yes`, verify the named task/unit is absent and neither recorded PID
+belongs to the candidate. Preserve the evidence before deleting the throwaway home.
+
+Die Tabelle bleibt bis zum echten Neustart auf der jeweiligen Maschine offen. Der Fünf-Target-Workflow
+`release-smoke.yml` belegt funktionale Abläufe mit Test-Providern; er ersetzt diesen manuellen Nachweis nicht.

@@ -2,7 +2,7 @@
 
 `packages/remote-access` (`@plur1bus/remote-access`) is the library behind remote access to the harness: **exposure modes**, **TLS material**, **pairing with certificate pinning**, **pair-proof for typed codes**, **trust rollover**, the **client-subnet allow-list**, the **security notice** and the **1staid warnings**.
 
-It is a library with injected ports (clock, exec, secret store). It opens no listener, serves no route and reads no configuration file. The device store and management RPC/CLI are integrated with the core (F44). Listener/route wiring into `packages/api` and the web UI is a follow-up (see [Follow-ups](#follow-ups)). Normative sources: `docs/milestones.md` §M3 (*Remote access*), the desktop spec (`docs/superpowers/specs/2026-09-27-desktop-app-design.md` §13.5 C8, C9 and §6.2), ADR-004 (binding, TLS) and ADR-007 (devices, pairing).
+It is a library with injected ports (clock, exec, secret store). It opens no listener, serves no route and reads no configuration file. The device store and management RPC/CLI are integrated with the core (F44). The API now applies this library in `remote-runtime.ts`, and Devices & Remote uses its authenticated REST routes. Normative sources: `docs/milestones.md` §M3 (*Remote access*), the desktop spec (`docs/superpowers/specs/2026-09-27-desktop-app-design.md` §13.5 C8, C9 and §6.2), ADR-004 (binding, TLS) and ADR-007 (devices, pairing).
 
 The API is **never public**: there is no Funnel at any level. The configuration parser rejects the word at any depth, no plan or command contains it, and `1staid` warns if Tailscale reports one active.
 
@@ -13,7 +13,7 @@ The API is **never public**: there is no Funnel at any level. The configuration 
 | Mode | What listens | Who can reach it | Pairing pins |
 |---|---|---|---|
 | `local` | plain http on `127.0.0.1` | this machine | none |
-| `tailnet` | plain http on `127.0.0.1`, published by `tailscale serve` (HTTPS on the tailnet name → the loopback port) | the tailnet; until the machine has joined one, no further than `local` | none (valid `*.ts.net` certificate) |
+| `tailnet` | plain http on `127.0.0.1`, published by `tailscale serve` (HTTPS on the tailnet name → the loopback port) | the tailnet; if Tailscale is absent or not joined, explicit unavailable status and Doctor warning; no network fallback | verified edge certificate fingerprint (normal CA validation remains required) |
 | `network` | loopback http as above **plus** a TLS-only listener on the chosen interface | LAN, VPN, MPLS; optionally limited to client subnets | `certPin` (self-signed) or `caPin` (company CA) |
 
 `planListeners(config, env)` turns a validated configuration and a description of the host into the sockets to open. Unsafe combinations are refused with a stable code each, not bound quietly:
@@ -29,7 +29,7 @@ The API is **never public**: there is no Funnel at any level. The configuration 
 
 `bind-ignored` and `allow-subnets-not-enforced` are warnings: at `local` and `tailnet` every request arrives on loopback, so a subnet rule cannot be enforced there and the plan says so. `tailnet-not-joined` warns that `tailnet` currently behaves like `local`. In container mode the harness cannot see real client addresses behind a userland proxy or VM NAT; the desktop app refuses a non-empty allow-list there (spec §6.2).
 
-Configuration (`parseRemoteConfig`): `publish`, `tls` (`self-signed` default | `company-ca`), `bind { address, port, allowPublicInterface }`, `allowSubnets` (the spec text calls it `allowCidrs`; both are accepted, giving both is an error). Host names are not accepted as `bind.address`. Mapping these onto the harness's real config keys (`remote.tls.certFile`, `remote.tls.keyRef`, `remote.tls.caFile`, …) belongs to the API integration.
+Configuration (`parseRemoteConfig`): `publish`, `tls` (`self-signed` default | `company-ca`), `bind { address, port, allowPublicInterface }`, `allowSubnets` (the spec text calls it `allowCidrs`; both are accepted, giving both is an error). Host names are not accepted as `bind.address`. The real schema additionally has `remote.publicOrigin`, `remote.noticeAck` and `auth.requireSecondFactor`. Private certificate bundles reside under `state/api/remote-tls/` with user-only permissions; no key reference is accepted from an HTTP body.
 
 ### Tailscale
 
@@ -120,15 +120,21 @@ Any change of what a client pins — a new self-signed certificate, `self-signed
 | Never public: no Funnel | `parseRemoteConfig`, `assertNoFunnel`, `detectServe`, `firstAidChecks` | `exposure.test`, `tailscale.test`, `security.test` | API never configures a funnel |
 | Desktop spec acceptance 8a (pinned self-signed remote) | library half: pair-proof, pinning, refusal of changed or unpinned certificates | `pinning-e2e.test`, `pair-proof.test` | the app's proxy and rustls client |
 
-## Follow-ups
+## Listener and HTTP integration (M3 Phase 2)
 
-- **Listener integration in `packages/api`:** read the `remote.*` keys, call `planListeners`, bind the loopback listener and the TLS listener, `admitSocket` on `connection`, run the Tailscale serve plan, feed `1staid`.
-- **Routes `/api/v1/devices/*`:** `pair` offer, `redeem`, `pair-proof`, `ca`, `trust`, `trust/ack`, the SSE event `devices.trust.next`, HTTP/OpenAPI binding; the device management RPC schema and RBAC are available (F44).
-- **Persistence:** the trust state (`serializeTrust`), the offer-tag key and the notice confirmation need a home in the core's store.
-- **Web UI:** the pairing card (code, QR, deep link), the certificate and root CA upload, the rollover progress, the security notice, the allow-list editor.
-- **Desktop app:** pairing from the deep link or a typed code with pair-proof, the pinned rustls client, the SPA proxy, *Certificate changed* and *Company CA not known* states.
-- **Mobile clients:** the same pairing and pinning rules.
-- **Open points:** PKCS#12 import; tsnet inside the harness; with several open codes `handlePairProof` answers for the newest, so a client holding an older code has to retry after it expires (the spec's single-answer shape leaves this open); a UI-facing text for each `firstAidChecks` and notice code (they are stable keys for translation).
+The standalone API always retains its ordinary loopback listener. It starts a separate private Tailscale backend or a network TLS listener from the persisted configuration. Tailscale absence, login failure, conflicting public sharing or an unenforceable tailnet subnet list produces an explicit unavailable snapshot in `state/remote-status.json`, a log warning and a Doctor/`1staid check` warning. There is no network fallback and no forwarded-header trust. Tailnet access uses Tailscale ACLs; the network allowlist uses the actual socket address before TLS negotiation.
+
+`GET /api/v1/remote` returns public configuration/status. Owner/Admin can explicitly confirm the current security notice using `POST /api/v1/remote/confirm`; the authenticated actor/time are persisted by supervisor revision CAS and audited before applying. `PATCH /api/v1/remote` refuses `network` without that acknowledgement. Both replies require restarting the **API process/daemon**, not merely the Core. Unauthenticated requests and Viewer writes are refused.
+
+Company certificates and matching private keys are uploaded using `POST /api/v1/remote/certificate`. PEM sizes, matching key, validity, SAN and chain are validated. Files remain private (0600); keys never appear in responses, logs or audit. Initial provisioning activates material; replacing existing material stages it for trust rollover, never silently switches it.
+
+Owner/Admin opens a bounded ephemeral code through `POST /api/v1/devices/pairing`. The QR/deep link carries the certificate fingerprint. `pair-proof` is an explicitly reviewed trust-bootstrap exception: it receives only a nonce while an Owner-opened code exists. The client verifies its MAC **and its own actual TLS leaf and configured origin before disclosing the code**. Redemption consumes the code and proof receipt, then records the device through the existing Core DeviceStore. Registered-device key possession is checked for trust acknowledgements. Ordinary pairing/trust management routes use account authorization, rate classes, audit and CSRF.
+
+`devices.trust.next` is announced over an authenticated trusted subscription before staged material activates. Acknowledged devices retain trust; missed devices are marked for repair/re-pairing. Activation state is durably recorded for crash recovery. Rotation never exports keys. The pairing card is hidden at `local`.
+
+Owner/Admin remote logins require TOTP or WebAuthn by default (`auth.requireSecondFactor=remote`). The gate also rejects a local password-only session imported into the remote listener and privileged personal tokens that carry no factor proof. Loopback password login remains available for enrolling a factor. WebAuthn arrives in Phase 3. Changing the policy to `always` or `never` is an explicit administrator configuration decision.
+
+Remaining follow-up: desktop app acceptance of the pinned Rust proxy on all platforms. OIDC is after M3; same-OS-user separation is unchanged.
 
 ## Persistent devices (F44)
 

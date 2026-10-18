@@ -69,6 +69,7 @@ describe("setup wizard: voice step", opts, () => {
       await stepHeading(page, /Hauptmodell/).waitFor();
       await page.getByLabel("Chat-Modell").selectOption("anthropic/claude-x");
       await next(page);
+      await stepHeading(page, /Decision-Modell/).waitFor(); await skip(page);
       await stepHeading(page, /Schaltzentrale/).waitFor();
       await skip(page);
       await stepHeading(page, /Gedächtnis/).waitFor();

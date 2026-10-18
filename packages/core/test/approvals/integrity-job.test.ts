@@ -95,6 +95,19 @@ describe("approvals.integrity system job (D109 §9.7)", () => {
     arm.cancel();
   });
 
+  it("deferFirstRun: no row at start, the first cron run comes a day later (no ledger noise for an absent store)", T, async () => {
+    const s = setup(dirs);
+    const job = createApprovalsIntegrityJob({ verify: () => ({ ok: true } as unknown as VerifyResult), clock: s.clock, rng: () => 0.5, deferFirstRun: true });
+    s.jobs.register(job);
+    assert.equal(job.nextRunAt(), s.clock.now() + DAY);
+    const arm = armApprovalsIntegrity(s.jobs, s.clock);
+    await s.clock.advance(DAY - 1);
+    assert.equal(s.jobs.history({ job: "approvals.integrity" }).length, 0);
+    await s.clock.advance(1);
+    assert.equal(s.jobs.history({ job: "approvals.integrity" }).length, 1);
+    arm.cancel();
+  });
+
   it("onOk runs after a successful verify", T, async () => {
     const s = setup(dirs);
     const { chain } = openChain(dbFile(), { clock: new FakeClock() });
