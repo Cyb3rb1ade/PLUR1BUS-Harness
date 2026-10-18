@@ -309,6 +309,7 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<AdminReembedStatusParams, AdminReembedStatusResult>(name, f)
         }
         "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
+        "models.test" => pair::<ModelsTestParams, ModelsTestResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),

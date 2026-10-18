@@ -4,8 +4,25 @@ import type { HarnessConfig } from '@plur1bus/config-schema';
 import type { createTurnProvider } from '../composition/provider.ts';
 import { createSessionRoleProvider } from './role-routing.ts';
 import { readOnlyCatalog } from './catalog.ts';
-export function sessionRoleFactory(create: typeof createTurnProvider, config: HarnessConfig): typeof createTurnProvider {
-  return options => createSessionRoleProvider(create, options, config.modelRoles, config.session.compaction.summaryMaxTokens);
+export function sessionRoleFactory(create: typeof createTurnProvider, config: HarnessConfig | (() => HarnessConfig)): typeof createTurnProvider {
+  return options => {
+    const read = () => typeof config === 'function' ? config() : config;
+    let key = '', current: ReturnType<typeof createSessionRoleProvider>;
+    const get = () => {
+      const cfg = read(), next = JSON.stringify([cfg.modelRoles, cfg.session.compaction.summaryMaxTokens]);
+      if (next !== key) {
+        current = createSessionRoleProvider(create, { ...options, requireTriage: !!cfg.modelRoles.decision }, cfg.modelRoles, cfg.session.compaction.summaryMaxTokens);
+        key = next;
+      }
+      return current!;
+    };
+    return { id: get().id, telemetry: get().telemetry,
+      modelProfiles: () => get().modelProfiles?.() ?? [],
+      contextModels: (text, profile) => get().contextModels?.(text, profile) ?? [],
+      roleModels: role => get().roleModels?.(role) ?? [],
+      stream: req => get().stream(req),
+    };
+  };
 }
 export function sessionMaintenance(home: string, config: HarnessConfig) {
   const compaction = config.session.compaction;

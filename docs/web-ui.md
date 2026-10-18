@@ -264,10 +264,10 @@ Pages depend on the `Api` interface (`rpc`, `get`, `post`, `put`, `patch`, `dele
   rule triage runs (a normal mode, not an error), but model-based message triage, tool pre-selection and the model class and effort
   per task are limited. The notice names these three and the way to set the role (Settings, Models & providers, and
   `plur1bus config set modelRoles.decision <provider/model>`). It shows in the setup wizard (model step and summary, reading
-  `modelRoles.decision` with `config.get`; a failed read still shows it, the wizard never sets the role) and on the Models & providers
+  `modelRoles.decision` with `config.get`; a failed read still shows it; the optional Decision step can set the role) and on the Models & providers
   settings section; it disappears once the role is a non-empty string. The same three features are listed by `plur1bus setup`
   (`config` step, `detail.decisionRole`) and by the `models.decision` row of `1staid check` (`info`, never a warning). Tests:
-  `test/decision-hint.test.ts`. The `modelRoles` object is still shown read-only in the settings form, so the role is set on the
+  `test/decision-hint.test.ts`. The `modelRoles` values are edited with catalog selectors in the settings form; the CLI remains available on the
   command line for now.
 
 ## Tests and verification
@@ -599,3 +599,26 @@ Secrets timestamps come from the persisted status snapshot; unknown legacy metad
 ### Backend follow-ups, 14 October 2026
 
 The activity query, secret timestamps, security limits, OS confirmation status, Doctor report, user jobs, cached module offers and setup caption privacy acknowledgment are tested against the typed RPC mock. No authenticated `/rpc` or `/events` HTTP transport is added by this package. Security-limit settings remain read-only; privacy writes declare owner/admin and audit in the schema, with supervisor enforcement provided by the real web transport. Text embedding remains local. Cloud media selection and the default cloud caption binding are not implemented where no adapter exists. See the [handoff report](handoff/2026-10-14-backend-gaps.md) for exact transport requirements, stricter ADR permissions, tests and open owner decisions.
+
+## Model roles and optional Decision setup (Phase A, 2026-10-18)
+
+Settings → Models & providers edits each of the eight schema-defined `modelRoles` through catalog selectors. Unavailable
+models remain visible but disabled. Stored identifiers absent from the current catalog remain visible without silently
+selecting another model. Known non-commercial memory models are disabled until `model.licence.check` succeeds. The existing
+review step uses `config.set` with `dryRun` and `ifRevision`; a conflict requires reloading. Owner/Admin use `settings.write`.
+Each role has a de/en purpose text. Embedding identifiers here are role metadata, not a vector-space migration command.
+
+The Test button on chat/LLM roles calls `models.test`: a fixed short prompt, 16 output tokens, ten-second deadline, no tools,
+no recalled memory, no session or transcript writes. It uses the configured adapter and production budget; cloud models
+make a cloud call. Provider output and raw provider errors are never displayed. RPC is human-only and forbidden to WebMCP.
+Embedding/reranking have no Test button until the engine ports are wired (Phase D).
+
+The setup wizard now has nine standalone/eight bundled steps. Decision follows Main model, defaults to skip, and writes
+only an explicit choice with a revision check. Skipping keeps the existing role, if any. CLI setup offers catalog chat
+models with configured providers; unattended setup never assigns Decision. Doctor's `models.decision` reports last catalog
+availability; unknown is info, unavailable is fail, and no live paid probe is performed by Doctor.
+
+KNOWN GAP: #570's canonical local-only policy is not on this branch's main base; gating in selectors and the model probe
+must be connected after that merge. `composition/model-test.test.ts` has the corresponding todo. Engine-role probes have a
+second todo pending Phase D. The current role schema has no captioning role; captioning remains in its existing media
+settings. These limits are not presented as completed acceptance criteria.

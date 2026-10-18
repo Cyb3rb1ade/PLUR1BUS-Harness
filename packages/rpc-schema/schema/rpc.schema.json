@@ -7066,6 +7066,43 @@
         "params": {"type": "object", "additionalProperties": false, "properties": {}},
         "result": {"type": "object", "additionalProperties": false, "required": ["subscriptionId", "items"], "properties": {"subscriptionId": {"type": "string"}, "items": {"type": "array", "items": {"$ref": "#/$defs/ExtItem"}}}}
       },
+      "models.test": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Human-only Owner/Admin model probe through the configured chat adapter and budget. Fixed prompt, no tools, memory or session writes. Ten second deadline. E_NOT_AVAILABLE reasons model-not-configured, model-test-timeout, model-test-failed. Embedding/reranking probes are not supported.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ok",
+            "durationMs"
+          ],
+          "properties": {
+            "ok": {
+              "const": true
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
       "models.list": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Lists models in the catalog, provider scan states, new model count, and warnings (D112).",

@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { spawnSync, execFileSync } from "node:child_process";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkToolchain, version } from "./check-toolchain.mjs";
+import { checkToolchain, versionCommand, readVersion, version } from "./check-toolchain.mjs";
 
 test("accepts node 24.16+, pnpm 10+, cargo 1.95+", () => {
   const ok = checkToolchain({ node: "v24.21.0", pnpm: "10.28.0", cargo: "cargo 1.95.0 (f2d3ce0bd 2026-03-21)" });
@@ -35,6 +35,40 @@ test("the command line runs from a path with spaces and fails when pnpm and carg
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+
+test("Windows pnpm uses fixed cmd.exe invocation; native tools and Unix stay direct",()=>{
+  assert.deepEqual(versionCommand("pnpm",{platform:"win32",systemRoot:"C:\\Windows"}),{file:"C:\\Windows\\System32\\cmd.exe",args:["/d","/s","/c","pnpm --version"]});
+  assert.deepEqual(versionCommand("pnpm",{platform:"linux"}),{file:"pnpm",args:["--version"]});
+  assert.deepEqual(versionCommand("cargo",{platform:"win32",systemRoot:"C:\\Windows"}),{file:"cargo",args:["--version"]});
+  assert.deepEqual(versionCommand("node",{platform:"darwin"}),{file:process.execPath,args:["--version"]});
+  for(const tool of ["pnpm & whoami","other","cargo --help"]){assert.throws(()=>versionCommand(tool,{platform:"win32",systemRoot:"C:\\Windows"}),/unsupported tool/);}
+  assert.throws(()=>versionCommand("pnpm",{platform:"win32",systemRoot:"relative"}),/SystemRoot/);
+});
+
+test("version reader is injectable, bounded, and returns missing on execution failure",()=>{
+ const calls=[];const env={PATH:"fixture"};
+ assert.equal(readVersion("pnpm",{platform:"win32",systemRoot:"C:\\Windows",env,runner:(file,args,options)=>{calls.push({file,args,options});return "10.28.0\n";}}),"10.28.0");
+ assert.equal(calls[0].file,"C:\\Windows\\System32\\cmd.exe");assert.deepEqual(calls[0].args,["/d","/s","/c","pnpm --version"]);
+ assert.equal(calls[0].options.timeout,10000);assert.equal(calls[0].options.maxBuffer,65536);assert.equal(calls[0].options.encoding,"utf8");assert.equal(calls[0].options.env,env);assert.equal(calls[0].options.shell,undefined);
+ assert.equal(readVersion("cargo",{runner:()=>{throw Error("missing");}}),"missing");
+ let executed=false;assert.equal(readVersion("pnpm & whoami",{runner:()=>{executed=true;}}),"missing");assert.equal(executed,false);
+});
+
+test("Windows executes a real PATH pnpm.cmd shim",{skip:process.platform!=="win32"?"requires Windows cmd.exe and batch execution":false},()=>{
+ const dir=mkdtempSync(join(tmpdir(),"p1b-pnpm-cmd-"));
+ try{
+  writeFileSync(join(dir,"pnpm.cmd"),"@echo off\r\necho 10.28.0\r\n");
+  const env={...process.env,PATH:dir};
+  assert.equal(readVersion("pnpm",{platform:"win32",systemRoot:process.env.SystemRoot,env}),"10.28.0");
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test("module import from a non-file stdin entry point does not execute or throw", () => {
+  const source = `import {isMainModule} from ${JSON.stringify(new URL("./check-toolchain.mjs", import.meta.url).href)}; if(isMainModule('-'))process.exit(7); console.log('import-only');`;
+  assert.equal(execFileSync(process.execPath,["--input-type=module","-"],{input:source,encoding:"utf8"}).trim(),"import-only");
 });
 
 // Exercise the Windows launch strategy on all runners; the command is fixed.
