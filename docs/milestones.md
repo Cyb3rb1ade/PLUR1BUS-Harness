@@ -35,6 +35,20 @@ change is made here. Hot reconfiguration / automatic engine-only restart for an 
 restart first. Actual reembed token/cost usage awaits Phase D's approved Engine network port and stays estimated
 with a todo test. This addendum changes neither milestone scope nor release acceptance.
 
+### 2026-10-18 addendum — chat model selection II (Phase B)
+
+`codex/chat-model-effort-2` stacks on Phase C (#584, itself #571/#570) and merges prerequisite #575 normally.
+Session model changes are atomic durable events (incognito RAM only), replayed in the transcript after reload.
+The experimental CLI reads/sets model and reasoning with preview/CAS and the existing human confirmation. Anthropic
+manual thinking retains complete signed blocks across tool rounds in nonserializable turn memory; output budget
+admission uses the actual lifted wire ceiling. Stable top-level Anthropic effort is enabled only by curated model rules.
+Picker locality shares the Phase C policy and reacts to value-free privacy invalidations. Unknown prices stay unknown.
+Reasoning metadata schema/pattern checks run in CI's unit job, with missing known-model entries informational.
+
+**Stacked / awaiting Controller integration:** #575 and #570/#571/#584 prerequisites are open. No upstream PR is
+merged here, no Engine pin is changed, and no production/native acceptance or release readiness is inferred from
+fixture-based local tests. Phase D remains gated on the approved merged Engine 1.15 commit; inherited C/D gaps remain.
+
 ## 2. Milestones
 
 **M1 is split in two, per owner decision 2026-09-22 (B15, "yes"):** M1a ends in an **owner gate** before M1b starts, so a mis-drawn extraction boundary is caught after three PRs rather than after ten.

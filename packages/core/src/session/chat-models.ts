@@ -1,3 +1,4 @@
+import { isLocalEndpoint as sharedLocalEndpoint, localEndpoints, localOnlyFor } from "../privacy/local-only.ts";
 // The per-chat model and reasoning choice: which configured model profiles a chat may pick, what reasoning levels the
 // profile's primary model offers, and how a chosen level becomes the one parameter each attempt sends.
 // Pure over its ports (no clock, no I/O), so the chat surface, the turn provider and tests share one answer.
@@ -32,23 +33,9 @@ export interface ChatModelOption {
   disabledReason?: "local-only" | "unavailable"; reasoning: WireReasoning; outputUsdPerMTok?: number;
 }
 
-type PrivacyView = { privacy?: { localOnly?: unknown; localEndpoints?: unknown }; agents?: Record<string, { privacy?: { localOnly?: unknown } } | undefined> };
-// Same rule as the installation's "Nur lokal" switch: an agent's own value overrides the installation's in both directions.
-function localOnlyFor(cfg: unknown, agentId: string): boolean {
-  const v = (cfg && typeof cfg === "object" ? cfg : {}) as PrivacyView;
-  const own = v.agents?.[agentId]?.privacy?.localOnly;
-  return typeof own === "boolean" ? own : v.privacy?.localOnly === true;
-}
-/** Loopback by spelling (localhost, 127.0.0.0/8, ::1) or the exact origin of a `privacy.localEndpoints` entry; never resolved. */
+// Endpoint classification and override inheritance have one owner (#570 / Phase C).
 export function isLocalEndpoint(raw: string | undefined, cfg: unknown): boolean {
-  if (raw === undefined) return false;
-  let url: URL; try { url = new URL(raw); } catch { return false; }
-  if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password) return false;
-  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  const quad = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (host === "localhost" || host === "::1" || (quad !== null && quad[1] === "127" && quad.slice(1).every((n) => Number(n) <= 255))) return true;
-  const listed = ((cfg as PrivacyView | null)?.privacy?.localEndpoints);
-  return Array.isArray(listed) && listed.some((e) => { try { return typeof e === "string" && new URL(e).origin === url.origin; } catch { return false; } });
+  return raw !== undefined && sharedLocalEndpoint(raw, localEndpoints(cfg));
 }
 
 const toWire = (d: ReasoningDescriptor): WireReasoning => ({
@@ -66,7 +53,7 @@ export function chatModelOptions(s: ChatModelSources, agentId: string): ChatMode
     const price = s.outputPrice?.(primary.provider, primary.model);
     return {
       name, displayName: facts?.displayName ?? primary.model, provider: primary.provider, model: primary.model, local, selectable: disabledReason === undefined,
-      ...(disabledReason ? { disabledReason } : {}), reasoning: toWire(s.reasoning(primary.provider, primary.model)), ...(price !== undefined ? { outputUsdPerMTok: price } : {}),
+      ...(disabledReason ? { disabledReason } : {}), reasoning: toWire(s.reasoning(primary.provider, primary.model)), ...(price !== undefined && Number.isFinite(price) && price >= 0 ? { outputUsdPerMTok: price } : {}),
     };
   });
 }

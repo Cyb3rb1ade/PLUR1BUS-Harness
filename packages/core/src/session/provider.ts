@@ -52,6 +52,7 @@ export interface ChatProvider {
   /** Resolved profile candidates before context assembly (including possible fallbacks). */
   roleModels?: (role: "summarize") => import("./tokens.ts").ContextModel[];
   modelProfiles?: () => readonly string[];
+  defaultModelProfile?: (agentId: string) => string | undefined;
   contextModels?: (text: string, profile?: string) => import("./tokens.ts").ContextModel[];
 }
 

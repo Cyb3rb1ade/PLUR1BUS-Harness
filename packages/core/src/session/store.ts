@@ -112,7 +112,7 @@ export class SessionStore {
   }
   /** Atomic compare-and-swap; an in-flight turn or stale preview cannot change model routing. `reasoning` undefined keeps
    *  the stored choice, null clears it (provider default). */
-  setModelProfile(sessionId: string, profile: string, expectedRevision: number, reasoning?: string | null): number {
+  setModelProfile(sessionId: string, profile: string, expectedRevision: number, reasoning?: string | null, person?: string, modelDetails?: {model: string; displayName?: string; effectiveReasoning?: string}): number {
     return this.#tx(() => {
       const session = this.getSession(sessionId);
       if (!session || session.kind !== "direct" || session.archivedAt !== null || this.runningTurn(sessionId)) throw new SessionError("conflict", "model switch requires an idle direct session", "session-busy");
@@ -121,8 +121,15 @@ export class SessionStore {
       const revision = current.revision + 1;
       const nextReasoning = reasoning === undefined ? this.modelReasoning(sessionId) : reasoning;
       this.#db.prepare("INSERT INTO session_model_profiles(session_id,profile,revision,reasoning) VALUES (?,?,?,?) ON CONFLICT(session_id) DO UPDATE SET profile=excluded.profile,revision=excluded.revision,reasoning=excluded.reasoning").run(sessionId, profile, revision, nextReasoning);
+      const afterMessageSeq = (this.#get("SELECT last_message_seq FROM sessions WHERE id = ?", sessionId)!.last_message_seq as number);
+      this.#insertEvent(sessionId, null, "session.model.changed", { profile, model: modelDetails?.model ?? profile, ...(modelDetails?.displayName ? {displayName:modelDetails.displayName}:{}), ...(modelDetails?.effectiveReasoning ? {effectiveReasoning:modelDetails.effectiveReasoning}:{}), reasoning: nextReasoning ?? "default", person: person ?? session.owner, revision, afterMessageSeq });
       return revision;
     });
+  }
+
+  /** Session-scoped changes, independent of turn delta volume; latest 2000 notes accompany history. */
+  modelChanges(sessionId: string): EventRecord[] {
+    return this.#all("SELECT * FROM (SELECT * FROM events WHERE session_id = ? AND type = 'session.model.changed' ORDER BY seq DESC LIMIT 2000) ORDER BY seq", sessionId).map(toEvent);
   }
 
   #transactionDepth = 0;

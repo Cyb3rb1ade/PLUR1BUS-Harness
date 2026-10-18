@@ -35,9 +35,13 @@ describe("chat: model and reasoning", opts, () => {
       // Switching to the thinking model keeps the level; its options show the token budget per level.
       await model.selectOption("deep");
       await page.getByRole("log").getByText("Model changed: Example Thinker · Reasoning: High").waitFor();
+
       assert.deepEqual(sets(chat).at(-1)?.params, { sessionId: "ses_1", profile: "deep", reasoning: "high", expectedRevision: 1 });
       assert.deepEqual(await optionTexts(page, "Reasoning"), ["default||Default (provider)", "off||Off", "low||Low (about 3,840 tokens)", "medium||Medium (about 7,936 tokens)", "high||High (about 15,872 tokens)", "xhigh||Extra high (about 32,000 tokens)"]);
       await page.getByText("Thinking can add up to about 0.24 USD per reply.", { exact: false }).waitFor();
+      await page.reload();
+      await page.getByRole("log").getByText("Model changed: Example Chat · Reasoning: High").waitFor();
+      await page.getByRole("log").getByText("Model changed: Example Thinker · Reasoning: High").waitFor();
       assert.deepEqual(problems, []);
     });
   });
@@ -54,13 +58,15 @@ describe("chat: model and reasoning", opts, () => {
     });
   });
 
-  test("keyboard only: focus the select, arrow to a level; a stale revision reloads and says so", async () => {
+  test("keyboard only: focus the select, type a level; a stale revision reloads and says so", async () => {
     await withChat({ route: "#/chat/ses_1", seed }, async ({ page, chat }) => {
       const reasoning = page.getByRole("combobox", { name: "Reasoning" });
       await reasoning.waitFor();
+      await page.waitForFunction(()=>document.activeElement instanceof HTMLTextAreaElement); // Wait for the composer’s initial focus effect before moving focus by keyboard.
       chat.modelChoice.set("ses_1", { profile: "default", reasoning: "low", revision: 7 }); // changed elsewhere after load
       await reasoning.focus();
-      await page.keyboard.press("ArrowDown");
+      await reasoning.press("l");
+      await reasoning.press("Enter");
       await page.getByRole("alert").filter({ hasText: "The model choice was changed elsewhere" }).waitFor();
       assert.equal(sets(chat)[0]?.params && (sets(chat)[0]!.params as { expectedRevision: number }).expectedRevision, 0);
       await page.waitForFunction(() => (document.querySelectorAll(".chat-model select")[1] as HTMLSelectElement | undefined)?.value === "low");
@@ -93,4 +99,24 @@ describe("chat: model and reasoning", opts, () => {
       await expectAxeClean(page, "chat model picker de 400");
     });
   });
+});
+
+
+describe("chat model II policy and pricing", opts,()=>{
+ test("accepted live privacy invalidation immediately locks the displayed cloud profiles",async()=>{
+  await withChat({route:"#/chat/ses_1",seed},async({page,chat,server})=>{
+   const model=page.getByRole("combobox",{name:"Model",exact:true});await model.waitFor();
+   chat.models=chat.models.map(m=>m.local?m:{...m,selectable:false,disabledReason:"local-only"});
+   server.events.push({event:"chat.models.changed",data:{at:12345,reason:"privacy"}});
+   await page.waitForFunction(()=>document.querySelector<HTMLSelectElement>(".chat-model select")?.options[0]?.disabled===true);
+   assert.ok((await optionTexts(page,"Model"))[0]!.includes("locked, only local models"));
+   assert.equal(sets(chat).length,0);
+  });
+ });
+ test("a missing price is shown as unknown rather than zero",async()=>{
+  await withChat({route:"#/chat/ses_1",seed:c=>{seed(c);for(const m of c.models)delete m.outputUsdPerMTok;}},async({page})=>{
+   const reasoning=page.getByRole("combobox",{name:"Reasoning"});await reasoning.waitFor();await reasoning.selectOption("high");
+   await page.getByText("Price unknown; no zero-cost estimate is assumed.",{exact:false}).waitFor();
+  });
+ });
 });

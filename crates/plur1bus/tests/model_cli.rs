@@ -182,3 +182,24 @@ fn firstaid_check_reports_the_decision_role_as_ok_once_it_is_set() {
     assert_eq!(decision["id"], "models.decision");
     assert_eq!(decision["status"], "ok", "{decision}");
 }
+
+#[test]
+fn session_model_and_chat_reasoning_are_experimental_and_invalid_choices_are_usage_errors() {
+    for args in [
+        vec!["session", "model", "get", "--help"],
+        vec!["session", "model", "set", "--help"],
+    ] {
+        let output = bin().args(args).output().unwrap();
+        assert!(output.status.success());
+        assert!(String::from_utf8_lossy(&output.stdout).contains("[experimental]"));
+    }
+    for args in [
+        vec!["session", "model", "set", "ses_1"],
+        vec!["session", "model", "set", "ses_1", "--reasoning", "banana"],
+        vec!["chat", "--reasoning", "banana"],
+    ] {
+        assert_eq!(bin().args(args).output().unwrap().status.code(), Some(2));
+    }
+    let output = bin().args(["chat", "--help"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&output.stdout).contains("--reasoning"));
+}

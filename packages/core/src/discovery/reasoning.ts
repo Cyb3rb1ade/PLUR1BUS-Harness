@@ -89,7 +89,7 @@ export function resolveReasoning(o: { vendor?: string | undefined; id: string; a
 const WIRE: Readonly<Record<ProviderFamily, readonly ReasoningVendorParam[]>> = {
   "openai-chat": ["reasoning_effort", "reasoning.effort", "chat_template_kwargs.enable_thinking"],
   "openai-responses": ["reasoning.effort"],
-  anthropic: ["thinking.budget_tokens"],
+  anthropic: ["thinking.budget_tokens", "output_config.effort"],
   gemini: ["thinkingConfig.thinkingBudget", "thinkingConfig.thinkingLevel"],
 };
 

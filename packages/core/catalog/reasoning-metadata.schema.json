@@ -1,0 +1,193 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "revision",
+    "vendors"
+  ],
+  "properties": {
+    "schema": {
+      "const": "plur1bus.reasoning-metadata/1"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "notes": {
+      "type": "string"
+    },
+    "vendors": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/rule"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pattern",
+        "kind"
+      ],
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200
+        },
+        "kind": {
+          "enum": [
+            "none",
+            "effort",
+            "budget",
+            "toggle"
+          ]
+        },
+        "levels": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "off",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          }
+        },
+        "default": {
+          "enum": [
+            "off",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        },
+        "vendorParam": {
+          "enum": [
+            "reasoning_effort",
+            "reasoning.effort",
+            "chat_template_kwargs.enable_thinking",
+            "thinking.budget_tokens",
+            "thinkingConfig.thinkingBudget",
+            "thinkingConfig.thinkingLevel",
+            "output_config.effort"
+          ]
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "off": {
+              "type": [
+                "string",
+                "boolean"
+              ]
+            },
+            "minimal": {
+              "type": [
+                "string",
+                "boolean"
+              ]
+            },
+            "low": {
+              "type": [
+                "string",
+                "boolean"
+              ]
+            },
+            "medium": {
+              "type": [
+                "string",
+                "boolean"
+              ]
+            },
+            "high": {
+              "type": [
+                "string",
+                "boolean"
+              ]
+            },
+            "xhigh": {
+              "type": [
+                "string",
+                "boolean"
+              ]
+            }
+          }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "min",
+            "max",
+            "default"
+          ],
+          "properties": {
+            "min": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "default": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "budget"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "budget"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "effort",
+                  "budget",
+                  "toggle"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "levels",
+              "vendorParam"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

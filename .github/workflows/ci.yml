@@ -92,6 +92,8 @@ jobs:
       - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm lint
         env:
           NODE_OPTIONS: ${{ runner.os == 'macOS' && '--max-old-space-size=4096' || '' }}
+      - name: reasoning metadata schema and coverage hints
+        run: node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/check-reasoning-metadata.mjs
       - name: unit tests with file timings
         shell: bash
         run: |

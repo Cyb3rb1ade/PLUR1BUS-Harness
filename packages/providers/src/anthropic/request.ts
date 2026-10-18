@@ -1,3 +1,4 @@
+import { thinkingFor } from "./thinking.ts";
 import { isRecord, ProviderError } from "../errors.ts";
 import { validateRequest } from "../request.ts";
 import type { ChatMessage, ContentPart, JsonObject, ToolChoice } from "../types.ts";
@@ -77,8 +78,8 @@ function parseCallInput(args: string, at: string): JsonObject {
   return v as JsonObject;
 }
 
-function assistantBlocks(m: Extract<ChatMessage, { role: "assistant" }>, at: string, ids: ToolIds): Block[] {
-  const out: Block[] = [];
+function assistantBlocks(m: Extract<ChatMessage, { role: "assistant" }>, at: string, ids: ToolIds, model: string): Block[] {
+  const out: Block[] = thinkingFor(m,model).map(b=>({...b}));
   if (typeof m.content === "string" && !blank(m.content)) out.push({ type: "text", text: m.content });
   for (const c of m.toolCalls ?? []) out.push({ type: "tool_use", id: ids.wire(c.id), name: c.name, input: parseCallInput(c.arguments, at) });
   if (out.length === 0) throw bad(`${at} is empty: an assistant message needs text or tool calls`);
@@ -119,9 +120,8 @@ function checkPairing(turns: Turn[]): void {
  * `messages`, `tools`, `tool_choice`, `temperature`, `top_p`, `stop_sequences`, `stream`): the same request gives the
  * same bytes, which is what prompt caching keys on. A `thinking.budget_tokens` reasoning directive above 0 adds
  * `thinking` after `tool_choice` and lifts `max_tokens` to budget + answer allowance (the wire demands max_tokens >
- * budget). RULING: thinking signatures are not carried between rounds yet, so a request that continues a tool loop
- * (its last assistant turn holds tool_use) is sent without `thinking`, which the API accepts; sending it would be a
- * 400. Fail closed: whatever the wire cannot express (a leading assistant
+ * budget). Signed blocks are carried as opaque turn-memory metadata, before text and tool calls on continuation.
+ * A continuation without the matching signed blocks is refused before I/O. Fail closed: whatever the wire cannot express (a leading assistant
  * turn, a tool result without its call, blank text, `responseFormat`, temperature above 1) is refused before any I/O.
  */
 export function buildAnthropicBody(req: AnthropicRequest, opts: AnthropicBuildOptions): Record<string, unknown> {
@@ -130,9 +130,10 @@ export function buildAnthropicBody(req: AnthropicRequest, opts: AnthropicBuildOp
   if (req.responseFormat !== undefined && req.responseFormat.type !== "text") throw bad(`responseFormat "${req.responseFormat.type}" is not supported by the Messages API`);
   let thinkingBudget = 0;
   if (req.reasoning !== undefined) {
-    const problem = checkReasoningDirective(req.reasoning, ["thinking.budget_tokens"], "Anthropic Messages");
+    const problem = checkReasoningDirective(req.reasoning, ["thinking.budget_tokens", "output_config.effort"], "Anthropic Messages");
     if (problem) throw bad(problem);
-    thinkingBudget = req.reasoning.value as number;
+    if(req.reasoning.vendorParam === "output_config.effort" && !["low","medium","high","xhigh","max"].includes(String(req.reasoning.value)))throw bad("output_config.effort must be low, medium, high, xhigh or max");
+    if(req.reasoning.vendorParam === "thinking.budget_tokens")thinkingBudget = req.reasoning.value as number;
     if (thinkingBudget > 0 && thinkingBudget < MIN_THINKING_BUDGET) throw bad(`thinking.budget_tokens must be 0 or at least ${MIN_THINKING_BUDGET}`);
     if (thinkingBudget > 0 && req.temperature !== undefined && req.temperature !== 1) throw bad("temperature cannot be set with extended thinking");
     if (thinkingBudget > 0 && req.toolChoice !== undefined && req.toolChoice !== "auto" && req.toolChoice !== "none") throw bad("a forced tool choice cannot be combined with extended thinking");
@@ -155,7 +156,7 @@ export function buildAnthropicBody(req: AnthropicRequest, opts: AnthropicBuildOp
         if (!blank(m.content)) system.push({ type: "text", text: m.content });
         return;
       case "user": push("user", userBlocks(m.content, at)); return;
-      case "assistant": push("assistant", assistantBlocks(m, at, ids)); return;
+      case "assistant": push("assistant", assistantBlocks(m, at, ids, req.model)); return;
       case "tool": {
         const result: Block = { type: "tool_result", tool_use_id: ids.wire(m.toolCallId) };
         if (m.content !== "") result["content"] = m.content;
@@ -187,18 +188,30 @@ export function buildAnthropicBody(req: AnthropicRequest, opts: AnthropicBuildOp
   }
 
   const continuesToolLoop = turns.length >= 2 && turns[turns.length - 2]!.role === "assistant" && turns[turns.length - 2]!.blocks.some((b) => b.type === "tool_use");
-  const thinking = thinkingBudget > 0 && !continuesToolLoop;
+  const thinking = thinkingBudget > 0;
+  if(thinking && continuesToolLoop){
+    const last=turns[turns.length-2]!;
+    if(!last.blocks.some(b=>b.type==="thinking"||b.type==="redacted_thinking"))throw bad("extended-thinking tool continuation requires the original signed thinking blocks for this model");
+  }
   const answer = req.maxTokens ?? opts.defaultMaxTokens;
-  const body: Record<string, unknown> = { model: req.model, max_tokens: thinking && answer <= thinkingBudget ? thinkingBudget + answer : answer };
+  const body: Record<string, unknown> = { model: req.model, max_tokens: anthropicOutputLimit(answer, thinkingBudget) };
   if (system.length > 0) body["system"] = system;
   body["messages"] = turns.map((t) => ({ role: t.role, content: t.blocks }));
   if (tools.length > 0) body["tools"] = tools;
   const toolChoice = wireToolChoice(req.toolChoice, req.parallelToolCalls);
   if (toolChoice !== undefined) body["tool_choice"] = toolChoice;
+  if(req.reasoning?.vendorParam === "output_config.effort")body["output_config"]={effort:req.reasoning.value};
   if (thinking) body["thinking"] = { type: "enabled", budget_tokens: thinkingBudget };
   if (req.temperature !== undefined) body["temperature"] = req.temperature;
   if (req.topP !== undefined) body["top_p"] = req.topP;
   if (req.stop !== undefined) body["stop_sequences"] = req.stop;
   body["stream"] = opts.stream;
   return body;
+}
+
+/** The same output ceiling is used by the wire builder and Core budget admission. */
+export function anthropicOutputLimit(answer: number, thinkingBudget: number): number {
+  const maximum = thinkingBudget > 0 && answer <= thinkingBudget ? thinkingBudget + answer : answer;
+  if(!Number.isSafeInteger(maximum) || maximum <= 0)throw bad("max_tokens including thinking must be a positive safe integer");
+  return maximum;
 }

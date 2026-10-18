@@ -65,6 +65,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus session`↴](#plur1bus-session)
 * [`plur1bus session list`↴](#plur1bus-session-list)
 * [`plur1bus session show`↴](#plur1bus-session-show)
+* [`plur1bus session model`↴](#plur1bus-session-model)
+* [`plur1bus session model get`↴](#plur1bus-session-model-get)
+* [`plur1bus session model set`↴](#plur1bus-session-model-set)
 * [`plur1bus session archive`↴](#plur1bus-session-archive)
 * [`plur1bus chat`↴](#plur1bus-chat)
 * [`plur1bus acp`↴](#plur1bus-acp)
@@ -1129,6 +1132,7 @@ Chat sessions: list, show, archive
 
 * `list` — [experimental] List your chat sessions (pinned first, then by last turn)
 * `show` — [experimental] Show one session and its last messages
+* `model` — [experimental] Read or change this session's model and reasoning level
 * `archive` — [experimental] Archive a session (nothing is deleted)
 
 
@@ -1176,6 +1180,52 @@ Chat sessions: list, show, archive
 
 
 
+## `plur1bus session model`
+
+[experimental] Read or change this session's model and reasoning level
+
+**Usage:** `plur1bus session model <COMMAND>`
+
+###### **Subcommands:**
+
+* `get` — [experimental] Read the model profile, default and reasoning level
+* `set` — [experimental] Preview and confirm a model or reasoning change
+
+
+
+## `plur1bus session model get`
+
+[experimental] Read the model profile, default and reasoning level
+
+**Usage:** `plur1bus session model get <SESSION>`
+
+###### **Arguments:**
+
+* `<SESSION>`
+
+
+
+## `plur1bus session model set`
+
+[experimental] Preview and confirm a model or reasoning change
+
+**Usage:** `plur1bus session model set [OPTIONS] <--model <PROFILE>|--reasoning <REASONING>> <SESSION>`
+
+###### **Arguments:**
+
+* `<SESSION>`
+
+###### **Options:**
+
+* `--model <PROFILE>`
+* `--reasoning <REASONING>`
+
+  Possible values: `default`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`
+
+* `--yes` — Confirm the cache and cost warning for scripts
+
+
+
 ## `plur1bus session archive`
 
 [experimental] Archive a session (nothing is deleted)
@@ -1199,6 +1249,10 @@ Chat sessions: list, show, archive
 * `<MESSAGE>` — One message to send; without it, lines are read from stdin until EOF
 
 ###### **Options:**
+
+* `--reasoning <REASONING>` — Reasoning level for this session (default leaves control to the provider)
+
+  Possible values: `default`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`
 
 * `--model <PROFILE>` — Configured model profile for this session; warns and asks before switching
 * `--yes` — Confirm the model switch for scripts (including --json)

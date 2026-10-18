@@ -9,7 +9,7 @@ import type { View } from "../../view.ts";
 import { ModelSwitch } from "./model-switch-view.ts";
 import { Composer } from "./composer.ts";
 import { ChatController } from "./controller.ts";
-import { addNotice, type Entry } from "./model.ts";
+import { type Entry } from "./model.ts";
 import { stateFor, takeDraft } from "./store.ts";
 
 function Message({ e, agent }: { e: Entry; agent: string }): View {
@@ -90,7 +90,7 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
       h("h2", null, session.title || t("chat.untitled")),
       h(Badge, null, agent),
       incognito ? h(Badge, { tone: "info" }, t("chat.incognito")) : null,
-      h(ModelSwitch, { key: ctl.sessionId, sessionId: ctl.sessionId, running, onChanged: (note: string) => { ctl.tr.value = addNotice(ctl.tr.value, `model:${Date.now()}:${ctl.tr.value.entries.length}`, note); } })),
+      h(ModelSwitch, { key: ctl.sessionId, sessionId: ctl.sessionId, optionsVersion:ctl.modelOptionsVersion.value, running, onChanged: () => { void ctl.start(true); } })),
     liveState === "unavailable" ? h("p", { class: "chat-note" }, t("chat.live.polling")) : null,
     liveState === "retrying" ? h("p", { class: "chat-note", role: "status" }, t("chat.live.reconnecting")) : null,
     h("div", {

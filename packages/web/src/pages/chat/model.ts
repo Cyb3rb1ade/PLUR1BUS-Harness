@@ -1,3 +1,4 @@
+import { t, type Key } from "../../i18n.ts";
 // Transcript state of one chat: the persisted messages plus the live events of the session's stream. Pure functions on an
 // immutable value, so the page (and the tests) can replace the whole transcript on every change.
 import { outputReference } from "../surfaces/data.ts";
@@ -28,7 +29,7 @@ export const EMPTY_TRANSCRIPT: Transcript = { entries: [], lastSeq: 0, runningTu
 const turnKey = (turnId: string): string => `turn:${turnId}`;
 
 /** From session.resume. With a running turn the stream is replayed from seq 0 (the partial reply exists only as events). */
-export function fromResume(r: { messages: readonly SessionMessage[]; runningTurnId: string | null; lastEventSeq: number }): Transcript {
+export function fromResume(r: { messages: readonly SessionMessage[]; runningTurnId: string | null; lastEventSeq: number; modelChanges?: readonly SessionEvent[] }): Transcript {
   const sorted = [...r.messages].sort((a, b) => a.seq - b.seq);
   const done = new Set<string>();
   const entries: Entry[] = sorted.map((m) => {
@@ -36,7 +37,21 @@ export function fromResume(r: { messages: readonly SessionMessage[]; runningTurn
     if (m.role === "assistant" && turnId !== null) done.add(turnId);
     return { id: m.id, role: m.role, text: m.text, turnId };
   });
+  for (const event of r.modelChanges ?? []) {
+    if (event.type !== "session.model.changed") continue;
+    const after = typeof event.data.afterMessageSeq === "number" ? event.data.afterMessageSeq : 0;
+    const following = sorted.find(m=>m.seq > after);
+    const index = following ? entries.findIndex(e=>e.id === following.id) : entries.length;
+    entries.splice(index < 0 ? entries.length : index, 0, modelChangeEntry(event));
+  }
   return { entries, lastSeq: r.runningTurnId === null ? r.lastEventSeq : 0, runningTurnId: r.runningTurnId, done };
+}
+
+function modelChangeEntry(ev: SessionEvent): Entry {
+  const choices=["default","off","minimal","low","medium","high","xhigh"];
+  const chosen=ev.data.effectiveReasoning ?? ev.data.reasoning;
+  const reasoning=typeof chosen === "string" && choices.includes(chosen) ? chosen : "default";
+  return {id:`model-event:${ev.seq}`,role:"system",turnId:null,text:t("chat.model.changed",{model:String(ev.data.displayName ?? ev.data.model ?? ev.data.profile ?? "?"),reasoning:t(`chat.reasoning.${reasoning}` as Key)})};
 }
 
 const indexOfTurn = (entries: readonly Entry[], turnId: string): number => entries.findIndex((e) => e.id === turnKey(turnId));
@@ -56,6 +71,10 @@ export function applyEvent(tr: Transcript, ev: SessionEvent): Applied {
   if (ev.seq !== tr.lastSeq + 1) return { tr, gap: true };
   const turnId = ev.turnId;
   let next: Transcript = { ...tr, lastSeq: ev.seq };
+  if (ev.type === "session.model.changed") {
+    const note=modelChangeEntry(ev);
+    if(!tr.entries.some(e=>e.id===note.id))next={...next,entries:[...tr.entries,note]};
+  }
   if (turnId !== null && !tr.done.has(turnId)) {
     switch (ev.type) {
       case "turn.started":

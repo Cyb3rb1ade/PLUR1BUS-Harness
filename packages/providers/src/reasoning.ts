@@ -15,12 +15,13 @@ export type ReasoningLevel = typeof REASONING_LEVELS[number];
  * - `reasoning.effort`: OpenRouter's `reasoning` object on `/chat/completions`, and the Responses API's `reasoning`.
  * - `chat_template_kwargs.enable_thinking`: on/off toggle of Qwen3 / DeepSeek hybrid models behind vLLM or SGLang.
  * - `thinking.budget_tokens`: Anthropic extended thinking (0 = thinking off).
+ * - `output_config.effort`: stable top-level Anthropic effort on curated supported models.
  * - `thinkingConfig.thinkingBudget`: Gemini 2.5 thinking budget in tokens (0 = off where the model allows it).
  * - `thinkingConfig.thinkingLevel`: Gemini 3 thinking level.
  */
 export const REASONING_VENDOR_PARAMS = [
   "reasoning_effort", "reasoning.effort", "chat_template_kwargs.enable_thinking", "thinking.budget_tokens",
-  "thinkingConfig.thinkingBudget", "thinkingConfig.thinkingLevel",
+  "thinkingConfig.thinkingBudget", "thinkingConfig.thinkingLevel", "output_config.effort",
 ] as const;
 export type ReasoningVendorParam = typeof REASONING_VENDOR_PARAMS[number];
 

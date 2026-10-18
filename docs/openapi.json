@@ -2473,6 +2473,59 @@
                     "lastEventSeq": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "modelChanges": {
+                      "type": "array",
+                      "maxItems": 2000,
+                      "items": {
+                        "description": "One event of a session's ordered stream. seq is per session, starts at 1 and has no gaps; data's shape depends on type.",
+                        "x-stability": "experimental",
+                        "x-since": "1.5.0",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "sessionId",
+                          "seq",
+                          "turnId",
+                          "type",
+                          "data",
+                          "at"
+                        ],
+                        "properties": {
+                          "sessionId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "seq": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "turnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "type": {
+                            "enum": [
+                              "turn.started",
+                              "delta",
+                              "tool.call",
+                              "tool.result",
+                              "turn.completed",
+                              "turn.failed",
+                              "session.model.changed"
+                            ]
+                          },
+                          "data": {
+                            "type": "object"
+                          },
+                          "at": {
+                            "type": "integer"
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -3255,6 +3308,59 @@
                     "lastEventSeq": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "modelChanges": {
+                      "type": "array",
+                      "maxItems": 2000,
+                      "items": {
+                        "description": "One event of a session's ordered stream. seq is per session, starts at 1 and has no gaps; data's shape depends on type.",
+                        "x-stability": "experimental",
+                        "x-since": "1.5.0",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "sessionId",
+                          "seq",
+                          "turnId",
+                          "type",
+                          "data",
+                          "at"
+                        ],
+                        "properties": {
+                          "sessionId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "seq": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "turnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "type": {
+                            "enum": [
+                              "turn.started",
+                              "delta",
+                              "tool.call",
+                              "tool.result",
+                              "turn.completed",
+                              "turn.failed",
+                              "session.model.changed"
+                            ]
+                          },
+                          "data": {
+                            "type": "object"
+                          },
+                          "at": {
+                            "type": "integer"
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -3611,7 +3717,8 @@
                               "tool.call",
                               "tool.result",
                               "turn.completed",
-                              "turn.failed"
+                              "turn.failed",
+                              "session.model.changed"
                             ]
                           },
                           "data": {

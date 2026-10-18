@@ -1020,6 +1020,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "session.model.get" => check_pair::<
+                types::SessionModelGetParams,
+                types::SessionModelGetResult,
+            >(name, fixture, &root_schema),
             "session.model.set" => check_pair::<
                 types::SessionModelSetParams,
                 types::SessionModelSetResult,

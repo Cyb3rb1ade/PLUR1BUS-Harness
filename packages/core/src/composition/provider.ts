@@ -1,3 +1,5 @@
+import { carryThinking } from "../../../providers/src/anthropic/thinking.ts";
+import { anthropicOutputLimit } from "../../../providers/src/anthropic/request.ts";
 import { MessageTriage, type MessageDecision } from '../triage/runtime.ts';
 import type { TriageDecision } from '../triage/index.ts';
 import { permitsTool } from '../channels/behaviour-context.ts';
@@ -300,13 +302,13 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           const spec = dialect === 'openai-chat' ? wire.function as Record<string, unknown> : wire;
           return { name: spec.name, description: spec.description, parameters: spec.parameters ?? spec.input_schema ?? spec.parametersJsonSchema, ...(spec.strict === undefined ? {} : { strict: spec.strict }) } as ToolDefinition;
         });
-        const mapped = request.messages.map(m => m.role === 'assistant' && m.toolCalls ? { ...m, toolCalls: m.toolCalls.map(t => ({ ...t, name: aliases.get(t.name) ?? t.name })) } : m);
+        const mapped = request.messages.map(m => m.role === 'assistant' && m.toolCalls ? carryThinking(m, { ...m, toolCalls: m.toolCalls.map(t => ({ ...t, name: aliases.get(t.name) ?? t.name })) }) : m);
         const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(c.provider, c.model)) : undefined;
         const assertCurrentPrivacy = () => {
           if(localOnly() && !isLocal(c.provider)) throw new TurnToolError('local-only', {provider:c.provider,model:c.model,message:LOCAL_ONLY_HINT});
         };
         assertCurrentPrivacy();
-        const stream = c.adapter.stream({ ...request, messages: mapped, tools, ...(directive ? { reasoning: directive } : {}) }, options);
+        const stream = c.adapter.stream({ ...request, messages: mapped, tools, ...(family(c.provider) === "anthropic" || directive?.vendorParam === "thinking.budget_tokens" || directive?.vendorParam === "output_config.effort" ? {maxTokens:request.maxTokens ?? o.maxTokens ?? 4096} : {}), ...(directive ? { reasoning: directive } : {}) }, options);
         let began=false;
         try { while (true) {
           // An adapter may begin eagerly or only on its first next(). Once started, let that response finish.
@@ -316,7 +318,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           if (next.done) break;
           const e = next.value;
           if (attempt) { attempt.received = true; if (e.type === 'text_delta') attempt.outputChars += e.text.length; }
-          if (e.type === 'done') yield { ...e, result: { ...e.result, toolCalls: e.result.toolCalls.map(t => ({ ...t, name: original.get(t.name) ?? withheld.get(t.name)?.name ?? t.name })) } };
+          if (e.type === 'done') yield { ...e, result: carryThinking(e.result, { ...e.result, toolCalls: e.result.toolCalls.map(t => ({ ...t, name: original.get(t.name) ?? withheld.get(t.name)?.name ?? t.name })) }) };
           else yield e;
         } } catch (e) {
           if (attempt) attempt.error = e;
@@ -341,7 +343,10 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           return await stage('budget', signal, o.log, () => {
             if (fatal) throw fatal;
             const estimatedInputTokens = estimate(request);
-            const admitted = o.budget.checkBeforeCall({ principal, agent: req.agentId, project: req.projectId ?? 'direct', model: info.model, provider: info.provider, turn: turnId, session: req.sessionId, estimatedInputTokens, maxOutputTokens: request.maxTokens ?? o.maxTokens ?? 4096 });
+            const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(info.provider, info.model)) : undefined;
+            const answer = request.maxTokens ?? o.maxTokens ?? 4096;
+            const maximum = directive?.vendorParam === 'thinking.budget_tokens' ? anthropicOutputLimit(answer, directive.value as number) : answer;
+            const admitted = o.budget.checkBeforeCall({ principal, agent: req.agentId, project: req.projectId ?? 'direct', model: info.model, provider: info.provider, turn: turnId, session: req.sessionId, estimatedInputTokens, maxOutputTokens: maximum });
             if (admitted.kind === 'refuse') throw new CallBudgetExceededError(admitted);
             // A retry or fallback inside this router call is charged to the class of the failure that caused it; the first
             // attempt is charged only when the call itself is a retry (a tool-argument repair).
@@ -432,7 +437,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (!done.toolCalls.length) return;
         const calls = uniqueToolCallIds(done.toolCalls);
         const toolCalls = calls.map(c => ({ id: c.id, name: c.name, arguments: c.argumentsRaw }));
-        messages = [...messages, { role: 'assistant', content: done.text || null, toolCalls }];
+        messages = [...messages, carryThinking(done, { role: 'assistant' as const, content: done.text || null, toolCalls })];
         for (const call of calls) {
           signal.throwIfAborted();
           const tool = selected.find(t => t.name === call.name) ?? (withheld.get(call.name)?.name === call.name ? withheld.get(call.name) : undefined);

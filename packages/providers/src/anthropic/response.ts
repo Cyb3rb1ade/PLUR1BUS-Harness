@@ -1,3 +1,4 @@
+import { keepThinking, type ThinkingBlock } from "./thinking.ts";
 import { isRecord, protocolError, ProviderError } from "../errors.ts";
 import type { ChatResult, ChatStreamEvent, FinishReason, PartialChatResult, ResponseMeta, ToolArgumentRepair, ToolCall, ToolDefinition } from "../types.ts";
 import { classifyAnthropicStreamError } from "./errors.ts";
@@ -105,6 +106,7 @@ export class AnthropicAccumulator {
   readonly #usage: RawUsage = {};
   #text = "";
   #reasoning = "";
+  readonly #thinking = new Map<number, Record<string, unknown>>();
   #started = false;
   #raw: string | undefined;
   #stopped = false;
@@ -174,8 +176,13 @@ export class AnthropicAccumulator {
       this.#blocks.set(i, { kind: "text", open: true });
       if (typeof b["text"] === "string" && b["text"] !== "") { this.#text += b["text"]; events.push({ type: "text_delta", text: b["text"] }); }
     } else if (t === "thinking") {
+      this.#thinking.set(i, {type:"thinking", thinking:typeof b["thinking"]==="string"?b["thinking"]:"", signature:typeof b["signature"]==="string"?b["signature"]:""});
       this.#blocks.set(i, { kind: "thinking", open: true });
       if (typeof b["thinking"] === "string" && b["thinking"] !== "") { this.#reasoning += b["thinking"]; events.push({ type: "reasoning_delta", text: b["thinking"] }); }
+    } else if (t === "redacted_thinking") {
+      if(typeof b["data"]!=="string")throw protocol("redacted thinking has no data");
+      this.#thinking.set(i,{type:"redacted_thinking",data:b["data"]});
+      this.#blocks.set(i,{kind:"ignored",open:true});
     } else if (t === "tool_use") {
       const id = b["id"], name = b["name"];
       if (typeof id !== "string" || id === "") throw protocol("tool_use block lacks an id");
@@ -205,10 +212,15 @@ export class AnthropicAccumulator {
     const dt = d["type"];
     if (block.kind === "ignored") return [];
     if (block.kind === "thinking") {
+      if(dt === "signature_delta"){
+        if(typeof d["signature"]!=="string")throw protocol("signature_delta.signature is not a string");
+        this.#thinking.get(i)!["signature"] += d["signature"];return [];
+      }
       if (dt === "thinking_delta") {
         const t = d["thinking"];
         if (typeof t !== "string") throw protocol("thinking_delta.thinking is not a string");
         if (t === "") return [];
+        this.#thinking.get(i)!["thinking"] += t;
         this.#reasoning += t;
         return [{ type: "reasoning_delta", text: t }];
       }
@@ -280,6 +292,7 @@ export class AnthropicAccumulator {
     for (const c of this.#calls) toolCalls.push(await finaliseToolCall(c.id, c.name, c.args, repair, tools, signal));
     const r: ChatResult = { text: this.#text, toolCalls, finishReason: normaliseStop(this.#raw), rawFinishReason: this.#raw, meta: this.#meta };
     if (this.#reasoning) r.reasoning = this.#reasoning;
+    if(this.#meta.model)keepThinking(r,this.#meta.model,[...this.#thinking.values()].filter(b=>b["type"]==="redacted_thinking" || typeof b["signature"]==="string"&&b["signature"]!=="") as ThinkingBlock[]);
     const u = this.usage;
     if (u !== undefined) r.usage = u;
     return r;
@@ -311,13 +324,14 @@ export function* messageToEvents(body: unknown): Generator<unknown, void, void> 
     } else if (b["type"] === "thinking") {
       yield { type: "content_block_start", index: i, content_block: { type: "thinking", thinking: "" } };
       yield { type: "content_block_delta", index: i, delta: { type: "thinking_delta", thinking: b["thinking"] } };
+      if(typeof b["signature"]==="string")yield {type:"content_block_delta",index:i,delta:{type:"signature_delta",signature:b["signature"]}};
     } else if (b["type"] === "tool_use") {
       const input = b["input"] === undefined ? {} : b["input"];
       if (!isRecord(input)) throw protocol("tool_use input is not an object");
       yield { type: "content_block_start", index: i, content_block: { type: "tool_use", id: b["id"], name: b["name"], input: {} } };
       yield { type: "content_block_delta", index: i, delta: { type: "input_json_delta", partial_json: JSON.stringify(input) } };
     } else {
-      yield { type: "content_block_start", index: i, content_block: { type: b["type"] } };
+      yield { type: "content_block_start", index: i, content_block: { ...b } };
     }
     yield { type: "content_block_stop", index: i };
   }

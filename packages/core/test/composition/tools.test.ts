@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { composeTools, ToolAdapterError, type ToolCompositionOptions } from "../../src/composition/tools.ts";
 import { RegistryError, type ToolDef, type ToolRegistry, type ToolRunContext } from "../../src/tools/registry.ts";
@@ -106,7 +106,7 @@ describe("composition/tools composeTools: extra tools and conflicts", () => {
 
 describe("composition/tools composeTools: file tools stay inside their roots", () => {
   function layout() {
-    const base = tmp.make();
+    const base = realpathSync(tmp.make());
     const home = join(base, "home"), root = join(base, "root"), outside = join(base, "outside");
     for (const d of [join(home, "state"), join(home, "run"), root, outside]) mkdirSync(d, { recursive: true });
     writeFileSync(join(root, "a.txt"), "inside");
