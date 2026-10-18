@@ -1,4 +1,4 @@
-//! `plur1bus grant list|add|revoke`: the CLI's path to the core's experimental `grant.*` RPC (D109, D8).
+//! `plur1bus grant list|show|add|revoke`: the CLI's path to the core's experimental `grant.*` RPC (D109, D8).
 //!
 //! The CLI builds parameters and prints what the core answers; every decision (RBAC, ceilings, never-grantable
 //! capabilities, the surface level) is the core's. `once` grants are made only by `approval approve`.
@@ -28,6 +28,10 @@ pub fn run(out: &Out, layout: &Layout, cmd: GrantCmd) {
             }
             let v = call(out, layout, "grant.list", params.unwrap_or_default());
             out.ok("grant.list/1", &v, || render_list(&v));
+        }
+        GrantCmd::Show { id } => {
+            let v = call(out, layout, "grant.get", json!({ "id": id }));
+            out.ok("grant.get/1", &v, || render_grant(&v));
         }
         GrantCmd::Add(args) => {
             let params = match add_params(&args, now_secs()) {
@@ -322,6 +326,18 @@ mod tests {
             } => Ok(a),
             other => panic!("not grant add: {other:?}"),
         }
+    }
+
+    #[test]
+    fn show_parses_an_id() {
+        let c = Cli::try_parse_from(["plur1bus", "grant", "show", "grt_abc"]).unwrap();
+        match c.cmd {
+            Cmd::Grant {
+                sub: GrantCmd::Show { id },
+            } => assert_eq!(id, "grt_abc"),
+            o => panic!("{o:?}"),
+        }
+        assert!(Cli::try_parse_from(["plur1bus", "grant", "show"]).is_err());
     }
 
     #[test]

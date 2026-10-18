@@ -7,6 +7,8 @@ export type ReplyPolicy = "mention" | "always" | "allowlist";
 /** JSON-serialisable configuration (secret NAMES only). Mirrored in config.schema.json by the lead. */
 export interface MatrixConfig {
   enabled?: boolean;
+  /** Experimental, loses all crypto identity/session keys on restart. Off unless the owner explicitly selects memory. */
+  e2ee?: { mode: "off" | "memory"; unverifiedDevices?: "reject" | "allow" };
   homeserverUrl: string;
   /** The bot's own mxid, e.g. `@bot:example.org`. Checked against `whoami` at start. */
   userId: string;
@@ -47,6 +49,7 @@ const SECRET_NAME = /^[A-Za-z0-9_./-]{1,200}$/;
 
 export function resolveConfig(cfg: MatrixConfig): ResolvedConfig {
   if (typeof cfg !== "object" || cfg === null) throw new TypeError("matrix config must be an object");
+  if (cfg.e2ee && (cfg.e2ee.mode !== "off" && cfg.e2ee.mode !== "memory" || cfg.e2ee.unverifiedDevices !== undefined && !["reject", "allow"].includes(cfg.e2ee.unverifiedDevices))) throw new RangeError("invalid E2EE mode");
   const homeserverUrl = validateHomeserverUrl(cfg.homeserverUrl);
   if (!isUserId(cfg.userId) || cfg.userId.length > 255) throw new RangeError("userId must be a full mxid");
   if (typeof cfg.accessTokenSecret !== "string" || !SECRET_NAME.test(cfg.accessTokenSecret))

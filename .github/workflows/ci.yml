@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95", components: "clippy, rustfmt" }
@@ -70,13 +70,28 @@ jobs:
           fi
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      # The coding-gate verifier and the D106 sandbox run commands under bubblewrap on Linux and fail
+      # closed without it (owner decision 2026-10-17). Ubuntu 24.04 also restricts unprivileged user
+      # namespaces through AppArmor, which bwrap needs; lift that for the test run only.
+      - name: install bubblewrap (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --ro-bind / / --unshare-all true && echo "bwrap ok"
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-toolchain.mjs
+      - run: node --test scripts/check-toolchain.test.mjs
       - name: config fixture drift (before generation)
         run: node packages/config-schema/src/gen-defaults.mjs --check
       - run: pnpm gen
       - run: pnpm build
+      # A cold full-program strict check needs >2 GiB (incremental only saves warm runs).
+      # Preserve the same compiler inputs/options; give V8 headroom on the 7 GiB macOS runner.
       - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm lint
+        env:
+          NODE_OPTIONS: ${{ runner.os == 'macOS' && '--max-old-space-size=4096' || '' }}
       - name: unit tests with file timings
         shell: bash
         run: |
@@ -88,7 +103,7 @@ jobs:
       - name: slowest 20 test files
         if: always()
         run: node scripts/release/timing-summary.mjs test-timings
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: test-timings-${{ matrix.os }}
@@ -129,7 +144,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
@@ -171,6 +186,46 @@ jobs:
         timeout-minutes: 15
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SOAK_TURNS: "200" }
       - run: pnpm bench
+  # M3 criteria 7/9: required after the complete pinned-Chromium local baseline and late authorization checks passed.
+  web-browser:
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      PLUR1BUS_WEB_E2E_REQUIRED: "1"
+      PLUR1BUS_WEB_TRANSPORT_REQUIRED: "1"
+      PLUR1BUS_BIN: ${{ github.workspace }}/target/debug/plur1bus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with: { toolchain: "1.95" }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - name: build Core and CLI for served-stack browser acceptance
+        run: pnpm gen && pnpm build && cargo build -p plur1bus
+      - name: install lockfile-matched Chromium and Linux libraries
+        run: pnpm --filter @plur1bus/web exec playwright install --with-deps chromium
+      - name: web browser suites (axe, keyboard, contrast, responsive and zoom)
+        run: pnpm --filter @plur1bus/web test
+        timeout-minutes: 35
   # OS service registration against the real service manager (Task 8, criterion 9): systemd user instance, launchd
   # GUI domain, Task Scheduler. Every registration uses the temp home's suffixed name (S10) and is removed again.
   # Ruling C5: Linux needs a user manager (lingering); if enabling it fails, the job keeps the unit-file tests
@@ -187,7 +242,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0 }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
@@ -263,7 +318,7 @@ jobs:
         run: '"$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests -t hosts/hermes'
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
@@ -308,7 +363,7 @@ jobs:
       - name: setup WSL (attempt 1 of 3)
         id: wsl_setup_1
         continue-on-error: true
-        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
+        uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
@@ -323,7 +378,7 @@ jobs:
         id: wsl_setup_2
         if: steps.wsl_setup_1.outcome == 'failure'
         continue-on-error: true
-        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
+        uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
@@ -338,7 +393,7 @@ jobs:
         id: wsl_setup_3
         if: steps.wsl_setup_2.outcome == 'failure'
         continue-on-error: true
-        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
+        uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
@@ -369,7 +424,7 @@ jobs:
         uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
       - if: steps.wsl_setup_status.outputs.ready == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - if: steps.wsl_setup_status.outputs.ready == 'true'
         run: pnpm install --frozen-lockfile
@@ -447,10 +502,195 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0 }
       - run: node --test scripts/release/test/*.test.mjs
       - name: install pinned actionlint (setup only)
         run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
       - name: lint workflows locally
         run: '"$(go env GOPATH)/bin/actionlint" -shellcheck= -config-file scripts/release/actionlint.yaml .github/workflows/*.yml'
+
+  sandbox:
+    name: sandbox (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, ubuntu-24.04-arm, windows-2025, windows-11-arm]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0 }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: "1.95" }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - run: cargo build -p plur1bus --bin plur1bus-sandbox-limits
+      - name: kernel sandbox adversarial probes (explicit skip when unavailable)
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 packages/core/test/tools/sandbox/sandbox.test.ts
+
+  # Independent advisory job. Existing jobs/gates are intentionally untouched.
+  perf-startup:
+    name: startup (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, target: darwin-arm64 }
+          - { os: windows-2025, target: win32-x64 }
+          - { os: windows-11-arm, target: win32-arm64 }
+          - { os: ubuntu-24.04, target: linux-x64 }
+          - { os: ubuntu-24.04-arm, target: linux-arm64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: '1.95' }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+      - name: install pinned dependencies
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          base="https://github.com/"
+          if [ -n "$GH_ENGINE_READ_TOKEN" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; fi
+          export GIT_CONFIG_COUNT=3
+          export GIT_CONFIG_KEY_0="url.${base}.insteadOf" GIT_CONFIG_VALUE_0='git@github.com:'
+          export GIT_CONFIG_KEY_1="url.${base}.insteadOf" GIT_CONFIG_VALUE_1='ssh://git@github.com/'
+          export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
+          pnpm install --frozen-lockfile
+      - run: pnpm prep
+      - run: cargo build --release -p plur1bus
+      - name: help isolation and measurement tests
+        run: node --experimental-strip-types --conditions=source --test --test-concurrency=1 tests/system/help-isolation.test.ts scripts/bench/metrics.test.mjs scripts/bench/startup.test.mjs
+      - name: measure B1 B8 B11 (30 starts, advisory timings)
+        env:
+          PERF_RUNNER_LABEL: ${{ matrix.os }}
+        run: node scripts/bench/startup.mjs --runs 30 --out startup-benchmark
+      - name: measure B8 with background model warming (advisory)
+        env:
+          PERF_RUNNER_LABEL: ${{ matrix.os }}
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/perf-models"
+          node scripts/bench/startup.mjs --runs 30 --real-models --models-cache "$RUNNER_TEMP/perf-models" --out startup-models
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: startup-${{ matrix.target }}
+          path: |
+            startup-benchmark.json
+            startup-benchmark.md
+            startup-models.json
+            startup-models.md
+          if-no-files-found: warn
+
+  perf-budgets:
+    name: budget catalogue (${{ matrix.os }}, advisory)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025, windows-11-arm, ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: '1.95' }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+      - name: install pinned dependencies
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          base="https://github.com/"
+          if [ -n "$GH_ENGINE_READ_TOKEN" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; fi
+          export GIT_CONFIG_COUNT=3
+          export GIT_CONFIG_KEY_0="url.${base}.insteadOf" GIT_CONFIG_VALUE_0='git@github.com:'
+          export GIT_CONFIG_KEY_1="url.${base}.insteadOf" GIT_CONFIG_VALUE_1='ssh://git@github.com/'
+          export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
+          pnpm install --frozen-lockfile
+      - run: pnpm prep
+      - run: cargo build --release -p plur1bus
+      - name: O6 dry hardware baseline (known incomplete coverage is explicit)
+        shell: bash
+        run: |
+          set +e
+          node scripts/bench/reference-hardware.mjs --out reference-ci
+          result=$?
+          if [ "$result" = 2 ]; then
+            echo '::warning::Reference collector reports known incomplete B10 coverage / B5 miss; see JSON and Markdown. No gate promotion.'
+          else
+            exit "$result"
+          fi
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: budgets-${{ matrix.os }}
+          path: |
+            reference-ci.json
+            reference-ci.md
+          if-no-files-found: error
+
+  # D100 golden set (separate, append-only job): render one document per template and compare against the committed
+  # references (visual diff). Chrome is pinned (CHROME_VERSION) because the references are only comparable to renders of that
+  # build; byte-identical PNGs are not stable across versions, so pages are compared pixel-wise: per-channel tolerance 8/255,
+  # at most 0.1 % differing pixels per page (see docs/documents.md). References live in packages/documents/golden/. Every run
+  # uploads its renders as artifact `golden-renders`; new references are adopted from there with `golden.ts update --from`.
+  documents-golden:
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      CHROME_VERSION: 141.0.7390.54
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        id: chrome
+        with: { chrome-version: "${{ env.CHROME_VERSION }}" }
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gen && pnpm --filter @plur1bus/documents build
+      - name: "golden set visual diff (pixel threshold)"
+        shell: bash
+        env:
+          PLUR1BUS_CHROMIUM_BIN: ${{ steps.chrome.outputs.chrome-path }}
+          PLUR1BUS_GOLDEN_OUT: ${{ runner.temp }}/golden-renders
+        run: |
+          export PLUR1BUS_CHROMIUM_BIN="${PLUR1BUS_CHROMIUM_BIN:-$(command -v chrome || command -v google-chrome || command -v chromium || true)}"
+          node --experimental-strip-types --conditions=source packages/documents/scripts/golden.ts check
+      - name: upload golden renders
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: golden-renders
+          path: ${{ runner.temp }}/golden-renders
+          if-no-files-found: warn
+          retention-days: 14

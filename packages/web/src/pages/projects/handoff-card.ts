@@ -19,7 +19,8 @@ export function handoffCardData(text: string): { schema: string; id: string; tit
 export function HandoffContent({ content, fallback }: { content: string; fallback?: string }): View {
   const card = handoffCardData(content);
   if (!card) return h(SafeMarkdown, { content, ...(fallback === undefined ? {} : { fallback }) });
-  const key = `projects.handoff.status.${card.status}`;
+  // Wire statuses are snake_case; catalogue key segments are camelCase (i18n naming test).
+  const key = `projects.handoff.status.${card.status.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`;
   const translated = t(key as any);
   return h('article', { class: 'handoff-card', 'aria-label': t('projects.handoff.title' as any) },
     h('header', {}, h('strong', {}, t('projects.handoff.title' as any)), ' · ', h('span', {}, translated === key ? card.status : translated)),

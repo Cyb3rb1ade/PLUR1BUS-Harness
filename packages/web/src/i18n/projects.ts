@@ -12,9 +12,9 @@ export const en = {
   "projects.handoff.status.delegate": "Delegation",
   "projects.handoff.status.handoff": "Ownership transfer",
   "projects.handoff.status.done": "Done",
-  "projects.handoff.status.done_with_concerns": "Done with concerns",
+  "projects.handoff.status.doneWithConcerns": "Done with concerns",
   "projects.handoff.status.blocked": "Blocked",
-  "projects.handoff.status.needs_context": "Needs context",
+  "projects.handoff.status.needsContext": "Needs context",
   "projects.handoff.status.declined": "Declined",
   "projects.handoff.status.partial": "Partial result",
 
@@ -139,9 +139,9 @@ export const de: Record<keyof typeof en, string> = {
   "projects.handoff.status.delegate": "Delegation",
   "projects.handoff.status.handoff": "Verantwortungsübergabe",
   "projects.handoff.status.done": "Erledigt",
-  "projects.handoff.status.done_with_concerns": "Erledigt mit Bedenken",
+  "projects.handoff.status.doneWithConcerns": "Erledigt mit Bedenken",
   "projects.handoff.status.blocked": "Blockiert",
-  "projects.handoff.status.needs_context": "Kontext benötigt",
+  "projects.handoff.status.needsContext": "Kontext benötigt",
   "projects.handoff.status.declined": "Abgelehnt",
   "projects.handoff.status.partial": "Teilergebnis",
 

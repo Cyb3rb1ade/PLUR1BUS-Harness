@@ -31,6 +31,7 @@ bollard = { version = "=0.21.1", default-features = false, features = ["pipe"] }
 plur1bus-desktop-contract = { path = "../desktop-contract", version = "=0.1.0" }
 tauri = { version = "=2.12.0", features = ["tray-icon", "image-png"] }
 tauri-plugin-single-instance = "=2.5.0"
+tauri-plugin-deep-link = "=2.5.0"
 tauri-plugin-autostart = "=2.6.0"
 tauri-plugin-notification = "=2.5.0"
 serde = { version = "=1.0.228", features = ["derive"] }

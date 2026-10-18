@@ -28,7 +28,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `inbox.retention.maxEntries` | integer | `1000` | core | Maximum number of inbox entries retained per person. |
 | `containers` | object |  | live | Container distribution library settings. Installer/runtime wiring is separate from the core. |
 | `sidecars` | object |  | live | Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate. |
-| `remote` | object | `{}` | core | Remote exposure configuration (listener integration is separate). |
+| `remote` | object | `{}` | core | Remote listeners: tailnet by default, network requires TLS and an audited notice acknowledgment. |
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `activity.maxEntries` | integer | `1000` | core | Maximum retained agent activity transitions. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
@@ -60,6 +60,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `embedding.acceptedNcLicenceAt` | string |  | core | Date-time when the non-commercial licence was accepted. |
 | `memory.embedding.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport. |
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
+| `auth.requireSecondFactor` | string | `"remote"` | core | Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides. |
 | `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |
 | `auth.openai.httpTimeoutMs` | integer | `30000` | core | Bounded OpenAI HTTP deadline. |
 | `auth.openai.refreshSkewSeconds` | integer | `120` | core | Refresh before expiration, plus up to 15 seconds of jitter. |
@@ -108,6 +109,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `channels.slack.replyPolicy` | enum | `"mention"` | module:slack | When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed. |
 | `channels.slack.maxMediaBytes` | integer | `10485760` | module:slack | Largest attachment accepted or sent, in bytes (checked before and during download and before upload). |
 | `channels.slack.locale` | enum | `"en"` | module:slack | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
+| `channels.matrix.e2ee` | object | `{}` | module:matrix | Experimental E2EE. Memory mode is NOT persistent: restart loses keys and requires device verification again. |
 | `channels.matrix.enabled` | boolean | `false` | module:matrix | Whether the matrix channel is started. Off by default; nothing connects until this is true. |
 | `channels.matrix.homeserverUrl` | string |  | module:matrix | Base URL of the Matrix homeserver. Must be https, or http for a loopback host. |
 | `channels.matrix.userId` | string |  | module:matrix | Matrix id of the bot account, for example @bot:example.org. |

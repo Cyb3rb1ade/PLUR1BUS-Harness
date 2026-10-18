@@ -1,3 +1,5 @@
+import type { BehaviourSet } from "./behaviour.ts";
+export type { BehaviourSet, BehaviourLayer } from "./behaviour.ts";
 import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "./privacy.ts";
 export { privacyAcknowledgmentError } from "./privacy.ts";
 export type { PrivacyAcknowledgment, PrivacyChoice } from "./privacy.ts";
@@ -20,6 +22,7 @@ type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]>
 
 export interface HarnessConfig {
   collaboration: { fanoutEnabled: boolean };
+  remote?: {publish:"local"|"tailnet"|"network";tls:"self-signed"|"company-ca";publicOrigin?:string;bind:{address?:string;port?:number;allowPublicInterface?:boolean};allowSubnets:string[];noticeAck?:{by:string;at:number;version:1}};
   approvals?: { maxGrantDays: number; requireOsConfirmation: boolean };
   breakglass?: { reasonMinChars: number; reasonMaxChars: number; maxWindowMinutes: number };
   activity?: { maxEntries: number };
@@ -34,12 +37,12 @@ export interface HarnessConfig {
   supervisor: { graceMs: number; healthIntervalMs: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { createdAt?: string; displayName?: string; persona?: string; model?: string; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
+  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
   memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string };
   providers: Record<string, unknown>;
-  auth?: { openai: { clientRegistration: "dynamic_on_authorize"; storeBackend: "auto" | "keyring"; loopbackTimeoutMs: number; httpTimeoutMs: number; refreshSkewSeconds: number; liveHandleTtlSeconds: number; voiceDailySeconds: number; voiceCapacity: number; federated: { command?: string; file?: string; args: string[]; environment: Record<string, string> } } };
+  auth?: { requireSecondFactor?:"remote"|"always"|"never"; openai: { clientRegistration: "dynamic_on_authorize"; storeBackend: "auto" | "keyring"; loopbackTimeoutMs: number; httpTimeoutMs: number; refreshSkewSeconds: number; liveHandleTtlSeconds: number; voiceDailySeconds: number; voiceCapacity: number; federated: { command?: string; file?: string; args: string[]; environment: Record<string, string> } } };
   oauth: Record<string, unknown>;
   decision: Record<string, unknown>;
   modelRoles: Record<string, string>;
@@ -50,7 +53,7 @@ export interface HarnessConfig {
   channels: {
     discord: ChannelCommonConfig & { tokenSecret: string; applicationId?: string; intents: string[] };
     slack: ChannelCommonConfig & { botTokenSecret: string; appTokenSecret: string; teamId?: string };
-    matrix: ChannelCommonConfig & { homeserverUrl?: string; userId?: string; accessTokenSecret: string; deviceId?: string; autoJoin: "allowlist" | "never" };
+    matrix: ChannelCommonConfig & { homeserverUrl?: string; userId?: string; accessTokenSecret: string; deviceId?: string; autoJoin: "allowlist" | "never"; e2ee?: { mode: "off" | "memory"; unverifiedDevices: "reject" | "allow" } };
     signal: ChannelCommonConfig & { account?: string; endpoint: { socketPath?: string; host?: string; port?: number }; allowRemoteEndpoint: boolean };
     email: {
       enabled: boolean; address?: string; displayName?: string; dmAllowlist: string[]; maxAttachmentBytes: number; requireAuthPass: boolean; locale: "en" | "de";

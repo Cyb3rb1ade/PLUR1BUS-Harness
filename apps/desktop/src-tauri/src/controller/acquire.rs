@@ -14,13 +14,31 @@ impl Controller {
         }
         if let Some(Some(file)) = bundle.tarball.get(&arch) {
             let path = std::path::Path::new(file);
-            if path.is_absolute() || path.components().count() != 1 {
+            let parts: Vec<_> = path.components().collect();
+            if path.is_absolute()
+                || parts.is_empty()
+                || parts.len() > 2
+                || parts
+                    .iter()
+                    .any(|p| !matches!(p, std::path::Component::Normal(_)))
+                || (parts.len() == 2 && parts[0].as_os_str() != "image")
+            {
                 return Err(CtlError::Bundle);
             }
-            let loaded = self
-                .runtime
-                .image_load(&self.resource_dir.join(path))
-                .await?;
+            // The release overlay maps resources directly into resource_dir. Refuse a
+            // symlink at every payload component before passing a file to a runtime.
+            let mut owned = self.resource_dir.clone();
+            for part in parts {
+                owned.push(part.as_os_str());
+                let meta = std::fs::symlink_metadata(&owned).map_err(|_| CtlError::Bundle)?;
+                if meta.is_symlink() {
+                    return Err(CtlError::Bundle);
+                }
+            }
+            if !owned.is_file() {
+                return Err(CtlError::Bundle);
+            }
+            let loaded = self.runtime.image_load(&owned).await?;
             if loaded.rsplit('@').next() != Some(digest.as_str()) {
                 return Err(CtlError::ImageDigest);
             }

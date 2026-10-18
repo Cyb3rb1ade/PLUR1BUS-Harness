@@ -23,6 +23,8 @@ pub struct State {
 pub type ExecHook = std::sync::Arc<dyn Fn(&[&str]) -> ExecOutput + Send + Sync>;
 pub struct FakeRuntime {
     pub log_sample: Mutex<String>,
+    /// Synthetic desktop CLI capability advertisement; false models the current real CLI.
+    pub desktop_upgrade_help: std::sync::atomic::AtomicBool,
     pub exec_hook: Mutex<Option<ExecHook>>,
     pub oneshot_hook: Mutex<Option<ExecHook>>,
     pub state: Mutex<State>,
@@ -32,6 +34,7 @@ impl FakeRuntime {
     pub fn new(kind: RuntimeKind) -> Self {
         Self {
             log_sample: Mutex::new("synthetic log".into()),
+            desktop_upgrade_help: std::sync::atomic::AtomicBool::new(true),
             exec_hook: Mutex::new(None),
             oneshot_hook: Mutex::new(None),
             state: Mutex::new(State::default()),
@@ -217,6 +220,27 @@ impl Runtime for FakeRuntime {
         _timeout: Duration,
     ) -> Result<ExecOutput, RuntimeError> {
         self.call(&format!("exec:{}", argv.join(" ")))?;
+        if argv.last() == Some(&"--help") {
+            let available = self
+                .desktop_upgrade_help
+                .load(std::sync::atomic::Ordering::SeqCst);
+            let help = if !available {
+                "Usage: plur1bus [OPTIONS] <COMMAND>\n\nCommands:\n  backup  Backup and restore\n  admin   Administration\n\nOptions:\n  --json  JSON output\n"
+            } else if argv == ["plur1bus", "--help"] {
+                "Commands:\n  state  Synthetic cold state contract\n  admin  Synthetic administration contract\n\nOptions:\n  --json  JSON output\n"
+            } else if argv == ["plur1bus", "state", "--help"] {
+                "Commands:\n  snapshot  Snapshot\n  verify  Verify\n  restore  Restore\n\nOptions:\n  --json  JSON output\n"
+            } else if argv == ["plur1bus", "admin", "--help"] {
+                "Commands:\n  migrate  Migrate\n  smoke  Smoke\n\nOptions:\n  --json  JSON output\n"
+            } else {
+                "Options:\n  --src <PATH>  Source\n  --dst <PATH>  Destination\n  --dir <PATH>  Directory\n  --from <VERSION>  From\n  --to <VERSION>  To\n  --yes  Confirm\n  --json  JSON output\n"
+            };
+            return Ok(ExecOutput {
+                code: 0,
+                stdout: help.as_bytes().to_vec(),
+                stderr: vec![],
+            });
+        }
         if let Some(hook) = self.exec_hook.lock().unwrap().as_ref() {
             return Ok(hook(argv));
         }

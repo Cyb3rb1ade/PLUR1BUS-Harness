@@ -35,6 +35,7 @@ impl ContainerSpec {
                     || !matches!(
                         p.as_str(),
                         STATE_MOUNT
+                            | "/state/models"
                             | "/models"
                             | "/backup"
                             | "/var/lib/plur1bus"
@@ -77,7 +78,7 @@ pub fn oneshot_spec(
     }
 }
 
-/// Canonical bundled harness policy, including the spec's native state roots.
+/// Canonical bundled harness policy, matching the real image's /state layout.
 pub fn harness_spec(
     b: &crate::controller::bundle::Bundle,
     port: u16,
@@ -95,7 +96,7 @@ pub fn harness_spec(
     ]);
     let mut env = vec![
         ("PLUR1BUS_CONTAINER".into(), "1".into()),
-        ("PLUR1BUS_HOME".into(), "/var/lib/plur1bus".into()),
+        ("PLUR1BUS_HOME".into(), STATE_MOUNT.into()),
         (
             "TZ".into(),
             std::env::var("TZ")
@@ -127,12 +128,8 @@ pub fn harness_spec(
         memory_mib: res.memory_mib,
         cpus: res.cpus,
         volumes: vec![
-            ("plur1bus-state".into(), "/var/lib/plur1bus".into(), false),
-            (
-                "plur1bus-models".into(),
-                "/var/lib/plur1bus-models".into(),
-                false,
-            ),
+            ("plur1bus-state".into(), STATE_MOUNT.into(), false),
+            ("plur1bus-models".into(), "/state/models".into(), false),
         ],
         env,
         labels,
