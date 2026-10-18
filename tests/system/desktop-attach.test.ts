@@ -1,15 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
-import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { cli, home, startDaemon, waitFor, reapHome, daemonStatus } from "./helpers.ts";
 
 test("supervisor → loopback meta → CLI pair → redeem → SPA ticket; revoke, API restart and stop cleanup",{timeout:60000},async()=>{
  const h=home();
  try {
   cli(h,["agent","create","main"]);
-  startDaemon(h,{PLUR1BUS_API_JS:resolve("packages/api/dist/api.js")});
+  startDaemon(h); // Resolve the API bundled beside core.js, as in the installed atomic runtime payload.
   const api=await waitFor("verified api.json",()=>{try{return JSON.parse(readFileSync(join(h,"run","api.json"),"utf8"));}catch{return false;}},30000);
   assert.equal(api.address,"127.0.0.1");assert.equal(api.version,"1.0.0");assert.equal(api.fingerprint,null);
   if(process.platform!=="win32")assert.equal(statSync(join(h,"run","api.json")).mode&0o777,0o600);
@@ -35,4 +35,22 @@ test("supervisor → loopback meta → CLI pair → redeem → SPA ticket; revok
   cli(h,["daemon","stop"]);
   await waitFor("private API publication removed",()=>!existsSync(join(h,"run","api.json")),10000);
  } finally {cli(h,["daemon","stop"],{allowFail:true});await reapHome(h);rmSync(h,{recursive:true,force:true});}
+});
+
+
+test("daemon start rearms a repaired API payload while preserving the healthy Core",{timeout:60000},async()=>{
+ const h=home(),entry=join(h,"repaired-api.mjs");
+ try {
+  cli(h,["agent","create","main"]);
+  startDaemon(h,{PLUR1BUS_API_JS:entry});
+  const before=await waitFor("failed API beside healthy Core",()=>{
+   const status=daemonStatus(h),core=status.children?.find((c:any)=>c.role==="core"),api=status.children?.find((c:any)=>c.role==="api");
+   return core?.process.state==="ready"&&api?.process.state==="crashed"&&core.pid;
+  },30000);
+  writeFileSync(entry,readFileSync("crates/plur1bus/tests/fixtures/fake-api.mjs","utf8"));
+  cli(h,["daemon","start"]);
+  await waitFor("repaired API is supervised",()=>existsSync(join(h,"run","api.json")),10000);
+  const status=daemonStatus(h);assert.equal(status.children.find((c:any)=>c.role==="core").pid,before);
+  assert.equal(status.children.find((c:any)=>c.role==="api").process.state,"ready");
+ }finally{cli(h,["daemon","stop"],{allowFail:true});await reapHome(h);rmSync(h,{recursive:true,force:true});}
 });

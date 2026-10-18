@@ -16,7 +16,7 @@ export function buildDesktopAttachHandlers(d: HandlerDeps, allowedOrigin:(origin
   const person = async (identity:DesktopIdentity) => {
     const {person} = await service<{person:CorePerson|null}>("admin.api.person.resolve",{userId:identity.userId});
     if(!person || person.disabled) throw errors.unauthenticated("device-person");
-    if(d.requireSecondFactor?.(person.role)) throw errors.forbidden("second-factor-required");
+    if(d.requireSecondFactor?.(person.role) || await d.totp?.isEnabled(identity.userId) || d.hasPasskeys?.(identity.userId)) throw errors.forbidden("second-factor-required");
     return person;
   };
   const body = (v:unknown,fields:string[]) => {

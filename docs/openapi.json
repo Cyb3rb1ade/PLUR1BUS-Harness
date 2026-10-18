@@ -7442,7 +7442,7 @@
         "tags": [
           "session"
         ],
-        "summary": "Log in with the owner token or with a local account; sets the session cookie",
+        "summary": "Log in with a local account or an explicitly configured compatibility credential; sets the session cookie",
         "security": [],
         "requestBody": {
           "required": true,
@@ -7461,7 +7461,7 @@
                         "type": "string",
                         "minLength": 32,
                         "maxLength": 512,
-                        "description": "The owner token (`run/api-owner.token`), the bootstrap way in. The core's RPC token is not accepted."
+                        "description": "Explicit createApiServer compatibility credential. Production startup does not generate an owner-token file; native attach uses device pairing. The core RPC token is not accepted."
                       }
                     }
                   },

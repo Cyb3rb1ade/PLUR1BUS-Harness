@@ -29,6 +29,10 @@ test("desktop tickets bind origin/device, expire after 30 seconds and cannot sur
 });
 test("native credentials never bypass the configured second-factor policy",async()=>{
  const r=rig(true);await assert.rejects(r.ticket(),e=>(e as any).reason==="second-factor-required");assert.equal(r.sessions.size,0);
+ const enrolled=rig(false);Object.assign(enrolled.deps,{totp:{isEnabled:async()=>true}});
+ await assert.rejects(enrolled.ticket(),e=>(e as any).reason==="second-factor-required");
+ const passkey=rig(false);Object.assign(passkey.deps,{hasPasskeys:()=>true});
+ await assert.rejects(passkey.ticket(),e=>(e as any).reason==="second-factor-required");
 });
 test("remote listeners cannot bootstrap an Owner even if a proof would otherwise be valid",async()=>{
  const r=rig(),proof="p".repeat(43);

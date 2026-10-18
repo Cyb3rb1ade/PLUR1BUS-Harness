@@ -86,11 +86,11 @@ const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 export const ROUTES: readonly RouteSpec[] = [
   ...DESKTOP_ATTACH_ROUTES, ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...REMOTE_ROUTES, ...REMOTE_PAIRING_ROUTES,
   {
-    id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with the owner token or with a local account; sets the session cookie",
+    id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with a local account or an explicitly configured compatibility credential; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
     requestBody: {
       oneOf: [
-        obj({ token: { type: "string", minLength: 32, maxLength: 512, description: "The owner token (`run/api-owner.token`), the bootstrap way in. The core's RPC token is not accepted." } }),
+        obj({ token: { type: "string", minLength: 32, maxLength: 512, description: "Explicit createApiServer compatibility credential. Production startup does not generate an owner-token file; native attach uses device pairing. The core RPC token is not accepted." } }),
         obj({ username: { type: "string", minLength: 1, maxLength: 128 }, password: { type: "string", minLength: 1, maxLength: 1024 } }),
       ],
     },
