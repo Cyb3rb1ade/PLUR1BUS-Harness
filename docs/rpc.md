@@ -3033,6 +3033,271 @@ Private API-service announce operation over the core device store; never exposed
 }
 ```
 
+### `device.pair`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "const": "desktop"
+    }
+  },
+  "required": [
+    "kind"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "expiresAt",
+    "scopes"
+  ]
+}
+```
+
+### `admin.api.desktop.redeem`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "publicKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "name",
+    "publicKey"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "object"
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "device",
+    "token",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.token`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "deviceId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
 ### `device.list`
 
 **Stability:** experimental · since 1.6.0
@@ -19510,9 +19775,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "kind": {
       "enum": [
         "core",
-        "module"
+        "module",
+        "api"
       ],
-      "description": "Experimental (1.3.0). Whether the child is the core or a module; absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
     }
   }
 }

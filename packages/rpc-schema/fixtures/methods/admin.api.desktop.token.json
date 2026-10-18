@@ -1,0 +1,13 @@
+{
+  "params": {
+    "token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "result": {
+    "deviceId": "dev_00000000-0000-0000-0000-000000000001",
+    "userId": "local-owner",
+    "scopes": [
+      "chat:read"
+    ],
+    "expiresAt": 2592001000
+  }
+}

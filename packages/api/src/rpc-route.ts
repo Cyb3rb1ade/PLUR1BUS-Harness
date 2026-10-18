@@ -1,3 +1,4 @@
+import { RPC_RULES, authorize } from "./rbac-bridge.ts";
 import { ERROR_CODES, METHODS_BY_SERVER, validateParams } from "@plur1bus/rpc-schema";
 import type { ApiPrincipal } from "@plur1bus/module-api";
 import type { CoreRpc } from "./core-rpc.ts";
@@ -43,6 +44,11 @@ export async function rpcRoute(core: CoreRpc, body: unknown, principal: ApiPrinc
   const params = { ...(b.params as object ?? {}) } as Record<string, unknown>;
   delete params.principal; delete params.actAs;
   if (!validateParams(b.method, params).ok) return rpcFailure(id, { error: "E_INVALID_PARAMS" });
+  // A native device session has no ambient permission for legacy RPCs without an explicit action rule.
+  if (principal.kind === "person" && principal.tokenScopes !== undefined) {
+    const rule=RPC_RULES[b.method];
+    if(!rule || authorize(principal,rule.action,rule.resource(params)).effect!=="allow")return rpcFailure(id,{error:"E_DENIED",reason:"device-scope"});
+  }
   if (!core.callAs) return rpcFailure(id, { error: "E_NOT_AVAILABLE", reason: "api-delegation-unavailable" });
   try {
     if (b.method === "config.set") await core.callAs("model.licence.check", { changes: params.changes }, principal, "core", connectionKey);

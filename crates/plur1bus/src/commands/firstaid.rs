@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 28] = [
+const CHECK_IDS: [&str; 29] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -62,6 +62,7 @@ const CHECK_IDS: [&str; 28] = [
     "dreams.last-runs",
     "remote.exposure",
     "models.decision",
+    "api.supervised",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -136,6 +137,15 @@ impl Check {
             summary: summary.into(),
             detail,
             hint,
+        }
+    }
+    pub(crate) fn info(id: &'static str, summary: impl Into<String>) -> Self {
+        Self {
+            id,
+            status: Status::Info,
+            summary: summary.into(),
+            detail: None,
+            hint: None,
         }
     }
     pub(crate) fn skip(id: &'static str, summary: impl Into<String>) -> Self {
@@ -385,7 +395,31 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     checks.push(check_remote_exposure(layout));
     // Append-only: an `info` row, never a failure (the rule triage is a normal mode without a decision model).
     checks.push(super::model::check_models_decision(layout));
+    checks.push(check_api_supervised(daemon_status));
     checks
+}
+
+/// Append-only P3 check: use the supervisor's authenticated view, never trust api.json alone.
+fn check_api_supervised(status: Option<&Value>) -> Check {
+    const ID: &str = "api.supervised";
+    let Some(status) = status else {
+        return Check::info(ID, "supervisor is not running");
+    };
+    let api = status["children"]
+        .as_array()
+        .and_then(|children| children.iter().find(|c| c["role"] == "api"));
+    match api {
+        Some(child) if child["process"]["state"] == "ready" => {
+            Check::ok(ID, "API is supervised and ready on loopback")
+        }
+        Some(child) => Check::fail(
+            ID,
+            "supervised API is not ready",
+            Some(child.clone()),
+            Some("Check api.out.log and the installed API runtime".into()),
+        ),
+        None => Check::info(ID, "this supervisor has no API role"),
+    }
 }
 
 // ---- approvals.integrity ------------------------------------------------------------------------
@@ -2424,5 +2458,34 @@ mod tests {
         // No rejection: the file decides, as without a supervisor.
         let clean = json!({ "revision": "0123456789abcdef", "rejected": null });
         assert_eq!(check_config_valid(&layout, Some(&clean)).status, Status::Ok);
+    }
+}
+
+#[cfg(test)]
+mod api_supervision_tests {
+    use super::*;
+    #[test]
+    fn supervision_check_distinguishes_absent_ready_and_failed_api() {
+        assert_eq!(check_api_supervised(None).status, Status::Info);
+        assert_eq!(
+            check_api_supervised(Some(&json!({"children":[]}))).status,
+            Status::Info
+        );
+        for state in ["starting", "crashed", "degraded"] {
+            assert_eq!(
+                check_api_supervised(Some(
+                    &json!({"children":[{"role":"api","process":{"state":state}}]})
+                ))
+                .status,
+                Status::Fail
+            );
+        }
+        assert_eq!(
+            check_api_supervised(Some(
+                &json!({"children":[{"role":"api","process":{"state":"ready"}}]})
+            ))
+            .status,
+            Status::Ok
+        );
     }
 }
