@@ -51,7 +51,8 @@ export function ruleClassifier({ message, cost }: ClassifierInput): TriageDecisi
 export function triage(message: string, options: { classifier?: ClassifierPort; cost?: CostPreference; activeTask?: string; currentClass?: ModelClass } = {}): TriageDecision {
   if (options.activeTask && /^(yes|no|ok|continue|ja|nein|weiter|genau)[!.\s]*$/i.test(message.trim())) return { schema: 'plur1bus.triage/1', shape: 'followup', tasks: [] };
   const cost = options.cost ?? 'balanced'; const result = structuredClone((options.classifier ?? ruleClassifier)({ message, cost }));
-  if (!result || !Array.isArray(result.tasks) || result.schema !== 'plur1bus.triage/1' || !['chat', 'single', 'multi', 'followup'].includes(result.shape)) throw Error('invalid triage decision');
+  // A classifier is an outside port (an LLM may return anything): check the shape before touching tasks.
+  if (typeof result !== 'object' || result === null || result.schema !== 'plur1bus.triage/1' || !['chat', 'single', 'multi', 'followup'].includes(result.shape) || !Array.isArray(result.tasks)) throw Error('invalid triage decision');
   const ids = new Set<string>(); let previousEnd = 0;
   for (const t of result.tasks) {
     if (!t || !Number.isSafeInteger(t.start) || !Number.isSafeInteger(t.end) || !Array.isArray(t.dependsOn) || typeof t.id !== 'string' || !['low', 'medium', 'high'].includes(t.effort) || typeof t.reason !== 'string' || !t.id || ids.has(t.id) || t.start < previousEnd || t.end <= t.start || t.end > message.length || !t.summary || t.dependsOn.some(id => !ids.has(id))) throw Error('invalid task segmentation or dependency');
