@@ -31,6 +31,8 @@ import { createMcpRegistry } from '../mcp/index.ts';
 import { composeMedia, type MediaDefinition } from './media.ts';
 import { composeAuth, type ProviderDefinition } from './auth.ts';
 import { composeTools, type ToolCompositionOptions } from './tools.ts';
+import { agentSecretRefs } from '../agents/secrets.ts';
+import type { SecretNamesPort } from '../tools/secret-names.ts';
 import { createWriter } from '../logs/writer.ts';
 import { createTurnProvider, type TurnProviderOptions } from './provider.ts';
 import { ToolRegistry } from '../tools/registry.ts';
@@ -72,6 +74,19 @@ export interface CompositionDeps {
   webSearch?: import('../tools/web/search.ts').WebSearch;
 }
 export interface TurnComposition { discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; close(): Promise<void> }
+/** secret_names backend: the agent's configured secret references, with presence from the store's metadata (never a value). */
+export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>): SecretNamesPort {
+  return {
+    async namesFor(agentId) {
+      const cfg = d.config(), agent = Object.hasOwn(cfg.agents, agentId) ? cfg.agents[agentId] : undefined;
+      if (!agent) return [];
+      const refs = agentSecretRefs(cfg, agent);
+      let held: Set<string> | undefined;
+      try { const status = await d.secrets.status({ kind: 'core' }); if (status.secrets) held = new Set(status.secrets.map(s => s.name)); } catch { /* presence stays unknown; the names are still true */ }
+      return refs.map(r => ({ name: r.name, scope: r.scope, ...(held ? { present: held.has(r.name) } : {}) }));
+    },
+  };
+}
 /**
  * D109: the approval service's repeat-denied / prompt-cap context for one dispatched call. The permission stores are opened by
  * `beforeTools` before any dispatch; if they are not, this throws and the dispatcher refuses the call (fail closed).
@@ -177,7 +192,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       },
       principal: (request: ChatRequest) => { const id = request.approver?.person ?? request.authenticatedPerson; return id ? d.resolveCollaborationPerson?.(id) ?? null : null; },
       authority: { approvals: { get: (id: string) => d.permissions.current()?.stores.approvals.get(id) }, grants: { get: (id: string) => d.permissions.current()?.grants.get(id) }, now: d.clock, audit: (event: { reason: string; person: string; taskId: string }) => { d.audit.append({ at: d.clock(), actor: { user: event.person, host: 'core' }, action: 'collab.handoff.refused', target: event.taskId, detail: { reason: event.reason } }); } }
-    } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp ? { mcp: { port: mcp, servers } } : {}) }, { ...req, principal: principal(req) });
+    } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), secretNames: secretNamesPort(d), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp ? { mcp: { port: mcp, servers } } : {}) }, { ...req, principal: principal(req) });
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
     const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, cfg);
     const maintenance = sessionMaintenance(d.home, cfg);

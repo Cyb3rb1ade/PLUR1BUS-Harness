@@ -192,3 +192,15 @@ describe("C. person-only methods turn agents away", () => {
     for (const m of coreMethods.filter((n) => /^(grant|approval|identity|breakglass|user|device|secret|auth|admin|inbox)\./.test(n))) assert.ok(isForbiddenMethod(m), m);
   });
 });
+
+describe("D. the agent-facing secret name tool is neither an RPC method nor a WebMCP tool", () => {
+  it("secret_names is not in the schema, and no secret.* method is offered to an agent over WebMCP", () => {
+    assert.ok(!(Object.keys(methods)).includes("secret_names"));
+    const offered = selectMethods({ capabilities: buildCapabilities([]), schema: SCHEMA, include: Object.keys(methods) });
+    assert.deepEqual(offered.filter((m) => /^secrets?[._]/.test(m)), []);
+    assert.ok(!buildWebMcpTools({ capabilities: buildCapabilities([]), schema: SCHEMA, include: Object.keys(methods), call: async () => ({}) }).some((x) => /secret/i.test(x.name)));
+  });
+  it("every secret.* method stays owner-only in the store and forbidden in WebMCP", () => {
+    for (const m of coreMethods.filter((n) => n.startsWith("secret."))) { assert.ok(isForbiddenMethod(m), m); assert.ok(m in UNRULED, `${m} is owner-only inside the store`); }
+  });
+});

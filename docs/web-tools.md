@@ -80,3 +80,9 @@ D103 index rows (`kind: tool`, `sideEffects: external`, `effect: external` for D
 
 `cd packages/core && node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 test/tools/**/*.test.ts`.
 Only loopback stub servers and stub resolvers are used. The TLS tests need `openssl` and skip without it.
+
+## secret_names (agent-facing)
+
+`secret_names` tells an agent which secret slots exist for it, without a search and without a value. It takes no arguments (the agent is the dispatcher's agent, never a parameter) and returns `{ secrets: [{ name, scope, present? }] }`. A secret is listed for an agent only when that agent's own configuration refers to it: `scope` is `channel:<name>` for a channel it serves and `provider:<name>` for a provider of its model profile. `present` says whether the store holds the secret and is left out when the store cannot say. Values, lengths and prefixes are never returned. The tool is a D109 `secrets.use` call with a declared slot (allowed, low risk); every call produces the dispatcher's policy decision and outcome audit lines. The name does not collide with any RPC method, and WebMCP never offers `secret.*` or this tool.
+
+KNOWN GAP: the secret store keeps no owner-written description and no per-agent lease right (an `agent` principal is refused every store call), so there is no `description` field and scope comes from configuration. A description needs a change to the secret file format and the `secret.*` wire schema.
