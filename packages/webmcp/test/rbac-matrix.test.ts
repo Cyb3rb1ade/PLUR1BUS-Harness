@@ -192,6 +192,18 @@ describe("C. person-only methods turn agents away", () => {
   });
 });
 
+describe("D. the agent-facing secret name tool is neither an RPC method nor a WebMCP tool", () => {
+  it("secret_names is not in the schema, and no secret.* method is offered to an agent over WebMCP", () => {
+    assert.ok(!(Object.keys(methods)).includes("secret_names"));
+    const offered = selectMethods({ capabilities: buildCapabilities([]), schema: SCHEMA, include: Object.keys(methods) });
+    assert.deepEqual(offered.filter((m) => /^secrets?[._]/.test(m)), []);
+    assert.ok(!buildWebMcpTools({ capabilities: buildCapabilities([]), schema: SCHEMA, include: Object.keys(methods), call: async () => ({}) }).some((x) => /secret/i.test(x.name)));
+  });
+  it("every secret.* method stays owner-only in the store and forbidden in WebMCP", () => {
+    for (const m of coreMethods.filter((n) => n.startsWith("secret."))) { assert.ok(isForbiddenMethod(m), m); assert.ok(m in UNRULED, `${m} is owner-only inside the store`); }
+  });
+});
+
 // D103 discovery is an in-process tool over the admitted per-turn catalogue, not an RPC/WebMCP surface.
 it('capabilities.search stays dispatcher-only and cannot bypass RPC RBAC through a colliding name', () => {
   assert.equal(Object.hasOwn(methods, 'capabilities.search'), false);
