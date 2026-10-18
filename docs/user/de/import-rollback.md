@@ -26,7 +26,7 @@ plur1bus import hermes --rollback <REPORT>
 plur1bus import hermes --rollback <REPORT> --apply
 ```
 
-Dasselbe gilt für `openclaw` statt `hermes`.
+Dasselbe gilt für die andere Import-Quelle: `plur1bus import --help` zeigt die Quellnamen.
 
 ## Gut zu wissen
 
@@ -34,7 +34,7 @@ Dasselbe gilt für `openclaw` statt `hermes`.
 - **Deine Änderungen bleiben:** Eine Datei, die der Import angelegt und die du danach geändert hast, wird nicht gelöscht. Sie wird gesichert, bleibt liegen und als `kept-modified` gemeldet. Die Option `--force` löscht solche Dateien nach der Sicherung.
 - **Erinnerungskarten:** Siehe den Verfügbarkeitshinweis oben. Ein Rollback löscht oder ändert heute keine Erinnerungskarten.
 - **Im Zweifel Abbruch:** Ein beschädigtes oder fehlendes Ledger oder ein Snapshot, der nicht zum Bericht passt, stoppt den Rollback, statt Erfolg zu melden und importierte Dateien liegen zu lassen.
-- **Die Quelle bleibt unverändert:** Dein Hermes- oder OpenClaw-Verzeichnis wird beim Import und beim Rollback nur gelesen.
+- **Die Quelle bleibt unverändert:** Dein Quellverzeichnis (zum Beispiel das Hermes-Verzeichnis) wird beim Import und beim Rollback nur gelesen.
 - **Nur einmal:** Ein Lauf, der schon zurückgerollt wurde, wird abgelehnt. Du kannst jederzeit mit anderen Optionen erneut importieren.
 
 ## Fehlermeldungen
@@ -42,7 +42,7 @@ Dasselbe gilt für `openclaw` statt `hermes`.
 Der Importer meldet eigene Fehlercodes; der `reason` sagt, was nicht stimmt.
 
 - `E_ROLLBACK_INVALID` mit reason `report-unreadable`, `report-missing` oder `report-outside-home`: Die Berichtsdatei ist nicht lesbar, existiert nicht oder ist nicht die `report.json` ihres Lauf-Ordners. Gib die Datei aus dem Ordner des Laufs an.
-- `E_ROLLBACK_INVALID` mit reason `not-an-apply-report`: Der Lauf war nur eine Vorschau, es gibt nichts rückgängig zu machen. `already-rolled-back`: Der Lauf wurde schon zurückgerollt. `source-mismatch`: Der Bericht gehört zur anderen Quelle (`hermes` oder `openclaw`).
+- `E_ROLLBACK_INVALID` mit reason `not-an-apply-report`: Der Lauf war nur eine Vorschau, es gibt nichts rückgängig zu machen. `already-rolled-back`: Der Lauf wurde schon zurückgerollt. `source-mismatch`: Der Bericht gehört zu einer anderen Quelle als der im Befehl.
 - `E_ROLLBACK_INVALID` mit reason `snapshot-missing`, `snapshot-corrupt`, `snapshot-invalid`, `ledger-corrupt` oder `unsafe-symlink`: Dem gesicherten Zustand ist nicht zu trauen, deshalb wird nichts wiederhergestellt.
 - `E_ROLLBACK_STALE` mit reason `skills-changed-since`: Deine Skills haben sich nach diesem Lauf geändert. Rolle zuerst die späteren Läufe zurück.
 - Reason `target-running` (eigener Fehler des Importers): Der Core läuft. Stoppe ihn mit `plur1bus daemon stop` und versuche es erneut.
