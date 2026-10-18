@@ -153,7 +153,8 @@ jobs:
       - name: Native deep-link startup and second-instance delivery (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 8
-        run: xvfb-run -a node apps/desktop/scripts/native-deeplink.mjs
+        # Own session bus like the lifecycle step: the singleton forwards over D-Bus, never via the runner's user bus.
+        run: xvfb-run -a dbus-run-session -- node apps/desktop/scripts/native-deeplink.mjs
       - name: Native deep-link startup and second-instance delivery (macOS and Windows)
         if: runner.os != 'Linux'
         timeout-minutes: 8
