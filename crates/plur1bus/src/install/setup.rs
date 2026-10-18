@@ -994,12 +994,24 @@ fn step_config(
             "acceptedNcLicence": answers.accept_nc || config["embedding"]["acceptedNcLicence"] == json!(true),
             "changed": keys,
             "supervised": supervised,
+            "decisionRole": decision_role_note(&config),
             "media": media.as_ref().map_or_else(
                 || json!({ "skipped": "profile-host" }),
                 MediaAnswers::detail,
             ),
         }),
     ))
+}
+
+/// Setup asks no model question, so a home without `modelRoles.decision` finishes setup with message triage on the
+/// built-in rules. `{ set, limited, hint }` tells the person (and `setup/1` readers) which features are limited and how
+/// to set the role later; `limited` is empty once the role is set.
+fn decision_role_note(config: &Value) -> Value {
+    use crate::commands::model::{decision_role_set, DECISION_FEATURES, DECISION_ROLE_HOW};
+    if decision_role_set(&config["modelRoles"]) {
+        return json!({ "set": true, "limited": [] });
+    }
+    json!({ "set": false, "limited": DECISION_FEATURES, "hint": DECISION_ROLE_HOW })
 }
 
 // ---- memory & media search ---------------------------------------------------------------------------------------
@@ -1661,6 +1673,29 @@ mod tests {
             answer_config(&o, "full", None, &mut p).unwrap_err().reason,
             "agent-id-invalid"
         );
+    }
+
+    #[test]
+    fn the_decision_role_note_lists_the_limited_features_until_the_role_is_set() {
+        for config in [
+            Value::Null,
+            json!({}),
+            json!({ "modelRoles": { "chat": "p/m" } }),
+            json!({ "modelRoles": { "decision": "" } }),
+        ] {
+            let note = decision_role_note(&config);
+            assert_eq!(note["set"], false, "{config}");
+            assert_eq!(
+                note["limited"],
+                json!(["messageTriage", "toolPreselection", "modelClassChoice"])
+            );
+            assert!(note["hint"]
+                .as_str()
+                .unwrap()
+                .contains("modelRoles.decision"));
+        }
+        let set = decision_role_note(&json!({ "modelRoles": { "decision": "p/small" } }));
+        assert_eq!(set, json!({ "set": true, "limited": [] }));
     }
 
     #[test]
