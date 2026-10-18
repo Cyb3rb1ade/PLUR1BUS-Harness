@@ -152,6 +152,22 @@ test('negative prior lowers shortlist rank but search retains the tool; positive
     try { await collect(f.provider, turnRequest()); assert(!wire.requests[0]!.tools?.some(t => t.name === 'denied_report')); assert(wire.requests[0]!.tools?.some(t => t.name === 'ab_report')); } finally { f.close(); }
   } finally { live.close(); }
 });
+test('a policy context that is only available after beforeTools (permission stores open lazily) withholds nothing; the tool runs', async () => {
+  const home = dirs.make(); mkdirSync(join(home, 'state')); const live = new LiveCapabilityIndex(home, () => Date.UTC(2026, 9, 16));
+  let opened = false, runs = 0;
+  const wire = scriptedAdapter([{ calls: [{ id: 'c1', name: 'file_read', args: { path: 'x' } }] }, { text: 'done' }]);
+  const f = turnFixture(wire.adapter, { capabilities: live, beforeTools: async () => { opened = true; }, policyContext: () => { if (!opened) throw new Error('approval service unavailable'); return {}; } }, home);
+  f.registry.register(readTool('file.read', async () => { runs++; return 'bytes'; }));
+  try { await collect(f.provider, turnRequest({ messages: [{ role: 'user', text: 'read file x' }] })); assert.equal(runs, 1); assert(wire.requests[0]!.tools?.some(t => t.name === 'file_read')); } finally { f.close(); live.close(); }
+});
+test('a call to a tool withheld by tools.deny reaches the dispatcher and is refused as tool-denied, never executed', async () => {
+  const home = dirs.make(); mkdirSync(join(home, 'state')); const live = new LiveCapabilityIndex(home, () => Date.UTC(2026, 9, 16));
+  let runs = 0;
+  const wire = scriptedAdapter([{ calls: [{ id: 'c1', name: 'file_read', args: { path: 'x' } }] }]);
+  const f = turnFixture(wire.adapter, { capabilities: live, policyContext: () => ({ toolsDeny: ['fs.read'] }) }, home);
+  f.registry.register(readTool('file.read', async () => { runs++; return 'bytes'; }));
+  try { await assert.rejects(() => collect(f.provider, turnRequest({ messages: [{ role: 'user', text: 'read file x' }] })), { code: 'tool-denied' }); assert.equal(runs, 0); assert(!wire.requests[0]!.tools?.some(t => t.name === 'file_read')); } finally { f.close(); live.close(); }
+});
 test('supervisor skill snapshot enforces effective agents and fails closed after disconnect', async () => {
   const { home, live } = setup(); skill(home);
   let fail = false;
