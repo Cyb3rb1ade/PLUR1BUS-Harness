@@ -4,7 +4,7 @@ import { authorize } from "./rbac/authorize.ts";
 import { authenticatedPrincipal } from "./rbac/guard.ts";
 import { RpcError } from "./rpc/errors.ts";
 import type { Handler } from "./rpc/server.ts";
-import { createRedactor } from "./logs/redact.ts";
+import { createRedactor, type Redactor } from "./logs/redact.ts";
 
 type Status = "ok" | "warn" | "fail" | "skipped";
 type Check = { id: string; status: Status; summary: string; repair?: { kind: string; label: string } };
@@ -20,11 +20,11 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { home: string; clock: () => number; check?: () => Promise<unknown>; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
+export function buildDoctorMethods(o: { home: string; clock: () => number; redactor?: Redactor; check?: () => Promise<unknown>; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
   let cached: Report | null = null;
   let lastStarted = -Infinity;
   let inFlight: Promise<Report> | null = null;
-  const redactor = createRedactor({ pii: true });
+  const redactor = o.redactor ?? createRedactor({ pii: true });
   // Replacing "" would interleave the marker between every character, and "/" would eat every path separator.
   const literal = (text: string, home: string, marker: string): string => {
     const root = home.replace(/[\\/]+$/, "");
