@@ -39,3 +39,19 @@ it('session composition consumes configuration and fake catalogue windows, calib
     assert.equal(sessions.store.listMessages(session.id).length,10);
   } finally { await sessions.close(); budget.close(); await logger.close(); rmSync(home,{recursive:true,force:true}); }
 });
+it('live role configuration applies to the next request without replacing an in-flight provider', async () => {
+  const config = defaults();
+  const seen: string[] = [];
+  const { FakeChatProvider } = await import('../../src/session/provider.ts');
+  const create = ((_options: unknown) => {
+    seen.push(config.modelRoles.summarize ?? 'unset');
+    return { ...new FakeChatProvider(), id: 'fixture', telemetry: {} };
+  }) as unknown as typeof createTurnProvider;
+  // Construction only: inspect the selected role metadata, without paid calls or native stores.
+  const provider = sessionRoleFactory(create, () => config)({ profiles: {}, registry: new ToolRegistry() } as never);
+  const initial = seen.length;
+  config.modelRoles.summarize = 'new-profile';
+  provider.roleModels?.('summarize');
+  assert.ok(seen.length > initial);
+  assert.equal(seen.at(-1), 'new-profile');
+});

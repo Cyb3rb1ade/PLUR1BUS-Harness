@@ -1,3 +1,5 @@
+import { testModel } from './model-test.ts';
+import { authenticatedPrincipal } from '../rbac/guard.ts';
 import { loadClassProfiles } from '../triage/classes.ts';
 import { ExtensionCapabilityFeed } from '../toolcall/extension-feed.ts';
 import { LiveCapabilityIndex } from '../toolcall/live-index.ts';
@@ -40,6 +42,8 @@ import { createWriter } from '../logs/writer.ts';
 import { createTurnProvider, type TurnProviderOptions } from './provider.ts';
 import { ToolRegistry } from '../tools/registry.ts';
 import { createCollab, alsAgentScopePort, type Collab } from '../collab/index.ts';
+import { CodingGate } from '../collab/coding-gate.ts';
+import { codingMethods, reviewHooks, type CodingCompletion } from '../collab/coding-surface.ts';
 import { composedAgentRunner } from './collaboration.ts';
 import { legacyAdapter } from './legacy.ts';
 import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
@@ -47,6 +51,7 @@ import { mediaToInbox } from '../inbox/producers.ts';
 import { isLocalEndpoint, localEndpoints, localOnlyFor, localOnlyShared, LOCAL_ONLY_REASON, LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
 
 export interface CompositionOptions {
+  projectWorktrees?: import("../collab/coding-surface.ts").ProjectWorktreePort;
   delegationTargets?: readonly import("../collab/target.ts").DelegationTarget[];
   /** Trusted in-process surfaces register here; no auth RPC is added. */
   voiceAudio?: import("../voice/v3.ts").VoiceV3Deps["audio"];
@@ -215,7 +220,9 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // plan<->paid fallback; absent, a fallback across billing classes is refused.
     const profilePolicy = (cfg.providers as { modelProfilePolicy?: Record<string, { allowCrossBilling?: unknown }> }).modelProfilePolicy ?? {};
     let collab: Collab | null = null;
-    const toolsForTurn = (req: ChatRequest) => composeTools({ home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, output: execOutput, ...(collab ? { collaboration: {
+    let coding: CodingCompletion | undefined;
+    const toolsForTurn = (req: ChatRequest) => composeTools({ home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, output: execOutput, ...(coding ? { coding } : {}), ...(collab ? { collaboration: {
+      ...(coding ? { review: reviewHooks(coding) } : {}),
       collab, enabled: () => d.config().collaboration.fanoutEnabled,
       repair: async (input: unknown, issues: readonly string[]) => {
         if (!provider) throw new Error('no-provider');
@@ -227,7 +234,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       authority: { approvals: { get: (id: string) => d.permissions.current()?.stores.approvals.get(id) }, grants: { get: (id: string) => d.permissions.current()?.grants.get(id) }, now: d.clock, audit: (event: { reason: string; person: string; taskId: string }) => { d.audit.append({ at: d.clock(), actor: { user: event.person, host: 'core' }, action: 'collab.handoff.refused', target: event.taskId, detail: { reason: event.reason } }); } }
     } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), secretNames: secretNamesPort(d), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp ? { mcp: { port: mcp, servers } } : {}) }, { ...req, principal: principal(req) });
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
-    const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, cfg);
+    const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, d.config);
     const maintenance = sessionMaintenance(d.home, cfg);
     // D105: a configured decision role is required for every foreground message (failure/timeout = default profile, core set only);
     // without modelRoles.decision the rule triage selects the shortlist as before.
@@ -253,7 +260,12 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         budget.releaseUnused(admission.reservationId); return { allowed: true };
       }, record: usage => d.logger.info('collab.usage', { ...usage }) },
     })) : null;
-    if (collab) disposers.push(() => collab.shutdown());
+    if (collab) {
+      disposers.push(() => collab.shutdown());
+      const gate = new CodingGate({ path: join(d.home, 'state', 'coding-gate.sqlite'), audit: event => { d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'coding.gate', target: 'task', detail: { ...event } }); } });
+      disposers.push(() => gate.close());
+      coding = { collab, gate, worktrees: options.projectWorktrees ?? { root: agentId => d.agents.workspaceOf(agentId) ?? null } };
+    }
     sessions = openSessionService({ ...maintenance, dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => {
       void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err }));
       const cur = d.permissions.current();
@@ -265,7 +277,18 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     }, ...(d.approver ? { approver: d.approver } : {}) });
     let closed = false;
     const opened = sessions;
-    return { capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
+    return { capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...(coding ? codingMethods(coding) : {}), "models.test": async (p: { model: string }, ctx) => {
+      if (!budget) throw new RpcError('E_NOT_AVAILABLE', 'Model budget unavailable');
+      const person = authenticatedPrincipal(ctx).userId;
+      const budgetPrincipal = deriveUserPrincipal(person);
+      return testModel(p.model, profiles, selected => (options.createTurnProvider ?? createTurnProvider)({
+        profiles: selected, profile: 'probe', profileForClass: () => 'probe', registry: new ToolRegistry(), budget,
+        principal: () => budgetPrincipal, grants, approval: { async request() { throw new Error('tools-disabled'); } },
+        log: () => {}, resultStore: { async put() { throw new Error('tools-disabled'); } }, maxTokens: 16, maxRounds: 1,
+        system: ['Reply with OK. Do not call tools.'],
+        router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {} },
+      }), budgetPrincipal, Object.keys(d.config().agents)[0] ?? 'model-test', AbortSignal.any([ctx.signal, d.signal]));
+    }, ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
       await collab?.shutdown();
       await opened.close();

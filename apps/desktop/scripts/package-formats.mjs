@@ -88,6 +88,7 @@ export function flatpakManifest({ runtimeVersion = '49' } = {}) {
         `install -m644 exports/${APP_ID}.desktop /app/share/applications/`,
         `install -m644 exports/${APP_ID}.metainfo.xml /app/share/metainfo/`,
         `install -m644 exports/${APP_ID}.png /app/share/icons/hicolor/128x128/apps/`,
+        'if test -d exports/hicolor; then cp -R exports/hicolor/. /app/share/icons/hicolor/; fi',
         `install -m644 exports/${APP_ID}.xml /app/share/mime/packages/`],
       sources: [{ type: 'dir', path: 'payload' }],
     }],
@@ -118,6 +119,7 @@ export async function stagePackageFormat(options) {
     await copyTree(options.resourcesDir, join(payload, 'resources'));
     const exports = join(payload, 'exports');
     await mkdir(exports);
+    if(options.hicolorDir)await copyTree(options.hicolorDir,join(exports,'hicolor'));
     await regularFile(join(options.iconsDir, '128x128.png'), join(exports, `${APP_ID}.png`));
     await writeFile(join(exports, `${APP_ID}.desktop`), `[Desktop Entry]\nType=Application\nName=PLUR1BUS\nComment=PLUR1BUS desktop shell\nExec=plur1bus-desktop %U\nIcon=${APP_ID}\nTerminal=false\nCategories=Utility;\nMimeType=x-scheme-handler/plur1bus;application/x-plur1bus-extension;\nStartupNotify=true\n`);
     await writeFile(join(exports, `${APP_ID}.xml`), `<?xml version="1.0" encoding="UTF-8"?>\n<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info"><mime-type type="application/x-plur1bus-extension"><comment>PLUR1BUS extension</comment><glob pattern="*.p1x"/></mime-type></mime-info>\n`);

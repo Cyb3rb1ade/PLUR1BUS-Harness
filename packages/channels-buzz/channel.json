@@ -1,0 +1,1 @@
+{"name":"buzz","version":"0.1.0","kind":"channel","apiVersion":"1","displayName":"Buzz / Nostr","chatKinds":["direct"],"startDelayMs":0,"maxRestarts":8}

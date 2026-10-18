@@ -221,6 +221,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -681,6 +688,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -1145,6 +1159,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -1605,6 +1626,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -2069,6 +2097,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -2529,6 +2564,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -2993,6 +3035,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -3453,6 +3502,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -3917,6 +3973,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -4377,6 +4440,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -4841,6 +4911,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -5301,6 +5378,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -5765,6 +5849,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -6225,6 +6316,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -6689,6 +6787,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -7149,6 +7254,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -7613,6 +7725,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -8073,6 +8192,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -8537,6 +8663,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -8997,6 +9130,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -9461,6 +9601,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -9921,6 +10068,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -10385,6 +10539,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -10845,6 +11006,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -11309,6 +11477,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -11769,6 +11944,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -12233,6 +12415,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -12693,6 +12882,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -13157,6 +13353,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -13616,6 +13819,13 @@
           "maxMediaBytes": 10485760,
           "locale": "en"
         },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
+          "locale": "en"
+        },
         "matrix": {
           "e2ee": {
             "mode": "off",
@@ -14073,6 +14283,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {

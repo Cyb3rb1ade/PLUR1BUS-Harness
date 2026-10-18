@@ -24,7 +24,7 @@ describe("setup wizard: a save in flight", { skip: browserSkip }, () => {
       await page.getByRole("button", { name: "Saving…" }).waitFor();
       assert.equal(await back.isDisabled(), true, "Back is disabled while saving");
       assert.equal(await page.getByRole("button", { name: "Skip this step" }).isDisabled(), true, "Skip is disabled while saving");
-      await stepHeading(page, /Switchboard/).waitFor();
+      await stepHeading(page, /Decision model/).waitFor();
       assert.equal(calls(app, "config.set").length, 1);
       assert.equal(calls(app, "agent.create").length, 1);
     });

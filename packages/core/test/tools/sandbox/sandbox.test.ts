@@ -100,3 +100,12 @@ test('Windows spellings: 8.3 aliases and \\\\?\\ prefixes reach resolution; trav
   assert.equal(within('/ws/bin/launcher', '/ws', true, 'linux'), true);
   assert.equal(within('/WS/bin', '/ws', true, 'linux'), false);
 });
+test('Windows absolute executables report unavailable isolation, not a POSIX path error', async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { value: 'win32' });
+  try {
+    await assert.rejects(sandboxSpawn(['C:\\Windows\\System32\\cmd.exe'], {} as SandboxPolicy), /restricted-token|AppContainer/);
+    await assert.rejects(sandboxSpawn(['C:relative.exe'], {} as SandboxPolicy), /absolute executable/);
+    await assert.rejects(sandboxSpawn(['relative.exe'], {} as SandboxPolicy), /absolute executable/);
+  } finally { Object.defineProperty(process, 'platform', descriptor); }
+});
