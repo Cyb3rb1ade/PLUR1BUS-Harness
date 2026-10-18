@@ -64,3 +64,20 @@ describe("migration checkpoint store", () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+describe("migration checkpoint store: a remote target", () => {
+  it("keeps the key's variable NAME, the endpoint, the token estimate and a plan-time acknowledgment, and refuses a malformed one", () => {
+    const dir = tmp();
+    try {
+      const s = createStateStore(dir);
+      const remote = { apiKeyEnv: "OPENROUTER_API_KEY", baseUrl: "https://openrouter.ai/api/v1", tokensPerRow: 25, privacyAck: { provider: "openrouter", acknowledgedAt: "2026-10-18T10:00:00.000Z", by: "person-owner", endpoint: "https://openrouter.ai/api/v1" } };
+      s.write(cp({ remote }));
+      assert.deepEqual(s.read()?.remote, remote);
+      for (const bad of [{ ...remote, apiKeyEnv: "not a name" }, { ...remote, tokensPerRow: -1 }, { ...remote, privacyAck: { provider: "x" } }]) {
+        assert.throws(() => s.write(cp({ remote: bad as never })), (e) => e instanceof MigrationStateError && e.code === "state-corrupt");
+      }
+      s.write(cp());
+      assert.equal("remote" in s.read()!, false, "a local target carries none");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});

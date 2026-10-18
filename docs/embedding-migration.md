@@ -30,21 +30,43 @@ The unified local default is EmbeddingGemma 2 (text-only, 768 dimensions, Apache
 plur1bus memory reembed --plan --model intfloat/multilingual-e5-small [--dimensions N] [--throttle-ms 250]
 # e.g. the unified local default of ADR-006 (amendment 2026-10-08), once the engine supports it:
 # plur1bus memory reembed --plan --model onnx-community/embeddinggemma-2-ONNX --dimensions 768
+# a cloud or self-hosted target (owner decision 2026-10-18: every direction, local and cloud alike):
+plur1bus memory reembed --plan --provider openrouter --model qwen/qwen3-embedding-8b --dimensions 4096 \
+  --base-url https://openrouter.ai/api/v1 --api-key-env OPENROUTER_API_KEY [--acknowledge-privacy]
 plur1bus memory reembed --run [--yes] [--no-switch] [--no-wait]
 plur1bus memory reembed --status
 plur1bus memory reembed --abort
 ```
 
 - The migration is **per installation**: the engine copies every agent's tables into one new generation. There is no `--agent`.
-- `--model` is a **pinned local embedding model** (the Harness runs the engine with local-transformers embeddings; a remote
-  provider could be copied into but never switched to, so it is refused at plan time). The target fingerprint is built with
-  the engine's own functions, so the id equals what the engine derives at start.
+- **Every direction migrates**: local → cloud, cloud → local, cloud → cloud (another provider, model or dimension count) and
+  local → local. Owner, 18.10.2026: "das System soll in alle Richtungen migrationsfähig sein, sonst schränken wir den User zu
+  sehr ein". Without `--provider` (or with `local-transformers`) `--model` is a pinned local model. Any other provider goes
+  through the same rules as the engine start (`composition/embedding-policy.ts`): `--model`, `--dimensions` and
+  `--api-key-env` (the variable's **name**; the key never travels) are required, `--base-url` except for `openai`; a
+  non-loopback endpoint needs a privacy acknowledgment (`memory.embedding.privacyAck` for exactly that provider and endpoint,
+  or `--acknowledge-privacy`, see below; `E_DENIED` `privacy-acknowledgment-required`); `privacy.localOnly` refuses a cloud
+  target (`E_DENIED` `local-only`); the endpoint must pass the egress policy (`E_DENIED` `egress-denied`). Nothing else
+  refuses a direction. The target fingerprint is built with the engine's own functions, so the id equals what the engine
+  derives at start.
+- `--acknowledge-privacy` records the calling person's acknowledgment of the cloud target at plan time (bound to provider and
+  endpoint, kept in the checkpoint). It is what makes cloud → cloud possible while `memory.embedding.privacyAck` still admits
+  the provider in use: the switch writes it as `memory.embedding.privacyAck` in the same `config.set` as the new block.
+- For a cloud target `--plan` also shows that **every card text goes to the provider**, the number of cards, the estimated
+  tokens (an upper bound from the source size without its vectors, bytes / 4) and the estimated cost from the price table
+  (`budget/prices.ts`), "unknown" when it does not list the model. The engine's plan probes the provider with one short text.
 - `--plan` copies nothing. It prints the verdict and the counts: rows, tables, batches, provider calls, source and target
   bytes, free space needed and available, the pause between batches and the minimum time those pauses add up to. Exit 1 for
   `incompatible`.
 - `--run` asks for confirmation (`--yes` outside a terminal), starts the migration **inside the core** and follows it
   (progress on stderr, one final document with `--json`). Ctrl-C stops the following, not the migration. `--no-wait` returns
   after the start. `--no-switch` copies and validates but does not switch.
+- For a cloud target `--run` asks with the provider named. Before every batch the estimated tokens are reserved in the call
+  budget (principal, agent and project `memory-reembed`); a hard limit (tokens, or cost, where an unpriced model is refused)
+  pauses the run: phase `aborted`, error `budget-exceeded` in `--status`, continued with `--run` once the budget allows it.
+  A rate limit or a transient provider error (429, 5xx, network) is retried with exponential backoff (1 s, 2 s, 4 s, 8 s,
+  at most 30 s) before the run halts (`aborted`, resumable). Before a run starts the rules are checked again
+  (`privacy.localOnly`, acknowledgment, egress may have changed since the plan).
 - `--abort` stops at the next batch boundary (never mid-batch). The copied generation stays; `--run` continues the same
   migration. A halted run (engine error, core stop) is `aborted` with the error in the checkpoint and is resumed the same way.
 - JSON schema ids: `memory.reembed.plan/1`, `memory.reembed.run/1`, `memory.reembed.status/1`, `memory.reembed.abort/1`
@@ -61,7 +83,9 @@ credential); the token is never returned over RPC or printed.
 ## The switch
 
 Only from `ready-to-switch` (copied, read back, validated). One `config.set` on the supervisor writes the target embedding
-block and `engine.reembedding = { activeGeneration, fingerprintId, dimensions }` together (all keys or none, one atomic
+block (a local one as the pinned local block; a remote one as `provider`, `model`, `dimensions`, `baseUrl` and the key only as
+`apiKeyEnv`, no fallback), a plan-time acknowledgment if there is one, and
+`engine.reembedding = { activeGeneration, fingerprintId, dimensions }` together (all keys or none, one atomic
 `config.json` replace). Those keys are class `core`, so the supervisor restarts the core and the new generation is active
 from that start. **Until the config is replaced every recall is answered by the old generation**; the copy never touches it.
 Before writing, the guard derives the fingerprint the engine will derive from the written configuration (the functions
@@ -95,7 +119,9 @@ bounds the load on the provider and the machine.
 | `E_CONFLICT` `not-ready-to-switch` | also when the engine's finished target (generation, provider, model, dimensions) differs from the planned one; nothing is written |
 | `E_NOT_FOUND` `no-migration` | `run`/`abort` without a plan |
 | `E_INVALID_PARAMS` `plan-refused` | the engine refused the plan (e.g. not enough free disk) |
-| `E_NOT_AVAILABLE` `switch-unavailable` | no supervisor, a provider the Harness does not run, or a fingerprint the engine would not derive |
+| `E_NOT_AVAILABLE` `switch-unavailable` | no supervisor, a target the engine start would refuse (missing acknowledgment, `privacy.localOnly`, missing details), or a fingerprint the engine would not derive; nothing is written and the old configuration stays active |
+| `E_DENIED` `privacy-acknowledgment-required` / `local-only` / `egress-denied` | `plan` or `run` of a cloud target the provider rules refuse; the engine is not asked |
+| `E_INVALID_PARAMS` `engine-provider-config-incomplete` | a cloud target without model, dimensions, apiKeyEnv or (except openai) baseUrl |
 | `E_STORAGE` `switch-failed` / `state-corrupt` / `state-unreadable` | the config write failed / the checkpoint is unusable / the checkpoint cannot be read or written (the message names no path) |
 
 ## What is not done (open points)
@@ -107,3 +133,6 @@ bounds the load on the provider and the machine.
   `validate`. The engine's post-switch `completed` transition and rollback are likewise engine work.
 - **Confirming the switch / discarding the old generation** is a later explicit step, not part of this package.
 - A live run with real models belongs to the nightly (`PLUR1BUS_REAL_MODELS`), not to CI.
+- **Cloud targets:** the engine reports no token usage per batch, so the budget is settled with the estimate. The keys
+  reach the engine only as `apiKeyEnv` (the engine has no harness secret-store port yet). The engine's own provider calls
+  are judged by egress at plan and run time (`decide`), not per request: that needs the engine fetch port.

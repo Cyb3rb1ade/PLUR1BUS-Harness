@@ -26,6 +26,8 @@ import { createEnginePort } from "./embedding-migrate/engine-port.ts";
 import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
 import { createStateStore } from "./embedding-migrate/state.ts";
 import { createConfigSwitchPort } from "./embedding-migrate/switch.ts";
+import { reembedBatchBudget, reembedPrice } from "./embedding-migrate/budget.ts";
+import { blockRemote, reembedTargetPolicy, targetFromSpec } from "./embedding-migrate/target.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
@@ -665,6 +667,14 @@ export function createCore(o: CoreOptions): Core {
       const migration = createMigrationDriver({
         engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
+        // A cloud target: the turn call budget pauses the run at a hard limit; the price table estimates the plan's cost.
+        budget: () => { const b = turnComposition?.budget; return b ? reembedBatchBudget(b) : null; },
+        priceMicros: reembedPrice(o.budget?.prices ?? new PriceBook(SHIPPED_PRICE_TABLES)),
+        // Before a run continues: the rules may have changed since the plan (privacy.localOnly, acknowledgment, egress).
+        admitRun: async (c) => {
+          const t = targetFromSpec({ provider: c.target.provider, model: c.target.model, dimensions: c.target.dimensions, ...blockRemote(c) }, { ...reembedTargetPolicy(cfg()), ...(c.remote?.privacyAck ? { privacyAck: c.remote.privacyAck } : {}) });
+          if (t.ok && !t.local) await checkEngineEgress({ embedding: t.block }, egress, (message, fields) => log.warn(message, fields));
+        },
       });
       reembed = migration;
       const identityService = identity;
@@ -798,7 +808,7 @@ export function createCore(o: CoreOptions): Core {
         identity,
         backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath) },
         auditChain,
-        reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log }),
+        reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log, targetPolicy: () => reembedTargetPolicy(cfg()), egress }),
         ...(budget ? { budget } : {}),
         egress,
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
