@@ -2097,6 +2097,8 @@ table! {
     Result "ext.disable" ExtDisableResult,
     Params "ext.watch" ExtWatchParams,
     Result "ext.watch" ExtWatchResult,
+    Params "models.test" ModelsTestParams,
+    Result "models.test" ModelsTestResult,
     Params "models.list" ModelsListParams,
     Result "models.list" ModelsListResult,
     Params "models.scan" ModelsScanParams,
