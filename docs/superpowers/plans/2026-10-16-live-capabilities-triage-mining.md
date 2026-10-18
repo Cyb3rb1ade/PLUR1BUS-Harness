@@ -33,22 +33,25 @@
 - [x] Add `toolcall/live-index.ts`, `extension-feed.ts`, `calibration.ts`: skill snapshots/watch, read-only ext.watch/ext.list, per-turn view, local engine vectors, nightly system job.
 - [x] Bind provider/composition lifetime, dynamic suffix skill injection and scoped dispatcher-only `capabilities.search`.
 - [x] Extend common tool registration with optional discovery metadata for plugin/channel owners; no tools implemented for them.
-- [ ] Run affected tests, typecheck, hygiene, i18n; record actual results and remaining acceptance gaps in the PR.
+- [x] Run affected tests, typecheck, hygiene, i18n; record actual results and remaining acceptance gaps in Draft #536.
 
 Interfaces: `LiveCapabilityIndex.view(scope, tools, selection, agent) -> CapabilityView`; `prepare(query, view, signal) -> Promise<CapabilityIndex>`; `job() -> SystemJobHandler`; `status()` -> Doctor snapshot. `ToolDef.discovery` is metadata only; capability/effect/risk remain the registry's validated fields.
 
 ## Phase 2: message triage
 
-- [ ] Reuse one asynchronous triage call, with validated decisions and timeout fallback; no second classification in role routing.
-- [ ] Load model class mappings from file at message/task boundaries; hold class within each task.
-- [ ] Keep chat/failure on default profile and the core tool set.
-- [ ] Add at least 60 independent message/recording goldens in dedicated fixtures with segmentation/under-provisioning gates; no D106 gate changes.
-- [ ] Validate, commit and create the dependent PR.
+- [x] Reuse one asynchronous triage call, with validated decisions and timeout fallback; no second classification in role routing.
+- [x] Load model class mappings from file at message/task boundaries; hold class within each task.
+- [x] Keep chat/failure on default profile and the core tool set.
+- [x] Add 72 distinct message goldens and recorded deterministic baseline replies with independent gates; no D106 gate changes. Vendor recordings/live acceptance remain open.
+- [x] Validate, commit and create dependent Draft #540.
 
 ## Phase 3: reviewed mining
 
-- [ ] Inventory actual task completion/session records and engine proposal APIs before choosing a mining trigger.
-- [ ] Mine repeated successful same-scope workflows into redacted, provenance-only inactive proposals; deduplicate rejected workflow hashes.
+- [x] Inventory session records and engine proposal APIs: public memory-correction queue cannot accept skill artifacts.
+- [x] Prepare proven same-scope workflow candidates, inactive payloads and rejection-hash orchestration with test ports. Production queue adapter remains blocked.
+- [x] Prepare an in-process owner/admin review facade using existing ApprovalService, with content-bound once grants and explicit `engine-unavailable`.
 - [ ] Bind review-only RPC/CLI/library component with owner/admin RBAC and audit, preserving engine queue ownership and disabled X1 installation.
 - [ ] Enforce artifact provenance and default approval for self-knowledge without modifying Dreams or bypassing existing approvals.
-- [ ] Add scope/marker/overwrite/rejection/lifecycle acceptance tests; update milestones/tool reliability only with named evidence.
+- [x] Add scope/marker/provenance/rejection tests; update milestones/tool reliability with named evidence and open lifecycle gaps.
+
+Production L11 review, scheduling, disabled X1 acceptance and global writer enforcement remain unchecked until the additive engine artifact contract is available. See `2026-10-16-l11-contract-and-inventory.md`.

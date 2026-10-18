@@ -1,9 +1,6 @@
 # Tool reliability libraries (M2)
 
-These libraries implement D97/D103/D105 and M2 acceptance 14 within
-`packages/core/src/toolcall/` and `packages/core/src/triage/`. They are directly
-importable TypeScript modules. This change does not wire the turn loop, replace
-the existing dispatcher, expose a new RPC method, or claim live-model acceptance.
+D97/D103/D105 live in `packages/core/src/toolcall/` and `packages/core/src/triage/`. The 2026-10-16 Draft stack (#536 → #540 and its L11 follow-up) binds persistent capability discovery and one decision-role triage call to composition. The central dispatcher remains authoritative. M2 acceptance 14 is partial: the real-Core next-turn skill test and recorded triage gates pass, while live-model acceptance and the listed lifecycle/task-owner gaps remain open. No new RPC method is added by this stack.
 
 ## Validation and one repair
 
@@ -92,13 +89,13 @@ matched terms, category and embedding reasons. No network service is needed.
 `capabilitiesSearch(index, query, filters)` is the method-shaped library port for
 future `capabilities.search`; no RPC schema is changed.
 
-`connect(registrationPort)` loads a snapshot and subscribes to install/update/
-disable/remove events. `SqliteCapabilityRegistry` supplies a persistent port with
-per-agent offered/used/found-by-search/succeeded counters. The constructor requires
-an explicit database path; tests use a synthetic scratch home. It does not scan
-installed extensions or schedule work on its own. BM25 is computed in memory;
-SQLite persists rows/statistics, without an FTS5/vector schema migration in the
-core store. Embeddings can be held by the injected port.
+`connect(registrationPort)` remains the library snapshot/event port. `SqliteCapabilityRegistry` now persists rows, per-agent counters, canonical SHA-256 hashes, literal-token FTS5 and vectors keyed by row hash plus local model identity. A changed row invalidates its vector; a late vector cannot overwrite a newer row. `LiveCapabilityIndex` owns this service for the composition lifetime and derives each agent view from currently admitted tool registrations. Persisted foreign rows never make a tool visible. Skills use `skills/index.json`, bounded ordinary files and blocked/pinned selections; the read-only supervisor feed consumes `ext.watch`/`ext.changed` and refreshes effective enable/overlay/agent state via `ext.list`. Folder changes and every new turn refresh skill truth. A lost supervisor feed fails closed.
+
+Only the engine's already-ready, explicitly local embedding provider is used. The index does not start a model/download or admit a cloud provider. Missing/failed local embedding keeps FTS5 routing alive; Doctor exposes the current mode and last recheck. Plugin commands/channel actions may supply discovery metadata through the common registry, without new implementations owned by this stack. Generated fallback fields are marked; authored metadata wins. Model-generated summaries and full-source background snapshots remain open.
+
+`capabilities.search` is a dispatcher-only in-process tool, distinct from RPC methods. It searches the same agent view and can add discovered tools to the next model round. It uses an unweighted discovery index, so a negative usage prior cannot hide a tool. All calls continue through current policy/roots/approval checks; argument-dependent denials are determined only when arguments exist.
+
+The registered system job `capabilities.recheck` runs at 03:00 host-local time, removes orphaned skill rows and recalibrates usage priors. File defaults are in `toolcall/calibration.defaults.json`; `<home>/capability-calibration.json` overrides them and is reloaded at recheck. Owner-approved values: minimum 10 effective offers, per-agent statistics with same-name/kind/version global fallback, maximum +0.2 bonus / −0.2 penalty, 14-day half-life (hourly UTC buckets), reset on version change or removal. The current success target/weight are 0.8/0.5 and search-miss weight 0.1. Priors affect ranking only after visibility/policy filtering. Legacy counters without timestamps do not train decayed priors. Review these values after about four weeks of Nightly data. The fixed-clock calibration and policy-precedence tests are in `test/toolcall/live-index.test.ts`.
 
 Routing distributes a default 12 slots across at most three categories using
 largest remainders (70/30 gives 8/4), ranks within categories and fills unused slots
@@ -120,16 +117,18 @@ confidence, chosen class, effort and reasons. It does not split ordinary "and"
 inside a task. This baseline is intentionally limited; `triageWithClassifier`
 accepts an asynchronous LLM decision port and validates its structured result.
 Short yes/no/continue followups in an active task skip classification.
-Not yet enforced (both are `KNOWN GAP` todo tests in `packages/core/test/triage/`): the default classifier's segmentation takes quadratic time on a message with a long run of whitespace (about 1.2 s at 30,000 spaces, 14 s at 100,000, against the 200 ms local budget), and a classifier decision whose `tasks` field is missing or not an array escapes as a `TypeError` instead of the `invalid triage decision` error.
+The classifier now rejects missing/non-array task lists with the documented validation error and fractional offsets before routing. Its segmentation regex avoids quadratic whitespace backtracking; the existing long-input/generative assertions remain active. `MessageTriage` additionally checks runtime shape/task consistency, bounds decision time, and fails to the default/core-only path on invalid/unavailable/timeout responses while propagating caller cancellation.
+
+Production composition uses `modelRoles.decision` once per message through the same auth/router/budget/privacy/usage path; context sizing does not classify again. The role sees only the current message as data and no tools or recalled/session text. `chat` and failures use the agent default plus the core discovery surface. Explicit internal task boundaries hold class, effort and the resolved profile; followups retain the preceding class. Absent boundary metadata, a new non-followup message is treated as a boundary. Multi-task turns currently use the highest recommended class serially. Provider reasoning effort has no normalized wire field yet and is recorded, not enforced at vendors.
 
 Class selection chooses the smallest class with above-class probability <= .2
 (balanced), .35 (economy) or .1 (quality); confidence below .5 raises it one class.
-`classes.ts` maps provider families to profile labels, not guaranteed live model
+`classes.defaults.json` maps provider families to profile labels, not guaranteed live model
 IDs. `resolveClass` respects provider order and an explicit allowed-profile set;
 unavailable classes return undefined, with no silent downshift. `escalate` raises
 one class only when the caller's already-escalated flag is false; frontier is capped.
-The caller persists that flag. `applyAtBoundary` changes the active class only at
-an explicit task boundary. Recommendations do not switch a running conversation.
+The caller persists that flag; no new verification/escalation owner is introduced here. `applyAtBoundary` changes the active class only at
+an explicit task boundary. Runtime profile mappings load from `<home>/model-class-profiles.json` at task boundaries, with live `decision.classProfiles` as fallback. Recommendations and file edits do not switch an active task.
 
 ## Tool eval
 
@@ -178,19 +177,29 @@ are written and no networking is performed by the fixture runner itself.
 
 ## Follow-ups (integration owners)
 
-1. Turn loop: call triage once per new intent, preserve task boundaries, record
-   decisions/repair logs, persist the escalation flag and reuse idempotency scopes.
+1. Turn loop: explicit task-owner boundary metadata, persisted verification/escalation state and provider effort enforcement remain; one bounded decision-role call and stable task profiles are bound by the 2026-10-16 Draft stack.
 2. Tool registry/dispatcher: compile names/aliases at registration, bind live
    install/enable/disable events, gate every validated call with D109, pass existing
    structured error envelopes, and bind the full-result store/cursor authorization.
 3. Provider adapters: consume compiled dialects and quirks, restore optional-null
    placeholders before validation, apply provider cancellation/deadlines, use the
    recommended catalogue budget and parallel setting, resolve real allowed profiles.
-4. Index maintenance: connect embedding storage, FTS5 if corpus size warrants it,
-   version/hash rescans, summarization/cache and nightly per-agent prior calibration.
+4. Index maintenance: full-source background lifecycle snapshots and summarize-role metadata generation remain; persistent FTS5/local-vector caches, skill rescans and bounded decaying priors are bound by the 2026-10-16 Draft stack.
 5. Nightly live eval: explicitly opt in, provide model ports/default-model profiles,
    publish pass rates and label models below the 95% live gate as limited tool use.
    A controller-owned CI change is needed; this PR adds no workflow.
 6. D109 effects: registration binds trusted capability/effect/risk metadata and
    excludes never/administrative capabilities; routing must never create grants
    or treat model classifications as authorization.
+
+## D105 independent message replay (2026-10-16)
+
+`test/fixtures/triage-message/` contains 72 distinct DE/EN messages with independent gold spans/categories/minimum classes and a recording of deterministic baseline replies. `triage/message-eval.ts` is separate from D106 `toolcall/eval.ts` and does not change its gate. Recorded results: 86/86 exact spans, F1 1.0, under-provisioning 0.0, 85/86 category matches. An all-chat classifier fails the regression gate. These are baseline recordings, not measured vendor answers. Live evaluation requires `PLUR1BUS_LIVE_TRIAGE_EVAL=1` plus `PLUR1BUS_TRIAGE_CLASSIFIER_MODULE`; only this new live test skips without opt-in. No live p95 or shipped-model quality is claimed.
+
+## L11 boundary (2026-10-16)
+
+The core records dispatcher execution metadata (identity/session/turn/call/tool/version/success only) in `state/skill-mining.sqlite`. The prepared miner reads only archived, exact-owner/agent/scope sessions, excludes incognito/failed/unverified operations, and emits inactive candidates with session IDs rather than content. It copies no arguments, outputs, titles or messages. A separate engine-backed artifact queue is required for production proposals; the pinned public `memory.propose/proposals.*` contract accepts shared-memory corrections only. `SkillMining.propose` therefore fails closed with existing `E_NOT_AVAILABLE`, and Doctor reports unavailable mining. The prepared system job is not registered/scheduled without an authorized scope and backend.
+
+`ArtifactProvenance` and `SelfKnowledgePolicy` are tested library gates: unknown files are human, observed manual edits invalidate agent attribution, human changes become proposals, default self-knowledge approval persists as enabled, and only an owner/audited call may disable it. They do not yet intercept Dreams or all filesystem writers. L11 remains open until the additive engine contract, review RPC/CLI/UI, disabled X1 install and global protection binding exist. See `docs/superpowers/plans/2026-10-16-l11-contract-and-inventory.md`; no second proposal queue or engine internal import is used.
+
+L11 owner decision (2026-10-16): #541 remains Draft. Mining and review now share an explicit `engine-unavailable` backend. The prepared owner/admin review facade uses existing single-use approvals, binds the exact skill content, rejects changed/foreign/active proposals, and has no filesystem writer or activation operation. Additive public `skills.proposals.list|get|accept|reject` through the engine proposal-writer and a transcript-fed task-scoped D49 miner are prerequisites; exact pin update and production binding follow in a separate PR. No engine internals are imported.
