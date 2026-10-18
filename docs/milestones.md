@@ -193,6 +193,14 @@ or full seven-phase package acceptance is claimed.
 
 ### M3 — Harness API, users/roles, agent management, web UI skeleton
 
+**Housekeeping Phase G (2026-10-18, branch `codex/housekeeping-1018`):** Core shutdown/start-failure cleanup now detaches
+both log-redaction subscriptions; `discovery/redaction-lifecycle.test.ts` observes actual post-shutdown delivery through
+the Core. Windows absolute executables receive the unavailable-backend explanation. `docs:check` prints unified diffs on
+drift (`scripts/doc-diff.test.mjs`, also run by lint). HYG-003 recognises Rust-test container mounts by context, with the
+file-specific desktop exemptions removed and command rejection retained. Sessions tests open the intended route before
+login; chat cancellation waits for restored focus; login concurrency uses a gate rather than an elapsed-time threshold.
+The existing stronger-Argon2-rehash KNOWN GAP remains unchanged. No milestone acceptance beyond these fixes is implied.
+
 **Goal.** One deny-by-default authorization chokepoint, and the first screens: Memory (incl. Dreams) and Models, in PLUR1BUS optics.
 
 **Scope**
@@ -291,6 +299,8 @@ or full seven-phase package acceptance is claimed.
 **Status — M5 (reconciled 2026-10-14 against `origin/main` @ `823c0a58`; M5 is not done).** `packages/core/src/collab/` (#238, #298, audited in #439): projects with member and lead roles and archive-first semantics; a project board with columns, WIP limits, cards and activity (#372, #380); `consult` and `delegate` with provenance, capped results and artifact pointers; guardrails (self-call, cycle, depth 1, fan-out, pair, repeat, chain token budget, timeout decision); W3C trace ids and a redacted trace export; `project.*` and `collab.trace.*` RPC; a collab-local `AgentScope` that fails closed. None of the six agent tools (`consult_agent`, `delegate_task`, `post_to_project`, `read_project_board`, `request_review`, `handoff`) is registered in the tool composition, so no model can call them. Acceptance: 1 **gebaut, aber nicht abgenommen** (`collab/e2e.test.ts` with a fake runner). 2 **erfüllt** (`collab/guardrails.test.ts`, "blocks a cycle A→B→A"). 3 **teilweise** (`collab/trace.test.ts`; no replayable session per delegation, not wired to the session store). 4 **teilweise** (the callee sees only the passed context, `collab/consult.test.ts`; no test over agent-private and user-scope stores, because collab has no memory access yet). 5 **teilweise** (token-budget refusal is tested; the timeout is a guardrail decision, there is no partial-result representation). 6 **offen** (no coding gate, no verifier run). 7 **teilweise** (chain token budget only; the per-project budget of M2 is not wired to fan-out). 8 **offen** (no fan-out eval). Not built: the D104 hand-off format `plur1bus.handoff/1`, the D98 coding and documentation standards gate, D92 chat promotion, git worktrees and workspace pool, the note board, Buzz/Matrix mirroring and the trace UI.
 
 **Exit:** demo guide, test report incl. guardrail suite and the fan-out eval numbers, `docs/architecture.md` isolation table updated.
+
+**M5 fan-out fixture evaluation — 2026-10-15 (M5 phase 4 PR stack).** 24 cases per mode; the same hard project token budget of **8,192 per case**. Single: **24/24**, **576 settled tokens**, **24 model calls**. Peer: **24/24**, **1,728 settled tokens**, **72 model calls**. Reproduce with `pnpm run eval:m5`; machine-readable inputs/results: `docs/evals/m5-fanout.json`; CI regression: `collab/fanout-eval.test.ts`. These are deterministic routing/arithmetic fixtures, not live-model quality evidence. No quality advantage is established; **fan-out default remains off** pending owner approval.
 
 ### M6 — MCP / ACP / A2A, external coding agents, skills, plugins
 
