@@ -98,7 +98,7 @@ describe("secret store end to end", () => {
       const missing = secret(h, ["get", "nope"]);
       assert.deepEqual([missing.exit, missing.doc.error], [1, "E_NOT_FOUND"]);
       const badName = secret(h, ["set", "bad name"], { input: MARKER });
-      assert.deepEqual([badName.exit, badName.doc.error], [1, "E_INVALID_PARAMS"]); assert.match(badName.doc.detail, /^\/name /);
+      assert.deepEqual([badName.exit, badName.doc.error], [2, "E_INVALID_PARAMS"]); assert.match(badName.doc.detail, /^\/name /);
       assert.equal(secret(h, ["rm", "openai.key"]).exit, 2);
 
       // tamper: flip one ciphertext byte on disk, restart; the value is refused, not guessed

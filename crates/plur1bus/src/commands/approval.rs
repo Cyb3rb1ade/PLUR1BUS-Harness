@@ -409,10 +409,18 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
         }
         ApprovalCmd::Verify => {
             let v = call(out, &mut connect(out, layout), "approval.verify", json!({}));
-            out.ok("approval.verify/1", &v, || render_verify(&v));
             if !verify_intact(&v) {
-                std::process::exit(1);
+                let mut failure = crate::output::Failure::new(
+                    "E_STORAGE",
+                    "approval-chain-broken",
+                    "the approval chain does not verify (grants after the break are suspended)",
+                );
+                if let Some(why) = v["reason"].as_str() {
+                    failure.extra["detail"] = json!(why);
+                }
+                out.ok_but_failed("approval.verify/1", &v, || render_verify(&v), failure);
             }
+            out.ok("approval.verify/1", &v, || render_verify(&v));
         }
         ApprovalCmd::Audit { limit } => {
             let mut p = json!({});

@@ -72,8 +72,8 @@ describe("M8 — backup and restore against a real core", () => {
       const bad = Buffer.from(bytes); bad[Math.floor(bad.length / 2)]! ^= 0xff;
       writeFileSync(flipped, bad); writeFileSync(cut, bytes.subarray(0, bytes.length - 100));
       for (const f of [flipped, cut]) {
-        assert.equal(cli(h, ["backup", "verify", f], { allowFail: true }).exit, 1, f);
-        assert.equal(cli(h, ["backup", "restore", "--yes", f], { allowFail: true }).exit, 1, f);
+        assert.equal(cli(h, ["backup", "verify", f], { allowFail: true }).exit, 2, f); // E_INVALID_PARAMS (docs/errors.md exit table)
+        assert.equal(cli(h, ["backup", "restore", "--yes", f], { allowFail: true }).exit, 2, f);
       }
 
       // ── a failed restore leaves the current (mutated) state: start a core and see the mutation, then stop it again
