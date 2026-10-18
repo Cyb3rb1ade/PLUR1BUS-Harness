@@ -96,12 +96,7 @@ fn backfill_import_forwards_agent_and_apply_to_importer() {
         .arg("--home")
         .arg(home.path())
         .args([
-            "--json",
-            "import",
-            "backfill",
-            "--agent",
-            "my-agent",
-            "--apply",
+            "--json", "import", "backfill", "--agent", "my-agent", "--apply",
         ])
         .assert()
         .success()
