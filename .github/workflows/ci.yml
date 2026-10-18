@@ -82,10 +82,13 @@ jobs:
           bwrap --ro-bind / / --unshare-all true && echo "bwrap ok"
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-toolchain.mjs
+      - run: node --test scripts/check-toolchain.test.mjs
       - name: config fixture drift (before generation)
         run: node packages/config-schema/src/gen-defaults.mjs --check
       - run: pnpm gen
       - run: pnpm build
+      # A cold full-program strict check needs >2 GiB (incremental only saves warm runs).
+      # Preserve the same compiler inputs/options; give V8 headroom on the 7 GiB macOS runner.
       - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm lint
         env:
           NODE_OPTIONS: ${{ runner.os == 'macOS' && '--max-old-space-size=4096' || '' }}
