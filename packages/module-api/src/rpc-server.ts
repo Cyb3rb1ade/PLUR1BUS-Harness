@@ -302,7 +302,9 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       // Capture the audience before asynchronous identity lookup; a caller cannot widen it later.
       const audience = opts.audience?.map(target => typeof target === "string" ? target : { ...target });
       for (const c of conns.values()) {
-        if (!c.authed || c.closing) continue;
+        if (!c.authed || c.closing || audience?.length === 0) continue;
+        const eligible = [...c.subs.values()].filter(sub => opts.optIn ? sub.names?.includes(method) : !sub.names || sub.names.includes(method));
+        if (!eligible.length) continue;
         if (c.pendingNotifications >= MAX_PENDING_NOTIFICATIONS) { c.sock.destroy(); continue; }
         c.pendingNotifications++;
         // Serialise identity/rights lookups per connection to preserve generation order.
@@ -321,8 +323,8 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
           const paramAgent = (params as { agentId?: unknown }).agentId;
           if (typeof paramAgent === "string" && !agentTargets.length && !await canRead(c, paramAgent)) return;
           if (!c.authed || c.closing || conns.get(c.id) !== c) return;
-          for (const sub of c.subs.values()) {
-            if (opts.optIn ? !sub.names?.includes(method) : sub.names && !sub.names.includes(method)) continue;
+          for (const sub of eligible) {
+            if (c.subs.get(sub.id) !== sub) continue;
             if (audience !== undefined) {
               const matches = audience.some(target => typeof target === "string"
                 ? target === c.id || (sub.agentId !== undefined && target === sub.agentId)
