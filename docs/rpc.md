@@ -1445,6 +1445,79 @@ Voice V3: voice.agent.override.clear. Reads are available to all five human role
 }
 ```
 
+### `voice.session.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+D110 server-side voice session broker. Requires a person with agent use rights and an authenticated T2+ surface. Parent kind, billing path, region and provider terms acceptance come from providers.openaiVoice. Returns no credential. Delegation defaults to client.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "provider": {
+      "enum": [
+        "openai:realtime",
+        "openai:gpt-live"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "transport": {
+      "enum": [
+        "webrtc",
+        "websocket",
+        "sip"
+      ]
+    },
+    "sdp": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 131072
+    }
+  },
+  "required": [
+    "agentId",
+    "provider",
+    "model",
+    "transport"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sdpAnswer": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
 ### `voice.realtime.start`
 
 **Stability:** experimental · since 1.6.0
@@ -13407,6 +13480,111 @@ Every known channel (the config schema's `channels.*` plus any registered with t
       "type": "array",
       "items": {
         "$ref": "#/$defs/ChannelSummary"
+      }
+    }
+  }
+}
+```
+
+### `channel.crypto`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Experimental owner/admin SAS control for opt-in Matrix memory crypto. Non-persistent; verification is lost after restart. Confirm only after comparing displayed SAS with the peer device. Never returns private keys.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "action"
+  ],
+  "properties": {
+    "id": {
+      "const": "matrix",
+      "type": "string"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "start",
+        "inspect",
+        "accept",
+        "confirm",
+        "cancel"
+      ]
+    },
+    "userId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "deviceId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "flowId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "confirmed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "flowId": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "memory"
+      ]
+    },
+    "warning": {
+      "type": "string"
+    },
+    "done": {
+      "type": "boolean"
+    },
+    "cancelled": {
+      "type": "boolean"
+    },
+    "emoji": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "symbol",
+          "description"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "decimals": {
+      "type": "array",
+      "items": {
+        "type": "integer"
       }
     }
   }

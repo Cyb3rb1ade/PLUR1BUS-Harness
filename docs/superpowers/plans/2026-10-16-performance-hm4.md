@@ -41,10 +41,10 @@ Files: scripts/bench/{metrics,startup}.mjs, scripts/bench/metrics.test.mjs, test
 
 Files: scripts/bench/reference-hardware.mjs, scripts/bench/budgets.mjs, docs/performance.md, docs/performance-reference-hardware.md.
 
-- [ ] Start codex/perf-p2-budgets-o6, merge origin/main normally.
-- [ ] Map every ADR budget to its owning measurement/test, policy and required runner; never use unit-test duration as a product benchmark.
-- [ ] Add a fresh-home, privacy-limited JSON/Markdown reference runner using available measurement paths; report unavailable probes explicitly.
-- [ ] Document owner instructions in German and English for macOS, Linux and Windows.
+- [x] Start codex/perf-p2-budgets-o6, merge origin/main normally.
+- [x] Map every ADR budget to its owning measurement/test, policy and required runner; never use unit-test duration as a product benchmark.
+- [x] Add a fresh-home, privacy-limited JSON/Markdown reference runner using available measurement paths; report unavailable probes explicitly.
+- [x] Document owner instructions in German and English for macOS, Linux and Windows.
 - [ ] Run affected tests, typecheck and hygiene; create open PR with known gaps.
 
 ### Task 3: Phase 3 HM4

@@ -344,6 +344,8 @@ impl Controller {
         {
             return Err(CtlError::Health);
         }
+        // Read-only capability checks precede journal writes, downloads, stop and snapshots.
+        super::compatibility::require_upgrade(self.runtime.as_ref(), &old).await?;
         let mut j = Journal {
             from,
             to: approved,

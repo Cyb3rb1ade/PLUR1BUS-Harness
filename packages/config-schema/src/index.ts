@@ -37,7 +37,7 @@ export interface HarnessConfig {
   supervisor: { graceMs: number; healthIntervalMs: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
+  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
   memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string };
@@ -53,7 +53,7 @@ export interface HarnessConfig {
   channels: {
     discord: ChannelCommonConfig & { tokenSecret: string; applicationId?: string; intents: string[] };
     slack: ChannelCommonConfig & { botTokenSecret: string; appTokenSecret: string; teamId?: string };
-    matrix: ChannelCommonConfig & { homeserverUrl?: string; userId?: string; accessTokenSecret: string; deviceId?: string; autoJoin: "allowlist" | "never" };
+    matrix: ChannelCommonConfig & { homeserverUrl?: string; userId?: string; accessTokenSecret: string; deviceId?: string; autoJoin: "allowlist" | "never"; e2ee?: { mode: "off" | "memory"; unverifiedDevices: "reject" | "allow" } };
     signal: ChannelCommonConfig & { account?: string; endpoint: { socketPath?: string; host?: string; port?: number }; allowRemoteEndpoint: boolean };
     email: {
       enabled: boolean; address?: string; displayName?: string; dmAllowlist: string[]; maxAttachmentBytes: number; requireAuthPass: boolean; locale: "en" | "de";

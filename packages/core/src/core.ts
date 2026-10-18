@@ -1,3 +1,4 @@
+import { authorize } from "./rbac/authorize.ts";
 import { buildEmbeddingSelectionSurface } from "./rpc/embedding-selection-surface.ts";
 import { creationDigest } from "./agents/saga.ts";
 import { LicenceLedger } from "./licences/ledger.ts";
@@ -6,6 +7,7 @@ import { buildChatSurface } from "./rpc/chat-surface.ts";
 import { apiAdmission } from "./rpc/api-admission.ts";
 import { apiIdentities } from "./rpc/api-identity.ts";
 import { buildDoctorMethods } from "./doctor-report.ts";
+import { buildVoiceSessionMethods } from "./rpc/voice-session-surface.ts";
 import { createAuthSecretStore } from "./auth/secret-store.ts";
 import { createWriter } from "./logs/writer.ts";
 import { createD111Events } from "./discovery/events-logger.ts";
@@ -452,7 +454,7 @@ export function createCore(o: CoreOptions): Core {
       const events = (name: string, payload: unknown) => {
         // ADR-016 §6: the harness-owned notification, projected onto its schema.
         const m = mapEngineEvent(name, payload);
-        if (m) server?.notify(m.method, m.params, m.audience ? { audience: m.audience } : {});
+        if (m) server?.notify(m.method, m.params, m.audience ? { audience: m.audience.map(agentId => ({ agentId })) } : {});
         else if (!unmapped.has(name)) { unmapped.add(name); logger?.debug("unmapped engine event", { name }); }
         // G13: the deprecated verbatim forward, only to subscriptions that name engine.event.
         if (ENGINE_EVENT_NAMES.includes(name)) {
@@ -476,7 +478,7 @@ export function createCore(o: CoreOptions): Core {
       if (storeSchema.current !== null && storeSchema.current !== storeSchema.expected) {
         logger.warn("store schema differs from the engine's expected version; run `plur1bus admin migrate`", { current: storeSchema.current, expected: storeSchema.expected });
       }
-      activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
+      activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }, { audience: [{ agentId }] }));
 
       const discDefaults = defaultDiscoveryAdapters({ logger, runtime: {
         definitions: () => o.composition?.definitions ?? Object.fromEntries(Object.entries(cfg().providers).filter(([, value]) => !!value && typeof value === "object" && "wireFormat" in value)) as Record<string, DiscoveryProviderDefinition>,
@@ -654,7 +656,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
@@ -831,6 +833,8 @@ export function createCore(o: CoreOptions): Core {
         ...(sessions?.methods ?? {}),
         ...(turnComposition?.surfaceMethods ?? {}),
         ...(turnComposition?.voice.v3.methods ?? {}),
+        ...buildVoiceSessionMethods({ config: cfg, broker: () => turnComposition?.voice.broker, hasAgent: id => registry.has(id), clock, audit: rbacAudit,
+          surface: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }),
         ...buildInboxSurface(() => inbox?.service ?? null),
         ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
         ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
@@ -861,10 +865,19 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, redactor: secretStore.redaction.redactor({ pii: true }), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; } }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; } }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
+      // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
+      rawMethods["events.subscribe"] = async () => ({});
       const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
+      const subscribe = methods["events.subscribe"]!;
+      methods["events.subscribe"] = async (p, ctx) => {
+        // The API's credential-only control link watches account revocations, never agent events.
+        if (apiPrincipal(ctx) === null && p.agentId === undefined && Array.isArray(p.names) && p.names.length === 1 && p.names[0] === "api.account.changed") return {};
+        return subscribe(p, ctx);
+      };
       server = createRpcServer({
+        canReadAgent: async (ctx, agentId) => authorize(await resolvePrincipal(ctx, "events.subscribe", { agentId }), "agent.read", { kind: "agent", agentId }, { now: clock() }).effect === "allow",
         address, token, apiToken, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => { apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
         onCall: (method, result) => metrics.rpcCall(method, result),

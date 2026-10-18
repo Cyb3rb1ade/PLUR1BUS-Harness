@@ -14,6 +14,7 @@ import type { PageProps } from "../registry.ts";
 import { failureOf } from "../common/load.ts";
 import { choiceById } from "./licences.ts";
 import { changesFor, load, save, stepsFor, validate, type Answers, type Errors, type Saved, type StepId, type Status } from "./model.ts";
+import { DecisionHintIfMissing } from "../common/decision-hint.ts";
 import { BackupStep, ImportStep, ModelStep, PersonaStep, UnavailableStep, type StepProps } from "./steps.ts";
 import { lazySection } from "../common/lazy-section.ts";
 import { MediaSetupStep, type MediaSetupProps } from "../media-search/setup.ts";
@@ -186,6 +187,7 @@ export function SetupPage({ item }: PageProps): View {
         h("h2", { id: "setup-h", ref: heading, tabIndex: -1 }, t("setup.summary.title")),
         h("p", { class: "reading" }, t("setup.summary.lead")),
         h(Summary, { steps: ids, st }),
+        h(DecisionHintIfMissing, { where: "wizard" }),
         h("div", { class: "setup-nav" },
           h("button", { type: "button", class: "btn", onClick: () => { go(ids.length - 1); } }, t("setup.back")),
           h("a", { class: "btn btn-primary", href: "#/chat" }, t("setup.summary.chat")))));

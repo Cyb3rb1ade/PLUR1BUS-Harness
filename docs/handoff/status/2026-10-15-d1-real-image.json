@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "runtime": "apple",
+  "immutableImage": true,
+  "imageIdentity": "verified-local-manifest-alias",
+  "imageVerified": true,
+  "compatibility": false,
+  "volumeOwnershipInitialized": true,
+  "nonroot10001": true,
+  "daemonStatusJson": true,
+  "daemonReady": true,
+  "missingContracts": [
+    {
+      "contract": "device.pair",
+      "reason": "command-unavailable"
+    },
+    {
+      "contract": "user.create",
+      "reason": "command-unavailable"
+    },
+    {
+      "contract": "state.snapshot",
+      "reason": "command-unavailable"
+    },
+    {
+      "contract": "state.verify",
+      "reason": "command-unavailable"
+    },
+    {
+      "contract": "state.restore",
+      "reason": "command-unavailable"
+    },
+    {
+      "contract": "admin.smoke",
+      "reason": "command-unavailable"
+    }
+  ],
+  "cleanupVerified": true,
+  "fullDesktopApiGate": false,
+  "failure": null,
+  "failureStage": null,
+  "imageIndexDigest": "sha256:14d054b94da275adb09324e82b2448d180f3061b8de9d68b4bd7949b62a14c08",
+  "imageManifestDigest": "sha256:864753d197c83d3d1fe6eedb21935fbe430b969f5dbce97442d53f16d7c441f1",
+  "sourceBaseRevision": "cd096a71",
+  "host": "macOS arm64, Apple container 1.5.0"
+}

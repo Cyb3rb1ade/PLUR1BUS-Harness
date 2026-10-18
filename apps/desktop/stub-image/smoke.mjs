@@ -43,8 +43,8 @@ try {
     '--user', '10001:10001', '--read-only', '--tmpfs', '/tmp', '--cap-drop', 'ALL',
     '--security-opt', 'no-new-privileges', '--pids-limit', '1024', '--restart', 'unless-stopped',
     '--stop-timeout', '150', '--publish', `127.0.0.1:${port}:18700`,
-    '--volume', `${state}:/var/lib/plur1bus`, '--volume', `${models}:/var/lib/plur1bus/models`,
-    '--env', 'PLUR1BUS_CONTAINER=1', '--env', 'PLUR1BUS_HOME=/var/lib/plur1bus',
+    '--volume', `${state}:/state`, '--volume', `${models}:/state/models`,
+    '--env', 'PLUR1BUS_CONTAINER=1', '--env', 'PLUR1BUS_HOME=/state',
     '--env', 'TZ=UTC', '--env', 'LANG=C.UTF-8', 'p1t-stub-harness:wp02']);
   created = true;
   const published = cli(['port', container, '18700/tcp']);

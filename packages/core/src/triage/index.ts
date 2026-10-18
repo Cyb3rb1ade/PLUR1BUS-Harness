@@ -32,7 +32,7 @@ const RULES: readonly [RegExp, string][] = [
 export function ruleClassifier({ message, cost }: ClassifierInput): TriageDecision {
   if (!message.trim() || /^(hi|hello|hallo|danke|thanks)[!.\s]*$/i.test(message.trim())) return { schema: 'plur1bus.triage/1', shape: 'chat', tasks: [] };
   const parts: { text: string; start: number; end: number; dependent: boolean }[] = [];
-  const separator = /;\s*(?:(?:then|danach|anschließend)\s+)?|\n+(?:[-*]\s*|\d+[.)]\s*)?|\s+(?:and then|und danach|then|danach)\s+/gi;
+  const separator = /;[^\S\n]*(?:(?:then|danach|anschließend)[^\S\n]+)?|\n+(?:[-*][^\S\n]*|\d+[.)][^\S\n]*)?|(?<=\s)(?:and then|und danach|then|danach)\s+/gi;
   let start = 0, dependent = false;
   for (const match of message.matchAll(separator)) { add(start, match.index!, dependent); start = match.index! + match[0].length; dependent = /then|danach|anschließend/i.test(match[0]); }
   add(start, message.length, dependent);
@@ -51,11 +51,12 @@ export function ruleClassifier({ message, cost }: ClassifierInput): TriageDecisi
 export function triage(message: string, options: { classifier?: ClassifierPort; cost?: CostPreference; activeTask?: string; currentClass?: ModelClass } = {}): TriageDecision {
   if (options.activeTask && /^(yes|no|ok|continue|ja|nein|weiter|genau)[!.\s]*$/i.test(message.trim())) return { schema: 'plur1bus.triage/1', shape: 'followup', tasks: [] };
   const cost = options.cost ?? 'balanced'; const result = structuredClone((options.classifier ?? ruleClassifier)({ message, cost }));
-  if (result.schema !== 'plur1bus.triage/1' || !['chat', 'single', 'multi', 'followup'].includes(result.shape)) throw Error('invalid triage decision');
+  // A classifier is an outside port (an LLM may return anything): check the shape before touching tasks.
+  if (typeof result !== 'object' || result === null || result.schema !== 'plur1bus.triage/1' || !['chat', 'single', 'multi', 'followup'].includes(result.shape) || !Array.isArray(result.tasks)) throw Error('invalid triage decision');
   const ids = new Set<string>(); let previousEnd = 0;
   for (const t of result.tasks) {
-    if (!t.id || ids.has(t.id) || t.start < previousEnd || t.end <= t.start || t.end > message.length || !t.summary || t.dependsOn.some(id => !ids.has(id))) throw Error('invalid task segmentation or dependency');
-    if (!Object.keys(t.categories).length || Object.keys(t.categories).length > 3 || Object.values(t.categories).some(p => !Number.isFinite(p) || p < 0) || Math.abs(Object.values(t.categories).reduce((a, b) => a + b, 0) - 1) > 1e-6) throw Error('invalid category distribution');
+    if (!t || !Number.isSafeInteger(t.start) || !Number.isSafeInteger(t.end) || !Array.isArray(t.dependsOn) || typeof t.id !== 'string' || !['low', 'medium', 'high'].includes(t.effort) || typeof t.reason !== 'string' || !t.id || ids.has(t.id) || t.start < previousEnd || t.end <= t.start || t.end > message.length || !t.summary || t.dependsOn.some(id => !ids.has(id))) throw Error('invalid task segmentation or dependency');
+    if (!t.categories || typeof t.categories !== 'object' || Array.isArray(t.categories) || Object.keys(t.categories).some(k => !/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/.test(k)) || !Object.keys(t.categories).length || Object.keys(t.categories).length > 3 || Object.values(t.categories).some(p => !Number.isFinite(p) || p < 0) || Math.abs(Object.values(t.categories).reduce((a, b) => a + b, 0) - 1) > 1e-6) throw Error('invalid category distribution');
     t.chosenClass = chooseClass(t.modelClass, cost, t.confidence); ids.add(t.id); previousEnd = t.end;
   }
   return structuredClone(result);

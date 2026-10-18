@@ -344,7 +344,7 @@ async fn patch_upgrade_with_a_schema_change_is_refused() {
             .unwrap()
             .calls
             .iter()
-            .any(|c| c.contains("admin migrate")));
+            .any(|c| c.contains("admin migrate") && !c.ends_with(" --help")));
     }
 }
 
@@ -749,6 +749,39 @@ async fn manual_rollback_is_unavailable_when_the_snapshot_volume_is_missing() {
     }
 }
 
+#[tokio::test]
+async fn real_cli_missing_cold_snapshot_contract_refuses_before_any_upgrade_mutation() {
+    let f = fixture(RuntimeKind::Docker).await;
+    f.runtime
+        .desktop_upgrade_help
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    let before = f.runtime.state.lock().unwrap().calls.len();
+    let installed = f.dir.path().join("bundled/installed.json");
+    let bytes = std::fs::read(&installed).unwrap();
+    let result = f
+        .ctl
+        .upgrade(
+            &f.target,
+            f.target.version.parse().unwrap(),
+            plur1bus_desktop::updates::Kind::Patch,
+            &f.tokens,
+            &f.conn,
+            |_| panic!("missing contract must precede checkpoint"),
+        )
+        .await;
+    assert!(matches!(
+        result,
+        Err(plur1bus_desktop::controller::CtlError::MissingContract(
+            "state"
+        ))
+    ));
+    assert_eq!(std::fs::read(&installed).unwrap(), bytes);
+    assert!(!f.dir.path().join("bundled/upgrades.json").exists());
+    let s = f.runtime.state.lock().unwrap();
+    assert!(s.calls[before..]
+        .iter()
+        .all(|call| call.starts_with("exec:") || call.starts_with("state:")));
+}
 async fn run_as(
     f: &Fixture,
     approved: &str,
