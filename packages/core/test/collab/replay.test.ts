@@ -24,3 +24,10 @@ test('each delegation persists a redacted replayable session linked to W3C trace
   assert.deepEqual(collab.replay(owner, trace.traceId, span.spanId), first);
   t.after(() => { collab.close(); sessions.close(); });
 });
+test('trace redaction follows credentials registered after composition startup', async () => {
+  const { liveLogsRedactionPort } = await import('../../src/collab/ports.ts');
+  const registered = new Set<string>(), port = liveLogsRedactionPort(() => registered);
+  assert.equal(port.text('late-private-marker'), 'late-private-marker');
+  registered.add('late-private-marker'); assert.ok(!port.text('late-private-marker').includes('late-private-marker'));
+  assert.ok(!JSON.stringify(port.value({ transcript: 'late-private-marker' })).includes('late-private-marker'));
+});
