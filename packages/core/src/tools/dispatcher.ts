@@ -1,5 +1,6 @@
 // The tool-call dispatcher (B1): resolve → validate → policy gate → execute under limits → provenance envelope.
 // `call` never throws: every outcome, refusals and failures included, is an envelope the model sees and the trace records.
+import { permitsTool } from "../channels/behaviour-context.ts";
 import { createHash } from "node:crypto";
 import { decide, type ApprovalRequest, type Call, type CallFlags, type Clock, type Context, type Decision, type GrantSource, type SurfaceTrust } from "../policy/index.ts";
 import type { PolicyAudit, PolicyAuditFields } from "../policy/audit.ts";
@@ -95,7 +96,7 @@ export class ToolDispatcher {
   constructor(d: ToolDispatcherDeps) { this.#d = d; }
 
   /** What a provider is told about the registered tools. */
-  describe(): ReturnType<ToolRegistry["describe"]> { return this.#d.registry.describe(); }
+  describe(): ReturnType<ToolRegistry["describe"]> { return this.#d.registry.describe().filter(t => permitsTool(t.name, this.#d.registry.get(t.name)!.capability)); }
 
   async call(req: ToolCallRequest, ctx: DispatchContext): Promise<ToolResult> {
     const started = this.#d.clock.now();
@@ -107,6 +108,10 @@ export class ToolDispatcher {
     });
     try {
       if (!tool) return fail("tool-unknown", `no tool named ${JSON.stringify(String(req.name).slice(0, 64))}`, "none");
+      if (!permitsTool(tool.name, tool.capability)) {
+        this.#auditSoft("policy.decision", { ...this.#who(ctx, undefined), tool: tool.name, capability: tool.capability, outcome: "never", rule: "channel-behaviour" });
+        return fail("tool-denied", "the channel behaviour profile forbids this tool", "deny");
+      }
       if (ctx.signal.aborted) return fail("aborted", "the call was aborted before it started", "none");
 
       // 1. arguments: bounded, validated, at most one repair round. An invalid call is neither gated nor run.

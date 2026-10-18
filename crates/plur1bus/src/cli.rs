@@ -185,6 +185,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AuditCmd,
     },
+    /// [experimental] Diagnostic logs: query and tail through the core
+    Logs {
+        #[command(subcommand)]
+        sub: crate::commands::logs::LogsCmd,
+    },
     /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
     ///
     /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
@@ -810,6 +815,11 @@ pub enum DreamsCmd {
         #[arg(long)]
         agent: String,
     },
+    /// [experimental] Read the private dreaming diary of an agent
+    Diary {
+        #[arg(long)]
+        agent: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -1073,6 +1083,12 @@ pub enum SessionCmd {
 
 #[derive(clap::Args, Debug)]
 pub struct ChatArgs {
+    /// Configured model profile for this session; warns and asks before switching
+    #[arg(long, value_name = "PROFILE")]
+    pub model: Option<String>,
+    /// Confirm the model switch for scripts (including --json)
+    #[arg(long)]
+    pub yes: bool,
     /// The agent to talk to (default: the only registered agent)
     #[arg(long)]
     pub agent: Option<String>,

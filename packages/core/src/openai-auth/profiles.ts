@@ -35,7 +35,7 @@ export function chooseFailover(from: BillingPath, candidates: { id: string; bill
   return candidate?.id;
 }
 /** Metadata only. No imported token values are accepted by this API. */
-export function importedProfile(id: string) { if (id !== 'openai:chatgpt-oauth-restricted') throw new OpenAIError('invalid-request'); return { id, enabled: false as const, replacement: 'openai:chatgpt-plan', action: 'Sign in with ChatGPT again' }; }
+export function importedProfile(id: string) { if (id !== 'openai:chatgpt-oauth-restricted') throw new OpenAIError('invalid-request'); return { id, enabled: false as const, reason: 'D13 route 3 is retired; imported credentials are never usable', replacement: 'openai:chatgpt-plan', action: 'Sign in with ChatGPT again, use an API key, or attach the official client over ACP' }; }
 export interface CredentialDenyPort { canonicalize(path: string): Promise<string>; denied(canonical: string): Promise<boolean> }
 /** D109 owns platform-aware canonical paths, aliases, keychain names and foreign registration records. */
 export async function credentialAccess<T>(deny: CredentialDenyPort, path: string, read: () => Promise<T>): Promise<T> { return boundary(async () => { if (await deny.denied(await deny.canonicalize(path))) throw new OpenAIError('credential-denied'); return read(); }, 'credential-denied'); }

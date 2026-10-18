@@ -80,6 +80,16 @@ describe("web tools: execute", () => {
   });
 });
 
+describe("web tools: web.search context", () => {
+  it("the agent id and signal reach web.search (the provider is an agent setting, D95)", async () => {
+    let seen: unknown;
+    const t = createWebTools({ fetch: createWebFetch({}), search: { search: async (_a, ctx) => { seen = ctx; throw new Error("x"); } } }).tools[1]!;
+    const ac = new AbortController();
+    await t.execute({ query: "q" }, { agentId: "a1", signal: ac.signal });
+    assert.deepEqual(seen, { agentId: "a1", signal: ac.signal });
+  });
+});
+
 describe("web tools: argument repair (M2 acceptance 14)", () => {
   it("an invalid web.fetch call is repaired in one round and then runs", async () => {
     const s = await startStub((req, res) => res.writeHead(200, { "content-type": "text/plain" }).end("repaired"));

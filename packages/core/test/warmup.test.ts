@@ -180,6 +180,23 @@ describe("warmup", () => {
     assert.ok(lines.some(([lvl, msg]) => lvl === "warn" && /onDone|status/.test(msg)), JSON.stringify(lines));
   });
 
-  it.todo("KNOWN GAP: the recall-path pass has only a per-agent budget, so N hung agents keep the engine at models-warming for N times recallTimeoutMs; it needs an overall budget (a new WarmupOptions field, wired in the composition root)");
+  it("an overall budget ends the recall-path pass although every agent hangs for its own full timeout", async () => {
+    const lines: Line[] = []; const order: string[] = [];
+    const engine = {
+      models: { status: () => models("loading", "loading"), warm: async () => models("ready", "ready") },
+      memory: { list: (_q: unknown, p: any) => { order.push(p.agentId); return new Promise(() => {}); } },
+      embedding: { rerank: () => { order.push("rerank"); return new Promise(() => {}); } },
+    } as unknown as E.Engine;
+    const t0 = performance.now();
+    const w = startWarmup({
+      engine, logger: recordingLogger(lines), signal: new AbortController().signal, onDone: () => {},
+      recallTimeoutMs: 400, recallOverallTimeoutMs: 100,
+      recallPath: { agents: () => ["a", "b", "c", "d", "e", "f"], principal: (agentId) => ({ agentId } as unknown as E.Principal) },
+      onRecallDone: () => order.push("onRecallDone"),
+    });
+    await w.done;
+    assert.ok(performance.now() - t0 < 700, "six hung agents at 400ms each would take 2400ms");
+    assert.deepEqual(order, ["a", "onRecallDone"], "the budget ended the pass before the next agent and the rerank");
+  });
   it.todo("KNOWN GAP: models.warm() itself has no deadline (a first-run model download may legitimately take minutes); a hung provider keeps recallWarmPending true until shutdown");
 });

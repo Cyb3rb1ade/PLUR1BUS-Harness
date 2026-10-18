@@ -1,0 +1,37 @@
+{
+  "type": "search",
+  "query": { "original": "harness memory benchmarks", "show_strict_warning": false, "is_navigational": false, "country": "us", "more_results_available": true },
+  "web": {
+    "type": "search",
+    "results": [
+      {
+        "title": "Memory <strong>benchmarks</strong> for agent harnesses",
+        "url": "https://docs.example.org/guides/memory-benchmarks",
+        "is_source_local": false,
+        "is_source_both": false,
+        "description": "How a <strong>harness</strong> is measured: recall at k, latency &amp; cost, with a worked example.",
+        "page_age": "2026-09-30T08:15:00",
+        "profile": { "name": "Example Docs", "url": "https://docs.example.org", "long_name": "docs.example.org", "img": "https://imgs.example.org/p.png" },
+        "language": "en",
+        "family_friendly": true,
+        "type": "search_result",
+        "subtype": "generic",
+        "meta_url": { "scheme": "https", "netloc": "docs.example.org", "hostname": "docs.example.org", "favicon": "https://imgs.example.org/f.png", "path": "› guides › memory-benchmarks" },
+        "age": "2 weeks ago"
+      },
+      {
+        "title": "Recall quality in practice",
+        "url": "https://blog.example.net/recall-quality?utm_source=feed",
+        "description": "A short field report.",
+        "language": "en",
+        "type": "search_result"
+      },
+      {
+        "title": "Unsafe link",
+        "url": "javascript:alert(1)",
+        "description": "dropped by the normaliser"
+      }
+    ]
+  },
+  "mixed": { "type": "mixed", "main": [{ "type": "web", "index": 0, "all": false }] }
+}

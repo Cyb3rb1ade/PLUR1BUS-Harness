@@ -1,3 +1,6 @@
+import { MatrixMemoryCrypto, MEMORY_CRYPTO_WARNING, type VerificationInput } from "./crypto-memory.ts";
+import { SyncSafetyError } from "./sync-safety.ts";
+import { channelMessageAllowed, channelOutputText } from "../../core/src/channels/behaviour.ts";
 // DUPLICATE: candidate for shared package (the lifecycle, bucket and retry shape mirrors channels-telegram).
 import { randomBytes } from "node:crypto";
 import type { IdentityService } from "../../core/src/identity/service.ts";
@@ -123,6 +126,7 @@ export class MatrixChannel implements Channel {
     markdown: "converted",
     maxMessageChars: MATRIX_MAX_BODY_BYTES,
   };
+  #crypto: MatrixMemoryCrypto | undefined;
   readonly #cfg: ResolvedConfig;
   readonly #deps: MatrixDeps;
   readonly #now: () => number;
@@ -137,7 +141,10 @@ export class MatrixChannel implements Channel {
   readonly #seen = new BoundedSet<string>(4096);
   readonly #sentIds = new BoundedSet<string>(4096);
   readonly #handledInvites = new BoundedSet<string>(1024);
-  readonly #encrypted = new BoundedSet<string>(4096);
+  readonly #encrypted = new Set<string>();
+  readonly #pendingClaims = new Set<string>();
+  #encryptionOverflow = false;
+  readonly #encryptionChecked = new BoundedSet<string>(4096);
   readonly #noticed = new BoundedSet<string>(4096);
   /** DM rooms from m.direct whose peer is on dmAllowlist. */
   #mDirectRooms = new Set<string>();
@@ -166,6 +173,11 @@ export class MatrixChannel implements Channel {
     this.#random = opts.random ?? Math.random;
     this.#global = new TokenBucket(30, 1000 / 30, this.#now, this.#sleep);
     this.#approvals = new ReactionApprovals(this.#now);
+  }
+
+  async cryptoVerification(input: VerificationInput): Promise<Record<string, unknown>> {
+    if (!this.#crypto) throw new Error("matrix E2EE is disabled");
+    return this.#crypto.verification(input);
   }
 
   onMessage(handler: (m: RichInbound) => void | Promise<void>): () => void {
@@ -214,9 +226,19 @@ export class MatrixChannel implements Channel {
       this.#botName = await this.#displayName(me.user_id, signal);
       try {
         this.#since = await this.#deps.syncStore.load();
+        this.#seen.clear(); this.#encrypted.clear(); this.#encryptionChecked.clear(); this.#pendingClaims.clear();
+        const safety = await this.#deps.syncStore.loadSafety?.();
+        for (const id of safety?.claimedEventIds ?? []) { this.#seen.add(id); this.#pendingClaims.add(id); }
+        this.#encryptionOverflow = safety?.encryptionOverflow === true;
+        for (const id of safety?.encryptedRooms ?? []) this.#encrypted.add(id);
       } catch {
         // Fail closed: replaying or skipping history after a bad token file is worse than refusing to start.
         throw new Error("matrix sync state is unusable; refusing to start");
+      }
+      if ((this.#deps as MatrixChannelOptions).e2ee?.mode === "memory") {
+        if (!me.device_id) throw new Error("matrix E2EE requires a device id");
+        this.#log("warn", "channel.matrix.crypto-memory", { warning: MEMORY_CRYPTO_WARNING });
+        this.#crypto = await MatrixMemoryCrypto.open(me.user_id, me.device_id, { request: request => this.#api!.cryptoRequest(request, signal), members: room => this.#api!.roomMembers(room, signal) }, (this.#deps as MatrixChannelOptions).e2ee?.unverifiedDevices ?? "reject");
       }
       this.#inactive.clear();
       this.#rooms.clear();
@@ -226,6 +248,7 @@ export class MatrixChannel implements Channel {
       this.#loop = this.#syncLoop(signal);
     } catch (e) {
       ac.abort();
+      await this.#crypto?.close().catch(() => {}); this.#crypto = undefined;
       this.#healthy = false;
       this.#ac = undefined;
       this.#api = undefined;
@@ -258,6 +281,7 @@ export class MatrixChannel implements Channel {
     this.#ac?.abort();
     await this.#starting?.catch(() => {});
     await this.#loop;
+    await this.#crypto?.close(); this.#crypto = undefined;
     await this.#updates;
     this.#approvals.clear();
     this.#ownerRooms.clear();
@@ -286,12 +310,15 @@ export class MatrixChannel implements Channel {
   }
 
   async sendTurn(turn: OutboundTurn): Promise<SentRef[]> {
+    turn = { ...turn, text: channelOutputText(this.#host, this.name, turn.chatId, "reply", turn.text) };
     if (!this.#api || !this.#ac) throw new Error("matrix channel is not started");
     const target = this.#target(turn.chatId);
     if (turn.threadId !== undefined && target.thread !== undefined && turn.threadId !== target.thread)
       throw new Error("conflicting thread ids");
     const thread = turn.threadId ?? target.thread;
     const signal = this.#ac.signal;
+    await this.#checkOutboundEncryption(target.roomId, signal);
+    if (this.#encrypted.has(target.roomId) && (!this.#crypto || turn.attachments?.length)) throw new Error("encrypted room requires supported E2EE text transport");
     const refs: SentRef[] = [];
     if (turn.text.trim()) {
       for (const chunk of splitMessage(turn.text)) {
@@ -373,6 +400,7 @@ export class MatrixChannel implements Channel {
 
   /** Streaming edit (`m.replace`). The new text must fit one event. Only the bot's own events can be edited. */
   async edit(ref: SentRef, text: string): Promise<void> {
+    text = channelOutputText(this.#host, this.name, ref.chatId, "edit", text);
     if (!this.#api || !this.#ac) throw new Error("matrix channel is not started");
     const target = this.#target(ref.chatId);
     if (!isEventId(ref.messageId)) throw new RangeError("invalid message reference");
@@ -492,6 +520,7 @@ export class MatrixChannel implements Channel {
     while (!signal.aborted) {
       try {
         await this.#deps.syncStore.save(token);
+        this.#pendingClaims.clear();
         if (parked && !signal.aborted) this.#healthy = true;
         return;
       } catch {
@@ -506,6 +535,7 @@ export class MatrixChannel implements Channel {
   }
 
   async #process(res: SyncResponse, initial: boolean, signal: AbortSignal): Promise<void> {
+    await this.#crypto?.receive(res);
     this.#updateDirect(res.account_data?.events ?? []);
     for (const [roomId, inv] of Object.entries(res.rooms?.invite ?? {}))
       await this.#guard(signal, () => this.#invite(roomId, inv.invite_state?.events ?? [], signal));
@@ -518,7 +548,7 @@ export class MatrixChannel implements Channel {
     try {
       await fn();
     } catch (e) {
-      if (e instanceof MatrixApiError && e.kind === "unauthorized") throw e;
+      if (e instanceof SyncSafetyError || e instanceof MatrixApiError && e.kind === "unauthorized") throw e;
       if (signal.aborted) return;
       this.#log("error", "channel.matrix.event-failed", { kind: e instanceof MatrixApiError ? e.kind : "error" });
     }
@@ -566,10 +596,27 @@ export class MatrixChannel implements Channel {
     if (!isRoomId(roomId)) return;
     const state = room.state?.events ?? [];
     const timeline = room.timeline?.events ?? [];
-    const encryptedNow = state.some((e) => e.type === "m.room.encryption") || timeline.some((e) => e.type === "m.room.encrypted");
-    if (encryptedNow) this.#encrypted.add(roomId);
+    if (this.#encryptionOverflow) throw new SyncSafetyError("matrix encryption state capacity reached; cursor parked");
+    const encryptedNow = state.some((e) => e.type === "m.room.encryption") || timeline.some((e) => e.type === "m.room.encrypted" || e.type === "m.room.encryption");
+    if (!this.#encrypted.has(roomId) && (encryptedNow || !this.#encryptionChecked.has(roomId) && await this.#roomEncrypted(roomId, signal))) {
+      if (this.#encrypted.size >= 4096) { this.#encryptionOverflow = true; await this.#saveSafety(); throw new SyncSafetyError("matrix encryption state capacity reached; cursor parked"); }
+      this.#encrypted.add(roomId);
+      await this.#saveSafety(); // publish the refusal state before any message can reach a handler
+    }
+    this.#encryptionChecked.add(roomId);
     if (this.#encrypted.has(roomId)) {
-      if (!initial && timeline.length > 0) await this.#refuseEncrypted(roomId, signal);
+      if (!this.#crypto) { if (!initial && timeline.length > 0) await this.#refuseEncrypted(roomId, signal); return; }
+      if (initial) return;
+      for (const event of timeline) {
+        if (Buffer.byteLength(JSON.stringify(event), "utf8") > 65_536) { this.#drop(roomId, "encrypted-event-too-large"); continue; }
+        if (event.type !== "m.room.encrypted") { if (event.type === "m.room.message") this.#drop(roomId, "plaintext-in-encrypted-room"); continue; }
+        await this.#guard(signal, async () => {
+          let decrypted: MatrixEvent;
+          try { decrypted = await this.#crypto!.decrypt(roomId, event); }
+          catch { this.#drop(roomId, "crypto-unverified-or-undecryptable"); return; }
+          await this.#event(roomId, decrypted, signal);
+        });
+      }
       return;
     }
     if (initial) {
@@ -577,6 +624,16 @@ export class MatrixChannel implements Channel {
       return;
     }
     for (const ev of timeline) await this.#guard(signal, () => this.#event(roomId, ev, signal));
+  }
+
+  async #roomEncrypted(roomId: string, signal: AbortSignal, operation = "roomEncryption"): Promise<boolean> {
+    try { return await this.#api!.roomEncrypted(roomId, signal, operation); }
+    catch (error) { if (error instanceof MatrixApiError && error.kind === "unauthorized") throw error; throw new SyncSafetyError("matrix room encryption state unresolved; cursor parked"); }
+  }
+
+  async #saveSafety(): Promise<void> {
+    try { await this.#deps.syncStore.saveSafety?.({ encryptedRooms: [...this.#encrypted], claimedEventIds: [...new Set([...this.#seen.values(), ...this.#pendingClaims])], ...(this.#encryptionOverflow ? { encryptionOverflow: true } : {}) }); }
+    catch { throw new SyncSafetyError("matrix safety persistence failed; cursor parked"); }
   }
 
   /** One plain notice per encrypted room, only where the bot may speak; then the room is ignored. */
@@ -595,8 +652,11 @@ export class MatrixChannel implements Channel {
 
   async #event(roomId: string, ev: MatrixEvent, signal: AbortSignal): Promise<void> {
     if (!isEventId(ev.event_id) || !isUserId(ev.sender)) return;
-    if (this.#seen.has(ev.event_id)) return;
-    this.#seen.add(ev.event_id);
+    if (this.#seen.has(ev.event_id) || this.#pendingClaims.has(ev.event_id)) return;
+    if (this.#pendingClaims.size >= 60000) throw new SyncSafetyError("matrix pending claim capacity reached; cursor parked");
+    this.#seen.add(ev.event_id); this.#pendingClaims.add(ev.event_id);
+    try { await this.#saveSafety(); }
+    catch { this.#seen.delete(ev.event_id); this.#pendingClaims.delete(ev.event_id); throw new SyncSafetyError("matrix event claim persistence failed; cursor parked"); }
     if (ev.sender === this.#cfg.userId) return; // own events: loop prevention
     if (ev.type === "m.reaction") return this.#reaction(roomId, ev, signal);
     if (ev.type === "m.room.message") return this.#message(roomId, ev, signal);
@@ -652,13 +712,7 @@ export class MatrixChannel implements Channel {
     const body = isMedia ? (isCaptioned ? rawBody : "") : stripReplyFallback(rawBody, content);
     const mentioned = mentionsBot(content, body, { userId: this.#cfg.userId, displayName: this.#botName });
     const addressed = direct || mentioned || (replyTo !== undefined && this.#sentIds.has(replyTo));
-    if (!direct) {
-      const pass =
-        this.#cfg.replyPolicy === "always" ||
-        (this.#cfg.replyPolicy === "allowlist" && this.#cfg.users?.has(senderId) === true) ||
-        addressed;
-      if (!pass) return this.#drop(roomId, "not-addressed");
-    }
+    if (!channelMessageAllowed(this.#host, { channel: this.name, chatId: formatChatId(roomId, thread), chatKind: direct ? "direct" : "group", text: body, addressed }, this.#cfg.replyPolicy, this.#cfg.users?.has(senderId) === true)) return this.#drop(roomId, "not-addressed");
     const chatId = formatChatId(roomId, thread);
     const link = !isMedia ? LINK_COMMAND.exec(body.trim()) : null;
     if (link) {
@@ -716,6 +770,7 @@ export class MatrixChannel implements Channel {
           chatId: message.chatId,
           chatKind: message.chatKind,
           senderId: message.senderId,
+          addressed: message.addressed,
           text: message.text,
           ...(message.messageId !== undefined ? { messageId: message.messageId } : {}),
         });
@@ -806,6 +861,15 @@ export class MatrixChannel implements Channel {
     this.#log("info", "channel.matrix.dropped", { reason, roomId });
   }
 
+  async #checkOutboundEncryption(roomId: string, signal: AbortSignal): Promise<void> {
+    if (this.#encryptionOverflow) throw new SyncSafetyError("matrix encryption state capacity reached");
+    if (!this.#encrypted.has(roomId) && !this.#encryptionChecked.has(roomId) && await this.#roomEncrypted(roomId, signal, "send")) {
+      if (this.#encrypted.size >= 4096) { this.#encryptionOverflow = true; await this.#saveSafety(); throw new SyncSafetyError("matrix encryption state capacity reached"); }
+      this.#encrypted.add(roomId); await this.#saveSafety();
+    }
+    this.#encryptionChecked.add(roomId);
+  }
+
   async #sendEvent(
     roomId: string,
     content: Record<string, unknown>,
@@ -814,6 +878,10 @@ export class MatrixChannel implements Channel {
   ): Promise<string> {
     // One transaction id per logical send: a retried PUT is de-duplicated by the homeserver.
     const txn = randomBytes(12).toString("base64url");
+    await this.#checkOutboundEncryption(roomId, signal);
+    const diagnostic = type === "m.room.message" && content.msgtype === "m.notice" && content.body === t(this.#cfg.locale, "encryptedRoom");
+    if (this.#encrypted.has(roomId) && !this.#crypto && !diagnostic) throw new Error("encrypted room requires E2EE");
+    if (this.#encrypted.has(roomId) && this.#crypto) { content = await this.#crypto.encrypt(roomId, type, content); type = "m.room.encrypted"; }
     const id = await this.#request(roomId, signal, () => this.#api!.sendEvent(roomId, type, content, txn, signal));
     if (type === "m.room.message") this.#sentIds.add(id);
     return id;

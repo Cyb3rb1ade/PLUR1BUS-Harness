@@ -21,8 +21,12 @@ function operation(r: RouteSpec): Record<string, unknown> {
   return {
     operationId: r.id, tags: [r.tag], summary: r.summary,
     ...(r.auth === "session" ? { security: [{ cookieAuth: [] }] } : r.auth === "any" ? { security: [{ cookieAuth: [] }, { bearerAuth: [] }] } : { security: [] }),
-    ...(r.id === "web.events" ? { parameters: [{ name: "Last-Event-ID", in: "header", required: false, schema: { type: "string" }, description: "Resume only this person's retained events; a stale id returns restart." }] } : {}),
-    ...(r.csrf ? { parameters: [{ name: "X-CSRF-Token", in: "header", required: true, description: "A one-time token from `GET /api/v1/csrf`.", schema: { type: "string" } }] } : {}),
+    ...(() => {
+      const parameters: Record<string,unknown>[]=[...r.path.matchAll(/\{(\w+)\}/g)].map(m=>({name:m[1],in:"path",required:true,schema:{type:"string"}}));
+      if(r.id==="web.events")parameters.push({name:"Last-Event-ID",in:"header",required:false,schema:{type:"string"},description:"Resume only this person's retained events; a stale id returns restart."});
+      if(r.csrf)parameters.push({name:"X-CSRF-Token",in:"header",required:true,description:"A one-time token from GET /api/v1/csrf.",schema:{type:"string"}});
+      return parameters.length?{parameters}:{};
+    })(),
     ...(r.requestBody ? { requestBody: { required: true, content: { "application/json": { schema: r.requestBody } } } } : {}),
     responses,
     "x-stability": r.stability, "x-since": r.since, "x-rate-class": r.rate, "x-csrf": r.csrf, "x-authz": authzLabel(r),

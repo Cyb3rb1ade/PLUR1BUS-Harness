@@ -20,6 +20,7 @@ import type {
 } from "./types.ts";
 
 export interface CollabOptions {
+  sessions?: () => import("../session/store.ts").SessionStore;
   path: string;
   clock?: () => number;
   newId?: (prefix: string) => string;
@@ -74,6 +75,7 @@ export interface Collab {
   cancelChain(principal: Principal, traceId: string): void;
   getTrace(principal: Principal, traceId: string): CollabTrace;
   listTraces(principal: Principal, projectId: string): CollabTrace[];
+  replay(principal: Principal, traceId: string, spanId: string): { sessionId: string; traceId: string; spanId: string; messages: import("../session/types.ts").MessageRecord[]; events: import("../session/types.ts").EventRecord[] };
   exportTrace(principal: Principal, traceId: string): string;
 }
 
@@ -261,14 +263,45 @@ export function createCollab(o: CollabOptions): Collab {
     if (!b.allowed) refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: b.reason, detail: `guardrail ${b.reason}` });
   };
 
-  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal, principal?: Principal): Promise<{ text: string; inputTokens: number; outputTokens: number }> => {
+  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal, principal?: Principal, handoff?: import("./runner.ts").AgentRunInput["handoff"], hop?: { spanId: string; fromAgent: string }): Promise<import("./runner.ts").AgentRunResult> => {
+    if (handoff) {
+      const remaining = Math.max(1, Math.min(300000, Date.parse(handoff.contract.budget.deadline) - store.now()));
+      signal = AbortSignal.any([signal, AbortSignal.timeout(remaining)]);
+    }
     const sc = scopeFor(toAgent, project.id);
-    return scope.run(sc, async () => {
+    const sessions = o.sessions?.();
+    const session = sessions && hop ? sessions.createSession({ kind: 'project', agentId: toAgent, owner: `collab-project:${project.id}`, scope: project.id, title: `Delegation ${hop.fromAgent} → ${toAgent}` }) : null;
+    const turn = session && sessions ? sessions.beginTurn(session.id, redact.text(question), estimateTokens(question)).turn : null;
+    if (session && hop) store.bindSession(hop.spanId, session.id);
+    if (turn && sessions && handoff) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, fromAgent: hop!.fromAgent }, handoff: redact.value(handoff.contract) });
+    const execute = () => scope.run(sc, async () => {
       if (!scope.current() || scope.current()!.agentId !== toAgent) {
         throw new CollabError("no-scope", "AgentScope is required; unscoped access is refused");
       }
-      return runner.run({ agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}) });
+      if (!handoff) return runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}) });
+      let progress = { text: "", inputTokens: 0, outputTokens: 0 };
+      let detach = () => {};
+      const aborted = new Promise<import("./runner.ts").AgentRunResult>(resolve => {
+        const done = () => resolve({ ...progress, partial: true });
+        if (signal.aborted) done();
+        else { signal.addEventListener("abort", done, { once: true }); detach = () => signal.removeEventListener("abort", done); }
+      });
+      if (signal.aborted) return { ...progress, partial: true };
+      try {
+        return await Promise.race([runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...(handoff ? { handoff } : {}), onTranscript: entry => { if (turn && sessions && !signal.aborted && !storeClosed) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, spanId: hop!.spanId, agentId: toAgent }, entry: redact.value(entry) }); }, onProgress: p => { if (!signal.aborted) progress = { ...p }; } }), aborted]);
+      } finally { detach(); }
     });
+    try {
+      const out = await execute();
+      if (turn && sessions) {
+        sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { fromAgent: hop!.fromAgent, toAgent, projectId: project.id, traceId: chain.traceId, spanId: hop!.spanId }, result: redact.text(out.text), status: out.partial ? 'partial' : 'done', usage: { inputTokens: out.inputTokens, outputTokens: out.outputTokens, costEstimate: out.costEstimate ?? null } });
+        sessions.completeTurn(turn.id, { text: redact.text(out.text), tokens: out.outputTokens, data: { traceId: chain.traceId, spanId: hop!.spanId, status: out.partial ? 'partial' : 'done' } });
+      }
+      return out;
+    } catch (e) {
+      if (turn && sessions) sessions.failTurn(turn.id, redact.text(e instanceof Error ? e.message : String(e)), { traceId: chain.traceId, spanId: hop!.spanId });
+      throw e;
+    }
   };
 
   const api: Collab = {
@@ -384,15 +417,15 @@ export function createCollab(o: CollabOptions): Collab {
       const signal = chainSignal(chain, local.signal);
       if (input.signal?.aborted || chain.abort.signal.aborted) local.abort(new Error("aborted"));
       try {
-        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal);
+        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent });
         chain.tokensUsed += out.inputTokens + out.outputTokens;
         budget.record({ tokens: out.inputTokens + out.outputTokens, cost: 0, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
         store.finishSpan(spanId, {
-          status: "succeeded", outputPreview: preview(out.text), inputTokens: out.inputTokens, outputTokens: out.outputTokens, costEstimate: 0,
+          status: out.partial ? "partial" : "succeeded", outputPreview: preview(out.text), inputTokens: out.inputTokens, outputTokens: out.outputTokens, costEstimate: out.costEstimate ?? null,
         });
         fire({ type: "consult.finished", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { spanId, status: "succeeded" } });
         return {
-          kind: "consult.answer",
+          kind: "consult.answer", status: out.partial ? "partial" : "done",
           text: out.text,
           provenance: {
             agentId: input.toAgent, projectId: project.id, traceId: chain.traceId, spanId,
@@ -457,20 +490,20 @@ export function createCollab(o: CollabOptions): Collab {
         fire({ type: "delegate.started", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, spanId } });
         try {
           const prompt = `${input.task}\n\nAcceptance criteria:\n${input.acceptanceCriteria}`;
-          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal, input.principal);
+          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent });
           chain.tokensUsed += out.inputTokens + out.outputTokens;
           budget.record({ tokens: out.inputTokens + out.outputTokens, cost: 0, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
           const art = artifacts.put({ projectId: project.id, body: out.text, contentType: "text/plain" });
           const cap = capReturn(out.text, project.settings.returnTokens, art.pointer);
           const result = cap.text;
           const finished = store.updateTask(taskId, {
-            status: "succeeded", result, truncated: cap.truncated, artifactId: art.id,
+            status: out.partial ? "cancelled" : "succeeded", error: out.partial ? "partial" : null, result, truncated: cap.truncated, artifactId: art.id,
             inputTokens: out.inputTokens, outputTokens: out.outputTokens,
           });
           store.finishSpan(spanId, {
-            status: "succeeded", outputPreview: preview(result), inputTokens: out.inputTokens, outputTokens: out.outputTokens, costEstimate: 0,
+            status: out.partial ? "partial" : "succeeded", outputPreview: preview(result), inputTokens: out.inputTokens, outputTokens: out.outputTokens, costEstimate: out.costEstimate ?? null,
           });
-          fire({ type: "delegate.finished", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, status: "succeeded", truncated: cap.truncated } });
+          fire({ type: "delegate.finished", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, status: out.partial ? "partial" : "succeeded", truncated: cap.truncated } });
           return finished;
         } catch (e) {
           if (storeClosed) return { ...queued, status: "cancelled", error: "abandoned at shutdown" } as DelegateTask;
@@ -492,6 +525,16 @@ export function createCollab(o: CollabOptions): Collab {
       })();
 
       return { task: queued, done };
+    },
+
+    replay(principal, traceId, spanId) {
+      const trace = api.getTrace(principal, traceId);
+      const span = trace.spans.find(s => s.spanId === spanId);
+      const sessions = o.sessions?.();
+      if (!span?.sessionId || !sessions) throw new CollabError('not-found', 'delegation transcript not found');
+      const session = sessions.getSession(span.sessionId);
+      if (!session || session.scope !== trace.projectId || session.owner !== `collab-project:${trace.projectId}`) throw new CollabError('not-found', 'delegation transcript not found');
+      return { sessionId: session.id, traceId, spanId, messages: redact.value(sessions.listMessages(session.id)), events: redact.value(sessions.listEvents(session.id)) };
     },
 
     getTask(principal, id) {

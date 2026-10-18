@@ -46,7 +46,7 @@ export interface StoreAdoptReport {
   schemaVersion?: string | undefined;
 }
 
-function createTempHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
+export function createTempHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
   return {
     logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
     stateDir,
@@ -264,9 +264,9 @@ export function abortStoreAdopt(prepared: PreparedStoreAdopt | undefined): void 
 /** Swaps a verified staged copy into state/lancedb (apply mode, after snapshot + ledger exist). */
 export function commitStoreAdopt(
   prepared: PreparedStoreAdopt,
-  opts: { l: Layout; ledger?: ImportLedger | undefined; replacedBackupDir?: string | undefined },
+  opts: { l: Layout; ledger?: ImportLedger | undefined; replacedBackupDir?: string | undefined; extraDetails?: Record<string, unknown> | undefined },
 ): StoreAdoptReport {
-  const { l, ledger, replacedBackupDir } = opts;
+  const { l, ledger, replacedBackupDir, extraDetails } = opts;
   const stagingDir = prepared.stagingDir;
   if (!stagingDir) return prepared.report;
   const targetStore = l.lancedb;
@@ -292,6 +292,7 @@ export function commitStoreAdopt(
     details: {
       identitySource: prepared.report.identitySource,
       schemaVersion: prepared.report.schemaVersion,
+      ...extraDetails,
     },
   });
 

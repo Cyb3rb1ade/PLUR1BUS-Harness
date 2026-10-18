@@ -4,6 +4,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -20,7 +23,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -132,6 +140,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -212,6 +221,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -452,6 +465,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -468,7 +484,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -580,6 +601,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -660,6 +682,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -900,6 +926,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -916,7 +945,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -1028,6 +1062,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -1108,6 +1143,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -1348,6 +1387,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -1364,7 +1406,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -1476,6 +1523,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -1556,6 +1604,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -1796,6 +1848,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -1812,7 +1867,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -1924,6 +1984,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -2004,6 +2065,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -2244,6 +2309,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -2260,7 +2328,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -2372,6 +2445,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -2452,6 +2526,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -2692,6 +2770,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -2708,7 +2789,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -2820,6 +2906,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -2900,6 +2987,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -3140,6 +3231,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -3156,7 +3250,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -3268,6 +3367,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -3348,6 +3448,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -3588,6 +3692,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -3604,7 +3711,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -3716,6 +3828,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -3796,6 +3909,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -4036,6 +4153,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -4052,7 +4172,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -4164,6 +4289,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -4244,6 +4370,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -4484,6 +4614,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -4500,7 +4633,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -4612,6 +4750,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -4692,6 +4831,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -4932,6 +5075,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -4948,7 +5094,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -5060,6 +5211,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -5140,6 +5292,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -5380,6 +5536,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -5396,7 +5555,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -5508,6 +5672,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -5588,6 +5753,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -5828,6 +5997,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -5844,7 +6016,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -5956,6 +6133,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -6036,6 +6214,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -6276,6 +6458,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -6292,7 +6477,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -6404,6 +6594,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -6484,6 +6675,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -6724,6 +6919,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -6740,7 +6938,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -6852,6 +7055,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -6932,6 +7136,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -7172,6 +7380,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -7188,7 +7399,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -7300,6 +7516,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -7380,6 +7597,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -7620,6 +7841,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -7636,7 +7860,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -7748,6 +7977,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -7828,6 +8058,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -8068,6 +8302,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -8084,7 +8321,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -8196,6 +8438,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -8276,6 +8519,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -8516,6 +8763,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -8532,7 +8782,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -8644,6 +8899,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -8724,6 +8980,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -8964,6 +9224,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -8980,7 +9243,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -9092,6 +9360,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -9172,6 +9441,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -9412,6 +9685,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -9428,7 +9704,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -9540,6 +9821,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -9620,6 +9902,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -9860,6 +10146,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -9876,7 +10165,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -9988,6 +10282,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -10068,6 +10363,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -10308,6 +10607,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -10324,7 +10626,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -10436,6 +10743,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -10516,6 +10824,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -10756,6 +11068,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -10772,7 +11087,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -10884,6 +11204,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -10964,6 +11285,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -11204,6 +11529,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -11220,7 +11548,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -11332,6 +11665,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -11412,6 +11746,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -11652,6 +11990,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -11668,7 +12009,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -11780,6 +12126,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -11860,6 +12207,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -12100,6 +12451,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -12116,7 +12470,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -12228,6 +12587,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -12308,6 +12668,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -12548,6 +12912,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -12564,7 +12931,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -12676,6 +13048,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -12756,6 +13129,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -12996,6 +13373,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -13012,7 +13392,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -13121,6 +13506,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -13201,6 +13587,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -13441,6 +13831,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -13457,7 +13850,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -13566,6 +13964,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -13646,6 +14045,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",

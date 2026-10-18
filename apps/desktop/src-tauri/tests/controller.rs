@@ -40,10 +40,12 @@ async fn install_happy_path_emits_steps_in_order() {
         let spec = s.containers.get(&installed.container).unwrap();
         assert_eq!(spec.memory_mib, 3072);
         assert_eq!(spec.host_port, Some(installed.port));
+        assert!(spec.volumes.iter().any(|(_, p, _)| p == "/state"));
+        assert!(spec.volumes.iter().any(|(_, p, _)| p == "/state/models"));
         assert!(spec
-            .volumes
+            .env
             .iter()
-            .any(|(_, p, _)| p == "/var/lib/plur1bus"));
+            .any(|(key, value)| key == "PLUR1BUS_HOME" && value == "/state"));
     }
 }
 #[tokio::test]
@@ -188,13 +190,19 @@ async fn everything_requires_the_typed_confirmation_before_any_mutation() {
     assert_eq!(before, r.state.lock().unwrap().calls.len());
 }
 #[tokio::test]
-async fn install_prefers_the_tarball_and_checks_its_digest() {
+async fn offline_variant_uses_the_bundled_tarball() {
     let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join("bundled/resources/image")).unwrap();
+    std::fs::write(
+        d.path().join("bundled/resources/image/synthetic.oci.tar"),
+        b"fixture",
+    )
+    .unwrap();
     let r = Arc::new(FakeRuntime::new(RuntimeKind::Apple));
     let mut b = plur1bus_desktop::controller::bundle::embedded().clone();
     b.tarball.insert(
         plur1bus_desktop::controller::bundle::Arch::host(),
-        Some("synthetic.tar".into()),
+        Some("image/synthetic.oci.tar".into()),
     );
     let ctl = Controller::with_health(r.clone(), b, d.path().join("bundled"), Arc::new(Healthy))
         .with_test_namespace("tarball")
@@ -207,12 +215,18 @@ async fn install_prefers_the_tarball_and_checks_its_digest() {
 #[tokio::test]
 async fn a_tarball_with_the_wrong_digest_is_refused_before_anything_is_created() {
     let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join("bundled/resources/image")).unwrap();
+    std::fs::write(
+        d.path().join("bundled/resources/image/synthetic.oci.tar"),
+        b"fixture",
+    )
+    .unwrap();
     let r = Arc::new(FakeRuntime::new(RuntimeKind::Apple));
     r.state.lock().unwrap().wrong_digest = true;
     let mut b = plur1bus_desktop::controller::bundle::embedded().clone();
     b.tarball.insert(
         plur1bus_desktop::controller::bundle::Arch::host(),
-        Some("synthetic.tar".into()),
+        Some("image/synthetic.oci.tar".into()),
     );
     let ctl = Controller::with_health(r.clone(), b, d.path().join("bundled"), Arc::new(Healthy))
         .with_test_namespace("wrong-digest")
@@ -432,9 +446,24 @@ async fn only_everything_removes_the_affected_bundled_token_account() {
                 &SecretString::new("synthetic-unrelated-token-p1t".into()),
             )
             .unwrap();
+        if level == UninstallLevel::Everything {
+            ctl.uninstall(UninstallLevel::AppOnly, None, &tokens, &store, |_| {})
+                .await
+                .unwrap();
+            assert!(ctl.installed().unwrap().is_none());
+            assert!(ctl.retained_installed().unwrap().is_some());
+            assert!(matches!(ctl.status().await, HarnessStatus::NotInstalled));
+            assert!(tokens.get(&token_account(row.id)).unwrap().is_some());
+        }
         ctl.uninstall(level, Some("plur1bus-state"), &tokens, &store, |_| {})
             .await
             .unwrap();
+        if level == UninstallLevel::Everything {
+            assert!(ctl.retained_installed().unwrap().is_none());
+            ctl.uninstall(level, Some("plur1bus-state"), &tokens, &store, |_| {})
+                .await
+                .unwrap();
+        }
         assert_eq!(
             tokens.get(&token_account(row.id)).unwrap().is_none(),
             level == UninstallLevel::Everything
@@ -459,24 +488,27 @@ fn create_spec_is_exact_for_both_native_adapters() {
     );
     let a = create_argv(&s).unwrap();
     let v = serde_json::to_value(create_body(&s).unwrap()).unwrap();
+    assert!(s
+        .env
+        .iter()
+        .any(|(key, value)| key == "PLUR1BUS_HOME" && value == "/state"));
+    assert!(!s
+        .volumes
+        .iter()
+        .any(|(_, target, _)| target.starts_with("/var/lib/")));
+
     assert_eq!(
         s.volumes,
         vec![
-            ("plur1bus-state".into(), "/var/lib/plur1bus".into(), false),
-            (
-                "plur1bus-models".into(),
-                "/var/lib/plur1bus-models".into(),
-                false
-            )
+            ("plur1bus-state".into(), "/state".into(), false),
+            ("plur1bus-models".into(), "/state/models".into(), false)
         ]
     );
     assert!(a.windows(2).any(|p| p == ["-p", "127.0.0.1:18742:18700"]));
+    assert!(a.windows(2).any(|p| p == ["-v", "plur1bus-state:/state"]));
     assert!(a
         .windows(2)
-        .any(|p| p == ["-v", "plur1bus-state:/var/lib/plur1bus"]));
-    assert!(a
-        .windows(2)
-        .any(|p| p == ["-v", "plur1bus-models:/var/lib/plur1bus-models"]));
+        .any(|p| p == ["-v", "plur1bus-models:/state/models"]));
     assert!(!a
         .iter()
         .any(|p| p.contains("restart") || p == "--privileged"));

@@ -107,6 +107,1678 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
+              "behaviour": {
+                "type": "object",
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": [
+                  "owner",
+                  "admin"
+                ],
+                "x-audit": true,
+                "additionalProperties": false,
+                "properties": {
+                  "default": {
+                    "type": "object",
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "reply": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "policy": {
+                            "type": "string",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "enum": [
+                              "always",
+                              "on-mention",
+                              "never"
+                            ],
+                            "description": "always, on-mention, or never; a later layer may only restrict."
+                          }
+                        },
+                        "description": "Controls when the agent may reply."
+                      },
+                      "memory": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "capture": {
+                            "type": "string",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "enum": [
+                              "full",
+                              "provenance-only",
+                              "none"
+                            ],
+                            "description": "Full capture, content-free provenance receipt, or no capture."
+                          },
+                          "allowedScopes": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "uniqueItems": true,
+                            "items": {
+                              "enum": [
+                                "agent-private",
+                                "workspace",
+                                "user"
+                              ]
+                            },
+                            "description": "Intersection-only memory scope allowlist. Empty denies all memory access."
+                          },
+                          "captureOtherSpeakers": {
+                            "type": "boolean",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."
+                          },
+                          "requireLinkedPrincipalForUserScope": {
+                            "type": "boolean",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "description": "Requires a verified identity for user-scope memory; true cannot be relaxed."
+                          }
+                        },
+                        "description": "Memory permissions for this behaviour layer."
+                      },
+                      "commands": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                          },
+                          "deny": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Denied names or * patterns, unioned across layers."
+                          }
+                        },
+                        "description": "Command names without a leading slash."
+                      },
+                      "tools": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                          },
+                          "deny": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Denied names or * patterns, unioned across layers."
+                          }
+                        },
+                        "description": "Tool names allowed or denied in this layer."
+                      },
+                      "capabilities": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                          },
+                          "deny": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Denied names or * patterns, unioned across layers."
+                          }
+                        },
+                        "description": "Capability identifiers allowed or denied in this layer."
+                      },
+                      "rateLimits": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "repliesPerHour": {
+                            "type": "integer",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "minimum": 0,
+                            "maximum": 65536,
+                            "description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."
+                          },
+                          "editsPerMinute": {
+                            "type": "integer",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "minimum": 0,
+                            "maximum": 65536,
+                            "description": "Maximum edits per chat per fixed minute window. Zero disables edits."
+                          },
+                          "maxReplyChars": {
+                            "type": "integer",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "minimum": 0,
+                            "maximum": 65536,
+                            "description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."
+                          }
+                        },
+                        "description": "Additional numeric ceilings, merged by minimum."
+                      }
+                    },
+                    "description": "Agent-wide restrictions inherited by every channel."
+                  },
+                  "direct": {
+                    "type": "object",
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "reply": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "policy": {
+                            "type": "string",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "enum": [
+                              "always",
+                              "on-mention",
+                              "never"
+                            ],
+                            "description": "always, on-mention, or never; a later layer may only restrict."
+                          }
+                        },
+                        "description": "Controls when the agent may reply."
+                      },
+                      "memory": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "capture": {
+                            "type": "string",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "enum": [
+                              "full",
+                              "provenance-only",
+                              "none"
+                            ],
+                            "description": "Full capture, content-free provenance receipt, or no capture."
+                          },
+                          "allowedScopes": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "uniqueItems": true,
+                            "items": {
+                              "enum": [
+                                "agent-private",
+                                "workspace",
+                                "user"
+                              ]
+                            },
+                            "description": "Intersection-only memory scope allowlist. Empty denies all memory access."
+                          },
+                          "captureOtherSpeakers": {
+                            "type": "boolean",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."
+                          },
+                          "requireLinkedPrincipalForUserScope": {
+                            "type": "boolean",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "description": "Requires a verified identity for user-scope memory; true cannot be relaxed."
+                          }
+                        },
+                        "description": "Memory permissions for this behaviour layer."
+                      },
+                      "commands": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                          },
+                          "deny": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Denied names or * patterns, unioned across layers."
+                          }
+                        },
+                        "description": "Command names without a leading slash."
+                      },
+                      "tools": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                          },
+                          "deny": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Denied names or * patterns, unioned across layers."
+                          }
+                        },
+                        "description": "Tool names allowed or denied in this layer."
+                      },
+                      "capabilities": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                          },
+                          "deny": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Denied names or * patterns, unioned across layers."
+                          }
+                        },
+                        "description": "Capability identifiers allowed or denied in this layer."
+                      },
+                      "rateLimits": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "repliesPerHour": {
+                            "type": "integer",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "minimum": 0,
+                            "maximum": 65536,
+                            "description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."
+                          },
+                          "editsPerMinute": {
+                            "type": "integer",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "minimum": 0,
+                            "maximum": 65536,
+                            "description": "Maximum edits per chat per fixed minute window. Zero disables edits."
+                          },
+                          "maxReplyChars": {
+                            "type": "integer",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "minimum": 0,
+                            "maximum": 65536,
+                            "description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."
+                          }
+                        },
+                        "description": "Additional numeric ceilings, merged by minimum."
+                      }
+                    },
+                    "description": "Additional restrictions for direct messages and DMs."
+                  },
+                  "group": {
+                    "type": "object",
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "reply": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "policy": {
+                            "type": "string",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "enum": [
+                              "always",
+                              "on-mention",
+                              "never"
+                            ],
+                            "description": "always, on-mention, or never; a later layer may only restrict."
+                          }
+                        },
+                        "description": "Controls when the agent may reply."
+                      },
+                      "memory": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "capture": {
+                            "type": "string",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "enum": [
+                              "full",
+                              "provenance-only",
+                              "none"
+                            ],
+                            "description": "Full capture, content-free provenance receipt, or no capture."
+                          },
+                          "allowedScopes": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "uniqueItems": true,
+                            "items": {
+                              "enum": [
+                                "agent-private",
+                                "workspace",
+                                "user"
+                              ]
+                            },
+                            "description": "Intersection-only memory scope allowlist. Empty denies all memory access."
+                          },
+                          "captureOtherSpeakers": {
+                            "type": "boolean",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."
+                          },
+                          "requireLinkedPrincipalForUserScope": {
+                            "type": "boolean",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "description": "Requires a verified identity for user-scope memory; true cannot be relaxed."
+                          }
+                        },
+                        "description": "Memory permissions for this behaviour layer."
+                      },
+                      "commands": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                          },
+                          "deny": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Denied names or * patterns, unioned across layers."
+                          }
+                        },
+                        "description": "Command names without a leading slash."
+                      },
+                      "tools": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                          },
+                          "deny": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Denied names or * patterns, unioned across layers."
+                          }
+                        },
+                        "description": "Tool names allowed or denied in this layer."
+                      },
+                      "capabilities": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                          },
+                          "deny": {
+                            "type": "array",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "maxItems": 256,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                            },
+                            "description": "Denied names or * patterns, unioned across layers."
+                          }
+                        },
+                        "description": "Capability identifiers allowed or denied in this layer."
+                      },
+                      "rateLimits": {
+                        "type": "object",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "repliesPerHour": {
+                            "type": "integer",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "minimum": 0,
+                            "maximum": 65536,
+                            "description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."
+                          },
+                          "editsPerMinute": {
+                            "type": "integer",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "minimum": 0,
+                            "maximum": 65536,
+                            "description": "Maximum edits per chat per fixed minute window. Zero disables edits."
+                          },
+                          "maxReplyChars": {
+                            "type": "integer",
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "minimum": 0,
+                            "maximum": 65536,
+                            "description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."
+                          }
+                        },
+                        "description": "Additional numeric ceilings, merged by minimum."
+                      }
+                    },
+                    "description": "Additional restrictions for groups and channels."
+                  },
+                  "byChannelKind": {
+                    "type": "object",
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "maxProperties": 128,
+                    "propertyNames": {
+                      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "x-restart": "live",
+                      "x-tier": "advanced",
+                      "x-write-roles": [
+                        "owner",
+                        "admin"
+                      ],
+                      "x-audit": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "reply": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "policy": {
+                              "type": "string",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "enum": [
+                                "always",
+                                "on-mention",
+                                "never"
+                              ],
+                              "description": "always, on-mention, or never; a later layer may only restrict."
+                            }
+                          },
+                          "description": "Controls when the agent may reply."
+                        },
+                        "memory": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "capture": {
+                              "type": "string",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "enum": [
+                                "full",
+                                "provenance-only",
+                                "none"
+                              ],
+                              "description": "Full capture, content-free provenance receipt, or no capture."
+                            },
+                            "allowedScopes": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "uniqueItems": true,
+                              "items": {
+                                "enum": [
+                                  "agent-private",
+                                  "workspace",
+                                  "user"
+                                ]
+                              },
+                              "description": "Intersection-only memory scope allowlist. Empty denies all memory access."
+                            },
+                            "captureOtherSpeakers": {
+                              "type": "boolean",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."
+                            },
+                            "requireLinkedPrincipalForUserScope": {
+                              "type": "boolean",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "description": "Requires a verified identity for user-scope memory; true cannot be relaxed."
+                            }
+                          },
+                          "description": "Memory permissions for this behaviour layer."
+                        },
+                        "commands": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                            },
+                            "deny": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Denied names or * patterns, unioned across layers."
+                            }
+                          },
+                          "description": "Command names without a leading slash."
+                        },
+                        "tools": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                            },
+                            "deny": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Denied names or * patterns, unioned across layers."
+                            }
+                          },
+                          "description": "Tool names allowed or denied in this layer."
+                        },
+                        "capabilities": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                            },
+                            "deny": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Denied names or * patterns, unioned across layers."
+                            }
+                          },
+                          "description": "Capability identifiers allowed or denied in this layer."
+                        },
+                        "rateLimits": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "repliesPerHour": {
+                              "type": "integer",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "minimum": 0,
+                              "maximum": 65536,
+                              "description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."
+                            },
+                            "editsPerMinute": {
+                              "type": "integer",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "minimum": 0,
+                              "maximum": 65536,
+                              "description": "Maximum edits per chat per fixed minute window. Zero disables edits."
+                            },
+                            "maxReplyChars": {
+                              "type": "integer",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "minimum": 0,
+                              "maximum": 65536,
+                              "description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."
+                            }
+                          },
+                          "description": "Additional numeric ceilings, merged by minimum."
+                        }
+                      },
+                      "description": "One sparse behaviour layer; all specified values restrict inherited permissions."
+                    },
+                    "description": "Additional restrictions keyed by channel kind."
+                  },
+                  "byBotConnection": {
+                    "type": "object",
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "maxProperties": 128,
+                    "propertyNames": {
+                      "enum": [
+                        "telegram",
+                        "discord",
+                        "matrix",
+                        "slack",
+                        "signal",
+                        "email",
+                        "buzz"
+                      ]
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "x-restart": "live",
+                      "x-tier": "advanced",
+                      "x-write-roles": [
+                        "owner",
+                        "admin"
+                      ],
+                      "x-audit": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "reply": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "policy": {
+                              "type": "string",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "enum": [
+                                "always",
+                                "on-mention",
+                                "never"
+                              ],
+                              "description": "always, on-mention, or never; a later layer may only restrict."
+                            }
+                          },
+                          "description": "Controls when the agent may reply."
+                        },
+                        "memory": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "capture": {
+                              "type": "string",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "enum": [
+                                "full",
+                                "provenance-only",
+                                "none"
+                              ],
+                              "description": "Full capture, content-free provenance receipt, or no capture."
+                            },
+                            "allowedScopes": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "uniqueItems": true,
+                              "items": {
+                                "enum": [
+                                  "agent-private",
+                                  "workspace",
+                                  "user"
+                                ]
+                              },
+                              "description": "Intersection-only memory scope allowlist. Empty denies all memory access."
+                            },
+                            "captureOtherSpeakers": {
+                              "type": "boolean",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."
+                            },
+                            "requireLinkedPrincipalForUserScope": {
+                              "type": "boolean",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "description": "Requires a verified identity for user-scope memory; true cannot be relaxed."
+                            }
+                          },
+                          "description": "Memory permissions for this behaviour layer."
+                        },
+                        "commands": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                            },
+                            "deny": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Denied names or * patterns, unioned across layers."
+                            }
+                          },
+                          "description": "Command names without a leading slash."
+                        },
+                        "tools": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                            },
+                            "deny": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Denied names or * patterns, unioned across layers."
+                            }
+                          },
+                          "description": "Tool names allowed or denied in this layer."
+                        },
+                        "capabilities": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."
+                            },
+                            "deny": {
+                              "type": "array",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "maxItems": 256,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                              },
+                              "description": "Denied names or * patterns, unioned across layers."
+                            }
+                          },
+                          "description": "Capability identifiers allowed or denied in this layer."
+                        },
+                        "rateLimits": {
+                          "type": "object",
+                          "x-restart": "live",
+                          "x-tier": "advanced",
+                          "x-write-roles": [
+                            "owner",
+                            "admin"
+                          ],
+                          "x-audit": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "repliesPerHour": {
+                              "type": "integer",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "minimum": 0,
+                              "maximum": 65536,
+                              "description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."
+                            },
+                            "editsPerMinute": {
+                              "type": "integer",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "minimum": 0,
+                              "maximum": 65536,
+                              "description": "Maximum edits per chat per fixed minute window. Zero disables edits."
+                            },
+                            "maxReplyChars": {
+                              "type": "integer",
+                              "x-restart": "live",
+                              "x-tier": "advanced",
+                              "x-write-roles": [
+                                "owner",
+                                "admin"
+                              ],
+                              "x-audit": true,
+                              "minimum": 0,
+                              "maximum": 65536,
+                              "description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."
+                            }
+                          },
+                          "description": "Additional numeric ceilings, merged by minimum."
+                        }
+                      },
+                      "description": "One sparse behaviour layer; all specified values restrict inherited permissions."
+                    },
+                    "description": "Restrictions for hosted bot connections. The current host uses the channel kind as its stable connection id."
+                  }
+                },
+                "description": "ADR-003 four-level restrictive behaviour: default, direct/group, channel kind, bot connection. No per-chat layer."
+              },
               "voice": {
                 "type": "object",
                 "additionalProperties": false,
@@ -1050,6 +2722,21 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "collaboration": {
+          "description": "Agent collaboration and owner-controlled fan-out.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fanoutEnabled": {
+              "type": "boolean",
+              "default": false,
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "description": "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation."
+            }
+          },
+          "default": {}
+        },
         "approvals": {
           "description": "Approval policy limits; transport-enforced writes require owner or admin and audit.",
           "type": "object",
@@ -1338,9 +3025,7 @@
           "type": "object",
           "additionalProperties": false,
           "default": {},
-          "x-restart": "core",
-          "x-tier": "advanced",
-          "description": "Remote exposure configuration (listener integration is separate).",
+          "description": "Remote listeners: tailnet by default, network requires TLS and an audited notice acknowledgment.",
           "properties": {
             "publish": {
               "type": "string",
@@ -1352,9 +3037,169 @@
               "default": "tailnet",
               "x-restart": "core",
               "x-tier": "advanced",
-              "description": "Requested exposure mode; never makes a listener public. Applying the remote-access listener plan is a separate integration."
+              "description": "Exposure mode; tailnet by default, network requires TLS and notice confirmation.",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            },
+            "tls": {
+              "type": "string",
+              "enum": [
+                "self-signed",
+                "company-ca"
+              ],
+              "default": "self-signed",
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "TLS material source for the network listener.",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            },
+            "publicOrigin": {
+              "type": "string",
+              "maxLength": 512,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Exact HTTPS origin advertised to remote clients and used for Origin and RP validation.",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            },
+            "bind": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "address": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Literal interface IP for the network TLS listener.",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                },
+                "port": {
+                  "type": "integer",
+                  "minimum": 1024,
+                  "maximum": 65535,
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Network TLS listener port.",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                },
+                "allowPublicInterface": {
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Explicit permission to bind an interface with a publicly routable address.",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                }
+              },
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Network TLS listener address and port.",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            },
+            "allowSubnets": {
+              "type": "array",
+              "default": [],
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Client CIDRs matched against the actual network socket before TLS.",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            },
+            "noticeAck": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "by",
+                "at",
+                "version"
+              ],
+              "properties": {
+                "by": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Authenticated person who confirmed the network security notice.",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                },
+                "at": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Confirmation time in epoch milliseconds.",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                },
+                "version": {
+                  "type": "integer",
+                  "const": 1,
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Security notice text version confirmed by this person.",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                }
+              },
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Audited identity, time and current version of the explicit security notice confirmation.",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
             }
-          }
+          },
+          "x-restart": "core",
+          "x-tier": "advanced"
         },
         "$schema": {
           "description": "URI identifying the JSON Schema used to validate this configuration.",
@@ -1845,6 +3690,23 @@
           "default": {},
           "additionalProperties": false,
           "properties": {
+            "requireSecondFactor": {
+              "type": "string",
+              "enum": [
+                "remote",
+                "always",
+                "never"
+              ],
+              "default": "remote",
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides.",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            },
             "openai": {
               "description": "Sign in with ChatGPT and the other OpenAI credential routes (D110).",
               "type": "object",
@@ -2619,6 +4481,53 @@
               "additionalProperties": false,
               "default": {},
               "properties": {
+                "e2ee": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "description": "Experimental E2EE. Memory mode is NOT persistent: restart loses keys and requires device verification again.",
+                  "x-restart": "module:matrix",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true,
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "memory"
+                      ],
+                      "default": "off",
+                      "description": "Disabled by default. Memory is experimental and loses keys after restart.",
+                      "x-restart": "module:matrix",
+                      "x-tier": "advanced",
+                      "x-write-roles": [
+                        "owner",
+                        "admin"
+                      ],
+                      "x-audit": true
+                    },
+                    "unverifiedDevices": {
+                      "type": "string",
+                      "enum": [
+                        "reject",
+                        "allow"
+                      ],
+                      "default": "reject",
+                      "description": "Reject and report unverified devices by default. Allow is an explicit owner experiment.",
+                      "x-restart": "module:matrix",
+                      "x-tier": "advanced",
+                      "x-write-roles": [
+                        "owner",
+                        "admin"
+                      ],
+                      "x-audit": true
+                    }
+                  }
+                },
                 "enabled": {
                   "description": "Whether the matrix channel is started. Off by default; nothing connects until this is true.",
                   "type": "boolean",

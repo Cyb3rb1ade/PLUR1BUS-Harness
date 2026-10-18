@@ -5,7 +5,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readYaml, frontmatter, scalar } from "../../src/import/yaml-lite.ts";
-import { gap, prototypeFingerprint } from "./helpers.ts";
+import { prototypeFingerprint } from "./helpers.ts";
 
 const ok = (text: string): unknown => { const r = readYaml(text); assert.deepStrictEqual(r.unsupported, [], `unsupported for ${JSON.stringify(text)}`); return r.value; };
 
@@ -237,27 +237,28 @@ describe("scalar()", () => {
   for (const [input, expected] of table) it(`${JSON.stringify(input)}`, () => { assert.deepStrictEqual(scalar(input), expected); });
 });
 
-describe("readYaml: gaps and characterizations", () => {
-  it(gap("readYaml (block scalar keep)", "'|+' keeps every trailing blank line (YAML 1.2 block chomping indicator +): 'y\\n\\n'", "exactly one newline is kept ('y\\n'), the blank lines are dropped"), { todo: gap("readYaml (block scalar keep)", "'|+' keeps every trailing blank line (YAML 1.2 block chomping indicator +): 'y\\n\\n'", "exactly one newline is kept ('y\\n'), the blank lines are dropped") }, () => {
+describe("readYaml: edge cases and characterizations", () => {
+  it("readYaml (block scalar keep): '|+' keeps every trailing blank line (YAML 1.2 block chomping indicator +): 'y\\n\\n'", () => {
     assert.deepStrictEqual(ok("b: |+\n  y\n\nc: 1\n"), { b: "y\n\n", c: 1 });
   });
 
-  it(gap("readYaml (empty sequence item)", "a bare '-' between items is a null item: ['a', null, 'b']", "the following sibling items are swallowed as the nested value of the empty item: ['a', ['b']]"), { todo: gap("readYaml (empty sequence item)", "a bare '-' between items is a null item: ['a', null, 'b']", "the following sibling items are swallowed as the nested value of the empty item: ['a', ['b']]") }, () => {
+  it("readYaml (empty sequence item): a bare '-' between items is a null item: ['a', null, 'b']", () => {
     assert.deepStrictEqual(ok("- a\n-\n- b"), ["a", null, "b"]);
   });
 
-  it(gap("readYaml (nested block sequence on one line)", "'- - x' is a sequence in a sequence ([['x']]) or is reported in `unsupported` (header: 'anything else is not guessed at')", "the item silently becomes the string '- x' and nothing is reported"), { todo: gap("readYaml (nested block sequence on one line)", "'- - x' is a sequence in a sequence ([['x']]) or is reported in `unsupported` (header: 'anything else is not guessed at')", "the item silently becomes the string '- x' and nothing is reported") }, () => {
+  it("readYaml (nested block sequence on one line): '- - x' is a sequence in a sequence ([['x']]) or is reported in `unsupported` (header: 'anything else is not guessed at')", () => {
     const r = readYaml("- a\n- - x\n");
     const guessed = Array.isArray(r.value) && r.value[1] === "- x";
     assert.ok(!guessed || r.unsupported.length > 0, `guessed ${JSON.stringify(r.value)} without a note`);
   });
 
-  it(gap("readYaml (indentation depth)", "very deep nesting ends in a documented outcome (an `unsupported` note or a typed parse error), as parseJson5 does with its depth limit", "a 6 000-level mapping (18 MB of input) raises RangeError: Maximum call stack size exceeded"), { todo: gap("readYaml (indentation depth)", "very deep nesting ends in a documented outcome (an `unsupported` note or a typed parse error), as parseJson5 does with its depth limit", "a 6 000-level mapping (18 MB of input) raises RangeError: Maximum call stack size exceeded") }, () => {
+  it("readYaml (indentation depth): very deep nesting ends in a documented outcome (an `unsupported` note or a typed parse error), as parseJson5 does with its depth limit", () => {
     const text = Array.from({ length: 6000 }, (_, i) => " ".repeat(i) + "k:").join("\n") + " 1";
     assert.doesNotThrow(() => readYaml(text), (e: Error) => e instanceof RangeError);
+    assert.ok(readYaml(text).unsupported.some((u) => u.includes("nesting")), "the too-deep part is named in `unsupported`");
   });
 
-  it(gap("readYaml (line scanning)", "run time linear in the line length (a mapping-entry check on a 30 000-character line takes milliseconds)", "the key pattern backtracks quadratically over a run of whitespace: 30 000 spaces take over a second, 100 000 about 14 s"), { todo: gap("readYaml (line scanning)", "run time linear in the line length (a mapping-entry check on a 30 000-character line takes milliseconds)", "the key pattern backtracks quadratically over a run of whitespace: 30 000 spaces take over a second, 100 000 about 14 s") }, () => {
+  it("readYaml (line scanning): run time linear in the line length (a mapping-entry check on a 30 000-character line takes milliseconds)", () => {
     // Wall-clock on purpose: the property under test is the run time itself; a linear scan needs a few ms, the bound leaves a ~50x margin.
     const text = "a" + " ".repeat(30_000) + "b";
     const started = performance.now();

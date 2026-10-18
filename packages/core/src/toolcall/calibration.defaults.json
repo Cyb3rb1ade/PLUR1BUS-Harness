@@ -1,0 +1,9 @@
+{
+  "minOffers": 10,
+  "maxBonus": 0.2,
+  "maxPenalty": 0.2,
+  "halfLifeDays": 14,
+  "successTarget": 0.8,
+  "successWeight": 0.5,
+  "searchWeight": 0.1
+}

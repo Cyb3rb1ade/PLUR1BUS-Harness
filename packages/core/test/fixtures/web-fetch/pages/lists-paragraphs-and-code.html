@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deploy checklist</title>
+
+<style>body{font-family:serif}.hide{display:none}</style>
+</head>
+<body>
+<main><h1>Deploy checklist</h1>
+<ol>
+<li><p>Freeze the branch.</p><p>Tell the channel before you do.</p></li>
+<li><p>Run the migration:</p><pre><code>make migrate ENV=staging</code></pre></li>
+<li><p>Read the notes.</p><blockquote><p>If the dashboard is red, stop.</p></blockquote></li>
+</ol></main>
+<script>window.dataLayer=window.dataLayer||[];function t(){dataLayer.push(arguments)}</script>
+</body>
+</html>
