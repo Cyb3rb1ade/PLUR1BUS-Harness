@@ -1,14 +1,16 @@
-import ts from 'typescript';
 import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 // The retired bridge names are recorded in ADR-004; shared generic CSS names
 // are not evidence of derivation and must not be banned by coincidence.
+// typescript is loaded only by checkQuality: checkTheme stays dependency-free for
+// the release-scripts CI job, which runs without installing node_modules.
 export function checkTheme(text) {
   return [...new Set(text.match(/--oc-[a-zA-Z0-9_-]+/g) || [])];
 }
-export function checkQuality() {
+export async function checkQuality() {
+  const { default: ts } = await import('typescript');
   const errors = [];
   function configs(at) {
     for (const f of readdirSync(at, { withFileTypes: true })) {
@@ -27,5 +29,5 @@ export function checkQuality() {
   return errors;
 }
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
-  const errors = checkQuality(); for (const e of errors) console.error(e); process.exitCode = errors.length ? 1 : 0;
+  const errors = await checkQuality(); for (const e of errors) console.error(e); process.exitCode = errors.length ? 1 : 0;
 }
