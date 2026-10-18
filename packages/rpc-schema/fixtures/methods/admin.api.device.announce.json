@@ -1,0 +1,12 @@
+{
+  "params": {
+    "next": {
+      "kind": "cert",
+      "pin": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    "stagedAt": 1700000000000
+  },
+  "result": {
+    "announced": true
+  }
+}

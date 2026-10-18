@@ -46,11 +46,12 @@ export function skill(dir: string, name: string, description: string, body = `# 
   write(join(dir, "SKILL.md"), `---\nname: ${name}\ndescription: ${description}\nversion: 1.0.0\n---\n${body}`);
 }
 
-export async function lanceStore(partition: string, dims: number, rows: number, extra: Record<string, unknown> = {}): Promise<void> {
+/** `hotOf(i)` picks the one-hot index of row i's vector (default i): two values of it are two "models" of the same dimension. */
+export async function lanceStore(partition: string, dims: number, rows: number, extra: Record<string, unknown> = {}, hotOf: (i: number) => number = (i) => i): Promise<void> {
   const lancedb = (await loadLanceDb())!;
   mkdirSync(partition, { recursive: true });
   const db = await lancedb.connect(partition) as any;
-  const data = Array.from({ length: rows }, (_, i) => ({ id: `00000000-0000-4000-8000-00000000000${i}`, text: `${CONTENT_MARKER} ${i}`, vector: Array.from({ length: dims }, (_, j) => (j === i ? 1 : 0)), ...extra }));
+  const data = Array.from({ length: rows }, (_, i) => ({ id: `00000000-0000-4000-8000-00000000000${i}`, text: `${CONTENT_MARKER} ${i}`, vector: Array.from({ length: dims }, (_, j) => (j === hotOf(i) ? 1 : 0)), ...extra }));
   await db.createTable("memories", data);
   db.close();
 }

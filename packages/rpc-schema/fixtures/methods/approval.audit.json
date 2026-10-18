@@ -1,0 +1,17 @@
+{
+  "params": {
+    "limit": 50
+  },
+  "result": {
+    "entries": [
+      {
+        "seq": 1,
+        "ts": "2026-10-06T12:00:00.000Z",
+        "kind": "approval.requested",
+        "refId": "apr_0123456789abcdef01234567",
+        "capability": "fs.write",
+        "person": "local-owner"
+      }
+    ]
+  }
+}

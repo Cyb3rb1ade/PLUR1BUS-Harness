@@ -1,6 +1,7 @@
 import { SecretError, checkName, checkValue, isSecretName, type BackendKind, type SecretBackend, type SecretMeta, type SecretPrincipal } from "./types.ts";
 import { createLeaseTable, type Lease, type LeaseInfo } from "./leases.ts";
 import type { AuditAction, AuditDetail, AuditSink } from "./audit.ts";
+import { createSecretRedaction } from "./redaction.ts";
 
 export interface SecretStoreLogger { debug(msg: string, fields?: Record<string, unknown>): void; info(msg: string, fields?: Record<string, unknown>): void; warn(msg: string, fields?: Record<string, unknown>): void }
 
@@ -35,6 +36,8 @@ const LABEL = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 export function createSecretStore(o: SecretStoreOptions) {
   const clock = o.clock ?? Date.now;
   const leases = createLeaseTable(clock);
+  /** Every value this store writes or reads is registered before it is returned, so no log, audit or report redactor misses it. */
+  const redaction = createSecretRedaction();
   const now = () => new Date(clock());
 
   const allowed = (p: SecretPrincipal, kinds: readonly string[]): boolean => !!p && typeof p === "object" && typeof (p as { kind?: unknown }).kind === "string" && kinds.includes(p.kind);
@@ -79,12 +82,13 @@ export function createSecretStore(o: SecretStoreOptions) {
     for (const b of [need(s), s.other]) {
       if (!b) continue;
       const value = await b.get(name);
-      if (value !== null) return { value, from: b };
+      if (value !== null) { redaction.register(value); return { value, from: b }; }
     }
     return null;
   }
 
   return {
+    redaction,
     async status(p: SecretPrincipal): Promise<SecretStatus> {
       gate(p, "status", null, ["owner", "core"]);
       const s = await select();
@@ -112,6 +116,7 @@ export function createSecretStore(o: SecretStoreOptions) {
     async set(p: SecretPrincipal, name: string, value: string): Promise<SecretMeta> {
       gate(p, "set", typeof name === "string" ? name : null, ["owner"]);
       checkName(name); checkValue(value);
+      redaction.register(value);
       const s = await select();
       const backend = need(s);
       audited(p, "secret.set", name, { backend: backend.kind });

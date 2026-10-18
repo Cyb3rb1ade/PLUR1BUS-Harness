@@ -4,12 +4,24 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, parse, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { BIN, REAL, RERANK_FAILURE, waitEngineReady, waitFor, cli, daemonStatus, home, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
 
 const FAKE = { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_CHAT_PROVIDER: "fake" };
+/** pnpm's deploy joins the workspace directory with a path relative to it; across Windows drives that path is
+ *  absolute and the deploy fails with ENOENT (a `D:` checkout with `%TEMP%` on `C:`). The installation therefore
+ *  lives under the checkout's `target/` (gitignored) when the system temp directory is on another volume, the same
+ *  rule as scripts/release/assemble-payload.mjs. */
+function installationParent(): string {
+  const volume = (d: string) => parse(resolve(d)).root.toLowerCase();
+  if (volume(tmpdir()) === volume(".")) return tmpdir();
+  const parent = resolve("target");
+  mkdirSync(parent, { recursive: true });
+  return parent;
+}
+
 const FACT = "Please remember that the e2e smoke test fact is the harbour tour at noon.";
 
 describe("E3 — CLI → daemon → core smoke", () => {
@@ -17,7 +29,7 @@ describe("E3 — CLI → daemon → core smoke", () => {
     const h1 = home();
     const h2 = home();
     const archive = join(h1, "smoke.tar.gz");
-    const installation = mkdtempSync(join(tmpdir(), "p1b-smoke-install-"));
+    const installation = mkdtempSync(join(installationParent(), "p1b-smoke-install-"));
     const payload = join(installation, "core");
     const service = join(installation, "service");
     mkdirSync(service);
@@ -31,10 +43,23 @@ describe("E3 — CLI → daemon → core smoke", () => {
     if (process.env.PLUR1BUS_SMOKE_NODE_MIRROR) installedEnv.PLUR1BUS_NODE_MIRROR = process.env.PLUR1BUS_SMOKE_NODE_MIRROR;
     try {
       // Deploy the same production payload shape used by setup; dependencies stay pinned.
-      execFileSync("pnpm", ["--filter", "@plur1bus/core", "deploy", "--legacy", "--prod", payload], { stdio: "pipe", shell: process.platform === "win32" });
+      // Hoisted, like the release payload (scripts/release/assemble-payload.mjs): setup copies link targets on
+      // Windows, which only resolves for a flat node_modules.
+      execFileSync("pnpm", ["--filter", "@plur1bus/core", "deploy", "--legacy", "--prod", "--config.node-linker=hoisted", payload], { stdio: ["ignore", "inherit", "inherit"], shell: process.platform === "win32" });
       cpSync(resolve("packages/core/dist"), payload, { recursive: true });
       assert.deepEqual(readdirSync(h1), [], "the home starts empty before installation");
-      const setup = JSON.parse(execFileSync(installedBinary, ["--json", "--home", h1, "setup", "--non-interactive", "--no-service", "--core-from", payload], { encoding: "utf8", env: installedEnv, timeout: 300_000 }));
+      let setupOut: string;
+      try {
+        setupOut = execFileSync(installedBinary, ["--json", "--home", h1, "setup", "--non-interactive", "--no-service", "--core-from", payload], { encoding: "utf8", env: installedEnv, timeout: 300_000 });
+      } catch (e) {
+        // A crashed core reports only "gave-up"; its log says why.
+        for (const name of ["core.log", "supervisor.log"]) {
+          const file = join(h1, "logs", name);
+          if (existsSync(file)) console.error(`--- ${name} (tail) ---\n${readFileSync(file, "utf8").slice(-4000)}`);
+        }
+        throw e;
+      }
+      const setup = JSON.parse(setupOut);
       assert.equal(setup.check.fail, 0);
       assert.equal(setup.manifest.node.version, "24.21.0");
       stopDaemon(h1);

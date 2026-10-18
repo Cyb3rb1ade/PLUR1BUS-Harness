@@ -1,6 +1,6 @@
 # Matrix channel
 
-Package: `packages/channels-matrix/` (`@plur1bus/channels-matrix`). Client-Server API r0/v3 over `fetch`, no runtime dependencies.
+Package: `packages/channels-matrix/` (`@plur1bus/channels-matrix`). Client-Server API r0/v3 over `fetch`; optional experimental crypto uses exact `@matrix-org/matrix-sdk-crypto-wasm@18.9.0` (WASM, never NAPI).
 
 ## Scope and status
 
@@ -82,13 +82,33 @@ Config refers to the secret **name** only:
 - **History:** the first start performs an initial sync that establishes the sync position and discards old timeline
   events. Old messages are never replayed. Messages sent while the bot was offline before its first start are not delivered.
 
-## 5. Unencrypted rooms only (no E2EE yet)
+## 5. Encryption — experimental memory mode; persistent E2EE blocked
 
-The channel does not hold Megolm keys. An encrypted room (`m.room.encryption` state, or `m.room.encrypted` events) is refused:
-the bot sends **one** plain notice per room ("This room is end-to-end encrypted; this bot cannot read it yet. Please use an
-unencrypted room.") and then ignores the room. The refusal is remembered in memory, so after a restart the notice can be sent
-again on the next encrypted event. Encrypted attachments are refused. Use unencrypted rooms for the bot until the E2EE
-follow-up package lands.
+Default `channels.matrix.e2ee.mode = "off"`: encrypted rooms are refused. Opt-in `memory` uses the
+actual WASM Olm/Megolm machine for encrypted send/receive. **Not persistent: every restart loses
+crypto identity/session keys and requires device verification again.** Do not use this experimental
+mode as a durable encrypted archive. No recovery backup or cross-signing bootstrap is activated.
+Unverified devices are rejected and reported by default (`unverifiedDevices = "reject"`); `allow`
+is an explicit owner/admin experiment. The default is intentionally conservative.
+
+In Settings → Switchboard → Matrix, enable `e2ee.mode = memory` only after reading the warning.
+The experimental verification panel requests/accepts a peer's SAS flow, displays emoji/decimals,
+and requires an explicit comparison checkbox before confirmation. The same owner/admin surface is
+`channel.crypto`; another principal cannot inspect or confirm an initiating person's flow.
+
+DE: **Nicht persistent: Ein Neustart verliert Schlüssel und Geräteverifikation.** Unter Einstellungen
+→ Vermittlung → Matrix ist der Modus standardmäßig aus. Nur für einen bewussten Test auf `memory`
+setzen. Emojis/Zahlen am anderen Gerät vergleichen und erst dann bestätigen. Cross-Signing-Bootstrap
+und Recovery-Backup stehen noch nicht zur Verfügung.
+
+The [bounded storage spike](../spikes/2026-10-15-matrix-crypto-storage.md) documents the blocker:
+WASM 18.9.0 needs IndexedDB for persistence and exposes no custom SQLite store. No unapproved
+package or native crypto package was introduced. M4 criterion 5 remains open; five-target verification
+and real crypto key recovery across a killed write have not been demonstrated.
+
+The d07 safety changes apply even with crypto disabled. The adapter refetches room encryption state
+on resumed sync when unknown, persists every positive result (including timeline state changes),
+and never handles plaintext in an encrypted room. Failed state lookup or persistence parks the cursor.
 
 ## 6. Reply rules
 
@@ -137,8 +157,12 @@ not forwarded, so the code cannot leak to other members. Without a `pairing` por
   for rate limits, network errors, timeouts and 5xx; 4xx other than 429 is not retried. A 403 marks the room inactive until restart.
 - Retries reuse one transaction id, so a retried send is de-duplicated by the homeserver for this device. Beyond the server's
   transaction window a network-ambiguous send may still duplicate.
-- Dedupe: processed event ids are kept in a bounded in-memory set (4096 entries). A restart may redeliver recent events that
-  the sync token had not yet covered.
+- Dedupe: sync state version 2 persists claims **before** handlers, together with encryption state and cursor.
+  Legacy `{nextBatch}` files migrate on write. All claims in an uncommitted cursor interval survive restart,
+  including intervals larger than the 4096-entry recent ring. After cursor commit, claims may be pruned.
+  This is **at most once**: a crash after claim but before handler completion can lose a message; it cannot
+  safely promise exactly-once effects. Encryption-state capacity (4096 rooms) fails closed and parks the
+  cursor rather than evicting a previously encrypted room. Files use 0600/Windows owner ACL and fsync+rename.
 
 ## 11. Troubleshooting
 
