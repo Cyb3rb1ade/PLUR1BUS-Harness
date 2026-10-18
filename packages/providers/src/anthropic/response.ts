@@ -176,12 +176,12 @@ export class AnthropicAccumulator {
       this.#blocks.set(i, { kind: "text", open: true });
       if (typeof b["text"] === "string" && b["text"] !== "") { this.#text += b["text"]; events.push({ type: "text_delta", text: b["text"] }); }
     } else if (t === "thinking") {
-      this.#thinking.set(i, {type:"thinking", thinking:typeof b["thinking"]==="string"?b["thinking"]:"", signature:typeof b["signature"]==="string"?b["signature"]:""});
+      this.#thinking.set(i, {...b, type:"thinking", thinking:typeof b["thinking"]==="string"?b["thinking"]:"", signature:typeof b["signature"]==="string"?b["signature"]:""});
       this.#blocks.set(i, { kind: "thinking", open: true });
       if (typeof b["thinking"] === "string" && b["thinking"] !== "") { this.#reasoning += b["thinking"]; events.push({ type: "reasoning_delta", text: b["thinking"] }); }
     } else if (t === "redacted_thinking") {
       if(typeof b["data"]!=="string")throw protocol("redacted thinking has no data");
-      this.#thinking.set(i,{type:"redacted_thinking",data:b["data"]});
+      this.#thinking.set(i,{...b,type:"redacted_thinking",data:b["data"]});
       this.#blocks.set(i,{kind:"ignored",open:true});
     } else if (t === "tool_use") {
       const id = b["id"], name = b["name"];
@@ -292,7 +292,7 @@ export class AnthropicAccumulator {
     for (const c of this.#calls) toolCalls.push(await finaliseToolCall(c.id, c.name, c.args, repair, tools, signal));
     const r: ChatResult = { text: this.#text, toolCalls, finishReason: normaliseStop(this.#raw), rawFinishReason: this.#raw, meta: this.#meta };
     if (this.#reasoning) r.reasoning = this.#reasoning;
-    if(this.#meta.model)keepThinking(r,this.#meta.model,[...this.#thinking.values()].filter(b=>b["type"]==="redacted_thinking" || typeof b["signature"]==="string"&&b["signature"]!=="") as ThinkingBlock[]);
+    if(this.#meta.model)keepThinking(r,this.#meta.model,[...this.#thinking.values()] as ThinkingBlock[]);
     const u = this.usage;
     if (u !== undefined) r.usage = u;
     return r;
@@ -322,7 +322,7 @@ export function* messageToEvents(body: unknown): Generator<unknown, void, void> 
       yield { type: "content_block_start", index: i, content_block: { type: "text", text: "" } };
       yield { type: "content_block_delta", index: i, delta: { type: "text_delta", text: b["text"] } };
     } else if (b["type"] === "thinking") {
-      yield { type: "content_block_start", index: i, content_block: { type: "thinking", thinking: "" } };
+      yield { type: "content_block_start", index: i, content_block: { ...b, type: "thinking", thinking: "", signature: "" } };
       yield { type: "content_block_delta", index: i, delta: { type: "thinking_delta", thinking: b["thinking"] } };
       if(typeof b["signature"]==="string")yield {type:"content_block_delta",index:i,delta:{type:"signature_delta",signature:b["signature"]}};
     } else if (b["type"] === "tool_use") {

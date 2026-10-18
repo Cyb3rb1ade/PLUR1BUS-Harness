@@ -191,7 +191,8 @@ export function buildAnthropicBody(req: AnthropicRequest, opts: AnthropicBuildOp
   const thinking = thinkingBudget > 0;
   if(thinking && continuesToolLoop){
     const last=turns[turns.length-2]!;
-    if(!last.blocks.some(b=>b.type==="thinking"||b.type==="redacted_thinking"))throw bad("extended-thinking tool continuation requires the original signed thinking blocks for this model");
+    const blocks=last.blocks.filter(b=>b.type==="thinking"||b.type==="redacted_thinking");
+    if(!blocks.length || blocks.some(b=>b.type==="thinking"&&(typeof b["signature"]!=="string"||b["signature"]==="")))throw bad("extended-thinking tool continuation requires the original signed thinking blocks for this model");
   }
   const answer = req.maxTokens ?? opts.defaultMaxTokens;
   const body: Record<string, unknown> = { model: req.model, max_tokens: anthropicOutputLimit(answer, thinkingBudget) };
