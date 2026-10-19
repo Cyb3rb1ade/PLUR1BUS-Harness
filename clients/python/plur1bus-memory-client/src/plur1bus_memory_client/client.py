@@ -1,6 +1,7 @@
 """``MemoryClient``: the core RPC over the home's socket or pipe, for host adapters (spec A.6, D88).
 
-Every (re)connect re-reads ``run/core.token`` and ``run/core.pid``, checks the OS-reported server pid
+Every (re)connect re-reads the explicit ``token_path`` (HM4, no owner-token fallback),
+or by default ``run/core.token``, and ``run/core.pid``, checks the OS-reported server pid
 against ``run/core.pid`` before the token is sent (ruling S11) and, on POSIX, refuses a ``run/`` that is
 not a directory owned by this user without group/other write bits (HM2-R7), whose socket is not ours, or whose
 server runs as another uid (``E_UNAUTHORIZED``, see ``trust.py``). Every call runs under one
@@ -10,6 +11,8 @@ monotonic deadline that covers connecting, sending, receiving and the single rec
 from __future__ import annotations
 
 import os
+import re
+import stat
 import sys
 import threading
 import time
@@ -82,6 +85,7 @@ class MemoryClient:
         home: str,
         *,
         platform: str = sys.platform,
+        token_path: str | None = None,
         connect_timeout: float = 2.0,
         call_timeout: float = 5.0,
         transport_factory: TransportFactory | None = None,
@@ -90,6 +94,7 @@ class MemoryClient:
     ) -> None:
         if not is_absolute_home(home, platform):
             raise ValueError("home must be an absolute path (pass the exact home the core runs with)")
+        self.token_path = token_path
         self.home = home
         self.platform = platform
         self.address = core_address(home, platform)
@@ -332,6 +337,18 @@ class MemoryClient:
             raise RpcError("E_CORE_UNAVAILABLE", "the run directory is unreadable", {"reason": "run-dir-unreadable"}) from None
 
     def _read_token(self) -> str:
+        if self.token_path is not None:
+            try:
+                st = self._lstat(self.token_path)
+                if not stat.S_ISREG(st.st_mode) or (self.platform != "win32" and (st.st_uid != (os.geteuid() if self._euid is None else self._euid) or st.st_mode & 0o077)):
+                    raise OSError("client token must be owner-only and regular")
+                with open(self.token_path, encoding="ascii") as f:
+                    token = f.read(256).strip()
+            except (OSError, UnicodeError):
+                raise RpcError("E_UNAUTHORIZED", "client credential unavailable", {"reason": "client-token"}) from None
+            if not re.fullmatch(r"plb_[0-9a-f]{12}_[A-Za-z0-9_-]{43}", token):
+                raise RpcError("E_UNAUTHORIZED", "client credential malformed", {"reason": "client-token"})
+            return token
         try:
             with open(core_token_path(self.home), encoding="ascii", errors="replace") as f:
                 token = f.read().strip()
@@ -379,7 +396,7 @@ class MemoryClient:
         if expected is None and self.platform == "win32":
             # docs/rpc.md: on Windows a missing pid file is a refusal, not a skipped check (the pipe name can be squatted).
             raise RpcError("E_SERVER_IDENTITY", "run/core.pid does not exist", {"reason": "server-pid-unknown"})
-        if not os.path.exists(core_token_path(self.home)):
+        if self.token_path is None and not os.path.exists(core_token_path(self.home)):
             raise RpcError("E_CORE_UNAVAILABLE", "run/core.token does not exist", {"reason": "token-missing"})
         left = deadline - time.monotonic()
         if left <= 0:

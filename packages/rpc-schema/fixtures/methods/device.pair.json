@@ -1,0 +1,13 @@
+{
+  "params": {
+    "kind": "desktop"
+  },
+  "result": {
+    "code": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "kind": "desktop",
+    "expiresAt": 601000,
+    "scopes": [
+      "chat:read"
+    ]
+  }
+}

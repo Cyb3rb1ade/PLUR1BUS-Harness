@@ -43,7 +43,10 @@ async fn install_happy_path_emits_steps_in_order() {
         assert!(spec
             .volumes
             .iter()
-            .any(|(_, p, _)| p == "/var/lib/plur1bus"));
+            .any(|(_, p, _)| p == plur1bus_desktop::runtime::spec::STATE_MOUNT));
+        assert!(spec.volumes.iter().any(|(_, p, _)| p == "/state/models"));
+        assert!(spec.env.iter().any(|(key, value)| key == "PLUR1BUS_HOME"
+            && value == plur1bus_desktop::runtime::spec::STATE_MOUNT));
     }
 }
 #[tokio::test]
@@ -486,24 +489,29 @@ fn create_spec_is_exact_for_both_native_adapters() {
     );
     let a = create_argv(&s).unwrap();
     let v = serde_json::to_value(create_body(&s).unwrap()).unwrap();
+    assert!(s.env.iter().any(|(key, value)| key == "PLUR1BUS_HOME"
+        && value == plur1bus_desktop::runtime::spec::STATE_MOUNT));
+    assert!(!s
+        .volumes
+        .iter()
+        .any(|(_, target, _)| target.starts_with("/var/lib/")));
+
     assert_eq!(
         s.volumes,
         vec![
-            ("plur1bus-state".into(), "/var/lib/plur1bus".into(), false),
             (
-                "plur1bus-models".into(),
-                "/var/lib/plur1bus-models".into(),
+                "plur1bus-state".into(),
+                plur1bus_desktop::runtime::spec::STATE_MOUNT.into(),
                 false
-            )
+            ),
+            ("plur1bus-models".into(), "/state/models".into(), false)
         ]
     );
     assert!(a.windows(2).any(|p| p == ["-p", "127.0.0.1:18742:18700"]));
+    assert!(a.windows(2).any(|p| p == ["-v", "plur1bus-state:/state"]));
     assert!(a
         .windows(2)
-        .any(|p| p == ["-v", "plur1bus-state:/var/lib/plur1bus"]));
-    assert!(a
-        .windows(2)
-        .any(|p| p == ["-v", "plur1bus-models:/var/lib/plur1bus-models"]));
+        .any(|p| p == ["-v", "plur1bus-models:/state/models"]));
     assert!(!a
         .iter()
         .any(|p| p.contains("restart") || p == "--privileged"));

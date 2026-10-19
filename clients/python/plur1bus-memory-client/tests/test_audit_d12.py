@@ -3,7 +3,6 @@
 import copy
 import os
 import pickle
-import resource
 import shutil
 import socket
 import sys
@@ -138,6 +137,8 @@ class PosixTest(unittest.TestCase):
 
     def test_is_stale_works_for_descriptors_above_the_select_limit(self) -> None:
         from plur1bus_memory_client.transport_posix import PosixStream
+
+        import resource  # POSIX-only; keep the other regression tests importable on Windows.
 
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         if soft != resource.RLIM_INFINITY and soft < 1100:

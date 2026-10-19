@@ -1,3 +1,5 @@
+import { hermesClientAuth } from "./rpc/hermes-client-auth.ts";
+import { authorize } from "./rbac/authorize.ts";
 import { buildEmbeddingSelectionSurface } from "./rpc/embedding-selection-surface.ts";
 import { creationDigest } from "./agents/saga.ts";
 import { LicenceLedger } from "./licences/ledger.ts";
@@ -6,6 +8,7 @@ import { buildChatSurface } from "./rpc/chat-surface.ts";
 import { apiAdmission } from "./rpc/api-admission.ts";
 import { apiIdentities } from "./rpc/api-identity.ts";
 import { buildDoctorMethods } from "./doctor-report.ts";
+import { buildVoiceSessionMethods } from "./rpc/voice-session-surface.ts";
 import { createAuthSecretStore } from "./auth/secret-store.ts";
 import { createWriter } from "./logs/writer.ts";
 import { createD111Events } from "./discovery/events-logger.ts";
@@ -96,7 +99,7 @@ import { createModelsScanJob } from "./discovery/job.ts";
 import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
-import { createDreams, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
+import { createDreams, forgetRemovedAgent, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
@@ -248,6 +251,12 @@ export function createCore(o: CoreOptions): Core {
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
   let discoveryWriter: ReturnType<typeof createWriter> | null = null;
+  let unsubscribeDiscoveryRedaction: (() => void) | null = null;
+  let unsubscribeCoreRedaction: (() => void) | null = null;
+  const closeLogRedaction = () => {
+    unsubscribeDiscoveryRedaction?.(); unsubscribeDiscoveryRedaction = null;
+    unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = null;
+  };
   let coreWriter: Pick<ReturnType<typeof createWriter>, "updateLevels" | "currentLevels"> | null = null;
   let dreams: Dreams | null = null;
   let dreamsError: string | undefined;
@@ -337,6 +346,7 @@ export function createCore(o: CoreOptions): Core {
     };
   }
 
+  let hostClients: ReturnType<typeof hermesClientAuth> | null = null;
   async function start(): Promise<void> {
     for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal, l.catalog, l.systemJobs]) mkdirSync(d, { recursive: true, mode: 0o700 });
     // B7: what the config source logs before the logger exists (it is built from the configuration) is kept and
@@ -374,6 +384,8 @@ export function createCore(o: CoreOptions): Core {
     // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
     const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
+    // Every secret value the store writes, rotates, reveals or leases is masked in the core log from that moment on.
+    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe(value => createdLog.registerSecret(value)); }
     // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
     // The sidecar's destination is configuration (sidecars.searxng) or the address the container layer injected; the keyed
     // providers go through the egress policy and read their key from the secret store per call. The trace carries lengths,
@@ -422,6 +434,8 @@ export function createCore(o: CoreOptions): Core {
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
       if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers."))) scanScheduler?.replan();
+      // An agent that left the configuration loses its dream schedule at once (forgetAgent refuses one the registry still lists).
+      for (const id of Object.keys(prev.agents)) if (!Object.hasOwn(next.agents, id)) forgetRemovedAgent(dreams?.scheduler, id, log);
       if (discoveryWriter) discoveryWriter.updateLevels({ ...discoveryWriter.currentLevels(), defaultLevel: next.core.logLevel });
       discoveryWriter?.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
@@ -453,7 +467,7 @@ export function createCore(o: CoreOptions): Core {
       const events = (name: string, payload: unknown) => {
         // ADR-016 §6: the harness-owned notification, projected onto its schema.
         const m = mapEngineEvent(name, payload);
-        if (m) server?.notify(m.method, m.params, m.audience ? { audience: m.audience } : {});
+        if (m) server?.notify(m.method, m.params, m.audience ? { audience: m.audience.map(agentId => ({ agentId })) } : {});
         else if (!unmapped.has(name)) { unmapped.add(name); logger?.debug("unmapped engine event", { name }); }
         // G13: the deprecated verbatim forward, only to subscriptions that name engine.event.
         if (ENGINE_EVENT_NAMES.includes(name)) {
@@ -477,13 +491,15 @@ export function createCore(o: CoreOptions): Core {
       if (storeSchema.current !== null && storeSchema.current !== storeSchema.expected) {
         logger.warn("store schema differs from the engine's expected version; run `plur1bus admin migrate`", { current: storeSchema.current, expected: storeSchema.expected });
       }
-      activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
+      activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }, { audience: [{ agentId }] }));
 
       const discDefaults = defaultDiscoveryAdapters({ logger, runtime: {
         definitions: () => o.composition?.definitions ?? Object.fromEntries(Object.entries(cfg().providers).filter(([, value]) => !!value && typeof value === "object" && "wireFormat" in value)) as Record<string, DiscoveryProviderDefinition>,
         store: createAuthSecretStore(secretStore), egress, now: clock, credentialProvider: definition => turnComposition?.discoveryCredentials(definition), openai: () => turnComposition?.openai.auth,
       } });
       discoveryWriter = createWriter({ dir: l.logs, role: "core", source: { kind: "harness", id: "discovery", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes, keep: config.logs.keep });
+      unsubscribeDiscoveryRedaction?.();
+      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe(value => discoveryWriter?.registerSecret(value));
       const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
       const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
       const discEvents = o.discovery?.events ?? createD111Events(discoveryWriter);
@@ -586,6 +602,7 @@ export function createCore(o: CoreOptions): Core {
         onPublished: kind => metrics.inboxPublished(kind), log: (m, f) => log.warn(m, f),
         onChange: c => { void deliverInboxChange(c, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "inbox", connectionId: id, signal: shutdown.signal }, "inbox.count", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("inbox event withheld"); }); } });
       const originalResolver: PrincipalResolver = o.rbac?.resolve ?? (() => LOCAL_OWNER);
+      hostClients = hermesClientAuth(l.home, people, clock);
       const apiIdentity = apiIdentities(p => {
         if (!people.resolvePerson(p.userId)) return null;
         const current = o.rbac?.resolvePerson ? o.rbac.resolvePerson(p.userId) : { ...p, kind: "person" as const };
@@ -615,7 +632,7 @@ export function createCore(o: CoreOptions): Core {
         maxGrantDays: () => cfg().approvals?.maxGrantDays ?? 90,
         // The switchboard sees approval requests next to the RPC notifier: a channel chat shows its own prompt.
         dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), signing: secretStoreSigningKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); approvalToInbox(inboxPort, n, p); } },
-        audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), securePath: platform.securePath,
+        audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock }, redactor: secretStore.redaction.redactor() }), securePath: platform.securePath,
         onOpen: (p) => {
           p.grants.setNotify((change, grant, state) => notifier.grantChanged(change, grantRecordOf(grant, state)));
           alwaysGrantsToInbox(inboxPort, p.grants.inspect().map((v) => v.grant), clock());
@@ -645,7 +662,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
@@ -745,7 +762,7 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       await creation.recover();
-      const adminSurface = buildAdminSurface({ rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
+      const adminSurface = buildAdminSurface({ onAgentDeleted: id => forgetRemovedAgent(dreams?.scheduler, id, log), rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
           const root = l.agentDir(id), workspace = registry.workspaceOf(id);
@@ -822,7 +839,7 @@ export function createCore(o: CoreOptions): Core {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
           surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
           requireOsConfirmation: () => cfg().approvals?.requireOsConfirmation ?? true,
-          attester: o.attestation?.attester ?? createAttestationService({ helper: o.attestation?.helper !== undefined ? o.attestation.helper : helperFromEnv(process.env), audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), now: clock }),
+          attester: o.attestation?.attester ?? createAttestationService({ helper: o.attestation?.helper !== undefined ? o.attestation.helper : helperFromEnv(process.env), audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock }, redactor: secretStore.redaction.redactor() }), now: clock }),
           requireAgent: (agentId) => { requireAgent(registry, agentId); }, notify: { grantChanged: notifier.grantChanged, confirmationChanged: notifier.confirmationChanged },
           onGrantsInspected: (grants, now) => alwaysGrantsToInbox(inboxPort, grants, now),
         },
@@ -830,11 +847,13 @@ export function createCore(o: CoreOptions): Core {
         ...(sessions?.methods ?? {}),
         ...(turnComposition?.surfaceMethods ?? {}),
         ...(turnComposition?.voice.v3.methods ?? {}),
+        ...buildVoiceSessionMethods({ config: cfg, broker: () => turnComposition?.voice.broker, hasAgent: id => registry.has(id), clock, audit: rbacAudit,
+          surface: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }),
         ...buildInboxSurface(() => inbox?.service ?? null),
         ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
         ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
         ...buildIdentitySurface(() => identity),
-        ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
+        ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, signal: shutdown.signal, revoked: userId => server?.notify("api.account.changed", {userId}, {audience:apiIdentity.services().map(connectionId=>({connectionId}))}), personVersion: id => { const p=people.person(id); return p && !p.disabled ? p.version : null; }, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,
         ...buildLicenceSurface(licenceLedger,cfg),
         ...buildEmbeddingSelectionSurface({ ledger:licenceLedger, currentModel:() => String((engineConfig.embedding as any).local.model), migration, port:reembedEnginePort, audit:rbacAudit, clock }),
@@ -844,7 +863,7 @@ export function createCore(o: CoreOptions): Core {
         ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => switchboard?.view ?? null, audit: rbacAudit, clock }),
         // D4 / D111: logs.query / logs.tail / logs.levels over <home>/logs; RBAC-guarded below (RPC_RULES).
         ...createLogsMethods({
-          dir: l.logs, signal: shutdown.signal,
+          dir: l.logs, signal: shutdown.signal, redactor: secretStore.redaction.redactor(),
           ...(coreWriter ? { writer: {
             currentLevels: () => coreWriter!.currentLevels(),
             updateLevels(s) { coreWriter?.updateLevels(s); discoveryWriter?.updateLevels(s); },
@@ -854,17 +873,26 @@ export function createCore(o: CoreOptions): Core {
         }),
       };
       Object.assign(rawMethods, buildChatSurface({ sessions: () => sessions, agents: executionRegistry, audit: rbacAudit, now: clock, approver: async (ctx,p) => { const who = await resolvePrincipal(ctx,"chat.submit",p); return { person: who?.kind === "person" ? who.userId : null, surface: connectionSurface({ principal: who, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; } }));
-      Object.assign(rawMethods, sessionWriteAccess({ methods: rawMethods, sessions: () => sessions?.store ?? null, ownership, validateCaller: true }));
+      Object.assign(rawMethods, sessionWriteAccess({ methods: rawMethods, sessions: () => sessions?.store ?? null, lookup: id => sessions?.forSession(id).store ?? null, ownership, validateCaller: true }));
       const listAgents = rawMethods["agent.list"], agentStatus = rawMethods["agent.status"];
       rawMethods["agent.list"] = async (p, ctx) => { const r = await listAgents!(p,ctx) as { agents: { agentId: string }[] }; return { ...r, agents: r.agents.filter(a => !lifecycle.state(a.agentId).deleted).map(a => ({ ...a, lifecycle: lifecycle.state(a.agentId) })) }; };
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg())] }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg())] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
+      // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
+      rawMethods["events.subscribe"] = async () => ({});
       const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
+      const subscribe = methods["events.subscribe"]!;
+      methods["events.subscribe"] = async (p, ctx) => {
+        // The API's credential-only control link watches account revocations, never agent events.
+        if (apiPrincipal(ctx) === null && p.agentId === undefined && Array.isArray(p.names) && p.names.length === 1 && p.names[0] === "api.account.changed") return {};
+        return subscribe(p, ctx);
+      };
       server = createRpcServer({
-        address, token, apiToken, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
+        canReadAgent: async (ctx, agentId) => authorize(await resolvePrincipal(ctx, "events.subscribe", { agentId }), "agent.read", { kind: "agent", agentId }, { now: clock() }).effect === "allow",
+        address, token, apiToken, authorizeClient: hostClients.authorize, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => { apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
         onCall: (method, result) => metrics.rpcCall(method, result),
       });
@@ -960,13 +988,13 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
-      await step(log, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; });
+      await step(log, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; });
       await step(log, "identity close", () => { identity?.close(); identity = null; });
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
       await step(log, "run files", () => removeRunFiles());
       state = { state: "stopped", since: clock(), reason: "start-failed" };
-      await step(log, "discovery logger close", () => { discoveryWriter?.close(); discoveryWriter = null; });
+      await step(log, "discovery logger close", () => { closeLogRedaction(); discoveryWriter?.close(); discoveryWriter = null; });
       if (!o.logger) await step(null, "logger close", () => log.close());
       throw e;
     }
@@ -1041,7 +1069,7 @@ export function createCore(o: CoreOptions): Core {
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
-      await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
+      await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
       await userJobs?.drain(); userJobs?.close(); userJobs = null;
       await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
@@ -1058,7 +1086,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "run files", () => removeRunFiles(), errors);
       setState({ state: "stopped", since: clock(), ...(errors.length ? { reason: "stop-step-failed" } : {}) });
       await step(logger, "log", () => logger?.info("core stopped", { instanceId, failedSteps: errors.length, ...(errors.length ? { firstError: errors[0] } : {}) }));
-      await step(logger, "discovery logger close", () => { discoveryWriter?.close(); discoveryWriter = null; });
+      await step(logger, "discovery logger close", () => { closeLogRedaction(); discoveryWriter?.close(); discoveryWriter = null; });
       if (!o.logger) await step(null, "logger close", () => logger?.close());
     })();
     return stopping;

@@ -1,0 +1,10 @@
+{
+  "params": {
+    "sessionId": "s1",
+    "target": {
+      "kind": "project",
+      "projectId": "p1"
+    }
+  },
+  "result": {}
+}

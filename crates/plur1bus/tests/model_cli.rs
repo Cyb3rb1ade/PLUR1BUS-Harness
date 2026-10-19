@@ -1,6 +1,6 @@
 //! `plur1bus model list|scan|override` CLI integration tests (D112 Task 10).
 use assert_cmd::prelude::*;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::fs;
 use std::process::Command;
 
@@ -131,9 +131,56 @@ fn firstaid_check_includes_models_roles_at_end() {
     );
 
     let checks = doc["checks"].as_array().unwrap();
-    // `remote.exposure` is appended after it (check ids are append-only).
-    let last = &checks[checks.len() - 2];
+    // `remote.exposure`, `models.decision` and `api.supervised` are appended after it (check ids are append-only).
+    let last = &checks[checks.len() - 4];
     assert_eq!(last["id"], "dreams.last-runs");
     assert_eq!(last["status"], "skip");
-    assert_eq!(checks.last().unwrap()["id"], "remote.exposure");
+    assert_eq!(checks[checks.len() - 3]["id"], "remote.exposure");
+    assert_eq!(checks.last().unwrap()["id"], "api.supervised");
+    // No decision role on a fresh home: an info row, not a warning, naming the way to set it.
+    let decision = &checks[checks.len() - 2];
+    assert_eq!(decision["id"], "models.decision");
+    assert_eq!(decision["status"], "info", "{decision}");
+    assert_eq!(
+        decision["detail"]["limited"],
+        json!(["messageTriage", "toolPreselection", "modelClassChoice"])
+    );
+    assert!(decision["hint"]
+        .as_str()
+        .unwrap()
+        .contains("modelRoles.decision"));
+}
+
+#[test]
+fn firstaid_check_reports_the_decision_role_as_ok_once_it_is_set() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        home.join("config.json"),
+        json!({ "modelRoles": { "decision": "p/small" } }).to_string(),
+    )
+    .unwrap();
+
+    fs::create_dir_all(home.join("catalog")).unwrap();
+    fs::write(
+        home.join("catalog/models.json"),
+        json!({ "models": [
+        { "provider": "p", "id": "small", "aliases": [], "status": "available" }
+    ] })
+        .to_string(),
+    )
+    .unwrap();
+    let mut cmd = bin();
+    cmd.arg("--home")
+        .arg(&home)
+        .args(["--json", "1staid", "check"]);
+    // The exit code depends on unrelated rows; only this row matters here.
+    let out = cmd.output().unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let doc: Value = serde_json::from_str(&stdout).unwrap();
+    let checks = doc["checks"].as_array().unwrap();
+    let decision = checks[checks.len() - 2].clone();
+    assert_eq!(decision["id"], "models.decision");
+    assert_eq!(decision["status"], "ok", "{decision}");
 }

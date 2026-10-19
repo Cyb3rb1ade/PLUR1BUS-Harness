@@ -18,6 +18,7 @@ import {
   type M7OpenclawFixture,
 } from "./fixtures.ts";
 import { treeDigest, treeEntries } from "./tree.ts";
+import { flatTestInternals } from "../helpers/flat-embedder.ts";
 
 function targetDigestExcludingImports(dir: string): string {
   return treeEntries(dir, { mtime: false })
@@ -85,7 +86,7 @@ describe("OpenClaw importer (Batch 2)", () => {
     const home = tempDir("p1b-test-home-");
     const l = layout(home);
 
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
 
     assert.equal(report.mode, "apply");
     assert.ok(report.reportPath && existsSync(report.reportPath), "report.json was not written");
@@ -130,14 +131,14 @@ describe("OpenClaw importer (Batch 2)", () => {
   it("idempotency: a second apply run produces matched-existing for all entities and zero new writes outside imports/ (I4)", { timeout: 30_000 }, async () => {
     const home = tempDir("p1b-test-home-");
 
-    const r1 = await importOpenclaw({ home, source: fx.root, apply: true });
+    const r1 = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.equal(r1.counts.agentsCreated, 2);
     assert.ok(r1.counts.filesCreated > 0);
 
     const targetDigestAfterFirst = targetDigestExcludingImports(home);
 
     // Second apply run
-    const r2 = await importOpenclaw({ home, source: fx.root, apply: true });
+    const r2 = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
 
     assert.equal(r2.counts.agentsCreated, 0, "second run should not create agents");
     assert.equal(r2.counts.agentsMatched, 2, "second run should match all existing agents");
@@ -166,7 +167,7 @@ describe("OpenClaw importer (Batch 2)", () => {
 
     await assert.rejects(
       async () => {
-        await importOpenclaw({ home, source: fx.root, apply: true });
+        await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
       },
       (err: any) => {
         assert.ok(err instanceof ImportError);
@@ -187,7 +188,7 @@ describe("OpenClaw importer (Batch 2)", () => {
     try {
       await assert.rejects(
         async () => {
-          await importOpenclaw({ home, source: fx.root, apply: true });
+          await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
         },
         (err: any) => {
           assert.ok(err instanceof ImportError);
@@ -212,7 +213,7 @@ describe("OpenClaw importer (Batch 2)", () => {
     writeFileSync(join(wsAlpha, "SOUL.md"), customContent);
 
     // Run apply with default onConflict (skip)
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
 
     const alpha = report.agents.find((a) => a.harnessAgentId === "alpha");
     assert.ok(alpha);
@@ -243,7 +244,7 @@ describe("OpenClaw importer (Batch 2)", () => {
     };
     writeFileSync(join(srcDir, "openclaw.json"), JSON.stringify(openclawJson));
 
-    const report = await importOpenclaw({ home, source: srcDir, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: srcDir, apply: true });
 
     assert.equal(report.counts.agentsCreated, 0);
     assert.equal(report.counts.agentsRejected, invalidIds.length);
@@ -291,7 +292,7 @@ describe("OpenClaw importer (Batch 2)", () => {
     };
     writeFileSync(l.configPath, JSON.stringify(initialConfig, null, 2) + "\n");
 
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.equal(report.counts.agentsCreated, 2);
 
     // Read back config.json
@@ -331,7 +332,7 @@ describe("OpenClaw importer (Batch 2)", () => {
       agents: { list: [{ id: "alpha", workspace: ws }] },
     }));
 
-    const report = await importOpenclaw({ home, source: root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: root, apply: true });
     const alpha = report.agents.find((a) => a.harnessAgentId === "alpha");
     assert.ok(alpha);
     const soulReport = alpha.files.find((f) => f.targetFile === "SOUL.md");
@@ -365,7 +366,7 @@ describe("OpenClaw importer (Batch 2)", () => {
       agents: { list: [{ id: "alpha", workspace: ws }] },
     }));
 
-    const report = await importOpenclaw({ home, source: root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: root, apply: true });
     const alpha = report.agents.find((a) => a.harnessAgentId === "alpha");
     assert.ok(alpha);
 
@@ -412,7 +413,7 @@ describe("OpenClaw importer (Batch 2)", () => {
     assert.ok(!dryRunHuman.includes(FAKE_TOKEN), "FAKE_TOKEN found in dry-run human report");
     assert.ok(!dryRunHuman.includes(CONTENT_MARKER), "CONTENT_MARKER found in dry-run human report");
 
-    const applyReport = await importOpenclaw({ home, source: fx.root, apply: true });
+    const applyReport = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     const applyJson = JSON.stringify(applyReport);
     const applyHuman = renderOpenclaw(applyReport);
 
@@ -442,7 +443,7 @@ describe("OpenClaw importer (Batch 2)", () => {
     assert.equal(secRes.reason, "secret-store-unavailable");
 
     // Apply through CLI
-    const applyRes = await runImport(["openclaw", "--source", fx.root, "--home", home, "--apply"], {}, "/nonexistent-home");
+    const applyRes = await runImport(["openclaw", "--source", fx.root, "--home", home, "--apply"], {}, "/nonexistent-home", flatTestInternals());
     assert.ok(applyRes.ok);
     assert.equal(applyRes.schema, "import.openclaw/1");
     assert.equal(applyRes.value.mode, "apply");

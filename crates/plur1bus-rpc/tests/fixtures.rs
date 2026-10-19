@@ -99,6 +99,16 @@ fn method_fixture(name: &str, f: &Value) {
         "project.card.activity.list" => {
             pair::<ProjectCardActivityListParams, ProjectCardActivityListResult>(name, f)
         }
+        "device.pair" => pair::<DevicePairParams, DevicePairResult>(name, f),
+        "admin.api.desktop.redeem" => {
+            pair::<AdminApiDesktopRedeemParams, AdminApiDesktopRedeemResult>(name, f)
+        }
+        "admin.api.desktop.token" => {
+            pair::<AdminApiDesktopTokenParams, AdminApiDesktopTokenResult>(name, f)
+        }
+        "admin.api.desktop.resolve" => {
+            pair::<AdminApiDesktopResolveParams, AdminApiDesktopResolveResult>(name, f)
+        }
         "device.list" => pair::<DeviceListParams, DeviceListResult>(name, f),
         "device.revoke" => pair::<DeviceRevokeParams, Device>(name, f),
         "device.rename" => pair::<DeviceRenameParams, Device>(name, f),
@@ -138,6 +148,7 @@ fn method_fixture(name: &str, f: &Value) {
         "pairing.qr" => pair::<PairingQrParams, PairingQrResult>(name, f),
         "auth.status" => pair::<AuthStatusParams, AuthStatusResult>(name, f),
         "channel.list" => pair::<ChannelListParams, ChannelListResult>(name, f),
+        "channel.crypto" => pair::<ChannelCryptoParams, ChannelCryptoResult>(name, f),
         "channel.get" => pair::<ChannelGetParams, ChannelGetResult>(name, f),
         "channel.enable" => pair::<ChannelEnableParams, ChannelEnableResult>(name, f),
         "channel.disable" => pair::<ChannelDisableParams, ChannelDisableResult>(name, f),
@@ -167,6 +178,12 @@ fn method_fixture(name: &str, f: &Value) {
         "project.agent.remove" => {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
         }
+        "task.complete" => pair::<TaskCompleteParams, TaskCompleteResult>(name, f),
+        "chat.promote.preview" => {
+            pair::<ChatPromotePreviewParams, ChatPromotePreviewResult>(name, f)
+        }
+        "chat.promote.commit" => pair::<ChatPromoteCommitParams, ChatPromoteCommitResult>(name, f),
+        "chat.promote.links" => pair::<ChatPromoteLinksParams, ChatPromoteLinksResult>(name, f),
         "collab.session.replay" => {
             pair::<CollabSessionReplayParams, CollabSessionReplayResult>(name, f)
         }
@@ -305,6 +322,7 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<AdminReembedStatusParams, AdminReembedStatusResult>(name, f)
         }
         "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
+        "models.test" => pair::<ModelsTestParams, ModelsTestResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),
@@ -319,6 +337,7 @@ fn method_fixture(name: &str, f: &Value) {
         "session.archive" => pair::<SessionArchiveParams, SessionArchiveResult>(name, f),
         "session.submit" => pair::<SessionSubmitParams, SessionSubmitResult>(name, f),
         "session.events" => pair::<SessionEventsParams, SessionEventsResult>(name, f),
+        "session.model.set" => pair::<SessionModelSetParams, SessionModelSetResult>(name, f),
         "session.cancel" => pair::<SessionCancelParams, SessionCancelResult>(name, f),
         "identity.list" => pair::<IdentityListParams, IdentityListResult>(name, f),
         "identity.human.create" => {
@@ -380,6 +399,9 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<VoiceRealtimeStartParams, VoiceRealtimeStartResult>(name, f)
         }
         "voice.realtime.stop" => pair::<VoiceRealtimeStopParams, VoiceRealtimeStopResult>(name, f),
+        "voice.session.create" => {
+            pair::<VoiceSessionCreateParams, VoiceSessionCreateResult>(name, f)
+        }
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
@@ -475,6 +497,10 @@ fn every_method_fixture_round_trips() {
         "chat.fork",
         "chat.delete",
         "chat.export",
+        "device.pair",
+        "admin.api.desktop.redeem",
+        "admin.api.desktop.token",
+        "admin.api.desktop.resolve",
         "admin.api.device.pair",
         "admin.api.device.challenge",
         "admin.api.device.prove",
@@ -631,4 +657,15 @@ fn rpc_version_const_matches_the_schema() {
         .as_str()
         .unwrap()
         .contains(&format!("/{}/", plur1bus_rpc::RPC_VERSION)));
+}
+
+#[test]
+fn core_auth_preserves_owner_tokens_and_supports_scoped_client_tokens() {
+    for token in [
+        "0".repeat(64),
+        format!("plb_123456789abc_{}", "x".repeat(43)),
+    ] {
+        let value = serde_json::json!({ "token": token });
+        round_trip::<types::CoreAuthParams>(&value, "core.auth token variants");
+    }
 }

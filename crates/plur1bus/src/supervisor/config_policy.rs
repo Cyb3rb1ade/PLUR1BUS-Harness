@@ -271,6 +271,22 @@ pub fn audit(
 mod tests {
     use super::*;
     #[test]
+    fn sandbox_bypass_is_owner_only_even_for_parent_replacements() {
+        let before = json!({"tools":{"sandbox":{"required":true}}});
+        let after = json!({"tools":{"sandbox":{"required":false}}});
+        for role in ["admin", "operator", "member", "viewer"] {
+            assert_eq!(
+                changes(schema(), &before, &after, role),
+                Err("config-write-role")
+            );
+        }
+        let rows = changes(schema(), &before, &after, "owner").unwrap();
+        assert!(rows
+            .iter()
+            .any(|r| r.key == "tools.sandbox.required" && r.new == false));
+    }
+
+    #[test]
     fn parent_replacement_cannot_bypass_roles_and_sensitive_values_are_redacted() {
         let schema = json!({"properties":{"security":{"properties":{"max":{"x-write-roles":["owner","admin"],"x-audit":true},"secret":{"x-sensitive":true,"properties":{"value":{"x-audit":true}}}}}}});
         let old = json!({"security":{"max":90,"secret":{"value":"old-marker"}}});

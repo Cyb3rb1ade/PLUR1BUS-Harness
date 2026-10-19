@@ -71,7 +71,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
-  const methods = buildSessionMethods({ store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
+  const methods = buildSessionMethods({ storeFor: id => service.forSession(id).store, modelProfiles: () => d.provider()?.modelProfiles?.() ?? [], store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
   let volatile: SessionService | undefined;
   const service: SessionService = {
     ephemeral: () => volatile ??= openSessionService({ ...d, dbPath: ":memory:" }),

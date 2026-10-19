@@ -1,0 +1,3 @@
+assert!(spec.volumes.iter().any(|(_, p, _)| p == "/state"));
+.any(|(key, value)| key == "PLUR1BUS_HOME" && value == "/state"));
+("test-volume".into(), "/state".into(), false),

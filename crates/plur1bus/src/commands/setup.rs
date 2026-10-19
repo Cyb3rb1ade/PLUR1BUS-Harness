@@ -33,6 +33,75 @@ pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
             serde_json::json!({ "reason": "foreign-host-store-path" }),
         );
     }
+    if args.dry_run {
+        match crate::install::profile_upgrade::plan(layout, args.profile.as_deref()) {
+            Ok(plan) => {
+                out.ok("setup.plan/1", &plan, || plan.to_string());
+                crate::output::exit(0);
+            }
+            Err(e) => out.fail("E_CONFIG_INVALID", &e, json!({ "reason": "profile-plan" })),
+        }
+    }
+    let binary = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("plur1bus"));
+    let host = crate::update::host::SystemHost::new(binary.clone());
+    if args.recover_profile {
+        match crate::install::profile_upgrade::recover(layout, &host, &binary) {
+            Ok(()) => {
+                out.ok("setup.recovery/1", &json!({ "recovered": true }), || {
+                    "profile restored".into()
+                });
+                crate::output::exit(0);
+            }
+            Err(e) => out.fail(
+                "E_CONFIG_INVALID",
+                &e,
+                json!({ "reason": "profile-recovery" }),
+            ),
+        }
+    }
+    match crate::install::profile_upgrade::requested(layout, args.profile.as_deref()) {
+        Ok(true) if !crate::install::profile_upgrade::child_authorized(layout) => {
+            let result =
+                crate::install::profile_upgrade::transaction(layout, &host, &binary, || {
+                    let mut child_args: Vec<_> = std::env::args_os().skip(1).collect();
+                    if !args.no_service {
+                        child_args.push("--no-service".into());
+                    }
+                    let output = std::process::Command::new(&binary)
+                        .args(child_args)
+                        .env("PLUR1BUS_HM4_PARENT", std::process::id().to_string())
+                        .stdin(std::process::Stdio::null())
+                        .output()
+                        .map_err(|e| e.to_string())?;
+                    if output.status.success() {
+                        Ok(())
+                    } else {
+                        Err(format!(
+                            "setup child failed ({}): {}",
+                            output.status,
+                            String::from_utf8_lossy(&output.stdout)
+                        ))
+                    }
+                });
+            match result {
+                Ok(()) => {
+                    out.ok(
+                        "setup.upgrade/1",
+                        &json!({ "upgraded": true, "profile": "full", "store": "reused-in-place" }),
+                        || "upgraded host → full; existing store retained".into(),
+                    );
+                    crate::output::exit(0);
+                }
+                Err(e) => out.fail(
+                    "E_CONFIG_INVALID",
+                    &e,
+                    json!({ "reason": "profile-upgrade" }),
+                ),
+            }
+        }
+        Err(_) => {} // run_steps keeps the established state-root failure document
+        _ => {}
+    }
     let opts = SetupOpts {
         non_interactive: args.non_interactive,
         accept_nc: args.accept_nc_licence,
@@ -100,6 +169,20 @@ fn describe(steps: &[StepResult], check: Option<&Value>) -> String {
             line
         })
         .collect();
+    // Setup asks no model question: say what is limited without a decision model and how to set it later.
+    let config = steps
+        .iter()
+        .find(|s| s.id == "config" && s.status == "done");
+    if config.is_some_and(|s| s.detail["decisionRole"]["set"] == false) {
+        lines.push(format!(
+            "note: {}",
+            crate::commands::model::decision_limits_sentence()
+        ));
+        lines.push(format!(
+            "      to enable them, {}",
+            crate::commands::model::DECISION_ROLE_HOW
+        ));
+    }
     if let Some(c) = check {
         lines.push(format!(
             "1staid check: {} ok, {} warn, {} fail{}",
@@ -119,4 +202,45 @@ fn describe(steps: &[StepResult], check: Option<&Value>) -> String {
         ));
     }
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config_step(decision_role: Value) -> StepResult {
+        StepResult {
+            id: "config",
+            status: "done",
+            reason: None,
+            detail: json!({ "decisionRole": decision_role }),
+        }
+    }
+
+    #[test]
+    fn describe_names_the_limited_features_only_without_a_decision_role() {
+        let without = describe(
+            &[config_step(
+                json!({ "set": false, "limited": ["messageTriage"] }),
+            )],
+            None,
+        );
+        assert!(
+            without.contains("note: no decision model role is set"),
+            "{without}"
+        );
+        assert!(without.contains("tool pre-selection"), "{without}");
+        assert!(
+            without.contains("plur1bus config set modelRoles.decision"),
+            "{without}"
+        );
+
+        let with = describe(&[config_step(json!({ "set": true, "limited": [] }))], None);
+        assert!(!with.contains("decision model role"), "{with}");
+
+        // A failed or skipped config step says nothing about the role.
+        let mut failed = config_step(json!({ "set": false }));
+        failed.status = "failed";
+        assert!(!describe(&[failed], None).contains("decision model role"));
+    }
 }

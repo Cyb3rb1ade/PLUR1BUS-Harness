@@ -1,5 +1,17 @@
 {
   "methods": {
+    "chat.promote.links": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.preview": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.commit": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "chat.create": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -73,6 +85,10 @@
       "since": "1.6.0"
     },
     "voice.agent.override.clear": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.session.create": {
       "stability": "experimental",
       "since": "1.6.0"
     },
@@ -200,6 +216,22 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "device.pair": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.redeem": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.token": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.resolve": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "device.list": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -293,6 +325,10 @@
       "since": "1.5.0"
     },
     "project.agent.remove": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "task.complete": {
       "stability": "experimental",
       "since": "1.5.0"
     },
@@ -568,6 +604,10 @@
       "stability": "stable",
       "since": "1.0.0"
     },
+    "models.test": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "models.list": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -744,6 +784,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "channel.crypto": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "channel.get": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -831,6 +875,10 @@
     "identity.unlink": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "session.model.set": {
+      "stability": "experimental",
+      "since": "1.7.0"
     },
     "session.create": {
       "stability": "experimental",

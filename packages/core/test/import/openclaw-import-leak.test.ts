@@ -10,6 +10,7 @@ import { renderOpenclaw } from "../../src/import/render.ts";
 import { idFingerprint } from "../../src/import/fingerprint.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { buildM7OpenclawFixture, type M7OpenclawFixture } from "./fixtures.ts";
+import { flatTestInternals } from "../helpers/flat-embedder.ts";
 
 // Known ids from the fixture's `channels.telegram` section, plus a cron delivery target and job name.
 const SECRET_IDS = ["12345678", "87654321", "-100123456789", "100123456789"];
@@ -41,7 +42,7 @@ describe("OpenClaw importer: no plain channel ids in reports (L1)", () => {
 
   it("report.json, ledger.jsonl, returned report and rendered output contain no plain ids", { timeout: 30_000 }, async () => {
     const home = tempDir("p1b-test-home-");
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
 
     const files = filesUnder(join(home, "imports")).filter((f) => /report\.json$|ledger\.jsonl$/.test(f));
     assert.ok(files.some((f) => f.endsWith("report.json")), "report.json missing");

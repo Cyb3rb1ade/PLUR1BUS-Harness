@@ -195,6 +195,23 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ModelLicenceCheckParams,
                 types::ModelLicenceCheckResult,
             >(name, fixture, &root_schema),
+            "device.pair" => check_pair::<types::DevicePairParams, types::DevicePairResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "admin.api.desktop.redeem" => check_pair::<
+                types::AdminApiDesktopRedeemParams,
+                types::AdminApiDesktopRedeemResult,
+            >(name, fixture, &root_schema),
+            "admin.api.desktop.token" => check_pair::<
+                types::AdminApiDesktopTokenParams,
+                types::AdminApiDesktopTokenResult,
+            >(name, fixture, &root_schema),
+            "admin.api.desktop.resolve" => check_pair::<
+                types::AdminApiDesktopResolveParams,
+                types::AdminApiDesktopResolveResult,
+            >(name, fixture, &root_schema),
             "device.list" => check_pair::<types::DeviceListParams, types::DeviceListResult>(
                 name,
                 fixture,
@@ -357,6 +374,13 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "channel.crypto" => {
+                check_pair::<types::ChannelCryptoParams, types::ChannelCryptoResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
             "channel.get" => check_pair::<types::ChannelGetParams, types::ChannelGetResult>(
                 name,
                 fixture,
@@ -479,6 +503,23 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "project.agent.remove" => check_pair::<
                 types::ProjectAgentRemoveParams,
                 types::ProjectAgentRemoveResult,
+            >(name, fixture, &root_schema),
+            "task.complete" => check_pair::<types::TaskCompleteParams, types::TaskCompleteResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.promote.preview" => check_pair::<
+                types::ChatPromotePreviewParams,
+                types::ChatPromotePreviewResult,
+            >(name, fixture, &root_schema),
+            "chat.promote.commit" => check_pair::<
+                types::ChatPromoteCommitParams,
+                types::ChatPromoteCommitResult,
+            >(name, fixture, &root_schema),
+            "chat.promote.links" => check_pair::<
+                types::ChatPromoteLinksParams,
+                types::ChatPromoteLinksResult,
             >(name, fixture, &root_schema),
             "collab.session.replay" => check_pair::<
                 types::CollabSessionReplayParams,
@@ -939,6 +980,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AdminReembedAbortParams,
                 types::AdminReembedAbortResult,
             >(name, fixture, &root_schema),
+            "models.test" => check_pair::<types::ModelsTestParams, types::ModelsTestResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "models.list" => check_pair::<types::ModelsListParams, types::ModelsListResult>(
                 name,
                 fixture,
@@ -1003,6 +1049,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "session.model.set" => check_pair::<
+                types::SessionModelSetParams,
+                types::SessionModelSetResult,
+            >(name, fixture, &root_schema),
             "session.cancel" => {
                 check_pair::<types::SessionCancelParams, types::SessionCancelResult>(
                     name,
@@ -1304,6 +1354,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "voice.realtime.stop" => check_pair::<
                 types::VoiceRealtimeStopParams,
                 types::VoiceRealtimeStopResult,
+            >(name, fixture, &root_schema),
+            "voice.session.create" => check_pair::<
+                types::VoiceSessionCreateParams,
+                types::VoiceSessionCreateResult,
             >(name, fixture, &root_schema),
             other => panic!("method fixture {other} has no Rust type mapping"),
         }
