@@ -131,23 +131,22 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
         request.referenceVideo = {bytes:await readFile(join(o.media!.store.root,referenceVideoId,file.path)),format:file.format as 'mp4'|'mov'|'webm'};
       }
       if (operation === 'edit'  && !request.referenceImages?.length && !request.referenceVideo) throw new MediaError('unsupported_parameter');
-      const media = [{ kind: request.kind === 'video' ? 'videoSecond' as const : 'image' as const, resolution: request.resolution ?? (request.size ? `${request.size.width}x${request.size.height}` : 'default'), quantity: request.kind === 'video' ? request.durationSeconds ?? 8 : request.n ?? 1 }];
-      const admitted = o.budget?.checkBeforeCall({ principal: req.principal!, agent: ctx.agentId, project: req.projectId ?? 'direct', model: (request.kind === 'video' ? o.media!.adapter.capabilities().video?.model : undefined) ?? o.media!.adapter.model ?? o.media!.adapter.id, provider: o.media!.adapter.id, session: req.sessionId, ...(req.turnId ? { turn: req.turnId } : {}), estimatedInputTokens: 0, maxOutputTokens: 0, media });
+      const admitted = o.budget?.checkBeforeCall({ principal: req.principal!, agent: ctx.agentId, project: req.projectId ?? 'direct', model: (request.kind === 'video' ? o.media!.adapter.capabilities().video?.model : undefined) ?? o.media!.adapter.model ?? o.media!.adapter.id, provider: o.media!.adapter.id, session: req.sessionId, ...(req.turnId ? { turn: req.turnId } : {}), estimatedInputTokens: 0, maxOutputTokens: 0 });
       if (admitted?.kind === 'refuse') throw new CallBudgetExceededError(admitted);
       let result: Awaited<ReturnType<ImageAdapter['generate']>>;
       try { result = await o.media!.adapter[operation](request, { signal: ctx.signal }); }
       catch (e) {
-        // A failed generation returns no media: nothing is billed, so the reservation is released. An abort may still complete
-        // (and bill) remotely (docs/media.md), so it settles the requested quantity instead of leaving the reservation pending.
+        // A failed generation returns no media, so the reservation is released. An abort may still complete remotely
+        // (docs/media.md), so the call is settled (0 tokens) instead of leaving the reservation pending.
         if (admitted?.kind === 'allow') {
-          if (ctx.signal.aborted) o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, media });
+          if (ctx.signal.aborted) o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0 });
           else if (request.kind !== 'video') o.budget!.releaseUnused(admitted.reservationId);
         }
         throw e;
       }
       ctx.signal.throwIfAborted();
       const manifest = await o.media!.store.put(randomUUID(), request, result);
-      if (admitted?.kind === 'allow') o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, media: [{ ...media[0]!, quantity: request.kind === 'video' ? manifest.files.reduce((n,f)=>n+(f.durationSeconds ?? request.durationSeconds ?? 8),0) : result.files.length }] });
+      if (admitted?.kind === 'allow') o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0 });
       return { id: manifest.id, files: manifest.files, metadata: manifest.metadata };
     } });
   }

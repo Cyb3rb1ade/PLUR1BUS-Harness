@@ -214,7 +214,6 @@ Diese Liste enthält die typisierten Fehlercodes, Fehlerklassen und Fehler-Enums
 | `pair-limit` | core · collab/errors | Guardrail-Grund, unklar – prüfen | packages/core/src/collab/errors.ts:9 |
 | `timeout` | core · collab/errors | Guardrail-Grund, unklar – prüfen | packages/core/src/collab/errors.ts:9 |
 | `token-budget` | core · collab/errors | Guardrail-Grund, unklar – prüfen | packages/core/src/collab/errors.ts:9 |
-| `cost-budget` | core · collab/errors | Guardrail-Grund, unklar – prüfen | packages/core/src/collab/errors.ts:9 |
 | `repeat` | core · collab/errors | Guardrail-Grund, unklar – prüfen | packages/core/src/collab/errors.ts:10 |
 | `project-boundary` | core · collab/errors | Guardrail-Grund, unklar – prüfen | packages/core/src/collab/errors.ts:10 |
 | `agent-inactive` | core · collab/errors | Guardrail-Grund, unklar – prüfen | packages/core/src/collab/errors.ts:10 |

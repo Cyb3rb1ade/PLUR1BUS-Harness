@@ -9,7 +9,7 @@ import { createOpenAIRuntime } from '../../src/openai-auth/runtime.ts';
 import { composeAuth, billingClassOf, type ProviderDefinition } from '../../src/composition/auth.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
 import { ToolRegistry } from '../../src/tools/registry.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 import type { CompositionDeps } from '../../src/composition/index.ts';
 import { localOpenAI } from './local-server.ts';
 const principal = { owner: 'owner', user: 'owner', agentOwner: 'owner', deployment: 'local' as const };
@@ -19,7 +19,7 @@ test('local HTTP: real PKCE login → composed Responses turn → plan units and
   const logger = { info: (...v: unknown[]) => { audit.push(v); }, warn: (...v: unknown[]) => { audit.push(v); } };
   const egress = { decide: async () => { throw Error('DNS forbidden'); } };
   const runtime = createOpenAIRuntime({ home, config: () => config, secrets, egress, options: { fetch: local.transport }, clock: () => local.fake.now, audit: { append: (e: unknown) => { audit.push(e); } }, logger } as unknown as CompositionDeps);
-  const budget = createCallBudget({ path: join(home, 'budget.sqlite'), clock: { now: () => local.fake.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES) });
+  const budget = createCallBudget({ path: join(home, 'budget.sqlite'), clock: { now: () => local.fake.now } });
   try {
     const login = await runtime.auth.startLogin({ principal }); await local.authorize(login.authorizeUrl); const credential = await runtime.auth.awaitLogin(login.loginId, principal);
     const definition: ProviderDefinition = { profile: { id: 'openai:chatgpt-plan', display_name: 'ChatGPT plan', kind: 'oauth_pkce', capabilities: ['chat'], auth_header_scheme: 'Authorization: Bearer {token}', client_registration: 'dynamic_on_authorize', policy_status: 'allowed', policy_source: 'D110', policy_checked: '2026-10-08' }, entries: [], openai: { credentialId: credential.id, person: 'owner' }, wireFormat: 'codex_responses', billingPath: 'plan', defaultModel: 'fixture-model' };
@@ -32,7 +32,7 @@ test('local HTTP: real PKCE login → composed Responses turn → plan units and
     assert.equal(chunks.filter(c => c.type === 'delta').map(c => c.text).join(''), 'plan answer');
     assert.deepEqual(runtime.usage.total('owner'), { unit: 'plan_tokens', inputTokens: 100, outputTokens: 10, calls: 1 });
     assert.equal(auth.billing.plan, 'plan');
-    const { DatabaseSync } = await import('node:sqlite'); const db = new DatabaseSync(join(home, 'budget.sqlite')); const row = db.prepare('SELECT input_tokens,output_tokens,cost_micros FROM usage_event').get(); db.close(); assert.deepEqual({ ...row }, { input_tokens: 100, output_tokens: 10, cost_micros: null });
+    const { DatabaseSync } = await import('node:sqlite'); const db = new DatabaseSync(join(home, 'budget.sqlite')); const row = db.prepare('SELECT input_tokens,output_tokens FROM usage_event').get(); db.close(); assert.deepEqual({ ...row }, { input_tokens: 100, output_tokens: 10 });
     assert.equal(local.bodies[0]!.store, false); assert.equal(local.bodies[0]!.stream, true); assert.equal('max_output_tokens' in local.bodies[0]!, false);
     local.fake.errorCode = 'subscription_sharing_usage_limit_exceeded';
     await assert.rejects(async () => { for await (const _ of provider.stream({ ...request, turnId: 'turn-b' })) {} }, { code: 'subscription_sharing_usage_limit_exceeded', retryAfterMs: 12000 });

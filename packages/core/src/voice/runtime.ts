@@ -35,7 +35,7 @@ export function createVoiceRuntime(d: CompositionDeps, openai: OpenAIRuntime, bu
     const e = object(raw), type = String(e.type);
     if (type !== 'session.usage.updated' && type !== 'session.closed') return undefined;
     const u = object(e.usage ?? {});
-    return { type, eventId: typeof e.event_id === 'string' ? e.event_id : randomUUID(), seconds: typeof u.duration_seconds === 'number' ? u.duration_seconds : typeof u.seconds === 'number' ? u.seconds : 0, costMicros: typeof u.cost_micros === 'number' ? u.cost_micros : 0 };
+    return { type, eventId: typeof e.event_id === 'string' ? e.event_id : randomUUID(), seconds: typeof u.duration_seconds === 'number' ? u.duration_seconds : typeof u.seconds === 'number' ? u.seconds : 0 };
   };
   const broker = new VoiceBroker({ http: openai.http, clock: { now: d.clock }, credentials: { lease }, models: { async allowed(_provider, model, parent) { const data = object(await call(openai.http, { method: 'GET', url: endpoint(parent.region) + '/models', authorization: await lease(parent) })); return Array.isArray(data.data) && data.data.some(v => object(v).id === model); } },
     budget: ledger?.port ?? { reserve: async () => false, record: async () => false, release: async () => {} },
@@ -66,7 +66,7 @@ export function createVoiceRuntime(d: CompositionDeps, openai: OpenAIRuntime, bu
         if (e.type === 'error') { fail(new OpenAIError('endpoint-rejected')); if (id) await broker.close(id, 'failure'); return; }
         if (!id) return;
         const closing = sockets.get(id);
-        if (closing?.closing && e.type === 'session.closed') { const u = usage(e); if (u && 'seconds' in u) closing.finish?.({ eventId: u.eventId ?? randomUUID(), usage: { seconds: u.seconds ?? 0, costMicros: u.costMicros ?? 0, inputTokens: 0, outputTokens: 0 } }); return; }
+        if (closing?.closing && e.type === 'session.closed') { const u = usage(e); if (u && 'seconds' in u) closing.finish?.({ eventId: u.eventId ?? randomUUID(), usage: { seconds: u.seconds ?? 0, inputTokens: 0, outputTokens: 0 } }); return; }
         if (closing?.closing) return;
 
         if (e.type === 'session.input_transcript.delta' && typeof e.delta === 'string') { transcript = (transcript + e.delta).slice(-32768); return; }

@@ -154,7 +154,7 @@ test("operator session listing filters owner/agent and contains metadata only", 
   s.sessions.completeTurn(turn.turn.id, { text: "PRIVATE ANSWER", tokens: 8, data: { provider: "offline-model", usage: { inputTokens: 12, outputTokens: 8 } } });
   const r = await s.call("session.list", { owner: "one", agentId: "alpha" }) as any;
   assert.equal(r.sessions.length, 1); assert.equal(r.sessions[0].owner, "one");
-  assert.equal(r.sessions[0].model, "offline-model"); assert.equal(r.sessions[0].usage.inputTokens, 12); assert.equal(r.sessions[0].usage.costMicros, null);
+  assert.equal(r.sessions[0].model, "offline-model"); assert.equal(r.sessions[0].usage.inputTokens, 12); assert.equal("costMicros" in r.sessions[0].usage, false);
   assert.ok(!JSON.stringify(r).includes("PRIVATE"));
   await assert.rejects(s.call("session.list", { owner: "one", search: "PRIVATE" }), reject("E_DENIED", "transcript-search"));
 });

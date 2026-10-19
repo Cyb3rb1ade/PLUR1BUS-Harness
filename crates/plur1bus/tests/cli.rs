@@ -897,7 +897,7 @@ fn dreams_phase_commands_call_the_scheduler_methods_and_print_their_documents() 
     let run = serde_json::json!({
         "runId": "run-1", "agentId": "bernd", "phase": "deep", "jobId": "consolidate-daily", "partition": "agent-private",
         "idempotencyKey": "k", "claimed": false, "trigger": "manual", "scheduledFor": null, "startedAt": 1000, "finishedAt": 1500, "durationMs": 500,
-        "outcome": "skipped", "reason": "min_corpus", "counts": {}, "tokensIn": null, "tokensOut": null, "costMicros": null, "logPath": null, "error": null
+        "outcome": "skipped", "reason": "min_corpus", "counts": {}, "tokensIn": null, "tokensOut": null, "logPath": null, "error": null
     });
     let schedule = serde_json::json!({
         "agentId": "bernd", "phase": "deep", "cron": "0 4 * * *", "timezone": "UTC", "enabled": false, "staggerOffsetS": 7, "nextRunAt": null

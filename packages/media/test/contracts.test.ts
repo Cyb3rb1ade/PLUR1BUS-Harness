@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { OutputStore, FileJobPersistence, JobRunner, MediaError, estimateCost, metadataEnabled, MEDIA_GENERATE, MEDIA_EDIT } from '../src/index.ts';
+import { OutputStore, FileJobPersistence, JobRunner, MediaError, requestedUnits, metadataEnabled, MEDIA_GENERATE, MEDIA_EDIT } from '../src/index.ts';
 import type { ImageAdapter } from '../src/index.ts';
 const req = { prompt: 'a tree', n: 1 };
 const result = { files: [{ bytes: makePng(), format: 'png' as const }], metadata: { adapter: 'fake', model: 'test', durationMs: 4 } };
@@ -14,9 +14,9 @@ test('capability names and metadata precedence', () => {
   assert.equal(metadataEnabled({}), false); assert.equal(metadataEnabled({ global: true, agent: false }), false);
   assert.equal(metadataEnabled({ global: false, agent: false, call: true }), true);
 });
-test('unknown model price is unknown, local price is zero', () => {
-  assert.equal(estimateCost(req, { id: 'unknown', model: 'unknown' }).usd, null);
-  assert.equal(estimateCost(req, { id: 'coreml-local', model: 'any' }).usd, 0);
+test('requested usage is counted in native units, never priced', () => {
+  assert.deepEqual(requestedUnits(req), { unit: 'image', quantity: 1 });
+  assert.deepEqual(requestedUnits({ prompt: 'x', kind: 'video' }), { unit: 'videoSecond', quantity: 8 });
 });
 test('store writes manifest and enforces quota atomically', async () => {
   const root = await mkdtemp(join(tmpdir(), 'media-store-')); const store = new OutputStore(root, { quotaBytes: 10000 });

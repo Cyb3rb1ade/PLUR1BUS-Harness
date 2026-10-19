@@ -24,11 +24,10 @@ depends on the configured model (Replicate reads the model's published input sch
 | `coreml-local` | local | yes | yes (one reference) | no | no | png | 10 | fixed by the model | none, set `model` |
 
 Async adapters (Replicate, fal) submit a job, report `queued` then `running` progress while polling, write a durable
-checkpoint before the first poll, and cancel the job at the provider when you cancel. Local adapters cost no money; their
-results carry `costUsd: 0` and the run time in the manifest. For the remote adapters cost is whatever the provider reports
-(OpenRouter's `usage.cost`), otherwise unknown (`null`), never a guessed price. A reported cost is believed only when it is a finite,
-non-negative number; a negative, `NaN`, infinite or non-numeric value is treated as not reported, so a hostile or broken answer cannot credit the budget.
-`estimateCost` multiplies the table price by the image count or video seconds and rounds the result to nine decimals, so `0.4 * 3` is `1.2`, not `1.2000000000000002`.
+checkpoint before the first poll, and cancel the job at the provider when you cancel. Results carry the run time in the
+manifest, never a cost: the harness has no money dimension (owner decision 2026-10-19), so a cost a provider reports
+(OpenRouter's `usage.cost`) is ignored and model-list pricing is not read. Usage is counted in native units (images, video
+seconds) with `requestedUnits`/`deliveredUnits`.
 
 ## Switching an adapter on
 
@@ -163,7 +162,6 @@ never resent blindly. A 429 is safe to resend because the provider rejected the 
 - No per-adapter quality or background options (OpenAI), no SynthID flag in the manifest, no remote-host warning field
   beyond `origin`: `ImageResult.metadata` is a closed type in MG-1.
 - Replicate and OpenRouter defaults come from the MG-1 documentation and were not re-verified against the vendors' pages.
-- Cost: only OpenRouter reports an actual cost. A configurable per-adapter estimate is not part of this work.
 - Live behaviour of all cloud adapters, Draw Things and real Core ML generation is unverified here.
 
 ## Video capabilities (v0.2)
@@ -204,6 +202,4 @@ Primary sources:
 [fal queue](https://fal.ai/docs/documentation/model-apis/inference/queue),
 [xAI video](https://docs.x.ai/developers/rest-api-reference/inference/videos),
 [Google Veo](https://ai.google.dev/gemini-api/docs/veo),
-[OpenAI SDK retirement notice](https://github.com/openai/openai-node/blob/master/src/resources/videos.ts),
-[Google prices](https://ai.google.dev/gemini-api/docs/pricing),
-[xAI prices](https://docs.x.ai/developers/pricing).
+[OpenAI SDK retirement notice](https://github.com/openai/openai-node/blob/master/src/resources/videos.ts).

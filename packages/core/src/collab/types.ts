@@ -20,7 +20,6 @@ export interface CollabSettings {
   allowCrossProject: boolean;
   repeatWindowMs: number;
   tokenBudget: number | null;
-  costBudget: number | null;
 }
 
 export interface ProjectMember { userId: string; role: ProjectRole }
@@ -98,7 +97,6 @@ export interface CollabSpan {
   status: SpanStatus;
   inputTokens: number;
   outputTokens: number;
-  costEstimate: number | null;
   inputPreview: string;
   outputPreview: string;
   error: string | null;

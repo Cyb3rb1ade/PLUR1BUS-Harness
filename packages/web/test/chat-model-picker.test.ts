@@ -37,7 +37,7 @@ describe("chat: model and reasoning", opts, () => {
       await page.getByRole("log").getByText("Model changed: Example Thinker · Reasoning: High").waitFor();
       assert.deepEqual(sets(chat).at(-1)?.params, { sessionId: "ses_1", profile: "deep", reasoning: "high", expectedRevision: 1 });
       assert.deepEqual(await optionTexts(page, "Reasoning"), ["default||Default (provider)", "off||Off", "low||Low (about 3,840 tokens)", "medium||Medium (about 7,936 tokens)", "high||High (about 15,872 tokens)", "xhigh||Extra high (about 32,000 tokens)"]);
-      await page.getByText("Thinking can add up to about 0.24 USD per reply.", { exact: false }).waitFor();
+      await page.getByText("Thinking can add up to about 15,872 output tokens per reply.", { exact: false }).waitFor();
       assert.deepEqual(problems, []);
     });
   });

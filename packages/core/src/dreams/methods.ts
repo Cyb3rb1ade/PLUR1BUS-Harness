@@ -19,7 +19,7 @@ const projectRun = (r: DreamRun) => ({
   trigger: r.trigger, scheduledFor: r.scheduledFor, startedAt: r.startedAt, finishedAt: r.finishedAt,
   durationMs: r.finishedAt === null ? null : Math.max(0, r.finishedAt - r.startedAt),
   outcome: r.outcome, reason: r.reason, counts: Object.fromEntries(Object.entries(r.counts).filter(([, v]) => typeof v === "number")) as Record<string, number>,
-  tokensIn: r.tokensIn, tokensOut: r.tokensOut, costMicros: r.costMicros, logPath: r.logPath,
+  tokensIn: r.tokensIn, tokensOut: r.tokensOut, logPath: r.logPath,
   error: r.error ? { message: r.error.message, ...(r.error.name ? { name: r.error.name } : {}) } : null,
 });
 

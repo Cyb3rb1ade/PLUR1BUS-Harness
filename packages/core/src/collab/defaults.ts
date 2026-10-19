@@ -11,7 +11,6 @@ export const DEFAULT_COLLAB_SETTINGS: CollabSettings = {
   allowCrossProject: false,
   repeatWindowMs: 30_000,
   tokenBudget: null,
-  costBudget: null,
 };
 
 export const SPAN_PREVIEW_CHARS = 256;

@@ -38,7 +38,7 @@ plur1bus session show <ID>
 ## Good to know
 
 - **Reasoning levels (from the next release):** the scale is default, off, minimal, low, medium, high and extra high. A model offers only some of them. If your choice is not offered, the nearest supported level is used and the chat says so, never silently. A model without a reasoning setting ignores the choice, and the provider decides. A model switch alone keeps the chosen level.
-- **Cost:** reasoning tokens are billed as output tokens, so a higher level can cost more per reply. Where the price is known, the chat shows it. The first reply after a switch can cost more because the cache is rebuilt.
+- **Cost:** reasoning tokens are billed as output tokens, so a higher level can use more tokens per reply. For models with a token budget the chat shows how many output tokens thinking can add at most; Plur1bus never shows prices. The first reply after a switch can cost more because the cache is rebuilt.
 - **People only:** switching the model of a chat is reserved for people. Agents and WebMCP tools cannot change it.
 - **Local only (from the next release):** if "Local only" applies to the agent, cloud profiles are listed as locked and refused ([privacy.md](privacy.md)).
 - **Not remembered:** such a chat saves nothing to memory. Its transcript and its model and reasoning choice stay in memory only and are not written to disk.
