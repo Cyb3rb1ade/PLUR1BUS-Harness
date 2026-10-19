@@ -39,7 +39,7 @@ import {
   type StoreAdoptReport,
   createTempHost,
 } from "./hermes-stores.ts";
-import { lastTakenOverStoreKey, PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode } from "./card-links.ts";
+import { lastTakenOverStoreKey, PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode, type PriorCardLink } from "./card-links.ts";
 import { ROUTED_REASONS } from "./openclaw-stores.ts";
 import { storeIdempotencyKey } from "../ledger.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
@@ -64,7 +64,7 @@ async function hermesCardMode(o: {
   report: StoreAdoptReport | undefined;
   importsDir: string;
   lancedb: string;
-  priorLinks: ReadonlyMap<string, string>;
+  priorLinks: ReadonlyMap<string, PriorCardLink>;
   targetConfig: unknown;
   testInternals: Record<string, unknown> | undefined;
   errors: Array<{ sourceRef: string; reason: string }>;
@@ -414,7 +414,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         report: storeAdoptReport,
         importsDir: join(l.home, "imports"),
         lancedb: l.lancedb,
-        priorLinks: isApply ? readPriorCardLinks(join(l.home, "imports")) : new Map<string, string>(),
+        priorLinks: isApply ? readPriorCardLinks(join(l.home, "imports")) : new Map<string, PriorCardLink>(),
         targetConfig: rawConfig,
         testInternals,
         errors,

@@ -5,6 +5,7 @@
 import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeSync } from "node:fs";
 import path from "node:path";
 import type { EmbeddingFingerprint } from "./probe.ts";
+import type { PrivacyAcknowledgment } from "@plur1bus/config-schema";
 
 export const PHASES = ["planned", "running", "aborted", "validating", "ready-to-switch", "switched", "failed"] as const;
 export type Phase = (typeof PHASES)[number];
@@ -26,6 +27,12 @@ export interface Checkpoint {
   throttleMs: number;
   abortRequested: boolean;
   error: { code: string; message: string } | null;
+  /**
+   * A cloud or self-hosted target (absent for a local one): the NAME of the environment variable holding its key (never the
+   * key), the endpoint as configured (the fingerprint keeps a normalised copy) and the per-card token estimate the budget
+   * reserves against before each batch.
+   */
+  remote?: { apiKeyEnv: string; baseUrl?: string; tokensPerRow: number; privacyAck?: PrivacyAcknowledgment };
 }
 
 export class MigrationStateError extends Error {
@@ -34,6 +41,7 @@ export class MigrationStateError extends Error {
 }
 
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const ENV_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const isInt = (n: unknown): n is number => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
 const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 
@@ -55,11 +63,26 @@ function parse(raw: unknown): Checkpoint {
     const e = raw.error; if (!isObj(e) || typeof e.code !== "string" || typeof e.message !== "string") bad("error");
     error = { code: (e as { code: string }).code, message: (e as { message: string }).message };
   }
+  let remote: Checkpoint["remote"];
+  if (raw.remote !== undefined) {
+    const r = raw.remote;
+    if (!isObj(r) || typeof r.apiKeyEnv !== "string" || !ENV_RE.test(r.apiKeyEnv) || !isInt(r.tokensPerRow) || (r.baseUrl !== undefined && (typeof r.baseUrl !== "string" || r.baseUrl.length > 2048))) bad("remote");
+    const o = r as { apiKeyEnv: string; baseUrl?: string; tokensPerRow: number; privacyAck?: unknown };
+    let privacyAck: PrivacyAcknowledgment | undefined;
+    if (o.privacyAck !== undefined) {
+      const a = o.privacyAck;
+      if (!isObj(a) || typeof a.provider !== "string" || typeof a.acknowledgedAt !== "string" || typeof a.by !== "string" || (a.endpoint !== undefined && typeof a.endpoint !== "string")) bad("remote.privacyAck");
+      const k = a as Record<string, string>;
+      privacyAck = { provider: k.provider!, acknowledgedAt: k.acknowledgedAt!, by: k.by!, ...(k.endpoint !== undefined ? { endpoint: k.endpoint } : {}) };
+    }
+    remote = { apiKeyEnv: o.apiKeyEnv, ...(o.baseUrl !== undefined ? { baseUrl: o.baseUrl } : {}), tokensPerRow: o.tokensPerRow, ...(privacyAck ? { privacyAck } : {}) };
+  }
   return {
     v: 1, id, token: str("token"), planDigest: str("planDigest"), createdAt: raw.createdAt as number, updatedAt: raw.updatedAt as number, phase: phase as Phase,
     sourceGeneration: gens[0]!, targetGeneration: gens[1]!, target: raw.target as unknown as EmbeddingFingerprint,
     counts: { rows: counts.rows!, tables: counts.tables!, batches: counts.batches!, rowsDone: counts.rowsDone!, batchesDone: counts.batchesDone! },
     throttleMs: raw.throttleMs as number, abortRequested: raw.abortRequested as boolean, error,
+    ...(remote ? { remote } : {}),
   };
 }
 

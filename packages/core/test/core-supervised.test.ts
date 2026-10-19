@@ -313,6 +313,23 @@ describe("core on the supervisor's configuration (B7)", () => {
   }
   const logRecords = (home: string) => readFileSync(layout(home).logFile("core"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
 
+  it("local-only installation, origins and agent pins apply live to the same Core instance", async () => {
+    const s = await startOnSupervisor();
+    const before = s.core.status();
+    const inventory = JSON.parse(readFileSync(`${layout(s.home).run}/engine-models.json`, "utf8"));
+    assert.equal(inventory.version, 1);
+    assert.equal(inventory.pid, before.pid);
+    assert.equal(inventory.instanceId, before.instanceId);
+    assert.deepEqual(inventory.endpoints, [], "default disabled test Engine has no external endpoints");
+    await s.push(c => { c.privacy.localOnly = true; c.privacy.localEndpoints = ["http://192.168.1.4:11434"]; c.agents.bernd!.privacy = {localOnly:true}; });
+    assert.equal(s.core.status().config?.restartPending, false);
+    assert.equal(s.core.status().pid, before.pid);
+    assert.equal(s.core.status().instanceId, before.instanceId);
+    await s.push(c => { c.privacy.localOnly = false; c.privacy.localEndpoints = []; c.agents.bernd!.privacy = {localOnly:false}; });
+    assert.equal(s.core.status().config?.restartPending, false);
+    assert.equal(s.core.status().instanceId, before.instanceId);
+  });
+
   it("core.logLevel change applies without restart", async () => {
     const s = await startOnSupervisor();
     assert.deepEqual(s.core.status().config, { revision: s.sup.revision, source: "supervisor", restartPending: false });

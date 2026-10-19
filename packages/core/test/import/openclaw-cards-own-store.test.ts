@@ -13,7 +13,12 @@ import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { layout } from "../../src/paths.ts";
 import { importOpenclaw, type OpenclawImportReport } from "../../src/import/importers/openclaw.ts";
-import { renderOpenclaw } from "../../src/import/render.ts";
+import { renderOpenclaw, renderRollback } from "../../src/import/render.ts";
+import { rollbackImport } from "../../src/import/rollback.ts";
+import { createTempHost } from "../../src/import/importers/hermes-stores.ts";
+import { buildEngineConfig } from "../../src/engine-config.ts";
+import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
+import { defaults } from "@plur1bus/config-schema";
 import { loadLanceDb } from "../../src/import/readonly.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { flatTestInternals } from "../helpers/flat-embedder.ts";
@@ -181,18 +186,21 @@ describe("OpenClaw memory cards of agents with their own store (owner decision 2
       assert.deepEqual(calls, [{ agentId: "gamma", n: 2, dryRun: false }], "only the agent without a store reaches the engine");
       assert.equal(mem(r, "gamma").importedCount, 2);
       assert.equal(mem(r, "gamma").pendingReembedCount + mem(r, "gamma").deferredCount + mem(r, "gamma").linkedCount, 0);
-      assert.equal(mem(r, "alpha").deferredCount, 2, "alpha: one MEMORY.md card and one USER.md card");
-      assert.ok(mem(r, "alpha").cardResults.every((c) => c.outcome === "deferred" && c.reason === "agent-store-not-taken-over"));
+      // alpha's MEMORY.md card is deferred; its USER.md card has no user binding: unresolved-user-scope, never parked
+      // (ADR-007 Q4 first, the Hermes rule).
+      assert.equal(mem(r, "alpha").deferredCount, 1, "alpha: the MEMORY.md card");
+      assert.deepEqual(mem(r, "alpha").cardResults.map((c) => [c.outcome, c.reason]), [["deferred", "agent-store-not-taken-over"], ["unresolved-user-scope", "unambiguous-user-required"]]);
+      assert.equal(mem(r, "alpha").unresolvedUserScopeCount, 1);
       assert.equal(mem(r, "beta").pendingReembedCount, 1);
       assert.equal(r.counts.memoryCardsImported, 2);
       assert.equal(r.counts.memoryCardsPendingReembed, 1);
-      assert.equal(r.counts.memoryCardsDeferred, 2);
-      assert.deepEqual(ledgerOf(r).filter((e) => e.entity === "memory" && e.action === "deferred").length, 2);
+      assert.equal(r.counts.memoryCardsDeferred, 1);
+      assert.deepEqual(ledgerOf(r).filter((e) => e.entity === "memory" && e.action === "deferred").length, 1);
 
       // Without an injected engine the card path opens none for parked cards: no partition of alpha or beta appears.
       const home2 = tempDir("p1b-oc-cards-nostore-noengine-");
       const r2 = await importOpenclaw({ home: home2, source: fx.root, apply: true, testInternals: flatTestInternals() });
-      assert.equal(r2.counts.memoryCardsPendingReembed + r2.counts.memoryCardsDeferred, 3);
+      assert.equal(r2.counts.memoryCardsPendingReembed + r2.counts.memoryCardsDeferred, 2);
       const lancedb = layout(home2).lancedb;
       const partitions = existsSync(lancedb) ? readdirSync(lancedb) : [];
       assert.ok(!partitions.includes("alpha") && !partitions.includes("beta"), `the card path wrote a parked agent's partition: ${partitions.join(",")}`);
@@ -201,5 +209,59 @@ describe("OpenClaw memory cards of agents with their own store (owner decision 2
     }
   });
 
-  it.todo("KNOWN GAP: engine-side link — the engine contract has no primitive to attach a linked card's provenance/sourceRef to the existing memory (memory.import only creates, memory.correct supersedes); the link lives in the import ledger and report only");
+  it("engine-side link (contract 1.16.0): the existing memory carries the card's source; rolling the run back unlinks it", { timeout }, async () => {
+    const fx = await fixture();
+    try {
+      const home = tempDir("p1b-oc-cards-engine-link-");
+      const l = layout(home);
+      // Run 1 takes alpha's store over with the new card only; run 2 brings the duplicate of row 1 (no store action).
+      write(fx.curatedFiles.memory, `${CONTENT_MARKER} a new fact 7\n`);
+      const first = await importOpenclaw({ home, source: fx.root, apply: true, testInternals: modelInternals() });
+      assert.equal(first.stores.find((s) => s.storeId === "agent:alpha")?.action, "taken-over");
+      write(fx.curatedFiles.memory, `${CONTENT_MARKER} 1\n§\n${CONTENT_MARKER} a new fact 7\n`);
+      const second = await importOpenclaw({ home, source: fx.root, apply: true, testInternals: modelInternals() });
+      assert.deepEqual(second.errors, [], JSON.stringify(second.errors));
+      const run2 = second.runId!;
+
+      const [dup] = mem(second, "alpha").cardResults.filter((c) => c.idempotencyKey.includes(":MEMORY.md:"));
+      assert.deepEqual([dup!.outcome, dup!.reason, dup!.linkedTo], ["linked", "duplicate-of-existing", ROW(1)]);
+      assert.match(dup!.linkId ?? "", /^[0-9a-f]{32}$/, "the report carries the engine link id");
+      const entry = ledgerOf(second).find((e) => e.entity === "memory" && e.action === "linked");
+      assert.deepEqual([entry.details.linkId, entry.details.engineLink, entry.details.agentId], [dup!.linkId, "linked", "alpha"]);
+
+      // The engine: the existing memory gained the card's source as a link of run 2; its own row is unchanged.
+      const linksOf = async () => {
+        const engine = createEngine(createTempHost(l.state, async (id: string) => l.workspaceDir(id)), buildEngineConfig(defaults(), l) as any, { internals: modelInternals() });
+        try {
+          const card = await engine.memory.show(ROW(1), { agentId: "alpha", workspace: "workspace:v1:main", channel: "cli", accountId: "default", chat: { id: "c1", kind: "direct" }, trust: "proved" } as any, { origin: "user", background: false });
+          return { links: card.links ?? [], text: card.text };
+        } finally { await engine.close({ budgetMs: 5_000 }); }
+      };
+      const linked = await linksOf();
+      assert.equal(linked.text, `${CONTENT_MARKER} 1`);
+      assert.equal(linked.links.length, 1);
+      assert.deepEqual([linked.links[0]!.linkId, linked.links[0]!.provenance, linked.links[0]!.importRunId], [dup!.linkId, "imported", run2]);
+      assert.match(linked.links[0]!.sourceRef, new RegExp(`^openclaw:alpha:MEMORY\\.md#1;run=${run2}$`));
+      assert.equal((await rowsOf(join(l.lancedb, "alpha"))).filter((x) => x.text === `${CONTENT_MARKER} 1`).length, 1, "no duplicate row");
+
+      // Rollback of run 2: the dry run plans the unlink, the apply unlinks; the memory itself stays.
+      const plan = await rollbackImport({ home, reportPath: second.reportPath!, apply: false, sourceType: "openclaw", testInternals: modelInternals() });
+      assert.deepEqual(plan.memoryLinks && [plan.memoryLinks.recorded, plan.memoryLinks.status, plan.memoryLinks.selected], [1, "planned", 1]);
+      assert.equal((await linksOf()).links.length, 1, "the dry run unlinks nothing");
+      const done = await rollbackImport({ home, reportPath: second.reportPath!, apply: true, sourceType: "openclaw", testInternals: modelInternals() });
+      assert.deepEqual(done.memoryLinks && [done.memoryLinks.recorded, done.memoryLinks.status, done.memoryLinks.selected, done.memoryLinks.unlinked], [1, "unlinked", 1, 1]);
+      assert.match(renderRollback(done), /Memory links: 1 recorded, 1 selected, 1 unlinked/);
+      const after = await linksOf();
+      assert.deepEqual([after.links.length, after.text], [0, `${CONTENT_MARKER} 1`], "unlinked, the linked memory stays");
+
+      // A later run links the card again (the rolled-back run's link is not reused).
+      const third = await importOpenclaw({ home, source: fx.root, apply: true, testInternals: modelInternals() });
+      const [again] = mem(third, "alpha").cardResults.filter((c) => c.idempotencyKey.includes(":MEMORY.md:"));
+      assert.deepEqual([again!.outcome, again!.reason], ["linked", "duplicate-of-existing"]);
+      const relinked = await linksOf();
+      assert.deepEqual(relinked.links.map((x) => x.importRunId), [third.runId]);
+    } finally {
+      fx.close();
+    }
+  });
 });

@@ -13,7 +13,7 @@ import { setUnsaved } from "../unsaved.ts";
 import { DecisionHint, decisionRoleMissing } from "../../common/decision-hint.ts";
 import { FieldRow, groupOf, groupTitle, RestartBadge } from "../config/fields.ts";
 import { fieldId } from "../config/meta.ts";
-import { buildFields, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type Draft, type Field } from "../config/model.ts";
+import { buildFields, localOnlyAgentSources, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type Draft, type Field } from "../config/model.ts";
 import { normalizeList } from "../../models/model.ts";
 import { MODEL_CHOICES } from "../../setup/licences.ts";
 import { roleFields } from "../config/roles.ts";
@@ -57,13 +57,15 @@ export function ConfigSection({ section, focus }: SectionProps): View {
   const { state, reload } = useLoad((signal) => loadConfig(section, signal), [section.id]);
   const [saved, setSaved] = useState<Saved | null>(null);
   useEffect(() => { setSaved(null); }, [section.id]);
-  const title = t(section.label);
+  const title = section.id === "privacy" ? t("settings.privacy.sectionTitle") : t(section.label);
   let body: View;
   if (state.status === "loading") body = h(PageLoading, { label: t("state.loading") });
   else if (state.status === "fail") body = h(FailureState, { failure: state.failure, unavailable: t("settings.cfg.unavailable"), onRetry: reload });
   else body = h(Form, { key: state.data.revision, data: state.data, section, ...(focus === undefined ? {} : { focus }), saved, onSaved: (s: Saved) => { setSaved(s); reload(); }, reload });
   return h("section", { "data-section": section.id, "aria-labelledby": "cfg-title", class: "cfg" },
     h("h2", { id: "cfg-title", class: "cfg-title" }, title),
+    section.id === "privacy" ? h("p",{class:"cfg-help",role:"status",style:"overflow-wrap:anywhere"},t("settings.privacy.liveNotice")) : null,
+    section.id === "privacy" && state.status === "ok" && localOnlyAgentSources(state.data.config).length ? h(Notice,{},t("settings.privacy.sharedAgents",{agents:localOnlyAgentSources(state.data.config).join(", ")})) : null,
     saved ? h(SavedNotice, { saved }) : null,
     body);
 }

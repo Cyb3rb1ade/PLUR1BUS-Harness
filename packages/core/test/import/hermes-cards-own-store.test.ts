@@ -17,6 +17,11 @@ import { join, relative } from "node:path";
 import { layout } from "../../src/paths.ts";
 import { importHermes, type HermesImportReport } from "../../src/import/importers/hermes.ts";
 import { renderHermes } from "../../src/import/render.ts";
+import { rollbackImport } from "../../src/import/rollback.ts";
+import { createTempHost } from "../../src/import/importers/hermes-stores.ts";
+import { buildEngineConfig } from "../../src/engine-config.ts";
+import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
+import { defaults } from "@plur1bus/config-schema";
 import { loadLanceDb } from "../../src/import/readonly.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { buildM7HermesFixture, CONTENT_MARKER, lanceStore, write, type M7HermesFixture } from "./fixtures.ts";
@@ -237,6 +242,31 @@ describe("Hermes memory cards with --adopt-store (owner decision 2026-10-19, sam
     assert.ok(!existsSync(join(home, "state", "lancedb")) && !existsSync(join(home, "imports")), "dry run wrote nothing");
   });
 
-  it.todo("KNOWN GAP: engine-side link — the engine contract has no primitive to attach a linked card's provenance/sourceRef to the existing memory (memory.import only creates, memory.correct supersedes); the link lives in the import ledger and report only");
+  it("engine-side link (contract 1.16.0): the existing memory carries the card's source; a rollback of the take-over run reverts it with the store", { timeout }, async () => {
+    const fx = await fixture();
+    const src = await hermesStore();
+    const home = tempDir("p1b-hm-cards-engine-link-");
+    const l = layout(home);
+    const r = await importHermes({ home, source: fx.root, adoptStore: src, apply: true, testInternals: modelInternals() });
+    assert.deepEqual(r.errors, [], JSON.stringify(r.errors));
+    const [dup] = memoryCards(r);
+    assert.deepEqual([dup!.outcome, dup!.linkedTo], ["linked", ROW(1)]);
+    assert.match(dup!.linkId ?? "", /^[0-9a-f]{32}$/);
+    const entry = ledgerOf(r).find((e) => e.entity === "memory" && e.action === "linked");
+    assert.deepEqual([entry.details.linkId, entry.details.engineLink, entry.details.agentId], [dup!.linkId, "linked", "default"]);
+
+    const engine = createEngine(createTempHost(l.state, async (id: string) => l.workspaceDir(id)), buildEngineConfig(defaults(), l) as any, { internals: modelInternals() });
+    try {
+      const card = await engine.memory.show(ROW(1), { agentId: "default", workspace: "workspace:v1:main", channel: "cli", accountId: "default", chat: { id: "c1", kind: "direct" }, trust: "proved" } as any, { origin: "user", background: false });
+      assert.equal(card.links?.length, 1);
+      assert.deepEqual([card.links![0]!.linkId, card.links![0]!.importRunId], [dup!.linkId, r.runId]);
+      assert.match(card.links![0]!.sourceRef, /^hermes:default:memories\/MEMORY\.md#1;run=/);
+    } finally { await engine.close({ budgetMs: 5_000 }); }
+
+    // The run took the store over: rolling it back removes the store, and the link with it (nothing to unlink).
+    const plan = await rollbackImport({ home, reportPath: r.reportPath!, apply: false, sourceType: "hermes", testInternals: modelInternals() });
+    assert.equal(plan.storeUndoStatus, "removed");
+    assert.deepEqual(plan.memoryLinks, { recorded: 1, status: "reverted-with-store" });
+  });
   it.todo("KNOWN GAP: a run without --adopt-store after a reembed take-over imports the parked cards without duplicate linking (no store named, the plain import); the documented path is to re-run with the same --adopt-store");
 });

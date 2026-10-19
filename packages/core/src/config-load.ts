@@ -1,3 +1,4 @@
+import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { basename, dirname, join } from "node:path";
@@ -35,7 +36,10 @@ export function structureErrors(value: unknown): string[] {
 export function validateConfig(value: unknown): ReturnType<typeof validate> {
   const bad = structureErrors(value);
   if (bad.length > 0) return { ok: false, errors: bad };
-  try { return validate(value); } catch { return { ok: false, errors: ["/ could not be processed"] }; }
+  try {
+    const result=validate(value);if(result.ok){try{assertSharedEnginePrivacy(result.config);}catch(e){return {ok:false,errors:[`${(e as {reason?:string}).reason??"local-only"}: ${(e as Error).message}`]};}}
+    return result;
+  } catch { return { ok: false, errors: ["/ could not be processed"] }; }
 }
 
 /** The file as parsed JSON. Failures are ConfigInvalid with texts that never quote file content (JSON.parse's own

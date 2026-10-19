@@ -12,7 +12,7 @@ import { RpcError } from "../src/rpc/errors.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
-// The engine's own `ContractVersion` type is a literal at the installed pin,
+// The engine's own `ContractVersion` type is pinned to the literal `"1.16.0"` at the current pin,
 // so these fixtures (deliberately mismatched or malformed) are widened to plain strings — exactly
 // what `assertEngineContract` must guard against at runtime, where the engine's declared type is
 // no guarantee against a differently-pinned build.
@@ -54,8 +54,8 @@ describe("assertEngineContract", () => {
     }
   });
 
-  it("the pinned engine supports the host ports and exposes memory.import, stores.adopt, memory.rebind and memory.unbind", async () => {
-    const l = layout(tempDir("p1b-contract-112-"));
+  it("the pinned engine reports 1.16.0 and exposes memory.import, stores.adopt, memory.rebind, memory.unbind, memory.unimport and memory.link", async () => {
+    const l = layout(tempDir("p1b-contract-116-"));
     for (const d of [l.state, l.logs, l.agents, l.lancedb]) mkdirSync(d, { recursive: true, mode: 0o700 });
     const cfg = defaults();
     cfg.agents.bernd = {};
@@ -66,11 +66,15 @@ describe("assertEngineContract", () => {
     const host = createHarnessHost({ layout: l, logger, config: cfg, engineConfig, agents: reg, events: () => {} });
     const engine = bindEngine(host, engineConfig, flatTestInternals());
     try {
-      assertEngineContract(engine);
+      assert.equal(engine.contract, "1.16.0");
       assert.equal(typeof engine.memory.import, "function");
       assert.equal(typeof engine.stores.adopt, "function");
       assert.equal(typeof engine.memory.rebind, "function");
       assert.equal(typeof engine.memory.unbind, "function");
+      assert.equal(typeof engine.memory.unimport, "function");
+      // 1.16.0: the importer feature-tests the capability before it calls memory.link (import/importers/card-links.ts).
+      assert.equal(typeof engine.memory.link, "function");
+      assert.equal(engine.capabilities.memoryLink, true);
     } finally {
       await engine.close({ budgetMs: 2000 });
       await logger.close();
