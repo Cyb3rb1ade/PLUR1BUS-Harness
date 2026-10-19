@@ -185,6 +185,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AuditCmd,
     },
+    /// [experimental] Diagnostic logs: query and tail through the core
+    Logs {
+        #[command(subcommand)]
+        sub: crate::commands::logs::LogsCmd,
+    },
     /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
     ///
     /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
@@ -365,12 +370,22 @@ pub struct ImportArgs {
     /// Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
     #[arg(long = "adopt-store", value_name = "PATH")]
     pub adopt_store: Option<PathBuf>,
+    /// Target agent ID (required for backfill)
+    #[arg(long, value_name = "AGENT")]
+    pub agent: Option<String>,
+    /// Store adoption strategy when identity mismatches: 'reembed' or 'import'
+    #[arg(long = "adopt-strategy", value_name = "STRATEGY")]
+    pub adopt_strategy: Option<String>,
+    /// Allow multiple Hermes profiles to merge into the same target agent
+    #[arg(long = "merge-profiles")]
+    pub merge_profiles: bool,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ImportSource {
     Openclaw,
     Hermes,
+    Backfill,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -386,6 +401,12 @@ pub enum OnConflict {
 /// `plur1bus setup` (spec §6.5, HB11).
 #[derive(Args, Debug)]
 pub struct SetupArgs {
+    /// Show the setup/profile-upgrade plan without changing files or services
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Restore a preserved interrupted profile-upgrade snapshot (daemon is stopped first)
+    #[arg(long)]
+    pub recover_profile: bool,
     /// Install in container mode on this host
     #[arg(long)]
     pub container: bool,
@@ -693,9 +714,21 @@ pub struct ReembedArgs {
     /// Stop at the next batch boundary; --run continues the same migration
     #[arg(long)]
     pub abort: bool,
-    /// Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+    /// Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small, or the remote provider's model id with --provider (required with --plan)
     #[arg(long, conflicts_with_all = ["run", "status", "abort"], required_if_eq("plan", "true"))]
     pub model: Option<String>,
+    /// Target provider, e.g. openai, openrouter, jina or ollama (default local-transformers); every direction between local and cloud is possible
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub provider: Option<String>,
+    /// OpenAI-compatible endpoint of a remote target (openai may leave it out)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub base_url: Option<String>,
+    /// Name of the environment variable that holds the remote target's key (the key itself is never passed)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub api_key_env: Option<String>,
+    /// Acknowledge now that every memory text goes to this remote target (needed when memory.embedding.privacyAck does not already admit it)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub acknowledge_privacy: bool,
     /// Target vector dimensions, when the model supports more than one
     #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
     pub dimensions: Option<u32>,
@@ -807,6 +840,11 @@ pub enum DreamsCmd {
     Disable {
         #[arg(value_enum)]
         phase: PhaseArg,
+        #[arg(long)]
+        agent: String,
+    },
+    /// [experimental] Read the private dreaming diary of an agent
+    Diary {
         #[arg(long)]
         agent: String,
     },
@@ -1073,6 +1111,12 @@ pub enum SessionCmd {
 
 #[derive(clap::Args, Debug)]
 pub struct ChatArgs {
+    /// Configured model profile for this session; warns and asks before switching
+    #[arg(long, value_name = "PROFILE")]
+    pub model: Option<String>,
+    /// Confirm the model switch for scripts (including --json)
+    #[arg(long)]
+    pub yes: bool,
     /// The agent to talk to (default: the only registered agent)
     #[arg(long)]
     pub agent: Option<String>,
@@ -1355,6 +1399,11 @@ pub enum GrantCmd {
         #[arg(long)]
         limit: Option<u32>,
     },
+    /// [experimental] Show one grant of the calling person
+    Show {
+        /// the grant id (grt_...)
+        id: String,
+    },
     /// [experimental] Give an agent a standing permission (scope task, session or always)
     ///
     /// `once` grants exist only as the answer to a request: use `plur1bus approval approve`.
@@ -1384,6 +1433,11 @@ pub enum ApprovalCmd {
     },
     /// [experimental] The pending queue: requests waiting for a person (approval list --status pending)
     Pending,
+    /// [experimental] Show one approval request
+    Show {
+        /// the request id (apr_...)
+        id: String,
+    },
     /// [experimental] Approve a pending request after showing exactly what it asks for
     ///
     /// The request (command line or diff summary, targets, risk) is printed first. In a terminal you confirm with
@@ -1412,6 +1466,12 @@ pub enum ApprovalCmd {
     },
     /// [experimental] Verify the HMAC chain of the approval store; exit 1 and the first broken position if it breaks
     Verify,
+    /// [experimental] Redacted approval-related HMAC-chain entries of the calling person
+    Audit {
+        /// at most this many (1-500, default 100)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=500))]
+        limit: Option<u32>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -2151,6 +2211,11 @@ pub enum PairingCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum DeviceCmd {
+    /// [experimental] Issue a person-bound desktop attach code valid for ten minutes
+    Pair {
+        #[arg(long, value_parser = ["desktop"])]
+        kind: String,
+    },
     /// [experimental] List your devices (Owner/Admin: all), including revoked devices
     List,
     /// [experimental] Revoke a device and close its connections immediately

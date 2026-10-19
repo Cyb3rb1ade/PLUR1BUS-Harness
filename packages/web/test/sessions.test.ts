@@ -11,6 +11,8 @@ const opts = { skip: browserSkip };
 async function open(app: App, rows: SessionRow[] = makeSessions(30), lang: "en" | "de" = "en", truncated = false): Promise<SessionRow[]> {
   installSessions(app.server, rows, truncated);
   await app.page.clock.setFixedTime(NOW);
+  // Start on the intended route before authentication: otherwise the default Chat page can load its own session list.
+  await app.page.evaluate(() => { location.hash = "#/logs/sessions"; });
   await openRoute(app.page, "#/logs/sessions", lang);
   return rows;
 }

@@ -26,8 +26,8 @@ export function validate(schema: Schema, value: unknown, doc: Doc, at = "$"): st
   if ("const" in schema && value !== schema.const) errs.push(`${at}: expected ${JSON.stringify(schema.const)}, got ${JSON.stringify(value)}`);
   if (Array.isArray(schema.enum) && !schema.enum.includes(value)) errs.push(`${at}: ${JSON.stringify(value)} is not one of ${JSON.stringify(schema.enum)}`);
   if (schema.type !== undefined) {
-    const k = kindOf(value); const want = schema.type as string;
-    const okType = want === "number" ? k === "integer" || k === "number" : k === want;
+    const k = kindOf(value); const want = Array.isArray(schema.type) ? schema.type : [schema.type];
+    const okType = want.some(type => type === "number" ? k === "integer" || k === "number" : k === type);
     if (!okType) { errs.push(`${at}: expected ${want}, got ${k}`); return errs; }
   }
   if (typeof value === "string") {

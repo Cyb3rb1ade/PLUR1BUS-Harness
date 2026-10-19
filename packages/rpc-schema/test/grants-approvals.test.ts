@@ -8,8 +8,8 @@ const defs = (SCHEMA as any).$defs;
 const methods = defs.methods as Record<string, any>;
 const notifications = defs.notifications as Record<string, any>;
 
-const METHOD_NAMES = ["grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify"];
-const NOTIFICATION_NAMES = ["approval.requested", "approval.resolved", "grant.changed"];
+const METHOD_NAMES = ["grant.list", "grant.get", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify", "approval.audit"];
+const NOTIFICATION_NAMES = ["approval.requested", "approval.resolved", "approval.parked", "grant.changed"];
 const APR = "apr_0123456789abcdef01234567";
 
 describe("grant.* and approval.* (D109)", () => {
@@ -68,6 +68,7 @@ describe("grant.* and approval.* (D109)", () => {
     const h = "b".repeat(64);
     assert.deepEqual(validateResult("approval.verify", { ok: true, entries: 0, head: null }), { ok: true });
     assert.deepEqual(validateResult("approval.verify", { ok: false, entries: 3, head: { seq: 3, mac: h }, brokenAt: 2, reason: "prev-mismatch" }), { ok: true });
+    assert.deepEqual(validateResult("approval.verify", { ok: false, entries: 3, head: null, brokenAt: 2, reason: "signature-mismatch", signatures: { unsignedLegacy: 0, signedOk: 0, signedBad: 1, report: "signed-bad" } }), { ok: true });
     assert.equal(validateResult("approval.verify", { ok: false, entries: 3, head: null, brokenAt: 2, reason: "because" }).ok, false);
   });
 

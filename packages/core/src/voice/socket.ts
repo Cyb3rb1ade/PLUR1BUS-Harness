@@ -5,7 +5,7 @@ import type { Duplex } from 'node:stream';
 import type { Egress } from '../egress/service.ts';
 import { OpenAIError, bounded, type Sensitive } from '../openai-auth/ports.ts';
 export interface JsonSocket { send(value: unknown): Promise<void>; close(): Promise<void> }
-export interface SocketRequest { url: string; authorization: Sensitive; onMessage(value: unknown): Promise<void>; onClose(): void; signal?: AbortSignal }
+export interface SocketRequest { url: string; authorization?: Sensitive; onMessage(value: unknown): Promise<void>; onClose(): void; signal?: AbortSignal }
 export type SocketConnect = (request: SocketRequest) => Promise<JsonSocket>;
 /** Authenticated RFC6455 transport: pinned address, original TLS name, masked client frames, bounded messages/queue. */
 export function socketConnect(egress: Pick<Egress, 'decide'>): SocketConnect {
@@ -20,7 +20,7 @@ export function socketConnect(egress: Pick<Egress, 'decide'>): SocketConnect {
       let socket: Duplex | undefined, stopped = false, upgraded = false, buffer: Buffer<ArrayBufferLike> = Buffer.alloc(0), fragments: Buffer[] = [], fragmentSize = 0, textMessage = false, pending = 0;
       let work = Promise.resolve();
       const stop = () => { if (stopped) return; stopped = true; socket?.destroy(); request.destroy(); if (upgraded) r.onClose(); else reject(new OpenAIError('transport-failed')); };
-      const request = (address.protocol === 'https:' ? https : http).request(address, { method: 'GET', agent: false, headers: { connection: 'Upgrade', upgrade: 'websocket', 'sec-websocket-key': key, 'sec-websocket-version': '13', authorization: 'Bearer ' + r.authorization.value() }, lookup: (_hostname, options, cb) => { if (typeof options === 'object' && options.all) cb(null, [{ address: decision.address, family: decision.family }]); else cb(null, decision.address, decision.family); } });
+      const request = (address.protocol === 'https:' ? https : http).request(address, { method: 'GET', agent: false, headers: { connection: 'Upgrade', upgrade: 'websocket', 'sec-websocket-key': key, 'sec-websocket-version': '13', ...(r.authorization ? { authorization: 'Bearer ' + r.authorization.value() } : {}) }, lookup: (_hostname, options, cb) => { if (typeof options === 'object' && options.all) cb(null, [{ address: decision.address, family: decision.family }]); else cb(null, decision.address, decision.family); } });
       const abort = () => stop(); signal.addEventListener('abort', abort, { once: true });
       request.on('error', stop); request.on('response', response => { response.destroy(); stop(); });
       const frame = (opcode: number, payload: Buffer) => {

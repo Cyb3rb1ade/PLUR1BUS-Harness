@@ -1,3 +1,4 @@
+import { bindClientContext } from "./client-principal.ts";
 import { bindApiPrincipal, verifyApiDelegation, type ApiPrincipal } from "./api-principal.ts";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
@@ -10,6 +11,8 @@ import { RpcError } from "./rpc-error.ts";
 
 /** Per-client queued-write limit; clients exceeding it are disconnected. */
 export const MAX_PENDING_BYTES = 16 * 1024 * 1024;
+/** Bound notifications waiting for an asynchronous identity lookup, before bytes can be queued. */
+export const MAX_PENDING_NOTIFICATIONS = 1024;
 
 /** Context passed to each RPC handler invocation. */
 export interface CallContext { requestId: string; connectionId: string; signal: AbortSignal }
@@ -20,7 +23,7 @@ export interface Subscription { id: string; connectionId: string; names?: string
 /** Result of waiting for selected method calls to finish. */
 export interface DrainResult { drained: boolean; pending: number }
 /** Optional notification delivery filters. */
-export type AudienceTarget = string | { connectionId: string } | { personId: string };
+export type AudienceTarget = string | { connectionId: string } | { personId: string } | { agentId: string };
 export interface NotifyOptions { audience?: readonly AudienceTarget[]; optIn?: boolean }
 /** Operations and diagnostics exposed by a running RPC server. */
 export interface RpcServer {
@@ -32,9 +35,10 @@ export interface RpcServer {
   /** Ends every socket (a queued reply is still flushed), destroys the ones still open after `graceMs` (default 1000),
    *  closes the listener and removes the POSIX socket file. Idempotent. */
   close(o?: { graceMs?: number }): Promise<void>;
-  /** With an audience, sends only to matching connections/persons or legacy agent-filtered subscriptions.
+  /** With an audience, sends only to matching connections/persons, RBAC-visible agent targets, or legacy agent-filtered subscriptions.
    *  Without an audience, sends a notification to every subscription it matches, at most once per connection. A subscription with `names`
    *  gets only those; `optIn` delivers only to subscriptions whose `names` include `method` (never to a no-names one).
+   *  Typed agent targets reach unfiltered local owner subscriptions too; API delivery requires `canReadAgent`.
    *  A subscription with `agentId` needs that id in `audience` when one is given, otherwise `params.agentId === agentId`. */
   notify(method: string, params: object, opts?: NotifyOptions): void;
   subscriptions(): Subscription[];
@@ -69,7 +73,7 @@ function warnIfDeprecated(logger: HarnessLogger, role: RpcServerRole, kind: "met
 }
 
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
-interface Conn { api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
+interface Conn { clientToken?: string; api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean; notifications: Promise<void>; pendingNotifications: number }
 
 /** Endpoint, handshake, handlers, and lifecycle hooks for {@link createRpcServer}. */
 export interface RpcServerOptions {
@@ -78,9 +82,13 @@ export interface RpcServerOptions {
   server?: RpcServerRole;
   /** Credential registered for harness-api; regular endpoint tokens cannot delegate. */
   apiToken?: string;
+  /** Scoped IPC client token. Revalidated on every call (revocation/expiry/rights are live). */
+  authorizeClient?: (token: string, method: string, params: unknown) => Promise<ApiPrincipal>;
   apiPrincipalOf?: (principal: ApiPrincipal) => ApiPrincipal | null | Promise<ApiPrincipal | null>;
   onApiAuthenticated?: (id: string, principal: ApiPrincipal | null) => void;
   apiPersonOfConnection?: (id: string, principal: ApiPrincipal) => Promise<string | null>;
+  /** Current RBAC visibility, resolved by the owner of the agent registry; absent denies API agent events. */
+  canReadAgent?: (ctx: CallContext, agentId: string) => boolean | Promise<boolean>;
   address: string; token: string;
   /** The handshake's result. */
   hello: () => object;
@@ -137,6 +145,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
   async function dispatch(c: Conn, msg: any): Promise<void> {
     let delegated: ApiPrincipal | null | undefined;
     const authDelegation = msg?.method === authMethod ? msg?.params?.api : undefined;
+    if (c.clientToken !== undefined && (msg?.api !== undefined || msg?.params?.api !== undefined)) return errorReply(c, msg?.id, new RpcError("E_DENIED", "scoped clients cannot delegate"));
     const hasApi = msg && typeof msg === "object" && (Object.hasOwn(msg, "api") || authDelegation !== undefined);
     if (hasApi) {
       try { delegated = verifyApiDelegation(msg.api ?? authDelegation, o.apiToken); }
@@ -151,9 +160,14 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     const log = o.logger.child({ requestId: String(id), connectionId: c.id, method });
 
     if (method === authMethod) {
+      if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       const v = validateParams(method, params);
       if (!v.ok) { replyAndClose(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); return; }
-      if (!tokenMatches(params.token)) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "bad token", { reason: "bad-token" })); return; }
+      if (!tokenMatches(params.token)) {
+        if (hasApi || !o.authorizeClient || typeof params.token !== "string") { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "bad token", { reason: "bad-token" })); return; }
+        try { await o.authorizeClient(params.token, method, params); c.clientToken = params.token; }
+        catch { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "client not approved", { reason: "client-token" })); return; }
+      } else if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       c.authed = true;
       if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
       if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
@@ -167,8 +181,17 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
     warnIfDeprecated(o.logger, role, "method", method);
 
+    if (c.clientToken !== undefined && method.startsWith("events.")) return errorReply(c, id, new RpcError("E_DENIED", "scoped client subscriptions are unavailable"));
     if (method === "events.subscribe" && served.has(method)) {
       const v = validateParams(method, params); if (!v.ok) return errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") }));
+      const ctx: CallContext = { requestId: String(id), connectionId: c.id, signal: new AbortController().signal };
+      if (c.api !== undefined) bindApiPrincipal(ctx, c.api);
+      try {
+        // The shared server owns subscriptions, but the process owns RBAC and audits.
+        await o.methods["events.subscribe"]?.(params, ctx);
+        if (params.agentId && !await canRead(c, params.agentId)) throw new RpcError("E_DENIED", "agent events denied", { reason: "object-right-required" });
+      } catch (e) { return errorReply(c, id, e instanceof RpcError ? e : new RpcError("E_DENIED", "event subscription denied", { reason: "resolver-failed" })); }
+      if (c.closing || conns.get(c.id) !== c) return;
       for (const name of new Set<string>(params.names ?? [])) warnIfDeprecated(o.logger, role, "notification", name);
       const sub: Subscription = { id: randomUUID(), connectionId: c.id, ...(params.names ? { names: params.names } : {}), ...(params.agentId ? { agentId: params.agentId } : {}) };
       c.subs.set(sub.id, sub); return send(c, { jsonrpc: "2.0", id, result: { subscriptionId: sub.id } });
@@ -192,6 +215,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     try {
       const ctx = { requestId: String(id), connectionId: c.id, signal: ac.signal };
       if (c.api !== undefined) bindApiPrincipal(ctx, delegated ?? null);
+      if (c.clientToken !== undefined) { const principal = await o.authorizeClient!(c.clientToken, method, params); bindApiPrincipal(ctx, principal); bindClientContext(ctx); }
       const result = await handler(params, ctx);
       const rv = validateResult(method, result);
       if (!rv.ok) { log.error("result violates schema", { errors: rv.errors }); return errorReply(c, id, new RpcError("E_INTERNAL", "result violates schema", { reason: "result-schema" })); }
@@ -209,8 +233,15 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     }
   }
 
+  async function canRead(c: Conn, agentId: string): Promise<boolean> {
+    if (!o.canReadAgent) return c.api === undefined; // standalone local IPC remains owner-only
+    const ctx: CallContext = { requestId: "event-audience", connectionId: c.id, signal: new AbortController().signal };
+    if (c.api !== undefined) bindApiPrincipal(ctx, c.api);
+    try { return await o.canReadAgent(ctx, agentId); } catch { return false; }
+  }
+
   function onConnection(sock: Socket) {
-    const c: Conn = { id: randomUUID(), sock, authed: false, dec: new LineDecoder(), inflight: new Map(), subs: new Map(), authTimer: null, closing: false };
+    const c: Conn = { id: randomUUID(), sock, authed: false, dec: new LineDecoder(), inflight: new Map(), subs: new Map(), authTimer: null, closing: false, notifications: Promise.resolve(), pendingNotifications: 0 };
     conns.set(c.id, c);
     c.authTimer = setTimeout(() => { if (!c.authed) { o.logger.debug("auth idle timeout", { connectionId: c.id }); sock.destroy(); } }, authIdleMs);
     sock.on("data", (chunk) => {
@@ -282,31 +313,46 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       // Capture the audience before asynchronous identity lookup; a caller cannot widen it later.
       const audience = opts.audience?.map(target => typeof target === "string" ? target : { ...target });
       for (const c of conns.values()) {
-        const deliver = (personId?: string | null) => {
+        if (!c.authed || c.closing || audience?.length === 0) continue;
+        const eligible = [...c.subs.values()].filter(sub => opts.optIn ? sub.names?.includes(method) : !sub.names || sub.names.includes(method));
+        if (!eligible.length) continue;
+        if (c.pendingNotifications >= MAX_PENDING_NOTIFICATIONS) { c.sock.destroy(); continue; }
+        c.pendingNotifications++;
+        // Serialise identity/rights lookups per connection to preserve generation order.
+        c.notifications = c.notifications.then(async () => {
           if (!c.authed || c.closing || conns.get(c.id) !== c) return;
-          for (const sub of c.subs.values()) {
-            if (opts.optIn ? !sub.names?.includes(method) : sub.names && !sub.names.includes(method)) continue;
+          const serviceNotice = c.api === null && method === "api.account.changed" && audience?.some(t => typeof t === "object" && "connectionId" in t && t.connectionId === c.id);
+          let personId: string | null | undefined;
+          if (!serviceNotice && (c.api !== undefined || audience?.some(t => typeof t === "object" && "personId" in t))) {
+            personId = c.api !== undefined ? (c.api ? await o.apiPersonOfConnection?.(c.id, c.api) : null) : await o.personOfConnection?.(c.id);
+            if (c.api !== undefined && !personId) return;
+          }
+          const agentTargets = audience?.flatMap(t => typeof t === "object" && "agentId" in t ? [t.agentId] : []) ?? [];
+          const visible = new Set<string>();
+          for (const agentId of agentTargets) if (await canRead(c, agentId)) visible.add(agentId);
+          // Even a legacy emission without explicit audience cannot bypass current agent rights.
+          const paramAgent = (params as { agentId?: unknown }).agentId;
+          if (typeof paramAgent === "string" && !agentTargets.length && !await canRead(c, paramAgent)) return;
+          if (!c.authed || c.closing || conns.get(c.id) !== c) return;
+          for (const sub of eligible) {
+            if (c.subs.get(sub.id) !== sub) continue;
             if (audience !== undefined) {
               const matches = audience.some(target => typeof target === "string"
                 ? target === c.id || (sub.agentId !== undefined && target === sub.agentId)
                 : "connectionId" in target ? target.connectionId === c.id
+                : "agentId" in target ? visible.has(target.agentId) && (!sub.agentId || sub.agentId === target.agentId)
                 : personId !== null && personId !== undefined && target.personId === personId);
-              if (!matches) continue; // including subscriptions without an agent filter; [] delivers nothing
-              // A connection/person target cannot bypass a subscription's existing agent filter.
-              if (sub.agentId && !(audience.some(t => typeof t === "string" && t === sub.agentId)
-                || (params as { agentId?: unknown }).agentId === sub.agentId)) continue;
-            } else if (c.api !== undefined && !["core.state"].includes(method)) continue;
-            else if (sub.agentId && (params as { agentId?: unknown }).agentId !== sub.agentId) continue;
+              if (!matches) continue;
+              if (sub.agentId && !(audience.some(t => typeof t === "string" ? t === sub.agentId : "agentId" in t && t.agentId === sub.agentId)
+                || paramAgent === sub.agentId)) continue;
+            } else if (c.api !== undefined && method !== "core.state") continue;
+            else if (sub.agentId && paramAgent !== sub.agentId) continue;
             const line = encodeLine({ jsonrpc: "2.0", method, params,
               ...(c.api !== undefined ? { audience: audience ?? null, connectionId: c.id } : {}) });
-            writeToSocket(c, line); break; // one delivery per connection
+            writeToSocket(c, line); break;
           }
-        };
-        if (c.api === null && method === "api.account.changed" && audience?.some(t => typeof t === "object" && "connectionId" in t && t.connectionId === c.id)) { deliver(); continue; }
-        if (c.api !== undefined || audience?.some(t => typeof t === "object" && "personId" in t)) {
-          // API connection audiences also require a currently active person; a stale socket is no authority.
-          void Promise.resolve().then(() => c.api !== undefined ? (c.api ? o.apiPersonOfConnection?.(c.id, c.api) : null) : o.personOfConnection?.(c.id)).then(person => { if (c.api !== undefined && !person) return; deliver(person); }).catch(() => {});
-        } else deliver();
+        }).catch(() => {}).finally(() => { c.pendingNotifications--; }); // failed lookup denies this event, never subsequent events
+
       }
     },
     subscriptions: () => [...conns.values()].flatMap((c) => [...c.subs.values()]),

@@ -1,3 +1,5 @@
+import { MatrixCryptoPanel } from "./matrix-crypto.ts";
+import { BehaviourPanel, type BehaviourView } from "./behaviour.ts";
 // Switchboard: list of connected channels, host state, effective configuration with secrets as names only,
 // enable/disable, field edit with schema validation & secret rejection, health test & send-owner, link-help.
 import { h } from "preact";
@@ -37,6 +39,7 @@ export type ChannelDetail = ChannelSummary & {
   secrets: { key: string; name: string; present: boolean }[];
   config: Record<string, unknown>;
   attempts: number;
+  behaviour?: BehaviourView | null;
   linkHelp: string;
   probe?: { ok: boolean; detail?: string };
 };
@@ -458,6 +461,8 @@ function DetailView({
         ),
       ),
     ),
+    d.id === "matrix" && typeof d.config.e2ee === "object" && d.config.e2ee !== null && (d.config.e2ee as { mode?: string }).mode === "memory" ? h(MatrixCryptoPanel, {}) : null,
+    d.behaviour ? h(BehaviourPanel, { key: `${d.id}:${JSON.stringify(d.behaviour.layer)}`, data: d.behaviour, reload }) : null,
     d.linkHelp
       ? h(
           "section",

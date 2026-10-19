@@ -1,0 +1,1746 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "article-news-basic",
+      "category": "article",
+      "note": "A plain news article: header, byline, paragraphs; nav, cookie banner and footer around it.",
+      "response": {
+        "status": 200,
+        "file": "pages/article-news-basic.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/article-news-basic.md",
+      "meta": {
+        "title": "Harbour lights return to Brindle Quay - Brindle Valley Gazette",
+        "lang": "en",
+        "publishedAt": "2026-03-14T08:30:00Z",
+        "canonicalUrl": "https://news.example.test/harbour-lights"
+      },
+      "mustNotContain": [
+        "cookie policy",
+        "Accept all",
+        "All rights reserved",
+        "Sport"
+      ]
+    },
+    {
+      "id": "article-news-figure-aside",
+      "category": "article",
+      "note": "Article with a figure caption, a related-stories aside and a share bar that must not leak into the text.",
+      "response": {
+        "status": 200,
+        "file": "pages/article-news-figure-aside.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/article-news-figure-aside.md",
+      "mustNotContain": [
+        "Related stories",
+        "Council approves market hall",
+        "Share on X",
+        "Rail strike"
+      ]
+    },
+    {
+      "id": "article-longform-sections",
+      "category": "article",
+      "note": "Long-form piece with h2/h3 hierarchy, a pull quote and an ordered list.",
+      "response": {
+        "status": 200,
+        "file": "pages/article-longform-sections.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/article-longform-sections.md"
+    },
+    {
+      "id": "blog-post-code",
+      "category": "blog",
+      "note": "Engineering blog post with inline code, a fenced shell block and a TypeScript block with language classes.",
+      "response": {
+        "status": 200,
+        "file": "pages/blog-post-code.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/blog-post-code.md",
+      "mustNotContain": [
+        "written by humans",
+        "Archive"
+      ]
+    },
+    {
+      "id": "blog-div-layout-no-semantics",
+      "category": "blog",
+      "note": "Old-style blog built from divs only (no main/article); sidebar and widgets are classed, not tagged.",
+      "response": {
+        "status": 200,
+        "file": "pages/blog-div-layout-no-semantics.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/blog-div-layout-no-semantics.md",
+      "mustNotContain": [
+        "Blogroll",
+        "Seed swap",
+        "Get new posts by email",
+        "Powered by a text editor"
+      ]
+    },
+    {
+      "id": "docs-page-navigation",
+      "category": "docs",
+      "note": "Documentation page: breadcrumb, left navigation tree, on-this-page aside, prev/next links around the main content.",
+      "response": {
+        "status": 200,
+        "file": "pages/docs-page-navigation.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/docs-page-navigation.md",
+      "mustNotContain": [
+        "Installation",
+        "On this page",
+        "Edit this page",
+        "Search docs"
+      ]
+    },
+    {
+      "id": "docs-api-reference",
+      "category": "docs",
+      "note": "API reference with definition lists, a parameters table and an example response.",
+      "response": {
+        "status": 200,
+        "file": "pages/docs-api-reference.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/docs-api-reference.md"
+    },
+    {
+      "id": "readme-markdown-body",
+      "category": "docs",
+      "note": "Rendered repository README: badges, install block, feature list, table of options, licence line.",
+      "response": {
+        "status": 200,
+        "file": "pages/readme-markdown-body.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/readme-markdown-body.md",
+      "mustNotContain": [
+        "Pull requests",
+        "Security Status"
+      ]
+    },
+    {
+      "id": "issue-thread",
+      "category": "forum",
+      "note": "Issue tracker thread: title, labels, original post and two replies with code.",
+      "response": {
+        "status": 200,
+        "file": "pages/issue-thread.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/issue-thread.md"
+    },
+    {
+      "id": "wiki-article-infobox",
+      "category": "reference",
+      "note": "Encyclopedia-style article: table of contents nav, an infobox table, [edit] section links and a references list.",
+      "response": {
+        "status": 200,
+        "file": "pages/wiki-article-infobox.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/wiki-article-infobox.md",
+      "mustNotContain": [
+        "Log in",
+        "[edit]",
+        "free licence"
+      ]
+    },
+    {
+      "id": "forum-thread-quotes",
+      "category": "forum",
+      "note": "Forum thread with nested quotes and signatures.",
+      "response": {
+        "status": 200,
+        "file": "pages/forum-thread-quotes.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/forum-thread-quotes.md"
+    },
+    {
+      "id": "product-spec-page",
+      "category": "commerce",
+      "note": "Product page: price, description, specification table, buy button and recommendation widgets.",
+      "response": {
+        "status": 200,
+        "file": "pages/product-spec-page.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/product-spec-page.md",
+      "mustNotContain": [
+        "Customers also bought",
+        "Add to basket",
+        "Company no."
+      ]
+    },
+    {
+      "id": "recipe-page-jsonld",
+      "category": "commerce",
+      "note": "Recipe page with a long preamble, ingredient list, numbered steps and a large JSON-LD block that must not appear.",
+      "response": {
+        "status": 200,
+        "file": "pages/recipe-page-jsonld.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/recipe-page-jsonld.md",
+      "mustNotContain": [
+        "must-not-appear",
+        "@context"
+      ]
+    },
+    {
+      "id": "tables-basic",
+      "category": "tables",
+      "note": "Two plain tables with a header row, one with a caption.",
+      "response": {
+        "status": 200,
+        "file": "pages/tables-basic.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/tables-basic.md"
+    },
+    {
+      "id": "tables-spans-alignment",
+      "category": "tables",
+      "note": "A table with colspan and rowspan group headers and right-aligned numbers.",
+      "response": {
+        "status": 200,
+        "file": "pages/tables-spans-alignment.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/tables-spans-alignment.md"
+    },
+    {
+      "id": "tables-inline-markup-pipes",
+      "category": "tables",
+      "note": "Cells with links, bold, code, a literal pipe, line breaks and an empty cell.",
+      "response": {
+        "status": 200,
+        "file": "pages/tables-inline-markup-pipes.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/tables-inline-markup-pipes.md"
+    },
+    {
+      "id": "tables-layout-nested",
+      "category": "tables",
+      "note": "A 1999-style layout table wrapping the content, with a real data table inside.",
+      "response": {
+        "status": 200,
+        "file": "pages/tables-layout-nested.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/tables-layout-nested.md"
+    },
+    {
+      "id": "tables-wide-numeric",
+      "category": "tables",
+      "note": "A 12-column monthly rainfall table with decimals and units in the header.",
+      "response": {
+        "status": 200,
+        "file": "pages/tables-wide-numeric.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/tables-wide-numeric.md"
+    },
+    {
+      "id": "tables-multiple-in-prose",
+      "category": "tables",
+      "note": "Three tables interleaved with prose and a list; each must survive separately.",
+      "response": {
+        "status": 200,
+        "file": "pages/tables-multiple-in-prose.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/tables-multiple-in-prose.md"
+    },
+    {
+      "id": "code-multi-language",
+      "category": "code",
+      "note": "Several code blocks: Python with indentation and blank lines, YAML, a block with tabs and a block without a language.",
+      "response": {
+        "status": 200,
+        "file": "pages/code-multi-language.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/code-multi-language.md"
+    },
+    {
+      "id": "code-highlighted-spans",
+      "category": "code",
+      "note": "Syntax-highlighted block where every token is a span and each line a div; text must stay contiguous.",
+      "response": {
+        "status": 200,
+        "file": "pages/code-highlighted-spans.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/code-highlighted-spans.md"
+    },
+    {
+      "id": "code-entities-and-angles",
+      "category": "code",
+      "note": "Code containing HTML entities, angle brackets, ampersands and a literal closing tag in a string.",
+      "response": {
+        "status": 200,
+        "file": "pages/code-entities-and-angles.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/code-entities-and-angles.md"
+    },
+    {
+      "id": "code-inline-and-kbd",
+      "category": "code",
+      "note": "Inline code, kbd and samp inside paragraphs and list items.",
+      "response": {
+        "status": 200,
+        "file": "pages/code-inline-and-kbd.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/code-inline-and-kbd.md"
+    },
+    {
+      "id": "lists-nested-deep",
+      "category": "lists",
+      "note": "Four levels of nested unordered and ordered lists with text after nested lists.",
+      "response": {
+        "status": 200,
+        "file": "pages/lists-nested-deep.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/lists-nested-deep.md"
+    },
+    {
+      "id": "lists-paragraphs-and-code",
+      "category": "lists",
+      "note": "List items containing several paragraphs, a code block and a blockquote.",
+      "response": {
+        "status": 200,
+        "file": "pages/lists-paragraphs-and-code.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/lists-paragraphs-and-code.md"
+    },
+    {
+      "id": "lists-definition-and-glossary",
+      "category": "lists",
+      "note": "A glossary built from a definition list with several definitions per term.",
+      "response": {
+        "status": 200,
+        "file": "pages/lists-definition-and-glossary.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/lists-definition-and-glossary.md"
+    },
+    {
+      "id": "rtl-arabic-article",
+      "category": "i18n",
+      "note": "Right-to-left Arabic article with dir=rtl, a heading, a list and an embedded Latin term.",
+      "response": {
+        "status": 200,
+        "file": "pages/rtl-arabic-article.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/rtl-arabic-article.md",
+      "meta": {
+        "lang": "ar"
+      }
+    },
+    {
+      "id": "rtl-hebrew-mixed",
+      "category": "i18n",
+      "note": "Hebrew paragraph mixing numbers, Latin words and punctuation.",
+      "response": {
+        "status": 200,
+        "file": "pages/rtl-hebrew-mixed.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/rtl-hebrew-mixed.md",
+      "meta": {
+        "lang": "he"
+      }
+    },
+    {
+      "id": "cjk-japanese-utf8",
+      "category": "i18n",
+      "note": "Japanese article (UTF-8) with kanji, kana, full-width punctuation and a table.",
+      "response": {
+        "status": 200,
+        "file": "pages/cjk-japanese-utf8.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/cjk-japanese-utf8.md",
+      "meta": {
+        "lang": "ja"
+      }
+    },
+    {
+      "id": "cjk-chinese-simplified",
+      "category": "i18n",
+      "note": "Simplified Chinese news item with a numbered list.",
+      "response": {
+        "status": 200,
+        "file": "pages/cjk-chinese-simplified.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/cjk-chinese-simplified.md",
+      "meta": {
+        "lang": "zh-CN"
+      }
+    },
+    {
+      "id": "cjk-korean",
+      "category": "i18n",
+      "note": "Korean paragraph with spaces, hanja-free text and a heading.",
+      "response": {
+        "status": 200,
+        "file": "pages/cjk-korean.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/cjk-korean.md",
+      "meta": {
+        "lang": "ko"
+      }
+    },
+    {
+      "id": "german-umlauts-article",
+      "category": "i18n",
+      "note": "German article with umlauts, sharp s and typographic quotes.",
+      "response": {
+        "status": 200,
+        "file": "pages/german-umlauts-article.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/german-umlauts-article.md",
+      "meta": {
+        "lang": "de"
+      }
+    },
+    {
+      "id": "charset-shiftjis-meta",
+      "category": "charset",
+      "note": "Shift_JIS bytes with only a <meta charset> declaration (no header charset).",
+      "response": {
+        "status": 200,
+        "file": "pages/charset-shiftjis-meta.html",
+        "type": "text/html"
+      },
+      "expect": "ok",
+      "golden": "goldens/charset-shiftjis-meta.md",
+      "meta": {
+        "lang": "ja"
+      }
+    },
+    {
+      "id": "charset-gbk-header",
+      "category": "charset",
+      "note": "GBK bytes declared only in the Content-Type header.",
+      "response": {
+        "status": 200,
+        "file": "pages/charset-gbk-header.html",
+        "type": "text/html; charset=gbk"
+      },
+      "expect": "ok",
+      "golden": "goldens/charset-gbk-header.md",
+      "meta": {
+        "lang": "zh-CN"
+      }
+    },
+    {
+      "id": "charset-windows1252-header",
+      "category": "charset",
+      "note": "Windows-1252 bytes (curly quotes, euro sign, e-acute) declared in the header.",
+      "response": {
+        "status": 200,
+        "file": "pages/charset-windows1252-header.html",
+        "type": "text/html; charset=windows-1252"
+      },
+      "expect": "ok",
+      "golden": "goldens/charset-windows1252-header.md"
+    },
+    {
+      "id": "charset-bogus-header-meta-wins",
+      "category": "charset",
+      "note": "The header names a charset the decoder does not know; the <meta> declaration (UTF-8) must be used.",
+      "response": {
+        "status": 200,
+        "file": "pages/charset-bogus-header-meta-wins.html",
+        "type": "text/html; charset=x-no-such-charset-9"
+      },
+      "expect": "ok",
+      "golden": "goldens/charset-bogus-header-meta-wins.md"
+    },
+    {
+      "id": "charset-utf16le-bom",
+      "category": "charset",
+      "note": "UTF-16LE with a byte-order mark and no charset anywhere else.",
+      "response": {
+        "status": 200,
+        "file": "pages/charset-utf16le-bom.html",
+        "type": "text/html"
+      },
+      "expect": "ok",
+      "golden": "goldens/charset-utf16le-bom.md"
+    },
+    {
+      "id": "charset-utf8-bom",
+      "category": "charset",
+      "note": "UTF-8 with a byte-order mark and a generic text/html type.",
+      "response": {
+        "status": 200,
+        "file": "pages/charset-utf8-bom.html",
+        "type": "text/html"
+      },
+      "expect": "ok",
+      "golden": "goldens/charset-utf8-bom.md"
+    },
+    {
+      "id": "charset-undeclared-latin1",
+      "category": "charset",
+      "note": "Latin-1 bytes with no charset in header, BOM or meta; the sniffing step must not produce replacement characters.",
+      "response": {
+        "status": 200,
+        "file": "pages/charset-undeclared-latin1.html",
+        "type": "text/html"
+      },
+      "expect": "ok",
+      "golden": "goldens/charset-undeclared-latin1.md",
+      "mustNotContain": [
+        "�"
+      ]
+    },
+    {
+      "id": "entities-named-numeric",
+      "category": "markup",
+      "note": "Named, decimal and hex entities, non-breaking spaces, and entity-like text that must stay literal.",
+      "response": {
+        "status": 200,
+        "file": "pages/entities-named-numeric.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/entities-named-numeric.md"
+    },
+    {
+      "id": "broken-unclosed-tags",
+      "category": "broken",
+      "note": "Unclosed paragraphs, list items, table cells and a missing </body></html>.",
+      "response": {
+        "status": 200,
+        "file": "pages/broken-unclosed-tags.html",
+        "type": "text/html"
+      },
+      "expect": "ok",
+      "golden": "goldens/broken-unclosed-tags.md"
+    },
+    {
+      "id": "broken-misnested-stray-angle",
+      "category": "broken",
+      "note": "Mis-nested inline tags, stray < and > characters in text, an unterminated attribute quote and a comment that never ends.",
+      "response": {
+        "status": 200,
+        "file": "pages/broken-misnested-stray-angle.html",
+        "type": "text/html"
+      },
+      "expect": "ok",
+      "golden": "goldens/broken-misnested-stray-angle.md"
+    },
+    {
+      "id": "broken-fragment-no-html-tags",
+      "category": "broken",
+      "note": "A bare fragment: no html, head or body, no doctype.",
+      "response": {
+        "status": 200,
+        "file": "pages/broken-fragment-no-html-tags.html",
+        "type": "text/html"
+      },
+      "expect": "ok",
+      "golden": "goldens/broken-fragment-no-html-tags.md"
+    },
+    {
+      "id": "broken-attributes-unquoted-duplicate",
+      "category": "broken",
+      "note": "Unquoted and duplicate attributes, uppercase tags, self-closing syntax on non-void elements.",
+      "response": {
+        "status": 200,
+        "file": "pages/broken-attributes-unquoted-duplicate.html",
+        "type": "text/html"
+      },
+      "expect": "ok",
+      "golden": "goldens/broken-attributes-unquoted-duplicate.md"
+    },
+    {
+      "id": "deep-nesting-300",
+      "category": "broken",
+      "note": "300 nested divs around two paragraphs; the depth cap must degrade, not lose the text.",
+      "response": {
+        "status": 200,
+        "file": "pages/deep-nesting-300.html",
+        "type": "text/html"
+      },
+      "expect": "ok",
+      "golden": "goldens/deep-nesting-300.md"
+    },
+    {
+      "id": "cookie-banner-overlay",
+      "category": "boilerplate",
+      "note": "Cookie consent overlay (by id, class and role=dialog) in front of full article text.",
+      "response": {
+        "status": 200,
+        "file": "pages/cookie-banner-overlay.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/cookie-banner-overlay.md",
+      "mustNotContain": [
+        "Your privacy",
+        "partners store cookies",
+        "cookie notice"
+      ]
+    },
+    {
+      "id": "paywall-marker-full-text",
+      "category": "paywall",
+      "note": "An article that carries paywall markup (metered, hidden by stylesheet) but includes the full text: must be returned, not refused.",
+      "response": {
+        "status": 200,
+        "file": "pages/paywall-marker-full-text.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/paywall-marker-full-text.md",
+      "mustNotContain": [
+        "Subscribe to keep reading"
+      ]
+    },
+    {
+      "id": "recaptcha-widget-in-article",
+      "category": "boilerplate",
+      "note": "A long article that merely embeds a reCAPTCHA widget in its comment form: must NOT be classified as a CAPTCHA wall.",
+      "response": {
+        "status": 200,
+        "file": "pages/recaptcha-widget-in-article.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/recaptcha-widget-in-article.md"
+    },
+    {
+      "id": "metadata-rich-head",
+      "category": "metadata",
+      "note": "Head metadata: canonical, published time, language; relative canonical must resolve.",
+      "response": {
+        "status": 200,
+        "file": "pages/metadata-rich-head.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/metadata-rich-head.md",
+      "meta": {
+        "title": "Lighthouse keepers' logs",
+        "lang": "en-GB",
+        "publishedAt": "2026-01-20",
+        "canonicalUrl": "{{BASE}}/features/skerry-logs"
+      }
+    },
+    {
+      "id": "links-resolution",
+      "category": "links",
+      "note": "Relative, root-relative, protocol-relative, parent-relative, fragment, mailto and javascript: links resolve (or drop) correctly.",
+      "response": {
+        "status": 200,
+        "file": "pages/links-resolution.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/links-resolution.md",
+      "mustNotContain": [
+        "javascript:"
+      ]
+    },
+    {
+      "id": "images-alt-text",
+      "category": "links",
+      "note": "Images with alt text, without alt, decorative (empty alt) and inside links.",
+      "response": {
+        "status": 200,
+        "file": "pages/images-alt-text.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/images-alt-text.md"
+    },
+    {
+      "id": "hidden-content-dropped",
+      "category": "boilerplate",
+      "note": "Hidden elements (hidden attribute, aria-hidden, display:none) are dropped; visible text is kept.",
+      "response": {
+        "status": 200,
+        "file": "pages/hidden-content-dropped.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/hidden-content-dropped.md",
+      "mustNotContain": [
+        "Secret",
+        "Decorative"
+      ]
+    },
+    {
+      "id": "ssr-hydrated-app",
+      "category": "spa",
+      "note": "Server-rendered app: content already inside #root together with a large script bundle; must not be treated as client-rendered.",
+      "response": {
+        "status": 200,
+        "file": "pages/ssr-hydrated-app.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/ssr-hydrated-app.md",
+      "mustNotContain": [
+        "hydration-payload"
+      ]
+    },
+    {
+      "id": "spa-noscript-content",
+      "category": "spa",
+      "note": "Client-rendered shell that ships its real content inside <noscript>: with no browser available, that content must be used instead of failing.",
+      "response": {
+        "status": 200,
+        "file": "pages/spa-noscript-content.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/spa-noscript-content.md"
+    },
+    {
+      "id": "text-plain-notes",
+      "category": "text",
+      "note": "text/plain is returned as written.",
+      "response": {
+        "status": 200,
+        "file": "pages/text-plain-notes.txt",
+        "type": "text/plain; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/text-plain-notes.md",
+      "rawText": true
+    },
+    {
+      "id": "markdown-source-file",
+      "category": "text",
+      "note": "A Markdown source served as text/markdown is returned untouched, headings included.",
+      "response": {
+        "status": 200,
+        "file": "pages/markdown-source-file.md",
+        "type": "text/markdown; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/markdown-source-file.md",
+      "rawText": true
+    },
+    {
+      "id": "json-api-response",
+      "category": "text",
+      "note": "A JSON API response is pretty-printed.",
+      "response": {
+        "status": 200,
+        "file": "pages/json-api-response.json",
+        "type": "application/json"
+      },
+      "expect": "ok",
+      "golden": "goldens/json-api-response.md",
+      "rawText": true
+    },
+    {
+      "id": "xml-feed",
+      "category": "text",
+      "note": "An Atom feed is returned as text so the entries can be read.",
+      "response": {
+        "status": 200,
+        "file": "pages/xml-feed.xml",
+        "type": "application/atom+xml"
+      },
+      "expect": "ok",
+      "golden": "goldens/xml-feed.md",
+      "rawText": true
+    },
+    {
+      "id": "csv-export",
+      "category": "text",
+      "note": "CSV is returned as written.",
+      "response": {
+        "status": 200,
+        "file": "pages/csv-export.csv",
+        "type": "text/csv"
+      },
+      "expect": "ok",
+      "golden": "goldens/csv-export.md",
+      "rawText": true
+    },
+    {
+      "id": "wrongtype-html-as-octet-stream",
+      "category": "content-type",
+      "note": "A real HTML page served as application/octet-stream (typical object-store misconfiguration) is sniffed and extracted.",
+      "response": {
+        "status": 200,
+        "file": "pages/wrongtype-html-as-octet-stream.html",
+        "type": "application/octet-stream"
+      },
+      "expect": "ok",
+      "golden": "goldens/wrongtype-html-as-octet-stream.md"
+    },
+    {
+      "id": "wrongtype-html-as-text-plain",
+      "category": "content-type",
+      "note": "A real HTML page served as text/plain is recognised by its doctype and extracted.",
+      "response": {
+        "status": 200,
+        "file": "pages/wrongtype-html-as-text-plain.html",
+        "type": "text/plain"
+      },
+      "expect": "ok",
+      "golden": "goldens/wrongtype-html-as-text-plain.md"
+    },
+    {
+      "id": "wrongtype-missing-header-html",
+      "category": "content-type",
+      "note": "No Content-Type header at all; the body is sniffed as HTML.",
+      "response": {
+        "status": 200,
+        "file": "pages/wrongtype-missing-header-html.html",
+        "noContentType": true
+      },
+      "expect": "ok",
+      "golden": "goldens/wrongtype-missing-header-html.md"
+    },
+    {
+      "id": "compression-gzip",
+      "category": "compression",
+      "note": "Content-Encoding: gzip.",
+      "response": {
+        "status": 200,
+        "file": "pages/compression-gzip.html",
+        "type": "text/html; charset=utf-8",
+        "encoding": "gzip"
+      },
+      "expect": "ok",
+      "golden": "goldens/compression-gzip.md"
+    },
+    {
+      "id": "compression-brotli",
+      "category": "compression",
+      "note": "Content-Encoding: br.",
+      "response": {
+        "status": 200,
+        "file": "pages/compression-brotli.html",
+        "type": "text/html; charset=utf-8",
+        "encoding": "br"
+      },
+      "expect": "ok",
+      "golden": "goldens/compression-brotli.md"
+    },
+    {
+      "id": "compression-deflate",
+      "category": "compression",
+      "note": "Content-Encoding: deflate.",
+      "response": {
+        "status": 200,
+        "file": "pages/compression-deflate.html",
+        "type": "text/html; charset=utf-8",
+        "encoding": "deflate"
+      },
+      "expect": "ok",
+      "golden": "goldens/compression-deflate.md"
+    },
+    {
+      "id": "compression-gzip-japanese-shiftjis",
+      "category": "compression",
+      "note": "Shift_JIS bytes that are additionally gzip-compressed: decompress first, then decode.",
+      "response": {
+        "status": 200,
+        "file": "pages/compression-gzip-japanese-shiftjis.html",
+        "type": "text/html",
+        "encoding": "gzip"
+      },
+      "expect": "ok",
+      "golden": "goldens/compression-gzip-japanese-shiftjis.md",
+      "meta": {
+        "lang": "ja"
+      }
+    },
+    {
+      "id": "redirect-chain-five-hops",
+      "category": "redirect",
+      "note": "Five mixed 301/302/303/307/308 hops end at an article; the final URL is reported.",
+      "response": {
+        "status": 200,
+        "file": "pages/redirect-chain-five-hops.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/redirect-chain-five-hops.md",
+      "chain": [
+        {
+          "path": "/r/redirect-chain-five-hops/1",
+          "status": 301,
+          "location": "{{BASE}}/r/redirect-chain-five-hops/2"
+        },
+        {
+          "path": "/r/redirect-chain-five-hops/2",
+          "status": 302,
+          "location": "{{BASE}}/r/redirect-chain-five-hops/3"
+        },
+        {
+          "path": "/r/redirect-chain-five-hops/3",
+          "status": 303,
+          "location": "{{BASE}}/r/redirect-chain-five-hops/4"
+        },
+        {
+          "path": "/r/redirect-chain-five-hops/4",
+          "status": 307,
+          "location": "{{BASE}}/r/redirect-chain-five-hops/5"
+        },
+        {
+          "path": "/r/redirect-chain-five-hops/5",
+          "status": 308,
+          "location": "/p/redirect-chain-five-hops"
+        }
+      ],
+      "request": {
+        "path": "/r/redirect-chain-five-hops/1"
+      },
+      "expectFinalPath": "/p/redirect-chain-five-hops"
+    },
+    {
+      "id": "redirect-relative-location",
+      "category": "redirect",
+      "note": "Redirects with relative and query-bearing Location headers.",
+      "response": {
+        "status": 200,
+        "file": "pages/redirect-relative-location.html",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "ok",
+      "golden": "goldens/redirect-relative-location.md",
+      "chain": [
+        {
+          "path": "/r/redirect-relative-location/1",
+          "status": 302,
+          "location": "2?src=old"
+        },
+        {
+          "path": "/r/redirect-relative-location/2",
+          "status": 301,
+          "location": "../../p/redirect-relative-location"
+        }
+      ],
+      "request": {
+        "path": "/r/redirect-relative-location/1"
+      },
+      "expectFinalPath": "/p/redirect-relative-location"
+    },
+    {
+      "id": "status-404-not-found",
+      "category": "status",
+      "note": "A 404 page with a friendly body.",
+      "response": {
+        "status": 404,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/status-404-not-found.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-404-not-found.json"
+    },
+    {
+      "id": "status-410-gone",
+      "category": "status",
+      "note": "A 410 with a short explanation.",
+      "response": {
+        "status": 410,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/status-410-gone.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-410-gone.json"
+    },
+    {
+      "id": "status-401-basic-auth",
+      "category": "status",
+      "note": "401 with a WWW-Authenticate challenge.",
+      "response": {
+        "status": 401,
+        "type": "text/plain",
+        "headers": {
+          "www-authenticate": "Basic realm=\"staff\""
+        },
+        "file": "pages/status-401-basic-auth.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-401-basic-auth.json"
+    },
+    {
+      "id": "status-403-login-form",
+      "category": "status",
+      "note": "403 whose body is a sign-in form with a password field.",
+      "response": {
+        "status": 403,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/status-403-login-form.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-403-login-form.json"
+    },
+    {
+      "id": "login-wall-200",
+      "category": "status",
+      "note": "A 200 page that is only a sign-in form (soft login wall).",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/login-wall-200.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/login-wall-200.json"
+    },
+    {
+      "id": "status-402-payment-required",
+      "category": "paywall",
+      "note": "A 402 Payment Required.",
+      "response": {
+        "status": 402,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/status-402-payment-required.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-402-payment-required.json"
+    },
+    {
+      "id": "paywall-soft-teaser",
+      "category": "paywall",
+      "note": "200 with a two-sentence teaser, a visible paywall prompt and JSON-LD marking the article as not free.",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/paywall-soft-teaser.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/paywall-soft-teaser.json"
+    },
+    {
+      "id": "status-429-retry-after-seconds",
+      "category": "rate-limit",
+      "note": "429 with Retry-After in seconds.",
+      "response": {
+        "status": 429,
+        "type": "text/plain",
+        "headers": {
+          "retry-after": "120"
+        },
+        "file": "pages/status-429-retry-after-seconds.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-429-retry-after-seconds.json"
+    },
+    {
+      "id": "status-429-retry-after-date",
+      "category": "rate-limit",
+      "note": "429 with Retry-After as an HTTP date three minutes in the future.",
+      "response": {
+        "status": 429,
+        "type": "text/plain",
+        "headers": {
+          "retry-after": "@+180s"
+        },
+        "file": "pages/status-429-retry-after-date.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-429-retry-after-date.json"
+    },
+    {
+      "id": "status-429-no-retry-after",
+      "category": "rate-limit",
+      "note": "429 without Retry-After.",
+      "response": {
+        "status": 429,
+        "type": "text/plain",
+        "file": "pages/status-429-no-retry-after.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-429-no-retry-after.json"
+    },
+    {
+      "id": "status-500-http-error",
+      "category": "status",
+      "note": "A 500 with an HTML error page.",
+      "response": {
+        "status": 500,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/status-500-http-error.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-500-http-error.json"
+    },
+    {
+      "id": "status-503-http-error",
+      "category": "status",
+      "note": "A 503 maintenance page.",
+      "response": {
+        "status": 503,
+        "type": "text/html; charset=utf-8",
+        "headers": {
+          "retry-after": "60"
+        },
+        "file": "pages/status-503-http-error.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-503-http-error.json"
+    },
+    {
+      "id": "status-408-timeout",
+      "category": "timeout",
+      "note": "The server itself answers 408 Request Timeout.",
+      "response": {
+        "status": 408,
+        "type": "text/plain",
+        "file": "pages/status-408-timeout.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-408-timeout.json"
+    },
+    {
+      "id": "status-504-gateway-timeout",
+      "category": "timeout",
+      "note": "A gateway answers 504.",
+      "response": {
+        "status": 504,
+        "type": "text/plain",
+        "file": "pages/status-504-gateway-timeout.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/status-504-gateway-timeout.json"
+    },
+    {
+      "id": "captcha-403-turnstile",
+      "category": "captcha",
+      "note": "A 403 interstitial with a managed-challenge widget (Just a moment...).",
+      "response": {
+        "status": 403,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/captcha-403-turnstile.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/captcha-403-turnstile.json"
+    },
+    {
+      "id": "captcha-200-recaptcha-gate",
+      "category": "captcha",
+      "note": "A 200 page that is only a reCAPTCHA gate.",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/captcha-200-recaptcha-gate.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/captcha-200-recaptcha-gate.json"
+    },
+    {
+      "id": "captcha-429-hcaptcha",
+      "category": "captcha",
+      "note": "A 429 whose body is an hCaptcha challenge: a CAPTCHA, not a plain rate limit.",
+      "response": {
+        "status": 429,
+        "type": "text/html; charset=utf-8",
+        "headers": {
+          "retry-after": "30"
+        },
+        "file": "pages/captcha-429-hcaptcha.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/captcha-429-hcaptcha.json"
+    },
+    {
+      "id": "too-large-declared-length",
+      "category": "size",
+      "note": "Content-Length above the cap is refused before the body is read (cap lowered for the test).",
+      "response": {
+        "kind": "generated",
+        "name": "bytes",
+        "bytes": 300000,
+        "type": "text/plain"
+      },
+      "expect": "fail",
+      "golden": "goldens/too-large-declared-length.json",
+      "config": {
+        "maxBytes": 100000
+      }
+    },
+    {
+      "id": "too-large-gzip-bomb",
+      "category": "size",
+      "note": "A small gzip body that inflates beyond the cap: the cap counts decompressed bytes.",
+      "response": {
+        "kind": "generated",
+        "name": "gzip-bomb",
+        "bytes": 6000000,
+        "type": "text/plain",
+        "encoding": "gzip"
+      },
+      "expect": "fail",
+      "golden": "goldens/too-large-gzip-bomb.json",
+      "config": {
+        "maxBytes": 1000000
+      }
+    },
+    {
+      "id": "too-large-extracted-tokens",
+      "category": "size",
+      "note": "A 500-page manual exceeds a lowered extracted-token cap; the failure is loud, never a truncated success.",
+      "response": {
+        "kind": "generated",
+        "name": "manual-500"
+      },
+      "expect": "fail",
+      "golden": "goldens/too-large-extracted-tokens.json",
+      "config": {
+        "maxExtractedTokens": 20000
+      }
+    },
+    {
+      "id": "unsupported-pdf-text",
+      "category": "binary",
+      "note": "A real (generated) text PDF; PDF extraction is not available, so the failure is typed.",
+      "response": {
+        "kind": "generated",
+        "name": "pdf-text",
+        "type": "application/pdf"
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-pdf-text.json"
+    },
+    {
+      "id": "unsupported-pdf-scanned",
+      "category": "binary",
+      "note": "A scanned PDF (image only, no text layer); OCR is not available.",
+      "response": {
+        "kind": "generated",
+        "name": "pdf-scanned",
+        "type": "application/pdf"
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-pdf-scanned.json"
+    },
+    {
+      "id": "unsupported-docx",
+      "category": "binary",
+      "note": "A DOCX (zip of XML parts, generated); Office extraction is not available.",
+      "response": {
+        "kind": "generated",
+        "name": "docx",
+        "type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-docx.json"
+    },
+    {
+      "id": "unsupported-xlsx",
+      "category": "binary",
+      "note": "An XLSX workbook, same family as DOCX.",
+      "response": {
+        "kind": "generated",
+        "name": "xlsx",
+        "type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-xlsx.json"
+    },
+    {
+      "id": "unsupported-png-image",
+      "category": "binary",
+      "note": "A PNG image; no vision route exists in web.fetch.",
+      "response": {
+        "kind": "generated",
+        "name": "png",
+        "type": "image/png"
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-png-image.json"
+    },
+    {
+      "id": "unsupported-octet-binary",
+      "category": "binary",
+      "note": "application/octet-stream whose body is a binary blob.",
+      "response": {
+        "kind": "generated",
+        "name": "blob",
+        "type": "application/octet-stream"
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-octet-binary.json"
+    },
+    {
+      "id": "unsupported-no-type-binary",
+      "category": "binary",
+      "note": "No Content-Type and a body with NUL bytes.",
+      "response": {
+        "kind": "generated",
+        "name": "blob",
+        "noContentType": true
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-no-type-binary.json"
+    },
+    {
+      "id": "unsupported-pdf-labelled-html",
+      "category": "binary",
+      "note": "PDF bytes mislabelled text/html: sniffed by magic number, not turned into garbage Markdown.",
+      "response": {
+        "kind": "generated",
+        "name": "pdf-text",
+        "type": "text/html"
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-pdf-labelled-html.json"
+    },
+    {
+      "id": "unsupported-zip-labelled-text",
+      "category": "binary",
+      "note": "ZIP bytes mislabelled text/plain.",
+      "response": {
+        "kind": "generated",
+        "name": "docx",
+        "type": "text/plain"
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-zip-labelled-text.json"
+    },
+    {
+      "id": "unsupported-content-encoding",
+      "category": "binary",
+      "note": "Content-Encoding: zstd, which the client does not decode.",
+      "response": {
+        "status": 200,
+        "type": "text/plain",
+        "headers": {
+          "content-encoding": "zstd"
+        },
+        "file": "pages/unsupported-content-encoding.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/unsupported-content-encoding.json"
+    },
+    {
+      "id": "needs-render-spa-shell",
+      "category": "spa",
+      "note": "An empty root div and a script bundle: client-rendered, no browser available.",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/needs-render-spa-shell.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/needs-render-spa-shell.json"
+    },
+    {
+      "id": "needs-render-spa-loading-text",
+      "category": "spa",
+      "note": "A shell with only a loading message and bundles.",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/needs-render-spa-loading-text.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/needs-render-spa-loading-text.json"
+    },
+    {
+      "id": "needs-render-cookie-wall",
+      "category": "spa",
+      "note": "A consent wall that holds the whole page back: only consent controls are present, the content is not in the HTML.",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/needs-render-cookie-wall.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/needs-render-cookie-wall.json"
+    },
+    {
+      "id": "redirect-loop",
+      "category": "redirect",
+      "note": "Two URLs redirect to each other forever.",
+      "response": {
+        "kind": "loop"
+      },
+      "expect": "fail",
+      "golden": "goldens/redirect-loop.json"
+    },
+    {
+      "id": "redirect-eleven-hops",
+      "category": "redirect",
+      "note": "Eleven hops with the default limit of ten.",
+      "response": {
+        "kind": "chain",
+        "hops": 11
+      },
+      "expect": "fail",
+      "golden": "goldens/redirect-eleven-hops.json"
+    },
+    {
+      "id": "redirect-to-metadata-address",
+      "category": "ssrf",
+      "note": "A public-looking page redirects to the cloud metadata address; the hop is refused.",
+      "response": {
+        "kind": "redirect",
+        "status": 302,
+        "location": "http://169.254.169.254/latest/meta-data/"
+      },
+      "expect": "fail",
+      "golden": "goldens/redirect-to-metadata-address.json"
+    },
+    {
+      "id": "redirect-to-ftp-scheme",
+      "category": "ssrf",
+      "note": "A redirect to ftp:// is refused.",
+      "response": {
+        "kind": "redirect",
+        "status": 302,
+        "location": "ftp://files.example.test/pub/readme.txt"
+      },
+      "expect": "fail",
+      "golden": "goldens/redirect-to-ftp-scheme.json"
+    },
+    {
+      "id": "redirect-to-file-scheme",
+      "category": "ssrf",
+      "note": "A redirect to file:// is refused.",
+      "response": {
+        "kind": "redirect",
+        "status": 302,
+        "location": "file:///etc/passwd"
+      },
+      "expect": "fail",
+      "golden": "goldens/redirect-to-file-scheme.json"
+    },
+    {
+      "id": "redirect-with-credentials",
+      "category": "ssrf",
+      "note": "A redirect target with embedded credentials is refused.",
+      "response": {
+        "kind": "redirect",
+        "status": 301,
+        "location": "http://user:pw@example.test/x"
+      },
+      "expect": "fail",
+      "golden": "goldens/redirect-with-credentials.json"
+    },
+    {
+      "id": "direct-private-loopback",
+      "category": "ssrf",
+      "note": "With no allowlist, the loopback address of the fixture server itself is refused before any request.",
+      "response": {
+        "kind": "none"
+      },
+      "expect": "fail",
+      "golden": "goldens/direct-private-loopback.json",
+      "strict": true
+    },
+    {
+      "id": "direct-ftp-scheme",
+      "category": "ssrf",
+      "note": "ftp:// is not fetched.",
+      "response": {
+        "kind": "none"
+      },
+      "expect": "fail",
+      "golden": "goldens/direct-ftp-scheme.json",
+      "request": {
+        "url": "ftp://files.example.test/readme.txt"
+      }
+    },
+    {
+      "id": "direct-invalid-url",
+      "category": "url",
+      "note": "Not a URL at all.",
+      "response": {
+        "kind": "none"
+      },
+      "expect": "fail",
+      "golden": "goldens/direct-invalid-url.json",
+      "request": {
+        "url": "not a url"
+      }
+    },
+    {
+      "id": "direct-credentials-in-url",
+      "category": "url",
+      "note": "Credentials in the URL are refused.",
+      "response": {
+        "kind": "none"
+      },
+      "expect": "fail",
+      "golden": "goldens/direct-credentials-in-url.json",
+      "request": {
+        "url": "http://alice:secret@example.test/"
+      }
+    },
+    {
+      "id": "args-unknown-and-bad-values",
+      "category": "args",
+      "note": "An unknown argument name.",
+      "response": {
+        "kind": "none"
+      },
+      "expect": "fail",
+      "golden": "goldens/args-unknown-and-bad-values.json",
+      "request": {
+        "url": "BASE/p/anything",
+        "args": {
+          "bogus": true
+        }
+      }
+    },
+    {
+      "id": "args-max-tokens-out-of-range",
+      "category": "args",
+      "note": "maxTokens below the minimum.",
+      "response": {
+        "kind": "none"
+      },
+      "expect": "fail",
+      "golden": "goldens/args-max-tokens-out-of-range.json",
+      "request": {
+        "url": "BASE/p/anything",
+        "args": {
+          "maxTokens": 5
+        }
+      }
+    },
+    {
+      "id": "args-unknown-section",
+      "category": "args",
+      "note": "A section that does not exist in the page.",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/args-unknown-section.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/args-unknown-section.json",
+      "request": {
+        "args": {
+          "section": "no-such-heading"
+        }
+      }
+    },
+    {
+      "id": "cursor-unknown",
+      "category": "args",
+      "note": "A cursor that was never issued.",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "file": "pages/cursor-unknown.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/cursor-unknown.json",
+      "request": {
+        "args": {
+          "cursor": "0123456789ab.40"
+        }
+      }
+    },
+    {
+      "id": "cursor-other-agent",
+      "category": "args",
+      "note": "A cursor from agent A presented by agent B.",
+      "response": {
+        "kind": "generated",
+        "name": "manual-500"
+      },
+      "expect": "fail",
+      "golden": "goldens/cursor-other-agent.json",
+      "special": "cursor-other-agent"
+    },
+    {
+      "id": "robots-disallowed-crawl",
+      "category": "robots",
+      "note": "robots.txt disallows the path and the call is a crawl.",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "robots": "User-agent: *\nDisallow: /p/robots-disallowed-crawl\n",
+        "file": "pages/robots-disallowed-crawl.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/robots-disallowed-crawl.json",
+      "request": {
+        "args": {
+          "crawl": true
+        }
+      }
+    },
+    {
+      "id": "robots-unavailable-treated-disallow",
+      "category": "robots",
+      "note": "robots.txt answers 503; a crawl treats that as disallow.",
+      "response": {
+        "status": 200,
+        "type": "text/html; charset=utf-8",
+        "robots": 503,
+        "file": "pages/robots-unavailable-treated-disallow.html"
+      },
+      "expect": "fail",
+      "golden": "goldens/robots-unavailable-treated-disallow.json",
+      "request": {
+        "args": {
+          "crawl": true
+        }
+      }
+    },
+    {
+      "id": "timeout-server-stalls",
+      "category": "network",
+      "note": "The server accepts the connection and never answers.",
+      "response": {
+        "kind": "stall"
+      },
+      "expect": "fail",
+      "golden": "goldens/timeout-server-stalls.json",
+      "config": {
+        "timeoutMs": 400
+      }
+    },
+    {
+      "id": "timeout-body-stalls",
+      "category": "network",
+      "note": "Headers arrive, then the body stalls.",
+      "response": {
+        "kind": "stall-body"
+      },
+      "expect": "fail",
+      "golden": "goldens/timeout-body-stalls.json",
+      "config": {
+        "timeoutMs": 600
+      }
+    },
+    {
+      "id": "network-error-reset",
+      "category": "network",
+      "note": "The server resets the connection.",
+      "response": {
+        "kind": "reset"
+      },
+      "expect": "fail",
+      "golden": "goldens/network-error-reset.json"
+    },
+    {
+      "id": "network-error-refused",
+      "category": "network",
+      "note": "Nothing listens on the port.",
+      "response": {
+        "kind": "none"
+      },
+      "expect": "fail",
+      "golden": "goldens/network-error-refused.json",
+      "request": {
+        "url": "REFUSED"
+      }
+    },
+    {
+      "id": "network-error-corrupt-gzip",
+      "category": "network",
+      "note": "Content-Encoding: gzip with a corrupt stream.",
+      "response": {
+        "kind": "corrupt-gzip"
+      },
+      "expect": "fail",
+      "golden": "goldens/network-error-corrupt-gzip.json"
+    },
+    {
+      "id": "tls-error-untrusted-certificate",
+      "category": "network",
+      "note": "An https server whose self-signed certificate is not trusted.",
+      "response": {
+        "kind": "tls"
+      },
+      "expect": "fail",
+      "golden": "goldens/tls-error-untrusted-certificate.json"
+    },
+    {
+      "id": "internal-error-faulty-store",
+      "category": "internal",
+      "note": "Through the tool layer: a document store that throws an unexpected exception is reported as internal-error without leaking the exception text.",
+      "response": {
+        "kind": "generated",
+        "name": "manual-500"
+      },
+      "expect": "fail",
+      "golden": "goldens/internal-error-faulty-store.json",
+      "special": "internal-error-store"
+    },
+    {
+      "id": "manual-500-pages",
+      "category": "long-document",
+      "note": "A generated 500-page service manual (25 chapters x 20 pages): table of contents, section jumps and a cursor walk must reproduce the whole text with nothing lost.",
+      "response": {
+        "kind": "generated",
+        "name": "manual-500",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "generated-ok",
+      "golden": "goldens/manual-500-pages.json"
+    },
+    {
+      "id": "long-line-300k",
+      "category": "long-document",
+      "note": "One 280 000-character line plus a 100 000-character unbroken token: chunking must not lose or split characters.",
+      "response": {
+        "kind": "generated",
+        "name": "long-line",
+        "type": "text/html; charset=utf-8"
+      },
+      "expect": "generated-ok",
+      "golden": "goldens/long-line-300k.json"
+    }
+  ]
+}

@@ -15,3 +15,15 @@ describe("models: further fields never show a credential", () => {
     assert.equal(m?.extra.plain, "https://example.test/v1");
   });
 });
+
+describe("models: privacy.localOnly lock (cloud models are listed as locked, never hidden)", () => {
+  test("locked: local-only is kept as a known field and not repeated among the further fields", () => {
+    const m = normalizeModel({ provider: "p", id: "m", locked: "local-only" });
+    assert.equal(m?.locked, "local-only");
+    assert.equal("locked" in (m?.extra ?? {}), false);
+  });
+  test("an unknown lock value or none leaves the model unlocked", () => {
+    assert.equal("locked" in normalizeModel({ provider: "p", id: "m" })!, false);
+    assert.equal("locked" in normalizeModel({ provider: "p", id: "m", locked: "other" })!, false);
+  });
+});

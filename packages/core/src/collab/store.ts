@@ -14,7 +14,10 @@ export { SCHEMA_VERSION };
 
 type Row = Record<string, unknown>;
 
-export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string }
+/** Ends task-scoped grants when a collab task reaches a terminal status (D109 §9.9). */
+export interface TaskGrantEnd { endTask(taskId: string, by?: string): number | void | Promise<number | void> }
+
+export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string; grants?: TaskGrantEnd; logWarn?: (msg: string, fields?: { err?: unknown }) => void }
 
 function mergeSettings(raw: unknown): CollabSettings {
   const o = (raw && typeof raw === "object" ? raw : {}) as Partial<CollabSettings>;
@@ -40,10 +43,14 @@ export class CollabStore {
   readonly #db: DatabaseSync;
   readonly #clock: () => number;
   readonly #newId: (prefix: string) => string;
+  readonly #grants: TaskGrantEnd | undefined;
+  readonly #logWarn: StoreOptions["logWarn"];
 
   constructor(o: StoreOptions) {
     this.#clock = o.clock ?? Date.now;
     this.#newId = o.newId ?? newId;
+    this.#grants = o.grants;
+    this.#logWarn = o.logWarn;
     this.#db = new DatabaseSync(o.path);
     try {
       this.#db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
@@ -233,14 +240,16 @@ export class CollabStore {
     );
   }
 
+  bindSession(spanId: string, sessionId: string): void { this.#run("UPDATE spans SET session_id=? WHERE span_id=?", sessionId, spanId); }
+
   finishSpan(spanId: string, patch: {
     status: SpanStatus; outputPreview?: string; error?: string | null; guardrail?: string | null;
-    inputTokens?: number; outputTokens?: number; costEstimate?: number | null;
+    inputTokens?: number; outputTokens?: number; costEstimate?: number | null; targetKind?: import("./types.ts").Provenance["targetKind"];
   }): void {
     this.#run(
-      "UPDATE spans SET ended_at=?, status=?, output_preview=?, error=?, guardrail=?, input_tokens=?, output_tokens=?, cost_estimate=? WHERE span_id=?",
+      "UPDATE spans SET ended_at=?, status=?, output_preview=?, error=?, guardrail=?, input_tokens=?, output_tokens=?, cost_estimate=?, target_kind=? WHERE span_id=?",
       this.#clock(), patch.status, patch.outputPreview ?? "", patch.error ?? null, patch.guardrail ?? null,
-      patch.inputTokens ?? 0, patch.outputTokens ?? 0, patch.costEstimate ?? null, spanId,
+      patch.inputTokens ?? 0, patch.outputTokens ?? 0, patch.costEstimate ?? null, patch.targetKind ?? null, spanId,
     );
   }
 
@@ -290,17 +299,18 @@ export class CollabStore {
 
   updateTask(id: string, patch: {
     status: TaskStatus; result?: string | null; truncated?: boolean; artifactId?: string | null;
-    error?: string | null; inputTokens?: number; outputTokens?: number;
+    error?: string | null; inputTokens?: number; outputTokens?: number; targetKind?: import("./types.ts").Provenance["targetKind"];
   }): DelegateTask {
     const now = this.#clock();
     const started = patch.status === "running" ? now : undefined;
     this.#run(
-      `UPDATE tasks SET status=?, result_capped=?, truncated=?, result_artifact_id=?, error=?, ended_at=?, input_tokens=?, output_tokens=?
+      `UPDATE tasks SET status=?, result_capped=?, truncated=?, result_artifact_id=?, error=?, ended_at=?, input_tokens=?, output_tokens=?, target_kind=?
        ${started !== undefined ? ", started_at=?" : ""} WHERE id=?`,
       patch.status, patch.result ?? null, patch.truncated === true ? 1 : 0, patch.artifactId ?? null, patch.error ?? null,
-      patch.status === "running" ? null : now, patch.inputTokens ?? null, patch.outputTokens ?? null,
+      patch.status === "running" ? null : now, patch.inputTokens ?? null, patch.outputTokens ?? null, patch.targetKind ?? null,
       ...(started !== undefined ? [started, id] : [id]),
     );
+    if (patch.status === "succeeded" || patch.status === "failed" || patch.status === "cancelled") this.#endTaskGrants(id);
     return this.getTask(id)!;
   }
 
@@ -320,14 +330,28 @@ export class CollabStore {
     for (const r of open) {
       const id = r.id as string;
       this.#run("UPDATE tasks SET status='cancelled', error='aborted', ended_at=? WHERE id=?", now, id);
+      this.#endTaskGrants(id);
       ids.push(id);
     }
     return ids;
+  }
+
+  #endTaskGrants(taskId: string): void {
+    try {
+      const r = this.#grants?.endTask(taskId);
+      if (r != null && typeof r === "object" && typeof (r as Promise<unknown>).then === "function") {
+        void (r as Promise<unknown>).catch((err: unknown) => this.#logWarn?.("grant task end failed", { err }));
+      }
+    } catch (err) {
+      this.#logWarn?.("grant task end failed", { err });
+    }
   }
 }
 
 function toSpan(r: Row): CollabSpan {
   return {
+    ...(r.target_kind ? { targetKind: r.target_kind as import("./types.ts").Provenance["targetKind"] } : {}),
+    ...(r.session_id ? { sessionId: r.session_id as string } : {}),
     spanId: r.span_id as string, traceId: r.trace_id as string, parentSpanId: (r.parent_span_id as string | null) ?? null,
     agentId: r.agent_id as string, kind: r.kind as CollabSpan["kind"], startedAt: r.started_at as number,
     endedAt: (r.ended_at as number | null) ?? null, status: r.status as SpanStatus,
@@ -341,6 +365,7 @@ function toSpan(r: Row): CollabSpan {
 function toTask(r: Row): DelegateTask {
   const artifactId = (r.result_artifact_id as string | null) ?? null;
   return {
+    ...(r.target_kind ? { targetKind: r.target_kind as import("./types.ts").Provenance["targetKind"] } : {}),
     id: r.id as string, projectId: r.project_id as string, traceId: r.trace_id as string, spanId: r.span_id as string,
     parentTaskId: (r.parent_task_id as string | null) ?? null, fromAgent: r.from_agent as string, toAgent: r.to_agent as string,
     status: r.status as TaskStatus, task: r.task as string, acceptanceCriteria: r.acceptance as string,

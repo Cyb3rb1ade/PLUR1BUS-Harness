@@ -36,7 +36,7 @@ export type MockErrorCode =
   | "E_UNAUTHORIZED" | "E_RPC_VERSION" | "E_NOT_AVAILABLE" | "E_CORE_UNAVAILABLE" | "E_INVALID_PARAMS" | "E_AGENT_UNKNOWN" | "E_CONFIG_INVALID"
   | "E_MODULE_UNKNOWN" | "E_INTERNAL" | "E_LOCKED" | "E_NOT_FOUND" | "E_DENIED" | "E_APPROVAL_REQUIRED" | "E_CONFLICT" | "E_STORAGE" | "E_INBOX_CURSOR"
   | "E_MEDIA_CAPABILITY" | "E_MEDIA_LICENSE" | "E_MEDIA_PRIVACY" | "E_MEDIA_UNAVAILABLE" | "E_MEDIA_DIMENSION" | "E_MEDIA_UNSUPPORTED_KIND"
-  | "E_ENGINE_ERASURE_UNAVAILABLE" | "E_VOICE_LICENCE" | "E_VOICE_UNAVAILABLE" | "E_PROJECT_WIP_LIMIT";
+  | "E_AGENT_EXISTS" | "E_ENGINE_ERASURE_UNAVAILABLE" | "E_VOICE_LICENCE" | "E_VOICE_UNAVAILABLE" | "E_PROJECT_WIP_LIMIT";
 
 /** Throw this from a handler to answer a JSON-RPC error (`error.data.error` = code, optional reason). */
 export class MockRpcError extends Error {
@@ -89,16 +89,31 @@ export class MockRpc {
   }
 
   async serve(req: IncomingMessage, res: ServerResponse, path: string, body: string): Promise<boolean> {
+    let rest=false;
+    if(path.startsWith("/api/v1/chats")) {
+      const url=new URL(req.url!,"http://localhost");const match=/^\/api\/v1\/chats(?:\/([^/]+)(?:\/(messages|events|cancel|model))?)?$/.exec(url.pathname);
+      if(!match)return false;
+      rest=true;let params:Record<string,unknown>={};try{params=body?JSON.parse(body):{};}catch{httpError(res,400,"E_INVALID_PARAMS","body");return true;}
+      const id=match[1],action=match[2];let method:string;
+      if(!id) {method=req.method==="POST"?"session.create":"session.list";if(method==="session.create")params.kind="direct";else {params={kind:"direct",...Object.fromEntries(url.searchParams)};if(params.agent){params.agentId=params.agent;delete params.agent;}if(params.state){params.archived=params.state;delete params.state;}if(params.q){params.search=params.q;delete params.q;}}}
+      else {params.sessionId=id;method=action==="messages"?"session.submit":action==="events"?"session.events":action==="cancel"?"session.cancel":action==="model"?(req.method==="PATCH"?"chat.model.set":"chat.model.get"):"session.resume";for(const [key,value]of url.searchParams)params[key]=Number(value);}
+      body=JSON.stringify({jsonrpc:"2.0",id:1,method,params});path="/rpc";
+    }
     if (path !== "/rpc") return false;
+    const respond=(status:number,value:any)=>{
+      if(!rest)return sendJson(res,status,value);
+      if(value.error){const data=value.error.data??{};const code=data.error??"E_INTERNAL";return httpError(res,code==="E_NOT_FOUND"?404:code==="E_DENIED"?403:code==="E_CONFLICT"?409:code==="E_NOT_AVAILABLE"?503:400,code,data.reason??"request");}
+      sendJson(res,status,value.result??value);
+    };
     if (!this.#enabled) { httpError(res, 404, "E_NOT_FOUND", "route"); return true; }
-    if (req.method !== "POST") { res.setHeader("allow", "POST"); httpError(res, 405, "E_INVALID_PARAMS", "method-not-allowed"); return true; }
+    if (!rest && req.method !== "POST") { res.setHeader("allow", "POST"); httpError(res, 405, "E_INVALID_PARAMS", "method-not-allowed"); return true; }
     const s = this.#server.sessionOf(req);
     if (!s) { httpError(res, 401, "E_UNAUTHORIZED", "no-session"); return true; }
     let msg: { jsonrpc?: unknown; id?: unknown; method?: unknown; params?: unknown };
-    try { msg = JSON.parse(body) as typeof msg; } catch { sendJson(res, 200, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }); return true; }
+    try { msg = JSON.parse(body) as typeof msg; } catch { respond(200, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }); return true; }
     const id = typeof msg.id === "string" || typeof msg.id === "number" ? msg.id : null;
     const fail = (numeric: number, message: string, code?: MockErrorCode, reason?: string): true => {
-      sendJson(res, 200, { jsonrpc: "2.0", id, error: { code: numeric, message, ...(code ? { data: { error: code, ...(reason ? { reason } : {}) } } : {}) } });
+      respond(200, { jsonrpc: "2.0", id, error: { code: numeric, message, ...(code ? { data: { error: code, ...(reason ? { reason } : {}) } } : {}) } });
       return true;
     };
     if (msg.jsonrpc !== "2.0" || typeof msg.method !== "string") return fail(-32600, "invalid request");
@@ -114,7 +129,7 @@ export class MockRpc {
     }
     if (e.delayMs > 0) await new Promise<void>((r) => setTimeout(r, e.delayMs));
     switch (e.scenario) {
-      case "empty": sendJson(res, 200, { jsonrpc: "2.0", id, result: e.empty }); return true;
+      case "empty": respond(200, { jsonrpc: "2.0", id, result: e.empty }); return true;
       case "forbidden": return fail(-32000, "denied", "E_DENIED", "no-permission");
       case "unavailable": return fail(-32000, "not available", "E_NOT_AVAILABLE", "mock-unavailable");
       case "error": return fail(-32000, e.failure?.message ?? "failure", e.failure?.code ?? "E_INTERNAL", e.failure?.reason);
@@ -122,7 +137,7 @@ export class MockRpc {
     }
     try {
       const result = await e.fn(msg.params, { csrf, sessionId: s.id });
-      sendJson(res, 200, { jsonrpc: "2.0", id, result: result === undefined ? null : result });
+      respond(200, { jsonrpc: "2.0", id, result: result === undefined ? null : result });
     } catch (err) {
       if (err instanceof MockRpcError) return fail(err.numeric, err.message, err.code, err.reason);
       return fail(-32603, "internal error", "E_INTERNAL");

@@ -1,4 +1,5 @@
 // `exec.run` as a dispatcher-ready tool spec. Nothing registers itself; the dispatcher takes `createExecTool(...)`.
+import type { ToolClassification } from "../registry.ts";
 import { ExecFailure, type ExecDeps, type ExecResult } from "./types.ts";
 import { execRun } from "./run.ts";
 
@@ -24,7 +25,7 @@ export interface ExecToolSpec {
   inputSchema: Record<string, unknown>;
   effect: "local-write";
   parallelSafe: false;
-  execute(args: unknown, ctx?: { signal?: AbortSignal | undefined }): Promise<ExecToolOutcome>;
+  execute(args: unknown, ctx?: { signal?: AbortSignal | undefined; classified?: ToolClassification }): Promise<ExecToolOutcome>;
 }
 
 export function createExecTool(deps: ExecDeps): ExecToolSpec {
@@ -43,7 +44,7 @@ export function createExecTool(deps: ExecDeps): ExecToolSpec {
         if (extra.length > 0) throw new ExecFailure("invalid-input", `unknown argument: ${extra[0]}`);
         const env = a.env;
         if (env !== undefined && (env === null || typeof env !== "object" || Array.isArray(env))) throw new ExecFailure("invalid-input", "env must be an object");
-        const value = await execRun(a as never, deps, ctx?.signal);
+        const value = await execRun(a as never, deps, ctx?.signal, ctx?.classified);
         return { isError: false, value };
       } catch (e) {
         if (e instanceof ExecFailure) return e.toResult();

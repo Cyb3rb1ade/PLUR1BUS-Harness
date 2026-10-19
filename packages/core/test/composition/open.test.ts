@@ -11,7 +11,7 @@ import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { useTempDirs } from "./helpers.ts";
 
 const tmp = useTempDirs("p1b-open-comp-");
-const MEDIA_METHODS = ["media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
+const MEDIA_METHODS = ["chat.promote.links", "chat.promote.preview", "chat.promote.commit", "task.complete", "media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
 const SEARCH_METHODS = ["media.search", "media.index.status", "media.index.pause", "media.index.resume", "media.index.reindex", "media.caption.set"];
 
 function recordingLogger() {
@@ -21,8 +21,8 @@ function recordingLogger() {
   return { logger: logger as never, lines };
 }
 
-async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string) => void = () => {}) {
-  const home = tmp.make(); const cfg = defaults(); cfg.agents.bernd = {};
+async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string) => void = () => {}, configure: (cfg: ReturnType<typeof defaults>) => void = () => {}) {
+  const home = tmp.make(); const cfg = defaults(); cfg.agents.bernd = {}; configure(cfg);
   prepare(home);
   const { logger, lines } = recordingLogger();
   const identity = createIdentityService({ dbPath: join(home, "identity.sqlite"), clock: Date.now, audit: () => {} });
@@ -38,13 +38,29 @@ async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string)
 }
 
 describe("composition openTurnComposition", () => {
+  it("D105: the bounded decision call is required only when modelRoles.decision is configured; without one the rule triage keeps the tool shortlist", async () => {
+    for (const role of [undefined, "triage"]) {
+      const seen: { requireTriage?: boolean; classifier: boolean }[] = [];
+      const providers = { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() { /* unused */ } } }] } };
+      const { composition: c, identity } = await open({ options: { providers, createTurnProvider: (o) => { seen.push({ ...(o.requireTriage === undefined ? {} : { requireTriage: o.requireTriage }), classifier: typeof o.classifyMessage === "function" }); return { id: "fixture", telemetry: {} as never, async *stream() { /* unused */ } } as never; } } }, () => {}, (cfg) => { if (role) cfg.modelRoles.decision = role; });
+      try {
+        const main = seen.find((o) => o.classifier || o.requireTriage !== undefined) ?? seen[0];
+        assert.ok(main, "the foreground provider was created");
+        assert.equal(main.requireTriage === true, role !== undefined, `requireTriage with decision role ${role ?? "(none)"}`);
+        assert.equal(main.classifier, role !== undefined, `classifier with decision role ${role ?? "(none)"}`);
+      } finally { await c.close(); identity.close(); }
+    }
+  });
+
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["close", "collab", "discoveryCredentials", "openai", "sessions", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["budget", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
+      assert.equal(c.skillReview.status().state, "engine-unavailable");
+      assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
-      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS].sort());
+      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, "models.test"].sort());
       for (const m of Object.values(c.surfaceMethods)) assert.equal(typeof m, "function");
     } finally { await c.close(); identity.close(); }
   });
@@ -83,6 +99,20 @@ describe("composition openTurnComposition", () => {
     try {
       const unknown = { wireFormat: "chat_completions", entries: [], profile: { id: "ghost", display_name: "g", kind: "api_key", capabilities: ["chat"], auth_header_scheme: "Authorization: Bearer {token}", secret_ref: "g.key", policy_status: "allowed", policy_source: "s", policy_checked: "2026-10-08" } };
       assert.equal(c.discoveryCredentials(unknown as never), undefined);
+    } finally { await c.close(); identity.close(); }
+  });
+
+  it("one provider without a billing class is refused and reported; the good one stays composed (no all-or-nothing)", async () => {
+    const def = (id: string, over: Record<string, unknown> = {}) => ({ wireFormat: "chat_completions", defaultModel: "m", entries: [], ...over,
+      profile: { id, display_name: id, kind: "api_key", capabilities: ["chat"], auth_header_scheme: "Authorization: Bearer {token}", base_url: "https://fixture.invalid/v1", secret_ref: `${id}.key`, policy_status: "allowed", policy_source: "s", policy_checked: "2026-10-08" } });
+    const { composition: c, identity, lines } = await open({ options: { definitions: { good: def("good"), bad: def("bad", { billingPath: "enterprise" }) } as never } });
+    try {
+      assert.deepEqual(c.refusedProviders.map(r => [r.provider, r.code]), [["bad", "E_CONFIG_INVALID"]]);
+      const logged = lines.find(l => l[0] === "error" && /refused/.test(l[1]));
+      assert.ok(logged, "the refusal is logged");
+      assert.equal(logged![2]?.provider, "bad");
+      assert.equal(logged![2]?.code, "E_CONFIG_INVALID");
+      assert.equal(lines.some(l => /turn providers unavailable/.test(l[1])), false, "the composition root no longer disables every provider");
     } finally { await c.close(); identity.close(); }
   });
 

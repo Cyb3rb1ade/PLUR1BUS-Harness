@@ -3,7 +3,7 @@ import type { GuardrailReason } from "./errors.ts";
 export type ProjectRole = "member" | "lead";
 export type CollabKind = "consult" | "delegate";
 export type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
-export type SpanStatus = "running" | "succeeded" | "failed" | "cancelled" | "refused";
+export type SpanStatus = "partial" | "running" | "succeeded" | "failed" | "cancelled" | "refused";
 export type AgentState = "active" | "paused" | "archived";
 
 export interface CollabSettings {
@@ -43,10 +43,11 @@ export interface Provenance {
   spanId: string;
   at: number;
   cost: { inputTokens: number; outputTokens: number };
-  targetKind: "local";
+  targetKind: "local" | "external" | "a2a";
 }
 
 export interface ConsultAnswer {
+  status?: "done" | "partial";
   kind: "consult.answer";
   text: string;
   provenance: Provenance;
@@ -55,6 +56,7 @@ export interface ConsultAnswer {
 }
 
 export interface DelegateTask {
+  targetKind?: "local" | "external" | "a2a";
   id: string;
   projectId: string;
   traceId: string;
@@ -84,6 +86,8 @@ export interface DelegateHandle {
 }
 
 export interface CollabSpan {
+  targetKind?: "local" | "external" | "a2a";
+  sessionId?: string;
   spanId: string;
   traceId: string;
   parentSpanId: string | null;
@@ -132,6 +136,7 @@ export interface CollabEvent {
 }
 
 export interface ConsultInput {
+  handoff?: import("./runner.ts").AgentRunInput["handoff"];
   principal: import("../rbac/types.ts").Principal;
   projectId: string;
   fromAgent: string;
@@ -146,6 +151,7 @@ export interface ConsultInput {
 }
 
 export interface DelegateInput {
+  handoff?: import("./runner.ts").AgentRunInput["handoff"];
   principal: import("../rbac/types.ts").Principal;
   projectId: string;
   fromAgent: string;

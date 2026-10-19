@@ -8,6 +8,7 @@ use std::time::Duration;
 
 pub fn request(cmd: &DeviceCmd) -> (&'static str, Value, &'static str) {
     match cmd {
+        DeviceCmd::Pair { kind } => ("device.pair", json!({"kind":kind}), "device.pair/1"),
         DeviceCmd::List => ("device.list", json!({}), "device.list/1"),
         DeviceCmd::Revoke { id } => ("device.revoke", json!({"id":id}), "device.revoke/1"),
         DeviceCmd::Rename { id, name } => (
@@ -40,7 +41,13 @@ pub fn run(out: &Out, layout: &Layout, cmd: DeviceCmd) {
         Err(error) => out.from_rpc_error(&error),
     };
     out.ok(schema, &value, || {
-        if method == "device.list" {
+        if method == "device.pair" {
+            format!(
+                "Pairing code: {}\nExpires: {}",
+                value["code"].as_str().unwrap_or("?"),
+                value["expiresAt"]
+            )
+        } else if method == "device.list" {
             let devices = value["devices"].as_array().cloned().unwrap_or_default();
             if devices.is_empty() {
                 "no devices".into()
@@ -58,6 +65,12 @@ mod tests {
     use super::*;
     #[test]
     fn commands_only_send_device_fields_and_render_sanitizes_terminal_controls() {
+        assert_eq!(
+            request(&DeviceCmd::Pair {
+                kind: "desktop".into()
+            }),
+            ("device.pair", json!({"kind":"desktop"}), "device.pair/1")
+        );
         assert_eq!(
             request(&DeviceCmd::List),
             ("device.list", json!({}), "device.list/1")

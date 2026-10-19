@@ -1,0 +1,9 @@
+{
+  "params": {
+    "model": "example/chat"
+  },
+  "result": {
+    "ok": true,
+    "durationMs": 12
+  }
+}

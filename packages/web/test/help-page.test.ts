@@ -13,11 +13,17 @@ describe("Help page (docs/user)", opts, () => {
       await openRoute(page, "#/help");
       await page.getByRole("heading", { name: "User Handbook", level: 1 }).waitFor();
 
-      // Table of contents navigation should have quickstart, operations, etc.
+      // Table of contents navigation should have quickstart, operations, privacy, etc.
       const toc = page.locator(".help-toc-list");
       await toc.waitFor();
       assert.ok(await page.locator('.help-toc-link[href="#/help/quickstart"]').count() > 0);
       assert.ok(await page.locator('.help-toc-link[href="#/help/operations"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/privacy"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/secrets"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/reembed"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/chat-models"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/cloud-embeddings"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/import-rollback"]').count() > 0);
 
       // Markdown rendered content
       const article = page.locator("#help-article");
@@ -68,6 +74,12 @@ describe("Help page (docs/user)", opts, () => {
       // German TOC entries
       assert.ok(await page.locator('.help-toc-link[href="#/help/schnellstart"]').count() > 0 || await page.locator('.help-toc-link[href="#/help/quickstart"]').count() > 0);
       assert.ok(await page.locator('.help-toc-link[href="#/help/betriebshandbuch"]').count() > 0 || await page.locator('.help-toc-link[href="#/help/operations"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/datenschutz"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/secrets"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/reembed"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/chat-modelle"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/cloud-embeddings"]').count() > 0);
+      assert.ok(await page.locator('.help-toc-link[href="#/help/import-rollback"]').count() > 0);
     });
   });
 

@@ -26,12 +26,18 @@ const rank = (role: string) => ROLES.length - ROLES.indexOf(role as (typeof ROLE
 
 /** The lowest role the policy table lets through for a route's action (a role-level answer: ownership and object rights come on top). */
 const MIN_ROLE: Record<string, string> = {
+  "passkeys.list": "viewer", "passkeys.options": "member", "passkeys.register": "member", "passkeys.change": "member",
+  "chats.list": "viewer", "chats.create": "member", "chats.create-agent": "member", "chats.get": "viewer", "chats.update": "member",
+  "chats.messages": "viewer", "chats.submit": "member", "chats.events": "viewer", "chats.cancel": "member", "chats.archive": "member",
+  "chats.restore": "member", "chats.fork": "member", "chats.export": "viewer", "chats.delete": "member", "chats.model-get": "viewer", "chats.model-set": "member", "ws.ticket": "admin", "ws.reserved": "admin",
+  "remote.get": "admin", "remote.set": "admin", "remote.confirm": "admin", "remote.certificate": "admin",
+  "remote.pairing.status": "admin", "remote.pairing.offer": "admin", "remote.trust.get": "viewer", "remote.trust.challenge": "member", "remote.trust.ack": "member", "remote.trust.rotate": "admin",
   "health": "operator", "agents.list": "viewer", "tokens.list": "viewer", "tokens.create": "member", "tokens.revoke": "member",
   "totp.status": "viewer", "totp.setup": "member", "totp.confirm": "member", "totp.disable": "member",
   "breakglass.request": "admin", "breakglass.list": "admin", "breakglass.revoke": "admin", "notices.list": "viewer",
 };
-const PUBLIC = ["invitation.redeem", "session.create", "session.totp"];
-const SELF_SERVICE = ["account.bootstrap", "csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
+const PUBLIC = ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair"];
+const SELF_SERVICE = ["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
 
 function minRoleOf(action: string): string | undefined {
   const spec = policyFor(action); if (!spec) return undefined;
@@ -76,7 +82,7 @@ test("the minimum role is enforced over HTTP: for every route and every role, 40
       if (typeof spec.authz !== "object") continue;
       for (const role of ROLES) {
         const cookie = sessions[role]!; const allowed = rank(role) >= rank(MIN_ROLE[spec.id]!);
-        const r = spec.method === "GET" ? await raw(h, { path: spec.path, headers: { cookie } }) : await write(h, cookie, { method: spec.method, path: spec.path, ...(bodyFor(spec.id) !== undefined ? { body: bodyFor(spec.id) } : {}) });
+        const r = spec.method === "GET" ? await raw(h, { path: spec.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie } }) : await write(h, cookie, { method: spec.method, path: spec.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), ...(bodyFor(spec.id) !== undefined ? { body: bodyFor(spec.id) } : {}) });
         if (r.status === 401) wrong.push(`${spec.id} as ${role}: 401 for a live session`);
         else if (allowed && r.status === 403 && r.json?.reason === "role-denied") wrong.push(`${spec.id} as ${role}: refused although the minimum is ${MIN_ROLE[spec.id]}`);
         else if (!allowed && r.status !== 403) wrong.push(`${spec.id} as ${role}: ${r.status} below the minimum ${MIN_ROLE[spec.id]}`);
@@ -185,7 +191,9 @@ test("the owner token is a credential for the login body only: in no other place
       if (spec.id === "session.create") continue;
       for (const [label, headers, query] of placements) {
         const r = await raw(h, { method: spec.method, path: spec.path + query, headers: { ...headers, ...(spec.requestBody ? jsonHeaders() : {}) }, ...(spec.requestBody ? { body: JSON.stringify({ token: t, challenge: t, code: t, id: t, name: t }) } : {}) });
-        if (r.status < 400 || r.status >= 500) bad.push(`${spec.id} via ${label}: ${r.status}`);
+        if(spec.id==="desktop.meta") {
+          assert.equal(r.status,200);assert.deepEqual(Object.keys(r.json).sort(),["capabilities","pairingRequired","version"]);assert.equal(r.headers["set-cookie"],undefined);
+        } else if (r.status < 400 || r.status >= 500) bad.push(`${spec.id} via ${label}: ${r.status}`);
         if (r.text.includes(t)) bad.push(`${spec.id} via ${label}: the answer echoes the token`);
       }
     }
@@ -223,7 +231,7 @@ test("over HTTP an owner-minted token is the owner's role but an agent principal
     assert.equal(who.status, 200); assert.equal(who.json.via, "token"); assert.equal(who.json.principal.role, "owner"); assert.ok(!who.text.includes(secretOf(made.json.token)));
     assert.equal((await raw(h, { path: "/api/v1/agents", headers: auth })).status, 403, "agent.list is not among this token's scopes");
     for (const spec of ROUTES.filter((r) => r.auth === "session")) {
-      const r = await raw(h, { method: spec.method, path: spec.path, headers: { ...auth, ...(spec.requestBody ? jsonHeaders() : {}) }, ...(spec.requestBody ? { body: "{}" } : {}) });
+      const r = await raw(h, { method: spec.method, path: spec.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { ...auth, ...(spec.requestBody ? jsonHeaders() : {}) }, ...(spec.requestBody ? { body: "{}" } : {}) });
       assert.equal(r.status, 401, `${spec.id}: a token is not a session`);
     }
   } finally { await h.close(); }

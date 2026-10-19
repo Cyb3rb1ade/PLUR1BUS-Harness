@@ -919,3 +919,28 @@ fn a_restarted_core_that_dies_is_not_reported_restarted() {
     assert_eq!(child_state(&child), "crashed", "{child}");
     assert_eq!(child["process"]["reason"], "config-invalid", "{child}");
 }
+
+#[test]
+fn a_local_agent_rejects_shared_cloud_engine_writes_and_dry_runs_before_mutation() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    write_config(
+        home,
+        &json!({"schemaVersion":1,"agents":{"local-agent":{"privacy":{"localOnly":true}}}}),
+    );
+    let _sup = start(home);
+    let mut c = client(home);
+    let before = std::fs::read(config_path(home)).unwrap();
+    let (_, revision) = running(&mut c);
+    for dry in [true, false] {
+        let params = json!({"changes":[{"key":"engine.embedding","value":{"provider":"openai","model":"text-embedding-3-small","dimensions":1536,"apiKeyEnv":"TEST_KEY"}}],"dryRun":dry,"ifRevision":revision});
+        let result = set(&mut c, params);
+        let message = result.as_ref().unwrap_err().to_string();
+        let (code, reason, _, _) = call_error(result);
+        assert_eq!(code, ErrorCode::EDenied);
+        assert_eq!(reason.as_deref(), Some("local-only-shared-engine"));
+        assert!(message.contains("local-agent"), "{message}");
+        assert_eq!(std::fs::read(config_path(home)).unwrap(), before);
+        assert_eq!(running(&mut c).1, revision);
+    }
+}

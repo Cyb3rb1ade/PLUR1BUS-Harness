@@ -57,6 +57,8 @@ export interface MediaSurfaceDeps {
     agentId: string,
     principal: Principal,
     ctx: CallContext,
+    /** The adapter the call will run on (privacy.localOnly needs to know whether it is local). */
+    adapterId?: string,
   ) => Promise<void>;
   notify: (method: string, params: object, options: NotifyOptions) => void;
 }
@@ -196,7 +198,7 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
           ? {}
           : { call: request.embedMetadata }),
       });
-      await d.policy(operation, request, p.agentId, a, ctx);
+      await d.policy(operation, request, p.agentId, a, ctx, adapter.id);
       if (!d.budget)
         throw new RpcError("E_NOT_AVAILABLE", "budget unavailable");
       const units = [

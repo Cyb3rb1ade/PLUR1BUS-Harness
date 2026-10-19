@@ -75,6 +75,25 @@ describe("migration driver: plan", () => {
   });
 });
 
+describe("migration driver: checkpoint binding", () => {
+  for (const change of ["record", "source", "same-generation"] as const) {
+    it(`refuses a ${change} mismatch before the switch port is called`, async () => {
+      const r = rig(); try {
+        await r.driver.plan({ target });
+        const cp = await r.driver.run();
+        const rec = r.fake.state.records.get(cp.id)!;
+        if (change === "record") rec.id = "another-migration";
+        if (change === "source") rec.source.generation = "another-source";
+        if (change === "same-generation") rec.target.generation = rec.source.generation;
+        await assert.rejects(r.driver.switch(), e => codeOf(e) === "not-ready-to-switch");
+        assert.equal(r.fake.switchPort.applied.length, 0);
+        assert.equal(r.fake.state.activeGeneration, "g0");
+        assert.equal((await r.driver.status()).checkpoint?.phase, "ready-to-switch");
+      } finally { r.done(); }
+    });
+  }
+});
+
 describe("migration driver: run", () => {
   it("copies in batches to ready-to-switch without touching the active generation", async () => {
     const r = rig(); try {

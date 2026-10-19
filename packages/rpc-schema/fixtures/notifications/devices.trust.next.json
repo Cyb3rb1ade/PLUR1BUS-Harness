@@ -1,0 +1,8 @@
+{
+  "type": "devices.trust.next",
+  "next": {
+    "kind": "cert",
+    "pin": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "stagedAt": 1700000000000
+}

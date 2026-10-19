@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retrying without thundering herds - Tallow Engineering</title>
+
+<style>body{font-family:serif}.hide{display:none}</style>
+</head>
+<body>
+<header><a href="/">Tallow Engineering</a><nav><a href="/archive">Archive</a><a href="/rss.xml">RSS</a></nav></header>
+<main><article class="post">
+<h1>Retrying without thundering herds</h1>
+<p class="meta">Posted by Mirela Banda on 9 May 2026</p>
+<p>When a downstream service blips, every client retries at once and the blip becomes an outage. The fix is small: add <code>jitter</code> to the backoff.</p>
+<h2>The naive loop</h2>
+<pre><code class="language-ts">for (let attempt = 0; attempt &lt; 5; attempt++) {
+  try {
+    return await call();
+  } catch (err) {
+    await sleep(2 ** attempt * 100);
+  }
+}</code></pre>
+<p>Every client sleeps for exactly the same durations, so they stay in lock step.</p>
+<h2>With full jitter</h2>
+<pre><code class="language-ts">const cap = 2 ** attempt * 100;
+await sleep(Math.random() * cap);</code></pre>
+<p>Check the effect with a load test:</p>
+<pre><code class="language-sh">$ k6 run --vus 200 --duration 30s retry.js</code></pre>
+<p>Retries now spread over the whole window instead of arriving as a spike.</p>
+</article></main>
+<footer><p>Tallow Engineering is written by humans.</p></footer>
+<script>window.dataLayer=window.dataLayer||[];function t(){dataLayer.push(arguments)}</script>
+</body>
+</html>
