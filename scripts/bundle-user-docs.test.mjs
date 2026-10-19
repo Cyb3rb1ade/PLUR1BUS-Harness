@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,7 +62,8 @@ test("CLI --check exits 0 on the committed bundle", () => {
 test("CLI --check fails on a stale bundle when the checkout path contains spaces", () => {
   // The entry guard compared import.meta.url with a raw `file://${argv[1]}` string, so under a path with spaces (or on
   // Windows) the CLI silently did nothing and exited 0 whatever the bundle looked like.
-  const root = mkdtempSync(join(tmpdir(), "p1b-help-cli-"));
+  // Keep this regression about spaces; macOS /var and /tmp aliases are separate entry-guard behavior.
+  const root = mkdtempSync(join(realpathSync(tmpdir()), "p1b-help-cli-"));
   try {
     const repo = join(root, "with space");
     mkdirSync(join(repo, "packages/web/scripts"), { recursive: true });

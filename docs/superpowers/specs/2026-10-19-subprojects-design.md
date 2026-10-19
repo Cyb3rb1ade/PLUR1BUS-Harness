@@ -485,8 +485,7 @@ every account:
 model (input, output, cache, reasoning prices), it would be wrong for subscription accounts, and it would still miss
 whatever a provider does not report. Subprojects therefore neither show nor limit money. Tokens already include the
 reasoning tokens wherever the provider's usage figures report them; where a provider reports none, the core's estimate
-counts only the visible text. The M2 budget store keeps its own `costMicros` scope for other uses; the subproject surface
-never reads or writes it.
+counts only the visible text. The harness has no money dimension anywhere (M2 price tables and `costMicros` were removed on 2026-10-19, PR #601).
 
 Rules (decided 2026-10-19, Q9): every project — root and subproject — has a budget in the three measurable dimensions,
 with these **defaults**:
@@ -614,7 +613,7 @@ plur1bus project tree <project-id>
 plur1bus project sub show <sub-id>
 plur1bus project sub start|pause|resume|cancel <sub-id>
 plur1bus project sub priority <sub-id> <n>
-plur1bus project sub budget <sub-id> --tokens N [--cost-micros N]
+plur1bus project sub budget <sub-id> [--tokens N|unlimited] [--turns N|unlimited] [--wall-ms N|unlimited]
 plur1bus project sub instruct <sub-id> "<text>"
 plur1bus project sub forward <from-sub-id> <to-sub-id> --artifact <id>
 plur1bus project sub reports <sub-id> [--kind blocker]

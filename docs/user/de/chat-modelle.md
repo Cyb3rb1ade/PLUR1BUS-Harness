@@ -38,7 +38,7 @@ plur1bus session show <ID>
 ## Gut zu wissen
 
 - **Denkstufen (ab der nächsten Version):** Die Skala ist Standard, aus, minimal, niedrig, mittel, hoch und sehr hoch. Ein Modell bietet nur einige davon an. Wird deine Wahl nicht angeboten, wird die nächstliegende unterstützte Stufe genutzt, und der Chat sagt das, nie stillschweigend. Ein Modell ohne Reasoning-Einstellung ignoriert die Wahl, und der Anbieter entscheidet. Ein Modellwechsel allein behält die gewählte Stufe.
-- **Kosten:** Reasoning-Tokens werden als Ausgabe-Tokens abgerechnet, eine höhere Stufe kann also pro Antwort mehr kosten. Ist der Preis bekannt, zeigt der Chat ihn an. Die erste Antwort nach einem Wechsel kann mehr kosten, weil der Cache neu aufgebaut wird.
+- **Kosten:** Reasoning-Tokens werden als Ausgabe-Tokens abgerechnet, eine höhere Stufe kann also pro Antwort mehr Tokens brauchen. Bei Modellen mit Token-Budget zeigt der Chat, wie viele Ausgabe-Tokens das Nachdenken höchstens hinzufügt; Preise zeigt Plur1bus nie. Die erste Antwort nach einem Wechsel kann mehr kosten, weil der Cache neu aufgebaut wird.
 - **Nur für Menschen:** Das Wechseln des Chat-Modells ist Personen vorbehalten. Agenten und WebMCP-Werkzeuge können es nicht ändern.
 - **Nur lokal (ab der nächsten Version):** Gilt „Nur lokal“ für den Agenten, werden Cloud-Profile als gesperrt gelistet und abgelehnt ([datenschutz.md](datenschutz.md)).
 - **Nicht gemerkt:** Ein solcher Chat speichert nichts im Gedächtnis. Sein Verlauf sowie seine Modell- und Reasoning-Wahl bleiben nur im Arbeitsspeicher und werden nicht auf die Festplatte geschrieben.

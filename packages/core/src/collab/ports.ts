@@ -20,13 +20,12 @@ export const rbacAuthorizePort: AuthorizePort = (principal, action, resource) =>
 
 export interface BudgetCheck {
   tokens: number;
-  cost: number;
   projectId: string;
   agentId: string;
   chainId: string;
 }
 
-export type BudgetDecision = { allowed: true } | { allowed: false; reason: Extract<GR, "token-budget" | "cost-budget"> };
+export type BudgetDecision = { allowed: true } | { allowed: false; reason: Extract<GR, "token-budget"> };
 
 export interface BudgetPort {
   check(estimate: BudgetCheck): BudgetDecision;

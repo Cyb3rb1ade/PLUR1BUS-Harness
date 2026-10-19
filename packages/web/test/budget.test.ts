@@ -11,16 +11,16 @@ after(teardown);
 const opts = { skip: browserSkip };
 
 type L = Record<string, unknown>;
-const lim = (o: L): L => ({ period: "day", metric: "cost", soft: null, hard: null, used: 0, state: "ok", ...o });
-const usage = (o: L = {}): L => ({ events: 4, inputTokens: 1200, outputTokens: 300, cacheReadTokens: 50, cacheWriteTokens: 10, costMicros: 1500, unpricedEvents: 1, ...o });
+const lim = (o: L): L => ({ period: "day", metric: "tokens", soft: null, hard: null, used: 0, state: "ok", ...o });
+const usage = (o: L = {}): L => ({ events: 4, inputTokens: 1200, outputTokens: 300, cacheReadTokens: 50, cacheWriteTokens: 10, ...o });
 
 type Seeded = { limits: L[]; periods: L[] };
 function seed(rpc: MockRpc, over: Partial<Seeded> = {}): Seeded {
   const s: Seeded = {
     limits: [
-      lim({ scope: "global", period: "day", metric: "cost", soft: 5_000_000, hard: 10_000_000, used: 2_000_000, state: "ok" }),
+      lim({ scope: "global", period: "day", metric: "tokens", soft: 5_000_000, hard: 10_000_000, used: 2_000_000, state: "ok" }),
       lim({ scope: "global", period: "month", metric: "tokens", soft: 1_000_000, hard: 2_000_000, used: 1_500_000, state: "soft" }),
-      lim({ scope: "agent", agentId: "main", period: "day", metric: "cost", hard: 1_000_000, used: 1_200_000, state: "hard" }),
+      lim({ scope: "agent", agentId: "main", period: "day", metric: "tokens", hard: 1_000_000, used: 1_200_000, state: "hard" }),
       lim({ scope: "agent", agentId: "dev", period: "month", metric: "tokens", soft: 500, used: 500, state: "soft" }),
     ],
     periods: [
@@ -29,7 +29,7 @@ function seed(rpc: MockRpc, over: Partial<Seeded> = {}): Seeded {
     ],
     ...over,
   };
-  rpc.handle("budget.status", () => ({ timeZone: "Europe/Berlin", priceVersion: "2026-10-01", now: "2026-10-07T09:00:00+02:00", periods: s.periods, limits: s.limits }), { write: false });
+  rpc.handle("budget.status", () => ({ timeZone: "Europe/Berlin", now: "2026-10-07T09:00:00+02:00", periods: s.periods, limits: s.limits }), { write: false });
   rpc.handle("budget.set", (p) => {
     const q = (p as { limit?: L }).limit ?? {};
     const same = (l: L): boolean => l.scope === q.scope && l.agentId === q.agentId && l.period === q.period && l.metric === q.metric;
@@ -91,17 +91,17 @@ describe("usage: limits", opts, () => {
   test("global tab: one card per limit with state text, bar with a text alternative, used of limit and percent", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
-      const daily = app.page.getByRole("group", { name: "Daily cost" });
+      const daily = app.page.getByRole("group", { name: "Daily tokens" });
       await daily.waitFor();
       assert.match((await daily.textContent()) ?? "", /Within limit/);
-      assert.match((await daily.textContent()) ?? "", /\$2\.00 of \$10\.00 \(20%\)/);
+      assert.match((await daily.textContent()) ?? "", /2,000,000 of 10,000,000 \(20%\)/);
       const meter = daily.getByRole("meter");
-      assert.equal(await meter.getAttribute("aria-label"), "Daily cost: $2.00 of $10.00");
+      assert.equal(await meter.getAttribute("aria-label"), "Daily tokens: 2,000,000 of 10,000,000");
       assert.equal(await meter.getAttribute("max"), "10000000");
       const monthly = app.page.getByRole("group", { name: "Monthly tokens" });
       assert.match((await monthly.textContent()) ?? "", /Warning: soft limit reached/);
       assert.match((await monthly.textContent()) ?? "", /1,500,000 of 2,000,000 \(75%\)/);
-      assert.equal(await app.page.getByRole("group", { name: "Daily cost" }).count(), 1);
+      assert.equal(await app.page.getByRole("group", { name: "Daily tokens" }).count(), 1);
     });
   });
   test("agents tab: grouped by agent; hard limit exceeded reads over 100 %; a bound reached exactly is a warning", async () => {
@@ -111,9 +111,9 @@ describe("usage: limits", opts, () => {
       assert.equal(await app.page.evaluate(() => location.hash), "#/usage/agents");
       await app.page.getByRole("heading", { name: "main", level: 2, exact: true }).waitFor();
       await app.page.getByRole("heading", { name: "dev", level: 2, exact: true }).waitFor();
-      const main = app.page.getByRole("group", { name: "Daily cost" });
+      const main = app.page.getByRole("group", { name: "Daily tokens" });
       assert.match((await main.textContent()) ?? "", /Exceeded: hard limit reached/);
-      assert.match((await main.textContent()) ?? "", /\$1\.20 of \$1\.00 \(120%\)/);
+      assert.match((await main.textContent()) ?? "", /1,200,000 of 1,000,000 \(120%\)/);
       assert.equal(await main.getByRole("meter").getAttribute("value"), "1000000", "bar capped at the limit");
       const dev = app.page.getByRole("group", { name: "Monthly tokens" });
       assert.match((await dev.textContent()) ?? "", /Warning: soft limit reached/);
@@ -129,24 +129,26 @@ describe("usage: limits", opts, () => {
       await app.page.getByText("project", { exact: false }).first().waitFor();
     });
   });
-  test("usage tab: day and month totals, unpriced calls, per agent and model", async () => {
+  test("usage tab: day and month totals in tokens (no cost), per agent and model", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app, "#/usage/usage");
       const day = app.page.getByRole("group", { name: "Today · 2026-10-07" });
       await day.waitFor();
       const text = (await day.textContent()) ?? "";
-      assert.match(text, /Model calls\s*4/); assert.match(text, /Input tokens\s*1,200/); assert.match(text, /Cost\s*\$0\.0015/);
-      assert.match(text, /Calls without a price\s*1/); assert.match(text, /main/); assert.match(text, /claude-x/);
+      assert.match(text, /Model calls\s*4/); assert.match(text, /Input tokens\s*1,200/); assert.doesNotMatch(text, /Cost|\$/);
+      assert.match(text, /main/); assert.match(text, /claude-x/);
       await app.page.getByRole("group", { name: "This month · 2026-10" }).waitFor();
     });
   });
-  test("the page header shows time zone, price table and refresh reloads", async () => {
+  test("the page header shows the time zone (no price table) and refresh reloads", async () => {
     await withApp({}, async (app) => {
       const s = seed(app.server.rpc); await open(app);
       await app.page.getByText("Europe/Berlin", { exact: false }).first().waitFor();
-      s.limits.push(lim({ scope: "global", period: "month", metric: "cost", hard: 3_000_000, used: 0 }));
+      assert.equal(await app.page.getByText("price table", { exact: false }).count(), 0);
+      s.limits.push(lim({ scope: "agent", agentId: "ops", period: "month", metric: "tokens", hard: 3_000_000, used: 0 }));
       await app.page.getByRole("button", { name: "Refresh" }).click();
-      await app.page.getByRole("group", { name: "Monthly cost" }).waitFor();
+      await app.page.getByRole("tab", { name: "Agents" }).click();
+      await app.page.getByRole("heading", { name: "ops", level: 2, exact: true }).waitFor();
     });
   });
 });
@@ -161,7 +163,7 @@ describe("usage: changing limits", opts, () => {
       await dlg.getByRole("button", { name: "Review" }).click();
       await dlg.getByText("Enter an agent id.").waitFor(); await dlg.getByText("Enter at least one limit.").waitFor();
       await dlg.getByLabel("Agent id").fill("qa");
-      await dlg.getByLabel("Period").selectOption("month"); await dlg.getByLabel("Metric").selectOption("tokens");
+      await dlg.getByLabel("Period").selectOption("month"); assert.equal(await dlg.getByLabel("Metric").count(), 0, "tokens are the only metric");
       await dlg.getByLabel("Soft limit").fill("1.5"); await dlg.getByLabel("Hard limit").fill("50");
       await dlg.getByRole("button", { name: "Review" }).click();
       await dlg.getByText("Enter a whole number of tokens.").waitFor();
@@ -182,36 +184,39 @@ describe("usage: changing limits", opts, () => {
       await app.page.getByRole("heading", { name: "qa", level: 2, exact: true }).waitFor();
     });
   });
-  test("cost limits are typed in dollars and sent as micro-USD", async () => {
+  test("limits are whole token counts; a dollar amount is refused", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc, { limits: [] , periods: [] }); await open(app);
       await app.page.locator(".page-state").getByRole("button", { name: "Set limit" }).click();
       const dlg = app.page.getByRole("dialog", { name: "Set limit" });
       await dlg.getByLabel("Hard limit").fill("0,25");
       await dlg.getByRole("button", { name: "Review" }).click();
+      await dlg.getByText("Enter a whole number of tokens.").waitFor();
+      await dlg.getByLabel("Hard limit").fill("250000");
+      await dlg.getByRole("button", { name: "Review" }).click();
       await app.page.getByRole("dialog", { name: "Confirm limit" }).getByRole("button", { name: "Confirm and save" }).click();
       await app.page.getByRole("dialog").waitFor({ state: "detached" });
-      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "cost", hard: 250_000 } });
+      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "tokens", hard: 250_000 } });
     });
   });
   test("edit: prefilled, emptying a set bound clears it with null; Back returns to the form; Esc closes", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
-      const edit = app.page.getByRole("button", { name: "Edit limit: Daily cost" });
+      const edit = app.page.getByRole("button", { name: "Edit limit: Daily tokens" });
       await edit.focus(); await app.page.keyboard.press("Enter");
-      const dlg = app.page.getByRole("dialog", { name: "Edit limit: Daily cost" });
-      assert.equal(await dlg.getByLabel("Soft limit").inputValue(), "5"); assert.equal(await dlg.getByLabel("Hard limit").inputValue(), "10");
-      await dlg.getByLabel("Soft limit").fill(""); await dlg.getByLabel("Hard limit").fill("8.5");
+      const dlg = app.page.getByRole("dialog", { name: "Edit limit: Daily tokens" });
+      assert.equal(await dlg.getByLabel("Soft limit").inputValue(), "5000000"); assert.equal(await dlg.getByLabel("Hard limit").inputValue(), "10000000");
+      await dlg.getByLabel("Soft limit").fill(""); await dlg.getByLabel("Hard limit").fill("8500000");
       await dlg.getByRole("button", { name: "Review" }).click();
       const review = app.page.getByRole("dialog", { name: "Confirm limit" });
       assert.match((await review.textContent()) ?? "", /cleared/i);
       await review.getByRole("button", { name: "Back" }).click();
-      assert.equal(await app.page.getByRole("dialog", { name: "Edit limit: Daily cost" }).getByLabel("Hard limit").inputValue(), "8.5");
+      assert.equal(await app.page.getByRole("dialog", { name: "Edit limit: Daily tokens" }).getByLabel("Hard limit").inputValue(), "8500000");
       await app.page.getByRole("button", { name: "Review" }).click();
       await app.page.getByRole("button", { name: "Confirm and save" }).click();
       await app.page.getByRole("dialog").waitFor({ state: "detached" });
-      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "cost", soft: null, hard: 8_500_000 } });
-      assert.equal(await app.page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "Edit limit: Daily cost");
+      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "tokens", soft: null, hard: 8_500_000 } });
+      assert.equal(await app.page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "Edit limit: Daily tokens");
       await app.page.keyboard.press("Enter"); await app.page.getByRole("dialog").waitFor();
       await app.page.keyboard.press("Escape"); await app.page.getByRole("dialog").waitFor({ state: "detached" });
     });
@@ -232,7 +237,7 @@ describe("usage: changing limits", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       app.server.rpc.handle("budget.set", () => { throw rpcError("E_DENIED", "no", "no-permission"); });
-      await app.page.getByRole("button", { name: "Edit limit: Daily cost" }).click();
+      await app.page.getByRole("button", { name: "Edit limit: Daily tokens" }).click();
       await app.page.getByRole("button", { name: "Review" }).click();
       await app.page.getByRole("button", { name: "Confirm and save" }).click();
       await app.page.getByRole("dialog").getByRole("alert").getByText("You are not allowed to change budgets.").waitFor();
@@ -244,17 +249,17 @@ describe("usage: changing limits", opts, () => {
   test("lowering limit below current consumption warns and requires explicit confirmation checkbox", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
-      const edit = app.page.getByRole("button", { name: "Edit limit: Daily cost" });
+      const edit = app.page.getByRole("button", { name: "Edit limit: Daily tokens" });
       await edit.click();
-      const dlg = app.page.getByRole("dialog", { name: "Edit limit: Daily cost" });
-      // Current usage is $2.00. Set hard limit to $1.50 (1.5).
+      const dlg = app.page.getByRole("dialog", { name: "Edit limit: Daily tokens" });
+      // Current usage is 2,000,000 tokens. Set the hard limit to 1,500,000.
       await dlg.getByLabel("Soft limit").fill("");
-      await dlg.getByLabel("Hard limit").fill("1.5");
+      await dlg.getByLabel("Hard limit").fill("1500000");
       await dlg.getByRole("button", { name: "Review" }).click();
 
       const review = app.page.getByRole("dialog", { name: "Confirm limit" });
       await review.waitFor();
-      await review.getByText(/below current usage \(\$2\.00\)/).waitFor();
+      await review.getByText(/below current usage \(2,000,000\)/).waitFor();
 
       const submit = review.getByRole("button", { name: "Confirm and save" });
       assert.equal(await submit.isDisabled(), true);
@@ -267,7 +272,7 @@ describe("usage: changing limits", opts, () => {
 
       await submit.click();
       await app.page.getByRole("dialog").waitFor({ state: "detached" });
-      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "cost", soft: null, hard: 1_500_000 } });
+      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "tokens", soft: null, hard: 1_500_000 } });
     });
   });
 });
@@ -306,7 +311,7 @@ describe("usage: layout, a11y, keyboard, language", opts, () => {
           await expectAxeClean(app.page, tab);
         }
         await app.page.getByRole("tab", { name: "Global" }).click();
-        await app.page.getByRole("button", { name: "Edit limit: Daily cost" }).click();
+        await app.page.getByRole("button", { name: "Edit limit: Daily tokens" }).click();
         await app.page.getByRole("dialog").waitFor();
         await expectAxeClean(app.page, "edit dialog");
         await app.page.getByRole("button", { name: "Review" }).click();
@@ -340,10 +345,10 @@ describe("usage: layout, a11y, keyboard, language", opts, () => {
       await openRoute(app.page, "#/usage", "de");
       await app.page.getByRole("heading", { name: "Nutzung & Kontingent", level: 1 }).waitFor();
       await app.page.getByRole("tab", { name: "Global" }).waitFor();
-      const g = app.page.getByRole("group", { name: "Tageskosten" });
+      const g = app.page.getByRole("group", { name: "Tages-Tokens" });
       await g.waitFor();
       assert.match((await g.textContent()) ?? "", /Im Limit/);
-      assert.match((await g.textContent()) ?? "", /2,00\s\$ von 10,00\s\$ \(20\s?%\)/);
+      assert.match((await g.textContent()) ?? "", /2\.000\.000 von 10\.000\.000 \(20\s?%\)/);
       await app.page.getByRole("button", { name: "Limit setzen" }).click();
       await app.page.getByRole("dialog", { name: "Limit setzen" }).waitFor();
     });

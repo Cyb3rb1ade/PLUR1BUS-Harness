@@ -25,7 +25,6 @@ export function metaOf(r: SessionMeta): SessionMeta {
     ...(r.usage ? { usage: {
       inputTokens: r.usage.inputTokens ?? 0,
       outputTokens: r.usage.outputTokens ?? 0,
-      costMicros: r.usage.costMicros ?? null,
       ...(r.usage.pendingCalls !== undefined ? { pendingCalls: r.usage.pendingCalls } : {}),
     } } : {}),
   };

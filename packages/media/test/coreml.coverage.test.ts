@@ -115,7 +115,7 @@ test('generate returns the helper file as PNG with metadata, marks partial resul
       assert.deepEqual(Buffer.from(result.files[0]!.bytes), HELPER_PNG, protocol);
       assert.equal(result.files[0]!.format, 'png');
       assert.equal(result.metadata.seed, 42);
-      assert.equal(result.metadata.origin, 'local'); assert.equal(result.metadata.costUsd, 0); assert.equal(result.metadata.adapter, 'coreml-local');
+      assert.equal(result.metadata.origin, 'local'); assert.equal('costUsd' in result.metadata, false); assert.equal(result.metadata.adapter, 'coreml-local');
       assert.ok(result.metadata.durationMs >= 0);
       assert.equal(result.partial, false, protocol);
       assert.deepEqual(progress, [{ fraction: 0.5, stage: 'running' }], protocol);

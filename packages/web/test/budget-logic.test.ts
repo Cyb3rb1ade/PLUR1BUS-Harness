@@ -1,9 +1,9 @@
 // Pure logic of the Usage & Quota page: tolerant parsing, limit state at the boundaries, amounts, set-params.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { buildSetParams, groupLimits, limitView, microsToInput, normalizeStatus, parseAmount } from "../src/pages/budget/model.ts";
+import { buildSetParams, groupLimits, limitView, normalizeStatus, parseAmount } from "../src/pages/budget/model.ts";
 
-const lim = (o: Record<string, unknown> = {}): Record<string, unknown> => ({ scope: "global", period: "day", metric: "cost", soft: 5_000_000, hard: 10_000_000, used: 0, state: "ok", ...o });
+const lim = (o: Record<string, unknown> = {}): Record<string, unknown> => ({ scope: "global", period: "day", metric: "tokens", soft: 5_000_000, hard: 10_000_000, used: 0, state: "ok", ...o });
 
 describe("limitView", () => {
   const view = (o: Record<string, unknown>) => limitView(normalizeStatus({ limits: [lim(o)] }).limits[0]!);
@@ -39,36 +39,29 @@ describe("normalizeStatus and groups", () => {
     assert.equal(g.global.length, 2); assert.equal(g.agents.length, 1); assert.equal(g.other.length, 1);
     assert.equal(g.global[1]!.used, 0);
   });
-  test("limits come out in a stable order whatever the server sends", () => {
-    const a = groupLimits(normalizeStatus({ limits: [lim({ period: "month", metric: "tokens" }), lim({ period: "month", metric: "cost" }), lim({ period: "day", metric: "tokens" }), lim({ period: "day", metric: "cost" })] }).limits).global;
-    assert.deepEqual(a.map((l) => `${l.period}/${l.metric}`), ["day/cost", "day/tokens", "month/cost", "month/tokens"]);
+  test("limits come out in a stable order whatever the server sends; a cost limit (no money dimension any more) is not shown", () => {
+    const a = groupLimits(normalizeStatus({ limits: [lim({ period: "month" }), lim({ period: "month", metric: "cost" }), lim({ scope: "agent", agentId: "b" }), lim({ period: "day" }), lim({ scope: "agent", agentId: "a" })] }).limits);
+    assert.deepEqual(a.global.map((l) => `${l.period}/${l.metric}`), ["day/tokens", "month/tokens"]);
+    assert.deepEqual(a.agents.map((l) => l.agentId), ["a", "b"]);
   });
   test("periods keep agents and models", () => {
-    const u = { events: 2, inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0, costMicros: 1500, unpricedEvents: 1 };
-    const s = normalizeStatus({ timeZone: "UTC", priceVersion: "v1", now: "2026-10-07T00:00:00Z", periods: [{ period: "day", key: "2026-10-07", total: u, agents: [{ agentId: "main", total: u, models: [{ model: "m", ...u }] }] }], limits: [] });
-    assert.equal(s.periods[0]!.agents[0]!.models[0]!.model, "m"); assert.equal(s.periods[0]!.total.unpricedEvents, 1);
+    const u = { events: 2, inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    const s = normalizeStatus({ timeZone: "UTC", now: "2026-10-07T00:00:00Z", periods: [{ period: "day", key: "2026-10-07", total: { ...u, costMicros: 1500 }, agents: [{ agentId: "main", total: u, models: [{ model: "m", ...u }] }] }], limits: [] });
+    assert.equal(s.periods[0]!.agents[0]!.models[0]!.model, "m"); assert.deepEqual(s.periods[0]!.total, u); // a stray money field is dropped
   });
 });
 
 describe("amounts", () => {
-  test("cost: dollars with up to 6 decimals to micro-USD, comma or dot, no float drift", () => {
-    assert.equal(parseAmount("cost", "5"), 5_000_000);
-    assert.equal(parseAmount("cost", "0,25"), 250_000);
-    assert.equal(parseAmount("cost", "0.1"), 100_000);
-    assert.equal(parseAmount("cost", "1.000001"), 1_000_001);
-    for (const bad of ["-1", "1.0000001", "abc", "1e3", "$5"]) assert.equal(parseAmount("cost", bad), "invalid", bad);
+  test("tokens: whole non-negative numbers; blank means none; a dollar amount is not a token count", () => {
+    assert.equal(parseAmount("1000"), 1000);
+    assert.equal(parseAmount(" 0 "), 0);
+    assert.equal(parseAmount(""), null);
+    for (const bad of ["1.5", "-2", "1,000", "99999999999999999999", "$5", "0,25"]) assert.equal(parseAmount(bad), "invalid", bad);
   });
-  test("tokens: whole non-negative numbers; blank means none", () => {
-    assert.equal(parseAmount("tokens", "1000"), 1000);
-    assert.equal(parseAmount("tokens", " 0 "), 0);
-    assert.equal(parseAmount("tokens", ""), null);
-    for (const bad of ["1.5", "-2", "1,000", "99999999999999999999"]) assert.equal(parseAmount("tokens", bad), "invalid", bad);
-  });
-  test("micros back to an input string", () => { assert.equal(microsToInput(5_000_000), "5"); assert.equal(microsToInput(250_000), "0.25"); assert.equal(microsToInput(1_000_001), "1.000001"); });
 });
 
 describe("buildSetParams", () => {
-  const key = { scope: "agent" as const, agentId: "main", period: "day" as const, metric: "cost" as const };
+  const key = { scope: "agent" as const, agentId: "main", period: "day" as const, metric: "tokens" as const };
   test("a new limit leaves empty bounds out", () => {
     assert.deepEqual(buildSetParams(key, { soft: null, hard: 100 }, null), { limit: { ...key, hard: 100 } });
   });

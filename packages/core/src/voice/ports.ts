@@ -7,7 +7,8 @@ export interface VoiceRequest {
   transport: 'webrtc' | 'websocket' | 'sip'; model: string; sdp?: string;
   delegation?: 'client' | 'responses'; instructions?: string;
 }
-export interface VoiceUsage { seconds: number; costMicros: number; inputTokens: number; outputTokens: number }
+/** Native voice units only: seconds and tokens (no money dimension since 2026-10-19). */
+export interface VoiceUsage { seconds: number; inputTokens: number; outputTokens: number }
 /** reserve is atomic for agent/user/installation daily+monthly ceilings, including concurrent session reservations.
  * record is idempotent by eventId, accounts deltas and returns false AT the ceiling, not only after it. */
 export interface VoiceBudgetPort {
@@ -17,9 +18,9 @@ export interface VoiceBudgetPort {
 }
 export type VoiceEvent =
   | { type: 'tool.call'; callId: string; name: string; arguments: unknown }
-  | { type: 'session.usage.updated' | 'response.done' | 'rate_limits.updated' | 'backend.usage'; eventId: string; seconds?: number; costMicros?: number; inputTokens?: number; outputTokens?: number }
+  | { type: 'session.usage.updated' | 'response.done' | 'rate_limits.updated' | 'backend.usage'; eventId: string; seconds?: number; inputTokens?: number; outputTokens?: number }
   | { type: 'delegation.request'; requestId: string; payload: unknown }
-  | { type: 'session.closed'; eventId?: string; seconds?: number; costMicros?: number; inputTokens?: number; outputTokens?: number };
+  | { type: 'session.closed'; eventId?: string; seconds?: number; inputTokens?: number; outputTokens?: number };
 export interface SidebandConnection { send(value: unknown): Promise<void>; close(): Promise<void> }
 export interface VoicePorts {
   http: HttpPort; clock: Clock;

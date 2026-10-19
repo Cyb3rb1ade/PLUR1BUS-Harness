@@ -4,15 +4,14 @@ import { createCallBudget, CallBudgetExceededError } from '../../src/budget/call
 import { allocateContext, checkZones, DEFAULT_ZONE_POLICY } from '../../src/budget/context.ts';
 import { RetryBudget, RetryBudgetExceededError } from '../../src/budget/retry.ts';
 import { capSubagentResult, estimateResultTokens } from '../../src/budget/subagent.ts';
-import { mediaCostMicros, PriceBook } from '../../src/budget/prices.ts';
 import { periodBounds } from '../../src/budget/period.ts';
-import { open, PRICES_V1 } from './helpers.ts';
+import { open } from './helpers.ts';
 
 const request = { principal: 'u1', project: 'p1', agent: 'a1', model: 'm-small', estimatedInputTokens: 30, maxOutputTokens: 10 };
 function fixture() {
   const f = open();
   const events: { type: string }[] = [];
-  const gate = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook([PRICES_V1]), emitter: { emit: e => events.push(e) } });
+  const gate = createCallBudget({ path: f.path, clock: f.clock, emitter: { emit: e => events.push(e) } });
   return { ...f, gate, events, close() { gate.close(); f.svc.close(); } };
 }
 
@@ -52,7 +51,7 @@ it('tightest remaining hierarchy wins, including existing RPC limits and legacy 
 
 it('concurrent reservations through separate connections cannot overbook; settlement corrects and is idempotent', async () => {
   const f = fixture();
-  const second = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook([PRICES_V1]) });
+  const second = createCallBudget({ path: f.path, clock: f.clock });
   try {
     f.gate.setLimit({ scope: 'user', id: 'u1', period: 'day', metric: 'tokens', hard: 100 });
     const results = await Promise.all(Array.from({ length: 20 }, (_, i) => Promise.resolve().then(() => (i % 2 ? second : f.gate).checkBeforeCall(request))));
@@ -74,26 +73,24 @@ it('reservations survive reopen; pending calls still count after a period rollov
     const d = f.gate.checkBeforeCall(request);
     assert.equal(d.kind, 'allow');
     f.clock.advance(86400000);
-    const other = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook([PRICES_V1]), reservationTtlMs: 2 * 86400000 });
+    const other = createCallBudget({ path: f.path, clock: f.clock, reservationTtlMs: 2 * 86400000 });
     try { assert.equal(other.checkBeforeCall(request).kind, 'refuse'); } finally { other.close(); }
     if (d.kind === 'allow') f.gate.settle(d.reservationId, { inputTokens: 0, outputTokens: 0 });
     assert.equal(f.gate.checkBeforeCall(request).kind, 'allow');
   } finally { f.close(); }
 });
 
-it('cost estimation, unpriced refusal, warnings and actual overage are explicit', () => {
+it('token estimation, warnings and actual overage are explicit', () => {
   const f = fixture();
   try {
-    f.gate.setLimit({ scope: 'project', id: 'p1', period: 'week', metric: 'cost', hard: 100 });
-    const unknown = f.gate.checkBeforeCall({ ...request, model: 'unknown' });
-    assert.equal(unknown.kind, 'refuse');
-    if (unknown.kind === 'refuse') assert.equal(unknown.reason, 'unpriced-model');
-    const d = f.gate.checkBeforeCall(request); // 30 + 10*5 = 80, default warn at 80%
+    f.gate.setLimit({ scope: 'project', id: 'p1', period: 'week', metric: 'tokens', hard: 50 });
+    const d = f.gate.checkBeforeCall(request); // 30 + 10 = 40 tokens, default warn at 80% of 50
     assert.equal(d.kind, 'allow');
+    if (d.kind === 'allow') assert.equal(d.estimatedTokens, 40);
     assert.ok(f.events.some(e => e.type === 'warn'));
     if (d.kind === 'allow') {
       const s = f.gate.settle(d.reservationId, { inputTokens: 50, outputTokens: 20 });
-      assert.equal(s.costMicros, 150);
+      assert.deepEqual(Object.keys(s).sort(), ['overages', 'recorded']);
       assert.ok(s.overages.length > 0);
     }
     assert.equal(f.gate.checkBeforeCall(request).kind, 'refuse');
@@ -123,15 +120,15 @@ it('zone allocation properties: integer bounds, minima, maxima, sum <= window; r
   assert.equal(allocateContext(100, impossible).kind, 'infeasible');
 });
 
-it('retry classes and turns are independent, cost ceiling is shared across a turn', () => {
-  const policy = { maxAttempts: 2, maxCostMicros: 10 };
+it('retry classes and turns are independent, token ceiling is shared across a turn', () => {
+  const policy = { maxAttempts: 2, maxTokens: 10 };
   const r = new RetryBudget(Object.fromEntries(['rate_limit', 'overloaded', 'network', 'timeout', 'tool_call_invalid'].map(k => [k, policy])) as never, 15);
   r.consume('t1', 'network', 5); r.consume('t1', 'network', 5);
   assert.throws(() => r.consume('t1', 'network', 0), RetryBudgetExceededError);
   r.consume('t1', 'timeout', 5);
-  assert.throws(() => r.consume('t1', 'rate_limit', 1), /cost/);
+  assert.throws(() => r.consume('t1', 'rate_limit', 1), /tokens/);
   r.consume('t2', 'network', 5);
-  assert.throws(() => r.consume('t3', 'overloaded', 11), /cost/);
+  assert.throws(() => r.consume('t3', 'overloaded', 11), /tokens/);
 });
 
 it('subagent cap includes marker/pointer, preserves full structured result through port, never silently clips', () => {
@@ -147,13 +144,6 @@ it('subagent cap includes marker/pointer, preserves full structured result throu
   }
   assert.equal(capSubagentResult('small', { port }).kind, 'complete');
   assert.throws(() => capSubagentResult('x'.repeat(100), { limit: 1, port }), RangeError);
-});
-
-it('media prices are resolution-specific, missing units fail closed and bad quantities are rejected', () => {
-  const table = { version: 'media', effectiveFrom: 0, models: { m: { input: 1, output: 2, media: { image: { low: 100, high: 500 }, videoSecond: { '720p': 20 } } } } };
-  assert.equal(mediaCostMicros(table, 'm', undefined, [{ kind: 'image', resolution: 'high', quantity: 2 }, { kind: 'videoSecond', resolution: '720p', quantity: 1.5 }]), 1030);
-  assert.equal(mediaCostMicros(table, 'm', undefined, [{ kind: 'image', resolution: 'missing', quantity: 1 }]), null);
-  assert.throws(() => mediaCostMicros(table, 'm', undefined, [{ kind: 'image', resolution: 'low', quantity: -1 }]), RangeError);
 });
 
 it('nonzero zone minima hold over many windows and policies, including integer infeasibility', () => {
@@ -221,27 +211,22 @@ it('calendar hierarchy resets correctly in configured timezone and warnings are 
   } finally { f.close(); }
 });
 
-it('validates closed input, safe counts, injected sinks and media cost at reservation/settlement', () => {
+it('validates closed input (media units are not part of a call any more), safe counts and injected sinks', () => {
   const f = fixture();
   try {
-    for (const bad of [{ ...request, prompt: 'private' }, { ...request, principal: 'free text' }, { ...request, estimatedInputTokens: -1 }, { ...request, maxOutputTokens: NaN }]) assert.throws(() => f.gate.checkBeforeCall(bad), RangeError);
+    for (const bad of [{ ...request, prompt: 'private' }, { ...request, principal: 'free text' }, { ...request, estimatedInputTokens: -1 }, { ...request, maxOutputTokens: NaN }, { ...request, media: [{ kind: 'image', resolution: 'high', quantity: 2 }] }]) assert.throws(() => f.gate.checkBeforeCall(bad as never), RangeError);
     assert.throws(() => f.gate.settle('missing', { inputTokens: 0, outputTokens: 0 }), /unknown reservation/);
-    const gate = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook([{ version: 'media', effectiveFrom: 0, models: { 'm-small': { input: 1, output: 5, media: { image: { high: 10 } } } } }]), emitter: { emit() { throw new Error('offline sink'); } } });
+    const gate = createCallBudget({ path: f.path, clock: f.clock, emitter: { emit() { throw new Error('offline sink'); } } });
     try {
-      gate.setLimit({ scope: 'user', id: 'u1', period: 'day', metric: 'cost', hard: 100 });
-      const d = gate.checkBeforeCall({ ...request, media: [{ kind: 'image', resolution: 'high', quantity: 2 }] });
+      gate.setLimit({ scope: 'user', id: 'u1', period: 'day', metric: 'tokens', hard: 100 });
+      const d = gate.checkBeforeCall(request);
       if (d.kind !== 'allow') assert.fail();
-      assert.equal(d.estimatedCostMicros, 100);
-      assert.equal(gate.settle(d.reservationId, { inputTokens: 10, outputTokens: 1, media: [{ kind: 'image', resolution: 'high', quantity: 1 }] }).costMicros, 25);
+      assert.equal(d.estimatedTokens, 40);
+      assert.throws(() => gate.settle(d.reservationId, { inputTokens: 10, outputTokens: 1, media: [] } as never), RangeError);
+      assert.deepEqual(gate.settle(d.reservationId, { inputTokens: 10, outputTokens: 1 }), { recorded: true, overages: [] });
+      assert.equal(gate.reservation(d.reservationId)?.tokens, 11);
     } finally { gate.close(); }
   } finally { f.close(); }
-});
-
-it('price book rejects invalid rates and isolates versioned prices from caller mutation', () => {
-  assert.throws(() => new PriceBook([{ version: 'bad', effectiveFrom: 0, models: { m: { input: -1, output: 2 } } }]), RangeError);
-  const table = { version: 'stable', effectiveFrom: 0, models: { m: { input: 1, output: 2 } } };
-  const book = new PriceBook([table]); table.models.m.input = 100;
-  assert.equal(book.at(0)!.models.m!.input, 1);
 });
 
 it('legacy soft-only RPC limits warn in the call hook and actual usage can trigger warning', () => {
@@ -262,17 +247,17 @@ it('legacy soft-only RPC limits warn in the call hook and actual usage can trigg
   } finally { g.close(); }
 });
 
-it('retry rules enforce each distinct class attempt cap and rejected reservations do not consume cost', () => {
+it('retry rules enforce each distinct class attempt cap and rejected reservations do not consume tokens', () => {
   const classes = ['rate_limit', 'overloaded', 'network', 'timeout', 'tool_call_invalid'] as const;
-  const policy = Object.fromEntries(classes.map((k, i) => [k, { maxAttempts: i + 1, maxCostMicros: 100 }])) as import('../../src/budget/retry.ts').RetryPolicy;
+  const policy = Object.fromEntries(classes.map((k, i) => [k, { maxAttempts: i + 1, maxTokens: 100 }])) as import('../../src/budget/retry.ts').RetryPolicy;
   const r = new RetryBudget(policy, 1000);
   for (const [i, cls] of classes.entries()) {
     for (let attempt = 0; attempt <= i; attempt++) r.consume('turn', cls, 1);
     assert.throws(() => r.consume('turn', cls, 1), RetryBudgetExceededError);
   }
-  const cost = new RetryBudget(policy, 2);
-  assert.throws(() => cost.consume('x', 'network', 3), RetryBudgetExceededError);
-  cost.consume('x', 'network', 2); // the rejected reservation changed nothing
+  const tokens = new RetryBudget(policy, 2);
+  assert.throws(() => tokens.consume('x', 'network', 3), RetryBudgetExceededError);
+  tokens.consume('x', 'network', 2); // the rejected reservation changed nothing
 });
 
 it('subagent previews preserve Unicode and paragraph boundaries and include the full reference', () => {
@@ -286,23 +271,23 @@ it('subagent previews preserve Unicode and paragraph boundaries and include the 
   assert.match(capped.text, /\[truncated; full result: peer:full\]$/);
 });
 
-it('settlement uses admission-time version and warnings remain deduplicated across connections', () => {
+it('settlement does not warn again and warnings remain deduplicated across connections', () => {
   const f = fixture();
-  const tables = [PRICES_V1, { version: 'new', effectiveFrom: f.clock.now() + 1000, models: { 'm-small': { input: 100, output: 100 } } }];
-  const gate = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook(tables), emitter: { emit: e => f.events.push(e) } });
+  const gate = createCallBudget({ path: f.path, clock: f.clock, emitter: { emit: e => f.events.push(e) } });
   try {
-    gate.setLimit({ scope: 'user', id: 'u1', period: 'day', metric: 'cost', hard: 100 });
-    const d = gate.checkBeforeCall(request);
+    gate.setLimit({ scope: 'user', id: 'u1', period: 'day', metric: 'tokens', hard: 50 });
+    const d = gate.checkBeforeCall(request); // 40 >= soft 40: one warning
     if (d.kind !== 'allow') assert.fail();
     const warns = f.events.filter(e => e.type === 'warn').length;
+    assert.equal(warns, 1);
     f.clock.advance(2000);
-    assert.equal(gate.settle(d.reservationId, { inputTokens: 30, outputTokens: 10 }).costMicros, 80);
+    assert.deepEqual(f.gate.settle(d.reservationId, { inputTokens: 30, outputTokens: 10 }), { recorded: true, overages: [] });
     assert.equal(f.events.filter(e => e.type === 'warn').length, warns);
-    assert.equal(f.svc.status().periods[0]!.total.costMicros, 80);
+    assert.equal(f.svc.status().periods[0]!.total.inputTokens, 30);
   } finally { gate.close(); f.close(); }
 });
 
-it('actual retry costs reconcile once and block subsequent retries when estimates were too low', () => {
+it('actual retry tokens reconcile once and block subsequent retries when estimates were too low', () => {
   const r = new RetryBudget(undefined, 10);
   const ticket = r.consume('t', 'network', 5);
   assert.throws(() => r.settle(ticket, 11), RetryBudgetExceededError);
@@ -322,7 +307,7 @@ it('an orphaned reservation past its TTL no longer counts and is reconciled on s
     assert.deepEqual(f.gate.pendingReservations(), { live: 0, expired: 1 });
     const second = f.gate.checkBeforeCall(request);
     assert.equal(second.kind, 'allow', 'expired reservation ignored on read');
-    const reopened = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook([PRICES_V1]), emitter: { emit: e => f.events.push(e) } });
+    const reopened = createCallBudget({ path: f.path, clock: f.clock, emitter: { emit: e => f.events.push(e) } });
     try {
       assert.ok(f.events.some(e => e.type === 'expire'), 'reconciled on start with an event');
       if (d.kind === 'allow') assert.equal(reopened.reservation(d.reservationId), null);

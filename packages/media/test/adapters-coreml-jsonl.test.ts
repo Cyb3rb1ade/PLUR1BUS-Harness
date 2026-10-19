@@ -23,7 +23,7 @@ test('a --jsonl capable helper is detected, generates, edits (img2img) and lists
   try {
     const progress: number[] = [];
     const out = await a.generate({ prompt: 'tree', seed: 5, steps: 12, guidance: 6, negativePrompt: 'fog', n: 1 }, { onProgress: p => { progress.push(p.fraction); } });
-    assert.equal(out.files[0]!.format, 'png'); assert.deepEqual(Buffer.from(out.files[0]!.bytes).subarray(0, 8), makePng().subarray(0, 8)); assert.equal(out.metadata.seed, 42); assert.equal(out.metadata.costUsd, 0); assert.equal(out.metadata.origin, 'local'); assert.deepEqual(progress, [0.5]);
+    assert.equal(out.files[0]!.format, 'png'); assert.deepEqual(Buffer.from(out.files[0]!.bytes).subarray(0, 8), makePng().subarray(0, 8)); assert.equal(out.metadata.seed, 42); assert.equal('costUsd' in out.metadata, false); assert.equal(out.metadata.origin, 'local'); assert.deepEqual(progress, [0.5]);
     const edit = await a.edit({ prompt: 'snow', referenceImages: [{ bytes: makeLeakyPng(), format: 'png' }] });
     assert.equal(edit.files.length, 1); assert.deepEqual(await a.listModels(), ['sd-split', 'sd-original']);
     assert.equal(await starts(), 1);

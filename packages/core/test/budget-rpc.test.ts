@@ -62,16 +62,19 @@ describe("budget RPC", () => {
     const bad: [string, unknown][] = [
       ["budget.set", {}],
       ["budget.set", { timeZone: "Mars/Base" }],
-      ["budget.set", { limit: { scope: "agent", period: "day", metric: "cost", hard: 1 } }],
-      ["budget.set", { limit: { scope: "global", period: "day", metric: "cost", soft: 9, hard: 1 } }],
-      ["budget.set", { limit: { scope: "global", period: "week", metric: "cost", hard: 1 } }],
-      ["budget.set", { limit: { scope: "global", period: "day", metric: "cost", hard: 1 }, extra: 1 }],
+      ["budget.set", { limit: { scope: "agent", period: "day", metric: "tokens", hard: 1 } }],
+      ["budget.set", { limit: { scope: "global", period: "day", metric: "tokens", soft: 9, hard: 1 } }],
+      ["budget.set", { limit: { scope: "global", period: "week", metric: "tokens", hard: 1 } }],
+      ["budget.set", { limit: { scope: "global", period: "day", metric: "tokens", hard: 1 }, extra: 1 }],
+      // No money dimension since 2026-10-19: the cost metric is not part of the wire format any more.
+      ["budget.set", { limit: { scope: "global", period: "day", metric: "cost", hard: 1 } }],
       ["budget.status", { agentId: "has space" }],
       ["budget.status", { period: "day" }],
     ];
     for (const [m, p] of bad) {
       await assert.rejects(client.call(m, p as never), (e: unknown) => e instanceof RpcCallError && e.error === "E_INVALID_PARAMS", `${m} ${JSON.stringify(p)}`);
     }
-    assert.equal(validateParams("budget.set", { limit: { scope: "global", period: "day", metric: "cost", hard: 1 } }).ok, true);
+    assert.equal(validateParams("budget.set", { limit: { scope: "global", period: "day", metric: "tokens", hard: 1 } }).ok, true);
+    assert.equal(validateParams("budget.set", { limit: { scope: "global", period: "day", metric: "cost", hard: 1 } }).ok, false);
   });
 });

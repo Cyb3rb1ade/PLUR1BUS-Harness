@@ -95,11 +95,11 @@ Deletion attempts, role changes and break-glass grants/uses/revocations/expiry a
 
 ## Session usage and F44 gaps
 
-The metadata listing adds `owner`, `model`, and `usage { inputTokens, outputTokens, costMicros, pendingCalls? }` by joining the
+The metadata listing adds `owner`, `model`, and `usage { inputTokens, outputTokens, pendingCalls? }` by joining the
 existing `budget_call` admission ledger to `usage_event` using its prefixed request id. All settled calls (including retries
-and fallbacks) count once. Model is the latest recorded model in the session. Pending/unpriced usage makes cost `null`, never
-an invented zero. Older/fake-provider sessions fall back to existing `turn.completed` provider/token metadata; a provider id
-is the fallback model label, and absent costs stay `null`. No prompt/result content is read from the budget ledger.
+and fallbacks) count once. Model is the latest recorded model in the session. A pending call is counted in `pendingCalls`; there is no cost
+field (no money dimension since 2026-10-19). Older/fake-provider sessions fall back to existing `turn.completed` provider/token metadata; a provider id
+is the fallback model label. No prompt/result content is read from the budget ledger.
 Searching one's own sessions retains the old FTS semantics; searching another person's transcripts from the overview is
 denied, including through `allOwners`, so it cannot be used as a content oracle. Filtering by owner/agent and paging limits
 are enforced in the listing query.
