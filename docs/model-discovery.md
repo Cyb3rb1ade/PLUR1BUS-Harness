@@ -84,3 +84,29 @@ credential and egress decisions with an in-memory keyring, fake clock and socket
 transport. Set `PLUR1BUS_BIN` to a locally built CLI to additionally exercise scan/list
 against that Core. Legacy discovery HTTP regressions use synthetic loopback endpoints,
 explicitly allowlisted only by their test configuration. No test contacts a live provider.
+
+## Reasoning levels
+
+Every catalog model carries a reasoning description, used by the per-chat reasoning choice (`chat.model.get`/`chat.model.set`,
+`session.model.set`): `kind` (`none`, `effort`, `budget`, `toggle`), the supported `levels` on the harness scale
+`off < minimal < low < medium < high < xhigh`, an optional provider `default`, the wire parameter and, for `budget`, token bounds.
+The sources, in this order:
+
+1. **The provider's own model list**, stored by the scan as `api.reasoning`: OpenRouter `supported_parameters` (`reasoning` means its
+   unified `reasoning.effort` object; the list without it means no setting), Gemini model metadata `thinking`, and the `capabilities`
+   of newer Ollama servers (`thinking`). The API decides whether a model reasons; where it gives no details, a matching table rule
+   supplies them, else a conservative default. A malformed hint is treated as silence, never as a failed scan.
+2. **The curated table** `packages/core/catalog/reasoning-metadata.json` (schema `plur1bus.reasoning-metadata/1`, versioned by
+   `revision`): OpenAI `reasoning_effort` (o-series, gpt-5 with `minimal`, gpt-5.1 with `off` = `none`, gpt-5.2 with `xhigh`), Anthropic
+   extended thinking as `thinking.budget_tokens`, Gemini 2.5 `thinkingBudget` and Gemini 3 `thinkingLevel`, xAI `reasoning_effort`,
+   the Qwen3 thinking toggle (`chat_template_kwargs.enable_thinking`), Ollama models through `reasoning_effort`, and models that reason
+   on their own (`none`: deepseek-reasoner, grok-4, other Claude models). The vendor section is tried first, then `generic`.
+3. **Unknown**: `none`, with the hint `reasoning-unknown`.
+
+The description is fitted to the wire the profile speaks (the Responses API spells OpenAI's effort `reasoning.effort`); a parameter a
+wire cannot write becomes `none` with the hint `reasoning-wire-unsupported`. Each attempt of a turn maps the chat's level onto that
+candidate model (the nearest supported level, ties to the cheaper one), so a fallback model with other levels gets its own nearest
+level; budget levels map onto the model's range (minimal = min, low 1/8, medium 1/4, high 1/2, xhigh = max). An adapter refuses a
+parameter it cannot express before any I/O. Anthropic: `max_tokens` is lifted above the thinking budget, and a request that continues
+a tool loop is sent without `thinking` because thinking signatures are not carried between rounds yet (sending it would be a 400).
+

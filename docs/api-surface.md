@@ -34,6 +34,8 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 | `POST` | `/api/v1/chats/{sessionId}/fork` | `chats.fork` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/chats/{sessionId}/export` | `chats.export` | session or token | `chat:read` | yes | write | experimental · 1.0.0 |
 | `DELETE` | `/api/v1/chats/{sessionId}` | `chats.delete` | session or token | `chat:delete` | yes | write | experimental · 1.0.0 |
+| `GET` | `/api/v1/chats/{sessionId}/model` | `chats.model-get` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
+| `PATCH` | `/api/v1/chats/{sessionId}/model` | `chats.model-set` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/ws-ticket` | `ws.ticket` | session | `settings.write` | yes | stream | experimental · 1.0.0 |
 | `GET` | `/ws` | `ws.reserved` | session | `settings.write` | no | stream | experimental · 1.0.0 |
 | `GET` | `/api/v1/remote` | `remote.get` | session | `settings.read` | no | read | experimental · 1.0.0 |

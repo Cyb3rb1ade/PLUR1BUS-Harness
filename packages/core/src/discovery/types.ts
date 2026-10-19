@@ -13,7 +13,12 @@ export type ScanOutcomeCode = ScanResultCode | "already_running" | "disabled" | 
 export type RunTrigger = "cron" | "manual" | "harness";
 
 export interface ModelOverrides { displayName?: string; kind?: ModelKind; contextWindow?: number; capabilities?: Capability[]; aliases?: string[] }
-export interface ApiFields { displayName?: string; kind?: ModelKind; contextWindow?: number; capabilities?: Capability[] }
+/**
+ * What a provider's model list says about reasoning control, when it says anything: OpenRouter `supported_parameters`
+ * (`reasoning`), Gemini model metadata (`thinking`), Ollama capabilities (`thinking`). Absent = the list is silent.
+ */
+export interface ApiReasoning { supported: boolean; style: "openrouter" | "gemini" | "ollama" }
+export interface ApiFields { displayName?: string; kind?: ModelKind; contextWindow?: number; capabilities?: Capability[]; reasoning?: ApiReasoning }
 export interface RawEntry extends ApiFields { id: string; created?: number /* epoch ms */ }
 export interface CatalogModel {
   provider: string; id: string; displayName: string; kind: ModelKind; contextWindow?: number; capabilities: Capability[]; aliases: string[];

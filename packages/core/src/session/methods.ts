@@ -12,6 +12,7 @@ import type { CallContext } from "@plur1bus/module-api";
 import type { Handler } from "../rpc/server.ts";
 import type { SessionStore } from "./store.ts";
 import { NoProviderError, type TurnRunner } from "./turn-loop.ts";
+import { isReasoningChoice, type ReasoningChoice } from "./chat-models.ts";
 import { SessionError, type EventRecord, type MessageRecord, type SessionRecord } from "./types.ts";
 
 export interface SessionMethodDeps { modelProfiles?: () => readonly string[]; /** Store that holds the given session: the in-memory incognito store for ephemeral sessions, the durable store otherwise. */ storeFor?: (sessionId: string) => SessionStore;  compactor?: import("./compaction.ts").Compactor; store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
@@ -56,7 +57,7 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
     async (p: P, ctx) => { try { return await fn(p, ownerOf(p.caller), ctx.signal, ctx); } catch (e) { return mapSessionError(e); } };
 
   return {
-    "session.model.set": wrap(async (p: { caller: CallerIdentity; sessionId: string; profile: string; confirmed?: boolean; expectedRevision?: number }, owner) => {
+    "session.model.set": wrap(async (p: { caller: CallerIdentity; sessionId: string; profile: string; confirmed?: boolean; expectedRevision?: number; reasoning?: ReasoningChoice }, owner) => {
       if (d.isStopping()) throw stopping();
       // Incognito sessions live in a memory-only store; the profile is kept there too, so nothing reaches disk.
       const store = d.storeFor?.(p.sessionId) ?? d.store;
@@ -68,9 +69,11 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       let revision = current.revision;
       if (p.confirmed === true) {
         if (p.expectedRevision === undefined) throw new RpcError("E_INVALID_PARAMS", "model switch confirmation requires the preview revision");
-        revision = store.setModelProfile(s.id, p.profile, p.expectedRevision);
+        revision = store.setModelProfile(s.id, p.profile, p.expectedRevision, p.reasoning === undefined ? undefined : p.reasoning === "default" ? null : p.reasoning);
       }
-      return { sessionId: s.id, profile: p.profile, previousProfile: current.profile, revision, applied: p.confirmed === true, warning: "cache-rebuild-cost-prefixes-preserved" };
+      // The reasoning choice that applies (or would apply) with this profile: the requested one, else the stored one.
+      const stored = store.modelReasoning(s.id), reasoning: ReasoningChoice = p.reasoning ?? (isReasoningChoice(stored) ? stored : "default");
+      return { sessionId: s.id, profile: p.profile, previousProfile: current.profile, revision, applied: p.confirmed === true, warning: "cache-rebuild-cost-prefixes-preserved", reasoning };
     }),
     "session.create": wrap(async (p: SessionCreateParams, owner) => {
       requireAgent(d.agents, p.agentId);
