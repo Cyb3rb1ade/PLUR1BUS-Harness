@@ -61,19 +61,29 @@ export function copyAtomicSync(srcPath: string, destPath: string, mode = 0o600):
   writeAtomicSync(destPath, buf, mode);
 }
 
+// A new destination has no realpath yet. Resolve its nearest existing ancestor
+// and append only the missing suffix, so aliases such as /var and /private/var
+// compare consistently while respecting resolvable symlinks in the path.
+function canonicalPath(target: string): string | undefined {
+  let current = resolve(target);
+  const missing: string[] = [];
+  for (;;) {
+    try {
+      return join(realpathSync.native(current), ...missing);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") return undefined;
+      const parent = dirname(current);
+      if (parent === current) return undefined;
+      missing.unshift(basename(current));
+      current = parent;
+    }
+  }
+}
+
 export function isInsideDir(root: string, target: string): boolean {
-  let r = resolve(root);
-  let q = resolve(target);
-  try {
-    r = realpathSync(r);
-  } catch {
-    // ignore
-  }
-  try {
-    q = realpathSync(q);
-  } catch {
-    // ignore
-  }
+  const r = canonicalPath(root);
+  const q = canonicalPath(target);
+  if (r === undefined || q === undefined) return false;
   if (process.platform === "win32" || process.platform === "darwin") {
     const rLower = r.toLowerCase();
     const qLower = q.toLowerCase();

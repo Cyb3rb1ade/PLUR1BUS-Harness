@@ -42,6 +42,17 @@ describe("RUN_ID_RE", () => {
 });
 
 describe("rollback dry run", () => {
+  it("keeps the validated report path in the caller's home spelling when the home is symlinked", { skip: posixOnly }, async () => {
+    const fx = build({ pre: { "config.json": "{}" } });
+    const alias = path.join(tmpDir(), "home-alias");
+    symlinkSync(fx.home, alias);
+    const reportPath = path.join(alias, "imports", fx.runId, "report.json");
+    const r = await run(fx, { home: alias, reportPath });
+    assert.equal(r.reportPath, reportPath);
+    assert.equal(r.snapshot.path, path.join(alias, "imports", fx.runId, "snapshot"));
+    assert.equal(r.status, "planned");
+  });
+
   it("lists exactly what apply would do, sorted, and writes nothing (not even a lock file)", async () => {
     const fx = build(typical());
     const before = snapshotTree(fx.home);
@@ -79,6 +90,16 @@ describe("rollback dry run", () => {
 });
 
 describe("rollback apply", () => {
+  it("restores a missing nested file through a symlinked home without treating it as an escape", { skip: posixOnly }, async () => {
+    const fx = build({ pre: { "config.json": "{}", [SOUL]: "restore me" }, deleted: [SOUL] });
+    const alias = path.join(tmpDir(), "home-alias");
+    symlinkSync(fx.home, alias);
+    rmSync(fx.abs("agents/alpha"), { recursive: true });
+    const r = await run(fx, { apply: true, home: alias, reportPath: path.join(alias, "imports", fx.runId, "report.json") });
+    assert.equal(r.status, "completed");
+    assert.equal(read(fx.abs(SOUL)), "restore me");
+  });
+
   it("restores the snapshot byte-exactly, removes what the import created, keeps user files, and backs up everything it replaced or removed", async () => {
     const fx = build(typical());
     const r = await run(fx, { apply: true });
@@ -304,6 +325,20 @@ describe("rollback refusals (E_ROLLBACK_INVALID)", () => {
 });
 
 describe("rollback containment: symlinks and hostile ledger entries", () => {
+  it("refuses restoring a missing file through an escaping ancestor and creates nothing outside", { skip: posixOnly }, async () => {
+    const fx = build({ pre: { "config.json": "{}", [SOUL]: "snapshot soul" }, deleted: [SOUL] });
+    const outside = tmpDir();
+    writeFileSync(path.join(outside, "keep"), "outside-original");
+    rmSync(fx.abs("agents/alpha"), { recursive: true });
+    symlinkSync(outside, fx.abs("agents/alpha"));
+    const before = snapshotTree(outside);
+    const e = await refusal(() => run(fx, { apply: true }));
+    assert.equal(e.code, "E_ROLLBACK_INVALID");
+    assert.equal(e.reason, "snapshot-invalid");
+    assert.deepEqual(snapshotTree(outside), before);
+    assert.ok(!existsSync(path.join(outside, "workspace")));
+  });
+
   it("a symlinked agent directory in the home is refused as unsafe-symlink and the link's target is untouched", { skip: posixOnly }, async () => {
     const outside = tmpDir();
     mkdirSync(path.join(outside, "workspace"), { recursive: true });

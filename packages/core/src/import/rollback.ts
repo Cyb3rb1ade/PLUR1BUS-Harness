@@ -234,8 +234,8 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
     let realReportPath: string;
     let expectedReportPath: string;
     try {
-      realReportPath = realpathSync(opts.reportPath);
-      expectedReportPath = realpathSync(join(runDir, "report.json"));
+      realReportPath = realpathSync.native(opts.reportPath);
+      expectedReportPath = realpathSync.native(join(runDir, "report.json"));
     } catch {
       throw invalid("report-missing", `the report file was not found at ${join(runDir, "report.json")}`);
     }
@@ -480,7 +480,7 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
       sourceType: opts.sourceType,
       mode: opts.apply ? "apply" : "dry-run",
       status: "planned",
-      reportPath: realReportPath,
+      reportPath: resolve(opts.reportPath),
       snapshot: {
         path: snapPath,
         existed: manifest.configExisted || manifest.agentsExisted,
