@@ -69,6 +69,8 @@ Owner decision 2026-10-19: media is limited in its own units, not in tokens and 
 - **Hierarchy.** All matching global, user, project, agent, turn and session limits apply; the tightest wins (a project limit refuses although the agent still has images left). RPC `budget.set` sets global and agent limits; the other scopes are internal port state, as for tokens.
 - **Status.** `budget.status` reports `images` and `videoSeconds` per period, agent and model (settled usage), and unit limits with their `used` and `state`. CLI: `plur1bus budget set --metric images|video-seconds`, `budget status`. Web: *Usage & Quota* (metric choice in the limit dialog, images and video seconds in the usage tab).
 
+Live check (manual, never in CI): `OPENAI_API_KEY=... node scripts/live/media-budget-openai.mjs` sets a hard limit of 2 images in a throwaway home and asks the real OpenAI Images API for three images through the `media.generate` surface; the third must be refused without a network call. The script reads the key only from the environment, never prints it, and refuses any third provider request whatever happens; `packages/core/test/live/media-budget-openai-script.test.ts` dry-runs it against a loopback stub.
+
 Store schema 2 (additive migration): `budget_limit` is rebuilt with the widened metric check (every row kept, SQLite cannot widen a `CHECK` in place); `usage_event` and `budget_call` gain integer columns `images` and `video_seconds`, 0 on every older row; the call extension's version becomes 2. An older core refuses a schema-2 store (`newer-schema`) rather than misreading it.
 
 ## Periods and warnings
