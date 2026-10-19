@@ -89,6 +89,7 @@ export async function packageArchive(v, target, binary, core, out, assets) {
     copyFileSync(binary, exe); chmodSync(exe, 0o755);
     copyFileSync(core, join(dir, 'runtime/core.tar.gz'));
     copyFileSync(new URL('../../LICENSE', import.meta.url), join(dir, 'licenses/LICENSE'));
+    for (const file of ['THIRD_PARTY.md', 'THIRD_PARTY-LICENSES.txt']) copyFileSync(new URL(`../../${file}`, import.meta.url), join(dir, 'licenses', file));
     if (assets) {
       cpSync(join(assets, 'completions'), join(dir, 'completions'), { recursive: true });
       cpSync(join(assets, 'man'), join(dir, 'man'), { recursive: true });
