@@ -76,6 +76,8 @@ export interface HermesMemoryImportResult {
     reason?: string | undefined;
     /** outcome "linked": the id of the memory the card duplicates. */
     linkedTo?: string | undefined;
+    /** outcome "linked": the engine link id (`memory.link`, contract 1.16.0); absent for a ledger-only link. */
+    linkId?: string | undefined;
   }>;
   errors: Array<{ sourceRef: string; reason: string }>;
 }
@@ -326,10 +328,13 @@ export async function importHermesMemories(opts: {
     // No proof either way: the card is imported (never dropped), the failed check is reported.
     onError: (sourceRef, reason) => errors.push({ sourceRef, reason }),
   });
-  const recordLinked = (c: LinkCandidate, hit: CardLink, cardRef: string) => {
+  const recordLinked = async (c: LinkCandidate, hit: CardLink, linkPrincipal: Principal, cardRef: string) => {
+    const done = await linker.link(c, hit, linkPrincipal, cardRef);
     linkedCount++;
-    cardResults.push({ idempotencyKey: c.idempotencyKey, outcome: "linked", reason: hit.reason, linkedTo: hit.id });
-    linker.record(c, hit, cardRef);
+    cardResults.push({
+      idempotencyKey: c.idempotencyKey, outcome: "linked", reason: done.reason, linkedTo: done.id,
+      ...(done.linkId !== undefined ? { linkId: done.linkId } : {}),
+    });
   };
 
   // 1. Process memories/MEMORY.md (agent-scoped)
@@ -404,7 +409,7 @@ export async function importHermesMemories(opts: {
               skippedDuplicateCount++;
               cardResults.push({ idempotencyKey: c.idempotencyKey, outcome: "matched-existing", reason: "duplicate-in-batch" });
             } else {
-              recordLinked(c, hit, `agents/${agentId}/workspace/memories.md`);
+              await recordLinked(c, hit, principal, `agents/${agentId}/workspace/memories.md`);
             }
           }
           const batch = fullBatch.filter((c) => !linked.has(c.idempotencyKey));
@@ -557,13 +562,22 @@ export async function importHermesMemories(opts: {
             successfulUserTexts.push(c.text);
           }
         } else if (engine) {
+          const linkedUserKeys = new Set<string>();
           for (let b = 0; b < cardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
             const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
             const fullBatch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
             const linked = await linker.split(fullBatch, { request: userPrincipal, caller: principal }, "memories/USER.md");
             for (const c of fullBatch) {
               const hit = linked.get(c.idempotencyKey);
-              if (hit) recordLinked(c, hit, `agents/${agentId}/workspace/USER.md`);
+              if (!hit) continue;
+              if (linkedUserKeys.has(c.idempotencyKey)) {
+                // A second copy of a linked card in the same file: an in-batch duplicate, never a second link.
+                skippedDuplicateCount++;
+                cardResults.push({ idempotencyKey: c.idempotencyKey, outcome: "matched-existing", reason: "duplicate-in-batch" });
+                continue;
+              }
+              linkedUserKeys.add(c.idempotencyKey);
+              await recordLinked(c, hit, userPrincipal, `agents/${agentId}/workspace/USER.md`);
             }
             const batch = fullBatch.filter((c) => !linked.has(c.idempotencyKey));
             const okCards = new Set(fullBatch.filter((c) => linked.has(c.idempotencyKey)));

@@ -39,6 +39,11 @@ export function localOnlyShared(cfg: unknown): boolean {
   return Object.values(v.agents ?? {}).some((a) => a?.privacy?.localOnly === true);
 }
 
+/** Explicit agent pins that keep the shared engine local even when the installation switch is off. */
+export function localOnlyAgents(cfg: unknown): string[] {
+  return Object.entries(view(cfg).agents ?? {}).filter(([,a])=>a?.privacy?.localOnly===true).map(([id])=>id).sort();
+}
+
 export function localEndpoints(cfg: unknown): readonly string[] {
   const list = view(cfg).privacy?.localEndpoints;
   return Array.isArray(list) ? list.filter((e): e is string => typeof e === "string") : [];

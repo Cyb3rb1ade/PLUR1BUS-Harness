@@ -171,7 +171,7 @@ describe("engine-config", () => {
   it("one local-only agent keeps the shared engine local; an agent lifting the switch does not open it", () => {
     const cfg = remote({ provider: "openai", model: "text-embedding-3-small", dimensions: 1536, apiKeyEnv: "K" }, ack("openai"));
     cfg.agents = { bernd: { privacy: { localOnly: true } } };
-    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "local-only");
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "local-only-shared-engine" && e.message.includes("bernd"));
     cfg.privacy = { localOnly: true, localEndpoints: [] }; cfg.agents = { bernd: { privacy: { localOnly: false } } };
     assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "local-only");
     cfg.privacy = { localOnly: false, localEndpoints: [] }; cfg.agents = { bernd: { privacy: { localOnly: false } } };

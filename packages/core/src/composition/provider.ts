@@ -105,7 +105,7 @@ export interface TurnProviderOptions {
    *  nearest level that candidate supports; a fallback model with other levels is mapped the same way. */
   reasoningFor?: (provider: string, model: string) => ReasoningDescriptor;
   /**
-   * privacy.localOnly (owner decision 2026-10-18): whether this agent may use only local models, read per turn. With it
+   * privacy.localOnly (owner decision 2026-10-18): whether this agent may use only local models, read per model request. With it
    * on, a candidate whose provider `isLocalProvider` does not confirm is refused: the turn fails with `local-only` when
    * the chosen model is a cloud model, and a cloud fallback is never tried. Never replaced by another model silently.
    */
@@ -260,9 +260,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     });
     const candidate = o.profiles[profile]?.[0];
     if (!candidate) throw new TurnToolError('unknown_profile', profile);
-    const localOnly = o.localOnly?.(req.agentId) === true;
+    const localOnly = () => o.localOnly?.(req.agentId) === true;
     const isLocal = (provider: string) => o.isLocalProvider?.(provider) === true;
-    if (localOnly && !isLocal(candidate.provider)) throw new TurnToolError('local-only', { provider: candidate.provider, model: candidate.model, profile, message: `${candidate.provider}/${candidate.model} is not a local model; ${LOCAL_ONLY_HINT}` });
+    if (localOnly() && !isLocal(candidate.provider)) throw new TurnToolError('local-only', { provider: candidate.provider, model: candidate.model, profile, message: `${candidate.provider}/${candidate.model} is not a local model; ${LOCAL_ONLY_HINT}` });
     const key = `${req.agentId}:${req.sessionId}`;
     if (!snapshots.has(key)) snapshots.set(key, req.memory);
     if (snapshots.size > 1024) snapshots.delete(snapshots.keys().next().value!);
@@ -302,9 +302,16 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           return { name: spec.name, description: spec.description, parameters: spec.parameters ?? spec.input_schema ?? spec.parametersJsonSchema, ...(spec.strict === undefined ? {} : { strict: spec.strict }) } as ToolDefinition;
         });
         const mapped = request.messages.map(m => m.role === 'assistant' && m.toolCalls ? { ...m, toolCalls: m.toolCalls.map(t => ({ ...t, name: aliases.get(t.name) ?? t.name })) } : m);
+        const assertCurrentPrivacy = () => {
+          if(localOnly() && !isLocal(c.provider)) throw new TurnToolError('local-only', {provider:c.provider,model:c.model,message:LOCAL_ONLY_HINT});
+        };
+        assertCurrentPrivacy();
         const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(c.provider, c.model)) : undefined;
         const stream = c.adapter.stream({ ...request, messages: mapped, tools, ...(directive ? { reasoning: directive } : {}) }, options);
+        let began=false;
         try { while (true) {
+          // An adapter may begin eagerly or only on its first next(). Once started, let that response finish.
+          if(!began){assertCurrentPrivacy();began=true;}
           if (attempt) attempt.invoked = true;
           const next = await (rendered ? promptContext.run(rendered, () => stream.next()) : stream.next());
           if (next.done) break;
@@ -324,7 +331,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const guardFor = (call: CallState): BudgetGuard => ({
       async authorize(info, request) {
         if (req.turnProfile?.allowModel && !req.turnProfile.allowModel(info.provider, info.model)) return { ok: false as const, reason: "voice privacy pin requires a local model" };
-        if (localOnly && !isLocal(info.provider)) return { ok: false as const, reason: 'privacy.localOnly refuses a cloud model' };
+        if (localOnly() && !isLocal(info.provider)) return { ok: false as const, reason: 'privacy.localOnly refuses a cloud model' };
         // ADR-005: never fall back silently between plan and paid billing; refusing this candidate lets the router try the next.
         const from = primary && o.billing?.[primary.provider], to = o.billing?.[info.provider];
         if (from && to && from !== to && !(o.allowCrossBilling?.(info.profile) ?? false)) {
