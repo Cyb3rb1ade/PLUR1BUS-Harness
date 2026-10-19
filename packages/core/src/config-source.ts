@@ -1,3 +1,5 @@
+import { statSync } from "node:fs";
+import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
 import { restartPlan, type HarnessConfig } from "@plur1bus/config-schema";
 import { watchSupervisorConfig, type ConfigWatch } from "@plur1bus/module-api";
 import { loadConfig, readConfigFile, validateConfig } from "./config-load.ts";
@@ -61,6 +63,7 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
   const listeners = new Set<(prev: HarnessConfig, next: HarnessConfig, plan: Plan) => void>();
   let watch: ConfigWatch | null = null; let detach: (() => void) | null = null;
   let current: HarnessConfig; let revision: string | null = null; let closed = false;
+  let fileStamp = "";
   let builtWith: HarnessConfig; let pending = false; // recomputed per change, so core.status stays cheap (B11)
   let retryTimer: NodeJS.Timeout | null = null; let retryDelay = backoff.initial;
   let chain: Promise<void> = Promise.resolve(); // re-watches run one at a time
@@ -68,11 +71,15 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
   /** A supervisor snapshot or push, or null (logged) when it fails the schema. */
   const accept = (config: Record<string, unknown>, rev: string, what: string): HarnessConfig | null => {
     const r = validateConfig(config);
-    if (r.ok) return r.config;
+    if (r.ok) {
+      try { if (builtWith) assertSharedEnginePrivacy(r.config, builtWith.engine as Record<string, unknown>); return r.config; }
+      catch (err) { log?.warn(`${what} requires the running engine to restart first; ignored`, { err }); return null; }
+    }
     log?.warn(`${what} is invalid; ignored`, { revision: rev, errors: r.errors });
     return null;
   };
   const apply = (next: HarnessConfig, rev: string | null) => {
+    assertSharedEnginePrivacy(next, builtWith.engine as Record<string, unknown>);
     const prev = current; current = next; revision = rev;
     pending = restartPlan(builtWith, next).restart.core;
     const plan = restartPlan(prev, next);
@@ -161,7 +168,15 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
   else if (o.supervised) scheduleRetry(); // M1: a supervised core that missed the start window keeps trying
 
   return {
-    current: () => current,
+    current: () => {
+      // File fallback has no supervisor pushes. Refresh before admission, including the next tool round.
+      if (!watch && !closed) {
+        let stamp: string;
+        try { const st = statSync(o.layout.configPath); stamp = `${st.ino}:${st.mtimeMs}:${st.ctimeMs}:${st.size}`; } catch { stamp = "missing"; }
+        if (stamp !== fileStamp) { fileStamp = stamp; readFile(); }
+      }
+      return current;
+    },
     get source() { return watch ? "supervisor" as const : "file" as const; },
     revision: () => revision,
     restartPending: () => pending,

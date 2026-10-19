@@ -50,12 +50,15 @@ pub struct Rejected {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SetError {
+    LocalOnly(crate::privacy::SharedPolicy),
     /// The schema refuses the result (`E_CONFIG_INVALID`).
     Invalid(Vec<String>),
     /// The engine store would share a foreign host state directory (`E_CONFIG_INVALID`).
     ForeignHostStorePath(crate::coexistence::StoreViolation),
     /// `ifRevision` names another revision than the running one (`E_CONFLICT reason=config-changed`).
-    Conflict { current: String },
+    Conflict {
+        current: String,
+    },
     /// No valid configuration runs (`E_NOT_AVAILABLE reason=config-unavailable`).
     Unavailable,
     /// The file could not be backed up or written (`E_INTERNAL`); nothing changed.
@@ -391,6 +394,9 @@ fn set_inner(
                 other => SetError::Invalid(vec![other.to_string()]),
             })?
         };
+        if let Some(policy) = crate::privacy::running_violation(layout, &plan.after) {
+            return Err(SetError::LocalOnly(policy));
+        }
         let audited = super::config_policy::changes(
             super::config_policy::schema(),
             &running,
@@ -602,8 +608,11 @@ fn poll_locked(shared: &Shared, layout: &Layout, st: &mut ConfigState) {
         Ok(new) => {
             // B13: a hand edit of `modules.<name>` must satisfy the module's configSchema too.
             let before = st.running.clone().unwrap_or_else(|| json!({}));
-            let errors =
+            let mut errors =
                 crate::modules::config_errors(&crate::modules::scan(layout), &before, &new);
+            if let Some(policy) = crate::privacy::running_violation(layout, &new) {
+                errors.push(format!("{}: {}", policy.reason(), policy.message()));
+            }
             if !errors.is_empty() {
                 shared.log.warn(
                     "config.json rejected; the running configuration stays",

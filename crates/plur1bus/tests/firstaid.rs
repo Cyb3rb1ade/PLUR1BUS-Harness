@@ -336,6 +336,7 @@ fn check_json_validates_the_document_shape() {
         "dreams.last-runs",
         "remote.exposure",
         "models.decision",
+        "privacy.local-only",
         "api.supervised",
     ];
     let ids: Vec<String> = v["checks"]
@@ -369,7 +370,7 @@ fn check_json_lists_the_installer_ids_after_the_first_seventeen() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 29, "{v}");
+    assert_eq!(ids.len(), 30, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"],
@@ -939,7 +940,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 29, "{v}");
+    assert_eq!(ids.len(), 30, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"]
@@ -950,6 +951,8 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
     assert_eq!(&ids[25], "dreams.last-runs", "{v}");
     assert_eq!(&ids[26], "remote.exposure", "{v}");
     assert_eq!(&ids[27], "models.decision", "{v}");
+    assert_eq!(&ids[28], "privacy.local-only", "{v}");
+    assert_eq!(&ids[29], "api.supervised", "{v}");
 }
 
 #[test]

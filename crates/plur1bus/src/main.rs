@@ -14,6 +14,7 @@ mod journal;
 mod modules;
 mod output;
 mod paths;
+mod privacy;
 mod proc;
 mod repair;
 mod service;
