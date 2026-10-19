@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, mkdir, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { OutputStore, FileJobPersistence, JobRunner, MediaError, validateRequest, failure, estimateCost } from '../src/index.ts';
+import { OutputStore, FileJobPersistence, JobRunner, MediaError, validateRequest, failure, requestedUnits } from '../src/index.ts';
+import type { MediaUnits } from '../src/index.ts';
 import type { ImageAdapter, ImageRequest } from '../src/index.ts';
 import { embedPng } from '../src/png.ts';
 const req = { prompt: '🌳 tree' };
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jY1sAAAAASUVORK5CYII=', 'base64');
-const result = { files: [{ bytes: png, format: 'png' as const }], metadata: { adapter: 'fake', model: 'sd', seed: 42, costUsd: 0, durationMs: 1 } };
+const result = { files: [{ bytes: png, format: 'png' as const }], metadata: { adapter: 'fake', model: 'sd', seed: 42, durationMs: 1 } };
 async function setup(adapter: ImageAdapter) { const root = await mkdtemp(join(tmpdir(), 'media-life-')); const persistence = new FileJobPersistence(join(root, 'jobs')); const store = new OutputStore(join(root, 'store')); return { root, persistence, store, runner: new JobRunner(persistence, store, [adapter]) }; }
 const adapter: ImageAdapter = { id: 'fake', capabilities: () => ({ generate: true, edit: true, inpaint: true }), generate: async () => result, edit: async () => result };
 test('PNG UTF-8 metadata opt-in, precedence, unchanged default, retention and hashes', async () => {
@@ -57,21 +58,25 @@ test('queued and running cancellation, progress and checkpoints', async () => {
   const saved = (await s.persistence.get(running.id))!; assert.equal(saved.state, 'cancelled'); assert.equal(saved.checkpoint!.id, 'checkpoint'); assert.equal(saved.progress.fraction, 0.2);
   await s.runner.cancel('missing');
 });
-test('invalid progress and backend failures are stable codes; budget settles', async () => {
+test('invalid progress and backend failures are stable codes; budget reserves and settles native units', async () => {
   for (const thrown of [new Error('secret'), new MediaError('content_policy')]) {
     const s = await setup({ ...adapter, generate: async () => { throw thrown; } }); const job = await s.runner.enqueue('fake', req); await s.runner.run(job.id);
     assert.ok(!(JSON.stringify(await s.persistence.get(job.id))).includes('secret'));
   }
   const s = await setup({ ...adapter, generate: async (_r, c) => { await c!.onProgress!({ fraction: 2 }); return result; } });
   const j = await s.runner.enqueue('fake', req); await s.runner.run(j.id); assert.equal((await s.persistence.get(j.id))!.error, 'invalid_response');
-  const settled: (number | null)[] = []; const ok = await setup(adapter); const runner = new JobRunner(ok.persistence, ok.store, [adapter], { reserve: async () => {}, settle: async (_id, cost) => { settled.push(cost); } });
-  const job = await runner.enqueue('fake', req); await runner.run(job.id); assert.deepEqual(settled, [0]);
+  const reserved: MediaUnits[] = []; const settled: (MediaUnits | null)[] = []; const ok = await setup(adapter); const runner = new JobRunner(ok.persistence, ok.store, [adapter], { reserve: async (_id, units) => { reserved.push(units); }, settle: async (_id, delivered) => { settled.push(delivered); } });
+  const job = await runner.enqueue('fake', { ...req, n: 2 }); await runner.run(job.id);
+  assert.deepEqual(reserved, [{ unit: 'image', quantity: 2 }]); assert.deepEqual(settled, [{ unit: 'image', quantity: 1 }]); // one file came back
+  const failedSettles: (MediaUnits | null)[] = []; const bad = await setup(adapter);
+  const failing = new JobRunner(bad.persistence, bad.store, [{ ...adapter, generate: async () => { throw new MediaError('content_policy'); } }], { reserve: async () => {}, settle: async (_id, delivered) => { failedSettles.push(delivered); } });
+  const fj = await failing.enqueue('fake', req); await failing.run(fj.id); assert.deepEqual(failedSettles, [null]);
 });
 test('request bounds and error normalization', () => {
   for (const r of [{ prompt: '' }, { ...req, n: 0 }, { ...req, n: 1.5 }, { ...req, steps: 0 }, { ...req, guidance: NaN }, { ...req, format: 'gif' }, { ...req, size: { width: 9000, height: 1 } }, { prompt: 'x'.repeat(32001) }]) assert.throws(() => validateRequest(r as ImageRequest), MediaError);
   const c = new AbortController(); c.abort(); assert.equal(failure('secret', c.signal).code, 'cancelled');
   assert.equal(failure(new DOMException('', 'TimeoutError')).code, 'timeout'); assert.equal(failure('secret').code, 'backend_unavailable');
-  assert.equal(estimateCost({ ...req, n: 2 }, { id: 'together', model: 'stabilityai/stable-diffusion-xl-base-1.0' }).usd, 0.0038);
+  assert.deepEqual(requestedUnits({ ...req, n: 2 }), { unit: 'image', quantity: 2 });
 });
 test('fresh installation recovery works before a job directory exists', async () => {
   const root = await mkdtemp(join(tmpdir(), 'media-fresh-')); const persistence = new FileJobPersistence(join(root, 'not-created-yet'));

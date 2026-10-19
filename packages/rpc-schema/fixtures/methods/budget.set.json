@@ -4,9 +4,9 @@
       "scope": "agent",
       "agentId": "main",
       "period": "day",
-      "metric": "cost",
-      "soft": 2000000,
-      "hard": 5000000
+      "metric": "tokens",
+      "soft": 200000,
+      "hard": 500000
     },
     "timeZone": "Europe/Berlin"
   },
@@ -16,18 +16,18 @@
       "scope": "agent",
       "agentId": "main",
       "period": "day",
-      "metric": "cost",
-      "soft": 2000000,
-      "hard": 5000000
+      "metric": "tokens",
+      "soft": 200000,
+      "hard": 500000
     },
     "limits": [
       {
         "scope": "agent",
         "agentId": "main",
         "period": "day",
-        "metric": "cost",
-        "soft": 2000000,
-        "hard": 5000000
+        "metric": "tokens",
+        "soft": 200000,
+        "hard": 500000
       }
     ]
   }

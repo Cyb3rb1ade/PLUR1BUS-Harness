@@ -5,12 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createMediaSurface } from '../../src/rpc/media-surface.ts';
 import { guardMethods } from '../../src/rbac/guard.ts';
-import { createCallBudget, PriceBook } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 import { OutputStore, type ImageAdapter } from '../../../media/src/index.ts';
 const ctx = {requestId:'r',connectionId:'c',signal:new AbortController().signal};
 test('video RPC reuses authorization, measures seconds and supports bounded ranges and video edit refs',async () => {
   const home = await mkdtemp(join(tmpdir(),'rpc-video-'));
-  const budget = createCallBudget({path:join(home,'budget.sqlite'),clock:{now:()=>1000},prices:new PriceBook([{version:'fake',effectiveFrom:0,models:{fake:{input:0,output:0,media:{videoSecond:{'720p':100}}}}}])});
+  const budget = createCallBudget({path:join(home,'budget.sqlite'),clock:{now:()=>1000}});
   let references = false;
   const adapter: ImageAdapter = {id:'fake',model:'fake',capabilities:()=>({generate:true,edit:true,inpaint:false,video:{textToVideo:true,imageToVideo:true,videoToVideo:true}}),async generate(r) {
     references = !!r.referenceVideo;

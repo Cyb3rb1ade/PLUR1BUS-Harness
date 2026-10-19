@@ -44,7 +44,7 @@ All agent runs go through the deterministic `FakeChatProvider` from `packages/co
 | Fan-out | 3 starts per chain | `fanout` |
 | Per pair | 2 starts per `(from, to)` per chain | `pair-limit` |
 | Time | 5 minutes from chain start | `timeout` |
-| Token / cost budget | Optional per-project cap, checked **before** every hop via a budget port | `token-budget` / `cost-budget` |
+| Token budget | Optional per-project cap in tokens, checked **before** every hop via a budget port (no money dimension since 2026-10-19) | `token-budget` |
 | Repeat | Same from/to/question inside 30 s | `repeat` |
 | Project boundary | Both agents must belong to the project unless `allowCrossProject` | `project-boundary` |
 | Inactive target | Directory state must be `active` | `agent-inactive` |
@@ -72,7 +72,7 @@ Each chain gets a W3C `trace_id` (32 hex, not all-zero). `traceparent` is `00-{t
 
 ```
 { spanId, traceId, parentSpanId, agentId, kind: "consult"|"delegate"|"guardrail",
-  startedAt, endedAt, status, inputTokens, outputTokens, costEstimate,
+  startedAt, endedAt, status, inputTokens, outputTokens,
   inputPreview, outputPreview, error, guardrail }
 ```
 
@@ -83,7 +83,7 @@ Previews are truncated and passed through a **redaction port** (default: `logs` 
 | Port | Default in this slice | Follow-up |
 |---|---|---|
 | `AuthorizePort` | `rbac.authorize` | unchanged |
-| `BudgetPort` | unlimited (project `tokenBudget`/`costBudget` still apply) | M2 `budget` service + per-project ledger |
+| `BudgetPort` | unlimited (project `tokenBudget` still applies) | M2 `budget` service + per-project ledger |
 | `ArtifactPort` | `node:sqlite` table | object store / session transcript |
 | `RedactionPort` | `logs.createRedactor({ pii: true })` | shared audit redactor |
 | `EventEmitter` | no-op | core event bus / RPC notifications |
@@ -139,8 +139,8 @@ plur1bus trace show <trace-id>
 
 All support global `--json`. Projects (`#/projects`) provides list/detail,
 membership and agent forms, archive confirmation, and chain cancellation. Traces
-show parent-span relationships, timestamps, tokens, estimated cost/status and
-existing-port-redacted previews. Null costs remain unknown. The composition root
+show parent-span relationships, timestamps, tokens, status and
+existing-port-redacted previews. The composition root
 opens the project store even without a chat provider; actual consult/delegate
 execution then refuses no-provider, and never switches to a synthetic provider.
 Existing composed runner/budget checks still handle configured collaboration.
@@ -225,7 +225,7 @@ provider calls use the new session id. Partial results are retained too.
 persisted session/project binding on every read. It returns the same stored,
 redacted messages/events without making a model call. Redaction runs before
 persistence and again on read. Project UI renders a delegation tree, duration,
-token counts, known monetary cost (unknown stays `?`) and a keyboard-usable
+token counts (no monetary cost) and a keyboard-usable
 transcript link. Session shutdown follows collaboration shutdown so an in-flight
 hop cannot write into a closed transcript store. Optional channel mirroring is
 not enabled or implemented by this phase.

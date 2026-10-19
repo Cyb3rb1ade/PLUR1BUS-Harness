@@ -53,8 +53,8 @@ plur1bus memory reembed --abort
   endpoint, kept in the checkpoint). It is what makes cloud → cloud possible while `memory.embedding.privacyAck` still admits
   the provider in use: the switch writes it as `memory.embedding.privacyAck` in the same `config.set` as the new block.
 - For a cloud target `--plan` also shows that **every card text goes to the provider**, the number of cards, the estimated
-  tokens (an upper bound from the source size without its vectors, bytes / 4) and the estimated cost from the price table
-  (`budget/prices.ts`), "unknown" when it does not list the model. The engine's plan probes the provider with one short text.
+  tokens (an upper bound from the source size without its vectors, bytes / 4); there is no cost estimate (no money
+  dimension since 2026-10-19). The engine's plan probes the provider with one short text.
 - `--plan` copies nothing. It prints the verdict and the counts: rows, tables, batches, provider calls, source and target
   bytes, free space needed and available, the pause between batches and the minimum time those pauses add up to. Exit 1 for
   `incompatible`.
@@ -62,7 +62,7 @@ plur1bus memory reembed --abort
   (progress on stderr, one final document with `--json`). Ctrl-C stops the following, not the migration. `--no-wait` returns
   after the start. `--no-switch` copies and validates but does not switch.
 - For a cloud target `--run` asks with the provider named. Before every batch the estimated tokens are reserved in the call
-  budget (principal, agent and project `memory-reembed`); a hard limit (tokens, or cost, where an unpriced model is refused)
+  budget (principal, agent and project `memory-reembed`); a hard token limit
   pauses the run: phase `aborted`, error `budget-exceeded` in `--status`, continued with `--run` once the budget allows it.
   A rate limit or a transient provider error (429, 5xx, network) is retried with exponential backoff (1 s, 2 s, 4 s, 8 s,
   at most 30 s) before the run halts (`aborted`, resumable). Before a run starts the rules are checked again

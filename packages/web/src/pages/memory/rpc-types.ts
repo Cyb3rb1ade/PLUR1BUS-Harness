@@ -40,7 +40,7 @@ export type DreamTrigger = "cron" | "importance" | "manual" | "catchup";
 export type DreamRun = {
   runId: string; agentId: string; phase: DreamPhase; jobId: string; idempotencyKey: string; claimed: boolean; trigger: DreamTrigger;
   scheduledFor?: number | null; startedAt: number; finishedAt?: number | null; durationMs?: number | null; outcome: DreamOutcome | null; reason: string | null;
-  counts: Record<string, number>; tokensIn?: number | null; tokensOut?: number | null; costMicros?: number | null; logPath?: string | null;
+  counts: Record<string, number>; tokensIn?: number | null; tokensOut?: number | null; logPath?: string | null;
   error?: { message: string; name?: string } | null;
 };
 export type DreamPhaseStatus = {

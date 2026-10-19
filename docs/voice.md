@@ -31,7 +31,7 @@ The server-authenticated connection notification calls `broker.attachEphemeral(r
 
 ## Budgets and lifecycle
 
-Every opening/mint uses the existing `CallBudget.checkBeforeCall`. Voice seconds and provider-reported cost figures are recorded separately in `state/voice-usage.sqlite`; `auth.openai.voiceDailySeconds` guards per-person/per-agent daily use. Provider usage updates/final totals are cumulative; backend token events are deltas. Duplicate event IDs are idempotent. Existing hard token/cost limits retain their semantics, including refusal of unpriced models. Vendor pricing is not inferred from duration.
+Every opening/mint uses the existing `CallBudget.checkBeforeCall`. Voice seconds are recorded separately in `state/voice-usage.sqlite` (no money figures: the harness has no money dimension since 2026-10-19); `auth.openai.voiceDailySeconds` guards per-person/per-agent daily use. Provider usage updates/final totals are cumulative; backend token events are deltas. Duplicate event IDs are idempotent. Existing hard token limits retain their semantics; voice is limited in its native units (seconds, tokens), never in money.
 
 At a ceiling, the broker stops the provider and records a notice. An overbudget opening calls the existing D109 evaluator and records a `money.spend` request with its existing once/T3 requirements, then remains refused. Approval alone neither raises a limit nor authorizes a paid fallback. Spoken/media notice UX and configuring more detailed monthly/install voice ceilings require the follow-up surface/setup integration.
 

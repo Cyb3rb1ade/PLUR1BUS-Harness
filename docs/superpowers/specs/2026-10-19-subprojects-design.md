@@ -342,7 +342,7 @@ history, then `state` and `triedAndFailed` are required as today):
   "summary": "≤ 1 000 chars",
   "progress": { "doneWhenMet": 2, "doneWhenTotal": 5, "cardsDone": 7, "cardsTotal": 12 },
   "artifacts": [{ "ref": "artifact:… | git:<sha> | pr:<url>", "kind": "diff|file|log|link", "sha256": "…" }],
-  "cost": { "tokens": 12345, "costMicros": 6789, "allocationLeft": 40000 },
+  "cost": { "tokens": 12345, "allocationLeft": 40000 },
   "openPoints": ["≤ 20 items, ≤ 300 chars each"],
   "question": { "text": "…", "options": ["…"], "blocking": true },
   "at": "RFC 3339"
@@ -409,13 +409,15 @@ sufficient for merge (§6.6). The child's self-report is never evidence on its o
 
 ## 10. Budget
 
-- **Allocation:** `project.subproject.budget.set { projectId, tokens?, costMicros? }`. The allocation is an M2 project-scope
+The harness has no money dimension anywhere (M2 price tables and `costMicros` were removed on 2026-10-19).
+
+- **Allocation:** `project.subproject.budget.set { projectId, tokens? }`. The allocation is an M2 project-scope
   ceiling on the child id **and** a reservation against the parent's remaining budget: `sum(children allocations) + parent
   own usage ≤ parent ceiling`. Creating or topping up beyond the parent's remaining budget is refused (`E_CONFLICT`, reason
   `allocation-exceeds-parent`).
 - **Admission:** every model call inside a child runs `checkBeforeCall` with the child as `project` and the M2 hierarchy
   extended by the ancestor chain: all matching limits apply, the tightest wins (budgets.md: agent, project, user, global →
-  plus ancestor projects). A refusal is a normal `token-budget`/`cost-budget` guardrail refusal plus a `blocker` report.
+  plus ancestor projects). A refusal is a normal `token-budget` guardrail refusal plus a `blocker` report.
 - **Hard limit:** an exhausted allocation pauses the child at the next turn boundary (state `paused`, reason
   `budget`), never kills a running provider call mid-stream (partial output is kept as today).
 - **Top-up / cut:** top-up within the parent's remaining budget; a cut cannot go below used + in-flight reservations.

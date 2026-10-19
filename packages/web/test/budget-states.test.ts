@@ -13,17 +13,17 @@ after(teardown);
 const opts = { skip: browserSkip };
 
 type L = Record<string, unknown>;
-const lim = (o: L): L => ({ period: "day", metric: "cost", soft: null, hard: null, used: 0, state: "ok", ...o });
-const usage = (o: L = {}): L => ({ events: 4, inputTokens: 1200, outputTokens: 300, cacheReadTokens: 50, cacheWriteTokens: 10, costMicros: 1500, unpricedEvents: 0, ...o });
+const lim = (o: L): L => ({ period: "day", metric: "tokens", soft: null, hard: null, used: 0, state: "ok", ...o });
+const usage = (o: L = {}): L => ({ events: 4, inputTokens: 1200, outputTokens: 300, cacheReadTokens: 50, cacheWriteTokens: 10, ...o });
 const periods = (): L[] => [
   { period: "day", key: "2026-10-07", start: "2026-10-07T00:00:00+02:00", end: "2026-10-08T00:00:00+02:00", total: usage(), agents: [{ agentId: "main", total: usage(), models: [{ model: "claude-x", ...usage() }] }] },
   { period: "month", key: "2026-10", start: "2026-10-01T00:00:00+02:00", end: "2026-11-01T00:00:00+01:00", total: usage({ events: 40 }), agents: [] },
 ];
-/** One limit in each state: within, soft reached, hard exceeded. */
+/** One limit in each state: within and soft reached (global), hard exceeded (agent main). Tokens are the only metric. */
 const threeStates = (): L[] => [
-  lim({ scope: "global", period: "day", metric: "cost", soft: 5_000_000, hard: 10_000_000, used: 2_000_000, state: "ok" }),
+  lim({ scope: "global", period: "day", metric: "tokens", soft: 5_000_000, hard: 10_000_000, used: 2_000_000, state: "ok" }),
   lim({ scope: "global", period: "month", metric: "tokens", soft: 1_000_000, hard: 2_000_000, used: 1_500_000, state: "soft" }),
-  lim({ scope: "global", period: "day", metric: "tokens", soft: 100, hard: 200, used: 250, state: "hard" }),
+  lim({ scope: "agent", agentId: "main", period: "day", metric: "tokens", soft: 100, hard: 200, used: 250, state: "hard" }),
 ];
 
 /** A call that stays in flight until the test lets it go: no timer, so a slow machine cannot change what the test sees. */
@@ -38,7 +38,7 @@ function seed(rpc: MockRpc, over: Partial<Seeded> = {}, o: { set?: boolean; hold
   const s: Seeded = { limits: threeStates(), periods: periods(), ...over };
   rpc.handle("budget.status", async () => {
     if (o.holdStatus) await o.holdStatus;
-    return { timeZone: "Europe/Berlin", priceVersion: "2026-10-01", now: "2026-10-07T09:00:00+02:00", periods: s.periods, limits: s.limits };
+    return { timeZone: "Europe/Berlin", now: "2026-10-07T09:00:00+02:00", periods: s.periods, limits: s.limits };
   }, { write: false });
   if (o.set !== false) {
     rpc.handle("budget.set", async (p) => {
@@ -60,6 +60,12 @@ const open = (app: App, hash = "#/usage"): Promise<void> => openRoute(app.page, 
 const sets = (app: App): { params: { limit: L }; csrf: string | null }[] => app.server.rpc.calls.filter((c) => c.method === "budget.set") as never;
 const group = (app: App, name: string) => app.page.getByRole("group", { name, exact: true });
 const badgeOf = async (app: App, name: string): Promise<string> => ((await group(app, name).locator(".badge").textContent()) ?? "").trim();
+/** The hard-exceeded card of threeStates() sits under agent main on the Agents tab. */
+const hardCard = async (app: App) => {
+  await app.page.getByRole("tab", { name: "Agents" }).click();
+  await app.page.getByRole("heading", { name: "main", level: 2, exact: true }).waitFor();
+  return group(app, "Daily tokens");
+};
 
 const OK = "Within limit";
 const SOFT = "Warning: soft limit reached";
@@ -69,27 +75,26 @@ describe("usage: a soft limit and a hard limit are told apart without colour", o
   test("within, soft and hard each carry their own words and numbers, visible next to the figures", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
-      await group(app, "Daily cost").waitFor();
-      const states: [string, string, RegExp][] = [["Daily cost", OK, /\$2\.00 of \$10\.00 \(20%\)/], ["Monthly tokens", SOFT, /1,500,000 of 2,000,000 \(75%\)/], ["Daily tokens", HARD, /250 of 200 \(125%\)/]];
+      await group(app, "Daily tokens").waitFor();
       const seen = new Set<string>();
-      for (const [name, text, figures] of states) {
-        const badge = group(app, name).locator(".badge");
-        assert.equal(await badgeOf(app, name), text);
+      const check = async (card: ReturnType<typeof group>, name: string, text: string, figures: RegExp): Promise<void> => {
+        const badge = card.locator(".badge");
+        assert.equal(((await badge.textContent()) ?? "").trim(), text);
         assert.equal(await badge.isVisible(), true);
         const box = await badge.boundingBox();
         assert.ok(box && box.width > 8 && box.height > 8, `${name}: the state label takes room on the page`);
-        const card = (await group(app, name).textContent()) ?? "";
-        assert.ok(card.includes(text), `${name}: the state is part of the card's own text`);
-        assert.match(card, figures);
+        const body = (await card.textContent()) ?? "";
+        assert.ok(body.includes(text), `${name}: the state is part of the card's own text`);
+        assert.match(body, figures);
+        assert.match(body, /Soft limit\s*[\d,.]/);
+        assert.match(body, /Hard limit\s*[\d,.]/);
         seen.add(text);
-      }
+      };
+      await check(group(app, "Daily tokens"), "Daily tokens", OK, /2,000,000 of 10,000,000 \(20%\)/);
+      await check(group(app, "Monthly tokens"), "Monthly tokens", SOFT, /1,500,000 of 2,000,000 \(75%\)/);
+      await check(await hardCard(app), "main: Daily tokens", HARD, /250 of 200 \(125%\)/);
       assert.equal(seen.size, 3, "three states, three different texts");
       assert.ok(!SOFT.includes("Exceeded") && !HARD.includes("Warning") && /soft/i.test(SOFT) && /hard/i.test(HARD), "the words themselves name the kind of limit");
-      for (const name of ["Monthly tokens", "Daily tokens"]) {
-        const card = (await group(app, name).textContent()) ?? "";
-        assert.match(card, /Soft limit\s*[\d,.$]/);
-        assert.match(card, /Hard limit\s*[\d,.$]/);
-      }
     });
   });
 
@@ -97,7 +102,7 @@ describe("usage: a soft limit and a hard limit are told apart without colour", o
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       await group(app, "Daily tokens").waitFor();
-      const meter = group(app, "Daily tokens").getByRole("meter");
+      const meter = (await hardCard(app)).getByRole("meter");
       assert.equal(await meter.getAttribute("aria-label"), "Daily tokens: 250 of 200");
       assert.equal(((await meter.textContent()) ?? "").trim(), "250 / 200");
       assert.equal(await meter.getAttribute("value"), "200", "the bar stops at the limit; the text says 125%");
@@ -109,9 +114,12 @@ describe("usage: a soft limit and a hard limit are told apart without colour", o
       seed(app.server.rpc);
       await app.page.emulateMedia({ forcedColors: "active" });
       await open(app);
-      await group(app, "Daily cost").waitFor();
-      assert.deepEqual([await badgeOf(app, "Daily cost"), await badgeOf(app, "Monthly tokens"), await badgeOf(app, "Daily tokens")], [OK, SOFT, HARD]);
-      for (const name of ["Daily cost", "Monthly tokens", "Daily tokens"]) assert.equal(await group(app, name).locator(".badge").isVisible(), true);
+      await group(app, "Daily tokens").waitFor();
+      assert.deepEqual([await badgeOf(app, "Daily tokens"), await badgeOf(app, "Monthly tokens")], [OK, SOFT]);
+      for (const name of ["Daily tokens", "Monthly tokens"]) assert.equal(await group(app, name).locator(".badge").isVisible(), true);
+      const hard = await hardCard(app);
+      assert.equal(((await hard.locator(".badge").textContent()) ?? "").trim(), HARD);
+      assert.equal(await hard.locator(".badge").isVisible(), true);
     });
   });
 
@@ -119,9 +127,12 @@ describe("usage: a soft limit and a hard limit are told apart without colour", o
     await withApp({ locale: "de-DE" }, async (app) => {
       seed(app.server.rpc);
       await openRoute(app.page, "#/usage", "de");
-      await app.page.getByRole("group", { name: "Tageskosten", exact: true }).waitFor();
+      await app.page.getByRole("group", { name: "Tages-Tokens", exact: true }).waitFor();
       const de = async (name: string) => ((await app.page.getByRole("group", { name, exact: true }).locator(".badge").textContent()) ?? "").trim();
-      assert.deepEqual([await de("Tageskosten"), await de("Monats-Tokens"), await de("Tages-Tokens")], ["Im Limit", "Warnung: weiches Limit erreicht", "Überschritten: hartes Limit erreicht"]);
+      assert.deepEqual([await de("Tages-Tokens"), await de("Monats-Tokens")], ["Im Limit", "Warnung: weiches Limit erreicht"]);
+      await app.page.getByRole("tab", { name: "Agenten" }).click();
+      await app.page.getByRole("heading", { name: "main", level: 2, exact: true }).waitFor();
+      assert.equal(await de("Tages-Tokens"), "Überschritten: hartes Limit erreicht");
     });
   });
 
@@ -171,9 +182,9 @@ describe("usage: budget.status loading, empty and failed", opts, () => {
       await loading.waitFor();
       assert.equal(await loading.getAttribute("role"), "status");
       assert.equal(await loading.getAttribute("aria-busy"), "true");
-      for (const name of ["Set limit", "Edit limit: Daily cost", "Remove limit: Daily cost"]) assert.equal(await app.page.getByRole("button", { name }).count(), 0, name);
+      for (const name of ["Set limit", "Edit limit: Daily tokens", "Remove limit: Daily tokens"]) assert.equal(await app.page.getByRole("button", { name }).count(), 0, name);
       gate.release();
-      await group(app, "Daily cost").waitFor();
+      await group(app, "Daily tokens").waitFor();
       assert.equal(await app.page.locator(".page-state[data-state=loading]").count(), 0);
     });
   });
@@ -208,29 +219,29 @@ describe("usage: budget.status loading, empty and failed", opts, () => {
       assert.equal(await app.page.getByRole("group").count(), 0, "no figures from nowhere");
       seed(app.server.rpc);
       await app.page.getByRole("button", { name: "Try again" }).click();
-      await group(app, "Daily cost").waitFor();
+      await group(app, "Daily tokens").waitFor();
     });
   });
 
   test("a failing refresh replaces the figures with the error instead of leaving stale ones, and Try again brings them back", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
-      await group(app, "Daily cost").waitFor();
+      await group(app, "Daily tokens").waitFor();
       app.server.rpc.scenario("budget.status", "error");
       await app.page.getByRole("button", { name: "Refresh" }).click();
       await app.page.getByRole("alert").getByRole("heading", { name: "Something went wrong" }).waitFor();
-      assert.equal(await group(app, "Daily cost").count(), 0);
+      assert.equal(await group(app, "Daily tokens").count(), 0);
       assert.equal(await app.page.getByRole("button", { name: "Set limit" }).count(), 0);
       app.server.rpc.scenario("budget.status", "success");
       await app.page.getByRole("button", { name: "Try again" }).click();
-      await group(app, "Daily cost").waitFor();
+      await group(app, "Daily tokens").waitFor();
     });
   });
 });
 
 describe("usage: budget.set refused, failed and in flight", opts, () => {
   const saveEdit = async (app: App): Promise<void> => {
-    await app.page.getByRole("button", { name: "Edit limit: Daily cost" }).click();
+    await app.page.getByRole("button", { name: "Edit limit: Daily tokens" }).click();
     await app.page.getByRole("button", { name: "Review" }).click();
     await app.page.getByRole("button", { name: "Confirm and save" }).click();
   };
@@ -244,13 +255,13 @@ describe("usage: budget.set refused, failed and in flight", opts, () => {
     test(`${c.name}: said in the dialog, one call, the figures behind it are unchanged, the user can try again`, async () => {
       await withApp({}, async (app) => {
         seed(app.server.rpc); await open(app);
-        await group(app, "Daily cost").waitFor();
+        await group(app, "Daily tokens").waitFor();
         c.fail(app.server.rpc);
         await saveEdit(app);
         const dialog = app.page.getByRole("dialog", { name: "Confirm limit" });
         await dialog.getByRole("alert").getByText(c.text, { exact: true }).waitFor();
         assert.equal(sets(app).length, 1);
-        assert.match((await group(app, "Daily cost").textContent()) ?? "", /\$2\.00 of \$10\.00 \(20%\)/);
+        assert.match((await group(app, "Daily tokens").textContent()) ?? "", /2,000,000 of 10,000,000 \(20%\)/);
         const confirm = dialog.getByRole("button", { name: "Confirm and save" });
         assert.equal(await confirm.isDisabled(), false);
         assert.notEqual(await confirm.getAttribute("aria-disabled"), "true");
@@ -261,16 +272,16 @@ describe("usage: budget.set refused, failed and in flight", opts, () => {
   test("a core without budget.set (-32601) says the same, and a refused remove keeps the limit", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc, {}, { set: false }); await open(app);
-      await group(app, "Daily cost").waitFor();
+      await group(app, "Daily tokens").waitFor();
       await saveEdit(app);
       await app.page.getByRole("dialog", { name: "Confirm limit" }).getByRole("alert").getByText("The limit could not be saved. Try again.", { exact: true }).waitFor();
       await app.page.keyboard.press("Escape");
       await app.page.getByRole("dialog").waitFor({ state: "detached" });
-      await app.page.getByRole("button", { name: "Remove limit: Daily cost" }).click();
+      await app.page.getByRole("button", { name: "Remove limit: Daily tokens" }).click();
       const dialog = app.page.getByRole("dialog", { name: "Remove limit" });
       await dialog.getByRole("button", { name: "Remove", exact: true }).click();
       await dialog.getByRole("alert").getByText("The limit could not be saved. Try again.", { exact: true }).waitFor();
-      assert.equal(await group(app, "Daily cost").count(), 1);
+      assert.equal(await group(app, "Daily tokens").count(), 1);
     });
   });
 
@@ -278,8 +289,8 @@ describe("usage: budget.set refused, failed and in flight", opts, () => {
     await withApp({}, async (app) => {
       const gate = hold();
       seed(app.server.rpc, {}, { holdSet: gate.promise }); await open(app);
-      await group(app, "Daily cost").waitFor();
-      await app.page.getByRole("button", { name: "Edit limit: Daily cost" }).click();
+      await group(app, "Daily tokens").waitFor();
+      await app.page.getByRole("button", { name: "Edit limit: Daily tokens" }).click();
       await app.page.getByRole("button", { name: "Review" }).click();
       const confirm = app.page.getByRole("button", { name: "Confirm and save" });
       await confirm.dblclick();
@@ -294,8 +305,8 @@ describe("usage: budget.set refused, failed and in flight", opts, () => {
     await withApp({}, async (app) => {
       const gate = hold();
       seed(app.server.rpc, {}, { holdSet: gate.promise }); await open(app);
-      await group(app, "Daily cost").waitFor();
-      await app.page.getByRole("button", { name: "Remove limit: Daily cost" }).click();
+      await group(app, "Daily tokens").waitFor();
+      await app.page.getByRole("button", { name: "Remove limit: Daily tokens" }).click();
       const dialog = app.page.getByRole("dialog", { name: "Remove limit" });
       await dialog.waitFor();
       assert.equal(sets(app).length, 0);
@@ -303,21 +314,21 @@ describe("usage: budget.set refused, failed and in flight", opts, () => {
       gate.release();
       await dialog.waitFor({ state: "detached" });
       assert.equal(sets(app).length, 1);
-      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "cost", soft: null, hard: null } });
+      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "tokens", soft: null, hard: null } });
     });
   });
 
   test("Cancel, Back and Esc send nothing, at every step of the dialog", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
-      await group(app, "Daily cost").waitFor();
-      await app.page.getByRole("button", { name: "Remove limit: Daily cost" }).click();
+      await group(app, "Daily tokens").waitFor();
+      await app.page.getByRole("button", { name: "Remove limit: Daily tokens" }).click();
       await app.page.getByRole("dialog", { name: "Remove limit" }).getByRole("button", { name: "Cancel" }).click();
       await app.page.getByRole("dialog").waitFor({ state: "detached" });
-      await app.page.getByRole("button", { name: "Edit limit: Daily cost" }).click();
+      await app.page.getByRole("button", { name: "Edit limit: Daily tokens" }).click();
       await app.page.getByRole("button", { name: "Review" }).click();
       await app.page.getByRole("dialog", { name: "Confirm limit" }).getByRole("button", { name: "Back" }).click();
-      await app.page.getByRole("dialog", { name: "Edit limit: Daily cost" }).waitFor();
+      await app.page.getByRole("dialog", { name: "Edit limit: Daily tokens" }).waitFor();
       await app.page.getByRole("button", { name: "Review" }).click();
       await app.page.getByRole("dialog", { name: "Confirm limit" }).waitFor();
       await app.page.keyboard.press("Escape");
@@ -328,13 +339,13 @@ describe("usage: budget.set refused, failed and in flight", opts, () => {
 });
 
 describe("usage: who is offered the buttons that change a budget", opts, () => {
-  const changers = ["Set limit", "Edit limit: Daily cost", "Remove limit: Daily cost"];
+  const changers = ["Set limit", "Edit limit: Daily tokens", "Remove limit: Daily tokens"];
 
   for (const role of ["owner", "admin"]) {
     test(`role ${role}: Set, Edit and Remove are offered`, async () => {
       await withApp({ server: { role } }, async (app) => {
         seed(app.server.rpc); await open(app);
-        await group(app, "Daily cost").waitFor();
+        await group(app, "Daily tokens").waitFor();
         for (const name of changers) assert.equal(await app.page.getByRole("button", { name }).count(), 1, name);
       });
     });
@@ -344,8 +355,8 @@ describe("usage: who is offered the buttons that change a budget", opts, () => {
     test(`role ${role}: reads limits and usage, is offered nothing that changes them`, async () => {
       await withApp({ server: { role } }, async (app) => {
         seed(app.server.rpc); await open(app);
-        await group(app, "Daily cost").waitFor();
-        assert.equal(await badgeOf(app, "Daily tokens"), HARD, "the figures and states are there");
+        await group(app, "Daily tokens").waitFor();
+        assert.equal(await badgeOf(app, "Monthly tokens"), SOFT, "the figures and states are there");
         for (const tab of ["Global", "Agents", "Usage"]) {
           await app.page.getByRole("tab", { name: tab }).click();
           await app.page.getByRole("tabpanel").waitFor();
@@ -373,9 +384,9 @@ describe("usage: who is offered the buttons that change a budget", opts, () => {
   test("an owner who loses the right while the page is open is told so by the server's refusal", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
-      await group(app, "Daily cost").waitFor();
+      await group(app, "Daily tokens").waitFor();
       app.server.rpc.scenario("budget.set", "forbidden");
-      await app.page.getByRole("button", { name: "Edit limit: Daily cost" }).click();
+      await app.page.getByRole("button", { name: "Edit limit: Daily tokens" }).click();
       await app.page.getByRole("button", { name: "Review" }).click();
       await app.page.getByRole("button", { name: "Confirm and save" }).click();
       await app.page.getByRole("dialog").getByRole("alert").getByText("You are not allowed to change budgets.").waitFor();
@@ -416,15 +427,15 @@ describe("usage: axe on these views", opts, () => {
   test("axe: a dialog showing a refused write, and the remove question", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
-      await group(app, "Daily cost").waitFor();
+      await group(app, "Daily tokens").waitFor();
       app.server.rpc.scenario("budget.set", "forbidden");
-      await app.page.getByRole("button", { name: "Edit limit: Daily cost" }).click();
+      await app.page.getByRole("button", { name: "Edit limit: Daily tokens" }).click();
       await app.page.getByRole("button", { name: "Review" }).click();
       await app.page.getByRole("button", { name: "Confirm and save" }).click();
       await app.page.getByRole("dialog").getByRole("alert").getByText("You are not allowed to change budgets.").waitFor();
       await expectAxeClean(app.page, "refused write");
       await app.page.keyboard.press("Escape");
-      await app.page.getByRole("button", { name: "Remove limit: Daily cost" }).click();
+      await app.page.getByRole("button", { name: "Remove limit: Daily tokens" }).click();
       await app.page.getByRole("dialog", { name: "Remove limit" }).waitFor();
       await expectAxeClean(app.page, "remove question");
     });

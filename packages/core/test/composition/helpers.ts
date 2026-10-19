@@ -70,7 +70,7 @@ export function fakeEgress(allow: (url: string) => boolean = () => true) {
 
 // ---- turn provider fixture -------------------------------------------------------------------------------------------
 import { join as joinPath } from "node:path";
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES, type CallBudget } from "../../src/budget/index.ts";
+import { createCallBudget, type CallBudget } from "../../src/budget/index.ts";
 import { ToolRegistry, type ToolDef } from "../../src/tools/registry.ts";
 import { createTurnProvider, type TurnProviderOptions } from "../../src/composition/provider.ts";
 import type { StreamingAdapter, ChatRequest as WireRequest, ChatResult } from "../../../providers/src/index.ts";
@@ -105,7 +105,7 @@ export const turnRequest = (over: Partial<ChatRequest> = {}): ChatRequest => ({ 
 
 export function turnFixture(adapter: StreamingAdapter, extra: Partial<TurnProviderOptions> = {}, dir?: string) {
   const home = dir ?? (() => { throw new Error("pass a temp dir"); })();
-  const budget: CallBudget = createCallBudget({ path: joinPath(home, "budget.sqlite"), clock: { now: () => Date.UTC(2026, 9, 12) }, prices: new PriceBook(SHIPPED_PRICE_TABLES), emitter: { emit() { /* ignored */ } } });
+  const budget: CallBudget = createCallBudget({ path: joinPath(home, "budget.sqlite"), clock: { now: () => Date.UTC(2026, 9, 12) }, emitter: { emit() { /* ignored */ } } });
   const registry = new ToolRegistry();
   const logs: Record<string, unknown>[] = [];
   const stored: unknown[] = [];
