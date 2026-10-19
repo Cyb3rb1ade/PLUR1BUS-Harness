@@ -33,6 +33,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `activity.maxEntries` | integer | `1000` | core | Maximum retained agent activity transitions. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
+| `tools.sandbox.required` | boolean | `true` | core | Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn. |
 | `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
 | `tools.hostctl.shell.allowed` | boolean | `false` | core | Allow proc.shell after normal D109 approval. |
 | `tools.hostctl.shell.default` | string | `"bash"` | core | Shell executable; set pwsh on Windows. |
@@ -112,6 +113,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `channels.slack.replyPolicy` | enum | `"mention"` | module:slack | When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed. |
 | `channels.slack.maxMediaBytes` | integer | `10485760` | module:slack | Largest attachment accepted or sent, in bytes (checked before and during download and before upload). |
 | `channels.slack.locale` | enum | `"en"` | module:slack | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
+| `channels.buzz` | object | `{}` | module:buzz | NIP-17 text-only direct messages. Disabled by default. |
+| `channels.matrix.e2ee` | object | `{}` | module:matrix | Experimental E2EE. Memory mode is NOT persistent: restart loses keys and requires device verification again. |
 | `channels.matrix.enabled` | boolean | `false` | module:matrix | Whether the matrix channel is started. Off by default; nothing connects until this is true. |
 | `channels.matrix.homeserverUrl` | string |  | module:matrix | Base URL of the Matrix homeserver. Must be https, or http for a loopback host. |
 | `channels.matrix.userId` | string |  | module:matrix | Matrix id of the bot account, for example @bot:example.org. |

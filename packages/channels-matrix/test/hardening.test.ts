@@ -8,7 +8,7 @@ import { resolveConfig, type MatrixConfig } from "../src/config.ts";
 import { mentionsBot } from "../src/events.ts";
 import { toMatrixText } from "../src/markdown.ts";
 import { redactString } from "../src/redact.ts";
-import { ALICE, BOT, FakeMatrix, ROOM } from "./helpers/fake-matrix.ts";
+import { ALICE, BOT, FakeMatrix, ROOM, textMessage } from "./helpers/fake-matrix.ts";
 import { Rig, newFake } from "./helpers/rig.ts";
 
 const bytes = (s: string): number => new TextEncoder().encode(s).length;
@@ -195,12 +195,22 @@ test("redaction: the exact token is also removed in URL-encoded and JSON-escaped
   }
 });
 
-// ---------------------------------------------------------------- KNOWN GAPs (need a change outside this module's remit)
+// ---------------------------------------------------------------- d07 gaps closed by durable sync safety
 
-test("KNOWN GAP: a crash between handing a batch to the handlers and saving its next_batch delivers those events again after the restart", { todo: "the de-duplication set is in memory only; remembering delivered event ids across restarts needs a new field in the sync-state file (a stored format change), or a SyncTokenStore port change" }, async () => {
-  assert.fail("events of an unsaved batch are replayed to onMessage handlers and the host after a restart");
+test("d07: a claimed event from an unsaved cursor interval reaches neither rich handlers nor the host after restart", async () => {
+  const fake = await newFake(); const store = new MemorySyncTokenStore("s0");
+  const event = fake.message(ROOM, ALICE, textMessage(`${BOT} already claimed`));
+  await store.saveSafety({ encryptedRooms: [], claimedEventIds: [event.event_id!] });
+  const rig = new Rig(fake, {}, store); rig.onMessage(); open.push({ fake, rig });
+  await rig.start(); await fake.deliver(ROOM, [event]);
+  assert.equal(rig.rich.length, 0); assert.equal(rig.received.length, 0);
 });
 
-test("KNOWN GAP: after a restart the first sync of an encrypted room carries no m.room.encryption state, so a plaintext m.room.message sent there is processed", { todo: "needs the room's encryption state to be persisted or fetched per room (an extra GET /state call); the sync filter alone cannot supply it" }, async () => {
-  assert.fail("plaintext events in a room that has encryption enabled are accepted until an m.room.encrypted event is seen");
+test("d07: resumed encrypted room without sync state never forwards plaintext", async () => {
+  const fake = new FakeMatrix(); await fake.listen(); fake.addRoom(ROOM, { encrypted: true });
+  fake.rooms.get(ROOM)!.stateSent = true;
+  const rig = new Rig(fake, {}, new MemorySyncTokenStore("s0")); rig.onMessage(); open.push({ fake, rig });
+  await rig.start(); await fake.deliver(ROOM, [fake.message(ROOM, ALICE, textMessage(`${BOT} plaintext`))]);
+  assert.equal(rig.rich.length, 0); assert.equal(rig.received.length, 0);
+  assert.ok(fake.calls.some(call => call.path.includes("/state/m.room.encryption")));
 });

@@ -23,10 +23,11 @@ export function createVoiceRuntime(d: CompositionDeps, openai: OpenAIRuntime, bu
   const connect = test?.connect ?? socketConnect(d.egress); let delegate: ChatProvider | null = null;
   const ledger = budget ? voiceBudget({ path: join(d.home, 'state', 'voice-usage.sqlite'), budget, clock: d.clock, dailySeconds: config?.voiceDailySeconds ?? 3600 }) : null;
   // Parent profile must be selected in trusted config, never supplied by the media client.
-  const parentConfig = () => d.config().providers.openaiVoice as { secretRef?: string; federated?: import('../openai-auth/federated.ts').FederatedSource } | undefined;
+  const parentConfig = () => d.config().providers.openaiVoice as { kind?: string; region?: string; billing_path?: string; secretRef?: string; federated?: import('../openai-auth/federated.ts').FederatedSource } | undefined;
   let federation: FederatedCredential | undefined;
   const lease = async (parent: VoiceRequest['parent']) => {
     const c = parentConfig(); if (!c) throw new OpenAIError('auth-required');
+    if (c.kind !== parent.kind || c.region !== parent.region || c.billing_path !== (parent.kind === 'api_key' ? 'api_key' : 'workload')) throw new OpenAIError('credential-denied');
     if (parent.kind === 'federated_token') { federation ??= new FederatedCredential(c.federated ?? config?.federated ?? {}, d.clock); return federation.lease(); }
     if (!c.secretRef) throw new OpenAIError('auth-required'); const key = await store.get(c.secretRef); if (!key) throw new OpenAIError('auth-required'); return new Sensitive(key);
   };

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { runImport } from "../../src/import/cli.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { FAKE_TOKEN, hermesFixture } from "./fixtures.ts";
+import { flatTestInternals } from "../helpers/flat-embedder.ts";
 
 const reason = async (argv: string[]) => { const e = await runImport(argv, {}, "/nonexistent-home"); return e.ok ? "ok" : `${e.error}/${e.reason}/${e.exit}`; };
 

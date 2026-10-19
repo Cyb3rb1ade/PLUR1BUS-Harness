@@ -59,6 +59,10 @@ fn supervise_cmd(h: &Home, mode: &str) -> Command {
         .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
         .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", "0.02")
         .env("PLUR1BUS_CORE_JS", fixture())
+        .env(
+            "PLUR1BUS_API_JS",
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-api.mjs"),
+        )
         .env("PLUR1BUS_NODE", "node")
         .env_remove("PLUR1BUS_TEST_INTERNALS")
         .env("FAKE_CORE_MODE", mode)
@@ -331,6 +335,8 @@ fn check_json_validates_the_document_shape() {
         "approvals.integrity",
         "dreams.last-runs",
         "remote.exposure",
+        "models.decision",
+        "api.supervised",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
@@ -343,7 +349,7 @@ fn check_json_validates_the_document_shape() {
     for c in v["checks"].as_array().unwrap() {
         let status = c["status"].as_str().unwrap();
         assert!(
-            matches!(status, "ok" | "warn" | "fail" | "skip"),
+            matches!(status, "ok" | "info" | "warn" | "fail" | "skip"),
             "unknown status {status} in {c}"
         );
         assert!(c["summary"].is_string(), "{c}");
@@ -363,7 +369,7 @@ fn check_json_lists_the_installer_ids_after_the_first_seventeen() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 27, "{v}");
+    assert_eq!(ids.len(), 29, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"],
@@ -512,7 +518,13 @@ fn ready_stack_is_all_ok_except_service() {
     });
     let mut c = supervisor_client(&h.home);
     wait_until("the core to become ready", WAIT, || {
-        c.call("daemon.status", json!({})).unwrap()["children"][0]["process"]["state"] == "ready"
+        let status = c.call("daemon.status", json!({})).unwrap();
+        status["children"][0]["process"]["state"] == "ready"
+            && status["children"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["role"] == "api" && c["process"]["state"] == "ready")
     });
 
     let out = check_cmd(&h).output().unwrap();
@@ -549,7 +561,13 @@ fn models_warming_is_a_warning() {
     });
     let mut c = supervisor_client(&h.home);
     wait_until("the core to become ready", WAIT, || {
-        c.call("daemon.status", json!({})).unwrap()["children"][0]["process"]["state"] == "ready"
+        let status = c.call("daemon.status", json!({})).unwrap();
+        status["children"][0]["process"]["state"] == "ready"
+            && status["children"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["role"] == "api" && c["process"]["state"] == "ready")
     });
 
     let out = check_cmd(&h).output().unwrap();
@@ -589,7 +607,13 @@ fn shared_memory_unavailable_is_a_warning_not_a_failure() {
     });
     let mut c = supervisor_client(&h.home);
     wait_until("the core to become ready", WAIT, || {
-        c.call("daemon.status", json!({})).unwrap()["children"][0]["process"]["state"] == "ready"
+        let status = c.call("daemon.status", json!({})).unwrap();
+        status["children"][0]["process"]["state"] == "ready"
+            && status["children"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["role"] == "api" && c["process"]["state"] == "ready")
     });
 
     let out = check_cmd(&h).output().unwrap();
@@ -650,7 +674,13 @@ fn an_open_breaker_is_a_warning() {
     });
     let mut c = supervisor_client(&h.home);
     wait_until("the core to become ready", WAIT, || {
-        c.call("daemon.status", json!({})).unwrap()["children"][0]["process"]["state"] == "ready"
+        let status = c.call("daemon.status", json!({})).unwrap();
+        status["children"][0]["process"]["state"] == "ready"
+            && status["children"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["role"] == "api" && c["process"]["state"] == "ready")
     });
 
     let out = check_cmd(&h).output().unwrap();
@@ -909,7 +939,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 27, "{v}");
+    assert_eq!(ids.len(), 29, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"]
@@ -919,6 +949,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
     assert_eq!(&ids[24], "approvals.integrity", "{v}");
     assert_eq!(&ids[25], "dreams.last-runs", "{v}");
     assert_eq!(&ids[26], "remote.exposure", "{v}");
+    assert_eq!(&ids[27], "models.decision", "{v}");
 }
 
 #[test]

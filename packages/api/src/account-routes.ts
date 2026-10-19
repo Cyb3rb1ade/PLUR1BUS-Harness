@@ -16,7 +16,7 @@ export function accountCredentials(b: Record<string, unknown>): { username: stri
   if (typeof b.password !== "string" || [...b.password].length < 12 || Buffer.byteLength(b.password) > MAX_PASSWORD_BYTES || normalizeUsername(b.password) === username) throw errors.badRequest("password", "invalid password");
   return { username, password: b.password };
 }
-export function buildAccountHandlers(d: HandlerDeps, accounts: AccountStore | undefined, core: CoreRpc, consumed?: () => void): Record<string, Handler> {
+export function buildAccountHandlers(d: HandlerDeps, accounts: AccountStore | undefined, core: CoreRpc, consumed?: () => void, allowBootstrap = true, auditBootstrap?: () => void): Record<string, Handler> {
   const pending = new Set<string>();
   const body = (input: unknown, allowed: string[]) => {
     if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(k => !allowed.includes(k))) throw errors.badRequest("body", "invalid account request");
@@ -49,11 +49,11 @@ export function buildAccountHandlers(d: HandlerDeps, accounts: AccountStore | un
     },
     "account.bootstrap": async i => {
       const b = body(i.body, ["proof", "username", "password"]);
-      if (!accounts || accounts.bootstrapState()?.consumed) throw new ApiError(404, "E_NOT_FOUND", "bootstrap unavailable");
+      if (!allowBootstrap || !accounts || accounts.bootstrapState()?.consumed) throw new ApiError(404, "E_NOT_FOUND", "bootstrap unavailable");
       if (!verifyBootstrap(accounts, b.proof)) throw errors.forbidden("bootstrap-proof");
       if (!accounts) throw new ApiError(503, "E_NOT_AVAILABLE", "account registration unavailable");
       const credentials = accountCredentials(b);
-      await accounts.bootstrapOwner(credentials.username, await hashPassword(credentials.password));
+      await accounts.bootstrapOwner(credentials.username, await hashPassword(credentials.password), auditBootstrap);
       try { consumed?.(); } catch { d.log.warn("bootstrap proof cleanup deferred"); }
       d.audit.emit("account.bootstrap.consumed", "local-owner", "account", {});
       return { status: 201, body: { schema: "account.bootstrap/1", created: true } };

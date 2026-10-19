@@ -31,3 +31,7 @@ once, right after the provider starts (and again only when it rebuilds its tool 
 refresh), so if the core is down when a session starts, no memory tools are offered for that session;
 they return with the next session once the core is running. The core token is never logged or stored; turn text is written only to the journal.
 Design: `docs/superpowers/plans/2026-09-29-hm2-hermes-host-mode-adapter.md` (Task 5).
+
+## Existing full Harness (HM4)
+
+After the owner provisions the derived Hermes agent and a separate `plur1bus-client.token`, use `hermes plur1bus bind --existing --home /absolute/harness-home --json`. This authenticates to the existing IPC endpoint, without starting a supervisor or using the core token. Full-profile bindings require their own credential; missing/invalid/revoked tokens fail closed. Normal `bind` also takes this restricted path when the target manifest is full. Host-to-full setup reuses the same store and validates recorded Hermes client credentials before committing its profile transaction. Owner provisioning, upgrade prerequisites and known platform/recovery gaps are documented in `docs/hermes-host-mode.md`. The catalog build has no updater.

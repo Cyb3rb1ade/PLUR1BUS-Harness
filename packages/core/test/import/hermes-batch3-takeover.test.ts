@@ -428,12 +428,17 @@ describe("PR #100 B6: a failed run is resumable without re-adopting the store", 
     writeFileSync(join(l.lancedb, "written-after-adopt.marker"), "x");
     const afterFirst = treeDigest(l.lancedb);
 
-    const stub = { memory: { import: async (r: any) => ({ created: r.cards.length, matchedExisting: 0, rejected: 0, cards: r.cards.map((c: any) => ({ idempotencyKey: c.idempotencyKey, outcome: "created" })) }) }, close: async () => {} } as unknown as Engine;
+    // The resumed run's store is the adopted one (already-adopted-in-run), so its cards are checked against it first
+    // (owner decision 2026-10-19, hermes-cards-own-store.test.ts): the stub models memory.list with an empty store.
+    const lists: unknown[] = [];
+    const stub = { memory: { import: async (r: any) => ({ created: r.dryRun ? 0 : r.cards.length, matchedExisting: 0, rejected: 0, cards: r.cards.map((c: any) => ({ idempotencyKey: c.idempotencyKey, outcome: "created" })) }), list: async (q: unknown) => { lists.push(q); return { items: [] }; } }, close: async () => {} } as unknown as Engine;
     const resumed = await importHermes({ home, source: fx.root, adoptStore: src, onConflict: "replace", apply: true, resume: first.runId, engine: stub, testInternals: { embeddings: embedder(0) } });
     assert.equal(resumed.storeAdopt?.action, "skipped");
     assert.equal(resumed.storeAdopt?.reason, "already-adopted-in-run");
     assert.equal(treeDigest(l.lancedb), afterFirst, "the resumed run must not replace the store a second time");
     assert.equal(resumed.errors.length, 0);
     assert.ok(resumed.counts.memoryCardsImported > 0);
+    assert.equal(lists.length, resumed.counts.memoryCardsImported, "every card was checked against the adopted store");
+    assert.equal(resumed.counts.memoryCardsLinked, 0);
   });
 });

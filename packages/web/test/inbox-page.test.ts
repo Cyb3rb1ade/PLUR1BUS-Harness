@@ -129,6 +129,8 @@ describe("inbox page", opts, () => {
       await app.page.waitForFunction(() => document.querySelectorAll('.inbox-item[data-read="false"]').length === 0);
       assert.deepEqual(lastCall(app, "inbox.markRead")?.params, { all: true });
       assert.equal(unreadTotal(store), 0);
+      // The sidebar badge follows asynchronously (inboxUnread is refreshed via inbox.count after the write): wait for it.
+      await app.page.waitForFunction(() => document.querySelector("nav .nav-badge") === null);
       assert.equal(await app.page.locator("nav .nav-badge").count(), 0);
     });
   });

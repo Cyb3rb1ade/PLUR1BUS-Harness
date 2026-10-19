@@ -229,3 +229,80 @@ token counts, known monetary cost (unknown stays `?`) and a keyboard-usable
 transcript link. Session shutdown follows collaboration shutdown so an in-flight
 hop cannot write into a closed transcript store. Optional channel mirroring is
 not enabled or implemented by this phase.
+
+## D98 completion and L10 verifiers (M5 phase 4)
+
+The `coding_complete` agent tool is a D109 `shell.exec` operation and can complete
+only the caller agent's assigned project card. It resolves the checkout through
+`ProjectWorktreePort` (existing configured agent worktree by default; M6 can
+supply the same port). It accepts no path, commands, pass flags or override note.
+Four independently run checks must pass: format, lint, typecheck and tests.
+Node/pnpm, Python, Rust, Go and Java/Gradle conventions are recognized; committed
+`.plur1bus-verifiers.json` fixed argv arrays take precedence. Changing verifier
+manifests/scripts during delegation is refused rather than trusting a new no-op.
+Fallback standards ship in `skills/coding-standards` and
+`skills/documentation-standards`; missing check executables fail closed.
+
+Verifier subprocesses have a bounded lifetime/output and a minimal environment,
+run without a shell in OS isolation, and cannot use the network unless the
+committed project conventions explicitly allow it. macOS uses sandbox-exec;
+Linux requires bubblewrap; unsupported isolation refuses. The tree is hashed
+before and after checks (including untracked files); repository diff/textconv,
+fsmonitor and hooks cannot execute during host-side fingerprinting. Diagnostics
+returned to the model contain output hashes and exit statuses, not raw output.
+Documentation gaps are listed.
+
+At **200 or more changed lines**, `request_review` must produce an independent
+pass tied to that exact worktree hash. The reviewer receives a read-only view of
+the bound checkout, no private recall, and no write/exec tools. Later edits void
+the pass. Completion rechecks project/card assignment and tree after verification.
+The human-only `task.complete` RPC allows a project lead/Owner/Admin to override
+with a bounded nonempty note; the note is audited before the card moves. The
+agent tool cannot submit it. A lying delegate's self-report is never a gate input.
+
+## Fan-out evaluation (2026-10-15)
+
+`pnpm run eval:m5` replays 24 deterministic arithmetic fixtures through the real
+provider/tool/budget composition. Each single/peer case has the same hard project
+budget of 8,192 tokens. Both modes score 24/24; settled fixture usage is 576 vs
+1,728 tokens in total, and 24 vs 72 routed model calls. Full inputs/results are
+in `docs/evals/m5-fanout.json`; `--check` reproduces the artifact. This is a routing
+and equal-budget regression, **not evidence of a live-model quality advantage**.
+Fan-out remains off and still requires the owner's explicit enablement.
+
+## D92 private chat promotion (M5 phase 5)
+
+`chat.promote.preview` accepts an owned direct chat, a destination (new card,
+new project or existing project link) and an optional explicit selection.
+Omitting the selection means **no content**. A summary is written/approved by the
+person; selected message ids must belong to that chat; full transcript copying
+is explicit. System messages are excluded. Oversized content is refused rather
+than silently clipped (64 KiB; full transcript maximum 10,000 messages).
+
+The preview is private, held only in RAM for ten minutes and bound to the person,
+source snapshot, exact destination and content choice. `chat.promote.commit`
+accepts only its id, rechecks source ownership and current destination rights,
+and refuses stale/expired previews. A retry of a completed commit is idempotent.
+The source chat's owner, agent, kind, scope and messages are never changed. Links
+are private metadata; source id/title are not automatically copied to a board.
+Chosen content goes into a new board card. Incognito previews do not create a
+durable private-content copy; copying after explicit confirmation is deliberate.
+Durable model delegation from an incognito chat is refused until an explicit
+promotion, so replay sessions cannot silently persist its context.
+
+The chat menu provides DE/EN destination/content choices, a mandatory preview,
+selection-change invalidation, native modal focus handling and confirmation.
+M3 P1 (#493) is merged as a dependency and remains open upstream. On 2026-10-15
+the owner explicitly authorized appending only the twelve M5 method names in
+`packages/api/src/rpc-route.ts`; other API files are unchanged. Existing
+`RPC_RULES` and read/write/principal classifications are asserted for each
+method in `collab/web-transport.test.ts`, which uses real HTTP and real Core.
+It verifies session/CSRF, Viewer writes, foreign trace/chat denial, malformed
+params, principal spoofing, exact replay and selected-message promotion.
+Task completion preserves object-denial RPC codes through the existing error
+mapper. This closes the local Web exposure gate without asserting a rollout.
+
+Final integration also pins handoff behavior/authority/return constraints across
+sender repair, transfers card assignment on acknowledged ownership handoff, and
+allows one sender-side repair of invalid/oversized returns in the same target
+scope/session/budget pipeline. Peer return bodies remain untrusted data.

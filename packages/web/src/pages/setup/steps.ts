@@ -8,6 +8,7 @@ import { t, type Key } from "../../i18n.ts";
 import { Notice } from "../common/states.ts";
 import { Field, bad } from "../common/field.ts";
 import { useLoad } from "../common/load.ts";
+import { DecisionHintIfMissing } from "../common/decision-hint.ts";
 import { type Answers, type Errors } from "./model.ts";
 
 export type StepProps = { a: Answers; set: (p: Partial<Answers>) => void; errors: Errors; busy: boolean };
@@ -56,7 +57,8 @@ export function ModelStep({ a, set, errors }: StepProps): View {
         h("option", { value: "" }, t("setup.model.choose")),
         [...groups].map(([p, list]) => h("optgroup", { key: p, label: p }, list.map((m) => h("option", { key: m.id, value: `${m.provider}/${m.id}` }, m.name))))));
   }
-  return h("div", {}, h("p", { class: "reading" }, t("setup.model.lead")), body, h(Notice, {}, t("setup.model.noLogin")));
+  // The wizard asks for the chat model only; say what stays limited until a decision model is set (nothing when it already is).
+  return h("div", {}, h("p", { class: "reading" }, t("setup.model.lead")), body, h(DecisionHintIfMissing, { where: "wizard" }), h(Notice, {}, t("setup.model.noLogin")));
 }
 
 export function UnavailableStep({ title, body, children }: { title: string; body: string; children?: ComponentChildren }): View {
@@ -96,4 +98,16 @@ export function ImportStep(): View {
     h("div", {}, h("pre", { class: "setup-cmd", tabIndex: 0 }, h("code", {}, IMPORT_COMMAND)),
       h("button", { type: "button", class: "btn", onClick: () => { void copy(); } }, t("setup.import.copy")),
       h("p", { role: "status", class: "field-hint" }, note)));
+}
+
+/** Optional: an empty selection keeps rule triage and never overwrites an existing role. */
+export function DecisionStep({ a, set, busy }: StepProps): View {
+  const { state } = useLoad(async signal => chatModels(await getApi().rpc("models.list", undefined, { write: false, signal })), []);
+  return h("div", {}, h(DecisionHintIfMissing, { where: "wizard" }),
+    h("p", { class: "reading" }, t("setup.decision.lead")),
+    h(Field, { id: "setup-decision", label: t("setup.decision.label") },
+      h("select", { id: "setup-decision", value: a.decisionModel ?? "", disabled: busy || state.status !== "ok", onChange: (e: Event) => { set({ decisionModel: (e.target as HTMLSelectElement).value }); } },
+        h("option", { value: "" }, t("setup.decision.skip")),
+        state.status === "ok" ? state.data.map(m => h("option", { key: `${m.provider}/${m.id}`, value: `${m.provider}/${m.id}` }, `${m.name} (${m.provider})`)) : null)),
+    state.status === "fail" ? h("p", { role: "alert" }, t("setup.model.loadFailed")) : null);
 }

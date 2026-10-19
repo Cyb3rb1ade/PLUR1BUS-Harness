@@ -1,0 +1,13 @@
+# M2 criterion 8 — shared output sweep (2026-10-16)
+
+`tests/system/redaction-everywhere.test.ts` runs against the built release CLI and real core, with the OS keyring disabled and the encrypted-file backend enabled. `redaction-fixture.ts` owns the channel inventory, five marker secrets and raw/Bearer/percent/JSON/base64/base64url detection. Diagnostics identify channel, file and marker index, never the value. A positive control checks every form.
+
+The fixture provisions vault, provider, channel and MCP secret references and source profiles with inline markers. Both real importer entries run with `--apply`; their output and every persisted import artifact are scanned. CLI/RPC metadata, signed agent export, all regular files in the gzip/tar backup, diagnostic/audit logs and every ZIP bundle entry are scanned. The encrypted vault is checked for ciphertext and absence of plaintext; both vault and key must be excluded from backup (current M8 contract). No keychain, real channel or MCP server is contacted.
+
+`agent.export`, `admin.backup.snapshot` and `doctor.report` are classified. A schema meta-test fails for any new method containing export/backup/bundle/report. Session and config exports do not exist on this base; their appearance also fails the test. `config get` covers the existing config view. With a standalone core, `doctor.report` refuses `firstaid-unavailable`; the test pins and scans that refusal, while the real CLI `1staid bundle` generates the diagnostic contents. HTTP API authentication/issuance is independently covered by `packages/api/test/secrets-never-leave.test.ts`.
+
+## Leak diagnosis / handoff to Release P3
+
+**Backup → verbatim config copy → inline webhook credential.** On the base, `crates/plur1bus/src/backup/hardening.rs::a_secret_value_kept_in_config_json_is_not_in_the_archive` is already ignored with a security KNOWN GAP: `channels.telegram.webhook.secret` is copied in clear. `the_search_forms_find_a_marker_that_is_there` positively asserts that leak. The new sweep uses the supported vault/reference layout and does not resolve this separate defect. Removing/masking the field changes restore semantics and can invalidate webhook configuration; no backup implementation was changed in this test-only phase. Release P3 must resolve provisioning/restoration and replace the existing ignored regression with an active assertion.
+
+**Criterion 8 remains partial**, despite the shared sweep passing. It must not be declared fulfilled while this known inline-config leak remains. The sweep does not claim exhaustive HTTP route coverage or inject credentials into arbitrary user-authored memory content.

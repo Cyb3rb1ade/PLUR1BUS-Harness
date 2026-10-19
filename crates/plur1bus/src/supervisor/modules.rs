@@ -436,6 +436,7 @@ fn sync_slots(shared: &Shared, view: &ModulesView, monitors: &mut Monitors) {
     }
     let rank = |s: &Slot| match s.role.kind {
         RoleKind::Core => 0,
+        RoleKind::Api => 1,
         RoleKind::Module => {
             1 + view
                 .names

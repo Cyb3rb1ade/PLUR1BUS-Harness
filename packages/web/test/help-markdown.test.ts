@@ -3,6 +3,8 @@ import { describe, test } from "node:test";
 import { h, type VNode } from "preact";
 import { parseMarkdown, renderMarkdown, resolveHref } from "../src/pages/help/markdown.ts";
 import { filterIndex, pickDoc, splitSub } from "../src/pages/help/route.ts";
+import { DOCS_INDEX as EN_INDEX } from "../src/pages/help/docs-bundle/en-index.ts";
+import { DOCS_INDEX as DE_INDEX } from "../src/pages/help/docs-bundle/de-index.ts";
 
 /** All elements of a rendered vnode tree. */
 function walk(v: unknown, out: VNode<Record<string, unknown>>[] = []): VNode<Record<string, unknown>>[] {
@@ -166,3 +168,30 @@ describe("help routing helpers", () => {
     assert.deepEqual(filterIndex(en, "x".repeat(1_000_000)), []);
   });
 });
+
+describe("help docs bundle indices", () => {
+  const requiredEn = ["privacy", "cloud-embeddings", "reembed", "chat-models", "secrets", "import-rollback"];
+  const requiredDe = ["datenschutz", "cloud-embeddings", "reembed", "chat-modelle", "secrets", "import-rollback"];
+
+  test("contains all new security, privacy and operations topics in English index", () => {
+    const slugs = new Set(EN_INDEX.map((e) => e.slug));
+    for (const slug of requiredEn) {
+      assert.ok(slugs.has(slug), `missing English doc: ${slug}`);
+    }
+  });
+
+  test("contains all new security, privacy and operations topics in German index", () => {
+    const slugs = new Set(DE_INDEX.map((e) => e.slug));
+    for (const slug of requiredDe) {
+      assert.ok(slugs.has(slug), `missing German doc: ${slug}`);
+    }
+  });
+
+  test("pickDoc resolves German slugs directly and falls back for English slugs", () => {
+    assert.deepEqual(pickDoc("datenschutz", DE_INDEX, EN_INDEX), { slug: "datenschutz", useFallback: false });
+    assert.deepEqual(pickDoc("privacy", DE_INDEX, EN_INDEX), { slug: "privacy", useFallback: true });
+    assert.deepEqual(pickDoc("chat-modelle", DE_INDEX, EN_INDEX), { slug: "chat-modelle", useFallback: false });
+    assert.deepEqual(pickDoc("chat-models", DE_INDEX, EN_INDEX), { slug: "chat-models", useFallback: true });
+  });
+});
+

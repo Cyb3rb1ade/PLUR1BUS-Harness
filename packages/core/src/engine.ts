@@ -33,6 +33,6 @@ export function assertEngineContract(engine: Pick<Engine, "contract">): void {
 /** The one place the harness constructs the engine. `testInternals` is the contract's test-only seam (e.g. a stub embedder). */
 export function bindEngine(host: HostServices, engineConfig: Record<string, unknown>, testInternals?: Record<string, unknown>): Engine {
   const engine = createEngine(host, engineConfig, testInternals ? { internals: testInternals } : undefined);
-  engine.channels.register("cli");
+  for (const channel of ["cli", "telegram", "discord", "matrix", "buzz", "slack", "signal", "email"]) engine.channels.register(channel);
   return engine;
 }

@@ -5,3 +5,8 @@ packages:
 
 patchedDependencies:
   eventsource-parser@3.1.1: patches/eventsource-parser@3.1.1.patch
+
+overrides:
+  adm-zip: 0.6.1
+  global-agent: 4.1.3
+  sharp: 0.35.5

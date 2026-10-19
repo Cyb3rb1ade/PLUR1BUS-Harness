@@ -222,6 +222,8 @@ describe("chat: cancel", opts, () => {
       await log.getByText("Stopped").waitFor();
       assert.deepEqual(calls(chat, "session.cancel").map((c) => c.params), [{ sessionId: "ses_1" }]);
       assert.equal(await page.getByRole("button", { name: "Stop" }).count(), 0);
+      // The stopped event arrives before cancel() finishes its catch-up and restores the composer focus.
+      await page.waitForFunction(() => document.activeElement?.tagName === "TEXTAREA");
       assert.equal(await page.evaluate(() => document.activeElement?.tagName), "TEXTAREA");
       await log.getByText("half", { exact: true }).waitFor();
       await logBusy(page, "false");

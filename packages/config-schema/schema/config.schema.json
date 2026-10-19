@@ -289,6 +289,25 @@
       "additionalProperties": false,
       "default": {},
       "properties": {
+        "sandbox": {
+          "description": "OS sandbox policy for processes that agent tools launch.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "required": {
+              "type": "boolean",
+              "default": true,
+              "description": "Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn.",
+              "x-tier": "advanced",
+              "x-restart": "core",
+              "x-write-roles": [
+                "owner"
+              ],
+              "x-audit": true
+            }
+          }
+        },
         "hostctl": {
           "description": "Local computer-control tools, gated by D109. No remote listener.",
           "type": "object",
@@ -1519,12 +1538,14 @@
             }
           }
         },
+        "buzz": {"type": "object", "default": {}, "description": "NIP-17 text-only direct messages. Disabled by default.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "additionalProperties": false, "properties": {"enabled": {"type": "boolean", "default": false, "description": "Start Buzz.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true}, "relays": {"type": "array", "default": [], "description": "Permitted wss relays; ws only for literal loopback.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "maxLength": 2048}}, "privateKeySecret": {"type": "string", "default": "channels.buzz.private-key", "description": "Name of the secret holding the Buzz private key; never the key itself.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$"}, "senderAllowlist": {"type": "array", "default": [], "description": "Allowed hex or npub sender keys.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 256, "uniqueItems": true, "items": {"type": "string", "maxLength": 128}}, "locale": {"type": "string", "default": "en", "description": "Local command language.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "enum": ["de", "en"]}}},
         "matrix": {
           "description": "Matrix channel adapter (client-server API, sync loop, reactions as approvals). Rooms with end-to-end encryption are refused in this version.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
+            "e2ee": { "type": "object", "additionalProperties": false, "default": {}, "description": "Experimental E2EE. Memory mode is NOT persistent: restart loses keys and requires device verification again.", "x-restart": "module:matrix", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": { "mode": { "type": "string", "enum": ["off", "memory"], "default": "off", "description": "Disabled by default. Memory is experimental and loses keys after restart.", "x-restart": "module:matrix", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true }, "unverifiedDevices": { "type": "string", "enum": ["reject", "allow"], "default": "reject", "description": "Reject and report unverified devices by default. Allow is an explicit owner experiment.", "x-restart": "module:matrix", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true } } },
             "enabled": {
               "description": "Whether the matrix channel is started. Off by default; nothing connects until this is true.",
               "type": "boolean",

@@ -329,8 +329,10 @@ impl Controller {
         let _guard = self.mutation.lock().await;
         let old = self.installed()?.ok_or(CtlError::NotInstalled)?;
         let from = Version::parse(&old.installed_version).map_err(|_| CtlError::Invalid)?;
-        if approved != Version::parse(&to.version).map_err(|_| CtlError::Bundle)?
-            || approved <= from
+        if !crate::updates::same_version(
+            &approved,
+            &Version::parse(&to.version).map_err(|_| CtlError::Bundle)?,
+        ) || crate::updates::precedence(&approved, &from).is_le()
             || !to.supported_image_majors.contains(&from.major)
         {
             return Err(CtlError::Bundle);
@@ -342,6 +344,8 @@ impl Controller {
         {
             return Err(CtlError::Health);
         }
+        // Read-only capability checks precede journal writes, downloads, stop and snapshots.
+        super::compatibility::require_upgrade(self.runtime.as_ref(), &old).await?;
         let mut j = Journal {
             from,
             to: approved,

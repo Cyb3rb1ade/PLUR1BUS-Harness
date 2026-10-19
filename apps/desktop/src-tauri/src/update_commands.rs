@@ -409,7 +409,7 @@ pub async fn update_install(window: WebviewWindow) -> Result<(), String> {
             .ok_or("update-not-offered")?;
         // Plugin fetches again: bind that second response to the already hash-pinned value.
         if update.raw_json != manifest
-            || update.version != release.version.to_string()
+            || !crate::updates::same_version_str(&update.version, &release.version)
             || !valid_url(&update.download_url, cfg!(debug_assertions))
         {
             return Err(error(UpdateError::Manifest));

@@ -74,6 +74,184 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `chat.promote.links`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+List this owned direct chat's private project links, filtered by current project visibility.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.preview`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion preview; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "card",
+            "project",
+            "new_project"
+          ]
+        },
+        "projectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "columnId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "summary",
+            "selected",
+            "transcript"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "messageIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "target"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.commit`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion commit; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "previewId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "previewId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `chat.create`
 
 **Stability:** experimental · since 1.6.0
@@ -1272,6 +1450,79 @@ Voice V3: voice.agent.override.clear. Reads are available to all five human role
     "agentId",
     "override",
     "effective"
+  ]
+}
+```
+
+### `voice.session.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+D110 server-side voice session broker. Requires a person with agent use rights and an authenticated T2+ surface. Parent kind, billing path, region and provider terms acceptance come from providers.openaiVoice. Returns no credential. Delegation defaults to client.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "provider": {
+      "enum": [
+        "openai:realtime",
+        "openai:gpt-live"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "transport": {
+      "enum": [
+        "webrtc",
+        "websocket",
+        "sip"
+      ]
+    },
+    "sdp": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 131072
+    }
+  },
+  "required": [
+    "agentId",
+    "provider",
+    "model",
+    "transport"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sdpAnswer": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "sessionId"
   ]
 }
 ```
@@ -2960,6 +3211,271 @@ Private API-service announce operation over the core device store; never exposed
 }
 ```
 
+### `device.pair`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "const": "desktop"
+    }
+  },
+  "required": [
+    "kind"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "expiresAt",
+    "scopes"
+  ]
+}
+```
+
+### `admin.api.desktop.redeem`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "publicKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "name",
+    "publicKey"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "object"
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "device",
+    "token",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.token`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "deviceId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
 ### `device.list`
 
 **Stability:** experimental · since 1.6.0
@@ -4264,6 +4780,51 @@ Authenticated project agent.remove using ADR-007 object rights.
 }
 ```
 
+### `task.complete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Complete an assigned coding card after sandboxed verifiers and exact-tree review. Human project leads may override with an audited note.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "overrideNote": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `collab.session.replay`
 
 **Stability:** experimental · since 1.5.0
@@ -4735,7 +5296,7 @@ Human-only principals; self or authenticated administrator, codes revealed only 
   "properties": {
     "token": {
       "type": "string",
-      "minLength": 64,
+      "minLength": 60,
       "maxLength": 64
     },
     "api": {
@@ -10262,6 +10823,55 @@ Returns every installed extension and subscribes this connection to ext.changed.
 }
 ```
 
+### `models.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin model probe through the configured chat adapter and budget. Fixed prompt, no tools, memory or session writes. Ten second deadline. E_NOT_AVAILABLE reasons model-not-configured, model-test-timeout, model-test-failed. Embedding/reranking probes are not supported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "durationMs"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
 ### `models.list`
 
 **Stability:** experimental · since 1.5.0
@@ -13238,6 +13848,111 @@ Every known channel (the config schema's `channels.*` plus any registered with t
       "type": "array",
       "items": {
         "$ref": "#/$defs/ChannelSummary"
+      }
+    }
+  }
+}
+```
+
+### `channel.crypto`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Experimental owner/admin SAS control for opt-in Matrix memory crypto. Non-persistent; verification is lost after restart. Confirm only after comparing displayed SAS with the peer device. Never returns private keys.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "action"
+  ],
+  "properties": {
+    "id": {
+      "const": "matrix",
+      "type": "string"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "start",
+        "inspect",
+        "accept",
+        "confirm",
+        "cancel"
+      ]
+    },
+    "userId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "deviceId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "flowId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "confirmed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "flowId": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "memory"
+      ]
+    },
+    "warning": {
+      "type": "string"
+    },
+    "done": {
+      "type": "boolean"
+    },
+    "cancelled": {
+      "type": "boolean"
+    },
+    "emoji": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "symbol",
+          "description"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "decimals": {
+      "type": "array",
+      "items": {
+        "type": "integer"
       }
     }
   }
@@ -19337,9 +20052,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "kind": {
       "enum": [
         "core",
-        "module"
+        "module",
+        "api"
       ],
-      "description": "Experimental (1.3.0). Whether the child is the core or a module; absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
     }
   }
 }

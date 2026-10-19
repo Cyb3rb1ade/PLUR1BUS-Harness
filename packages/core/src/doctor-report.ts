@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { detectSandbox } from "./tools/sandbox/index.ts";
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { authorize } from "./rbac/authorize.ts";
@@ -20,7 +22,7 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { home: string; clock: () => number; redactor?: Redactor; check?: () => Promise<unknown>; scheduleInitial?: (start: () => Promise<unknown>) => void;
+export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; miningStatus?: () => { available: boolean } | undefined; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void;
   /** Checks the core answers itself from its live configuration (e.g. privacy.local-only); appended to the provisioning group. */
   coreChecks?: () => Check[] }): Record<string, Handler> {
   let cached: Report | null = null;
@@ -46,11 +48,23 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; redac
       const status: Status = c.status === "info" ? "ok" : c.status === "skip" ? "skipped" : c.status as Status;
       return { id: c.id, status, summary: safe(c.summary), ...(typeof c.hint === "string" ? { repair: { kind: "hint", label: safe(c.hint) } } : {}) };
     });
+    if (o.sandboxRequired?.() === false) checks.push({ id: "tools.sandbox.bypass", status: "warn", summary: "NOT SANDBOXED: owner disabled tools.sandbox.required; each process launch is audited." });
     for (const c of o.coreChecks?.() ?? []) if (!checks.some(x => x.id === c.id)) checks.push({ ...c, summary: safe(c.summary), ...(c.repair ? { repair: { kind: c.repair.kind, label: safe(c.repair.label) } } : {}) });
+    const sandbox = await detectSandbox(join(o.home, "bin", "plur1bus-sandbox-limits"));
+    checks.push({ id: "tools.sandbox", status: sandbox.available ? "warn" : "fail", summary: safe(`${sandbox.backend} (${sandbox.strength}): ${sandbox.reason}`), ...(sandbox.hint ? { repair: { kind: "hint", label: safe(sandbox.hint) } } : {}) });
     // These categories have no authoritative 1staid check in this revision. Report that explicitly; do not invent probes.
     for (const id of ["containers", "secrets", "certificates", "ports", "disks"]) if (!checks.some(c => c.id === id || c.id.startsWith(`${id}.`))) checks.push({ id, status: "skipped", summary: "No authoritative provisioning check is available in this installation." });
+    for (const c of o.compositionChecks?.() ?? []) if (!checks.some(x => x.id === c.id)) checks.push({ ...c, summary: safe(c.summary) });
     cached = { generatedAt: new Date(o.clock()).toISOString(), groups: [{ id: "provisioning", title: "Provisioning", checks }] };
     return cached;
+  }
+  function currentReport(report: Report): Report {
+    const copy = structuredClone(report);
+    const capability = o.capabilityStatus?.();
+    if (capability) copy.groups[0]?.checks.push({ id: 'capabilities.index', status: capability.sourceError ? 'fail' : capability.mode === 'fts5-only' ? 'warn' : 'ok', summary: `Capability index: ${capability.mode}. Last recheck: ${capability.lastRecheck ?? 'pending'}.` });
+    const mining = o.miningStatus?.();
+    if (mining) copy.groups[0]?.checks.push({ id: 'skills.mining', status: mining.available ? 'ok' : 'skipped', summary: mining.available ? 'Skill mining proposes inactive artifacts for human review.' : 'Skill mining unavailable: the engine exposes memory corrections but no skill-artifact proposal API.' });
+    return copy;
   }
   function start(): Promise<Report> {
     if (inFlight) return inFlight;
@@ -65,13 +79,13 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; redac
     if (p?.refresh === true) {
       if (authorize(principal, "doctor.run", { kind: "system" }, { now: o.clock() }).effect !== "allow") throw new RpcError("E_DENIED", "diagnostic refresh requires an operator");
       if (inFlight || o.clock() - lastStarted < 30000) throw new RpcError("E_CONFLICT", "diagnostics were refreshed recently", { reason: "refresh-rate-limit" });
-      return await start();
+      return currentReport(await start());
     }
-    if (inFlight) return await inFlight;
+    if (inFlight) return currentReport(await inFlight);
     // A failed startup snapshot must not leave readers without a report until an operator refreshes: retry lazily,
     // inside the same rate limit as a refresh.
-    if (!cached && o.clock() - lastStarted >= 30000) return await start();
+    if (!cached && o.clock() - lastStarted >= 30000) return currentReport(await start());
     if (!cached) throw new RpcError("E_NOT_AVAILABLE", "installation diagnostics are unavailable", { reason: "firstaid-unavailable" });
-    return structuredClone(cached);
+    return currentReport(cached);
   } };
 }
