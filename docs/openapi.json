@@ -5625,6 +5625,543 @@
         "x-authz": "chat:read"
       }
     },
+    "/api/v1/chats/{sessionId}/model": {
+      "get": {
+        "operationId": "chats.model-get",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat model-get",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sessionId",
+                    "profile",
+                    "defaultProfile",
+                    "reasoning",
+                    "revision",
+                    "profiles"
+                  ],
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "profile": {
+                      "description": "The chat's own choice; null: it routes like any chat without one (defaultProfile or task class).",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "defaultProfile": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reasoning": {
+                      "description": "A chat's reasoning / thinking intensity on the harness scale (cheapest first), or default: send nothing and let the provider decide. Each attempt maps it onto the model's own levels (nearest supported) and wire parameter.",
+                      "x-stability": "experimental",
+                      "x-since": "1.7.0",
+                      "enum": [
+                        "default",
+                        "off",
+                        "minimal",
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh"
+                      ]
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "profiles": {
+                      "type": "array",
+                      "maxItems": 256,
+                      "items": {
+                        "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+                        "x-stability": "experimental",
+                        "x-since": "1.7.0",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "name",
+                          "displayName",
+                          "provider",
+                          "model",
+                          "local",
+                          "selectable",
+                          "reasoning"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "displayName": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "provider": {
+                            "type": "string",
+                            "maxLength": 128
+                          },
+                          "model": {
+                            "type": "string",
+                            "maxLength": 256
+                          },
+                          "local": {
+                            "type": "boolean"
+                          },
+                          "selectable": {
+                            "type": "boolean"
+                          },
+                          "disabledReason": {
+                            "enum": [
+                              "local-only",
+                              "unavailable"
+                            ]
+                          },
+                          "reasoning": {
+                            "description": "What the primary model offers. kind none: no setting (the model reasons on its own or not at all). source: the provider's own model list (api), the curated table (table) or nothing known (unknown).",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "kind",
+                              "levels",
+                              "source"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "enum": [
+                                  "none",
+                                  "effort",
+                                  "budget",
+                                  "toggle"
+                                ]
+                              },
+                              "levels": {
+                                "type": "array",
+                                "maxItems": 6,
+                                "items": {
+                                  "enum": [
+                                    "off",
+                                    "minimal",
+                                    "low",
+                                    "medium",
+                                    "high",
+                                    "xhigh"
+                                  ]
+                                }
+                              },
+                              "default": {
+                                "enum": [
+                                  "off",
+                                  "minimal",
+                                  "low",
+                                  "medium",
+                                  "high",
+                                  "xhigh"
+                                ]
+                              },
+                              "source": {
+                                "enum": [
+                                  "api",
+                                  "table",
+                                  "unknown"
+                                ]
+                              },
+                              "note": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                              },
+                              "budgetTokens": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "off": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "minimal": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "low": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "medium": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "high": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "xhigh": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "outputUsdPerMTok": {
+                            "description": "USD per million output tokens from the price table, when known; reasoning tokens bill as output.",
+                            "type": "number",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown, duplicate or invalid chat query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "chat:read"
+      },
+      "patch": {
+        "operationId": "chats.model-set",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat model-set",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "profile",
+                  "expectedRevision"
+                ],
+                "properties": {
+                  "profile": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "reasoning": {
+                    "description": "A chat's reasoning / thinking intensity on the harness scale (cheapest first), or default: send nothing and let the provider decide. Each attempt maps it onto the model's own levels (nearest supported) and wire parameter.",
+                    "x-stability": "experimental",
+                    "x-since": "1.7.0",
+                    "enum": [
+                      "default",
+                      "off",
+                      "minimal",
+                      "low",
+                      "medium",
+                      "high",
+                      "xhigh"
+                    ]
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sessionId",
+                    "profile",
+                    "previousProfile",
+                    "reasoning",
+                    "effectiveReasoning",
+                    "adjusted",
+                    "revision"
+                  ],
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "profile": {
+                      "type": "string"
+                    },
+                    "previousProfile": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reasoning": {
+                      "description": "A chat's reasoning / thinking intensity on the harness scale (cheapest first), or default: send nothing and let the provider decide. Each attempt maps it onto the model's own levels (nearest supported) and wire parameter.",
+                      "x-stability": "experimental",
+                      "x-since": "1.7.0",
+                      "enum": [
+                        "default",
+                        "off",
+                        "minimal",
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh"
+                      ]
+                    },
+                    "effectiveReasoning": {
+                      "description": "A chat's reasoning / thinking intensity on the harness scale (cheapest first), or default: send nothing and let the provider decide. Each attempt maps it onto the model's own levels (nearest supported) and wire parameter.",
+                      "x-stability": "experimental",
+                      "x-since": "1.7.0",
+                      "enum": [
+                        "default",
+                        "off",
+                        "minimal",
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh"
+                      ]
+                    },
+                    "adjusted": {
+                      "type": "boolean"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "warning": {
+                      "const": "cache-rebuild-cost-prefixes-preserved"
+                    },
+                    "costHint": {
+                      "description": "The chosen level is high or above and higher than before: more output tokens are billed per answer.",
+                      "const": "reasoning-cost-higher"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      }
+    },
     "/api/v1/ws-ticket": {
       "post": {
         "operationId": "ws.ticket",

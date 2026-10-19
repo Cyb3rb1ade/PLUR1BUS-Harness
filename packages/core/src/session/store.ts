@@ -105,15 +105,22 @@ export class SessionStore {
     const row = this.#db.prepare("SELECT profile,revision FROM session_model_profiles WHERE session_id=?").get(sessionId) as { profile: string; revision: number } | undefined;
     return row ? { profile: row.profile, revision: row.revision } : { profile: null, revision: 0 };
   }
-  /** Atomic compare-and-swap; an in-flight turn or stale preview cannot change model routing. */
-  setModelProfile(sessionId: string, profile: string, expectedRevision: number): number {
+  /** The chat's reasoning choice beside its profile; null = provider default (nothing sent). */
+  modelReasoning(sessionId: string): string | null {
+    const row = this.#db.prepare("SELECT reasoning FROM session_model_profiles WHERE session_id=?").get(sessionId) as { reasoning: string | null } | undefined;
+    return row?.reasoning ?? null;
+  }
+  /** Atomic compare-and-swap; an in-flight turn or stale preview cannot change model routing. `reasoning` undefined keeps
+   *  the stored choice, null clears it (provider default). */
+  setModelProfile(sessionId: string, profile: string, expectedRevision: number, reasoning?: string | null): number {
     return this.#tx(() => {
       const session = this.getSession(sessionId);
       if (!session || session.kind !== "direct" || session.archivedAt !== null || this.runningTurn(sessionId)) throw new SessionError("conflict", "model switch requires an idle direct session", "session-busy");
       const current = this.modelProfile(sessionId);
       if (current.revision !== expectedRevision) throw new SessionError("conflict", "model switch preview is stale", "stale-model-preview");
       const revision = current.revision + 1;
-      this.#db.prepare("INSERT INTO session_model_profiles(session_id,profile,revision) VALUES (?,?,?) ON CONFLICT(session_id) DO UPDATE SET profile=excluded.profile,revision=excluded.revision").run(sessionId, profile, revision);
+      const nextReasoning = reasoning === undefined ? this.modelReasoning(sessionId) : reasoning;
+      this.#db.prepare("INSERT INTO session_model_profiles(session_id,profile,revision,reasoning) VALUES (?,?,?,?) ON CONFLICT(session_id) DO UPDATE SET profile=excluded.profile,revision=excluded.revision,reasoning=excluded.reasoning").run(sessionId, profile, revision, nextReasoning);
       return revision;
     });
   }

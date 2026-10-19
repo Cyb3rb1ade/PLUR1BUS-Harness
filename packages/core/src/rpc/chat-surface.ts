@@ -12,11 +12,16 @@ import type { SessionService } from "../session/service.ts";
 import { SessionError } from "../session/types.ts";
 import type { Handler } from "./server.ts";
 import { RpcError } from "./errors.ts";
+import { REASONING_CHOICES, chatModelOptions, effectiveReasoning, isReasoningChoice, type ChatModelSources, type ReasoningChoice } from "../session/chat-models.ts";
 
 function canonical(value:unknown):unknown { return Array.isArray(value)?value.map(canonical):value&&typeof value==="object"?Object.fromEntries(Object.entries(value).filter(([,v])=>v!==undefined).sort(([a],[b])=>a<b?-1:a>b?1:0).map(([k,v])=>[k,canonical(v)])):value; }
 
-export function buildChatSurface(d: { sessions: () => SessionService | null; agents: AgentRegistry; audit: AuditSink; now: () => number; approver: (ctx: Parameters<Handler>[1], params: unknown) => Promise<import("../session/provider.ts").TurnApprover> }): Record<string, Handler> {
-  const writes = new Set(["create", "submit", "cancel", "update", "archive", "restore", "fork", "delete"]);
+export function buildChatSurface(d: { sessions: () => SessionService | null; agents: AgentRegistry; audit: AuditSink; now: () => number; approver: (ctx: Parameters<Handler>[1], params: unknown) => Promise<import("../session/provider.ts").TurnApprover>;
+  /** The per-chat model choice (profiles, reasoning per model, "Nur lokal"); absent or null: chat.model.* answer E_NOT_AVAILABLE. */
+  models?: () => ChatModelSources | null }): Record<string, Handler> {
+  const writes = new Set(["create", "submit", "cancel", "update", "archive", "restore", "fork", "delete", "model.set"]);
+  const sources = () => { const s = d.models?.(); if (!s) throw new RpcError("E_NOT_AVAILABLE", "no chat provider is configured", { reason: "no-provider" }); return s; };
+  const storedChoice = (v: string | null): ReasoningChoice => (isReasoningChoice(v) ? v : "default");
   const idempotent = new Map<string, { fingerprint: string; result: Promise<unknown> }>();
   const cursorKey = randomBytes(32);
   const confirmations = new Map<string, { sessionId: string; person: string; expires: number }>();
@@ -94,6 +99,30 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
     },
     cancel(p,a) {const {service}=owned(p.sessionId,a,true);record("cancel",a,p.sessionId);const turnId=service.runner.cancel(p.sessionId);return {sessionId:p.sessionId,turnId,cancelled:turnId !== null};},
     events(p,a) {const {service}=owned(p.sessionId,a,false);return {sessionId:p.sessionId,events:service.store.listEvents(p.sessionId,p.afterSeq ?? 0,p.limit ?? 500).map(toWireEvent),lastSeq:service.store.lastEventSeq(p.sessionId) ?? 0,running:service.store.runningTurn(p.sessionId)!==null};},
+    "model.get"(p,a) {
+      // The chat's own model and reasoning choice and what it may pick: identity from the authenticated person only.
+      const {service,session}=owned(p.sessionId,a,false), s=sources(), current=service.store.modelProfile(session.id);
+      return { sessionId:session.id, profile:current.profile, defaultProfile:s.defaultProfile() ?? null, reasoning:storedChoice(service.store.modelReasoning(session.id)), revision:current.revision, profiles:chatModelOptions(s,session.agentId) };
+    },
+    "model.set"(p,a) {
+      const {service,session}=owned(p.sessionId,a,true), s=sources();
+      const options=chatModelOptions(s,session.agentId), option=options.find(o=>o.name===p.profile);
+      if(!option)throw new RpcError("E_NOT_AVAILABLE","model profile is not configured",{reason:"model-profile-unavailable"});
+      if(option.disabledReason==="local-only")throw new RpcError("E_DENIED","only local models may be used in this chat",{reason:"local-only"});
+      if(option.disabledReason==="unavailable")throw new RpcError("E_NOT_AVAILABLE","the model is not available",{reason:"model-unavailable"});
+      const before=service.store.modelProfile(session.id), previousReasoning=storedChoice(service.store.modelReasoning(session.id));
+      // Absent keeps the chat's stored choice (a model switch alone does not reset the level).
+      const reasoning:ReasoningChoice=p.reasoning ?? previousReasoning;
+      if(!isReasoningChoice(reasoning))throw new RpcError("E_INVALID_PARAMS",`reasoning must be one of ${REASONING_CHOICES.join(", ")}`);
+      const previousOption=options.find(o=>o.name===(before.profile ?? s.defaultProfile()));
+      const revision=service.store.setModelProfile(session.id,p.profile,p.expectedRevision,reasoning==="default"?null:reasoning);
+      record("model.set",a,session.id);
+      const now=effectiveReasoning(reasoning,option.reasoning), was=previousOption?effectiveReasoning(previousReasoning,previousOption.reasoning).level:null;
+      const order=["off","minimal","low","medium","high","xhigh"], changed=before.profile!==p.profile||previousReasoning!==reasoning;
+      return { sessionId:session.id, profile:p.profile, previousProfile:before.profile, reasoning, effectiveReasoning:now.level ?? "default", adjusted:now.adjusted, revision,
+        ...(changed?{warning:"cache-rebuild-cost-prefixes-preserved"}:{}),
+        ...(now.level!==null&&order.indexOf(now.level)>=order.indexOf("high")&&(was===null||order.indexOf(now.level)>order.indexOf(was))?{costHint:"reasoning-cost-higher"}:{}) };
+    },
     export(p,a) {const {service,session}=owned(p.sessionId,a,false);record("export",a,p.sessionId);return {session:toWireSession(session),messages:service.store.listMessages(p.sessionId).map(({id,seq,turnId,role,text,createdAt})=>({id,seq,turnId,role,text,createdAt}))};},
   };
   return Object.fromEntries(Object.entries(actions).map(([name,run])=>[`chat.${name}`,async(p,ctx)=>{
