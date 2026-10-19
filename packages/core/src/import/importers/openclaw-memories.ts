@@ -10,10 +10,12 @@
 // Agents with a store of their own (owner decision 2026-10-19, docs/import.md §2.2): their cards are imported too.
 //   - store taken over / matched: before a card is written, the agent's store is asked whether the same memory is already
 //     there (engine duplicate rule, card-links.ts DUPLICATE_SCORE); a duplicate is not written again but linked: ledger action
-//     "linked" with the existing memory id, report outcome "linked".
+//     "linked" with the existing memory id, report outcome "linked"; with engine contract 1.16.0 also in the engine
+//     (`memory.link`, report/ledger linkId). A second copy of a linked card in the same file is matched-existing.
 //   - store routed to the re-embedding migration: the cards are parked (outcome / ledger action "pending-reembed") and
 //     never embedded into a vector space the agent's store is not in; a later run that takes the store over imports them.
 //   - store not taken over for another reason (skipped): the cards are deferred (outcome / ledger action "deferred").
+//   - USER.md without a user binding stays unresolved-user-scope in every case (ADR-007 Q4 first, as for Hermes): never parked.
 // The rule's building blocks (duplicate check, ledger links, parking) are shared with the Hermes importer: card-links.ts.
 import { createHash } from "node:crypto";
 import { basename, dirname, join, relative } from "node:path";
@@ -76,6 +78,8 @@ export interface OpenclawMemoryImportResult {
     reason?: string | undefined;
     /** outcome "linked": the id of the memory the card duplicates. */
     linkedTo?: string | undefined;
+    /** outcome "linked": the engine link id (`memory.link`, contract 1.16.0); absent for a ledger-only link. */
+    linkId?: string | undefined;
   }>;
   errors: Array<{ sourceRef: string; reason: string }>;
 }
@@ -131,6 +135,33 @@ export async function importOpenclawMemories(opts: {
     importedCount, skippedDuplicateCount, rejectedCount, unresolvedUserScopeCount, linkedCount, pendingReembedCount, deferredCount, totalCards, cardResults, errors,
   });
 
+  /** Fail-closed user scoping (ADR-007 Q4): USER.md cards without an unambiguous user binding are reported, never written. */
+  const unresolvedUserCards = (userCards: string[]) => {
+    unresolvedUserScopeCount += userCards.length;
+    for (let i = 0; i < userCards.length; i++) {
+      const uc = userCards[i];
+      if (!uc) continue;
+      const key = cardIdempotencyKey("openclaw", agentId, "USER.md", uc);
+      cardResults.push({
+        idempotencyKey: key,
+        outcome: "unresolved-user-scope",
+        reason: "unambiguous-user-required",
+      });
+      if (isApply && ledger) {
+        const sha = createHash("sha256").update(uc.replace(/\r\n/g, "\n").trim()).digest("hex");
+        ledger.record({
+          entity: "memory",
+          idempotencyKey: key,
+          action: "skipped",
+          sourceRef: `openclaw:${agentId}:USER.md#${i + 1}${runSuffix}`,
+          targetRef: `agents/${agentId}/workspace/USER.md`,
+          sha256: sha,
+          reason: "unambiguous-user-required",
+        });
+      }
+    }
+  };
+
   // Agent whose own store is not in the harness yet (re-embedding migration, or not taken over): its cards are parked, never
   // embedded now (they would land in a vector space the store is not in, or create a partition that blocks the take-over).
   if (opts.ownStore?.kind === "park") {
@@ -148,6 +179,11 @@ export async function importOpenclawMemories(opts: {
       }
       const cards = splitOpenclawCards(content);
       totalCards += cards.length;
+      // ADR-007 Q4 comes first: without a user binding USER.md is never imported, so it is not parked for later either.
+      if (file === "USER.md" && !userPrincipal) {
+        unresolvedUserCards(cards);
+        continue;
+      }
       if (parkOutcome === "pending-reembed") pendingReembedCount += cards.length;
       else deferredCount += cards.length;
       cards.forEach((text, i) => {
@@ -176,10 +212,24 @@ export async function importOpenclawMemories(opts: {
   /** Splits the cards the engine would create into duplicates of a memory already in the store (linked) and the rest. */
   const linkDuplicates = (batch: LinkCandidate[], bind: Principal, fileRef: string): Promise<Map<string, CardLink>> =>
     linker.split(batch, { request: bind, caller: bind }, fileRef);
-  const recordLinked = (c: LinkCandidate, hit: CardLink, targetRefFile: string) => {
-    linkedCount++;
-    cardResults.push({ idempotencyKey: c.idempotencyKey, outcome: "linked", reason: hit.reason, linkedTo: hit.id });
-    linker.record(c, hit, targetRefFile);
+  /** Reports the linked cards of one batch. A second copy of a linked card in the same file is what the engine reports for
+   *  an in-batch duplicate (matched-existing), never a second link (same rule as the Hermes importer). */
+  const recordLinked = async (fullBatch: LinkCandidate[], linked: Map<string, CardLink>, bind: Principal, targetRefFile: string) => {
+    for (const c of fullBatch) {
+      const hit = linked.get(c.idempotencyKey);
+      if (!hit) continue;
+      if (c.isDuplicateInRun) {
+        skippedDuplicateCount++;
+        cardResults.push({ idempotencyKey: c.idempotencyKey, outcome: "matched-existing", reason: "duplicate-in-batch" });
+        continue;
+      }
+      const done = await linker.link(c, hit, bind, targetRefFile);
+      linkedCount++;
+      cardResults.push({
+        idempotencyKey: c.idempotencyKey, outcome: "linked", reason: done.reason, linkedTo: done.id,
+        ...(done.linkId !== undefined ? { linkId: done.linkId } : {}),
+      });
+    }
   };
 
   // 1. Process MEMORY.md / memory.md (agent-scoped)
@@ -252,7 +302,7 @@ export async function importOpenclawMemories(opts: {
           const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
           const fullBatch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
           const linked = await linkDuplicates(fullBatch, principal, "MEMORY.md");
-          for (const c of fullBatch) { const hit = linked.get(c.idempotencyKey); if (hit) recordLinked(c, hit, `agents/${agentId}/workspace/memories.md`); }
+          await recordLinked(fullBatch, linked, principal, `agents/${agentId}/workspace/memories.md`);
           const batch = fullBatch.filter((c) => !linked.has(c.idempotencyKey));
           if (batch.length === 0) continue;
 
@@ -367,29 +417,7 @@ export async function importOpenclawMemories(opts: {
 
       // Fail-closed user scoping (ADR-007 Q4): require unambiguous user binding
       if (!userPrincipal) {
-        unresolvedUserScopeCount += userCards.length;
-        for (let i = 0; i < userCards.length; i++) {
-          const uc = userCards[i];
-          if (!uc) continue;
-          const key = cardIdempotencyKey("openclaw", agentId, "USER.md", uc);
-          cardResults.push({
-            idempotencyKey: key,
-            outcome: "unresolved-user-scope",
-            reason: "unambiguous-user-required",
-          });
-          if (isApply && ledger) {
-            const sha = createHash("sha256").update(uc.replace(/\r\n/g, "\n").trim()).digest("hex");
-            ledger.record({
-              entity: "memory",
-              idempotencyKey: key,
-              action: "skipped",
-              sourceRef: `openclaw:${agentId}:USER.md#${i + 1}${runSuffix}`,
-              targetRef: `agents/${agentId}/workspace/USER.md`,
-              sha256: sha,
-              reason: "unambiguous-user-required",
-            });
-          }
-        }
+        unresolvedUserCards(userCards);
       } else {
         // Proved user provided: import as user-scope cards
         const userScopePrincipal: Principal = {
@@ -427,7 +455,7 @@ export async function importOpenclawMemories(opts: {
             const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
             const fullBatch = userCardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
             const linked = await linkDuplicates(fullBatch, userScopePrincipal, "USER.md");
-            for (const c of fullBatch) { const hit = linked.get(c.idempotencyKey); if (hit) recordLinked(c, hit, `agents/${agentId}/workspace/USER.md`); }
+            await recordLinked(fullBatch, linked, userScopePrincipal, `agents/${agentId}/workspace/USER.md`);
             const batch = fullBatch.filter((c) => !linked.has(c.idempotencyKey));
             if (batch.length === 0) continue;
 
