@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { defaults } from '../../../config-schema/src/index.ts';
 import { sessionMaintenance, sessionRoleFactory } from '../../src/session/maintenance.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 import { ToolRegistry } from '../../src/tools/registry.ts';
 import { openSessionService } from '../../src/session/service.ts';
 import type { AgentRegistry } from '../../src/agents.ts';
@@ -14,7 +14,7 @@ import { createLogger } from '../../src/logger.ts';
 import type { ChatRequest as WireRequest } from '../../../providers/src/index.ts';
 it('session composition consumes configuration and fake catalogue windows, calibrates usage, then runs background summary', async () => {
   const home = mkdtempSync(join(tmpdir(),'compaction-maintenance-')); const config = defaults(); config.modelRoles.summarize = 'cheap'; config.session.compaction.prune.enabled = false;
-  const budget = createCallBudget({ path:join(home,'budget.sqlite'),clock:{now:Date.now},prices:new PriceBook(SHIPPED_PRICE_TABLES) });
+  const budget = createCallBudget({ path:join(home,'budget.sqlite'),clock:{now:Date.now} });
   const calls: string[] = []; const identity: boolean[] = [];
   const adapter = { async *stream(req: WireRequest) {
     calls.push(req.model); const text = req.model === 'gpt-4.1-mini' ? 'summary facts' : 'reply '.repeat(70);

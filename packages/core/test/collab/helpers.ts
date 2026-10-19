@@ -20,12 +20,11 @@ export function viewer(over: Partial<Principal> = {}): Principal {
 export const isCode = (c: string, g?: string) => (e: unknown) =>
   e instanceof CollabError && e.code === c && (g === undefined || e.guardrail === g);
 
-export function memoryBudget(limit?: { tokens?: number; cost?: number }): BudgetPort & { used: number } {
+export function memoryBudget(limit?: { tokens?: number }): BudgetPort & { used: number } {
   const port = {
     used: 0,
-    check(est: { tokens: number; cost: number }) {
+    check(est: { tokens: number }) {
       if (limit?.tokens !== undefined && port.used + est.tokens > limit.tokens) return { allowed: false as const, reason: "token-budget" as const };
-      if (limit?.cost !== undefined && port.used + est.cost > limit.cost) return { allowed: false as const, reason: "cost-budget" as const };
       return { allowed: true as const };
     },
     record(u: { tokens: number }) { port.used += u.tokens; },

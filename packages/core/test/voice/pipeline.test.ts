@@ -55,11 +55,11 @@ test('engine-fixed is explicit in voice metrics and cannot be mistaken for appli
 
 import { createTurnProvider } from '../../src/composition/provider.ts';
 import { ToolRegistry } from '../../src/tools/registry.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 test('privacy model admission denies every cloud adapter before invocation, including fallbacks', async () => {
   let calls = 0;
   const dir = mkdtempSync(join(tmpdir(), 'voice-v2-budget-'));
-  const budget = createCallBudget({ path: join(dir, 'usage.sqlite'), clock: { now: Date.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES) });
+  const budget = createCallBudget({ path: join(dir, 'usage.sqlite'), clock: { now: Date.now } });
   const adapter = { async *stream() { calls++; throw new Error('cloud invoked'); yield { type: 'text_delta' as const, text: '' }; } };
   const provider = createTurnProvider({ registry: new ToolRegistry(), budget, profiles: { default: [{ provider: 'cloud', model: 'gpt-4.1', adapter }, { provider: 'fallback', model: 'gpt-4.1', adapter }] }, approval: { request: async () => ({ approved: false }) }, grants: { get: () => undefined, list: () => [] }, log() {}, resultStore: { put: async () => '' } });
   const profile = createVoiceTurnProfile({ profile: resolveProfile({ enabled: true }), turnId: 'a', metrics: new VoiceMetrics(), allowModel: () => false });

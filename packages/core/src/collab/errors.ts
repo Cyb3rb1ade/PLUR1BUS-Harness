@@ -6,7 +6,7 @@ export const COLLAB_ERROR_CODES = [
 export type CollabErrorCode = (typeof COLLAB_ERROR_CODES)[number];
 
 export const GUARDRAIL_REASONS = [
-  "depth", "cycle", "self-call", "fanout", "pair-limit", "timeout", "token-budget", "cost-budget",
+  "depth", "cycle", "self-call", "fanout", "pair-limit", "timeout", "token-budget",
   "repeat", "project-boundary", "agent-inactive",
 ] as const;
 export type GuardrailReason = (typeof GUARDRAIL_REASONS)[number];

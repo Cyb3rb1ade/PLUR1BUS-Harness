@@ -5,7 +5,8 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { RpcError } from "../rpc/errors.ts";
 import type { BreakerState, CandidateRow, CandidateState, DreamRun, Outcome, Phase, RunCounts, ScheduleRow, Trigger } from "./types.ts";
 
-/** Forward-only. Step N takes the database from user_version N-1 to N; a store from a newer build is refused. */
+/** dream_run's money column (next to tokens_out) is legacy and stays NULL: no money dimension since 2026-10-19 (ADR-009 amended).
+ * Forward-only. Step N takes the database from user_version N-1 to N; a store from a newer build is refused. */
 const MIGRATIONS: readonly string[] = [
   `
   CREATE TABLE dream_run (
@@ -172,7 +173,7 @@ export class DreamStore {
       idempotencyKey: hash < 0 ? key : key.slice(0, hash), claimed: hash < 0,
       trigger: r.trigger as Trigger, scheduledFor: num(r.scheduled_for), startedAt: Number(r.started_at), finishedAt: num(r.finished_at),
       outcome: (str(r.outcome) as Outcome | null), reason: str(r.reason), counts: JSON.parse(r.counts_json as string) as RunCounts,
-      tokensIn: num(r.tokens_in), tokensOut: num(r.tokens_out), costMicros: num(r.cost_micros),
+      tokensIn: num(r.tokens_in), tokensOut: num(r.tokens_out),
       logPath: str(r.log_path), error: r.error_json ? (JSON.parse(r.error_json as string) as DreamRun["error"]) : null,
     };
   }
@@ -196,7 +197,7 @@ export class DreamStore {
   }
 
   /** Closes the run. A run that did not complete gives its key back ("a failed run leaves the corpus eligible"). */
-  finishRun(runId: string, f: { outcome: Outcome; reason: string | null; finishedAt: number; counts: RunCounts; tokensIn?: number | null; tokensOut?: number | null; costMicros?: number | null; error?: DreamRun["error"] }): void {
+  finishRun(runId: string, f: { outcome: Outcome; reason: string | null; finishedAt: number; counts: RunCounts; tokensIn?: number | null; tokensOut?: number | null; error?: DreamRun["error"] }): void {
     this.tx(() => {
       const cur = this.#get("SELECT idempotency_key FROM dream_run WHERE run_id = ?", runId);
       if (!cur) throw new Error(`unknown dream run ${runId}`);
@@ -206,8 +207,8 @@ export class DreamStore {
       const stored = f.outcome === "completed" ? base : `${base}#${f.outcome}:${runId}`;
       try {
         this.#run(
-          "UPDATE dream_run SET outcome = ?, reason = ?, finished_at = ?, counts_json = ?, tokens_in = ?, tokens_out = ?, cost_micros = ?, error_json = ?, idempotency_key = ? WHERE run_id = ?",
-          f.outcome, f.reason, f.finishedAt, JSON.stringify(f.counts), f.tokensIn ?? null, f.tokensOut ?? null, f.costMicros ?? null, f.error ? JSON.stringify(f.error) : null, stored, runId,
+          "UPDATE dream_run SET outcome = ?, reason = ?, finished_at = ?, counts_json = ?, tokens_in = ?, tokens_out = ?, error_json = ?, idempotency_key = ? WHERE run_id = ?",
+          f.outcome, f.reason, f.finishedAt, JSON.stringify(f.counts), f.tokensIn ?? null, f.tokensOut ?? null, f.error ? JSON.stringify(f.error) : null, stored, runId,
         );
       } catch (e) {
         // A completed close that never claimed its key, while another completed run holds it: the defined conflict, not SQLite's text.

@@ -29,7 +29,7 @@ test('concurrent close of one session reaches the provider and the notice once',
 
 test('a budget event that arrives during attach closes the provider session and releases once', async () => {
   const s = setup(); s.ports.budget.record = async () => false;
-  s.hooks.attach = async (_url, onEvent) => { await onEvent({ type: 'response.done', eventId: 'early', costMicros: 1 }); };
+  s.hooks.attach = async (_url, onEvent) => { await onEvent({ type: 'response.done', eventId: 'early', seconds: 1 }); };
   await assert.rejects(s.broker.create(s.request), { code: 'budget-exceeded' });
   assert.equal(s.attempts.length, 1); assert.equal(s.released.length, 1);
 });

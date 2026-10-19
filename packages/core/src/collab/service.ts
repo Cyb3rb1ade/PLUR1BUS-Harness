@@ -47,7 +47,6 @@ interface Chain {
   fanout: number;
   pairCounts: Map<string, number>;
   tokensUsed: number;
-  costUsed: number;
   abort: AbortController;
   timeout: ReturnType<typeof setTimeout> | undefined;
   inflight: Set<AbortController>;
@@ -186,7 +185,7 @@ export function createCollab(o: CollabOptions): Collab {
     }
     const chain: Chain = {
       traceId, projectId: project.id, rootAgent, rootSpanId, startedAt: store.now(),
-      fanout: 0, pairCounts: new Map(), tokensUsed: 0, costUsed: 0, abort, timeout: undefined, inflight: new Set(), ended: false,
+      fanout: 0, pairCounts: new Map(), tokensUsed: 0, abort, timeout: undefined, inflight: new Set(), ended: false,
     };
     const remain = project.settings.timeoutMs;
     if (remain > 0 && Number.isFinite(remain)) {
@@ -219,7 +218,7 @@ export function createCollab(o: CollabOptions): Collab {
       traceId, projectId: project.id, rootAgent: persisted.rootAgent, rootSpanId: persisted.rootSpanId,
       startedAt: persisted.createdAt, fanout: persisted.spans.filter((s) => s.kind !== "guardrail").length,
       pairCounts: new Map(), tokensUsed: persisted.spans.reduce((n, s) => n + s.inputTokens + s.outputTokens, 0),
-      costUsed: 0, abort, timeout: undefined, inflight: new Set(), ended: persisted.endedAt !== null,
+      abort, timeout: undefined, inflight: new Set(), ended: persisted.endedAt !== null,
     };
     chains.set(traceId, revived);
     attachSignal(revived, extra);
@@ -256,10 +255,10 @@ export function createCollab(o: CollabOptions): Collab {
       settings: project.settings, fromAgent: i.fromAgent, toAgent: i.toAgent, path: i.path,
       fanout: chain.fanout, pairCount: chain.pairCounts.get(pk) ?? 0, now: store.now(), chainStartedAt: chain.startedAt,
       lastRepeatAt: store.lastRepeat(repeatKey(i.fromAgent, i.toAgent, i.question)),
-      sameProject, tokensUsed: chain.tokensUsed, nextTokens: i.nextTokens, costUsed: chain.costUsed, nextCost: 0,
+      sameProject, tokensUsed: chain.tokensUsed, nextTokens: i.nextTokens,
     });
     if (decision) refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: decision, detail: `guardrail ${decision}` });
-    const b = budget.check({ tokens: i.nextTokens, cost: 0, projectId: project.id, agentId: i.toAgent, chainId: chain.traceId });
+    const b = budget.check({ tokens: i.nextTokens, projectId: project.id, agentId: i.toAgent, chainId: chain.traceId });
     if (!b.allowed) refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: b.reason, detail: `guardrail ${b.reason}` });
   };
 
@@ -294,7 +293,7 @@ export function createCollab(o: CollabOptions): Collab {
     try {
       const out = await execute();
       if (turn && sessions) {
-        sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { fromAgent: hop!.fromAgent, toAgent, projectId: project.id, traceId: chain.traceId, spanId: hop!.spanId }, result: redact.text(out.text), status: out.partial ? 'partial' : 'done', usage: { inputTokens: out.inputTokens, outputTokens: out.outputTokens, costEstimate: out.costEstimate ?? null } });
+        sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { fromAgent: hop!.fromAgent, toAgent, projectId: project.id, traceId: chain.traceId, spanId: hop!.spanId }, result: redact.text(out.text), status: out.partial ? 'partial' : 'done', usage: { inputTokens: out.inputTokens, outputTokens: out.outputTokens } });
         sessions.completeTurn(turn.id, { text: redact.text(out.text), tokens: out.outputTokens, data: { traceId: chain.traceId, spanId: hop!.spanId, status: out.partial ? 'partial' : 'done' } });
       }
       return out;
@@ -419,9 +418,9 @@ export function createCollab(o: CollabOptions): Collab {
       try {
         const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent });
         chain.tokensUsed += out.inputTokens + out.outputTokens;
-        budget.record({ tokens: out.inputTokens + out.outputTokens, cost: 0, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
+        budget.record({ tokens: out.inputTokens + out.outputTokens, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
         store.finishSpan(spanId, {
-          status: out.partial ? "partial" : "succeeded", outputPreview: preview(out.text), inputTokens: out.inputTokens, outputTokens: out.outputTokens, costEstimate: out.costEstimate ?? null, ...(out.targetKind ? { targetKind: out.targetKind } : {}),
+          status: out.partial ? "partial" : "succeeded", outputPreview: preview(out.text), inputTokens: out.inputTokens, outputTokens: out.outputTokens, ...(out.targetKind ? { targetKind: out.targetKind } : {}),
         });
         fire({ type: "consult.finished", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { spanId, status: "succeeded" } });
         return {
@@ -492,7 +491,7 @@ export function createCollab(o: CollabOptions): Collab {
           const prompt = `${input.task}\n\nAcceptance criteria:\n${input.acceptanceCriteria}`;
           const out = await runTarget(chain, project, input.toAgent, prompt, "", signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent });
           chain.tokensUsed += out.inputTokens + out.outputTokens;
-          budget.record({ tokens: out.inputTokens + out.outputTokens, cost: 0, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
+          budget.record({ tokens: out.inputTokens + out.outputTokens, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
           const art = artifacts.put({ projectId: project.id, body: out.text, contentType: "text/plain" });
           const cap = capReturn(out.text, project.settings.returnTokens, art.pointer);
           const result = cap.text;
@@ -501,7 +500,7 @@ export function createCollab(o: CollabOptions): Collab {
             inputTokens: out.inputTokens, outputTokens: out.outputTokens, ...(out.targetKind ? { targetKind: out.targetKind } : {}),
           });
           store.finishSpan(spanId, {
-            status: out.partial ? "partial" : "succeeded", outputPreview: preview(result), inputTokens: out.inputTokens, outputTokens: out.outputTokens, costEstimate: out.costEstimate ?? null, ...(out.targetKind ? { targetKind: out.targetKind } : {}),
+            status: out.partial ? "partial" : "succeeded", outputPreview: preview(result), inputTokens: out.inputTokens, outputTokens: out.outputTokens, ...(out.targetKind ? { targetKind: out.targetKind } : {}),
           });
           fire({ type: "delegate.finished", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, status: out.partial ? "partial" : "succeeded", truncated: cap.truncated } });
           return finished;

@@ -9,7 +9,7 @@ import { defaults } from '../../../config-schema/src/index.ts';
 import { loadConfig, writeConfigAtomic } from '../../src/config-load.ts';
 import { sessionRoleFactory } from '../../src/session/maintenance.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 import { ToolRegistry } from '../../src/tools/registry.ts';
 import type { ChatRequest } from '../../src/session/provider.ts';
 import type { ChatRequest as WireRequest } from '../../../providers/src/index.ts';
@@ -19,7 +19,7 @@ const summaryRequest = (): ChatRequest => ({ sessionId: 's', agentId: 'a', princ
 function harness(configPath: string) {
   const models: string[] = [];
   const dir = mkdtempSync(join(tmpdir(), 'summarize-budget-'));
-  const budget = createCallBudget({ path: join(dir, 'budget.sqlite'), clock: { now: Date.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES) });
+  const budget = createCallBudget({ path: join(dir, 'budget.sqlite'), clock: { now: Date.now } });
   const adapter = { async *stream(req: WireRequest) {
     models.push(req.model);
     yield { type: 'text_delta' as const, text: 'summary' };

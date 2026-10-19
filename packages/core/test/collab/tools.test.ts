@@ -11,7 +11,7 @@ import { returnFromText } from '../../src/collab/handoff.ts';
 import type { ChatProvider, ChatRequest } from '../../src/session/provider.ts';
 import { collect, scriptedAdapter, turnFixture, turnRequest, useTempDirs } from '../composition/helpers.ts';
 import { rig } from '../approvals/service-helpers.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 import { join } from 'node:path';
 
 const tmp = useTempDirs('m5-tools-');
@@ -78,7 +78,7 @@ test('delegate requires real receiver ack before execution; partial output survi
 });
 test('project M2 ledger refuses before fan-out and records its refusal', async t => {
   const events: unknown[] = [];
-  const budget = createCallBudget({ path: join(tmp.make(), 'budget.sqlite'), clock: { now: Date.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES), emitter: { emit: e => { events.push(e); } } }); t.after(() => budget.close());
+  const budget = createCallBudget({ path: join(tmp.make(), 'budget.sqlite'), clock: { now: Date.now }, emitter: { emit: e => { events.push(e); } } }); t.after(() => budget.close());
   const f = await fixture(t, { budget: { check(estimate) {
     const result = budget.checkBeforeCall({ principal: owner.userId, agent: estimate.agentId, project: estimate.projectId, model: 'm', provider: 'p', estimatedInputTokens: estimate.tokens, maxOutputTokens: 2000 });
     if (result.kind === 'refuse') return { allowed: false, reason: 'token-budget' };

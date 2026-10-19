@@ -99,7 +99,7 @@ describe("dreams.run", () => {
     const { h, call } = setup(); h.captures("alpha", 3);
     const r = await call("dreams.run", { agentId: "alpha", phase: "rem" });
     assert.equal(r.trigger, "manual"); assert.equal(r.outcome, "completed"); assert.equal(r.durationMs, 0); assert.equal(r.claimed, true);
-    assert.deepEqual(Object.keys(r).sort(), ["agentId", "claimed", "costMicros", "counts", "durationMs", "error", "finishedAt", "idempotencyKey", "jobId", "logPath", "outcome", "partition", "phase", "reason", "runId", "scheduledFor", "startedAt", "tokensIn", "tokensOut", "trigger"]);
+    assert.deepEqual(Object.keys(r).sort(), ["agentId", "claimed", "counts", "durationMs", "error", "finishedAt", "idempotencyKey", "jobId", "logPath", "outcome", "partition", "phase", "reason", "runId", "scheduledFor", "startedAt", "tokensIn", "tokensOut", "trigger"]);
     assert.ok(Object.values(r.counts).every((v) => typeof v === "number"));
   });
 

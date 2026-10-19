@@ -10,7 +10,7 @@ import { MediaError, failure, metadataEnabled, validateRequest } from './types.t
 import type { ImageRequest, ImageResult } from './types.ts';
 export interface Manifest {
   schema: 'media.output/1'; id: string; createdAt: number; prompt: string; kind?: 'image' | 'video'; parameters: Omit<ImageRequest, 'referenceImages' | 'mask' | 'referenceVideo'>;
-  referenceHashes: string[]; maskHash?: string; metadata: Omit<ImageResult['metadata'], 'seed' | 'costUsd'> & { seed: number | null; costUsd: number | null; origin: string }; partial: boolean;
+  referenceHashes: string[]; maskHash?: string; metadata: Omit<ImageResult['metadata'], 'seed'> & { seed: number | null; origin: string }; partial: boolean;
   files: { path: string; sha256: string; bytes: number; format: string; durationSeconds?: number; width?: number; height?: number; fps?: number; audio?: boolean; poster?: { path: string; sha256: string; bytes: number } }[];
 }
 /** Additive observer hooks: called after a manifest is published or an output is deleted; failures never reach the store. */
@@ -64,7 +64,7 @@ export class OutputStore {
     if (req.kind === 'video') return this.putVideo(id, req, result, agentMetadata);
     if (!result.files.length) throw new MediaError('invalid_response');
     const { referenceImages, mask, ...parameters } = req;
-    const manifest: Manifest = { schema: 'media.output/1', id, createdAt: Date.now(), prompt: req.prompt, parameters, referenceHashes: (referenceImages ?? []).map(i => hash(i.bytes)), ...(mask ? { maskHash: hash(mask.bytes) } : {}), metadata: { ...result.metadata, seed: result.metadata.seed ?? null, costUsd: result.metadata.costUsd ?? null, origin: result.metadata.origin ?? 'unknown' }, partial: result.partial ?? false, files: [] };
+    const manifest: Manifest = { schema: 'media.output/1', id, createdAt: Date.now(), prompt: req.prompt, parameters, referenceHashes: (referenceImages ?? []).map(i => hash(i.bytes)), ...(mask ? { maskHash: hash(mask.bytes) } : {}), metadata: { ...result.metadata, seed: result.metadata.seed ?? null, origin: result.metadata.origin ?? 'unknown' }, partial: result.partial ?? false, files: [] };
     const embed = metadataEnabled({ ...(this.options.embedMetadata === undefined ? {} : { global: this.options.embedMetadata }), ...(agentMetadata === undefined ? {} : { agent: agentMetadata }), ...(req.embedMetadata === undefined ? {} : { call: req.embedMetadata }) });
     const files = result.files.map((f, index) => {
       if (!['png', 'jpeg', 'webp'].includes(f.format) || !f.bytes.length) throw new MediaError('invalid_response');
@@ -130,7 +130,7 @@ export class OutputStore {
           return {path:name,bytes,sha256:digest.digest('hex')};
         };
         const stored = await describe(path), poster = await describe(posterPath);
-        const manifest: Manifest = {schema:'media.output/1',kind:'video',id,createdAt:Date.now(),prompt:req.prompt,parameters,referenceHashes:[...(referenceImages ?? []).map(i=>hash(i.bytes)),...(referenceVideo ? [hash(referenceVideo.bytes)] : [])],metadata:{...result.metadata,seed:result.metadata.seed ?? null,costUsd:result.metadata.costUsd ?? null,costStatus:result.metadata.costUsd === undefined ? 'unknown' : 'known',origin:result.metadata.origin ?? 'unknown'},partial:result.partial ?? false,files:[{...stored,format,...info,poster}]};
+        const manifest: Manifest = {schema:'media.output/1',kind:'video',id,createdAt:Date.now(),prompt:req.prompt,parameters,referenceHashes:[...(referenceImages ?? []).map(i=>hash(i.bytes)),...(referenceVideo ? [hash(referenceVideo.bytes)] : [])],metadata:{...result.metadata,seed:result.metadata.seed ?? null,origin:result.metadata.origin ?? 'unknown'},partial:result.partial ?? false,files:[{...stored,format,...info,poster}]};
         const json = JSON.stringify(manifest);
         if (used + stored.bytes + poster.bytes + Buffer.byteLength(json) > quota) throw new MediaError('quota');
         await rm(source); const handle = await open(join(stage,'manifest.json'),'wx',0o600);
