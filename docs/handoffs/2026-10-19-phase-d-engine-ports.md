@@ -1,6 +1,6 @@
 # Phase D — engine 1.15 host ports
 
-Scope: Fetch-Port, Secret-Port and HTTP reranker wiring. The controller owns the separate pin upgrade to
+Scope: Fetch-Port, Secret-Port and HTTP reranker wiring. Controller PR #598 merged the separate pin upgrade to
 `98dfe2f03363f6291daa9f85e473578770fb5c55` (contract 1.16 includes 1.15). This change does not update the dependency or
 lockfile and does not reimplement `memory.unimport` or the import source links.
 
@@ -24,7 +24,7 @@ The loopback integration test calls public `Engine.embedding.embed` and `rerank`
 fetch throws. It verifies actual embedding/rerank results, the TEI wire request and later live egress refusal.
 Transport tests cover HTTP error JSON, streaming before EOF, cancellation, redirect handling, size limits and deadlines.
 Secret tests cover audit, lease cleanup, rotation, deletion and value exclusion from audit events.
-The new engine error-code union also requires three RPC error mappings; tests cover them. Core status tests compare
+The controller supplies the new engine error-code mappings; additional tests cover them. Core status tests compare
 the runtime handshake version rather than duplicating the dependency version in a constant.
 
 Live provider/model quality and real model downloads are not accepted by the loopback tests. Engine role Test buttons
@@ -50,3 +50,5 @@ scratch state directories, but their network policy and keys come from the actua
 home’s validated configuration for each request/lease and never initialize a missing config file. The additional
 regression test uses different scratch/target homes, an encrypted file secret backend and a live policy change.
 The controller’s ongoing import-link/rollback logic remains separate.
+
+After merging current main (including #598), the focused suite plus privacy regressions ran 265 tests: 263 passed, two todo, zero failures. Typecheck and hygiene passed. The controller’s lock-busy → E_STORAGE mapping was preserved.

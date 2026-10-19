@@ -250,6 +250,7 @@ describe("engine-config", () => {
     cfg.engine.reranker = { provider: "remote", baseUrl: "http://localhost:8080", protocol: "tei" };
     cfg.privacy.localOnly = true;
     assert.equal((buildEngineConfig(cfg, l) as any).reranker.protocol, "tei");
+    cfg.privacy.localOnly = false; // Validate malformed details independently of the shared-engine privacy preflight.
     for (const patch of [{ apiKeyRef: "invalid ref", apiKeyEnv: "K" }, { protocol: "unsupported" }, { baseUrl: undefined }]) {
       cfg.engine.reranker = { provider: "remote", baseUrl: "http://localhost:8080", protocol: "tei", ...patch };
       assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "engine-provider-config-incomplete");
