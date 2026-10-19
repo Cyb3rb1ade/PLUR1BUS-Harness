@@ -23,7 +23,11 @@ pub fn run(out: &Out, layout: &Layout, cmd: SecretCmd) {
             let v = call(out, layout, "secret.list", json!({}));
             out.ok("secret.ls/1", &v, || render_list(&v));
         }
-        SecretCmd::Set { name, rest } => {
+        SecretCmd::Set {
+            name,
+            description,
+            rest,
+        } => {
             if !rest.is_empty() {
                 // clap would echo an unknown argument in its own error; this refusal names nothing the user typed.
                 out.fail(
@@ -37,7 +41,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: SecretCmd) {
                 out,
                 layout,
                 "secret.set",
-                json!({ "name": name, "value": value }),
+                set_params(&name, &value, description.as_deref()),
             );
             out.ok("secret.set/1", &v, || {
                 format!(
@@ -65,6 +69,15 @@ pub fn run(out: &Out, layout: &Layout, cmd: SecretCmd) {
             out.ok("secret.rm/1", &v, || format!("removed {name}"));
         }
     }
+}
+
+/// The `secret.set` params: `description` is sent only when given, so a rotation without `--description` keeps the stored one.
+fn set_params(name: &str, value: &str, description: Option<&str>) -> Value {
+    let mut params = json!({ "name": name, "value": value });
+    if let Some(d) = description {
+        params["description"] = json!(d);
+    }
+    params
 }
 
 fn call(out: &Out, layout: &Layout, method: &str, params: Value) -> Value {
@@ -156,10 +169,15 @@ fn backend_label(b: &Value) -> &'static str {
 }
 
 fn render_meta(m: &Value) -> String {
+    let description = m["description"]
+        .as_str()
+        .map(|d| format!("\n  about:    {d}"))
+        .unwrap_or_default();
     format!(
-        "{}\n  backend:  {}\n  created:  {}\n  updated:  {}\n  (the value is shown only by `plur1bus secret get {} --reveal`)",
+        "{}\n  backend:  {}{}\n  created:  {}\n  updated:  {}\n  (the value is shown only by `plur1bus secret get {} --reveal`)",
         m["name"].as_str().unwrap_or("?"),
         backend_label(&m["backend"]),
+        description,
         m["createdAt"].as_str().unwrap_or("?"),
         m["updatedAt"].as_str().unwrap_or("?"),
         m["name"].as_str().unwrap_or("NAME"),
@@ -173,10 +191,14 @@ fn render_list(v: &Value) -> String {
             a.iter()
                 .map(|m| {
                     format!(
-                        "{}  ({}, updated {})",
+                        "{}  ({}, updated {}){}",
                         m["name"].as_str().unwrap_or("?"),
                         backend_label(&m["backend"]),
-                        m["updatedAt"].as_str().unwrap_or("?")
+                        m["updatedAt"].as_str().unwrap_or("?"),
+                        m["description"]
+                            .as_str()
+                            .map(|d| format!(": {d}"))
+                            .unwrap_or_default()
                     )
                 })
                 .collect()
@@ -266,6 +288,34 @@ mod tests {
         let m = json!({"name":"k","backend":"file","createdAt":"a","updatedAt":"b","value":"TOPSECRET"});
         assert!(!render_meta(&m).contains("TOPSECRET"));
         assert!(!render_list(&json!({"secrets":[m]})).contains("TOPSECRET"));
+    }
+
+    #[test]
+    fn set_params_send_a_description_only_when_given() {
+        assert_eq!(
+            set_params("k", "v", None),
+            json!({ "name": "k", "value": "v" })
+        );
+        assert_eq!(
+            set_params("k", "v", Some("Billing key")),
+            json!({ "name": "k", "value": "v", "description": "Billing key" })
+        );
+        // an empty text is sent: it removes the stored description
+        assert_eq!(set_params("k", "v", Some(""))["description"], json!(""));
+    }
+
+    #[test]
+    fn render_shows_the_description_and_still_no_value() {
+        let m = json!({"name":"k","backend":"file","createdAt":"a","updatedAt":"b","description":"Billing key","value":"TOPSECRET"});
+        let meta = render_meta(&m);
+        assert!(meta.contains("about:    Billing key"), "{meta}");
+        assert!(!meta.contains("TOPSECRET"));
+        let list = render_list(&json!({"secrets":[m]}));
+        assert!(list.contains("updated b): Billing key"), "{list}");
+        assert!(!list.contains("TOPSECRET"));
+        let plain = json!({"name":"k","backend":"file","createdAt":"a","updatedAt":"b"});
+        assert!(!render_meta(&plain).contains("about:"));
+        assert!(render_list(&json!({"secrets":[plain]})).ends_with("updated b)"));
     }
 
     #[test]

@@ -60,8 +60,23 @@ the policy end to end. The gate, the SSRF check and the pinned connect apply exa
   answer is returned unread. The engine port opts into redirecting credential-free GET/HEAD requests carrying only
   `Accept`, `User-Agent` or `Range`; `Authorization`, API-key headers and bodies never reach another destination.
 
-`a2a/push.ts` and `auth/http.ts` still carry their own POST; moving them onto this variant is a follow-up (both have
-their own redirect and response handling with tests that would need to move with them).
+The A2A push delivery (`a2a/push.ts`) and the OAuth token POST (`auth/http.ts`) send through this variant and nothing else:
+neither file opens a socket or calls `fetch` (`test/egress/post-paths.test.ts` guards that statically). Pinning, the
+request and response caps, the deadline, the no-redirect rule for a request with a body or caller headers and the
+decision counters therefore live here only.
+
+- **Push** sends `POST` with `discardBody: true`: only status and `Location` are read, so a large answer from the receiver
+  cannot make an accepted delivery look failed. The dispatcher keeps what is specific to A2A: it judges each hop with
+  `decide`, follows a 3xx itself (at most `maxRedirects`), drops the token and bearer credentials when the origin changes,
+  retries with backoff and abandons a POST after `postTimeoutMs` (default 15 s; the egress call itself is bounded at 60 s).
+- **OAuth token POST** sends the form with `errorBodyBytes` equal to its 64 KiB cap (an error answer carries the OAuth
+  error code), one deadline of `timeoutMs` (default 30 s) over the whole call, and refuses every 3xx (`redirect_refused`)
+  so the form never leaves the host it was addressed to. A refusal by the gate, the SSRF check or the URL rules is
+  `egress_denied`, a timeout, connection or TLS failure is `transient`, a body over the cap or an unreadable
+  `Content-Encoding` is `invalid_response`; no text of the failure is kept.
+
+`discardBody` (any `request` call): the response body is never read, whatever its size or encoding, and `body` comes back
+empty; status and headers are returned as usual.
 
 ## Engine HTTP and secrets (contract 1.15)
 

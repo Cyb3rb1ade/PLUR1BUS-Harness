@@ -52,6 +52,24 @@ describe("secret store end to end", () => {
     } finally { await stopCore(core); }
   });
 
+  it("a description set with --description is listed and shown, kept by a rotation, replaced by a new one and removed by an empty one", async () => {
+    const h = homeWith(true);
+    const core: RunningCore = await startCore(h, SEAM);
+    try {
+      const set = secret(h, ["set", "desc.key", "--description", "Billing key for the shared account"], { input: MARKER });
+      assert.equal(set.exit, 0, set.stderr); assert.equal(set.doc.description, "Billing key for the shared account");
+      assert.equal(secret(h, ["ls"]).doc.secrets[0].description, "Billing key for the shared account");
+      assert.match(secret(h, ["ls"], { json: false }).stdout, /desc\.key.*: Billing key for the shared account/);
+      assert.match(secret(h, ["get", "desc.key"], { json: false }).stdout, /about:\s+Billing key for the shared account/);
+      assert.equal(secret(h, ["set", "desc.key"], { input: `${MARKER}2` }).doc.description, "Billing key for the shared account");
+      assert.equal(secret(h, ["set", "desc.key", "--description", "Second text"], { input: `${MARKER}3` }).doc.description, "Second text");
+      const cleared = secret(h, ["set", "desc.key", "--description", ""], { input: `${MARKER}4` });
+      assert.equal(cleared.exit, 0, cleared.stderr); assert.equal("description" in cleared.doc, false);
+      const tooLong = secret(h, ["set", "desc.key", "--description", "x".repeat(201)], { input: MARKER });
+      assert.notEqual(tooLong.exit, 0); assert.equal(tooLong.doc.error, "E_INVALID_PARAMS");
+    } finally { await stopCore(core); }
+  });
+
   it("round trip, persistence across a core restart, tamper fails closed, and the marker never leaks", async () => {
     const h = homeWith(true);
     let core: RunningCore = await startCore(h, SEAM);

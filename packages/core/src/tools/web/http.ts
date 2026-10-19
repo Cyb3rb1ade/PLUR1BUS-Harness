@@ -49,6 +49,8 @@ export interface HttpOptions {
   body?: string | Uint8Array | undefined;
   /** Cap on the request body. Default 20 MB. */
   maxRequestBytes?: number | undefined;
+  /** The caller needs the status and headers only (a webhook delivery): the response body is never read, whatever its size or encoding, and `body` comes back empty. */
+  discardBody?: boolean | undefined;
 }
 
 export type HttpMethod = "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -241,6 +243,10 @@ function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number
             }
           })();
           return;
+        }
+        if (o.discardBody) {
+          res.destroy();
+          return resolve({ status, headers, body: Buffer.alloc(0) });
         }
         void (async () => {
           try {

@@ -17,7 +17,7 @@ import "../../../styles/secrets.css";
 
 registerArea("secrets", secretsArea);
 
-type Meta = { name: string; backend: string; createdAt?: string; updatedAt?: string };
+type Meta = { name: string; backend: string; createdAt?: string; updatedAt?: string; description?: string };
 type Status = { secrets?: Meta[]; backend: string; degraded: boolean; count: number | null; activeLeases: number };
 type Data = { secrets: Meta[]; status: Status | null };
 type Dlg = null | { kind: "create" } | { kind: "rotate"; name: string } | { kind: "delete"; name: string };
@@ -45,9 +45,10 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
   const close = (): void => { setDlg(null); };
   const names = data.secrets.map((s) => s.name);
 
-  const save = async (name: string, value: string): Promise<SaveResult> => {
+  const save = async (name: string, value: string, description?: string): Promise<SaveResult> => {
     const rotated = names.includes(name);
-    try { await getApi().rpc("secret.set", { name, value }); } catch (e) { return saveFailure(e); }
+    // The description travels only when the dialog changed it; a rotation without one keeps the stored text.
+    try { await getApi().rpc("secret.set", description === undefined ? { name, value } : { name, value, description }); } catch (e) { return saveFailure(e); }
     let updatedAt: string | undefined;
     if (rotated) {
       try {
@@ -83,15 +84,16 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
     data.secrets.length === 0
       ? h(PageState, { state: "empty", title: t("secrets.empty.title"), detail: t("secrets.empty.body") })
       : h("div", {}, h("table", { class: "data-table secrets-table" },
-        h("thead", {}, h("tr", {}, ["name", "backend", "created", "updated", "actions"].map((c) => h("th", { key: c, scope: "col" }, t(`secrets.col.${c}` as Key))))),
+        h("thead", {}, h("tr", {}, ["name", "description", "backend", "created", "updated", "actions"].map((c) => h("th", { key: c, scope: "col" }, t(`secrets.col.${c}` as Key))))),
         h("tbody", {}, data.secrets.map((m) => h("tr", { key: m.name },
           h("th", { scope: "row", class: "secret-name" }, m.name),
+          h("td", { class: "secret-about", "data-label": t("secrets.col.description") }, m.description ?? ""),
           h("td", { "data-label": t("secrets.col.backend") }, backendLabel(m.backend)), h("td", { "data-label": t("secrets.col.created") }, when(currentRole() === "owner" ? m.createdAt : undefined)), h("td", { "data-label": t("secrets.col.updated") }, when(currentRole() === "owner" ? m.updatedAt : undefined)),
           h("td", { class: "secret-actions" },
             h("button", { type: "button", class: "btn", "aria-label": t("secrets.rotate.label", { name: m.name }), onClick: () => { setDlg({ kind: "rotate", name: m.name }); } }, t("secrets.rotate")),
             h("button", { type: "button", class: "btn btn-quiet", "aria-label": t("secrets.delete.label", { name: m.name }), onClick: () => { setDlg({ kind: "delete", name: m.name }); } }, t("secrets.delete")))))))),
     dlg?.kind === "create" ? h(SecretDialog, { existing: names, onSave: save, onClose: close }) : null,
-    dlg?.kind === "rotate" ? h(SecretDialog, { rotate: dlg.name, existing: names, onSave: save, onClose: close }) : null,
+    dlg?.kind === "rotate" ? h(SecretDialog, { rotate: dlg.name, description: data.secrets.find((s) => s.name === dlg.name)?.description, existing: names, onSave: save, onClose: close }) : null,
     dlg?.kind === "delete" ? h(ConfirmDialog, { title: t("secrets.delete.title", { name: dlg.name }), confirmLabel: t("secrets.delete.confirm"), danger: true, expected: dlg.name, onConfirm: remove(dlg.name), onClose: close },
       h("p", {}, t("secrets.delete.body"))) : null);
 }

@@ -1,4 +1,4 @@
-import { SecretError, checkName, checkValue, isSecretName, type BackendKind, type SecretBackend, type SecretMeta, type SecretPrincipal } from "./types.ts";
+import { SecretError, checkDescription, checkName, checkValue, isSecretName, type BackendKind, type SecretBackend, type SecretMeta, type SecretPrincipal } from "./types.ts";
 import { createLeaseTable, type Lease, type LeaseInfo } from "./leases.ts";
 import type { AuditAction, AuditDetail, AuditSink } from "./audit.ts";
 import { createSecretRedaction } from "./redaction.ts";
@@ -108,21 +108,23 @@ export function createSecretStore(o: SecretStoreOptions) {
         keyring: { available: s.keyring.available, ...(s.keyring.reason ? { reason: s.keyring.reason } : {}) },
         file: { enabled: o.fileFallback(), available: s.fileAvailable, ...(s.fileReason ? { reason: s.fileReason } : {}) },
         count, activeLeases: leases.active().length,
-        ...(secrets ? { secrets: secrets.map(m => ({ name: m.name, backend: m.backend, ...(typeof m.createdAt === "string" && m.createdAt ? { createdAt: m.createdAt } : {}), ...(typeof m.updatedAt === "string" && m.updatedAt ? { updatedAt: m.updatedAt } : {}), ...(typeof m.updatedBy === "string" && m.updatedBy ? { updatedBy: m.updatedBy } : {}) })) } : {}),
+        ...(secrets ? { secrets: secrets.map(m => ({ name: m.name, backend: m.backend, ...(typeof m.createdAt === "string" && m.createdAt ? { createdAt: m.createdAt } : {}), ...(typeof m.updatedAt === "string" && m.updatedAt ? { updatedAt: m.updatedAt } : {}), ...(typeof m.updatedBy === "string" && m.updatedBy ? { updatedBy: m.updatedBy } : {}), ...(typeof m.description === "string" && m.description ? { description: m.description } : {}) })) } : {}),
         ...(s.kind === "none" ? { remedy: NO_BACKEND } : {}),
       };
     },
 
-    async set(p: SecretPrincipal, name: string, value: string): Promise<SecretMeta> {
+    /** `description` is optional: omitted, a rotation keeps the stored one; an empty one removes it. */
+    async set(p: SecretPrincipal, name: string, value: string, description?: string): Promise<SecretMeta> {
       gate(p, "set", typeof name === "string" ? name : null, ["owner"]);
       checkName(name); checkValue(value);
+      const text = checkDescription(description, value);
       redaction.register(value);
       const s = await select();
       const backend = need(s);
       audited(p, "secret.set", name, { backend: backend.kind });
       epoch++; writing++;
       try {
-        const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined);
+        const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text);
         // A copy of the old value in the other backend would come back when this one goes away: rotation removes it.
         if (s.other) {
           try { await s.other.delete(name); } catch { o.logger?.warn("stale secret copy could not be removed", { name }); }

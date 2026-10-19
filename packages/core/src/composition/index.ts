@@ -103,9 +103,9 @@ export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>):
       const cfg = d.config(), agent = Object.hasOwn(cfg.agents, agentId) ? cfg.agents[agentId] : undefined;
       if (!agent) return [];
       const refs = agentSecretRefs(cfg, agent);
-      let held: Set<string> | undefined;
-      try { const status = await d.secrets.status({ kind: 'core' }); if (status.secrets) held = new Set(status.secrets.map(s => s.name)); } catch { /* presence stays unknown; the names are still true */ }
-      return refs.map(r => ({ name: r.name, scope: r.scope, ...(held ? { present: held.has(r.name) } : {}) }));
+      let held: Map<string, string | undefined> | undefined;
+      try { const status = await d.secrets.status({ kind: 'core' }); if (status.secrets) held = new Map(status.secrets.map(s => [s.name, s.description])); } catch { /* presence stays unknown; the names are still true */ }
+      return refs.map(r => { const description = held?.get(r.name); return { name: r.name, scope: r.scope, ...(held ? { present: held.has(r.name) } : {}), ...(description ? { description } : {}) }; });
     },
   };
 }

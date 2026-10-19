@@ -4,6 +4,7 @@ import { generateKeyPairSync, verify } from "node:crypto";
 import { inspect } from "node:util";
 import { GoogleAdc } from "../../src/auth/adc.ts";
 import { createOAuthHttp, HttpRefresher } from "../../src/auth/http.ts";
+import { EgressDenial } from "../../src/egress/gate.ts";
 import { createAuthSecretStore } from "../../src/auth/secret-store.ts";
 import { createSecretStore } from "../../src/secrets/store.ts";
 import { createMemoryBackend } from "../../src/secrets/memory-backend.ts";
@@ -56,7 +57,7 @@ it("HTTP errors discard response bodies; invalid_grant vs transient; egress deni
     await assert.rejects(new HttpRefresher(http).refresh({ profile: m.profile(), refreshToken: MARK.refresh }), (e: any) => e.reason === reason && !Object.values(MARK).some(s => inspect(e).includes(s)));
   }
   const before = m.requests.length;
-  await assert.rejects(createOAuthHttp({ egress: { decide: async () => ({ allowed: false, reason: "host-not-allowed", message: MARK.key }) } }).post(`${m.base}/token`, { refresh_token: MARK.refresh }), (e: any) => !inspect(e).includes(MARK.key));
+  await assert.rejects(createOAuthHttp({ egress: { request: async () => { throw new EgressDenial("host-not-allowed", MARK.key); } } }).post(`${m.base}/token`, { refresh_token: MARK.refresh }), (e: any) => e.code === "egress_denied" && !inspect(e).includes(MARK.key));
   assert.equal(m.requests.length, before);
 });
 

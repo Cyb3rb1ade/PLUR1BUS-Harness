@@ -12,8 +12,13 @@ core state; a peer's agent is an M5 `DelegationTarget` of kind `peer`; the share
 its window is set at runtime through the existing `Compactor` (spec §10).
 **Status.** Phase 1: spec and plan only, no product code. **Target: Beta 2, after v0.1.0** (decided) — not in the
 v0.1.0 total. Decision record **D114**. Owner questions Q1–Q8 decided on 2026-10-19 (spec §15); the loan and hand-over
-modes (b2, b3) were added at the owner's request the same day (WP12, WP13); their open questions Q9–Q14 gate WP12 and
-WP13 only.
+modes (b2, b3) were added at the owner's request the same day (WP12, WP13), and their questions Q9–Q14 were decided on
+2026-10-19 as well: lease 120 s renewed every 30 s, a paused mission ends after the lender is unreachable for 24 h, the
+agent counts as returned after the borrower is unreachable for 15 min, loans last at most 30 days
+(`federation.loan.maxDays`) (Q9); mission memories flow back continuously in acknowledged batches and are imported
+directly (Q10); the lender's agent keeps working at home (Q11); a hand-over can be undone within 7 days (Q12); copies of
+mission memories stay at the borrower only if the lender allows it in the offer (Q13); a mission is bound to exactly one
+borrower project the lender cannot see (Q14). No owner question gates any WP any more.
 **Constraints.** Repository rules from `AGENTS.md` and the agent rules (COMMON.md): schema-first RPC and config with
 `x-restart`/`x-tier`/`x-stability`/`x-server`, closed params, no new dependency without the dependency policy, the
 hygiene lint rules, no secrets in tests or commits, TDD, paket-wise test runs, no CI polling, no force-push, rebase, amend
@@ -42,6 +47,7 @@ or stash. Each WP that adds RPC methods, config keys, error reasons or a princip
 ```text
 Prereqs: M6 phase N (MCP server) · phase O (ACP client) · phase P (A2A 1.0 out/in, API-served) · M5 on main · M3 remote access
          · #570 localOnly enforcement · POST egress.request · D109 external principal + taint · RBAC kind "peer"
+         · M5+ subprojects track (D115) for WP14
 
 S0 spike ──► WP1 control profile ─────────────────────────────────────────────────┐
    │                                                                               │
@@ -53,7 +59,8 @@ S0 spike ──► WP1 control profile ─────────────�
                                      WP8 orchestration + trace ◄── WP5, WP6        │
                                      WP12 agent loan (b2) ◄── WP3, WP4 ─────────────┤
                                      WP13 agent hand-over (b3) ◄── WP12             │
-WP9 web UI (per WP, final pass after WP13) · WP10 docs · WP11 two-instance CI/E2E ◄┘
+                                     WP14 subproject share/mission unit ◄── WP4, WP12, M5+ subprojects
+WP9 web UI (per WP, final pass after WP14) · WP10 docs · WP11 two-instance CI/E2E ◄┘
 ```
 
 One branch and one PR per WP (`codex/fed-<wp>-<slug>` or the controller's naming). A WP whose predecessor PR is still
@@ -401,7 +408,9 @@ lender; lease while both instances are online; recall, expiry, return; mission m
 
 **Prerequisites.** WP3 (transport, egress), WP4 (memory share items: copy, taint, provenance), M5 project sessions,
 `agent.export`/`agent.import` (on `main`, experimental), D105 class table and D112 catalogue for the model mapping,
-D109 dispatcher wiring (P8). Owner questions Q9, Q10, Q11, Q13, Q14 answered.
+D109 dispatcher wiring (P8). Owner questions Q9, Q10, Q11, Q13, Q14 decided 2026-10-19 (lease 120 s / heartbeat 30 s,
+lender grace 24 h, borrower grace 15 min, at most 30 days; continuous return with direct import; the agent keeps
+working at home; borrower copies only if the lender allows; one borrower project the lender cannot see).
 
 **Files.**
 - `packages/core/src/federation/loan.ts`: loan state machine (`offered → accepted → active ⇄ paused → returned |
@@ -466,12 +475,13 @@ original, re-embedding at the receiver.
 
 **Prerequisites.** WP12 (package builder, secret reduction, skill handling, model mapping), `agent.import`,
 `agent.archive`, `agent.delete` (on `main`, experimental), `memory.import` and the re-embedding migration
-(`docs/embedding-migration.md`). Owner question Q12 answered.
+(`docs/embedding-migration.md`). Owner question Q12 decided 2026-10-19: undo within 7 days, started by the giver and
+confirmed by the receiver (`federation.handover.undoDays` 7).
 
 **Files.**
 - `packages/core/src/federation/handover.ts`: state machine `offered → accepted → confirmed → delivered → done |
   declined | expired | incomplete`, offer validity (7 days), replay refusal per offer id and package hash, undo within
-  `federation.handover.undoDays` if Q12 keeps it.
+  `federation.handover.undoDays` (7 days, Q12 decided).
 - `packages/core/src/federation/handover-package.ts`: `plur1bus.agent-export/1` bundle plus the hand-over header (giver
   and receiver fingerprints, offer id, both confirmations), signature and hash; selected memories as text with their
   embedding identity; never secret values.
@@ -498,12 +508,57 @@ original, re-embedding at the receiver.
   re-embedding migration → entries parked as `pending-reembed` and carried by `memory reembed`.
 - Replay: a second import of the same package or offer id is refused; a package for another receiver fingerprint is
   refused; a tampered package fails the signature check.
-- Undo (if Q12 keeps it): within the window the receiver's agent is archived and the giver's original unarchived;
+- Undo (Q12: 7 days): within the window the receiver's agent is archived and the giver's original unarchived;
   after the window refused.
 - Audit on both sides for every step, without content.
 
 **Acceptance.** A hand-over never leaves two active owners of one agent and never deletes anything by itself; the
 receiver's store never contains vectors of another embedding identity.
+
+---
+
+## WP14 — Subproject as share and mission unit (≈ 4 agent days)
+
+**Purpose.** Make one **subproject** (subprojects spec, D115) the unit a peer is given and a b2 mission is bound to, so
+that a guest or mission agent sees exactly that subproject and nothing lateral (subprojects spec §12, §13.1). The
+subprojects spec only defined the interface because Track F did not exist; this WP builds the federation side.
+
+**Prerequisites.** The M5+ subprojects track on `main` (at least its WP1 hierarchy, WP2 `visibleFrom`, WP5 report channel,
+WP7 allocation and WP11 isolation suite), WP4 (share records), WP12 (loan, lease, mission agent). Federation spec Q14
+decided 2026-10-19 (a mission is bound to exactly one borrower project the lender does not see).
+
+**Files.**
+- `packages/core/src/collab/shares.ts`: share target `SubprojectRef { rootId, projectId, depth, parentId }`; a share
+  names **exactly one** subproject; a root share covers descendants only with an explicit `includeDescendants` set by
+  the owner (default off).
+- `packages/core/src/collab/visibility.ts` (with the subprojects owners): principal kind `peer` evaluated by
+  `visibleFrom` like a child member of the bound node (`self`), never `ancestor`; lookups outside it answer
+  `E_NOT_FOUND`.
+- `packages/core/src/federation/project-api.ts`: `federation/project.list|get|subscribe` filtered to the bound
+  subproject; no breadcrumb beyond it, no sibling, no parent board.
+- `packages/core/src/federation/loan.ts` and `mission-agent.ts`: mission scope = one borrower **subproject**; mission
+  agent runs with the subproject's D109 roots (its worktree only), the subproject allocation as hard cap for
+  borrower-side mission spend (on top of the lease), upward path only `plur1bus.report/1` (tainted on arrival), never
+  coordinator tools; loan ends with return when the subproject reaches `completed`, `cancelled` or `archived`; mission
+  memories = the subproject pool entries authored by the mission agent.
+- RPC (schema change in this WP's PR): optional `subprojectId` target on `project.share.create` and
+  `federation.loan.offer|accept`; audit fields `subprojectId` on `federation.share.*` and `federation.loan.*` events.
+- Web: share dialog and loan acceptance offer the subproject picker; the guest view shows only the subproject.
+
+**Tests.**
+- Subprojects isolation suite (its WP11) gains the rows "federation peer bound to A" and "mission agent in A": no marker of
+  sibling B, of the root board or of A's parent anywhere; lookups `E_NOT_FOUND`; refusals audited.
+- Root share without `includeDescendants` hides every child; with it, children are visible and grandchildren follow the
+  same rule.
+- A peer or mission agent cannot call coordinator tools, control or merge the subproject, or create a grandchild (peer
+  principals never count as child coordinators for `childrenMayCreate`).
+- Mission in subproject A: host tools refuse paths outside A's worktree; exhausted allocation pauses the mission like a
+  lease loss; cancelling A ends the loan with return and pushes the mission memories; the lender sees only the redacted
+  mission summary.
+- A share or loan naming two subprojects, or a subproject of another root, is refused (`E_INVALID_PARAMS`).
+
+**Acceptance.** Every share and every mission binds to at most one subproject; the extended isolation matrix is green;
+no peer principal ever receives `ancestor` visibility.
 
 ---
 
@@ -520,17 +575,18 @@ receiver's store never contains vectors of another embedding identity.
 | WP6 | 5 | WP5 (Q2 decided: join opt-in) |
 | WP7 | 4 | WP6 (Q7 decided: owner question before forced compaction) |
 | WP8 | 6 | WP5, WP6 (Q4 decided) |
-| WP12 | 8 | WP3, WP4; M5 project sessions; D109 dispatcher wiring (P8); **Q9, Q10, Q11, Q13, Q14** |
-| WP13 | 6 | WP12; **Q12** |
-| WP9 | 8 | per WP; final pass after WP13 |
-| WP10 | 3 | WP13 |
-| WP11 | 5 | WP13 |
+| WP12 | 8 | WP3, WP4; M5 project sessions; D109 dispatcher wiring (P8) (Q9, Q10, Q11, Q13, Q14 decided) |
+| WP13 | 6 | WP12 (Q12 decided: undo within 7 days) |
+| WP14 | 4 | WP4, WP12; M5+ subprojects track on `main` (D115) |
+| WP9 | 8 | per WP; final pass after WP14 |
+| WP10 | 3 | WP14 |
+| WP11 | 5 | WP14 |
 
-**Total ≈ 73 agent days** for S0–WP13 (range about 61–92 depending on S0's SDK finding, how much of the M5/M6
-prerequisites is on `main` when the work starts, and the answers to Q9–Q14). Before the owner decisions of 2026-10-19
-the total was ≈ 54 (45–68); the increase is WP12 (8), WP13 (6), memory share items in WP4 (+1) and the loan and
-hand-over parts of WP9 (+2), WP10 (+1) and WP11 (+1). Not in the v0.1.0 total of `docs/milestones.md`; recorded there
-as Track F (Beta 2).
+**Total ≈ 77 agent days** for S0–WP14 (range about 65–96 depending on S0's SDK finding, how much of the M5/M6
+prerequisites is on `main` when the work starts). Before the owner decisions of 2026-10-19
+the total was ≈ 54 (45–68); the increase is WP12 (8), WP13 (6), memory share items in WP4 (+1), the loan and
+hand-over parts of WP9 (+2), WP10 (+1) and WP11 (+1), and WP14 (+4, added 2026-10-19 with the subprojects decisions,
+D115). Not in the v0.1.0 total of `docs/milestones.md`; recorded there as Track F (Beta 2).
 
 ## Open points carried from the spec
 
@@ -541,4 +597,7 @@ as Track F (Beta 2).
 - Deletion of shared content on a revoked guest depends on a well-behaved guest; the UI says so. The same holds for a
   borrower after a loan: a compromised borrower can keep the definition and the selected memories.
 - Owner questions Q9–Q14 (spec §15) on lease and grace times, memory flow back, the lent agent at home, hand-over undo,
-  kept mission-memory copies and mission scope gate WP12/WP13; the proposed defaults are in spec §12.
+  kept mission-memory copies and mission scope were decided on 2026-10-19; the values are in spec §12 and §15 and in the
+  Status line above.
+- WP14 waits for the M5+ subprojects track ([`2026-10-19-subprojects.md`](2026-10-19-subprojects.md)), which is
+  scheduled directly after the M5 base and therefore before Track F (D115).

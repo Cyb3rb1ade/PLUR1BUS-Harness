@@ -9429,13 +9429,14 @@
       },
       "secret.set": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Creates or replaces a secret; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).",
+        "description": "Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).",
         "params": {
           "type": "object", "additionalProperties": false,
           "required": ["name", "value"],
           "properties": {
             "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$" },
-            "value": { "type": "string", "minLength": 1, "maxLength": 65536 }
+            "value": { "type": "string", "minLength": 1, "maxLength": 65536 },
+            "description": { "type": "string", "maxLength": 200, "description": "What the secret is for (one line of plain text, at most 200 characters, never the value); the agent's `secret_names` tool shows it. Absent: a replacement keeps the stored description. Empty: removes it." }
           }
         },
         "result": { "$ref": "#/$defs/SecretMeta" }
@@ -10629,7 +10630,7 @@
       }
     },
     "SecretMeta": {
-      "description": "Experimental (1.5.0). A secret's name and timestamps; never its value (M2, ADR-005).",
+      "description": "Experimental (1.5.0). A secret's name, timestamps and optional description; never its value (M2, ADR-005).",
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false,
       "required": ["name", "backend", "createdAt", "updatedAt"],
@@ -10638,7 +10639,8 @@
         "backend": { "$ref": "#/$defs/SecretBackend" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" },
-        "updatedBy": { "type": "string", "description": "Person ID of the last writer, when known; never a secret value." }
+        "updatedBy": { "type": "string", "description": "Person ID of the last writer, when known; never a secret value." },
+        "description": { "type": "string", "maxLength": 200, "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value." }
       }
     },
     "SecretStatus": {
@@ -10660,7 +10662,7 @@
         "count": { "type": ["integer", "null"], "minimum": 0 },
         "activeLeases": { "type": "integer", "minimum": 0 },
         "remedy": { "type": "string" },
-        "secrets": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["name", "backend"], "properties": { "name": { "type": "string" }, "backend": { "$ref": "#/$defs/SecretBackend" }, "createdAt": { "type": "string" }, "updatedAt": { "type": "string" }, "updatedBy": { "type": "string" } } }, "description": "Persisted metadata only. Unknown legacy timestamps and writer are omitted." }
+        "secrets": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["name", "backend"], "properties": { "name": { "type": "string" }, "backend": { "$ref": "#/$defs/SecretBackend" }, "createdAt": { "type": "string" }, "updatedAt": { "type": "string" }, "updatedBy": { "type": "string" }, "description": { "type": "string", "maxLength": 200 } } }, "description": "Persisted metadata only. Unknown legacy timestamps and writer are omitted." }
       }
     },
 
