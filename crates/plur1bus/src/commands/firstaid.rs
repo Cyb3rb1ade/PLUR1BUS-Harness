@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 29] = [
+const CHECK_IDS: [&str; 30] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
