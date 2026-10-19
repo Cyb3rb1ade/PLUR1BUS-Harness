@@ -1,5 +1,4 @@
 export { periodBounds, validateTimeZone, type Period, type PeriodBounds } from "./period.ts";
-export { PriceBook, SHIPPED_PRICE_TABLES, costMicros, type ModelPrice, type PriceTable, type TokenCounts } from "./prices.ts";
 export { BUDGET_SCHEMA_VERSION, BudgetStoreError } from "./store.ts";
 export {
   BudgetExceededError, BudgetInputError, createBudgetService, describeBreach,
@@ -11,7 +10,6 @@ export { createCallBudget, CallBudgetExceededError, CallUsagePendingError, DEFAU
   type CallScope, type CallLimit, type ActualCallUsage, type Settlement, type BudgetEmitter, type CallBudgetEvent,
 } from './calls.ts';
 export { allocateContext, checkZones, DEFAULT_ZONE_POLICY, type ZonePolicy, type ZoneBudgets, type ContextAllocation } from './context.ts';
-export { RetryBudget, RetryBudgetExceededError, DEFAULT_RETRY_POLICY, type RetryPolicy, type RetryClass, type RetryRule } from './retry.ts';
+export { RetryBudget, RetryBudgetExceededError, DEFAULT_RETRY_POLICY, DEFAULT_RETRY_TURN_TOKENS, type RetryPolicy, type RetryClass, type RetryRule } from './retry.ts';
 export { capSubagentResult, estimateResultTokens, type SubagentResultPort, type SubagentCapOptions, type CappedSubagentResult } from './subagent.ts';
-export { mediaCostMicros, type MediaPrices, type MediaUnits } from './prices.ts';
 export type { CallPeriod } from './period.ts';

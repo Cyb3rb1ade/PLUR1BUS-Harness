@@ -18,8 +18,6 @@ export type HttpAdapterId = 'openrouter' | 'replicate' | 'fal' | 'together' | 'o
 export interface HttpAdapterConfig { id: HttpAdapterId; model: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; pollMs?: number; downloadHosts?: string[]; allowLan?: boolean; retry?: RetryPolicy; maxConcurrent?: number; modelListTtlMs?: number; video?: VideoProfile; pollWait?: (ms: number, signal: AbortSignal) => Promise<void>; videoProcessor?: VideoProcessor }
 export const defaults: Record<HttpAdapterId, string> = { openrouter: 'https://openrouter.ai/api/v1', replicate: 'https://api.replicate.com/v1', fal: 'https://queue.fal.run', together: 'https://api.together.ai/v1', openai: 'https://api.openai.com/v1', google: 'https://generativelanguage.googleapis.com/v1beta', xai: 'https://api.x.ai/v1', 'draw-things': 'http://127.0.0.1:7860' };
 const dataUrl = (i: ReferenceImage) => `data:image/${i.format};base64,${Buffer.from(i.bytes).toString('base64')}`;
-/** A provider-reported cost is only believed when it is a finite, non-negative number; anything else is treated as unknown so a hostile or broken answer cannot credit the budget. */
-const reportedCost = (usage: unknown): number | undefined => { const cost = (usage as { cost?: unknown } | undefined)?.cost; return typeof cost === 'number' && Number.isFinite(cost) && cost >= 0 ? cost : undefined; };
 const omitUnsupported = (req: ImageRequest, fields: (keyof ImageRequest)[]) => { if (fields.some(f => req[f] !== undefined)) throw new MediaError('unsupported_parameter'); };
 /** Protocol references checked 2026-10-07:
  * OpenRouter chat image modality: https://openrouter.ai/docs/api-reference/chat-completion
@@ -73,18 +71,17 @@ export class HttpImageAdapter implements ImageAdapter {
     validateRequest(input); const req = sanitizeRequest(input); // references and mask leave without EXIF/GPS or textual metadata
     // Chat/Gemini endpoints do not expose a reliable image-count field. Submit one image per call.
     if (!['openrouter', 'google'].includes(this.id) || (req.n ?? 1) === 1) return this.perform(req, context, edit);
-    const start = Date.now(); const files: ImageResult['files'] = []; let metadata: ImageResult['metadata'] | undefined; let cost = 0; let knownCost = true;
+    const start = Date.now(); const files: ImageResult['files'] = []; let metadata: ImageResult['metadata'] | undefined;
     for (let i = 0; i < req.n!; i++) {
       try {
         const output = await this.perform({ ...req, n: 1 }, { ...context, onProgress: async p => { await context.onProgress?.({ ...p, fraction: (i + p.fraction) / req.n! }); } }, edit);
-        files.push(...output.files); const { costUsd: _costUsd, ...rest } = output.metadata; metadata = rest;
-        if (output.metadata.costUsd === undefined) knownCost = false; else cost += output.metadata.costUsd;
+        files.push(...output.files); metadata = output.metadata;
       } catch (e) {
         if (!files.length || !(e instanceof MediaError) || !['backend_unavailable', 'timeout'].includes(e.code) || context.signal?.aborted) throw e;
-        return { files, metadata: { ...metadata!, ...(knownCost ? { costUsd: cost } : {}), durationMs: Date.now() - start }, partial: true };
+        return { files, metadata: { ...metadata!, durationMs: Date.now() - start }, partial: true };
       }
     }
-    return { files, metadata: { ...metadata!, ...(knownCost ? { costUsd: cost } : {}), durationMs: Date.now() - start }, partial: files.length < req.n! };
+    return { files, metadata: { ...metadata!, durationMs: Date.now() - start }, partial: files.length < req.n! };
   }
   private payload(req: ImageRequest, edit: boolean): { path: string; body: unknown } {
     const n = req.n ?? 1; const refs = req.referenceImages ?? [];
@@ -196,7 +193,7 @@ export class HttpImageAdapter implements ImageAdapter {
       if (!values.length || values.length > 10) throw new MediaError('invalid_response');
       await context.onProgress?.({ fraction: 0.9, stage: 'downloading' });
       const files = []; for (const value of values) files.push(verifyOutput(await this.http.image(value, req.format ?? (this.id === 'xai' ? 'jpeg' : 'png'), signal)));
-      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - started, ...(typeof json.seed === 'number' ? { seed: json.seed } : req.seed === undefined ? {} : { seed: req.seed }), origin: this.http.base.origin, ...(this.id === 'draw-things' ? { costUsd: 0 } : {}), ...(reportedCost(json.usage) === undefined ? {} : { costUsd: reportedCost(json.usage)! }) }, partial: files.length < (req.n ?? 1) };
+      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - started, ...(typeof json.seed === 'number' ? { seed: json.seed } : req.seed === undefined ? {} : { seed: req.seed }), origin: this.http.base.origin }, partial: files.length < (req.n ?? 1) };
     } catch (error) {
       if (signal.aborted && externalId) {
         // Best effort remote cancellation, independently bounded; never bypass moderation or resubmit.

@@ -112,7 +112,6 @@ a tool loop carries its complete unmodified signed thinking and redacted-thinkin
 Opaque blocks are kept in WeakMap transport metadata only for the current turn: they do not serialize into logs,
 partial results, prompt records or session storage. An unsigned continuation or a different fallback model fails before I/O.
 The budget guard reserves the same lifted output maximum that the wire sends, including every tool round.
-A missing price remains unknown and a hard cost ceiling refuses an unpriced model.
 
 
 
@@ -138,6 +137,6 @@ thinking with effort; effort alone would leave thinking off on those models. Opu
 retain their token-budget path. The table and schema carry this capability, without model-name rules in the request builder.
 See also [thinking with tools](https://platform.claude.com/docs/en/build-with-claude/extended-thinking).
 
-`scripts/check-reasoning-metadata.mjs` validates the JSON Schema and safe compiled patterns in CI's unit job. Models
-known to the shipped price tables without a matching rule produce informational coverage hints, never validation failures.
+`scripts/check-reasoning-metadata.mjs` validates the JSON Schema and safe compiled patterns in CI's unit job. Callers that
+pass a list of known models get informational coverage hints for models without a matching rule, never validation failures.
 Schema errors and unsafe/duplicate patterns fail. Local tests cover both cases.

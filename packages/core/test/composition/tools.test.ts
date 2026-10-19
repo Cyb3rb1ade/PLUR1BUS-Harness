@@ -247,7 +247,7 @@ describe("composition/tools composeTools: media generate and edit", () => {
     const events: [string, unknown][] = [];
     const budget = {
       checkBeforeCall: (r: unknown) => { events.push(["check", r]); return decision === "allow" ? { kind: "allow", reservationId: "res-1" } : { kind: "refuse", code: "budget_exceeded", reason: "hard", scope: "global", id: "", metric: "cost", limit: 1, used: 1 }; },
-      settle: (id: string, usage: unknown) => { events.push(["settle", { id, usage }]); return { recorded: true, costMicros: 0, overages: [] }; },
+      settle: (id: string, usage: unknown) => { events.push(["settle", { id, usage }]); return { recorded: true, overages: [] }; },
       releaseUnused: (id: string) => { events.push(["release", id]); },
     };
     return { budget: budget as never, events };
@@ -275,7 +275,7 @@ describe("composition/tools composeTools: media generate and edit", () => {
     assert.equal(names(reg).some((n) => n.startsWith("image.") || n.startsWith("media.")), false);
   });
 
-  it("generate: admits against the budget with the adapter identity, stores the output and settles the produced quantity", async () => {
+  it("generate: admits against the budget with the adapter identity, stores the output and settles the call in tokens (media reports none)", async () => {
     const { reg, events, calls } = await mk();
     const out = await get(reg, "image.generate").execute({ prompt: "a cat", n: 1 }, run()) as { id: string; files: unknown[] };
     assert.match(out.id, /^[0-9a-f-]{36}$/); assert.equal(out.files.length, 1);
@@ -284,7 +284,8 @@ describe("composition/tools composeTools: media generate and edit", () => {
     assert.equal(events[0]![0], "check");
     assert.deepEqual([check.principal, check.agent, check.provider, check.model, check.session, check.project], ["user-1", "a1", "fixture", "synthetic-1", "s1", "direct"]);
     assert.deepEqual(events.map((e) => e[0]), ["check", "settle"]);
-    assert.deepEqual((events[1]![1] as { usage: { media: unknown[] } }).usage.media, [{ kind: "image", resolution: "default", quantity: 1 }]);
+    assert.deepEqual((events[1]![1] as { usage: unknown }).usage, { inputTokens: 0, outputTokens: 0 }); // no money dimension: no media price units
+    assert.equal("media" in check, false);
   });
 
   it("a budget refusal is a typed budget_exceeded error and the adapter is never called", async () => {
@@ -300,12 +301,12 @@ describe("composition/tools composeTools: media generate and edit", () => {
     assert.deepEqual(events.map((e) => e[0]), ["check", "release"]);
   });
 
-  it("an aborted generation settles the requested quantity instead of releasing (it may still bill remotely)", async () => {
+  it("an aborted generation settles the call instead of releasing (it may still complete remotely)", async () => {
     const ac = new AbortController();
     const { reg, events } = await mk({ generate: async () => { ac.abort(new Error("stop")); throw new Error("aborted by caller"); } });
     await assert.rejects(() => get(reg, "image.generate").execute({ prompt: "a cat", n: 3 }, run(ac.signal)), /aborted by caller/);
     assert.deepEqual(events.map((e) => e[0]), ["check", "settle"]);
-    assert.deepEqual((events[1]![1] as { usage: { media: { quantity: number }[] } }).usage.media[0]!.quantity, 3);
+    assert.deepEqual((events[1]![1] as { usage: unknown }).usage, { inputTokens: 0, outputTokens: 0 });
   });
 
   it("edit without reference images is refused before the adapter runs", async () => {

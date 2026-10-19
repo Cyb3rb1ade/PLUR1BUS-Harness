@@ -5,7 +5,6 @@ import { createRequire } from "node:module";
 // Use the schema package’s declared validator, matching its installed version.
 const Ajv=createRequire(new URL("../packages/config-schema/package.json",import.meta.url))("ajv");
 import { loadReasoningTable, lookupReasoning } from "../packages/core/src/discovery/reasoning.ts";
-import { SHIPPED_PRICE_TABLES } from "../packages/core/src/budget/prices.ts";
 const schema=JSON.parse(readFileSync(new URL("./reasoning-metadata.schema.json",import.meta.url),"utf8"));
 const validate=new Ajv({allErrors:true,strict:false}).compile(schema);
 export function checkReasoningMetadata(raw, known=[]) {
@@ -21,8 +20,7 @@ export function checkReasoningMetadata(raw, known=[]) {
 if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   try {
     const path=process.argv[2]?resolve(process.argv[2]):new URL("../packages/core/catalog/reasoning-metadata.json",import.meta.url);
-    const known=SHIPPED_PRICE_TABLES.flatMap(table=>Object.keys(table.models));
-    const result=checkReasoningMetadata(JSON.parse(readFileSync(path,"utf8")),known);
+    const result=checkReasoningMetadata(JSON.parse(readFileSync(path,"utf8")));
     for(const id of result.missing)console.log(`INFO reasoning metadata: no entry for known model ${id}`);
     console.log(`reasoning metadata ${result.revision}: schema and patterns valid; ${result.missing.length} coverage hints`);
   }catch(error){console.error(String(error));process.exitCode=1;}

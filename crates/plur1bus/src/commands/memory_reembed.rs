@@ -105,19 +105,14 @@ pub(crate) fn describe_plan(v: &Value) -> String {
     ));
     if let Some(c) = plan["cloud"].as_object() {
         let num = |k: &str| c.get(k).and_then(Value::as_u64).unwrap_or(0);
-        let cost = match c.get("estimatedCostMicros").and_then(Value::as_u64) {
-            Some(m) => format!("about {}.{:06} USD", m / 1_000_000, m % 1_000_000),
-            None => "unknown (no price for this model)".into(),
-        };
         s.push_str(&format!(
             "\ncloud target {} / {} at {}:\n  all {} card texts are sent to this provider\n  \
-             estimated tokens: up to {}; estimated cost: {}",
+             estimated tokens: up to {}",
             c.get("provider").and_then(Value::as_str).unwrap_or("?"),
             c.get("model").and_then(Value::as_str).unwrap_or("?"),
             c.get("endpoint").and_then(Value::as_str).unwrap_or("?"),
             num("cards"),
             num("estimatedTokens"),
-            cost,
         ));
     }
     s
@@ -413,19 +408,18 @@ mod tests {
     }
 
     #[test]
-    fn a_cloud_plan_says_what_leaves_the_machine_and_what_it_may_cost() {
-        let plan = |cost: Value| {
+    fn a_cloud_plan_says_what_leaves_the_machine_and_how_many_tokens() {
+        let plan = || {
             json!({ "probe": { "verdict": "migration-needed", "message": "m", "reasons": [] }, "plan": {
                 "id": "r1", "rows": 15, "tables": 2, "batches": 6, "batchSize": 3, "providerCalls": 15, "sourceBytes": 1, "targetBytes": 1,
                 "requiredFreeBytes": 1, "freeBytes": 1, "throttleMs": 0, "minDurationMs": 0, "sourceGeneration": "g0", "targetGeneration": "g1",
                 "cloud": { "provider": "openrouter", "model": "qwen/qwen3-embedding-8b", "endpoint": "https://openrouter.ai", "cards": 15,
-                           "estimatedTokens": 375, "estimatedCostMicros": cost, "sendsText": true } } })
+                           "estimatedTokens": 375, "sendsText": true } } })
         };
-        let s = describe_plan(&plan(json!(1_250_000)));
+        let s = describe_plan(&plan());
         assert!(s.contains("all 15 card texts are sent to this provider"));
         assert!(s.contains("up to 375"));
-        assert!(s.contains("about 1.250000 USD"));
-        assert!(describe_plan(&plan(Value::Null)).contains("unknown"));
+        assert!(!s.contains("cost") && !s.contains('$'), "{s}");
     }
 
     #[test]

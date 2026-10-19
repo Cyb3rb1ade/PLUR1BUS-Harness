@@ -2136,8 +2136,7 @@
                             "additionalProperties": false,
                             "required": [
                               "inputTokens",
-                              "outputTokens",
-                              "costMicros"
+                              "outputTokens"
                             ],
                             "properties": {
                               "inputTokens": {
@@ -2146,13 +2145,6 @@
                               },
                               "outputTokens": {
                                 "type": "integer",
-                                "minimum": 0
-                              },
-                              "costMicros": {
-                                "type": [
-                                  "integer",
-                                  "null"
-                                ],
                                 "minimum": 0
                               },
                               "pendingCalls": {
@@ -2424,8 +2416,7 @@
                           "additionalProperties": false,
                           "required": [
                             "inputTokens",
-                            "outputTokens",
-                            "costMicros"
+                            "outputTokens"
                           ],
                           "properties": {
                             "inputTokens": {
@@ -2434,13 +2425,6 @@
                             },
                             "outputTokens": {
                               "type": "integer",
-                              "minimum": 0
-                            },
-                            "costMicros": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ],
                               "minimum": 0
                             },
                             "pendingCalls": {
@@ -2713,8 +2697,7 @@
                           "additionalProperties": false,
                           "required": [
                             "inputTokens",
-                            "outputTokens",
-                            "costMicros"
+                            "outputTokens"
                           ],
                           "properties": {
                             "inputTokens": {
@@ -2723,13 +2706,6 @@
                             },
                             "outputTokens": {
                               "type": "integer",
-                              "minimum": 0
-                            },
-                            "costMicros": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ],
                               "minimum": 0
                             },
                             "pendingCalls": {
@@ -2975,8 +2951,7 @@
                           "additionalProperties": false,
                           "required": [
                             "inputTokens",
-                            "outputTokens",
-                            "costMicros"
+                            "outputTokens"
                           ],
                           "properties": {
                             "inputTokens": {
@@ -2985,13 +2960,6 @@
                             },
                             "outputTokens": {
                               "type": "integer",
-                              "minimum": 0
-                            },
-                            "costMicros": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ],
                               "minimum": 0
                             },
                             "pendingCalls": {
@@ -3351,8 +3319,7 @@
                           "additionalProperties": false,
                           "required": [
                             "inputTokens",
-                            "outputTokens",
-                            "costMicros"
+                            "outputTokens"
                           ],
                           "properties": {
                             "inputTokens": {
@@ -3361,13 +3328,6 @@
                             },
                             "outputTokens": {
                               "type": "integer",
-                              "minimum": 0
-                            },
-                            "costMicros": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ],
                               "minimum": 0
                             },
                             "pendingCalls": {
@@ -3810,8 +3770,7 @@
                           "additionalProperties": false,
                           "required": [
                             "inputTokens",
-                            "outputTokens",
-                            "costMicros"
+                            "outputTokens"
                           ],
                           "properties": {
                             "inputTokens": {
@@ -3820,13 +3779,6 @@
                             },
                             "outputTokens": {
                               "type": "integer",
-                              "minimum": 0
-                            },
-                            "costMicros": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ],
                               "minimum": 0
                             },
                             "pendingCalls": {
@@ -4723,8 +4675,7 @@
                           "additionalProperties": false,
                           "required": [
                             "inputTokens",
-                            "outputTokens",
-                            "costMicros"
+                            "outputTokens"
                           ],
                           "properties": {
                             "inputTokens": {
@@ -4733,13 +4684,6 @@
                             },
                             "outputTokens": {
                               "type": "integer",
-                              "minimum": 0
-                            },
-                            "costMicros": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ],
                               "minimum": 0
                             },
                             "pendingCalls": {
@@ -5001,8 +4945,7 @@
                           "additionalProperties": false,
                           "required": [
                             "inputTokens",
-                            "outputTokens",
-                            "costMicros"
+                            "outputTokens"
                           ],
                           "properties": {
                             "inputTokens": {
@@ -5011,13 +4954,6 @@
                             },
                             "outputTokens": {
                               "type": "integer",
-                              "minimum": 0
-                            },
-                            "costMicros": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ],
                               "minimum": 0
                             },
                             "pendingCalls": {
@@ -5288,8 +5224,7 @@
                           "additionalProperties": false,
                           "required": [
                             "inputTokens",
-                            "outputTokens",
-                            "costMicros"
+                            "outputTokens"
                           ],
                           "properties": {
                             "inputTokens": {
@@ -5298,13 +5233,6 @@
                             },
                             "outputTokens": {
                               "type": "integer",
-                              "minimum": 0
-                            },
-                            "costMicros": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ],
                               "minimum": 0
                             },
                             "pendingCalls": {
@@ -5566,8 +5494,7 @@
                           "additionalProperties": false,
                           "required": [
                             "inputTokens",
-                            "outputTokens",
-                            "costMicros"
+                            "outputTokens"
                           ],
                           "properties": {
                             "inputTokens": {
@@ -5576,13 +5503,6 @@
                             },
                             "outputTokens": {
                               "type": "integer",
-                              "minimum": 0
-                            },
-                            "costMicros": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ],
                               "minimum": 0
                             },
                             "pendingCalls": {
@@ -5940,11 +5860,6 @@
                                 }
                               }
                             }
-                          },
-                          "outputUsdPerMTok": {
-                            "description": "USD per million output tokens from the price table, when known; reasoning tokens bill as output.",
-                            "type": "number",
-                            "minimum": 0
                           }
                         }
                       }

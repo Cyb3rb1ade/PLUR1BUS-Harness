@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createSessionRoleProvider } from '../../src/session/role-routing.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 import { ToolRegistry } from '../../src/tools/registry.ts';
 import type { ChatRequest } from '../../src/session/provider.ts';
 import { ProviderError } from '../../../providers/src/index.ts';
@@ -14,7 +14,7 @@ const request = (): ChatRequest => ({ sessionId: 's', agentId: 'a', principal: '
 function fixture() {
   const calls: WireRequest[] = [];
   const dir = mkdtempSync(join(tmpdir(), 'compaction-role-'));
-  const budget = createCallBudget({ path: join(dir,'budget.sqlite'), clock: { now: Date.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES) });
+  const budget = createCallBudget({ path: join(dir,'budget.sqlite'), clock: { now: Date.now } });
   const adapter = { async *stream(req: WireRequest) { calls.push(req); yield { type: 'text_delta' as const, text: 'summary' }; yield { type: 'done' as const, result: { text: 'summary', toolCalls: [], finishReason: 'stop' as const, rawFinishReason: 'stop', usage: { inputTokens: 20, outputTokens: 2 }, meta: {} } }; } };
   const registry = new ToolRegistry(); let approvals = 0;
   const options = { profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter }], cheap: [{ provider: 'fixture', model: 'gpt-4.1-mini', adapter }] }, profileForClass: () => 'default', registry, budget, approval: { request: async () => { approvals++; return { approved: false }; } }, grants: { get: () => undefined, list: () => [] }, log: () => {}, resultStore: { put: async () => 'result:fixture' } };

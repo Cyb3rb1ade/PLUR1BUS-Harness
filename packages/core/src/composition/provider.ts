@@ -6,7 +6,7 @@ import { permitsTool } from '../channels/behaviour-context.ts';
 import { waitForVoiceConfirmation } from '../voice/turn-profile.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ProviderRouter, ProviderError, type ProfileTable, type ChatRequest as WireRequest, type ChatMessage, type ToolDefinition, type Usage, type ChatResult, type RouterConfig, type BudgetGuard, type RouterEvent } from '../../../providers/src/index.ts';
-import { CallBudgetExceededError, RetryBudget, DEFAULT_RETRY_POLICY, type CallBudget, type RetryClass } from '../budget/index.ts';
+import { CallBudgetExceededError, RetryBudget, type CallBudget, type RetryClass } from '../budget/index.ts';
 import { createPromptBuilder, createCacheTelemetry, type CacheUsageRecord, type RenderedPrompt, type RenderInput } from '../prompt/index.ts';
 import { triage } from '../triage/index.ts';
 import { toolEntry, type LiveCapabilityIndex, type SkillSelection } from '../toolcall/live-index.ts';
@@ -277,7 +277,6 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       ]),
       ...req.messages.map((m): ChatMessage => m.role === 'tool' ? { role: 'user', content: m.text } : { role: m.role, content: m.text }),
     ];
-    let totalCostMicros: number | null = 0;
     let fatal: unknown;
     const turn = { sessionId: req.sessionId, turnId, agentId: req.agentId };
     const emitEvent = (event: TurnRouterEvent) => { try { o.onRouterEvent?.(event, turn); } catch { /* a faulty sink never changes routing */ } };
@@ -354,7 +353,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             const retryClass = info.attempt > 1 ? call.lastFailure ?? 'network' : call.firstClass;
             let ticket: number | undefined;
             if (retryClass) {
-              try { ticket = retryBudget.consume(turnId, retryClass, admitted.estimatedCostMicros ?? DEFAULT_RETRY_POLICY[retryClass].maxCostMicros); }
+              try { ticket = retryBudget.consume(turnId, retryClass, admitted.estimatedTokens); }
               catch (e) { o.budget.releaseUnused(admitted.reservationId); throw e; }
             }
             const attempt: AttemptState = { invoked: false, received: false, outputChars: 0 };
@@ -374,9 +373,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               }
               const settled = counts;
               try { await stage('usage', new AbortController().signal, o.log, () => {
-                const s = o.budget.settle(admitted.reservationId, settled);
-                totalCostMicros = totalCostMicros === null || s.costMicros === null ? null : totalCostMicros + s.costMicros;
-                if (ticket !== undefined && s.costMicros !== null) retryBudget.settle(ticket, s.costMicros);
+                o.budget.settle(admitted.reservationId, settled);
+                if (ticket !== undefined) retryBudget.settle(ticket, settled.inputTokens + settled.outputTokens);
                 if (rendered && !estimated) { const cacheRecord = telemetry.record(rendered, { cache_read: settled.cacheReadTokens, cache_creation: settled.cacheWriteTokens, input: Math.max(0, settled.inputTokens - settled.cacheReadTokens - settled.cacheWriteTokens) }); o.onUsage?.(cacheRecord); }
               }); } catch (e) { fatal = e; throw e; }
             } } };
@@ -434,7 +432,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (fatal) throw fatal;
         if (!done) throw new ProviderError('unknown', 'provider stream ended without result');
         if (done.text.startsWith(roundText) && done.text.length > roundText.length) yield { type: 'delta', text: done.text.slice(roundText.length) };
-        if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens, ...(req.projectId ? { costMicros: totalCostMicros } : {}) }; }
+        if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens }; }
         if (!done.toolCalls.length) return;
         const calls = uniqueToolCallIds(done.toolCalls);
         const toolCalls = calls.map(c => ({ id: c.id, name: c.name, arguments: c.argumentsRaw }));

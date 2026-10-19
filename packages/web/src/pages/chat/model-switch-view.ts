@@ -34,13 +34,10 @@ function hintFor(o: ChatModelOption | undefined, choice: ReasoningChoice): strin
 
 function costText(o: ChatModelOption | undefined, r: ChatModelSet): string {
   if (r.costHint !== "reasoning-cost-higher") return "";
+  // Tokens only: the harness has no money dimension (owner decision 2026-10-19).
   const parts = [t("chat.model.costHigher")];
-  const price = o?.outputUsdPerMTok;
-  if (price !== undefined) {
-    parts.push(t("chat.model.costPrice", { price: fmt(price, 2) }));
-    const tokens = r.effectiveReasoning === "default" ? undefined : o?.reasoning.budgetTokens?.[r.effectiveReasoning];
-    if (tokens !== undefined) parts.push(t("chat.model.costBudget", { cost: fmt((tokens * price) / 1_000_000, 2) }));
-  } else parts.push(t("chat.model.costUnknown"));
+  const tokens = r.effectiveReasoning === "default" ? undefined : o?.reasoning.budgetTokens?.[r.effectiveReasoning];
+  if (tokens !== undefined) parts.push(t("chat.model.thinkTokens", { tokens: fmt(tokens) }));
   return parts.join(" ");
 }
 

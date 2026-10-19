@@ -2566,7 +2566,7 @@ One-time invitations through the existing identity pairing path
 
 [experimental] Set or clear a limit, or the time zone budget periods follow
 
-A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals), token values are input + output tokens. A bound left out stays as it is.
+A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Values are input + output tokens (output includes reported reasoning tokens). A bound left out stays as it is.
 
 **Usage:** `plur1bus budget set [OPTIONS]`
 
@@ -2578,9 +2578,9 @@ A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least o
 
   Possible values: `day`, `month`
 
-* `--metric <METRIC>` — what is counted: cost in USD or input + output tokens
+* `--metric <METRIC>` — what is counted: input + output tokens (the only metric; may be left out)
 
-  Possible values: `cost`, `tokens`
+  Possible values: `tokens`
 
 * `--soft <VALUE>` — warn (once per period) above this value
 * `--hard <VALUE>` — refuse calls that would exceed this value

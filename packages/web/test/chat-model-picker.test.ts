@@ -38,7 +38,7 @@ describe("chat: model and reasoning", opts, () => {
 
       assert.deepEqual(sets(chat).at(-1)?.params, { sessionId: "ses_1", profile: "deep", reasoning: "high", expectedRevision: 1 });
       assert.deepEqual(await optionTexts(page, "Reasoning"), ["default||Default (provider)", "off||Off", "low||Low (about 3,840 tokens)", "medium||Medium (about 7,936 tokens)", "high||High (about 15,872 tokens)", "xhigh||Extra high (about 32,000 tokens)"]);
-      await page.getByText("Thinking can add up to about 0.24 USD per reply.", { exact: false }).waitFor();
+      await page.getByText("Thinking can add up to about 15,872 output tokens per reply.", { exact: false }).waitFor();
       await page.reload();
       await page.getByRole("log").getByText("Model changed: Example Chat · Reasoning: High").waitFor();
       await page.getByRole("log").getByText("Model changed: Example Thinker · Reasoning: High").waitFor();
@@ -111,12 +111,6 @@ describe("chat model II policy and pricing", opts,()=>{
    await page.waitForFunction(()=>document.querySelector<HTMLSelectElement>(".chat-model select")?.options[0]?.disabled===true);
    assert.ok((await optionTexts(page,"Model"))[0]!.includes("locked, only local models"));
    assert.equal(sets(chat).length,0);
-  });
- });
- test("a missing price is shown as unknown rather than zero",async()=>{
-  await withChat({route:"#/chat/ses_1",seed:c=>{seed(c);for(const m of c.models)delete m.outputUsdPerMTok;}},async({page})=>{
-   const reasoning=page.getByRole("combobox",{name:"Reasoning"});await reasoning.waitFor();await reasoning.selectOption("high");
-   await page.getByText("Price unknown; no zero-cost estimate is assumed.",{exact:false}).waitFor();
   });
  });
 });

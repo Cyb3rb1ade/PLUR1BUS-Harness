@@ -65,7 +65,7 @@ describe("Library: generate", opts, () => {
       await app.page.getByRole("button", { name: "Generate", exact: true }).click();
       const dialog = app.page.getByRole("dialog");
       await dialog.getByLabel("Adapter and model").selectOption("box");
-      await dialog.getByText("no provider cost").waitFor();
+      assert.equal(await dialog.getByText(/cost|USD/i).count(), 0, "no money is shown (no money dimension since 2026-10-19)");
       await dialog.getByLabel("Prompt", { exact: true }).fill("calm lake");
       await dialog.getByRole("button", { name: "Generate", exact: true }).click();
       await app.page.waitForFunction(() => document.querySelectorAll("dialog[open]").length === 0);

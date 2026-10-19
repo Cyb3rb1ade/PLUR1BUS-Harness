@@ -30,7 +30,7 @@ import { createEnginePort } from "./embedding-migrate/engine-port.ts";
 import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
 import { createStateStore } from "./embedding-migrate/state.ts";
 import { createConfigSwitchPort } from "./embedding-migrate/switch.ts";
-import { reembedBatchBudget, reembedPrice } from "./embedding-migrate/budget.ts";
+import { reembedBatchBudget } from "./embedding-migrate/budget.ts";
 import { blockRemote, reembedTargetPolicy, targetFromSpec } from "./embedding-migrate/target.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
@@ -92,7 +92,7 @@ import { createEgress } from "./egress/index.ts";
 import type { SearxngWebSearch } from "./sidecars/web-search.ts";
 import { createConfiguredWebSearch } from "./sidecars/web-search-router.ts";
 import { WebFailure } from "./tools/web/failure.ts";
-import { createBudgetService, PriceBook, SHIPPED_PRICE_TABLES, type BudgetService } from "./budget/index.ts";
+import { createBudgetService, type BudgetService } from "./budget/index.ts";
 import { createCoreSecretStore } from "./secrets/runtime.ts";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
@@ -194,8 +194,6 @@ export interface CoreOptions {
    * "unavailable" and every decision stays at its T1 limits.
    */
   attestation?: { helper?: HelperSpec | null; attester?: Attester };
-  /** M2 L8: test seam for the budget service (a price book of its own). */
-  budget?: { prices?: PriceBook };
   /** D112: model discovery adapters and options. */
   discovery?: Partial<DiscoveryAdapters> & {
     request?: typeof import("node:http").request;
@@ -534,7 +532,6 @@ export function createCore(o: CoreOptions): Core {
       try {
         budget = createBudgetService({
           path: path.join(l.state, "budget.sqlite"), clock: { now: clock }, securePath: platform.securePath,
-          prices: o.budget?.prices ?? new PriceBook(SHIPPED_PRICE_TABLES),
           events: (e) => logger?.warn(e.kind, { ...e }),
         });
       } catch (e) { logger.error("budget store unavailable", { err: e }); budget = null; }
@@ -688,7 +685,7 @@ export function createCore(o: CoreOptions): Core {
           server?.notify(method,params,person?{...opts,audience:[{personId:person}]}:opts);
         },
         onStoredCapture: agentId => dreams?.scheduler.recordCapture(agentId), ...(o.chatProvider ? { provider: o.chatProvider } : {}),
-        ...(o.composition ? { options: o.composition } : {}), ...(o.budget?.prices ? { prices: o.budget.prices } : {}), chatModels,
+        ...(o.composition ? { options: o.composition } : {}), chatModels,
       });
       sessions = turnComposition.sessions; } catch (e) { logger.error("session composition unavailable", { err: e }); sessions = null; }
 
@@ -698,9 +695,8 @@ export function createCore(o: CoreOptions): Core {
       const migration = createMigrationDriver({
         engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
-        // A cloud target: the turn call budget pauses the run at a hard limit; the price table estimates the plan's cost.
+        // A cloud target: the turn call budget pauses the run at a hard token limit.
         budget: () => { const b = turnComposition?.budget; return b ? reembedBatchBudget(b) : null; },
-        priceMicros: reembedPrice(o.budget?.prices ?? new PriceBook(SHIPPED_PRICE_TABLES)),
         // Before a run continues: the rules may have changed since the plan (privacy.localOnly, acknowledgment, egress).
         admitRun: async (c) => {
           const t = targetFromSpec({ provider: c.target.provider, model: c.target.model, dimensions: c.target.dimensions, ...blockRemote(c) }, { ...reembedTargetPolicy(cfg()), ...(c.remote?.privacyAck ? { privacyAck: c.remote.privacyAck } : {}) });

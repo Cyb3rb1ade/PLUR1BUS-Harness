@@ -16,7 +16,7 @@ import type { PageProps } from "../registry.ts";
 import { LimitDialog, RemoveLimitDialog } from "./dialogs.ts";
 import { groupLimits, limitView, normalizeStatus, type Limit, type Status } from "./model.ts";
 import type { BudgetPeriod, UsageTotals } from "./rpc-types.ts";
-import { amount, failState, fullTitle, isAborted, limitKey, limitTitle, money, when, type FailState } from "./shared.ts";
+import { amount, failState, fullTitle, isAborted, limitKey, limitTitle, when, type FailState } from "./shared.ts";
 import { registerArea } from "../../i18n/index.ts";
 import * as budgetArea from "../../i18n/budget.ts";
 import "../../styles/budget.css";
@@ -33,10 +33,10 @@ function Row({ label, value }: { label: string; value: string }): View { return 
 function LimitCard({ limit, level, canChange, onEdit, onRemove }: { limit: Limit; level: 2 | 3; canChange: boolean; onEdit: () => void; onRemove: () => void }): View {
   const v = limitView(limit);
   const title = limitTitle(limit);
-  const used = amount(limit.metric, limit.used);
+  const used = amount(limit.used);
   const tone = v.status === "ok" ? "ok" : v.status === "warn" ? "warn" : "err";
   const stateText = t(v.status === "ok" ? "budget.state.ok" : v.status === "warn" ? "budget.state.soft" : "budget.state.hard");
-  const bound = v.bound === null ? null : amount(limit.metric, v.bound);
+  const bound = v.bound === null ? null : amount(v.bound);
   return h(Card, { title, level, aside: h(Badge, { tone }, stateText) },
     bound !== null && v.bound !== null && v.bound > 0
       ? h("meter", { class: `meter meter-${tone}`, min: 0, max: v.bound, value: v.barValue, "aria-label": t("budget.meter", { title, used, limit: bound }) }, `${used} / ${bound}`)
@@ -44,8 +44,8 @@ function LimitCard({ limit, level, canChange, onEdit, onRemove }: { limit: Limit
     h("p", {}, bound === null ? t("budget.noBound", { used }) : t("budget.usedOf", { used, limit: bound, percent: v.percent })),
     h("dl", { class: "facts facts-cols" },
       h(Row, { label: t("budget.field.used"), value: used }),
-      h(Row, { label: t("budget.field.soft"), value: limit.soft === null ? t("budget.field.notSet") : amount(limit.metric, limit.soft) }),
-      h(Row, { label: t("budget.field.hard"), value: limit.hard === null ? t("budget.field.notSet") : amount(limit.metric, limit.hard) })),
+      h(Row, { label: t("budget.field.soft"), value: limit.soft === null ? t("budget.field.notSet") : amount(limit.soft) }),
+      h(Row, { label: t("budget.field.hard"), value: limit.hard === null ? t("budget.field.notSet") : amount(limit.hard) })),
     canChange && editable(limit) ? h("div", { class: "state-actions" },
       h("button", { type: "button", class: "btn", "aria-label": t("budget.dlg.editTitle", { title: fullTitle(limit) }), onClick: onEdit }, t("budget.editLimit")),
       h("button", { type: "button", class: "btn btn-quiet", "aria-label": t("budget.dlg.removeLabel", { title: fullTitle(limit) }), onClick: onRemove }, t("budget.removeLimit"))) : null);
@@ -70,21 +70,18 @@ function TotalsRows({ u }: { u: UsageTotals }): View[] {
     h(Row, { key: "o", label: t("budget.usage.output"), value: formatNumber(u.outputTokens) }),
     h(Row, { key: "cr", label: t("budget.usage.cacheRead"), value: formatNumber(u.cacheReadTokens) }),
     h(Row, { key: "cw", label: t("budget.usage.cacheWrite"), value: formatNumber(u.cacheWriteTokens) }),
-    h(Row, { key: "c", label: t("budget.usage.cost"), value: money(u.costMicros) }),
-    h(Row, { key: "u", label: t("budget.usage.unpriced"), value: formatNumber(u.unpricedEvents) }),
   ];
 }
 
 function PeriodCard({ p }: { p: BudgetPeriod }): View {
   return h(Card, { title: t(p.period === "day" ? "budget.usage.day" : "budget.usage.month", { key: p.key }) },
     h("dl", { class: "facts" }, TotalsRows({ u: p.total })),
-    p.total.unpricedEvents > 0 ? h("p", { class: "reading" }, t("budget.usage.unpricedNote")) : null,
     p.agents.length > 0 ? h("div", {},
       h("h3", { class: "card-title" }, t("budget.usage.agents")),
       p.agents.map((a) => h("section", { key: a.agentId },
         h("h4", { class: "card-title" }, a.agentId),
         h("dl", { class: "facts" }, TotalsRows({ u: a.total })),
-        h("ul", { class: "plain-list" }, a.models.map((m) => h("li", { key: m.model }, t("budget.usage.modelLine", { model: m.model, events: formatNumber(m.events), input: formatNumber(m.inputTokens), output: formatNumber(m.outputTokens), cost: money(m.costMicros) }))))))) : null);
+        h("ul", { class: "plain-list" }, a.models.map((m) => h("li", { key: m.model }, t("budget.usage.modelLine", { model: m.model, events: formatNumber(m.events), input: formatNumber(m.inputTokens), output: formatNumber(m.outputTokens) }))))))) : null);
 }
 
 export function BudgetPage({ sub }: PageProps): View {
@@ -146,7 +143,7 @@ export function BudgetPage({ sub }: PageProps): View {
   ];
   const selected = sub ?? "global";
   return h(Page, { title, lead: t("budget.lead"), actions },
-    status.timeZone ? h("p", { class: "reading" }, t("budget.meta", { zone: status.timeZone, version: status.priceVersion || "–", when: when(status.now) })) : null,
+    status.timeZone ? h("p", { class: "reading" }, t("budget.meta", { zone: status.timeZone, when: when(status.now) })) : null,
     h(Tabs, { label: t("budget.tabs"), tabs, selected, onSelect: (id) => navigate(id === "global" ? "/usage" : `/usage/${id}`) }),
     dialog);
 }

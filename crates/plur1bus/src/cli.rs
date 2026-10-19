@@ -1202,9 +1202,9 @@ pub enum BudgetCmd {
     },
     /// [experimental] Set or clear a limit, or the time zone budget periods follow
     ///
-    /// A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of
-    /// `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals),
-    /// token values are input + output tokens. A bound left out stays as it is.
+    /// A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`, `--hard`,
+    /// `--clear-soft`, `--clear-hard`. Values are input + output tokens (output includes reported
+    /// reasoning tokens). A bound left out stays as it is.
     Set {
         /// the limit covers all agents together
         #[arg(long, conflicts_with = "agent")]
@@ -1215,8 +1215,8 @@ pub enum BudgetCmd {
         /// the period the limit resets on (local calendar day or month)
         #[arg(long, value_parser = ["day", "month"])]
         period: Option<String>,
-        /// what is counted: cost in USD or input + output tokens
-        #[arg(long, value_parser = ["cost", "tokens"])]
+        /// what is counted: input + output tokens (the only metric; may be left out)
+        #[arg(long, value_parser = ["tokens"])]
         metric: Option<String>,
         /// warn (once per period) above this value
         #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]

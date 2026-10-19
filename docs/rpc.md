@@ -9092,7 +9092,7 @@ Starts the engine's scoped-embedding IPC server (engine EmbeddingService.serve):
 
 **Served by:** core
 
-M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk). Every direction is allowed (local or cloud to local or cloud): without provider (or with local-transformers) the target is a pinned local model; any other provider is checked by the same rules as the engine start (model, dimensions and apiKeyEnv required, baseUrl except for openai; E_DENIED reason=privacy-acknowledgment-required without memory.embedding.privacyAck for a non-loopback endpoint, reason=local-only under privacy.localOnly, reason=egress-denied when the egress policy refuses the endpoint). The engine's plan probes a cloud provider with one short text; a cloud plan carries `cloud`: the cards whose text all goes to the provider, estimated tokens and cost (null when the price table does not list the model).
+M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk). Every direction is allowed (local or cloud to local or cloud): without provider (or with local-transformers) the target is a pinned local model; any other provider is checked by the same rules as the engine start (model, dimensions and apiKeyEnv required, baseUrl except for openai; E_DENIED reason=privacy-acknowledgment-required without memory.embedding.privacyAck for a non-loopback endpoint, reason=local-only under privacy.localOnly, reason=egress-denied when the egress policy refuses the endpoint). The engine's plan probes a cloud provider with one short text; a cloud plan carries `cloud`: the cards whose text all goes to the provider and the estimated tokens (no cost: the harness has no money dimension).
 
 **params**
 
@@ -11370,7 +11370,6 @@ Usage per period (the current local day and month in the configured time zone) a
   "additionalProperties": false,
   "required": [
     "timeZone",
-    "priceVersion",
     "now",
     "periods",
     "limits"
@@ -11378,10 +11377,6 @@ Usage per period (the current local day and month in the configured time zone) a
   "properties": {
     "timeZone": {
       "type": "string"
-    },
-    "priceVersion": {
-      "type": "string",
-      "description": "The price table in force now"
     },
     "now": {
       "type": "string",
@@ -11425,9 +11420,7 @@ Usage per period (the current local day and month in the configured time zone) a
               "inputTokens",
               "outputTokens",
               "cacheReadTokens",
-              "cacheWriteTokens",
-              "costMicros",
-              "unpricedEvents"
+              "cacheWriteTokens"
             ],
             "properties": {
               "events": {
@@ -11449,16 +11442,6 @@ Usage per period (the current local day and month in the configured time zone) a
               "cacheWriteTokens": {
                 "type": "integer",
                 "minimum": 0
-              },
-              "costMicros": {
-                "type": "integer",
-                "minimum": 0,
-                "description": "Micro-USD, summed over priced events only"
-              },
-              "unpricedEvents": {
-                "type": "integer",
-                "minimum": 0,
-                "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
               }
             }
           },
@@ -11484,9 +11467,7 @@ Usage per period (the current local day and month in the configured time zone) a
                     "inputTokens",
                     "outputTokens",
                     "cacheReadTokens",
-                    "cacheWriteTokens",
-                    "costMicros",
-                    "unpricedEvents"
+                    "cacheWriteTokens"
                   ],
                   "properties": {
                     "events": {
@@ -11508,16 +11489,6 @@ Usage per period (the current local day and month in the configured time zone) a
                     "cacheWriteTokens": {
                       "type": "integer",
                       "minimum": 0
-                    },
-                    "costMicros": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "Micro-USD, summed over priced events only"
-                    },
-                    "unpricedEvents": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
                     }
                   }
                 },
@@ -11532,9 +11503,7 @@ Usage per period (the current local day and month in the configured time zone) a
                       "inputTokens",
                       "outputTokens",
                       "cacheReadTokens",
-                      "cacheWriteTokens",
-                      "costMicros",
-                      "unpricedEvents"
+                      "cacheWriteTokens"
                     ],
                     "properties": {
                       "model": {
@@ -11557,14 +11526,6 @@ Usage per period (the current local day and month in the configured time zone) a
                         "minimum": 0
                       },
                       "cacheWriteTokens": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "costMicros": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "unpricedEvents": {
                         "type": "integer",
                         "minimum": 0
                       }
@@ -11696,7 +11657,7 @@ The outgoing-network policy in force (B4): normalised host allowlist, ports, loo
 
 **Served by:** core
 
-Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Cost bounds are micro-USD, token bounds are input + output tokens.
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.
 
 **params**
 
@@ -11735,7 +11696,6 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
         },
         "metric": {
           "enum": [
-            "cost",
             "tokens"
           ]
         },
@@ -21013,13 +20973,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "null"
       ]
     },
-    "costMicros": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "description": "Null until a price table exists (measured in tokens first, ADR-009 B5/Q1)."
-    },
     "logPath": {
       "type": [
         "string",
@@ -21823,7 +21776,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.5.0). A budget limit. Cost bounds are micro-USD; token bounds count input + output tokens.",
+  "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -21853,7 +21806,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "cost",
         "tokens"
       ]
     },
@@ -21911,7 +21863,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "cost",
         "tokens"
       ]
     },
@@ -22499,11 +22450,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           }
         }
       }
-    },
-    "outputUsdPerMTok": {
-      "description": "USD per million output tokens from the price table, when known; reasoning tokens bill as output.",
-      "type": "number",
-      "minimum": 0
     }
   }
 }
@@ -22599,8 +22545,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "additionalProperties": false,
       "required": [
         "inputTokens",
-        "outputTokens",
-        "costMicros"
+        "outputTokens"
       ],
       "properties": {
         "inputTokens": {
@@ -22609,13 +22554,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         },
         "outputTokens": {
           "type": "integer",
-          "minimum": 0
-        },
-        "costMicros": {
-          "type": [
-            "integer",
-            "null"
-          ],
           "minimum": 0
         },
         "pendingCalls": {
@@ -22968,7 +22906,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "string"
     },
     "cloud": {
-      "description": "Present for a cloud or self-hosted target: every card text goes to this provider. estimatedTokens is an upper bound from the source size without its vectors; estimatedCostMicros is micro-USD from the price table, null when unknown.",
+      "description": "Present for a cloud or self-hosted target: every card text goes to this provider. estimatedTokens is an upper bound from the source size without its vectors (the budget counts tokens; there is no cost estimate).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -22977,7 +22915,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "endpoint",
         "cards",
         "estimatedTokens",
-        "estimatedCostMicros",
         "sendsText"
       ],
       "properties": {
@@ -22996,13 +22933,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         },
         "estimatedTokens": {
           "type": "integer",
-          "minimum": 0
-        },
-        "estimatedCostMicros": {
-          "type": [
-            "integer",
-            "null"
-          ],
           "minimum": 0
         },
         "sendsText": {

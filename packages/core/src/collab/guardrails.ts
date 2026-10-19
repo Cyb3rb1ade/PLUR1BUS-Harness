@@ -15,8 +15,6 @@ export interface GuardrailInput {
   sameProject: boolean;
   tokensUsed: number;
   nextTokens: number;
-  costUsed: number;
-  nextCost: number;
 }
 
 export function evaluateGuardrails(i: GuardrailInput): GuardrailReason | null {
@@ -29,6 +27,5 @@ export function evaluateGuardrails(i: GuardrailInput): GuardrailReason | null {
   if (i.lastRepeatAt !== null && i.now - i.lastRepeatAt < i.settings.repeatWindowMs) return "repeat";
   if (!i.sameProject && !i.settings.allowCrossProject) return "project-boundary";
   if (i.settings.tokenBudget !== null && i.tokensUsed + i.nextTokens > i.settings.tokenBudget) return "token-budget";
-  if (i.settings.costBudget !== null && i.costUsed + i.nextCost > i.settings.costBudget) return "cost-budget";
   return null;
 }

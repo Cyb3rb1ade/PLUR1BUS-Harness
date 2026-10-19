@@ -32,19 +32,15 @@ test("signed thinking survives manual and adaptive tool rounds, stays out of log
  }
 });
 
-test("thinking output uplift is refused before I/O by a hard token limit; an unpriced model is unknown under a hard cost limit",async()=>{
+test("thinking output uplift is refused before I/O by a hard token limit",async()=>{
  const {scriptedAdapter,turnRequest}=await import("./helpers.ts");
- for(const metric of ["tokens","cost"] as const){
+ for(const metric of ["tokens"] as const){
   const cloud=scriptedAdapter([{text:"must not be invoked"}]);
   const f=turnFixture(cloud.adapter,{maxTokens:1024,reasoningFor:()=>({kind:"budget",levels:["high"],vendorParam:"thinking.budget_tokens",budget:{min:4096,max:4096,default:4096},source:"table"})},tmp.make());
   try{
-   f.budget.setLimit({scope:"agent",id:"a1",period:"day",metric,hard:metric==="tokens"?4000:1000000});
+   f.budget.setLimit({scope:"agent",id:"a1",period:"day",metric,hard:4000});
    await assert.rejects(()=>collect(f.provider,{...turnRequest(),reasoning:"high"}));
    assert.equal(cloud.requests.length,0,`${metric} refuses before provider I/O`);
-   if(metric==="cost"){
-    const decision=f.budget.checkBeforeCall({principal:"p",agent:"a1",project:"direct",model:"unpriced",provider:"fixture",estimatedInputTokens:1,maxOutputTokens:5120});
-    assert.equal(decision.kind,"refuse");if(decision.kind==="refuse"){assert.equal(decision.reason,"unpriced-model");assert.equal(decision.estimate,null);}
-   }
   }finally{f.close();}
  }
 });

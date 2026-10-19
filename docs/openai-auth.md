@@ -11,7 +11,7 @@ Baseline: `origin/main` at `f250d8f5`, including merged #293 and the D110 librar
 | PKCE/OIDC and rotating plan records existed behind ports | Production egress-checked HTTP, actual loopback listener, AuthService, durable metadata index and serialized refresh ownership |
 | No UI-facing Core auth API | `startLogin`, `awaitLogin`, `cancelLogin`, `listCredentials`, `logout`, `status`; typed composition registration callbacks |
 | Responses adapter had an unused plan switch | Dynamic registration profiles use Responses only, credential-specific model list, forced SIWC fields, `billingPath: plan` and existing #293 budget admission |
-| No subscription-unit ledger | Durable `plan_tokens` ledger alongside existing token-budget accounting; no guessed USD prices |
+| No subscription-unit ledger | Durable `plan_tokens` ledger alongside existing token-budget accounting; no money figures (the harness has no money dimension) |
 | Workload exchange was a library-only port | External file/binary bearer suppliers with expiry, single-flight, bounded execution and explicit environment |
 | Voice broker had no production transport or client delivery binding | Authenticated pinned WebSockets, PCM relay, Live handles, Realtime delivery binding, existing budget admission, voice-seconds ledger and lifecycle cleanup |
 | No corrected AE5 handles | Random 256-bit Harness handles, hashed server-side entries, person/session/model/surface binding, TTL/replay/revocation errors and audit |
@@ -88,7 +88,7 @@ A configured provider definition uses `wireFormat: codex_responses`, profile kin
 
 Plan inference uses public `/v1/responses`, forces `store:false` and `stream:true`, hoists instructions and refuses unsupported sampling options/hosted tools/audio. The harness's `maxTokens` admission estimate is omitted from SIWC's wire body. Chat Completions is rejected explicitly. `subscription_sharing_usage_limit_exceeded` preserves Retry-After and stops retries/fallback. Other rate limits retain normal bounded router handling.
 
-The existing turn budget still admits and settles each attempt, including retries and fallback; #293's `allowCrossBilling` policy remains unchanged. Plan input/output counts additionally enter `state/openai-plan-usage.sqlite`, exposed as `plan_tokens` through `TurnComposition.openai.usage.total(person)`. Unknown counts remain unknown. There is no fabricated subscription USD price: the shipped price table leaves plan calls unpriced, so an applicable hard cost limit retains the existing fail-closed `unpriced-model` behavior. The separate ledger is not a new `budget.*` RPC field.
+The existing turn budget still admits and settles each attempt, including retries and fallback; #293's `allowCrossBilling` policy remains unchanged. Plan input/output counts additionally enter `state/openai-plan-usage.sqlite`, exposed as `plan_tokens` through `TurnComposition.openai.usage.total(person)`. Unknown counts remain unknown. There is no subscription price: the harness has no money dimension (owner decision 2026-10-19), and plan calls count against token limits like any other call. The separate ledger is not a new `budget.*` RPC field.
 
 ## Federated suppliers
 

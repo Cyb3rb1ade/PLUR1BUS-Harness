@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
-  adaptersFor, buildParams, classifyFailure, classifyJobCode, editOperations, estimateUsd, eventJobId, generateKinds, isActive, paramProblem,
+  adaptersFor, buildParams, classifyFailure, classifyJobCode, editOperations, eventJobId, generateKinds, isActive, paramProblem,
   paramSpecs, parseAdapters, parseJob, parseJobList, requestFromForm,
 } from "../src/pages/library/media-model.ts";
 
@@ -70,13 +70,9 @@ describe("request", () => {
     assert.equal(e.method, "media.edit");
     assert.deepEqual(e.params, { agentId: "main", adapter: "cloud", kind: "image", request: { prompt: "snow", referenceIds: [ID], maskId: ID } });
   });
-  test("the cost estimate is never invented", () => {
-    const [priced] = parseAdapters({ adapters: [{ id: "p", pricing: { perImageUsd: 0.04, perVideoSecondUsd: 0.5 }, capabilities: { generate: true } }] });
-    assert.equal(estimateUsd(priced!, "image", { n: "3" }), 0.04 * 3);
-    assert.equal(estimateUsd(priced!, "image", {}), 0.04);
-    assert.equal(estimateUsd(priced!, "video", { durationSeconds: "4" }), 2);
-    assert.equal(estimateUsd(priced!, "video", {}), null);
-    assert.equal(estimateUsd(cloud!, "image", {}), null);
+  test("an adapter row carries no price: the harness has no money dimension", () => {
+    const [row] = parseAdapters({ adapters: [{ id: "p", pricing: { perImageUsd: 0.04, perVideoSecondUsd: 0.5 }, capabilities: { generate: true } }] });
+    assert.equal("pricing" in row!, false);
   });
 });
 

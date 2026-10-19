@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createAdapter, CoreMLAdapter, FileJobPersistence, JobRunner, MediaError, OutputStore, adapterConfigsFromSettings, estimateCost } from '../src/index.ts';
+import { createAdapter, CoreMLAdapter, FileJobPersistence, JobRunner, MediaError, OutputStore, adapterConfigsFromSettings, requestedUnits } from '../src/index.ts';
 import type { ImageAdapter, ImageResult, Job } from '../src/index.ts';
 import { privateHost, HttpTransport } from '../src/http.ts';
 import { sanitizeReference, stripMetadata, verifyOutput } from '../src/adapters/_shared/images.ts';
@@ -12,7 +12,7 @@ import { fakeServer, json, b64, makePng, makeJpeg, pngChunk, riff, vp8xChunk, vp
 
 const code = (c: string) => (e: unknown) => e instanceof MediaError && e.code === c;
 const png1 = makePng();
-const result: ImageResult = { files: [{ bytes: png1, format: 'png' }], metadata: { adapter: 'fake', model: 'm', durationMs: 1, costUsd: 0 } };
+const result: ImageResult = { files: [{ bytes: png1, format: 'png' }], metadata: { adapter: 'fake', model: 'm', durationMs: 1 } };
 
 // --- dimensions: a tiny file whose header claims a gigantic canvas is refused before anything decodes it ---------------
 function pngWithSize(width: number, height: number): Buffer {
@@ -44,36 +44,20 @@ test('an adapter answer whose PNG header claims 100000x100000 is rejected, not h
   try { await assert.rejects(createAdapter({ id: 'openrouter', model: 'm', baseUrl: s.url }).generate({ prompt: 'x' }), code('too_large')); } finally { await s.close(); }
 });
 
-// --- cost -------------------------------------------------------------------------------------------------------------
-test('a provider-reported negative or non-finite image cost is not trusted', async () => {
-  for (const raw of ['-5', '1e999']) {
+// --- units (no money dimension since 2026-10-19) ----------------------------------------------------------------------
+test('a provider-reported cost is never copied into the result metadata', async () => {
+  for (const raw of ['-5', '1e999', '0.5']) {
     const s = await fakeServer((_c, res) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(`{"choices":[{"message":{"images":[{"image_url":{"url":"data:image/png;base64,${b64(png1)}"}}]}}],"usage":{"cost":${raw}}}`); });
     try {
       const out = await createAdapter({ id: 'openrouter', model: 'm', baseUrl: s.url }).generate({ prompt: 'x' });
-      assert.equal('costUsd' in out.metadata, false, `cost ${raw} must be treated as unknown`);
+      assert.equal(JSON.stringify(out.metadata).includes('cost'), false, `cost ${raw} must not appear`);
     } finally { await s.close(); }
   }
 });
 
-test('estimates carry no binary floating point residue', () => {
-  const google = { id: 'google', model: 'veo-3.1-generate-preview' };
-  assert.equal(estimateCost({ prompt: 'x', kind: 'video', durationSeconds: 3, resolution: '720p' }, google).usd, 1.2);
-  assert.equal(estimateCost({ prompt: 'x', kind: 'video', durationSeconds: 7, resolution: '480p' }, { id: 'xai', model: 'grok-imagine-video' }).usd, 0.35);
-});
-
-test('prototype names never resolve to a price (regression)', () => {
-  for (const model of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf']) {
-    for (const id of ['together', '__proto__', 'constructor']) {
-      assert.equal(estimateCost({ prompt: 'x' }, { id, model }).usd, null, `${id}:${model}`);
-      assert.equal(estimateCost({ prompt: 'x', kind: 'video', resolution: model }, { id, model }).usd, null, `video ${id}:${model}`);
-    }
-  }
-});
-
-test('invalid quantities never produce a price (regression)', () => {
-  const together = { id: 'together', model: 'stabilityai/stable-diffusion-xl-base-1.0' };
-  for (const n of [0, -1, 1.5, Number.NaN, Infinity, 11]) assert.throws(() => estimateCost({ prompt: 'x', n }, together), code('unsupported_parameter'), String(n));
-  for (const durationSeconds of [0, -1, Number.NaN, Infinity, 601]) assert.throws(() => estimateCost({ prompt: 'x', kind: 'video', durationSeconds }, { id: 'google', model: 'veo-3.1-generate-preview' }), code('unsupported_parameter'), String(durationSeconds));
+test('invalid quantities never produce units (regression)', () => {
+  for (const n of [0, -1, 1.5, Number.NaN, Infinity, 11]) assert.throws(() => requestedUnits({ prompt: 'x', n }), code('unsupported_parameter'), String(n));
+  for (const durationSeconds of [0, -1, Number.NaN, Infinity, 601]) assert.throws(() => requestedUnits({ prompt: 'x', kind: 'video', durationSeconds }), code('unsupported_parameter'), String(durationSeconds));
 });
 
 // --- jobs ---------------------------------------------------------------------------------------------------------------

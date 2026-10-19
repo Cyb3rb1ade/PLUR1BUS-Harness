@@ -23,8 +23,8 @@ export class FakeChat {
   live = true;
   /** The model profiles chat.model.get offers (the core's shape); tests may replace them. */
   models: ChatModelOption[] = [
-    { name: "default", displayName: "Example Chat", provider: "example", model: "example-chat", local: false, selectable: true, reasoning: { kind: "effort", levels: ["low", "medium", "high"], default: "medium", source: "table" }, outputUsdPerMTok: 10 },
-    { name: "deep", displayName: "Example Thinker", provider: "example", model: "example-thinker", local: false, selectable: true, reasoning: { kind: "budget", levels: ["off", "low", "medium", "high", "xhigh"], default: "off", source: "table", budgetTokens: { off: 0, low: 3840, medium: 7936, high: 15872, xhigh: 32000 } }, outputUsdPerMTok: 15 },
+    { name: "default", displayName: "Example Chat", provider: "example", model: "example-chat", local: false, selectable: true, reasoning: { kind: "effort", levels: ["low", "medium", "high"], default: "medium", source: "table" } },
+    { name: "deep", displayName: "Example Thinker", provider: "example", model: "example-thinker", local: false, selectable: true, reasoning: { kind: "budget", levels: ["off", "low", "medium", "high", "xhigh"], default: "off", source: "table", budgetTokens: { off: 0, low: 3840, medium: 7936, high: 15872, xhigh: 32000 } } },
     { name: "local", displayName: "Example Local", provider: "home", model: "example-local", local: true, selectable: true, reasoning: { kind: "none", levels: [], source: "unknown", note: "reasoning-unknown" } },
   ];
   readonly modelChoice = new Map<string, { profile: string | null; reasoning: ReasoningChoice; revision: number }>();

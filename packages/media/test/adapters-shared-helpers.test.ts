@@ -53,7 +53,7 @@ const modelList = { data: [
 test('OpenRouter model list keeps image-output models and derives edit support from input modalities', () => {
   const models = parseImageModels(modelList);
   assert.deepEqual(models.map(m => [m.id, m.edit]), [['google/gemini-image', true], ['acme/draw', false]]);
-  assert.equal(models[0]!.costPerImageUsd, 0.039); assert.equal(models[1]!.costPerImageUsd, undefined);
+  assert.deepEqual(models[0], { id: 'google/gemini-image', name: 'Gemini Image', edit: true }); // pricing is ignored: no money dimension
   assert.deepEqual(parseImageModels({}), []);
 });
 
