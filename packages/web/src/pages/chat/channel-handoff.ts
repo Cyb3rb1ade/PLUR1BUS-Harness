@@ -58,7 +58,7 @@ export function ChannelReadOnly({ sessionId }: {
     } };
     if (load.state.status !== 'ok')
         return h('p', { role: 'status' }, t(load.state.status === 'fail' ? 'chat.channel.failed' : 'state.loading'));
-    return h('section', { 'aria-label': t('chat.channel.readOnly') }, h('h2', null, `${load.state.data.session.channel} · `, t('chat.channel.readOnly')), h('p', null, t('chat.channel.separate')), h('button', { class: 'btn btn-primary', disabled: busy, onClick: () => void proceed() }, t('chat.channel.continue')), error ? h('p', { role: 'alert' }, t('chat.channel.failed')) : null, h('ol', { class: 'plain-list' }, load.state.data.messages.map((m, n) => h('li', { key: n }, h('strong', null, m.role), h('p', { style: { whiteSpace: 'pre-wrap' } }, m.text)))));
+    return h('section', { 'aria-label': t('chat.channel.readOnly') }, h('h2', null, `${load.state.data.session.channel} · `, t('chat.channel.readOnly')), h('p', null, t('chat.channel.separate')), h('button', { class: 'btn btn-primary', disabled: busy, onClick: () => void proceed() }, t('chat.channel.continue')), error ? h('p', { role: 'alert' }, t('chat.channel.failed')) : null, h('ol', { class: 'plain-list' }, load.state.data.messages.map((m, n) => h('li', { key: n }, h('strong', null, m.role), h('p', { class: 'chat-channel-text' }, m.text)))));
 }
 export function HandoffArrival({ token }: {
     token: string;
