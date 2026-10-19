@@ -35,7 +35,10 @@ test('recorded CI release gate uses exactly the shipped inventory and refuses mi
     const gateJob=rel.slice(rel.indexOf('\n  release-gate:\n'),rel.indexOf('\n  attest:\n'));
     assert.match(gateJob,/\n    needs: meta\n/);
     assert.equal(gateJob.match(/--require-release/g)?.length,1);
-    assert.match(gateJob,/tool-eval-host\.ts --recorded --require-release\n/);
+    assert.match(gateJob,/tool-eval-host\.ts --recorded --require-release \|\| rc=\$\?\n/);
+    // The step records the exit code (so the report is still uploaded) and a later step re-raises it: the gate stays fail-closed.
+    assert.match(gateJob,/echo "rc=\$\{rc\}" >> "\$GITHUB_OUTPUT"/);
+    assert.match(gateJob,/if: steps\.gate\.outputs\.rc != '0'\n        run: exit 1\n/);
     assert.doesNotMatch(gateJob,/continue-on-error/);
     assert.equal(rel.match(/--require-release/g)?.length,1);
     assert.match(rel,/\n  attest:\n    needs: \[meta, release-gate\]\n/);
