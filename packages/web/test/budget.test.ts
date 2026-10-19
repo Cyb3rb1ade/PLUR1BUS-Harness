@@ -203,10 +203,10 @@ describe("usage: changing limits", opts, () => {
       assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "images", hard: 2 } });
       s.limits = [lim({ scope: "global", period: "day", metric: "images", hard: 2, used: 2, state: "hard" }), lim({ scope: "global", period: "month", metric: "videoSeconds", soft: 60, hard: 120, used: 8, state: "ok" })];
       await app.page.getByRole("button", { name: "Refresh" }).click();
-      const images = app.page.getByRole("group", { name: "Daily images" });
-      await images.waitFor();
-      assert.match((await images.textContent()) ?? "", /2 of 2 \(100%\)/);
+      // The video-second limit exists only after the refresh, so the images card is the refreshed one too.
       await app.page.getByRole("group", { name: "Monthly video seconds" }).waitFor();
+      const images = app.page.getByRole("group", { name: "Daily images" });
+      await images.getByText("2 of 2 (100%)").waitFor();
     });
   });
   test("usage shows images and video seconds per period and a media model line", async () => {
