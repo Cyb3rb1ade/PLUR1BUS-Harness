@@ -6,7 +6,7 @@ import type { createHostctlPool } from '../../../hostctl/src/pool.ts';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { CallBudgetExceededError, type CallBudget } from '../budget/index.ts';
+import { CallBudgetExceededError, mediaCallUnits, type CallBudget } from '../budget/index.ts';
 import { homedir } from 'node:os';
 import { ToolRegistry, type ToolClassification, type ToolDef, type ToolProcessSandbox } from '../tools/registry.ts';
 import { createFsTools } from '../tools/fs/tools.ts';
@@ -23,7 +23,7 @@ import type { LogWriter } from '../logs/writer.ts';
 import type { AuditSink } from '../rbac/audit.ts';
 import type { GrantSource } from '../policy/index.ts';
 import { mcpToolDefs, type McpToolPort } from '../tools/mcp-bridge.ts';
-import { OutputStore, MediaError, type ImageAdapter, type ImageRequest } from '../../../media/src/index.ts';
+import { OutputStore, MediaError, requestedUnits, deliveredUnits, type ImageAdapter, type ImageRequest } from '../../../media/src/index.ts';
 import type { ChatRequest } from '../session/provider.ts';
 import { WebFailure } from '../tools/web/failure.ts';
 import type { WebSearch } from '../tools/web/search.ts';
@@ -131,13 +131,13 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
         request.referenceVideo = {bytes:await readFile(join(o.media!.store.root,referenceVideoId,file.path)),format:file.format as 'mp4'|'mov'|'webm'};
       }
       if (operation === 'edit'  && !request.referenceImages?.length && !request.referenceVideo) throw new MediaError('unsupported_parameter');
-      const admitted = o.budget?.checkBeforeCall({ principal: req.principal!, agent: ctx.agentId, project: req.projectId ?? 'direct', model: (request.kind === 'video' ? o.media!.adapter.capabilities().video?.model : undefined) ?? o.media!.adapter.model ?? o.media!.adapter.id, provider: o.media!.adapter.id, session: req.sessionId, ...(req.turnId ? { turn: req.turnId } : {}), estimatedInputTokens: 0, maxOutputTokens: 0 });
+      const admitted = o.budget?.checkBeforeCall({ principal: req.principal!, agent: ctx.agentId, project: req.projectId ?? 'direct', model: (request.kind === 'video' ? o.media!.adapter.capabilities().video?.model : undefined) ?? o.media!.adapter.model ?? o.media!.adapter.id, provider: o.media!.adapter.id, session: req.sessionId, ...(req.turnId ? { turn: req.turnId } : {}), estimatedInputTokens: 0, maxOutputTokens: 0, ...mediaCallUnits(requestedUnits(request)) });
       if (admitted?.kind === 'refuse') throw new CallBudgetExceededError(admitted);
       let result: Awaited<ReturnType<ImageAdapter['generate']>>;
       try { result = await o.media!.adapter[operation](request, { signal: ctx.signal }); }
       catch (e) {
         // A failed generation returns no media, so the reservation is released. An abort may still complete remotely
-        // (docs/media.md), so the call is settled (0 tokens) instead of leaving the reservation pending.
+        // (docs/media.md), so the call is settled (nothing delivered) instead of leaving the reservation pending.
         if (admitted?.kind === 'allow') {
           if (ctx.signal.aborted) o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0 });
           else if (request.kind !== 'video') o.budget!.releaseUnused(admitted.reservationId);
@@ -146,7 +146,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       }
       ctx.signal.throwIfAborted();
       const manifest = await o.media!.store.put(randomUUID(), request, result);
-      if (admitted?.kind === 'allow') o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0 });
+      if (admitted?.kind === 'allow') o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, ...mediaCallUnits(deliveredUnits(request, manifest)) });
       return { id: manifest.id, files: manifest.files, metadata: manifest.metadata };
     } });
   }
