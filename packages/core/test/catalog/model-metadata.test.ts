@@ -8,6 +8,7 @@ import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadBundledMetadataTable, loadMetadataTable, lookup } from "../../src/discovery/metadata.ts";
+import { loadReasoningTable } from "../../src/discovery/reasoning.ts";
 import { HOST_SCENARIO_IDS } from "../../src/toolcall/host-eval.ts";
 import { validateHostRecordings } from "../../src/toolcall/host-eval-recordings.ts";
 import { duplicateKeys, useTempDirs } from "./helpers.ts";
@@ -17,16 +18,18 @@ const FIXTURES = fileURLToPath(new URL("../fixtures/model-ids/", import.meta.url
 // The vocabularies, copied from the design document (§2.5 "Fields"), not imported.
 const DOC_KINDS = ["chat", "embedding", "tts", "asr", "image", "moderation", "rerank", "realtime", "unknown"];
 const DOC_CAPABILITIES = ["tools", "vision", "reasoning", "audio_in", "audio_out", "structured_output", "prompt_caching"];
+const acceptTable = (raw: any, load: (raw: unknown) => unknown): void => {
+  const compiled = load(raw) as { revision: string; sections: Map<string, unknown[]> };
+  assert.equal(compiled.revision, raw.revision);
+  assert.equal(compiled.sections.size, Object.keys(raw.vendors).length);
+  for (const [name, rules] of Object.entries(raw.vendors as Record<string, unknown[]>)) assert.equal(compiled.sections.get(name)!.length, rules.length, name);
+};
 // Every shipped file must be registered here with the real loader that reads it; `schema` is the document's own schema
 // marker (the scenario corpus is a bare array, consumed by host-eval.ts, and carries none).
 interface Shipped { schema?: string; accept: (raw: any) => void }
 const KNOWN_FILES: Record<string, Shipped> = {
-  "model-metadata.json": { schema: "plur1bus.model-metadata/1", accept: (raw) => {
-    const compiled = loadMetadataTable(raw) as unknown as { revision: string; sections: Map<string, unknown[]> };
-    assert.equal(compiled.revision, raw.revision);
-    assert.equal(compiled.sections.size, Object.keys(raw.vendors).length);
-    for (const [name, rules] of Object.entries(raw.vendors as Record<string, unknown[]>)) assert.equal(compiled.sections.get(name)!.length, rules.length, name);
-  } },
+  "model-metadata.json": { schema: "plur1bus.model-metadata/1", accept: (raw) => acceptTable(raw, loadMetadataTable) },
+  "reasoning-metadata.json": { schema: "plur1bus.reasoning-metadata/1", accept: (raw) => acceptTable(raw, loadReasoningTable) },
   "host-eval-recordings.json": { schema: "plur1bus.host-eval-recordings/1", accept: (raw) => { assert.ok(Array.isArray(validateHostRecordings(raw))); } },
   "host-eval-scenarios.json": { accept: (raw) => {
     assert.ok(Array.isArray(raw) && raw.length > 0, "a non-empty array of scenarios");

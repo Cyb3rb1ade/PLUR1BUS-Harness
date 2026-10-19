@@ -16,6 +16,10 @@ export type { ProviderErrorKind, ProviderErrorInit } from "./errors.ts";
 // Provider-neutral request/response/stream types (Usage fields are optional: unreported means undefined, never 0)
 export type * from "./types.ts";
 
+// Reasoning / thinking intensity: the harness scale, model descriptors and the per-request directive
+export { REASONING_LEVELS, REASONING_VENDOR_PARAMS, NO_REASONING, isReasoningLevel, nearestLevel, budgetFor, reasoningDirective, checkReasoningDirective } from "./reasoning.ts";
+export type { ReasoningLevel, ReasoningVendorParam, ReasoningKind, ReasoningBudget, ReasoningDescriptor, ReasoningDirective } from "./reasoning.ts";
+
 // chat_completions adapter and its building blocks (request validation, SSE parsing)
 export { createChatCompletionsAdapter } from "./client.ts";
 export { buildRequestBody, validateRequest } from "./request.ts";

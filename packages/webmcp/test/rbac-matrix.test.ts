@@ -187,6 +187,20 @@ describe("C. person-only methods turn agents away", () => {
       assert.ok(isForbiddenMethod(m));
     });
   }
+  it("the per-chat model switch is people-only in RBAC and never a WebMCP tool; reading the choice stays a read", async () => {
+    assert.equal(RPC_RULES["chat.model.set"]?.humanOnly, true);
+    assert.equal(RPC_RULES["chat.model.set"]?.action, "chat:write");
+    assert.equal(RPC_RULES["chat.model.get"]?.action, "chat:read");
+    assert.ok(isForbiddenMethod("chat.model.set") && isForbiddenMethod("session.model.set"));
+    assert.equal(isForbiddenMethod("chat.model.get"), false);
+    // Tool names are the method names with dots replaced: the two model methods stay distinct from each other and from session.model.set.
+    const names = ["chat.model.get", "chat.model.set", "session.model.set"].map(toolNameFor);
+    assert.equal(new Set(names).size, 3);
+    let ran = false;
+    const guarded = guardMethods({ "chat.model.set": async () => { ran = true; return {}; } }, { resolve: () => ({ userId: "agent-x", role: "owner", kind: "agent" } as any), now: () => 0 });
+    await assert.rejects(() => guarded["chat.model.set"]!({}, {} as any), (e: any) => (e?.reason ?? e?.data?.reason) === "agent-principal");
+    assert.equal(ran, false);
+  });
   it("documented person-only families are forbidden in WebMCP", () => {
     for (const m of coreMethods.filter((n) => /^(grant|approval|identity|breakglass|user|device|secret|auth|admin|inbox)\./.test(n))) assert.ok(isForbiddenMethod(m), m);
   });

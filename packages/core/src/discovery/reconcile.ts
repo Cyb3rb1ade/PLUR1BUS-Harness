@@ -73,6 +73,7 @@ export function reconcile(i: ReconcileInput): ReconcileResult {
         ...(raw.kind !== undefined ? { kind: raw.kind } : {}),
         ...(raw.contextWindow !== undefined ? { contextWindow: raw.contextWindow } : {}),
         ...(raw.capabilities !== undefined ? { capabilities: raw.capabilities } : {}),
+        ...(raw.reasoning !== undefined ? { reasoning: raw.reasoning } : {}),
       };
 
       const { fields, source } = enrich(m.id, api, m.overrides, i.table, i.vendor);
@@ -109,6 +110,7 @@ export function reconcile(i: ReconcileInput): ReconcileResult {
       ...(raw.kind !== undefined ? { kind: raw.kind } : {}),
       ...(raw.contextWindow !== undefined ? { contextWindow: raw.contextWindow } : {}),
       ...(raw.capabilities !== undefined ? { capabilities: raw.capabilities } : {}),
+      ...(raw.reasoning !== undefined ? { reasoning: raw.reasoning } : {}),
     };
 
     const { fields, source } = enrich(id, api, {}, i.table, i.vendor);
