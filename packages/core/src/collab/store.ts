@@ -31,7 +31,6 @@ function mergeSettings(raw: unknown): CollabSettings {
     allowCrossProject: o.allowCrossProject === true,
     repeatWindowMs: num(o.repeatWindowMs, DEFAULT_COLLAB_SETTINGS.repeatWindowMs),
     tokenBudget: o.tokenBudget == null ? null : num(o.tokenBudget, 0),
-    costBudget: o.costBudget == null ? null : num(o.costBudget, 0),
   };
 }
 function num(v: unknown, d: number): number {
@@ -244,12 +243,12 @@ export class CollabStore {
 
   finishSpan(spanId: string, patch: {
     status: SpanStatus; outputPreview?: string; error?: string | null; guardrail?: string | null;
-    inputTokens?: number; outputTokens?: number; costEstimate?: number | null; targetKind?: import("./types.ts").Provenance["targetKind"];
+    inputTokens?: number; outputTokens?: number; targetKind?: import("./types.ts").Provenance["targetKind"];
   }): void {
     this.#run(
-      "UPDATE spans SET ended_at=?, status=?, output_preview=?, error=?, guardrail=?, input_tokens=?, output_tokens=?, cost_estimate=?, target_kind=? WHERE span_id=?",
+      "UPDATE spans SET ended_at=?, status=?, output_preview=?, error=?, guardrail=?, input_tokens=?, output_tokens=?, target_kind=? WHERE span_id=?",
       this.#clock(), patch.status, patch.outputPreview ?? "", patch.error ?? null, patch.guardrail ?? null,
-      patch.inputTokens ?? 0, patch.outputTokens ?? 0, patch.costEstimate ?? null, patch.targetKind ?? null, spanId,
+      patch.inputTokens ?? 0, patch.outputTokens ?? 0, patch.targetKind ?? null, spanId,
     );
   }
 
@@ -356,7 +355,6 @@ function toSpan(r: Row): CollabSpan {
     agentId: r.agent_id as string, kind: r.kind as CollabSpan["kind"], startedAt: r.started_at as number,
     endedAt: (r.ended_at as number | null) ?? null, status: r.status as SpanStatus,
     inputTokens: r.input_tokens as number, outputTokens: r.output_tokens as number,
-    costEstimate: (r.cost_estimate as number | null) ?? null,
     inputPreview: r.input_preview as string, outputPreview: r.output_preview as string,
     error: (r.error as string | null) ?? null, guardrail: (r.guardrail as CollabSpan["guardrail"]) ?? null,
   };

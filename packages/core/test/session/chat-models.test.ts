@@ -27,7 +27,6 @@ function sources(over: Partial<ChatModelSources> = {}): ChatModelSources {
     reasoning: (_p, m) => (m === "big" ? budget : effort),
     endpoint: (p) => (p === "home" ? "http://127.0.0.1:11434" : "https://api.example.invalid/v1"),
     catalog: (_p, m) => (m === "big" ? { displayName: "Big Model", status: "available" } : undefined),
-    outputPrice: (_p, m) => (m === "big" ? 15 : undefined),
     config: () => ({}),
     ...over,
   };
@@ -37,7 +36,7 @@ test("options: sorted, empty profiles dropped, primary model describes the profi
   const o = chatModelOptions(sources(), "bernd");
   assert.deepEqual(o.map((x) => x.name), ["cloud", "local", "mixed"]);
   const cloud = o.find((x) => x.name === "cloud")!;
-  assert.deepEqual({ ...cloud, reasoning: undefined }, { name: "cloud", displayName: "Big Model", provider: "cloudy", model: "big", local: false, selectable: true, reasoning: undefined, outputUsdPerMTok: 15 });
+  assert.deepEqual({ ...cloud, reasoning: undefined }, { name: "cloud", displayName: "Big Model", provider: "cloudy", model: "big", local: false, selectable: true, reasoning: undefined }); // no price field: no money dimension
   assert.deepEqual(cloud.reasoning.budgetTokens, { off: 0, low: 3840, high: 15872 });
   assert.equal(o.find((x) => x.name === "local")!.local, true);
   assert.equal(o.find((x) => x.name === "mixed")!.local, false, "a profile is local only when every candidate (fallbacks too) is");
@@ -112,7 +111,7 @@ test("turn provider: each candidate gets its own parameter (fallback mapped to i
   const done = { type: "done" as const, result: { text: "ok", toolCalls: [], finishReason: "stop" as const, rawFinishReason: "stop", usage: { inputTokens: 3, outputTokens: 1 }, meta: {} } };
   const failing = { async *stream(r: any) { seen.push({ model: r.model, reasoning: r.reasoning }); throw new ProviderError("overloaded", "busy"); yield done; } };
   const ok = { async *stream(r: any) { seen.push({ model: r.model, reasoning: r.reasoning }); yield done; } };
-  const budgetGuard = { checkBeforeCall: () => ({ kind: "allow", reservationId: "r", estimatedCostMicros: 0 }), settle: () => ({ costMicros: 0 }), releaseUnused: () => {} };
+  const budgetGuard = { checkBeforeCall: () => ({ kind: "allow", reservationId: "r", estimatedTokens: 0 }), settle: () => ({ recorded: true, overages: [] }), releaseUnused: () => {} };
   const provider = createTurnProvider({
     registry: new ToolRegistry(), budget: budgetGuard as never, approval: { request: async () => ({ approved: false }) } as never, grants: { list: () => [] } as never,
     profiles: { default: [{ provider: "a", model: "primary", adapter: failing }, { provider: "b", model: "fallback", adapter: ok }] },

@@ -1,6 +1,6 @@
-// Reproducible recorded-fixture wiring/cost comparison. This is not a live-model quality claim.
+// Reproducible recorded-fixture wiring/token comparison. This is not a live-model quality claim.
 import { join } from 'node:path';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../budget/index.ts';
+import { createCallBudget } from '../budget/index.ts';
 import { createTurnProvider } from '../composition/provider.ts';
 import type { StreamingAdapter, ChatRequest as WireRequest, ChatResult } from '../../../providers/src/index.ts';
 import { ToolRegistry } from '../tools/registry.ts';
@@ -15,7 +15,7 @@ export async function runFanoutEval(home: string, cases: readonly EvalCase[] = F
   const rows: EvalRow[] = [];
   for (const fixture of cases) for (const mode of ['single', 'peer'] as const) {
     let settledTokens = 0, modelCalls = 0, rootCalls = 0;
-    const budget = createCallBudget({ path: join(home, `${fixture.id}-${mode}.sqlite`), clock: { now: Date.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES), emitter: { emit(e) { if (e.type === 'settle') settledTokens += e.tokens; } } });
+    const budget = createCallBudget({ path: join(home, `${fixture.id}-${mode}.sqlite`), clock: { now: Date.now }, emitter: { emit(e) { if (e.type === 'settle') settledTokens += e.tokens; } } });
     const owner = { kind: 'person' as const, userId: 'owner', role: 'owner' as const };
     const makeAdapter = (answer: (req: WireRequest) => { text: string; consult: boolean }): StreamingAdapter => ({ async *stream(req) {
       modelCalls++; const a = answer(req);

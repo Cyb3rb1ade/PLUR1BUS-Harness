@@ -307,8 +307,8 @@ Conventions:
 | `budget.hard` | core/budget (bus) | kind, scope, agentId (scope=agent only), period, metric, limit, used, periodKey | packages/core/src/budget/service.ts:221 (factory :153–154) |
 | `warn` | core/budget/calls (bus, no namespace) | scope, id, used, limit, metric | packages/core/src/budget/calls.ts:140 |
 | `refuse` | core/budget/calls (bus, no namespace) | refusal | packages/core/src/budget/calls.ts:168 |
-| `reserve` | core/budget/calls (bus, no namespace) | reservationId, tokens, costMicros | packages/core/src/budget/calls.ts:171 |
-| `settle` | core/budget/calls (bus, no namespace) | reservationId, tokens, costMicros, overages | packages/core/src/budget/calls.ts:191 |
+| `reserve` | core/budget/calls (bus, no namespace) | reservationId, tokens | packages/core/src/budget/calls.ts:171 |
+| `settle` | core/budget/calls (bus, no namespace) | reservationId, tokens, overages | packages/core/src/budget/calls.ts:191 |
 | `prompt.unknown-model` | core/prompt (bus) | agentId, model | packages/core/src/prompt/builder.ts:91 |
 | `prompt.zone-clipped` | core/prompt (bus) | agentId, model, zone, from, to, cap, reason | packages/core/src/prompt/builder.ts:112 |
 | `prompt.below-minimum` | core/prompt (bus) | agentId, model, tokensEstimate, minTokens | packages/core/src/prompt/builder.ts:138 |

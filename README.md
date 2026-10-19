@@ -39,3 +39,5 @@ Documentation and code comments are in English; conversation with the owner is i
 ## Licence
 
 MIT — see [`LICENSE`](LICENSE). Adapted OpenClaw design tokens carry OpenClaw's own MIT attribution header verbatim (ADR-004).
+
+Release readiness: [v0.1.0 evidence checklist](docs/release-checklist-v0.1.0.md), [known gaps](docs/release-known-issues-v0.1.0.md), [administration index](docs/admin-handbook.md), native quickstarts [DE](docs/platform-quickstart-de.md) / [EN](docs/platform-quickstart-en.md). These documents do not declare a released or accepted v0.1.0.

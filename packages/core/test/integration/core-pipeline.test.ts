@@ -72,7 +72,7 @@ import { stdioDef, capturingLogger, NODE, waitDead } from '../mcp/helpers/util.t
 import { composeTools } from '../../src/composition/tools.ts';
 import { memoryAuditSink } from '../../src/rbac/audit.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 import { rig, tick, lastNonce } from '../approvals/service-helpers.ts';
 
 test('remembered prompt snapshot survives reopening; incognito never stores a snapshot', async () => {
@@ -104,7 +104,7 @@ test('actual MCP registry → stdio fake server → composition bridge → D109 
   const home = await mkdtemp(join(tmpdir(), 'turn-mcp-')); const audit = memoryAuditSink();
   const mcp = createMcpRegistry({ logger: capturingLogger(), policy: { allowedCommands: [NODE] } });
   mcp.register(stdioDef()); const permissions = await rig();
-  const budget = createCallBudget({ path: join(home, 'budget.sqlite'), clock: { now: Date.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES) });
+  const budget = createCallBudget({ path: join(home, 'budget.sqlite'), clock: { now: Date.now } });
   let calls = 0, pid: number | null = null;
   const request = { sessionId: 's1', turnId: 't1', principal: 'fixture-owner', agentId: 'bernd', summaries: [], memory: '', messages: [{ role: 'user' as const, text: 'echo via MCP' }], signal: new AbortController().signal };
   try {

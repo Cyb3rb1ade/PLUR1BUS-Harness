@@ -33,7 +33,7 @@ import { engineTurnMemory } from '../session/memory-port.ts';
 import { openSessionService, type SessionService } from '../session/service.ts';
 import { sessionRoleFactory, sessionMaintenance } from '../session/maintenance.ts';
 import type { ChatProvider, ChatRequest } from '../session/provider.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES, type CallBudget } from '../budget/index.ts';
+import { createCallBudget, type CallBudget } from '../budget/index.ts';
 import { createPolicyAudit } from '../policy/audit.ts';
 import type { GrantSource } from '../policy/index.ts';
 import { createMcpRegistry } from '../mcp/index.ts';
@@ -46,7 +46,6 @@ import { createWriter } from '../logs/writer.ts';
 import { createTurnProvider, type TurnProviderOptions } from './provider.ts';
 import { NO_REASONING, type ReasoningDescriptor } from '../../../providers/src/reasoning.ts';
 import { fitToWire } from '../discovery/reasoning.ts';
-import { lookupPrice } from '../budget/prices.ts';
 import type { ChatModelSources } from '../session/chat-models.ts';
 import { ToolRegistry } from '../tools/registry.ts';
 import { createCollab, alsAgentScopePort, type Collab } from '../collab/index.ts';
@@ -88,7 +87,7 @@ export interface CompositionDeps {
   notify: (method: string, params: object, opts: import("../rpc/server.ts").NotifyOptions) => void;
   approver?: import("../session/methods.ts").SessionMethodDeps["approver"];
   onStoredCapture?: (agentId: string) => void;
-  provider?: ChatProvider; options?: CompositionOptions; prices?: PriceBook;
+  provider?: ChatProvider; options?: CompositionOptions;
   /** Inbox notices for media-index events; absent: the events only reach the log. */
   inbox?: import('../inbox/service.ts').InboxPort;
   /** web.search over the SearXNG sidecar (`sidecars/web-search.ts`); absent, no search tool is registered. */
@@ -143,7 +142,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
   const scope = createRecallScopeProvider(d.identity);
   const memory = engineTurnMemory({ engine: d.engine, config: d.config, agents: d.memoryAgents ?? d.agents, logger: d.logger, captureSignal: d.signal, isStopping: d.isStopping, ...(d.onStoredCapture ? { onStoredCapture: d.onStoredCapture } : {}), identity: d.identity, scope });
   const cfg = d.config();
-  const budget = isolated('turn budget', () => createCallBudget({ path: join(d.home, 'state', 'budget.sqlite'), clock: { now: d.clock }, prices: d.prices ?? new PriceBook(SHIPPED_PRICE_TABLES), emitter: { emit(event) {
+  const budget = isolated('turn budget', () => createCallBudget({ path: join(d.home, 'state', 'budget.sqlite'), clock: { now: d.clock }, emitter: { emit(event) {
     if (event.type === 'refuse') d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'budget.refused', target: event.refusal.id || 'global', detail: { ...event.refusal } });
     else if (event.type === 'expire') d.logger.warn('budget.reservation_expired', { ...event });
   } } }));
@@ -249,12 +248,10 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
     const families = options.providers?.family ?? auth?.families ?? {};
     const reasoningFor = (provider: string, model: string): ReasoningDescriptor => fitToWire(d.chatModels?.reasoning(provider, model) ?? NO_REASONING, families[provider] ?? 'openai-chat');
-    const priceBook = d.prices ?? new PriceBook(SHIPPED_PRICE_TABLES);
     const chatModels: ChatModelSources = {
       profiles: () => Object.fromEntries(Object.entries(profiles).map(([name, candidates]) => [name, candidates.map(c => ({ provider: c.provider, model: c.model }))])),
       defaultProfile: () => auth?.resolved.defaultProfile ?? (profiles.default ? 'default' : undefined),
       reasoning: reasoningFor, config: () => d.config(),
-      outputPrice: (provider, model) => lookupPrice(priceBook.latest(), model, provider)?.output,
       ...(d.chatModels?.catalog ? { catalog: d.chatModels.catalog } : {}), ...(d.chatModels?.endpoint ? { endpoint: d.chatModels.endpoint } : {}),
     };
     const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, d.config);
@@ -279,7 +276,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       budget: { check(estimate) {
         const candidate = Object.values(profiles)[0]?.[0]; if (!candidate) return { allowed: false, reason: 'token-budget' };
         const admission = budget.checkBeforeCall({ principal: 'collab-admission', agent: estimate.agentId, project: estimate.projectId, turn: estimate.chainId, model: candidate.model, provider: candidate.provider, estimatedInputTokens: estimate.tokens, maxOutputTokens: 2000 });
-        if (admission.kind === 'refuse') return { allowed: false, reason: admission.metric === 'cost' ? 'cost-budget' : 'token-budget' };
+        if (admission.kind === 'refuse') return { allowed: false, reason: 'token-budget' };
         budget.releaseUnused(admission.reservationId); return { allowed: true };
       }, record: usage => d.logger.info('collab.usage', { ...usage }) },
     })) : null;

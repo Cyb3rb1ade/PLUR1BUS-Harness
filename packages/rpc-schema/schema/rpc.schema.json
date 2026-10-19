@@ -1498,7 +1498,7 @@
         "outcome": { "oneOf": [{ "$ref": "#/$defs/DreamOutcome" }, { "type": "null" }] },
         "reason": { "type": ["string", "null"] },
         "counts": { "type": "object", "additionalProperties": { "type": "integer" } },
-        "tokensIn": { "type": ["integer", "null"] }, "tokensOut": { "type": ["integer", "null"] }, "costMicros": { "type": ["integer", "null"], "description": "Null until a price table exists (measured in tokens first, ADR-009 B5/Q1)." },
+        "tokensIn": { "type": ["integer", "null"] }, "tokensOut": { "type": ["integer", "null"] },
         "logPath": { "type": ["string", "null"] },
         "error": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["message"], "properties": { "message": { "type": "string" }, "name": { "type": "string" } } }] }
       }
@@ -7162,7 +7162,7 @@
       },
       "admin.reembed.plan": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk). Every direction is allowed (local or cloud to local or cloud): without provider (or with local-transformers) the target is a pinned local model; any other provider is checked by the same rules as the engine start (model, dimensions and apiKeyEnv required, baseUrl except for openai; E_DENIED reason=privacy-acknowledgment-required without memory.embedding.privacyAck for a non-loopback endpoint, reason=local-only under privacy.localOnly, reason=egress-denied when the egress policy refuses the endpoint). The engine's plan probes a cloud provider with one short text; a cloud plan carries `cloud`: the cards whose text all goes to the provider, estimated tokens and cost (null when the price table does not list the model).",
+        "description": "M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk). Every direction is allowed (local or cloud to local or cloud): without provider (or with local-transformers) the target is a pinned local model; any other provider is checked by the same rules as the engine start (model, dimensions and apiKeyEnv required, baseUrl except for openai; E_DENIED reason=privacy-acknowledgment-required without memory.embedding.privacyAck for a non-loopback endpoint, reason=local-only under privacy.localOnly, reason=egress-denied when the egress policy refuses the endpoint). The engine's plan probes a cloud provider with one short text; a cloud plan carries `cloud`: the cards whose text all goes to the provider and the estimated tokens (no cost: the harness has no money dimension).",
         "params": { "type": "object", "additionalProperties": false, "required": ["model"], "properties": {
           "model": { "type": "string", "minLength": 1, "maxLength": 256 },
           "provider": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$", "description": "Target embedding provider; default local-transformers (a pinned local model)." },
@@ -7572,10 +7572,9 @@
         },
         "result": {
           "type": "object", "additionalProperties": false,
-          "required": ["timeZone", "priceVersion", "now", "periods", "limits"],
+          "required": ["timeZone", "now", "periods", "limits"],
           "properties": {
             "timeZone": { "type": "string" },
-            "priceVersion": { "type": "string", "description": "The price table in force now" },
             "now": { "type": "string", "description": "RFC 3339" },
             "periods": {
               "type": "array",
@@ -7588,12 +7587,10 @@
                   "start": { "type": "string" }, "end": { "type": "string" },
                   "total": {
           "type": "object", "additionalProperties": false,
-          "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "costMicros", "unpricedEvents"],
+          "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
-            "costMicros": { "type": "integer", "minimum": 0, "description": "Micro-USD, summed over priced events only" },
-            "unpricedEvents": { "type": "integer", "minimum": 0, "description": "Events whose model had no price in the table in force; their tokens count, their cost does not" }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
           }
         },
                   "agents": {
@@ -7605,24 +7602,21 @@
                         "agentId": { "type": "string" },
                         "total": {
           "type": "object", "additionalProperties": false,
-          "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "costMicros", "unpricedEvents"],
+          "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
-            "costMicros": { "type": "integer", "minimum": 0, "description": "Micro-USD, summed over priced events only" },
-            "unpricedEvents": { "type": "integer", "minimum": 0, "description": "Events whose model had no price in the table in force; their tokens count, their cost does not" }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
           }
         },
                         "models": {
                           "type": "array",
                           "items": {
                             "type": "object", "additionalProperties": false,
-                            "required": ["model", "events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "costMicros", "unpricedEvents"],
+                            "required": ["model", "events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
                             "properties": {
                               "model": { "type": "string" },
                               "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
-                              "costMicros": { "type": "integer", "minimum": 0 }, "unpricedEvents": { "type": "integer", "minimum": 0 }
+                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
                             }
                           }
                         }
@@ -7670,7 +7664,7 @@
       },
       "budget.set": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Cost bounds are micro-USD, token bounds are input + output tokens.",
+        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.",
         "params": {
           "type": "object", "additionalProperties": false,
           "minProperties": 1,
@@ -7682,7 +7676,7 @@
                 "scope": { "enum": ["global", "agent"] },
                 "agentId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Required for scope agent, refused for global" },
                 "period": { "enum": ["day", "month"] },
-                "metric": { "enum": ["cost", "tokens"] },
+                "metric": { "enum": ["tokens"] },
                 "soft": { "type": ["integer", "null"], "minimum": 0 },
                 "hard": { "type": ["integer", "null"], "minimum": 0 }
               }
@@ -9996,11 +9990,11 @@
       }
     },
     "BudgetLimit": {
-      "description": "Experimental (1.5.0). A budget limit. Cost bounds are micro-USD; token bounds count input + output tokens.",
+      "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["cost", "tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
@@ -10009,7 +10003,7 @@
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard", "used", "state"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["cost", "tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 },
         "used": { "type": "integer", "minimum": 0 }, "state": { "enum": ["ok", "soft", "hard"] }
       }
@@ -10229,11 +10223,6 @@
               }
             }
           }
-        },
-        "outputUsdPerMTok": {
-          "description": "USD per million output tokens from the price table, when known; reasoning tokens bill as output.",
-          "type": "number",
-          "minimum": 0
         }
       }
     },
@@ -10249,7 +10238,7 @@
         "turnCount": { "type": "integer", "minimum": 0 },
         "owner": {"type": "string", "minLength": 1, "maxLength": 128},
         "model": { "type": ["string", "null"] },
-        "usage": {"type": "object", "additionalProperties": false, "required": ["inputTokens", "outputTokens", "costMicros"], "properties": {"inputTokens": {"type": "integer", "minimum": 0}, "outputTokens": {"type": "integer", "minimum": 0}, "costMicros": {"type": ["integer", "null"], "minimum": 0}, "pendingCalls": {"type": "integer", "minimum": 0}}}
+        "usage": {"type": "object", "additionalProperties": false, "required": ["inputTokens", "outputTokens"], "properties": {"inputTokens": {"type": "integer", "minimum": 0}, "outputTokens": {"type": "integer", "minimum": 0}, "pendingCalls": {"type": "integer", "minimum": 0}}}
       }
     },
     "SessionMessage": {
@@ -10300,10 +10289,10 @@
         "providerCalls": { "type": "integer", "minimum": 0 }, "sourceBytes": { "type": "integer", "minimum": 0 }, "targetBytes": { "type": "integer", "minimum": 0 },
         "requiredFreeBytes": { "type": "integer", "minimum": 0 }, "freeBytes": { "type": "integer", "minimum": 0 },
         "throttleMs": { "type": "integer", "minimum": 0 }, "minDurationMs": { "type": "integer", "minimum": 0 }, "probeStatus": { "type": "string" },
-        "cloud": { "description": "Present for a cloud or self-hosted target: every card text goes to this provider. estimatedTokens is an upper bound from the source size without its vectors; estimatedCostMicros is micro-USD from the price table, null when unknown.", "type": "object", "additionalProperties": false, "required": ["provider", "model", "endpoint", "cards", "estimatedTokens", "estimatedCostMicros", "sendsText"], "properties": {
+        "cloud": { "description": "Present for a cloud or self-hosted target: every card text goes to this provider. estimatedTokens is an upper bound from the source size without its vectors (the budget counts tokens; there is no cost estimate).", "type": "object", "additionalProperties": false, "required": ["provider", "model", "endpoint", "cards", "estimatedTokens", "sendsText"], "properties": {
           "provider": { "type": "string" }, "model": { "type": "string" }, "endpoint": { "type": "string" },
           "cards": { "type": "integer", "minimum": 0 }, "estimatedTokens": { "type": "integer", "minimum": 0 },
-          "estimatedCostMicros": { "type": ["integer", "null"], "minimum": 0 }, "sendsText": { "const": true }
+          "sendsText": { "const": true }
         } }
       }
     },

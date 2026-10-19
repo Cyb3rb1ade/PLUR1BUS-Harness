@@ -29,7 +29,7 @@ describe("cloud provider", () => {
   const budgetFake = (refuse: boolean) => {
     const log: string[] = [];
     return { log, budget: {
-      checkBeforeCall: () => (refuse ? { kind: "refuse", code: "budget_exceeded" } : (log.push("reserve"), { kind: "allow", reservationId: "r1", estimatedCostMicros: 0 })),
+      checkBeforeCall: () => (refuse ? { kind: "refuse", code: "budget_exceeded" } : (log.push("reserve"), { kind: "allow", reservationId: "r1", estimatedTokens: 0 })),
       settle: () => { log.push("settle"); }, releaseUnused: () => { log.push("release"); },
     } as any };
   };
@@ -80,7 +80,7 @@ it("direct OpenAI factory uses only caption consent with local media; runtime pi
     id: "openai", model: "vision-fixture", principal: "system:media-index-fixture", agent: "fixture-agent", maxChars: () => 100,
     privacy: () => ({ ack: cfg.memory.mediaEmbedding.caption.privacyAck!, pinned }),
     decide: async () => { policyCalls++; },
-    budget: { checkBeforeCall: () => { budgetCalls++; return { kind: "allow", reservationId: "fixture", estimatedCostMicros: 0 }; }, settle() {}, releaseUnused() {} } as any,
+    budget: { checkBeforeCall: () => { budgetCalls++; return { kind: "allow", reservationId: "fixture", estimatedTokens: 0 }; }, settle() {}, releaseUnused() {} } as any,
     chat: { async complete() { networkCalls++; return { text: "auto caption", usage: { inputTokens: 1, outputTokens: 1 }, provider: "openai", model: "vision-fixture" }; } },
   });
   const input = { kind: "image" as const, mime: "image/png", source: { bytes: new Uint8Array([1]) } };

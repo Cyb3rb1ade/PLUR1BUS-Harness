@@ -45,7 +45,8 @@ jobs:
         run: pnpm lint
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-      - run: node --test scripts/release/test/portable-backup.test.mjs scripts/release/test/source-quality.test.mjs
+      - run: node --test scripts/release/test/portable-backup.test.mjs scripts/release/test/source-quality.test.mjs scripts/release/test/check-checklist.test.mjs
+      - run: node scripts/release/check-checklist.mjs --run-local
       - run: node --test scripts/release/test/audit-policy.test.mjs
       - name: install pinned Rust advisory tooling
         if: ${{ !cancelled() }}

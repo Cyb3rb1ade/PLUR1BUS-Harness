@@ -4,7 +4,6 @@ import { ResilientTransport } from './_shared/transport.ts';
 import { defaultSleep } from './_shared/retry.ts';
 import { sanitizeRequest } from './_shared/images.ts';
 import { sanitizeVideo } from '../video.ts';
-import { estimateCost } from '../cost.ts';
 import { parseModelRef, parseInputSchema, mapReplicateInput } from './replicate-schema.ts';
 import type { InputSchema } from './replicate-schema.ts';
 import type { HttpAdapterConfig } from '../adapters.ts';
@@ -92,9 +91,8 @@ export class HttpVideoAdapter {
       if (response.response?.generateVideoResponse?.raiMediaFilteredCount || response.video?.respect_moderation === false || response.has_nsfw_concepts?.some(Boolean)) throw new MediaError('content_policy');
       const value = this.id === 'openrouter' ? `${this.http.base.toString().replace(/\/$/,'')}/videos/${external}/content` : this.id === 'google' ? response.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri : this.id === 'replicate' ? (Array.isArray(response.output) ? response.output[0] : response.output) : response.video?.url;
       if (typeof value !== 'string') throw new MediaError('invalid_response');
-      const cost = response.cost ?? response.usage?.cost; if (cost !== undefined && (typeof cost !== 'number' || !Number.isFinite(cost) || cost < 0)) throw new MediaError('invalid_response');
       await context.onProgress?.({fraction:0.9,stage:'downloading'});
-      return {files:[{bytes:new Uint8Array(),format:'mp4',stream:this.http.stream(value,signal,['google','openrouter'].includes(this.id))}],processingSignal:signal,metadata:{adapter:this.id,model:this.model,durationMs:Date.now()-started,origin:this.http.base.origin,...(typeof cost === 'number' ? {costUsd:cost} : {}),costStatus:typeof cost === 'number' ? 'known' : 'unknown',estimatedCostUsd:estimateCost({...req,durationSeconds:req.durationSeconds ?? 8},{id:this.id,model:this.model}).usd}};
+      return {files:[{bytes:new Uint8Array(),format:'mp4',stream:this.http.stream(value,signal,['google','openrouter'].includes(this.id))}],processingSignal:signal,metadata:{adapter:this.id,model:this.model,durationMs:Date.now()-started,origin:this.http.base.origin}};
     } catch(e) {
       // Only documented cancel endpoints; Google/xAI/OpenAI have no generation cancel API in the checked docs.
       if (signal.aborted && external && ['replicate','fal'].includes(this.id)) await this.http.json(this.id === 'replicate' ? `predictions/${external}/cancel` : `${this.queueModel()}/requests/${external}/cancel`,{},AbortSignal.timeout(5000),this.id === 'fal' ? 'PUT' : 'POST').catch(()=>{});

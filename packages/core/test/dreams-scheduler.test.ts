@@ -58,7 +58,7 @@ describe("dreams scheduler: the ledger (L15, L16)", () => {
     h.captures("bernd", 3);
     const run = await h.sched.runPhase("bernd", "rem", { trigger: "manual" });
     assert.equal(run.tokensIn, 200); assert.equal(run.tokensOut, 100); // rem-dream + discover-semantic-links
-    assert.equal(run.costMicros, null); // RULING: no price table yet
+    assert.equal("costMicros" in run, false); // RULING (amended 2026-10-19): tokens only, no money dimension
     assert.ok(run.logPath && existsSync(run.logPath));
     const text = readFileSync(run.logPath!, "utf8");
     assert.match(text, /start rem trigger=manual/);

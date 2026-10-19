@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { inspect } from 'node:util';
-import { createAdapter, AdapterRegistry, egressHosts, estimateCost, MediaError } from '../src/index.ts';
+import { createAdapter, AdapterRegistry, egressHosts, MediaError } from '../src/index.ts';
 import type { AdapterConfig } from '../src/index.ts';
 import { ADAPTER_PROFILES, adapterProfile } from '../src/adapters/capabilities.ts';
 import { makePng } from './adapters-fixtures.ts';
@@ -46,8 +46,3 @@ test('capability flags, static profiles and the egress inventory agree', () => {
   const hosts = egressHosts(configs); assert.ok(hosts.includes('api.openai.com') && hosts.includes('queue.fal.run') && hosts.includes('openrouter.ai'));
 });
 
-test('cost estimates: local adapters are free, priced models are known, everything else is unknown rather than invented', () => {
-  const req = { prompt: 'x', n: 2 };
-  assert.equal(estimateCost(req, { id: 'draw-things', model: 'sd.ckpt' }).usd, 0); assert.equal(estimateCost(req, { id: 'coreml-local', model: 'sd' }).usd, 0);
-  for (const id of ['google', 'xai', 'openrouter', 'replicate', 'fal']) assert.equal(estimateCost(req, { id, model: 'unlisted-model' }).usd, null, id);
-});

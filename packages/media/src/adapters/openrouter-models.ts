@@ -1,6 +1,6 @@
 import { MediaError } from '../types.ts';
-/** OpenRouter models endpoint: https://openrouter.ai/docs/api-reference/list-available-models (architecture.output_modalities, pricing.image). */
-export interface ImageModel { id: string; name?: string; edit: boolean; costPerImageUsd?: number }
+/** OpenRouter models endpoint: https://openrouter.ai/docs/api-reference/list-available-models (architecture.output_modalities). */
+export interface ImageModel { id: string; name?: string; edit: boolean }
 const object = (v: unknown): Record<string, unknown> | undefined => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : undefined;
 const strings = (v: unknown): string[] => Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 export function parseImageModels(doc: unknown): ImageModel[] {
@@ -8,8 +8,7 @@ export function parseImageModels(doc: unknown): ImageModel[] {
   for (const raw of data) {
     const item = object(raw); const arch = object(item?.architecture);
     if (!item || typeof item.id !== 'string' || !strings(arch?.output_modalities).includes('image')) continue;
-    const price = Number(object(item.pricing)?.image);
-    out.push({ id: item.id, ...(typeof item.name === 'string' ? { name: item.name } : {}), edit: strings(arch?.input_modalities).includes('image'), ...(Number.isFinite(price) && price > 0 ? { costPerImageUsd: price } : {}) });
+    out.push({ id: item.id, ...(typeof item.name === 'string' ? { name: item.name } : {}), edit: strings(arch?.input_modalities).includes('image') });
   }
   return out;
 }
