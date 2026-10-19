@@ -11,6 +11,7 @@ import { readHermesCronJobs } from "../../src/import/importers/hermes-cron.ts";
 import { readHermesPairings } from "../../src/import/importers/hermes-platforms.ts";
 import { createSnapshot } from "../../src/import/snapshot.ts";
 import { listWslDistros } from "../../src/import/wsl.ts";
+import { flatTestInternals } from "../helpers/flat-embedder.ts";
 
 const context = (source: string) => {
   const home = tempDir("p1b-cross-home-");
@@ -169,9 +170,9 @@ test("OpenClaw snapshot plan matches apply and a second apply adds no duplicates
   writeFileSync(join(source, "workspace", "SOUL.md"), "changed after snapshot\n");
   const before = treeDigest(snap.stagingDir);
   const preview = await importOpenclaw({ source: snap.stagingDir, home, env: {} });
-  const applied = await importOpenclaw({ source: snap.stagingDir, home, env: {}, apply: true });
+  const applied = await importOpenclaw({ testInternals: flatTestInternals(), source: snap.stagingDir, home, env: {}, apply: true });
   assert.deepEqual(preview.agents.map(a => [a.harnessAgentId, a.action, a.files]), applied.agents.map(a => [a.harnessAgentId, a.action, a.files]));
-  const second = await importOpenclaw({ source: snap.stagingDir, home, env: {}, apply: true });
+  const second = await importOpenclaw({ testInternals: flatTestInternals(), source: snap.stagingDir, home, env: {}, apply: true });
   assert.equal(second.counts.agentsCreated, 0);
   assert.equal(second.counts.filesCreated, 0);
   assert.ok(second.counts.filesMatched > 0);

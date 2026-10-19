@@ -27,7 +27,11 @@ export type LedgerAction =
   | "skipped"
   | "rejected"
   | "repaired"
-  | "adopted";
+  | "adopted"
+  /** A memory card that duplicates a memory already in the agent's store: no new card, the entry names the existing one. */
+  | "linked"
+  /** A memory card parked while its agent's store waits for the re-embedding migration (imported by a later run). */
+  | "pending-reembed";
 
 export interface LedgerEntry {
   ts: string;

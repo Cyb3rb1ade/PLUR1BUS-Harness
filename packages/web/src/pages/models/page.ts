@@ -56,7 +56,8 @@ function ModelDetail({ model, isNew, canWrite, onEdit, onRemove }: { model: Mode
   return h(Card, {
     title: model.displayName,
     aside: h("span", {}, h(Badge, { tone: model.status === "available" ? "ok" : model.status === "unavailable" ? "warn" : "neutral" }, t(`models.status.${model.status}` as Key)),
-      isNew ? [" ", h(Badge, { key: "n", tone: "info" }, t("models.new"))] : null),
+      isNew ? [" ", h(Badge, { key: "n", tone: "info" }, t("models.new"))] : null,
+      model.locked === "local-only" ? [" ", h(Badge, { key: "l", tone: "warn" }, t("models.locked.localOnly"))] : null),
   },
     h("dl", { class: "facts" },
       h(Row, { label: t("models.field.provider") }, model.provider),
@@ -70,6 +71,7 @@ function ModelDetail({ model, isNew, canWrite, onEdit, onRemove }: { model: Mode
       h(Row, { label: t("models.field.firstSeen") }, when(model.firstSeen)),
       h(Row, { label: t("models.field.lastSeen") }, when(model.lastSeen)),
       h(Row, { label: t("models.field.overrides") }, overrides.length === 0 ? t("models.none") : h("ul", { class: "plain-list" }, overrides.map((o) => h("li", { key: o }, o)))),
+      model.locked === "local-only" ? h(Row, { label: t("models.field.locked") }, t("models.locked.localOnlyHint")) : null,
       extra.length > 0 ? h(Row, { label: t("models.field.extra") }, h("ul", { class: "plain-list" }, extra.map(([k, v]) => h("li", { key: k }, `${k}: ${String(v)}`)))) : null),
     // models.write is Owner and Admin (docs/rbac.md); a role without it gets no edit or remove button, the page says why.
     canWrite ? h("div", { class: "state-actions" },
@@ -98,7 +100,8 @@ function ModelList({ data, isNew, filters: chosen, setFilters, selected }: { dat
           h("a", { class: "nav-link", href: `#/models/${routeFor(m.provider, m.id)}`, ...(isSel ? { "aria-current": "true" } : {}) },
             h("span", {}, m.displayName),
             m.status !== "available" ? h(Badge, { tone: m.status === "unavailable" ? "warn" : "neutral" }, t(`models.status.${m.status}` as Key)) : null,
-            isNew.has(modelKey(m)) ? h(Badge, { tone: "info" }, t("models.new")) : null));
+            isNew.has(modelKey(m)) ? h(Badge, { tone: "info" }, t("models.new")) : null,
+            m.locked === "local-only" ? h(Badge, { tone: "warn" }, t("models.locked.localOnly")) : null));
       })))));
 }
 

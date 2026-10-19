@@ -60,6 +60,14 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "chat.model.get": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "chat.model.set": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
     "jobs.create": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -213,6 +221,22 @@
       "since": "1.6.0"
     },
     "admin.api.device.announce": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "device.pair": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.redeem": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.token": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.resolve": {
       "stability": "experimental",
       "since": "1.6.0"
     },

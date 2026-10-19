@@ -50,6 +50,8 @@ export interface DiscoveryServiceDeps {
   userAgent?: string;
   maxParallel?: number;
   onScanned?: (provider: string) => void;
+  /** privacy.localOnly: true when a model of this provider may not be used now; listed as locked, never hidden. */
+  modelLocked?: (provider: string, profile: ProfileInfo | undefined) => boolean;
 }
 
 export interface ScanRequest {
@@ -72,7 +74,7 @@ export interface ProviderScanResult {
   error?: ScanErrorInfo;
 }
 
-export interface ModelEntry extends Omit<CatalogModel, "api"> { new?: boolean }
+export interface ModelEntry extends Omit<CatalogModel, "api"> { new?: boolean; locked?: "local-only" }
 
 export interface ListQuery {
   provider?: string;
@@ -552,10 +554,12 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
       );
     }
 
+    const profiles = deps.modelLocked ? deps.profiles.list() : [];
     const cleanModels: ModelEntry[] = models.map((m) => {
       const { api: _api, ...rest } = m;
       void _api;
-      return { ...rest, new: m.status === "available" && m.source !== "manual" && (cat.acknowledgedAt === undefined || m.firstSeen > cat.acknowledgedAt) };
+      const locked = deps.modelLocked?.(m.provider, profiles.find((p) => p.id === m.provider)) === true;
+      return { ...rest, new: m.status === "available" && m.source !== "manual" && (cat.acknowledgedAt === undefined || m.firstSeen > cat.acknowledgedAt), ...(locked ? { locked: "local-only" as const } : {}) };
     });
 
     const newCount = cat.models.filter(

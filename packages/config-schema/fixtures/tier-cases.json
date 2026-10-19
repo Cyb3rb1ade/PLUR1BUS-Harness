@@ -2089,6 +2089,31 @@
                 "required": [],
                 "description": "Sparse per-agent voice override; unset keys inherit voice.v3, like memory.embedding overrides."
               },
+              "privacy": {
+                "description": "Per-agent privacy override; an unset key inherits the installation value.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "core",
+                "x-tier": "basic",
+                "x-write-roles": [
+                  "owner",
+                  "admin"
+                ],
+                "x-audit": true,
+                "properties": {
+                  "localOnly": {
+                    "description": "Only local models for this agent; overrides privacy.localOnly in both directions. The shared memory engine and media index stay local while the installation or any agent is local-only.",
+                    "type": "boolean",
+                    "x-restart": "core",
+                    "x-tier": "basic",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true
+                  }
+                }
+              },
               "persona": {
                 "description": "Inline persona text for a new agent (also scaffolded into SOUL.md).",
                 "type": "string",
@@ -2710,6 +2735,26 @@
           "additionalProperties": {
             "description": "Model identifier assigned to the role.",
             "type": "string"
+          }
+        },
+        "privacy": {
+          "description": "Installation-wide privacy switches. localOnly: no model or inference call leaves this machine (chat and role models, compaction summaries, embedding, reranker, engine LLM features, voice, captioning and media generation). Web tools (web.fetch, web.search) are not model calls and stay governed by egress alone.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "localOnly": {
+              "description": "Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "core",
+              "x-tier": "basic",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            }
           }
         }
       },
@@ -3619,7 +3664,56 @@
           "default": {},
           "properties": {
             "embedding": {
-              "description": "Text embedding privacy acknowledgment preparation; text currently remains local-transformers.",
+              "description": "Text embedding privacy acknowledgment: a remote engine embedding provider (engine.embedding with a non-loopback endpoint) needs it, bound to provider and endpoint.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "privacyAck": {
+                  "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "provider",
+                    "acknowledgedAt",
+                    "by"
+                  ],
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true,
+                  "properties": {
+                    "provider": {
+                      "description": "Exactly the provider confirmed for this function.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "acknowledgedAt": {
+                      "description": "When this function-specific privacy acknowledgment was recorded.",
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "by": {
+                      "description": "Person id that recorded this acknowledgment.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "endpoint": {
+                      "description": "Exact configured endpoint, when the provider has one.",
+                      "type": "string",
+                      "format": "uri",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            },
+            "reranker": {
+              "description": "Reranker privacy acknowledgment: a remote engine reranker (engine.reranker, e.g. Cohere) receives the recalled memory texts and needs it, bound to provider and endpoint.",
               "type": "object",
               "additionalProperties": false,
               "properties": {
@@ -4119,6 +4213,34 @@
               "default": false,
               "x-restart": "live",
               "x-tier": "advanced"
+            }
+          }
+        },
+        "privacy": {
+          "description": "Installation-wide privacy switches. localOnly: no model or inference call leaves this machine (chat and role models, compaction summaries, embedding, reranker, engine LLM features, voice, captioning and media generation). Web tools (web.fetch, web.search) are not model calls and stay governed by egress alone.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "localEndpoints": {
+              "description": "Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here.",
+              "type": "array",
+              "maxItems": 32,
+              "uniqueItems": true,
+              "default": [],
+              "items": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 256,
+                "pattern": "^https?://[^/?#@\\s]+/?$"
+              },
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
             }
           }
         },

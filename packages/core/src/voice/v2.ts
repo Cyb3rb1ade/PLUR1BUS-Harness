@@ -34,6 +34,8 @@ export interface VoiceV2Deps {
   /** Price lookup is optional: unpriced vendor usage is not reported as a zero cost. */
   localModelAllowed?: (provider: string, model: string) => boolean;
   cost?: (report: UsageReport) => number | undefined;
+  /** privacy.localOnly for this agent (owner decision 2026-10-18): only the local voice tier, no cloud adapter is built. */
+  localOnly?: (agentId: string) => boolean;
 }
 export function createVoiceV2(d: VoiceV2Deps) {
   const metrics = new VoiceMetrics(d.clock); const channels = new Set<VoiceChannel>();
@@ -55,6 +57,9 @@ export function createVoiceV2(d: VoiceV2Deps) {
     let realtimeTurnId = randomUUID(); let realtimeSpeechEnd = false;
     let reader: Promise<void> | undefined; let closed = false; let changing = false; let route: VoiceRoute;
     const cfgProfile = resolveProfile(config.localRealtime, session.agentId);
+    // Route only: local-only keeps voice on the local tier like a privacy pin, but unlike the per-turn pin it does not
+    // skip the (then local) memory engine; the chat model of each turn is held local by the turn provider itself.
+    const localRoute = request.privacyPin === true || d.localOnly?.(session.agentId) === true;
     const pin = request.privacyPin ? { privacyPin: true, allowModel: d.localModelAllowed ?? (() => false) } : {};
     const baseProfile = { ...cfgProfile, enabled: false, speculativeTurnStart: false };
     const agent = {
@@ -75,7 +80,7 @@ export function createVoiceV2(d: VoiceV2Deps) {
     // Registry construction is lazy; privacy-pinned sessions do not even construct cloud adapters.
     let registry: VoiceRegistry = { asr: {}, tts: {}, realtime: {}, status: [] };
     const available = { realtime: [] as string[], asr: [] as string[], tts: [] as string[], local: true };
-    const choose = () => selectVoiceRoute({ available, ...(request.privacyPin ? { privacyPin: true } : {}), ...(request.preferences ? { preferences: request.preferences } : {}), allowed: (id, op) => d.allowed(id, op, client, session.agentId) });
+    const choose = () => selectVoiceRoute({ available, ...(localRoute ? { privacyPin: true } : {}), ...(request.preferences ? { preferences: request.preferences } : {}), allowed: (id, op) => d.allowed(id, op, client, session.agentId) });
     let closing: Promise<void> | undefined;
     const close = (): Promise<void> => closing ??= Promise.resolve().then(async () => {
       if (closed) return; closed = true; channels.delete(channel); lifetime.abort();
@@ -84,7 +89,7 @@ export function createVoiceV2(d: VoiceV2Deps) {
     });
     let channel!: VoiceChannel;
     try {
-      if (!request.privacyPin) registry = d.registry(config.providers, usage);
+      if (!localRoute) registry = d.registry(config.providers, usage);
       available.realtime = Object.keys(registry.realtime); available.asr = Object.keys(registry.asr); available.tts = Object.keys(registry.tts);
       route = await choose();
       if (route.kind === 'realtime') {

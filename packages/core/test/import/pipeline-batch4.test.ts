@@ -28,6 +28,7 @@ import {
   type M7OpenclawFixture,
 } from "./fixtures.ts";
 import { treeDigest } from "./tree.ts";
+import { flatTestInternals } from "../helpers/flat-embedder.ts";
 
 describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () => {
   let fx: M7OpenclawFixture;
@@ -45,7 +46,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
   it("idempotency ledger: records mutations line-by-line in ledger.jsonl with idempotency keys", { timeout: 30_000 }, async () => {
     const home = tempDir("p1b-b4-ledger-");
 
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(report.ledgerPath, "ledgerPath must be set in apply report");
     assert.ok(existsSync(report.ledgerPath), "ledger.jsonl must exist on disk");
 
@@ -69,7 +70,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     assert.ok(entityTypes.has("cron"), "cron entity must be in ledger");
 
     // Re-running apply consults ledger and matches existing with zero writes
-    const r2 = await importOpenclaw({ home, source: fx.root, apply: true });
+    const r2 = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.equal(r2.counts.filesCreated, 0);
     assert.equal(r2.counts.filesMatched, report.counts.filesCreated);
   });
@@ -85,7 +86,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     writeFileSync(join(wsAlpha, "SOUL.md"), existingContent);
 
     // Run 1: renames imported SOUL.md to SOUL.openclaw.md
-    const r1 = await importOpenclaw({
+    const r1 = await importOpenclaw({ testInternals: flatTestInternals(),
       home,
       source: fx.root,
       apply: true,
@@ -97,7 +98,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     assert.equal(readFileSync(join(wsAlpha, "SOUL.openclaw.md"), "utf8"), readFileSync(fx.curatedFiles.soul, "utf8"));
 
     // Run 2: same source, same onConflict: "rename"
-    const r2 = await importOpenclaw({
+    const r2 = await importOpenclaw({ testInternals: flatTestInternals(),
       home,
       source: fx.root,
       apply: true,
@@ -107,7 +108,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     assert.ok(!existsSync(join(wsAlpha, "SOUL.openclaw-2.md")), "must not create SOUL.openclaw-2.md");
 
     // Run 3: third run remains strictly idempotent
-    const r3 = await importOpenclaw({
+    const r3 = await importOpenclaw({ testInternals: flatTestInternals(),
       home,
       source: fx.root,
       apply: true,
@@ -127,7 +128,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     const existingContent = "# Replaced Persona\n";
     writeFileSync(join(wsAlpha, "SOUL.md"), existingContent);
 
-    const report = await importOpenclaw({
+    const report = await importOpenclaw({ testInternals: flatTestInternals(),
       home,
       source: fx.root,
       apply: true,
@@ -172,7 +173,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     const digestBefore = treeDigest(home, { mtime: false });
 
     // 1. Run import apply
-    const importReport = await importOpenclaw({ home, source: fx.root, apply: true });
+    const importReport = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(importReport.reportPath);
     assert.ok(importReport.snapshot);
     assert.ok(existsSync(importReport.snapshot.path));
@@ -249,7 +250,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     const home = tempDir("p1b-b4-user-scope-");
     const l = layout(home);
 
-    const importReport = await importOpenclaw({ home, source: fx.root, apply: true });
+    const importReport = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(importReport.reportPath);
 
     // After import, user creates a new agent and adds their own files
@@ -297,7 +298,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     const home = tempDir("p1b-b4-force-");
     const l = layout(home);
 
-    const importReport = await importOpenclaw({ home, source: fx.root, apply: true });
+    const importReport = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(importReport.reportPath);
 
     const soulPath = join(l.workspaceDir("alpha"), "SOUL.md");
@@ -323,7 +324,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     const l = layout(home);
 
     // Initial import
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(report.reportPath);
 
     // 1. Traversal in runId
@@ -385,7 +386,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     const home = tempDir("p1b-b4-abs-manifest-");
     const l = layout(home);
 
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(report.reportPath);
 
     const validRunDir = join(l.home, "imports", report.runId);
@@ -428,7 +429,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     mkdirSync(home, { recursive: true });
     writeFileSync(l.configPath, JSON.stringify({ schemaVersion: 1, core: { logLevel: "info" } }) + "\n");
 
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(report.reportPath);
 
     // Plant a symlink pointing outside home at an imported file target
@@ -464,7 +465,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     mkdirSync(home, { recursive: true });
     writeFileSync(l.configPath, JSON.stringify({ schemaVersion: 1, core: { logLevel: "info" } }) + "\n");
 
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(report.reportPath);
 
     // Replace agents/alpha with a symlink pointing to an outside directory
@@ -502,7 +503,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     mkdirSync(home, { recursive: true });
     writeFileSync(l.configPath, JSON.stringify({ schemaVersion: 1, core: { logLevel: "info" } }) + "\n");
 
-    const importReport = await importOpenclaw({ home, source: fx.root, apply: true });
+    const importReport = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(importReport.reportPath);
 
     // 1. Single-writer lock safety: lock held -> rollback refused
@@ -555,7 +556,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
   it("report schema conforming to docs/import.md §5.7 with leak assertions including ledger (B5)", { timeout: 30_000 }, async () => {
     const home = tempDir("p1b-b4-schema-");
 
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
 
     // Schema fields
     assert.equal(report.schema, "import.openclaw/1");
@@ -592,7 +593,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     const applyRes = await runImport(
       ["openclaw", "--source", fx.root, "--home", home, "--apply", "--conflict", "rename"],
       {},
-      "/nonexistent-home",
+      "/nonexistent-home", flatTestInternals(),
     );
     assert.ok(applyRes.ok);
     assert.equal(applyRes.schema, "import.openclaw/1");
@@ -629,7 +630,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     const initialConfig = { schemaVersion: 1, core: { logLevel: "info" } };
     writeFileSync(l.configPath, JSON.stringify(initialConfig, null, 2) + "\n");
 
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(report.reportPath);
 
     try {
@@ -679,7 +680,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
 
       await assert.rejects(
         async () => {
-          await importOpenclaw({
+          await importOpenclaw({ testInternals: flatTestInternals(),
             home,
             source: fx.root,
             apply: true,
@@ -697,7 +698,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     assert.ok(runId, "crashed run directory must exist");
 
     // Resume the interrupted run
-    const resumedReport = await importOpenclaw({
+    const resumedReport = await importOpenclaw({ testInternals: flatTestInternals(),
       home,
       source: fx.root,
       apply: true,
@@ -708,7 +709,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     assert.ok(existsSync(l.workspaceDir("beta")));
 
     // Re-running resume converges with 0 new writes
-    const secondResume = await importOpenclaw({
+    const secondResume = await importOpenclaw({ testInternals: flatTestInternals(),
       home,
       source: fx.root,
       apply: true,
@@ -735,7 +736,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     // 1. Non-existent run
     await assert.rejects(
       async () => {
-        await importOpenclaw({
+        await importOpenclaw({ testInternals: flatTestInternals(),
           home,
           source: fx.root,
           apply: true,
@@ -751,13 +752,13 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     );
 
     // 2. Already rolled back run
-    const rep = await importOpenclaw({ home, source: fx.root, apply: true });
+    const rep = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(rep.reportPath);
     await rollbackImport({ home, reportPath: rep.reportPath, apply: true, sourceType: "openclaw" });
 
     await assert.rejects(
       async () => {
-        await importOpenclaw({
+        await importOpenclaw({ testInternals: flatTestInternals(),
           home,
           source: fx.root,
           apply: true,
@@ -777,7 +778,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     mkdirSync(emptyRunDir, { recursive: true });
     await assert.rejects(
       async () => {
-        await importOpenclaw({
+        await importOpenclaw({ testInternals: flatTestInternals(),
           home,
           source: fx.root,
           apply: true,
@@ -798,7 +799,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     writeFileSync(join(runWithLedgerOnly, "ledger.jsonl"), '{"ts":"2026-10-05T12:00:00Z","runId":"ledger-only-run","entity":"file","idempotencyKey":"k1","action":"created"}\n');
     await assert.rejects(
       async () => {
-        await importOpenclaw({
+        await importOpenclaw({ testInternals: flatTestInternals(),
           home,
           source: fx.root,
           apply: true,
@@ -818,7 +819,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     const home = tempDir("p1b-b4-ledger-robust-");
     const l = layout(home);
 
-    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
     assert.ok(report.ledgerPath);
     assert.ok(report.reportPath);
 
@@ -826,7 +827,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     appendFileSync(report.ledgerPath, "TORN_LINE_WITHOUT_NEWLINE");
 
     // Resuming import repairs newline before next append, writes repair marker, and counts corrupt line
-    const rep2 = await importOpenclaw({
+    const rep2 = await importOpenclaw({ testInternals: flatTestInternals(),
       home,
       source: fx.root,
       apply: true,
@@ -852,7 +853,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
 
     // Unrepaired corrupt ledger must abort with ledger-corrupt
     const homeCorrupt = tempDir("p1b-b4-ledger-corrupt-");
-    const repCorrupt = await importOpenclaw({ home: homeCorrupt, source: fx.root, apply: true });
+    const repCorrupt = await importOpenclaw({ testInternals: flatTestInternals(), home: homeCorrupt, source: fx.root, apply: true });
     appendFileSync(repCorrupt.ledgerPath!, "CORRUPT_NON_REPAIRED_ENTRY\n");
     await assert.rejects(
       async () => {

@@ -163,6 +163,16 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "chat.model.get" => check_pair::<types::ChatModelGetParams, types::ChatModelGetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.model.set" => check_pair::<types::ChatModelSetParams, types::ChatModelSetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "admin.api.device.pair" => check_pair::<
                 types::AdminApiDevicePairParams,
                 types::AdminApiDevicePairResult,
@@ -194,6 +204,23 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "model.licence.check" => check_pair::<
                 types::ModelLicenceCheckParams,
                 types::ModelLicenceCheckResult,
+            >(name, fixture, &root_schema),
+            "device.pair" => check_pair::<types::DevicePairParams, types::DevicePairResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "admin.api.desktop.redeem" => check_pair::<
+                types::AdminApiDesktopRedeemParams,
+                types::AdminApiDesktopRedeemResult,
+            >(name, fixture, &root_schema),
+            "admin.api.desktop.token" => check_pair::<
+                types::AdminApiDesktopTokenParams,
+                types::AdminApiDesktopTokenResult,
+            >(name, fixture, &root_schema),
+            "admin.api.desktop.resolve" => check_pair::<
+                types::AdminApiDesktopResolveParams,
+                types::AdminApiDesktopResolveResult,
             >(name, fixture, &root_schema),
             "device.list" => check_pair::<types::DeviceListParams, types::DeviceListResult>(
                 name,

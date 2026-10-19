@@ -77,7 +77,7 @@ fn probe(layout: &Layout, connect_timeout: Duration, call_timeout: Duration) -> 
 
 /// A short, bounded probe (used by `daemon status` and [`supervisor_detail`]): `Some` only when the supervisor
 /// actually answered.
-fn probe_status(layout: &Layout) -> Option<Value> {
+pub(crate) fn probe_status(layout: &Layout) -> Option<Value> {
     match probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
         Probe::Answered(v) => Some(v),
         Probe::NotRunning | Probe::Unresponsive => None,
@@ -337,11 +337,9 @@ pub(crate) fn start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'stati
         let started = start_starts_the_core(&status);
         // A fatal crash reported before the reset below is the one being reset, not a new one.
         let reset = fatal_crash(&status).cloned();
-        if !already_ready {
-            // Resets a crashed core's backoff and asks for an immediate spawn; a no-op while the core is
-            // already up (Monitor::spawn is idempotent), so this is safe to call unconditionally here too.
-            let _ = call_daemon_start(layout);
-        }
+        // A healthy Core can coexist with a failed API (for example before setup installs its payload).
+        // Start is idempotent for healthy slots and must also rearm the first-party API slot.
+        let _ = call_daemon_start(layout);
         let status = if already_ready || no_wait {
             status
         } else {

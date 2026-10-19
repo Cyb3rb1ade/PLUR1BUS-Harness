@@ -60,6 +60,9 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "chat.fork": rule("chat:write", system),
   "chat.delete": rule("chat:delete", system),
   "chat.export": rule("chat:read", system),
+  "chat.model.get": rule("chat:read", system),
+  // A model or reasoning switch changes cost and routing for the person's own chat: people only, like session.model.set.
+  "chat.model.set": { ...rule("chat:write", system), humanOnly: true },
 
   "jobs.create": { ...rule("agent.manage", agent), humanOnly: true },
   "jobs.update": { ...rule("agent.list", system), humanOnly: true },
@@ -179,6 +182,10 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "admin.api.device.challenge": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
   "admin.api.device.prove": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
   "admin.api.device.announce": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
+  "device.pair": rule("remote.device.write", system),
+  "admin.api.desktop.redeem": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
+  "admin.api.desktop.token": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
+  "admin.api.desktop.resolve": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
   "device.list": rule("device.list", system),
   "device.revoke": rule("device.revoke", system),
   "device.rename": rule("device.rename", system),

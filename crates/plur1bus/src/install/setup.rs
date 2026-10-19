@@ -22,7 +22,7 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub const STEP_IDS: [&str; 9] = [
     "state-root",
@@ -48,6 +48,10 @@ pub const PROMPTS: &[(&str, &str)] = &[
     (
         "memory.mediaEmbedding",
         "Memory & media search: embedding models for text and media",
+    ),
+    (
+        "privacy.localOnly",
+        "Only local models, so no model call leaves this machine (yes or no)",
     ),
 ];
 
@@ -839,6 +843,13 @@ pub struct ConfigAnswers {
     pub agent: Option<String>,
     pub use_class: String,
     pub accept_nc: bool,
+    /// `privacy.localOnly` answered "yes". Setup only ever switches it on; "no" leaves the configuration as it is
+    /// (a re-run never relaxes an installation that is local-only; `config set privacy.localOnly false` does).
+    pub local_only: bool,
+}
+
+fn valid_yes_no(a: &str) -> bool {
+    matches!(a.to_ascii_lowercase().as_str(), "yes" | "y" | "no" | "n")
 }
 
 fn valid_agent_id(id: &str) -> bool {
@@ -872,6 +883,7 @@ pub fn answer_config(
             .unwrap_or(DEFAULT_USE_CLASS)
             .to_string()
     });
+    let mut local_only = "no".to_string();
     if !o.non_interactive {
         for (key, question) in PROMPTS {
             if (host && *key == "agents") || *key == "memory.mediaEmbedding" {
@@ -880,6 +892,7 @@ pub fn answer_config(
             let (slot, valid): (&mut String, fn(&str) -> bool) = match *key {
                 "agents" => (&mut agent, valid_agent_id),
                 "embedding.useClass" => (&mut use_class, |v| USE_CLASSES.contains(&v)),
+                "privacy.localOnly" => (&mut local_only, valid_yes_no),
                 other => unreachable!("no answer slot for {other}"),
             };
             let default = slot.clone();
@@ -906,10 +919,12 @@ pub fn answer_config(
         ));
     }
     let accept_nc = use_class != "commercial" && o.accept_nc;
+    let local_only = matches!(local_only.to_ascii_lowercase().as_str(), "yes" | "y");
     Ok(ConfigAnswers {
         agent,
         use_class,
         accept_nc,
+        local_only,
     })
 }
 
@@ -930,6 +945,9 @@ fn config_changes(config: &Value, a: &ConfigAnswers, now: &str) -> Vec<(String, 
     if a.accept_nc && config["embedding"]["acceptedNcLicence"] != json!(true) {
         changes.push(("embedding.acceptedNcLicence".to_string(), json!(true)));
         changes.push(("embedding.acceptedNcLicenceAt".to_string(), json!(now)));
+    }
+    if a.local_only && config["privacy"]["localOnly"] != json!(true) {
+        changes.push(("privacy.localOnly".to_string(), json!(true)));
     }
     changes
 }
@@ -1508,7 +1526,36 @@ fn step_service(out: &Out, layout: &Layout, o: &SetupOpts) -> Result<StepResult,
 /// `daemon start` (it prints and exits on failure). Once the core is ready, reads its contract and RPC versions for
 /// the manifest and drops `runtime/core.prev`.
 fn step_start(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, StepError> {
-    let (started, via, status) = crate::commands::daemon::start(out, layout, false);
+    let (started, via, mut status) = crate::commands::daemon::start(out, layout, false);
+    // Setup is complete only when the bundled HTTP child is usable too. Retain core.prev on failure.
+    let reset_api = status["children"]
+        .as_array()
+        .and_then(|children| children.iter().find(|c| c["role"] == "api"))
+        .map(|c| c["process"].clone());
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let api = status["children"]
+            .as_array()
+            .and_then(|children| children.iter().find(|c| c["role"] == "api"));
+        if api.is_some_and(|c| c["process"]["state"] == "ready") {
+            break;
+        }
+        if api.is_some_and(|c| {
+            c["process"]["state"] == "crashed"
+                && c["nextRestartAt"].is_null()
+                && Some(&c["process"]) != reset_api.as_ref()
+        }) || Instant::now() >= deadline
+        {
+            return Err(
+                StepError::new("api-not-ready", "the supervised API did not become ready")
+                    .hint("Check logs/api.out.log and the bundled runtime/core/api.js"),
+            );
+        }
+        std::thread::sleep(Duration::from_millis(20));
+        if let Some(next) = crate::commands::daemon::probe_status(layout) {
+            status = next;
+        }
+    }
     let state = crate::commands::daemon::core_child(&status)
         .map(|c| c["process"]["state"].clone())
         .unwrap_or(Value::Null);
@@ -1523,7 +1570,7 @@ fn step_start(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, S
     let _ = fs::remove_dir_all(layout.runtime().join("core.prev"));
     Ok(StepResult::done(
         "start",
-        json!({ "started": started, "via": via, "core": state }),
+        json!({ "started": started, "via": via, "core": state, "api": "ready" }),
     ))
 }
 
@@ -1717,7 +1764,8 @@ mod tests {
             ConfigAnswers {
                 agent: Some("bernd".into()),
                 use_class: "commercial".into(),
-                accept_nc: false
+                accept_nc: false,
+                local_only: false
             }
         );
     }
@@ -1726,7 +1774,7 @@ mod tests {
     fn no_nc_question_is_asked_for_the_permissive_defaults_and_invalid_answers_are_asked_again() {
         let mut p = scripted(vec!["Not An Id", "anna", "sometimes", "research"], true);
         let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
-        assert_eq!(p.asked.len(), 4);
+        assert_eq!(p.asked.len(), 5);
         assert!(
             p.confirms.is_empty(),
             "EmbeddingGemma 2 is Apache-2.0: no licence question for the default (ADR-006 amendment 2026-10-08)"
@@ -1792,11 +1840,34 @@ mod tests {
     }
 
     #[test]
+    fn local_only_is_switched_on_by_yes_asked_again_on_nonsense_and_never_switched_off() {
+        let mut p = scripted(vec!["anna", "general", "maybe", "Yes"], true);
+        let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
+        assert_eq!(p.asked.len(), 4, "an invalid yes/no answer is asked again");
+        assert!(a.local_only);
+        let keys = |c: Vec<(String, Value)>| c.into_iter().map(|(k, _)| k).collect::<Vec<_>>();
+        assert!(
+            keys(config_changes(&Value::Null, &a, "x")).contains(&"privacy.localOnly".to_string())
+        );
+        let local = json!({ "agents": { "anna": {} }, "embedding": { "useClass": "general" }, "privacy": { "localOnly": true } });
+        assert!(config_changes(&local, &a, "x").is_empty());
+        // The default ("no") and --non-interactive leave an installation that is local-only as it is.
+        let mut p = scripted(vec!["anna", "general"], true);
+        let no = answer_config(&opts(false), "full", None, &mut p).unwrap();
+        assert!(!no.local_only);
+        assert!(config_changes(&local, &no, "x").is_empty());
+        let unattended =
+            answer_config(&opts(true), "full", None, &mut scripted(vec![], true)).unwrap();
+        assert!(!unattended.local_only);
+    }
+
+    #[test]
     fn config_changes_add_only_what_is_missing_and_never_revoke() {
         let a = ConfigAnswers {
             agent: Some("main".into()),
             use_class: "general".into(),
             accept_nc: true,
+            local_only: false,
         };
         let keys = |c: Vec<(String, Value)>| c.into_iter().map(|(k, _)| k).collect::<Vec<_>>();
         assert_eq!(
@@ -1896,7 +1967,7 @@ mod tests {
         let mut p = scripted(vec!["commercial"], true);
         let a = answer_config(&opts(false), "host", None, &mut p).unwrap();
         let asked: Vec<&str> = p.asked.iter().map(|(k, _)| k.as_str()).collect();
-        assert_eq!(asked, ["embedding.useClass"]);
+        assert_eq!(asked, ["embedding.useClass", "privacy.localOnly"]);
         assert_eq!((a.agent, a.use_class.as_str()), (None, "commercial"));
         let mut o = opts(true);
         o.agent = Some("hermes-default".into());

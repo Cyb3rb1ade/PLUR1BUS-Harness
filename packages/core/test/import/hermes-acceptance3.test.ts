@@ -11,7 +11,7 @@ import { importOpenclaw } from "../../src/import/importers/openclaw.ts";
 import { importSkills } from "../../src/import/skills-import.ts";
 import { renderHermes, renderSkills } from "../../src/import/render.ts";
 import { DEFAULT_MAX_SKILL_BYTES } from "../../src/import/skills-scan.ts";
-import { buildM7HermesFixture, buildM7OpenclawFixture, CONTENT_MARKER } from "./fixtures.ts";
+import { addOpenclawAgentWithoutStore, buildM7HermesFixture, buildM7OpenclawFixture, CONTENT_MARKER } from "./fixtures.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { flatTestInternals } from "../helpers/flat-embedder.ts";
 
@@ -53,13 +53,23 @@ describe("M7 acceptance 3: Hermes soul, skills, cron, cards", () => {
     assert.match(renderHermes(r), /cron/i);
   });
 
-  it("KNOWN GAP: the OpenClaw importer has no memory-card path (nothing goes through memory.import)", { timeout }, async () => {
+  it("OpenClaw fixture: cards imported via memory.import with provenance, duplicate and conflict logic", { timeout }, async () => {
     const fx = await buildM7OpenclawFixture();
     try {
+      // Owner decision 2026-10-19: every agent's cards are imported. gamma has no store of its own: its cards go through
+      // memory.import. alpha and beta own a store that this fixture cannot hand over (alpha: no schema marker, beta: 768-d,
+      // re-embedding migration), so their cards are parked for the run that takes the store over, never dropped.
+      addOpenclawAgentWithoutStore(fx.root, "gamma", { memory: `${CONTENT_MARKER} gamma one\n§\n${CONTENT_MARKER} gamma two\n`, user: `${CONTENT_MARKER} gamma user pref\n` });
       const home = tempDir("p2-acc3-oc-");
       const r = await importOpenclaw({ home, source: fx.root, apply: true, testInternals: flatTestInternals() as any });
-      assert.ok(!("memoryCardsImported" in r.counts), "OpenClaw reports no card counts");
-      assert.ok(!ledgerOf(r.ledgerPath!).some((e) => e.entity === "memory"), "OpenClaw ledger has no memory entries");
+      assert.equal(r.counts.memoryCardsImported, 2, "gamma MEMORY.md cards imported");
+      assert.equal(r.counts.unresolvedUserScope, 1, "gamma USER.md unlinked without userPrincipal");
+      assert.equal(r.counts.memoryCardsDeferred, 2, "alpha (MEMORY.md, USER.md): store not taken over, deferred");
+      assert.equal(r.counts.memoryCardsPendingReembed, 1, "beta (MEMORY.md): store in the re-embedding migration, pending-reembed");
+      const ledger = ledgerOf(r.ledgerPath!);
+      const memEntries = ledger.filter((e) => e.entity === "memory");
+      assert.ok(memEntries.length > 0, "OpenClaw ledger has memory entries");
+      assert.ok(memEntries.some((e) => e.action === "created"), "OpenClaw ledger has memory created entries");
       assert.equal(r.cron.status, "deferred");
       assert.ok(fx.root.length > 0 && CONTENT_MARKER.length > 0);
     } finally { fx.close(); }
