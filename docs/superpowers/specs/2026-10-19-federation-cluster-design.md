@@ -819,22 +819,22 @@ loan and hand-over modes the owner added the same day and are open.
    warning at 32 k stay; when a join would force compaction of a running session, the owner is asked first (§10.2).
 8. **Q8 — Costs and approvals for served tasks.** *Status: entschieden 2026-10-19.* Default: approval for every incoming
    peer task; optional auto-accept for paired peers within a daily token cap (§7.2).
-9. **Q9 — Lease and grace times for loans.** Lease 120 s renewed every 30 s; the mission pauses as soon as the lease
+9. **Q9 — Lease and grace times for loans.** *Status: entschieden 2026-10-19.* Lease 120 s / heartbeat 30 s; a paused mission ends after the lender is unreachable for 24 h; the agent counts as returned after the borrower is unreachable for 15 min; `federation.loan.maxDays` 30. Lease 120 s renewed every 30 s; the mission pauses as soon as the lease
    lapses. How long may the **lender** be unreachable before a paused mission ends (proposed **24 h**), and how long the
    **borrower** before the lender treats the agent as returned (proposed **15 min**)? Is 30 days the right longest loan
    (`federation.loan.maxDays`)?
-10. **Q10 — When mission memories flow back.** Continuously in acknowledged batches during the mission (recommended:
+10. **Q10 — When mission memories flow back.** *Status: entschieden 2026-10-19.* Continuously in acknowledged batches; returned mission memories are imported directly (no proposal step). Continuously in acknowledged batches during the mission (recommended:
     nothing is lost if the borrower fails, the lender sees progress) or only at the return? And should returned
     mission memories be imported directly (proposed default) or arrive as memory proposals for review?
-11. **Q11 — The lent agent at home.** Does the lender's agent keep working at home during a loan, with the mission as a
+11. **Q11 — The lent agent at home.** *Status: entschieden 2026-10-19.* The lender's agent keeps working at home; the mission is a separate instance whose memories come back. Does the lender's agent keep working at home during a loan, with the mission as a
     separate instance whose memories come back (recommended), or is it locked to "on mission" until it returns?
-12. **Q12 — Undo of a permanent hand-over.** Should a hand-over be reversible within a period (proposed **7 days**,
+12. **Q12 — Undo of a permanent hand-over.** *Status: entschieden 2026-10-19.* Reversible within 7 days, started by the giver and confirmed by the receiver (`federation.handover.undoDays` 7); memories formed at the receiver stay there unless both agree. Should a hand-over be reversible within a period (proposed **7 days**,
     started by the giver, confirmed by the receiver; the receiver's agent is archived, the giver's original
     unarchived, memories formed at the receiver stay there unless both agree), reversible by the giver alone, or final
     at once?
-13. **Q13 — Copies of mission memories at the borrower.** After the return, are mission memories removed at the
+13. **Q13 — Copies of mission memories at the borrower.** *Status: entschieden 2026-10-19.* Removed at the borrower by default; only the lender may allow copies, in the offer. After the return, are mission memories removed at the
     borrower by default (proposed), and who may allow the borrower to keep copies: the lender in the offer
     (recommended), the borrower's owner, or both together?
-14. **Q14 — Mission scope and visibility.** Is a mission bound to exactly one borrower project that the lender does not
+14. **Q14 — Mission scope and visibility.** *Status: entschieden 2026-10-19.* A mission is bound to exactly one borrower project the lender does not see; the lender receives only the redacted mission summary and the mission memories. Is a mission bound to exactly one borrower project that the lender does not
     see (recommended; the lender receives only the redacted mission summary and the mission memories), or may a loan
     also go into a project the borrower shares with the lender, with the lender seeing the project as a guest?
