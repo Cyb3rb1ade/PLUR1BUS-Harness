@@ -370,12 +370,22 @@ pub struct ImportArgs {
     /// Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
     #[arg(long = "adopt-store", value_name = "PATH")]
     pub adopt_store: Option<PathBuf>,
+    /// Target agent ID (required for backfill)
+    #[arg(long, value_name = "AGENT")]
+    pub agent: Option<String>,
+    /// Store adoption strategy when identity mismatches: 'reembed' or 'import'
+    #[arg(long = "adopt-strategy", value_name = "STRATEGY")]
+    pub adopt_strategy: Option<String>,
+    /// Allow multiple Hermes profiles to merge into the same target agent
+    #[arg(long = "merge-profiles")]
+    pub merge_profiles: bool,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ImportSource {
     Openclaw,
     Hermes,
+    Backfill,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -391,6 +401,12 @@ pub enum OnConflict {
 /// `plur1bus setup` (spec §6.5, HB11).
 #[derive(Args, Debug)]
 pub struct SetupArgs {
+    /// Show the setup/profile-upgrade plan without changing files or services
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Restore a preserved interrupted profile-upgrade snapshot (daemon is stopped first)
+    #[arg(long)]
+    pub recover_profile: bool,
     /// Install in container mode on this host
     #[arg(long)]
     pub container: bool,
@@ -2221,6 +2237,11 @@ pub enum PairingCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum DeviceCmd {
+    /// [experimental] Issue a person-bound desktop attach code valid for ten minutes
+    Pair {
+        #[arg(long, value_parser = ["desktop"])]
+        kind: String,
+    },
     /// [experimental] List your devices (Owner/Admin: all), including revoked devices
     List,
     /// [experimental] Revoke a device and close its connections immediately

@@ -123,7 +123,7 @@ function normaliseForDeny(target: string, home: string): string {
 }
 
 export const appsOpenTool: HostTool = {
-  name: "apps.open", capability: "sys.read", riskClass: "low",
+  name: "apps.open", capability: "apps.launch", riskClass: "medium",
   description: "Open an application, file or URL. URL schemes are limited to http, https and mailto.",
   schema: {
     input: {

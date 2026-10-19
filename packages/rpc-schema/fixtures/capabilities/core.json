@@ -1,5 +1,17 @@
 {
   "methods": {
+    "chat.promote.links": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.preview": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.commit": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "chat.create": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -209,6 +221,22 @@
       "since": "1.6.0"
     },
     "admin.api.device.announce": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "device.pair": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.redeem": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.token": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.resolve": {
       "stability": "experimental",
       "since": "1.6.0"
     },
@@ -583,6 +611,10 @@
     "events.unsubscribe": {
       "stability": "stable",
       "since": "1.0.0"
+    },
+    "models.test": {
+      "stability": "experimental",
+      "since": "1.6.0"
     },
     "models.list": {
       "stability": "experimental",

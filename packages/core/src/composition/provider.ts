@@ -75,6 +75,7 @@ export interface TurnProviderOptions {
   triageTimeoutMs?: number;
   classifyMessage?: (request: ChatRequest, signal: AbortSignal) => Promise<TriageDecision>;
   profileForAgent?: (agent: string) => string | undefined;
+  onExecution?: (execution: import('../skill-mining/evidence.ts').WorkflowExecution) => void;
   onDecision?: (decision: MessageDecision) => void;
   capabilities?: LiveCapabilityIndex;
   skillsForAgent?: (agent: string) => SkillSelection;
@@ -102,6 +103,9 @@ export interface TurnProviderOptions {
   onPrompt?: (prompt: RenderedPrompt) => void;
   onUsage?: (record: CacheUsageRecord) => void;
   snapshot?: (request: ChatRequest, memory: string) => string;
+  /** Reasoning descriptor of one candidate (fitted to its wire). With a chat's reasoning choice, every attempt sends the
+   *  nearest level that candidate supports; a fallback model with other levels is mapped the same way. */
+  reasoningFor?: (provider: string, model: string) => ReasoningDescriptor;
   /**
    * privacy.localOnly (owner decision 2026-10-18): whether this agent may use only local models, read per model request. With it
    * on, a candidate whose provider `isLocalProvider` does not confirm is refused: the turn fails with `local-only` when
@@ -109,9 +113,6 @@ export interface TurnProviderOptions {
    */
   localOnly?: (agentId: string) => boolean;
   isLocalProvider?: (provider: string) => boolean;
-  /** Reasoning descriptor of one candidate (fitted to its wire). With a chat's reasoning choice, every attempt sends the
-   *  nearest level that candidate supports; a fallback model with other levels is mapped the same way. */
-  reasoningFor?: (provider: string, model: string) => ReasoningDescriptor;
 }
 const retryKinds = new Set(['rate_limit', 'overloaded', 'network', 'timeout']);
 /** One attempt as the turn's adapter wrapper observed it; the budget ticket settles from this when the router knows no usage. */
@@ -450,6 +451,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           const capabilityId = toolEntry(tool, JSON.stringify([req.agentId, principal])).id;
           if (o.capabilities?.registry.hash(capabilityId)) o.capabilities.registry.record(capabilityId, req.agentId, 'used');
           const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
+          try { o.onExecution?.({ owner: principal, agentId: req.agentId, sessionId: req.sessionId, turnId, callId: call.id, tool: tool.name, version: toolEntry(tool, JSON.stringify([req.agentId, principal])).version, success: !output.isError && !(output.value && typeof output.value === 'object' && 'isError' in output.value && output.value.isError === true) }); } catch { /* Missing evidence excludes the operation from mining; it never re-runs an effect. */ }
           if (o.capabilities?.registry.hash(capabilityId) && !output.isError) o.capabilities.registry.record(capabilityId, req.agentId, 'succeeded');
           if (fatal) throw fatal;
           if (output.isError && approvalNeedsPerson) throw new TurnToolError('approval-requires-person', toolErrorDetail(output, o.secrets?.() ?? []));

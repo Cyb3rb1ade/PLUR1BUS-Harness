@@ -422,8 +422,42 @@ pub fn decision_limits_sentence() -> String {
 /// the role.
 pub fn check_models_decision(layout: &Layout) -> Check {
     const ID: &str = "models.decision";
-    if decision_role_set(&read_config_roles(layout)) {
-        return Check::ok(ID, "a decision model role is set");
+    let roles = read_config_roles(layout);
+    if decision_role_set(&roles) {
+        let model = roles["decision"].as_str().unwrap_or_default();
+        let catalog: Value = fs::read_to_string(layout.catalog_models())
+            .ok()
+            .and_then(|raw| serde_json::from_str(&raw).ok())
+            .unwrap_or(Value::Null);
+        let resolved = catalog["models"]
+            .as_array()
+            .and_then(|models| resolve_role(model, models));
+        let state = resolved
+            .as_ref()
+            .map(|r| r.state.as_str())
+            .unwrap_or("unknown");
+        return Check {
+            id: ID,
+            status: if state == "unavailable" {
+                crate::commands::firstaid::Status::Fail
+            } else if state == "available" {
+                crate::commands::firstaid::Status::Ok
+            } else {
+                crate::commands::firstaid::Status::Info
+            },
+            summary: format!(
+                "decision model {model}: {state} (last catalog scan; no live request)"
+            ),
+            detail: Some(json!({ "model": model, "availability": state, "source": "catalog" })),
+            hint: if state == "available" {
+                None
+            } else {
+                Some(
+                    "Run plur1bus model scan or test the role under Settings > Models & providers"
+                        .into(),
+                )
+            },
+        };
     }
     Check {
         id: ID,
@@ -910,9 +944,15 @@ mod tests {
             json!({ "modelRoles": { "decision": "p/small" } }).to_string(),
         )
         .unwrap();
+        assert_eq!(check_models_decision(&layout).status, Status::Info);
+        fs::create_dir_all(layout.catalog_models().parent().unwrap()).unwrap();
+        fs::write(layout.catalog_models(), json!({ "models": [{ "provider": "p", "id": "small", "aliases": [], "status": "available" }] }).to_string()).unwrap();
         let set = check_models_decision(&layout);
         assert_eq!(set.status, Status::Ok);
-        assert!(set.detail.is_none() && set.hint.is_none());
+        assert_eq!(set.detail.unwrap()["model"], "p/small");
+        assert!(set.hint.is_none());
+        fs::write(layout.catalog_models(), json!({ "models": [{ "provider": "p", "id": "small", "aliases": [], "status": "unavailable" }] }).to_string()).unwrap();
+        assert_eq!(check_models_decision(&layout).status, Status::Fail);
     }
 
     #[test]

@@ -1,0 +1,101 @@
+name: desktop packages
+on:
+  pull_request:
+    paths: ['apps/desktop/**', '.github/workflows/desktop-packages.yml', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
+  push:
+    branches: [main]
+    paths: ['apps/desktop/**', '.github/workflows/desktop-packages.yml', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-packages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  packages:
+    name: packages (${{ matrix.platform.target }}, ${{ matrix.channel }})
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [beta, stable]
+        platform:
+          - { os: macos-15, target: aarch64-apple-darwin }
+          - { os: windows-2025, target: x86_64-pc-windows-msvc }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+    runs-on: ${{ matrix.platform.os }}
+    timeout-minutes: 100
+    defaults:
+      run:
+        shell: bash
+    env:
+      PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY: '1'
+      PLUR1BUS_MSIX_PUBLISHER: CN=PLUR1BUS Development
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
+      GIT_CONFIG_VALUE_0: 'git@github.com:'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v4.1.0
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: { toolchain: '1.95', targets: '${{ matrix.platform.target }}' }
+      - name: Linux native packaging dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf flatpak flatpak-builder
+      - name: Install official GNOME Flatpak runtime and SDK
+        if: runner.os == 'Linux'
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub org.gnome.Platform//49 org.gnome.Sdk//49
+      - name: Locate native Windows SDK MakeAppx
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $hostArch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
+          $sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          $sdkVersions = Get-ChildItem -LiteralPath $sdkBin -Directory | Where-Object { $_.Name -match '^10\.0\.\d+\.0$' } | Sort-Object { [version]$_.Name } -Descending
+          $toolDirectory = $null
+          foreach ($arch in (@($hostArch, 'x64') | Select-Object -Unique)) {
+            foreach ($sdk in $sdkVersions) {
+              $candidate = Join-Path $sdk.FullName $arch
+              if (Test-Path (Join-Path $candidate 'MakeAppx.exe')) { $toolDirectory = $candidate; break }
+            }
+            if ($toolDirectory) { break }
+          }
+          if (!$toolDirectory) { throw 'Windows SDK MakeAppx is unavailable' }
+          $toolDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - run: pnpm install --frozen-lockfile
+      - name: Packaging generator tests
+        run: node --test apps/desktop/scripts/test/*.test.mjs
+      - name: Build direct online then offline packages using shared Cargo outputs
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/desktop-packages"
+          for variant in online offline; do
+            node apps/desktop/scripts/build-bundle.mjs --ci-fixture --target "${{ matrix.platform.target }}" --channel "${{ matrix.channel }}" --variant "$variant" --distribution direct --artifact-root "$RUNNER_TEMP/desktop-packages"
+          done
+      - name: Build unsigned Store MSIX (online only)
+        if: runner.os == 'Windows'
+        run: node apps/desktop/scripts/build-bundle.mjs --ci-fixture --target "${{ matrix.platform.target }}" --channel "${{ matrix.channel }}" --variant online --distribution store --execute-formats --artifact-root "$RUNNER_TEMP/desktop-packages"
+      - name: Build unsigned Flatpak (online only)
+        if: runner.os == 'Linux'
+        run: node apps/desktop/scripts/build-bundle.mjs --ci-fixture --target "${{ matrix.platform.target }}" --channel "${{ matrix.channel }}" --variant online --distribution flatpak --execute-formats --artifact-root "$RUNNER_TEMP/desktop-packages"
+      - name: Disclose package validation boundary
+        if: always()
+        run: |
+          echo 'Unsigned packaging fixtures: OCI/model/CLI payloads are inert. No package was installed and no signing credentials were used.' >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ runner.os }}" == 'Linux' ]]; then
+            echo 'Flatpak was assembled from the Ubuntu-built binary. GNOME49 runtime ABI and installed startup/portal behavior require native acceptance; packaging success does not prove them.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve distinct variant artifacts and hashed payload provenance
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: desktop-packages-${{ matrix.platform.target }}-${{ matrix.channel }}-unsigned-fixture
+          path: ${{ runner.temp }}/desktop-packages/
+          if-no-files-found: error
+          retention-days: 7

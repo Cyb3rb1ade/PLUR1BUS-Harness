@@ -1,3 +1,4 @@
+import { memoryAuditSink } from "../src/rbac-bridge.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
@@ -9,7 +10,7 @@ import { vector } from "./webauthn-vectors.ts";
 const credentials = () => ({ proof: randomBytes(32).toString("base64url"), username: "christian", password: randomBytes(24).toString("base64url") });
 test("HTTP bootstrap consumes once atomically and durable credentials survive restart", async t => {
   const store = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "owner", disabled: false, version: 1 }) }); t.after(() => store.close());
-  const c = credentials(); store.initializeBootstrap(bootstrapHash(c.proof)); const api = createApiServer({ core: fakeCore(), ownerToken: randomBytes(32).toString("hex"), accounts: store, users: store }); t.after(() => api.close()); const { url } = await api.listen();
+  const c = credentials(); store.initializeBootstrap(bootstrapHash(c.proof)); const api = createApiServer({ core: fakeCore(), ownerToken: randomBytes(32).toString("hex"), accounts: store, users: store, audit:memoryAuditSink() }); t.after(() => api.close()); const { url } = await api.listen();
   const send = (b: unknown) => fetch(url + "/api/v1/accounts/bootstrap", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) });
   assert.equal((await send({ ...c, proof: randomBytes(32).toString("base64url") })).status, 403);
   const responses = await Promise.all([send(c), send(c)]); assert.deepEqual(responses.map(r => r.status).sort(), [201, 404]); assert.equal((await send(c)).status, 404);

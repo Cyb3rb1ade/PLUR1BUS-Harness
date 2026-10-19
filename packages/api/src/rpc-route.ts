@@ -1,3 +1,4 @@
+import { RPC_RULES, authorize } from "./rbac-bridge.ts";
 import { ERROR_CODES, METHODS_BY_SERVER, validateParams } from "@plur1bus/rpc-schema";
 import type { ApiPrincipal } from "@plur1bus/module-api";
 import type { CoreRpc } from "./core-rpc.ts";
@@ -5,6 +6,9 @@ import type { CoreRpc } from "./core-rpc.ts";
 /** Explicit exposure, not a prefix match: additions require review and a test. Unsafe unguarded memory/caller paths,
  * lifecycle internals, subscriptions, admin backup/import and secret reveal are deliberately absent. */
 export const WEB_CORE_METHODS = new Set([
+  "chat.promote.links", "chat.promote.preview", "chat.promote.commit",
+  "collab.trace.get", "collab.trace.list", "collab.session.replay", "collab.chain.cancel",
+  "project.column.list", "project.card.comment.add", "project.card.comment.list", "project.card.activity.list", "task.complete",
   "model.embedding.select", "model.licence.confirm", "model.licence.list", "model.licence.check", "agent.create", "agent.validate", "agent.import",
   "core.status", "agent.list", "agent.status", "agent.activity.list", "agent.pause", "agent.resume", "agent.archive", "agent.unarchive", "agent.export", "agent.delete", "agent.rights.get", "agent.rights.set",
   "inbox.count", "inbox.list", "inbox.markRead", "inbox.dismiss", "session.list", "session.get", "session.create", "session.submit", "session.cancel", "session.archive", "session.resume", "session.events",
@@ -43,6 +47,11 @@ export async function rpcRoute(core: CoreRpc, body: unknown, principal: ApiPrinc
   const params = { ...(b.params as object ?? {}) } as Record<string, unknown>;
   delete params.principal; delete params.actAs;
   if (!validateParams(b.method, params).ok) return rpcFailure(id, { error: "E_INVALID_PARAMS" });
+  // A native device session has no ambient permission for legacy RPCs without an explicit action rule.
+  if (principal.kind === "person" && principal.tokenScopes !== undefined) {
+    const rule=RPC_RULES[b.method];
+    if(!rule || authorize(principal,rule.action,rule.resource(params)).effect!=="allow")return rpcFailure(id,{error:"E_DENIED",reason:"device-scope"});
+  }
   if (!core.callAs) return rpcFailure(id, { error: "E_NOT_AVAILABLE", reason: "api-delegation-unavailable" });
   try {
     if (b.method === "config.set") await core.callAs("model.licence.check", { changes: params.changes }, principal, "core", connectionKey);

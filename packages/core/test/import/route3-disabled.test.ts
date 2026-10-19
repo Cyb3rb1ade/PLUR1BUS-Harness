@@ -7,6 +7,7 @@ import { importOpenclaw } from "../../src/import/importers/openclaw.ts";
 import { renderOpenclaw } from "../../src/import/render.ts";
 import { validateProfile } from "../../src/auth/profile.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
+import { flatTestInternals } from "../helpers/flat-embedder.ts";
 
 test("D110: real D13 route-3 import persists disabled metadata, no credential and the supported alternatives", async () => {
   const root = tempDir("p1b-route3-source-"), home = tempDir("p1b-route3-target-");
@@ -18,7 +19,7 @@ test("D110: real D13 route-3 import persists disabled metadata, no credential an
     // Not valid JSON: the importer succeeds because it inventories presence, never loads token values.
     writeFileSync(join(root, "credentials", "auth.json"), marker);
     const before = readFileSync(join(root, "credentials", "auth.json"));
-    const report = await importOpenclaw({ home, source: root, apply: true });
+    const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: root, apply: true });
     const profiles = report.disabledAuthProfiles!;
     assert.equal(profiles.length, 1); assert.equal(profiles[0]!.enabled, false);
     assert.match(profiles[0]!.reason, /retired/); assert.match(profiles[0]!.action, /API key.*ACP/);

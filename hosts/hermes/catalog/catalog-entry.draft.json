@@ -1,0 +1,18 @@
+{
+  "status": "owner-submission-draft",
+  "name": "plur1bus",
+  "description": "Long-term memory for Hermes through an approved local PLUR1BUS Harness client. One engine and one store; recall, capture and checkpoint with per-agent authority.",
+  "version": "0.1.0",
+  "sourceRepository": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness",
+  "sourceDirectory": "hosts/hermes/plur1bus",
+  "releaseCommit": null,
+  "providerArtifactSha256": null,
+  "updaterIncluded": false,
+  "submissionOwner": "Cyb3rb1ade",
+  "submissionBlockedBy": [
+    "first stable HM2 release and owner acceptance",
+    "full 40-character release commit and verified provider artifact SHA-256",
+    "owner chooses catalog-compatible repository/layout for the vendored provider",
+    "owner checks the catalog's current entry schema and submits"
+  ]
+}

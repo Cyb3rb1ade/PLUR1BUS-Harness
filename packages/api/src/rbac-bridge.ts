@@ -11,3 +11,5 @@ export type { BreakGlass, BreakGlassNotice } from "../../core/src/rbac/break-gla
 export { memoryAuditSink } from "../../core/src/rbac/audit.ts";
 export type { AuditEvent, AuditSink, MemoryAuditSink } from "../../core/src/rbac/audit.ts";
 export type { AgentRight, Decision, Principal as RbacPrincipal, ProjectRight, Resource, Role } from "../../core/src/rbac/types.ts";
+
+export { RPC_RULES } from "../../core/src/rbac/guard.ts";

@@ -14,12 +14,14 @@ export function targetRunner(targets: readonly DelegationTarget[]): AgentRunner 
     const matches = targets.filter(t => t.accepts(input.agentId));
     if (matches.length !== 1) throw new CollabError('invalid', 'delegation target missing or ambiguous');
     const target = matches[0]!;
-    if (!input.handoff) return target.run(input);
+    const scoped = { ...input, onProgress: (progress: AgentRunResult) => input.onProgress?.({ ...progress, targetKind: target.kind }) };
+    const run = async () => { const out = await target.run(scoped); return { ...out, ...(input.handoff || input.sessionId ? { targetKind: target.kind } : {}) }; };
+    if (!input.handoff) return run();
     const to = input.handoff.contract.to;
     if ('agent' in to && to.agent !== input.agentId) throw new CollabError('unauthorized', 'handoff target mismatch');
     const ticket = handoffTicket(input.handoff.contract, input.handoff.context);
-    if (input.handoff.contract.kind !== 'consult') { const ack = await target.ack(input); input.onTranscript?.({ kind: 'ack', data: ack }); ticket.ack(ack); }
+    if (input.handoff.contract.kind !== 'consult') { const ack = await target.ack(scoped); input.onTranscript?.({ kind: 'ack', data: ack }); ticket.ack(ack); }
     input.signal.throwIfAborted();
-    return ticket.start(() => target.run(input));
+    return ticket.start(() => { input.handoff!.context.onAccepted?.(); return run(); });
   } };
 }

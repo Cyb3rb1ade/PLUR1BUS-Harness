@@ -1,5 +1,5 @@
 export const REDACTED = "[redacted]";
-const SECRET_KEY = /token|cookie|authorization|secret|password|passwd|csrf|session|credential|api[-_]?key|otp|backup|challenge|bearer|passphrase/i;
+const SECRET_KEY = /ticket|token|cookie|authorization|secret|password|passwd|csrf|session|credential|api[-_]?key|otp|backup|challenge|bearer|passphrase/i;
 /** A field named `code` or `...Code` holds a one-time code (second factor, backup, pairing) unless its value is plainly an
  *  error identifier such as `HPE_HEADER_OVERFLOW`, which the logs do carry. */
 const CODE_KEY = /(?:^|[-_.])code$|[a-z]Code$/;

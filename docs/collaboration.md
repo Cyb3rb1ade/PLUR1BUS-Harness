@@ -269,3 +269,40 @@ budget of 8,192 tokens. Both modes score 24/24; settled fixture usage is 576 vs
 in `docs/evals/m5-fanout.json`; `--check` reproduces the artifact. This is a routing
 and equal-budget regression, **not evidence of a live-model quality advantage**.
 Fan-out remains off and still requires the owner's explicit enablement.
+
+## D92 private chat promotion (M5 phase 5)
+
+`chat.promote.preview` accepts an owned direct chat, a destination (new card,
+new project or existing project link) and an optional explicit selection.
+Omitting the selection means **no content**. A summary is written/approved by the
+person; selected message ids must belong to that chat; full transcript copying
+is explicit. System messages are excluded. Oversized content is refused rather
+than silently clipped (64 KiB; full transcript maximum 10,000 messages).
+
+The preview is private, held only in RAM for ten minutes and bound to the person,
+source snapshot, exact destination and content choice. `chat.promote.commit`
+accepts only its id, rechecks source ownership and current destination rights,
+and refuses stale/expired previews. A retry of a completed commit is idempotent.
+The source chat's owner, agent, kind, scope and messages are never changed. Links
+are private metadata; source id/title are not automatically copied to a board.
+Chosen content goes into a new board card. Incognito previews do not create a
+durable private-content copy; copying after explicit confirmation is deliberate.
+Durable model delegation from an incognito chat is refused until an explicit
+promotion, so replay sessions cannot silently persist its context.
+
+The chat menu provides DE/EN destination/content choices, a mandatory preview,
+selection-change invalidation, native modal focus handling and confirmation.
+M3 P1 (#493) is merged as a dependency and remains open upstream. On 2026-10-15
+the owner explicitly authorized appending only the twelve M5 method names in
+`packages/api/src/rpc-route.ts`; other API files are unchanged. Existing
+`RPC_RULES` and read/write/principal classifications are asserted for each
+method in `collab/web-transport.test.ts`, which uses real HTTP and real Core.
+It verifies session/CSRF, Viewer writes, foreign trace/chat denial, malformed
+params, principal spoofing, exact replay and selected-message promotion.
+Task completion preserves object-denial RPC codes through the existing error
+mapper. This closes the local Web exposure gate without asserting a rollout.
+
+Final integration also pins handoff behavior/authority/return constraints across
+sender repair, transfers card assignment on acknowledged ownership handoff, and
+allows one sender-side repair of invalid/oversized returns in the same target
+scope/session/budget pipeline. Peer return bodies remain untrusted data.

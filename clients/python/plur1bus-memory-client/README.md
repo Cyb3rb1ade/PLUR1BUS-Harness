@@ -42,3 +42,7 @@ suite as well):
 ```bash
 python3 -m unittest discover -s clients/python/plur1bus-memory-client/tests -t clients/python/plur1bus-memory-client
 ```
+
+## HM4 scoped credentials
+
+`MemoryClient(home, token_path="/absolute/hermes-home/plur1bus-client.token")` uses a separately approved personal token on the same discovered IPC endpoint. It retains peer/pid/run-directory verification and re-reads that file on reconnect. A missing or malformed file is an authorization error; it never falls back to `run/core.token`. POSIX client-token files must be regular, owned by this user and have no group/other permissions. Windows files are secured by the owner provisioning utility. Scoped tokens are validated on every server call, so expiry, revocation and current rights apply to an existing connection. Omitting `token_path` preserves the legacy local-owner client behavior. See `docs/hermes-host-mode.md` in the repository for owner provisioning and the explicit per-agent method allowlist.
