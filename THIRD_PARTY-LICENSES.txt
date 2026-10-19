@@ -3328,7 +3328,6 @@ SOFTWARE.
 
 SHA256 209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b
 cargo:rand@0.10.3/LICENSE-MIT
-cargo:rand@0.9.2/LICENSE-MIT
 cargo:rand@0.9.5/LICENSE-MIT
 cargo:rand_chacha@0.9.0/LICENSE-MIT
 cargo:rand_core@0.6.4/LICENSE-MIT
@@ -7470,6 +7469,37 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ============================================================
 
+SHA256 2aabdab5d0ce03a7314def8222988c2da4ba593ae82ae312439e5e306001dbae
+npm:global-agent@4.1.3/LICENSE
+
+Copyright (c) 2026, Gajus Kuizinas (https://gajus.com/)
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of the Gajus Kuizinas (https://gajus.com/) nor the
+      names of its contributors may be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL ANUARY BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+============================================================
+
 SHA256 2ab5537b8c0cb1d475e2145b6a7994b04e7c71e6e5bd836f7f9c47c221a5ad9a
 cargo:muda@0.20.0/LICENSE-MIT
 cargo:tray-icon@0.25.1/LICENSE-MIT
@@ -8417,7 +8447,6 @@ DEALINGS IN THE SOFTWARE.
 
 SHA256 35242e7a83f69875e6edeff02291e688c97caafe2f8902e4e19b49d3e78b4cab
 cargo:rand@0.10.3/LICENSE-APACHE
-cargo:rand@0.9.2/LICENSE-APACHE
 cargo:rand@0.9.5/LICENSE-APACHE
 cargo:rand_chacha@0.9.0/LICENSE-APACHE
 cargo:rand_xorshift@0.4.0/LICENSE-APACHE
@@ -10197,31 +10226,6 @@ DEALINGS IN THE SOFTWARE.
 
 ============================================================
 
-SHA256 435a6722c786b0a56fbe7387028f1d9d3f3a2d0fb615bb8fee118727c3f59b7b
-npm:semver-compare@1.0.0/LICENSE
-
-This software is released under the MIT license:
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
-============================================================
-
 SHA256 436bc5a105d8e57dcd8778730f3754f7bf39c14d2f530e4cde4bd2d17a83ec3d
 cargo:uuid@1.26.1/LICENSE-MIT
 
@@ -11239,7 +11243,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 SHA256 4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b
 npm:isexe@2.0.0/LICENSE
-npm:json-stringify-safe@5.0.1/LICENSE
 npm:once@1.4.0/LICENSE
 npm:semver@7.8.5/LICENSE
 npm:which@2.0.2/LICENSE
@@ -12003,34 +12006,6 @@ cargo:web-time@1.1.0/LICENSE-APACHE
 
 ============================================================
 
-SHA256 54b32293ea560d22cd9b62af9b2cda1a030d910a48c6601d227c5ff2338d95f8
-npm:detect-node@2.1.0/LICENSE
-
-MIT License
-
-Copyright (c) 2017 Ilya Kantor
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-
-============================================================
-
 SHA256 553d4d20029a24e315b428a1a54a9e109eaa340f2e958a4f50a92362c2c4070b
 npm:negotiator@1.1.0/LICENSE
 
@@ -12145,7 +12120,7 @@ DEALINGS IN THE SOFTWARE.
 ============================================================
 
 SHA256 58545fed1565e42d687aecec6897d35c6d37ccb71479a137c0deb2203e125c79
-cargo:zip@8.6.0/LICENSE
+cargo:zip@9.0.5/LICENSE
 
 The MIT License (MIT)
 
@@ -12718,8 +12693,8 @@ DEALINGS IN THE SOFTWARE.
 
 SHA256 5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3
 npm:escape-string-regexp@4.0.0/license
-npm:matcher@3.0.0/license
-npm:serialize-error@7.0.1/license
+npm:matcher@4.0.0/license
+npm:serialize-error@8.1.0/license
 
 MIT License
 
@@ -14231,7 +14206,7 @@ DEALINGS IN THE SOFTWARE.
 ============================================================
 
 SHA256 64a93ffc0a06a2266dbb57ed7ebe3b56ba66ab337b6347fabdbf86c76819fbae
-npm:type-fest@0.13.1/license
+npm:type-fest@0.20.2/license
 
 MIT License
 
@@ -14758,6 +14733,34 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 ============================================================
 
+SHA256 66e3ee1fa7f909ad3c612d556f2a0cdabcd809ad6e66f3b0605015ac64841b70
+cargo:nix@0.31.3/LICENSE
+
+The MIT License (MIT)
+
+Copyright (c) 2015 Carl Lerche + nix-rust Authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+
+============================================================
+
 SHA256 68653aaa727a2bfa31b7a751e31701ce33c49d695c12dd291a07d1c54da4c14b
 cargo:bstr@1.13.1/COPYING
 
@@ -15220,7 +15223,7 @@ THE SOFTWARE.
 ============================================================
 
 SHA256 6bb5b2d4c07d793ca928daa63a8899c6914fafb5ac3aa04ec10cae07f3d57dca
-npm:adm-zip@0.5.18/LICENSE
+npm:adm-zip@0.6.1/LICENSE
 
 MIT License
 
@@ -16036,7 +16039,7 @@ SHA256 709e3175b4212f7b13aa93971c9f62ff8c69ec45ad8c6532a7e0c41d7a7d6f8c
 cargo:hyper-rustls@0.27.10/LICENSE-MIT
 cargo:rustls-native-certs@0.8.2/LICENSE-MIT
 cargo:rustls-native-certs@0.8.4/LICENSE-MIT
-cargo:rustls@0.23.45/LICENSE-MIT
+cargo:rustls@0.23.46/LICENSE-MIT
 
 Copyright (c) 2016 Joseph Birr-Pixton <jpixton@gmail.com>
 
@@ -16229,8 +16232,8 @@ DEALINGS IN THE SOFTWARE.
 ============================================================
 
 SHA256 73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68
-npm:@img/sharp-darwin-arm64@0.34.5/LICENSE
-npm:sharp@0.34.5/LICENSE
+npm:@img/sharp-darwin-arm64@0.35.5/LICENSE
+npm:sharp@0.35.5/LICENSE
 
 Apache License
 Version 2.0, January 2004
@@ -17538,7 +17541,7 @@ SHA256 7cfafc877eccc46c0e346ccbaa5c51bb6b894d2b818e617d970211e232785ad4
 cargo:hyper-rustls@0.27.10/LICENSE-ISC
 cargo:rustls-native-certs@0.8.2/LICENSE-ISC
 cargo:rustls-native-certs@0.8.4/LICENSE-ISC
-cargo:rustls@0.23.45/LICENSE-ISC
+cargo:rustls@0.23.46/LICENSE-ISC
 
 ISC License (ISC)
 Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>
@@ -19276,21 +19279,6 @@ SOFTWARE.
 
 ============================================================
 
-SHA256 8e4aa1aef825c37d6f74d4b867dccb7b059b66c75ecdedc74834e2f403568a27
-npm:boolean@3.2.0/LICENSE.txt
-
-The MIT License (MIT)
-Copyright (c) 2014-2022 the native web.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
-============================================================
-
 SHA256 8ea5cea8ddecc46a64a004406414d25529fca7eb71cfd8c0cfe49c343bff79c5
 cargo:pbkdf2@0.12.2/LICENSE-MIT
 
@@ -19799,7 +19787,6 @@ cargo:pxfm@0.1.30/LICENSE-APACHE.md
 
 SHA256 90eb64f0279b0d9432accfa6023ff803bc4965212383697eee27a0f426d5f8d5
 cargo:rand@0.10.3/COPYRIGHT
-cargo:rand@0.9.2/COPYRIGHT
 cargo:rand@0.9.5/COPYRIGHT
 cargo:rand_chacha@0.9.0/COPYRIGHT
 cargo:rand_core@0.6.4/COPYRIGHT
@@ -21098,34 +21085,6 @@ have been licensed under extremely permissive terms.
 
 ============================================================
 
-SHA256 9f655c5baa5a6f254d1e87f27e14d04acaff4bd0b489ea3c2f33723919da2f44
-npm:es6-error@4.1.1/LICENSE.md
-
-The MIT License (MIT)
-
-Copyright (c) 2015 Ben Youngblood
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-
-============================================================
-
 SHA256 9fa38f610a00115dd1f612bdd3559e3b381ea579538b6ff25a5899da250a5fce
 cargo:fluent-uri@0.3.2/LICENSE
 
@@ -22361,7 +22320,7 @@ cargo:rustix@0.38.44/LICENSE-APACHE
 cargo:rustix@1.1.5/LICENSE-APACHE
 cargo:rustls-native-certs@0.8.2/LICENSE-APACHE
 cargo:rustls-native-certs@0.8.4/LICENSE-APACHE
-cargo:rustls@0.23.45/LICENSE-APACHE
+cargo:rustls@0.23.46/LICENSE-APACHE
 cargo:rusty-fork@0.3.1/LICENSE-APACHE
 cargo:scopeguard@1.2.0/LICENSE-APACHE
 cargo:secret-service@5.2.0/LICENSE-APACHE
@@ -25409,38 +25368,6 @@ DEALINGS IN THE SOFTWARE.
 
 ============================================================
 
-SHA256 ba98e94118579117505f6f11fd9a4354c5e65ece03b4898d8b8f7785efcd25c1
-npm:global-agent@3.0.0/LICENSE
-npm:roarr@2.15.4/LICENSE
-
-Copyright (c) 2019, Gajus Kuizinas (http://gajus.com/)
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * Neither the name of the Gajus Kuizinas (http://gajus.com/) nor the
-      names of its contributors may be used to endorse or promote products
-      derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL ANUARY BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-============================================================
-
 SHA256 bc12b75fd81829814d843a03fa52aad0e53355b1f13665e309ff7fa33c66e5b5
 cargo:plain@0.2.3/LICENSE-MIT
 
@@ -28421,7 +28348,7 @@ SOFTWARE.
 ============================================================
 
 SHA256 d715eb0d9cfe1cc0cc22577e387436aa568b31ca272a7c837004dc0cdde925b5
-cargo:ruzstd@0.9.0/LICENSE
+cargo:ruzstd@0.9.1/LICENSE
 
 MIT License
 
@@ -31330,37 +31257,6 @@ Except as contained in this notice, the name of a copyright holder shall
 not be used in advertising or otherwise to promote the sale, use or other
 dealings in these Data Files or Software without prior written
 authorization of the copyright holder.
-
-
-============================================================
-
-SHA256 f8287e4dd9480be58c56aca4a55c23b782c43a86e69aabad78fff4df0d29edef
-npm:sprintf-js@1.1.3/LICENSE
-
-Copyright (c) 2007-present, Alexandru Mărășteanu <hello@alexei.ro>
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-* Redistributions of source code must retain the above copyright
-  notice, this list of conditions and the following disclaimer.
-* Redistributions in binary form must reproduce the above copyright
-  notice, this list of conditions and the following disclaimer in the
-  documentation and/or other materials provided with the distribution.
-* Neither the name of this software nor the names of its contributors may be
-  used to endorse or promote products derived from this software without
-  specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ============================================================
