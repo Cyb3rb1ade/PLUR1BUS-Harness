@@ -19,7 +19,6 @@ export interface AgentRunInput {
 
 export interface AgentRunResult {
   targetKind?: "local" | "external" | "a2a";
-  costEstimate?: number | null;
   partial?: boolean;
   text: string;
   inputTokens: number;

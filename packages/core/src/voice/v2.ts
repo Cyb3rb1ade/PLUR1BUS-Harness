@@ -31,9 +31,7 @@ export interface VoiceV2Deps {
   registry(config: VoiceProvidersConfig | undefined, usage: (r: UsageReport) => void): VoiceRegistry;
   local?: (config: LocalVoiceConfig | undefined, usage: (report: UsageReport) => void) => LocalVoice;
   budget: VoiceBudgetPort;
-  /** Price lookup is optional: unpriced vendor usage is not reported as a zero cost. */
   localModelAllowed?: (provider: string, model: string) => boolean;
-  cost?: (report: UsageReport) => number | undefined;
   /** privacy.localOnly for this agent (owner decision 2026-10-18): only the local voice tier, no cloud adapter is built. */
   localOnly?: (agentId: string) => boolean;
 }
@@ -49,8 +47,7 @@ export function createVoiceV2(d: VoiceV2Deps) {
     if (!await d.budget.reserve({ agent: session.agentId, user: client.principal, reservation })) throw new Error('voice-budget-exceeded');
     const reports = new Set<Promise<unknown>>();
     const usage = (r: UsageReport) => {
-      const cost = r.provider === 'local' ? 0 : d.cost?.(r); metrics.cost(r.operation === 'realtime' ? 'agent' : r.operation, cost);
-      const work = d.budget.record({ agent: session.agentId, user: client.principal, reservation, eventId: r.eventId ?? randomUUID(), usage: { seconds: r.seconds ?? 0, costMicros: cost ?? 0, inputTokens: r.inputTokens ?? 0, outputTokens: r.outputTokens ?? 0 } }).then(allowed => { if (!allowed) lifetime.abort(); }).catch(() => lifetime.abort());
+      const work = d.budget.record({ agent: session.agentId, user: client.principal, reservation, eventId: r.eventId ?? randomUUID(), usage: { seconds: r.seconds ?? 0, inputTokens: r.inputTokens ?? 0, outputTokens: r.outputTokens ?? 0 } }).then(allowed => { if (!allowed) lifetime.abort(); }).catch(() => lifetime.abort());
       reports.add(work); void work.finally(() => reports.delete(work));
     };
     let local: LocalVoice | undefined; let current: TalkSession | undefined; let realtime: RealtimeSession | undefined;

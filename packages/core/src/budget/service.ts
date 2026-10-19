@@ -1,14 +1,16 @@
 // Budget service (L8, ADR-010 §4): usage accounting, soft/hard limits, and the check that runs before every model call.
 // Provider adapters call `recordUsage` after a call and `check`/`enforce` before it. The service never sees prompt content.
+// Budgets count tokens only (owner decision 2026-10-19: no money dimension anywhere; price tables and cost limits were removed).
 import type { DatabaseSync } from "node:sqlite";
 import { periodBounds, validateTimeZone, type Period } from "./period.ts";
-import { costMicros, PriceBook, type TokenCounts } from "./prices.ts";
 import { openBudgetDb, transaction } from "./store.ts";
 
 export type LimitScope = "global" | "agent";
-export type Metric = "cost" | "tokens";
+/** Input + output tokens; output includes the reasoning tokens a provider reports. */
+export type Metric = "tokens";
 export const PERIODS: readonly Period[] = ["day", "month"];
-export const METRICS: readonly Metric[] = ["cost", "tokens"];
+export const METRICS: readonly Metric[] = ["tokens"];
+interface TokenCounts { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }
 
 /** What a provider adapter reports after a call. Closed: any other property (a prompt, a message list) is refused. */
 export interface UsageEvent {
@@ -19,7 +21,7 @@ export interface UsageEvent {
   /** An id the adapter makes stable across retries; a repeat is ignored. */
   requestId?: string;
 }
-export interface RecordResult { recorded: boolean; costMicros: number | null; priceVersion: string }
+export interface RecordResult { recorded: boolean }
 
 export interface UsageEstimate { provider?: string; inputTokens: number; outputTokens?: number }
 
@@ -27,7 +29,7 @@ export interface Limit { scope: LimitScope; agentId?: string; period: Period; me
 export interface LimitKey { scope: LimitScope; agentId?: string; period: Period; metric: Metric }
 
 export interface Breach {
-  kind: "hard" | "unpriced-model";
+  kind: "hard";
   scope: LimitScope; agentId?: string; period: Period; metric: Metric;
   limit: number; used: number; estimate: number; periodKey: string; resetsAt: number;
 }
@@ -55,26 +57,24 @@ export class BudgetExceededError extends Error {
 }
 export class BudgetInputError extends RangeError { constructor(m: string) { super(m); this.name = "BudgetInputError"; } }
 
-const fmt = (metric: Metric, n: number) => (metric === "cost" ? `$${(n / 1_000_000).toFixed(2)}` : `${n} tokens`);
+const fmt = (n: number) => `${n} tokens`;
 export function describeBreach(b: Breach): string {
   const who = b.scope === "global" ? "global" : `agent ${b.agentId}`;
   const when = `${b.period === "day" ? "daily" : "monthly"} ${b.metric}`;
-  if (b.kind === "unpriced-model") return `${who} ${when} hard limit ${fmt(b.metric, b.limit)} cannot be checked: the model has no price in the price table`;
-  return `${who} ${when} hard limit ${fmt(b.metric, b.limit)} would be exceeded (used ${fmt(b.metric, b.used)}, this call ~${fmt(b.metric, b.estimate)}; resets ${new Date(b.resetsAt).toISOString()})`;
+  return `${who} ${when} hard limit ${fmt(b.limit)} would be exceeded (used ${fmt(b.used)}, this call ~${fmt(b.estimate)}; resets ${new Date(b.resetsAt).toISOString()})`;
 }
 
-export interface UsageTotals { events: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; costMicros: number; unpricedEvents: number }
+export interface UsageTotals { events: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }
 export interface StatusLimit extends Limit { used: number; state: "ok" | "soft" | "hard" }
 export interface StatusPeriod {
   period: Period; key: string; start: number; end: number; total: UsageTotals;
   agents: { agentId: string; total: UsageTotals; models: ({ model: string } & UsageTotals)[] }[];
 }
-export interface BudgetStatus { timeZone: string; priceVersion: string; now: number; periods: StatusPeriod[]; limits: StatusLimit[] }
+export interface BudgetStatus { timeZone: string; now: number; periods: StatusPeriod[]; limits: StatusLimit[] }
 
 export interface BudgetServiceOptions {
   path: string;
   clock: { now(): number };
-  prices: PriceBook;
   events?: (e: BudgetEvent) => void;
   securePath?: (p: string, o?: { mode?: number }) => void;
   defaultTimeZone?: string;
@@ -100,10 +100,17 @@ function closed(what: string, o: object, allowed: Set<string>): void {
   for (const k of Object.keys(o)) if (!allowed.has(k)) throw new BudgetInputError(`${what}: unknown property "${k}" (the budget store holds counts and ids only)`);
 }
 
-interface Row { n: number; i: number; o: number; cr: number; cw: number; c: number; u: number }
-const ZERO: UsageTotals = { events: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicros: 0, unpricedEvents: 0 };
-const totals = (r: Row): UsageTotals => ({ events: r.n, inputTokens: r.i, outputTokens: r.o, cacheReadTokens: r.cr, cacheWriteTokens: r.cw, costMicros: r.c, unpricedEvents: r.u });
-const SUMS = "COUNT(*) AS n, COALESCE(SUM(input_tokens),0) AS i, COALESCE(SUM(output_tokens),0) AS o, COALESCE(SUM(cache_read_tokens),0) AS cr, COALESCE(SUM(cache_write_tokens),0) AS cw, COALESCE(SUM(cost_micros),0) AS c, COALESCE(SUM(cost_micros IS NULL),0) AS u";
+interface Row { n: number; i: number; o: number; cr: number; cw: number }
+const ZERO: UsageTotals = { events: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+const totals = (r: Row): UsageTotals => ({ events: r.n, inputTokens: r.i, outputTokens: r.o, cacheReadTokens: r.cr, cacheWriteTokens: r.cw });
+const SUMS = "COUNT(*) AS n, COALESCE(SUM(input_tokens),0) AS i, COALESCE(SUM(output_tokens),0) AS o, COALESCE(SUM(cache_read_tokens),0) AS cr, COALESCE(SUM(cache_write_tokens),0) AS cw";
+/**
+ * The legacy money columns of `usage_event` (schema 1: the cost and the price-table version) stay in the store, unused:
+ * new rows leave the cost NULL and write an empty price version.
+ * A `budget_limit` row with metric 'cost' written by an older core is ignored (never read, never enforced) rather than
+ * dropped by a migration, so an older core can still open the store.
+ */
+const TOKEN_LIMITS = "metric = 'tokens'";
 
 export interface BudgetService {
   recordUsage(e: UsageEvent): RecordResult;
@@ -138,14 +145,14 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
   const usedFor = (l: { scope: LimitScope; agent: string; period: Period; metric: Metric }, ts: number, tz: string) => {
     const b = periodBounds(ts, tz, l.period);
     const r = sums(b.start, b.end, l.scope === "agent" ? l.agent : undefined);
-    return { used: l.metric === "cost" ? r.c : r.i + r.o, bounds: b };
+    return { used: r.i + r.o, bounds: b };
   };
 
   interface LimitRow { scope: LimitScope; agent: string; period: Period; metric: Metric; soft: number | null; hard: number | null }
   const limitRows = (agent?: string): LimitRow[] =>
     (agent === undefined
-      ? db.prepare("SELECT scope, agent, period, metric, soft, hard FROM budget_limit ORDER BY scope, agent, period, metric").all()
-      : db.prepare("SELECT scope, agent, period, metric, soft, hard FROM budget_limit WHERE scope = 'global' OR agent = ? ORDER BY scope, agent, period, metric").all(agent)) as unknown as LimitRow[];
+      ? db.prepare(`SELECT scope, agent, period, metric, soft, hard FROM budget_limit WHERE ${TOKEN_LIMITS} ORDER BY scope, agent, period, metric`).all()
+      : db.prepare(`SELECT scope, agent, period, metric, soft, hard FROM budget_limit WHERE ${TOKEN_LIMITS} AND (scope = 'global' OR agent = ?) ORDER BY scope, agent, period, metric`).all(agent)) as unknown as LimitRow[];
   const toLimit = (r: LimitRow): Limit => ({ scope: r.scope, ...(r.scope === "agent" ? { agentId: r.agent } : {}), period: r.period, metric: r.metric, soft: r.soft, hard: r.hard });
 
   /** Inserts the notice and reports whether this is the first one for the period (a restart does not re-warn). */
@@ -155,12 +162,6 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
   const eventFor = (kind: BudgetEvent["kind"], r: LimitRow, limit: number, used: number, periodKey: string): BudgetEvent =>
     ({ kind, scope: r.scope, ...(r.scope === "agent" ? { agentId: r.agent } : {}), period: r.period, metric: r.metric, limit, used, periodKey });
 
-  function estimateOf(model: string, e: UsageEstimate, ts: number): { tokens: number; cost: number | null } {
-    const input = e.inputTokens, output = e.outputTokens ?? 0;
-    const table = o.prices.at(ts) ?? o.prices.latest();
-    return { tokens: input + output, cost: costMicros(table, model, e.provider, { inputTokens: input, outputTokens: output, cacheReadTokens: 0, cacheWriteTokens: 0 }) };
-  }
-
   function check(agent: string, model: string, est: UsageEstimate, out: BudgetEvent[] | null): CheckDecision {
     ident("agent", agent); ident("model", model);
     if (typeof est !== "object" || est === null) throw new BudgetInputError("estimate must be an object");
@@ -169,14 +170,12 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
     if (est.provider !== undefined) ident("provider", est.provider);
     const now = o.clock.now(), tz = getTz();
     const breaches: Breach[] = [], warnings: Warning[] = [];
-    const e = estimateOf(model, est, now);
+    const estimate = est.inputTokens + (est.outputTokens ?? 0);
     const pending: { w: Warning; r: LimitRow; key: string; used: number }[] = [];
     for (const r of limitRows(agent)) {
       const { used, bounds } = usedFor(r, now, tz);
-      const estimate = r.metric === "cost" ? (e.cost ?? 0) : e.tokens;
       const base = { scope: r.scope, ...(r.scope === "agent" ? { agentId: r.agent } : {}), period: r.period, metric: r.metric, used, estimate, periodKey: bounds.key };
       if (r.hard !== null) {
-        if (r.metric === "cost" && e.cost === null) { breaches.push({ ...base, kind: "unpriced-model", limit: r.hard, resetsAt: bounds.end }); continue; }
         if (used + estimate > r.hard) { breaches.push({ ...base, kind: "hard", limit: r.hard, resetsAt: bounds.end }); continue; }
       }
       if (r.soft !== null && used + estimate > r.soft) {
@@ -216,17 +215,14 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
       };
       const ts = e.ts === undefined ? o.clock.now() : count("ts", e.ts);
       if (ts > MAX_TS) throw new BudgetInputError("ts is outside the range of dates");
-      const table = o.prices.at(ts);
-      const cost = table ? costMicros(table, model, provider || undefined, u) : null;
-      if (cost !== null && !Number.isSafeInteger(cost)) throw new BudgetInputError("the cost of this event exceeds the range the ledger can hold");
-      const priceVersion = table?.version ?? "none";
+      if (!Number.isSafeInteger(u.inputTokens + u.outputTokens)) throw new BudgetInputError("the token count of this event exceeds the range the ledger can hold");
       const tz = getTz();
       const out: BudgetEvent[] = [];
       const result = transaction(db, () => {
         const res = db.prepare(
-          `INSERT OR IGNORE INTO usage_event (ts, agent, provider, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_micros, price_version, request_id)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-        ).run(ts, agent, provider, model, u.inputTokens, u.outputTokens, u.cacheReadTokens, u.cacheWriteTokens, cost, priceVersion, requestId);
+          `INSERT OR IGNORE INTO usage_event (ts, agent, provider, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, price_version, request_id)
+           VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        ).run(ts, agent, provider, model, u.inputTokens, u.outputTokens, u.cacheReadTokens, u.cacheWriteTokens, "", requestId);
         const recorded = Number(res.changes) === 1;
         if (recorded) {
           for (const r of limitRows(agent)) {
@@ -238,7 +234,7 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
             } else if (r.soft !== null && used > r.soft && firstNotice("soft", r, bounds.key, ts)) out.push(eventFor("budget.soft", r, r.soft, used, bounds.key));
           }
         }
-        return { recorded, costMicros: cost, priceVersion };
+        return { recorded };
       });
       out.forEach(emit);
       return result;
@@ -274,7 +270,7 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
         const { used } = usedFor(r, now, tz);
         return { ...toLimit(r), used, state: r.hard !== null && used >= r.hard ? "hard" : r.soft !== null && used >= r.soft ? "soft" : "ok" };
       });
-      return { timeZone: tz, priceVersion: (o.prices.at(now) ?? o.prices.latest()).version, now, periods, limits };
+      return { timeZone: tz, now, periods, limits };
     },
 
     limits: () => limitRows().map(toLimit),
@@ -282,7 +278,7 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
     setLimit(l) {
       if (l.scope !== "global" && l.scope !== "agent") throw new BudgetInputError("scope must be global or agent");
       if (!PERIODS.includes(l.period)) throw new BudgetInputError("period must be day or month");
-      if (!METRICS.includes(l.metric)) throw new BudgetInputError("metric must be cost or tokens");
+      if (!METRICS.includes(l.metric)) throw new BudgetInputError("metric must be tokens");
       const agent = l.scope === "agent" ? ident("agentId", l.agentId) : "";
       if (l.scope === "global" && l.agentId !== undefined) throw new BudgetInputError("a global limit takes no agentId");
       const bound = (n: string, v: number | null | undefined) => (v === undefined || v === null ? v : count(n, v));

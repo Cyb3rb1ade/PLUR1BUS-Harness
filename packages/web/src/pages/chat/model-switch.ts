@@ -20,7 +20,6 @@ export interface ChatModelOption {
   name: string; displayName: string; provider: string; model: string; local: boolean; selectable: boolean;
   disabledReason?: "local-only" | "unavailable";
   reasoning: { kind: "none" | "effort" | "budget" | "toggle"; levels: ReasoningLevel[]; default?: ReasoningLevel; source: "api" | "table" | "unknown"; note?: string; budgetTokens?: Partial<Record<ReasoningLevel, number>> };
-  outputUsdPerMTok?: number;
 }
 export interface ChatModelState { sessionId: string; profile: string | null; defaultProfile: string | null; reasoning: ReasoningChoice; revision: number; profiles: ChatModelOption[] }
 export interface ChatModelSet {

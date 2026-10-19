@@ -3,8 +3,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createCallBudget } from "../../src/budget/calls.ts";
 import { periodBounds } from "../../src/budget/period.ts";
-import { PriceBook } from "../../src/budget/prices.ts";
-import { open, PRICES_V1 } from "./helpers.ts";
+import { open } from "./helpers.ts";
 
 describe("periodBounds: unusual zones", () => {
   it("a day that never happened (Pacific/Apia skipped 30 Dec 2011) neither loops nor leaves a gap", () => {
@@ -37,7 +36,7 @@ describe("call budget: thresholds and rollover", () => {
   function fixture() {
     const f = open();
     const events: { type: string }[] = [];
-    const gate = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook([PRICES_V1]), emitter: { emit: (e) => events.push(e) } });
+    const gate = createCallBudget({ path: f.path, clock: f.clock, emitter: { emit: (e) => events.push(e) } });
     return { ...f, gate, events, close() { gate.close(); f.svc.close(); } };
   }
 
@@ -52,16 +51,16 @@ describe("call budget: thresholds and rollover", () => {
     } finally { f.close(); }
   });
 
-  it("a cost ceiling lands exactly: 30*1 + 10*5 = 80 micro-USD fits a ceiling of 80, not 79", () => {
+  it("a global token ceiling lands exactly: 30 + 10 = 40 tokens fits a ceiling of 40, not 39", () => {
     const f = fixture();
     try {
-      f.gate.setLimit({ scope: "global", id: "", period: "day", metric: "cost", hard: 79 });
+      f.gate.setLimit({ scope: "global", id: "", period: "day", metric: "tokens", hard: 39 });
       const refused = f.gate.checkBeforeCall(request);
       assert.equal(refused.kind, "refuse");
-      f.gate.setLimit({ scope: "global", id: "", period: "day", metric: "cost", hard: 80 });
+      f.gate.setLimit({ scope: "global", id: "", period: "day", metric: "tokens", hard: 40 });
       const d = f.gate.checkBeforeCall(request);
       assert.equal(d.kind, "allow");
-      if (d.kind === "allow") assert.equal(d.estimatedCostMicros, 80);
+      if (d.kind === "allow") assert.equal(d.estimatedTokens, 40);
     } finally { f.close(); }
   });
 

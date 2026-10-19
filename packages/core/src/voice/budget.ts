@@ -1,7 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { CallBudget } from '../budget/index.ts';
 import type { VoiceBudgetPort } from './ports.ts';
-/** Separate authoritative voice-seconds ledger. The existing call-budget admits every opening and backend usage. */
+/** Separate authoritative voice-seconds ledger. The existing call-budget admits every opening and backend usage (tokens).
+ * The legacy `voice_usage.cost` column stays (NOT NULL) and is written as 0: no money dimension since 2026-10-19. */
 export function voiceBudget(o: { path: string; budget: CallBudget; clock: () => number; dailySeconds: number; billingProvider?: string }) {
   const db = new DatabaseSync(o.path); db.exec('PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS voice_usage (id TEXT PRIMARY KEY, agent TEXT NOT NULL, person TEXT NOT NULL, at INTEGER NOT NULL, seconds REAL NOT NULL, cost INTEGER NOT NULL);');
   const held = new Map<string, { agent: string; person: string; ticket: string; model: string }>();
@@ -21,7 +22,7 @@ export function voiceBudget(o: { path: string; budget: CallBudget; clock: () => 
       const h = held.get(r.reservation); if (!h || h.person !== r.user || h.agent !== r.agent) return false;
       // Usage comes from provider events. A negative value would refund the ceiling, NaN/Infinity would reach SQLite raw: fail closed.
       if (Object.values(r.usage).some(v => typeof v !== 'number' || !Number.isFinite(v) || v < 0)) return false;
-      db.prepare('INSERT OR IGNORE INTO voice_usage VALUES (?,?,?,?,?,?)').run(r.reservation + ':' + r.eventId, r.agent, r.user, o.clock(), r.usage.seconds, r.usage.costMicros);
+      db.prepare('INSERT OR IGNORE INTO voice_usage VALUES (?,?,?,?,?,?)').run(r.reservation + ':' + r.eventId, r.agent, r.user, o.clock(), r.usage.seconds, 0);
       if (r.usage.inputTokens || r.usage.outputTokens) {
         const decision = o.budget.checkBeforeCall({ principal: r.user, agent: r.agent, project: 'voice', model: h.model, provider: o.billingProvider ?? 'openai-voice', session: r.reservation, estimatedInputTokens: r.usage.inputTokens, maxOutputTokens: r.usage.outputTokens });
         if (decision.kind === 'refuse') return false;

@@ -1,7 +1,6 @@
 import type { PageStateKind } from "../../components/page-state.ts";
-import { formatDateTime, formatNumber, lang, t, type Key } from "../../i18n.ts";
+import { formatDateTime, formatNumber, t, type Key } from "../../i18n.ts";
 import type { Limit } from "./model.ts";
-import type { BudgetMetric } from "./rpc-types.ts";
 
 export type FailState = Extract<PageStateKind, "error" | "forbidden" | "unavailable">;
 const kindOf = (e: unknown): unknown => (typeof e === "object" && e !== null ? (e as { kind?: unknown }).kind : undefined);
@@ -10,11 +9,8 @@ export const failState = (e: unknown): FailState => (kindOf(e) === "forbidden" ?
 export const isForbidden = (e: unknown): boolean => kindOf(e) === "forbidden";
 export const isAborted = (e: unknown): boolean => kindOf(e) === "aborted";
 
-export function money(micros: number): string {
-  return new Intl.NumberFormat(lang.value, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(micros / 1_000_000);
-}
-/** Cost is micro-USD, tokens are plain counts. */
-export const amount = (metric: BudgetMetric, n: number): string => (metric === "cost" ? money(n) : formatNumber(n));
+/** Bounds and use are token counts (input + output); there is no money dimension. */
+export const amount = (n: number): string => formatNumber(n);
 
 export function when(iso: string): string {
   const d = new Date(iso);
@@ -22,10 +18,9 @@ export function when(iso: string): string {
 }
 
 export function limitTitle(l: Pick<Limit, "period" | "metric">): string {
-  const key = `budget.title.${l.period}${l.metric === "cost" ? "Cost" : "Tokens"}`;
-  return t(key as Key);
+  return t(`budget.title.${l.period}Tokens` as Key);
 }
-/** Title with the agent for a button label: "Daily cost (main)". */
+/** Title with the agent for a button label: "Daily tokens (main)". */
 export const fullTitle = (l: Pick<Limit, "period" | "metric" | "agentId" | "scope">): string =>
   l.scope === "agent" && l.agentId ? t("budget.dlg.forAgent", { title: limitTitle(l), agent: l.agentId }) : limitTitle(l);
 

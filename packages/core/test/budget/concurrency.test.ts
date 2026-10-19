@@ -25,7 +25,6 @@ describe("concurrent recordUsage", () => {
     assert.equal(t.total.events, W * N);
     assert.equal(t.total.inputTokens, W * N);
     assert.equal(t.total.outputTokens, 2 * W * N);
-    assert.equal(t.total.costMicros, 11 * W * N); // 1 + 2*5 micro-USD per event, exact integers
     assert.deepEqual(t.agents.map((a) => [a.agentId, a.total.events]), [["agent-0", 3 * N], ["agent-1", 3 * N]]);
     svc.close();
   });

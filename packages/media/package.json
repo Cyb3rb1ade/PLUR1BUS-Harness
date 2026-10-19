@@ -14,8 +14,7 @@
     }
   },
   "files": [
-    "dist",
-    "src/prices.json"
+    "dist"
   ],
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outfile=dist/index.js",
