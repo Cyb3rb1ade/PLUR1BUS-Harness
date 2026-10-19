@@ -81,6 +81,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `secrets.fileFallback.enabled` | boolean | `false` | live | Use the encrypted file store (AES-256-GCM, machine-bound key file next to it) when the OS keyring is unavailable. Off until the owner decides ADR-005 Q3. |
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
 | `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
+| `egress.modelDownloads` | object | `{}` | live | Named exception for credential-free GET/HEAD model artifact downloads. Ordinary provider/web traffic stays under allowHosts. Remove a host or disable to block subsequent downloads; DNS pinning and private-address refusal always apply. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
 | `privacy.localEndpoints` | array | `[]` | live | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
 | `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |

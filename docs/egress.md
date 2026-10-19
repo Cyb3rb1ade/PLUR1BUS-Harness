@@ -4,13 +4,16 @@ Hand-written. Code: `packages/core/src/egress/`. Plan: `docs/superpowers/plans/2
 Built on the SSRF guard in `packages/core/src/tools/web/` (`docs/web-tools.md`).
 
 One central decision for every outgoing request the core makes: **which destinations are reachable at all**
-(allowlist), on top of **which addresses are never reachable** (the SSRF ranges). Default deny.
+(allowlist), on top of **which addresses are never reachable** (the SSRF ranges). Ordinary requests default to deny;
+local model artifact downloads have the named catalog exception described below.
 
 ## Configuration (`config.json`, `x-restart: live`, advanced tier)
 
 | Key | Default | Meaning |
 |---|---|---|
-| `egress.allowHosts` | `[]` | Exact names, `*.suffix` (subdomains of any depth, never the apex), `*` (any **name**), or an exact IP literal (IPv6 in brackets). Empty = nothing is reachable. |
+| `egress.allowHosts` | `[]` | Exact names, `*.suffix` (subdomains of any depth, never the apex), `*` (any **name**), or an exact IP literal (IPv6 in brackets). Empty = ordinary requests denied. |
+| `egress.modelDownloads.enabled` | `true` | Allow the named model catalog exception; disabling it denies artifact requests, including under an ordinary wildcard policy. |
+| `egress.modelDownloads.allowHosts` | `["huggingface.co", "us.aws.cdn.hf.co"]` | Exact catalog origin and observed CDN host. Removing either blocks the corresponding hop; no wildcard is accepted. |
 | `egress.allowPorts` | `[443]` | The only destination ports; the scheme's default port is checked like any other. |
 | `egress.allowLoopback` | `false` | Plain `http` and loopback targets, only for hosts that are themselves loopback spellings (`localhost`, `127.0.0.0/8`, `::1`) **and** listed in `allowHosts` by name or address (the wildcard `*` does not list them). |
 
@@ -53,8 +56,9 @@ the policy end to end. The gate, the SSRF check and the pinned connect apply exa
 - connection-level headers (`host`, `content-length`, `transfer-encoding`, `connection`, `te`, `trailer`, `upgrade`,
   `keep-alive`, `expect`, `cookie`, `accept-encoding`, any `proxy-*`) are set by the client and cannot be given; a header
   name that is not a token or a value with CR, LF or NUL is refused (`invalid-url`);
-- a request with a body, a method other than GET/HEAD or caller headers **never follows a redirect**: the 3xx answer is
-  returned unread, so a body or an `Authorization` header never reaches a host it was not addressed to.
+- a request with a body, a method other than GET/HEAD or sensitive caller headers **never follows a redirect**: the 3xx
+  answer is returned unread. The engine port opts into redirecting credential-free GET/HEAD requests carrying only
+  `Accept`, `User-Agent` or `Range`; `Authorization`, API-key headers and bodies never reach another destination.
 
 `a2a/push.ts` and `auth/http.ts` still carry their own POST; moving them onto this variant is a follow-up (both have
 their own redirect and response handling with tests that would need to move with them).
@@ -66,6 +70,22 @@ request goes through `egress.request`: embeddings, HTTP reranking, engine LLM ca
 The live policy and DNS pinning apply on every request and every permitted redirect. A provider request with caller
 headers or a body returns redirects without following them, so credentials and memory text stay with their destination.
 There is no global-fetch fallback in the harness port. The core requires engine contract 1.15 or later.
+
+### Named model catalog exception
+
+The pinned local embedder and reranker download artifacts from `huggingface.co` and follow redirects to
+`us.aws.cdn.hf.co`. Only credential-free HTTPS GET/HEAD requests to repository `/owner/model/resolve/revision/file`
+artifact paths qualify for `egress.modelDownloads`; provider inference, request bodies, URL credentials, arbitrary
+queries and other origins use the ordinary policy. Supported artifact suffixes are `json`, `onnx`, `onnx_data`,
+`txt` and `model`. The model list is authoritative for every redirect, so ordinary `allowHosts: ["*"]` cannot bypass
+a removed catalog host. DNS pinning, private-address refusal, allowed ports, redirect limits and decoded-stream
+size/deadline limits remain in force. A newly introduced CDN host needs an explicit code/schema/test change.
+
+These are local model weights, not a remote inference provider: `privacy.localOnly` still forbids remote inference.
+For an offline installation, disable model downloads and pre-provision the pinned, hash-validated cache. Live policy
+changes affect the next request; every redirect uses that request's policy. Safe host/code diagnostics identify a denial without logging signed CDN URLs,
+credentials or provider payloads. A cold engine reports `provider-failed`; `admin.engine.test` also identifies the
+port error class, including `egress`.
 
 The fetch bridge accepts URL strings, URLs and Requests and returns a WHATWG Response, including status/error JSON,
 headers, final URL and a decoded body stream. Downloads stream under backpressure rather than accumulating the artifact
@@ -122,8 +142,9 @@ role and origin only, no credentials) prevents a proposed local engine configura
 remote engine. First migrate/change engine models with local-only off, wait for the existing Core restart job, then
 enable local-only. An older running Core without a verifiable inventory must be restarted first.
 
-**KNOWN GAP C/D:** the pinned contract 1.12 has no host request gate or public hot-reconfiguration port. An unsafe
+**Remaining hot-reconfiguration gap:** contract 1.16 includes the 1.15 host fetch/secret ports, now wired to the live
+request gate. The Engine still has no public hot-reconfiguration port. An unsafe
 live transition is rejected with a restart hint; automatic engine-only restart / `restartPending` for that rejected
 transition is not implemented. No switch is reported as enabled while an uncontrolled remote Engine keeps running.
-Phase D needs the approved, merged Engine 1.15 commit before wiring request-level enforcement. Reembed usage remains
-an explicit token/cost estimate until that port exposes actual provider usage; its desired behavior has a todo test.
+Reembed usage remains an explicit token/cost estimate until that port exposes actual provider usage; its desired
+behavior has a todo test.

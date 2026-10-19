@@ -26,6 +26,10 @@ export interface HttpOptions {
   timeoutMs?: number | undefined;
   /** Return the decoded body as a bounded stream (engine downloads), without buffering it all in memory. */
   streamResponse?: boolean;
+  /** Internal purpose selected only for validated engine model-file GET/HEAD requests. */
+  modelDownload?: boolean;
+  /** Engine downloads may carry harmless Accept/User-Agent/Range headers; credentials and bodies never redirect. */
+  safeRedirectHeaders?: boolean;
   /** Fetch redirect semantics; provider requests still never forward caller headers or bodies. */
   redirect?: "follow" | "manual" | "error";
   userAgent: string;
@@ -273,8 +277,8 @@ export async function guardedRequest(rawUrl: string, options: HttpOptions): Prom
   const resolver = options.resolver ?? systemResolver;
   const policy = options.policy ?? makeAddressPolicy([]);
   const parts = requestParts(options);
-  // Only a plain GET/HEAD without caller headers follows redirects: a provider call's body and headers stay with its host.
-  const follows = (options.redirect ?? "follow") === "follow" && (parts.method === "GET" || parts.method === "HEAD") && parts.body === undefined && Object.keys(parts.headers).length === 0;
+  // Only credential-free GET/HEAD requests redirect; the engine explicitly admits its harmless download headers.
+  const follows = (options.redirect ?? "follow") === "follow" && (parts.method === "GET" || parts.method === "HEAD") && parts.body === undefined && (Object.keys(parts.headers).length === 0 || (options.safeRedirectHeaders === true && Object.keys(parts.headers).every(name => ["accept", "user-agent", "range"].includes(name))));
   const maxRedirects = follows ? (options.maxRedirects ?? 10) : 0;
   let streaming = false;
   const cleanup = () => { clearTimeout(timer); options.signal?.removeEventListener("abort", onCallerAbort); };

@@ -20,7 +20,7 @@ function fixture(t: { after(fn: () => unknown): void }) {
   const audit = createMemoryAuditSink();
   const secrets = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit });
   let allowed = true;
-  const egress = createEgress({ config: () => ({ allowHosts: allowed ? ["127.0.0.1"] : [], allowPorts: Array.from({ length: 65535 }, (_, i) => i + 1), allowLoopback: allowed }) });
+  const egress = createEgress({ config: () => ({ allowHosts: allowed ? ["127.0.0.1", "localhost"] : [], allowPorts: Array.from({ length: 65535 }, (_, i) => i + 1), allowLoopback: allowed }) });
   const host = createHarnessHost({ layout: l, logger, config, engineConfig: {}, agents: createAgentRegistry(config, l), events() {}, egress, secrets });
   return { host, secrets, audit, egress, deny: () => { allowed = false; } };
 }
@@ -56,6 +56,10 @@ test("engine fetch never forwards a provider body or Authorization across a redi
   const source = await server(t, (_req, res) => { res.writeHead(307, { location: target }); res.end(); });
   const response = await f.host.fetch!(source, { method: "POST", headers: { authorization: "Bearer private" }, body: "memory" });
   assert.equal(response.status, 307); assert.equal(leaked, 0);
+  for (const headers of [{ authorization: "Bearer private" }, { "x-api-key": "private" }]) {
+    assert.equal((await f.host.fetch!(source, { headers })).status, 307);
+    assert.equal(leaked, 0);
+  }
 });
 
 test("engine fetch streams downloads, retains URL, honours cancellation and redirect modes", async t => {
@@ -171,4 +175,25 @@ test("standalone probe hosts use the target home's live egress and encrypted sec
   assert.equal(await (await host.fetch!(url)).text(), "guarded");
   cfg.egress.allowHosts = []; writeConfigAtomic(target.configPath, cfg);
   await assert.rejects(() => host.fetch!(url));
+});
+
+test("model GET redirect with harmless headers streams a large gzip/chunked response across hosts", async t => {
+  const { createGzip } = await import("node:zlib");
+  const f = fixture(t); let chunks = 0;
+  const cdn = await server(t, (req, res) => {
+    assert.equal(req.headers.authorization, undefined);
+    res.writeHead(200, { "content-encoding": "gzip", "content-type": "application/octet-stream" });
+    const gzip = createGzip(); gzip.pipe(res);
+    const chunk = Buffer.alloc(1024 * 1024, 7);
+    for (let n = 0; n < 21; n++) gzip.write(chunk);
+    gzip.end();
+  });
+  const first = await server(t, (_req, res) => { res.writeHead(302, { location: cdn.replace("127.0.0.1", "localhost") }); res.end(); });
+  const response = await f.host.fetch!(first, { headers: { accept: "application/octet-stream", "user-agent": "transformers/test" } });
+  assert.equal(response.status, 200);
+  const reader = response.body!.getReader();
+  for (;;) { const next = await reader.read(); if (next.done) break; chunks += next.value.length; }
+  assert.equal(chunks, 21 * 1024 * 1024);
+  assert.equal(response.headers.get("content-encoding"), null);
+  assert.equal(response.headers.get("content-length"), null);
 });
