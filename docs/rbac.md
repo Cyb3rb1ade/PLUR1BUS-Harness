@@ -223,6 +223,7 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `admin.migrate` | system | ✔ | ✔ | – | – | – |
 | `admin.embedding.probe` | system | ✔ | ✔ | – | – | – |
 | `admin.embedding.serve` | system | ✔ | ✔ | – | – | – |
+| `admin.engine.test` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.plan` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.run` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.status` | system | ✔ | ✔ | – | – | – |
@@ -446,6 +447,10 @@ Remote trust challenge and acknowledgement use the additive human-only `remote.d
 | `admin.api.device.announce` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
 
 ### Model role probe (Phase A, 2026-10-18)
+
+`admin.engine.test` requires `settings.write` and a human Owner/Admin principal, including the existing device scope
+checks. It is excluded from WebMCP and never exposes provider errors, URLs or key values. The Web API's reviewed RPC
+bridge explicitly permits this method under those same Core rules; no standalone admin REST route is added.
 
 `models.test` requires `settings.write` (Owner/Admin) and an explicit human principal at the RPC guard. Token scopes can
 only narrow access. It is forbidden as a WebMCP tool. The handler takes only a model identifier; prompt, output cap, tool
