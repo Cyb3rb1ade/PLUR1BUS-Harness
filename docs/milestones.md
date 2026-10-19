@@ -351,7 +351,7 @@ Owner 2026-10-19: projects on the Kanban board get subprojects — "nicht vollko
 | WP4b | Root → base branch on GitHub: push, pull request, merge, revert | WP4; GitHub credential profile | 2 |
 | WP5 | Hand-off down, report channel up, forward | WP2 | 3 |
 | WP6 | Coordinator role, control, agent tools, grandchildren by children | WP5 | 3.5 |
-| WP7 | Budget dimensions (tokens, turns, wall time, USD with price list), allocation, ancestor admission | WP2; M2 budget hook; Q9 | 3 |
+| WP7 | Budget dimensions (tokens, turns, wall time; no USD), defaults, allocation, ancestor admission | WP2; M2 budget hook | 3 |
 | WP8–WP10 | Web UI, CLI, documentation | WP4–WP7 | 7 |
 | WP11 | Isolation suite "siblings see nothing" and end-to-end | all | 3.5 |
 

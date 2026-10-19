@@ -166,7 +166,7 @@ it, with it off the creation waits for the root coordinator; a grandchild never 
 ## WP7 — Budget allocation (≈ 3 agent days; R3; Q9 decided)
 
 **Files.** `project.subproject.budget.set` with the dimensions tokens, turns and wall time, each a number or `unlimited`
-(spec §10.1; USD shown as information only, never a limit; turns and wall time enforced by the collab runner); defaults
+(spec §10.1; no USD dimension; turns and wall time enforced by the collab runner); defaults
 tokens unlimited, 150 turns, 36 h from the config key `collab.subprojects.budgetDefaults` (`x-restart: live`,
 `x-tier: advanced`, run `pnpm gen` and `pnpm docs:gen`), overridable per project; allocation as M2
 project-scope ceiling + reservation against the parent;
@@ -175,11 +175,11 @@ change if the existing project scope suffices — otherwise stop and report); pa
 state.
 **Tests.** Allocation sum bound per dimension; top-up beyond parent refused (`E_CONFLICT`, `allocation-exceeds-parent`);
 cut below used + in-flight refused; ancestor limit refuses a child call even when the child has allocation left; turn and
-wall-time limits pause the child at the next turn boundary; a subscription account never gets a USD figure or a USD limit;
+wall-time limits pause the child at the next turn boundary; no subproject call, result or UI shows a USD figure;
 unused part released on completion; child sees only its own figures; a child without explicit values gets the defaults
 (tokens unlimited, 150 turns, 36 h) clamped to the parent's remainder; changed installation defaults apply to new
 children; per project all three dimensions can be `unlimited` and the ancestors' limits still refuse; wall time is not
-summed across siblings; USD never refuses a call.
+summed across siblings.
 
 ## WP8 — Web UI (≈ 4 agent days; live acceptance needs R2)
 

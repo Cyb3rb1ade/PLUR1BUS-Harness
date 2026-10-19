@@ -82,7 +82,7 @@ Concretely, after this design is built:
 | S6 | Visibility | **Down: full** (ancestors see descendants). **Up: only the report channel** plus what was passed down. **Sideways: nothing**, enforced in RBAC/object checks, `AgentScope`, event audience, memory scope and D109 roots — not only in the UI. A sibling object answers `E_NOT_FOUND`, never `E_DENIED`. | UI-only hiding: an agent with the board tools or a person with the CLI would still read sibling cards. |
 | S7 | Upward channel | **`plur1bus.report/1`** for progress, question, blocker and milestone; `plur1bus.return/1` stays the completion envelope; both arrive in the parent as **tainted, untrusted data** with provenance. | Free-text comments on the origin card: no structure for aggregation, no taint boundary, injection-prone. |
 | S8 | Sibling hand-over | Only via **coordinator forward** (`project.subproject.forward`); the receiving child sees "from coordinator", never the source sibling's id or name; no direct channel (decided, Q5). | Direct child-to-child messages: the request says siblings do not see each other. |
-| S9 | Budget | A budget is **optional** per child. If set, it is an **allocation** carved from the parent's remaining budget in the dimensions tokens, turns/requests and wall time — USD only where a price list is known; subscription accounts count in tokens/turns/time, never in USD (§10.1); hard limit; every call checks the child **and all ancestors**; unused allocation flows back on close. Every project has a budget with defaults (tokens unlimited, 150 turns, 36 h wall time; §10.1, Q9); each value is user-modifiable and may be set to unlimited per project. | Shared pool without allocation: one child can starve its siblings, and "how much did this subproject cost" has no limit to compare against. |
+| S9 | Budget | Every child has an **allocation** carved from the parent's remaining budget in the dimensions tokens, turns/requests and wall time — no USD dimension (§10.1); finite values are hard limits; every call checks the child **and all ancestors**; unused allocation flows back on close. Every project has a budget with defaults (tokens unlimited, 150 turns, 36 h wall time; §10.1, Q9); each value is user-modifiable and may be set to unlimited per project. | Shared pool without allocation: one child can starve its siblings, and "how much did this subproject cost" has no limit to compare against. |
 | S10 | Memory | Child work is captured into a **subproject pool** (`project:<childId>`), not into the agents' private stores; recall inside a child sees only that pool plus items passed down; **no agent-private recall or capture** in children and grandchildren (decided, Q7). Raising memories to the parent is **explicit per entry**; at completion the coordinator confirms a pre-selected list (decided, Q6). | Agent-private capture: the same agent working in two siblings would carry one sibling's knowledge into the other (a covert sibling channel). |
 | S11 | Federation | A subproject is the **share unit** and **mission scope**; Track F builds this as **WP14** (on WP4/WP12; federation spec Q14 decided: one borrower project); this spec defines `SubprojectRef` and the isolation predicate WP14 reuses (§12). | Sharing whole root projects only: a guest would see all siblings. |
 
@@ -402,7 +402,7 @@ history, then `state` and `triedAndFailed` are required as today):
   "summary": "≤ 1 000 chars",
   "progress": { "doneWhenMet": 2, "doneWhenTotal": 5, "cardsDone": 7, "cardsTotal": 12 },
   "artifacts": [{ "ref": "artifact:… | git:<sha> | pr:<url>", "kind": "diff|file|log|link", "sha256": "…" }],
-  "cost": { "tokens": 12345, "turns": 18, "wallMs": 5400000, "costMicros": null, "allocationLeft": { "tokens": 40000, "turns": 42 } },
+  "cost": { "tokens": 12345, "turns": 18, "wallMs": 5400000, "allocationLeft": { "tokens": 40000, "turns": 42 } },
   "openPoints": ["≤ 20 items, ≤ 300 chars each"],
   "question": { "text": "…", "options": ["…"], "blocking": true },
   "at": "RFC 3339"
@@ -472,15 +472,21 @@ sufficient for merge (§6.6). The child's self-report is never evidence on its o
 ### 10.1 What a budget can measure
 
 The owner asked what "budget" means for subscription accounts (Codex, ChatGPT or Claude plans, cloud subscriptions),
-where no cost per call can be measured. A subproject budget therefore has four possible dimensions, and only the first
-three exist on every account:
+where no cost per call can be measured. A subproject budget therefore has exactly three dimensions, all measurable on
+every account:
 
 | Dimension | Unit | Measured by | Meaning on a subscription account |
 |---|---|---|---|
 | **Tokens** | input + output tokens per model call (provider usage figures, else the core's estimate) | M2 usage ledger | measured as on metered accounts |
 | **Turns / requests** | model calls of the subproject's agents | collab runner, M2 ledger count | measured; the natural unit where a plan has request or message quotas |
 | **Wall time** | running time of the subproject (paused time excluded) | collab state log | measured |
-| **USD** (`costMicros`) | price × tokens | only where a price list for the model is known (catalogue or provider price table) | **not measurable**: never computed, never a limit; shown as "n/a (subscription)" |
+
+**No USD dimension** (owner decision 2026-10-19). A dollar figure would need a maintained price table per provider and
+model (input, output, cache, reasoning prices), it would be wrong for subscription accounts, and it would still miss
+whatever a provider does not report. Subprojects therefore neither show nor limit money. Tokens already include the
+reasoning tokens wherever the provider's usage figures report them; where a provider reports none, the core's estimate
+counts only the visible text. The M2 budget store keeps its own `costMicros` scope for other uses; the subproject surface
+never reads or writes it.
 
 Rules (decided 2026-10-19, Q9): every project — root and subproject — has a budget in the three measurable dimensions,
 with these **defaults**:
@@ -490,7 +496,6 @@ with these **defaults**:
 | Tokens | **unlimited** | a number or `unlimited` |
 | Turns / requests | **150** | a number or `unlimited` |
 | Wall time | **36 h** (`wallMs` 129 600 000) | a duration or `unlimited` |
-| USD | none: information only | never a limit (owner decision; shown where a price list is known, "n/a (subscription)" otherwise) |
 
 - The user can change the defaults installation-wide (config key `collab.subprojects.budgetDefaults`, `x-restart: live`,
   `x-tier: advanced`) and per project (`project.subproject.budget.set`, §10.2), and per project **every** dimension may be set to `unlimited`, including all three
@@ -506,13 +511,13 @@ with these **defaults**:
 
 ### 10.2 Allocation, admission and return
 
-- **Allocation:** `project.subproject.budget.set { projectId, tokens?, turns?, wallMs?, costMicros? }`. The allocation is a
+- **Allocation:** `project.subproject.budget.set { projectId, tokens?, turns?, wallMs? }`. The allocation is a
   ceiling on the child id **and** a reservation against the parent's remaining budget in each dimension that is set:
   `sum(children allocations) + parent own usage ≤ parent ceiling`. Creating or topping up beyond the parent's remaining budget is refused (`E_CONFLICT`, reason
   `allocation-exceeds-parent`).
 - **Admission:** every model call inside a child runs `checkBeforeCall` with the child as `project` and the M2 hierarchy
   extended by the ancestor chain: all matching limits apply, the tightest wins (budgets.md: agent, project, user, global →
-  plus ancestor projects). A refusal is a normal `token-budget`/`cost-budget` guardrail refusal plus a `blocker` report.
+  plus ancestor projects). A refusal is a normal `token-budget` guardrail refusal (or the runner's turn or wall-time limit) plus a `blocker` report.
 - **Hard limit:** an exhausted allocation pauses the child at the next turn boundary (state `paused`, reason
   `budget`), never kills a running provider call mid-stream (partial output is kept as today).
 - **Top-up / cut:** top-up within the parent's remaining budget; a cut cannot go below used + in-flight reservations.
@@ -784,8 +789,9 @@ reformulated after the owner's question what a budget means for subscription acc
    always a human decision in v1; merge commit.
 9. **Q9 — Budget for subprojects: optional, and in which unit?** *Status: entschieden 2026-10-19.* **Decision:** every project has
    a budget with defaults tokens **unlimited**, turns **150**, wall time **36 h**; the user can change the defaults and,
-   per project, set any or all dimensions to unlimited; finite values are hard limits checked against all ancestors; USD
-   is information only, never a limit (§10.1). Background: with
+   per project, set any or all dimensions to unlimited; finite values are hard limits checked against all ancestors; there is
+   **no USD dimension at all**, neither shown nor limited, because it would need a maintained price table and is wrong
+   for subscription accounts (§10.1). Background: with
    subscription accounts (e.g. Codex, ChatGPT or Claude plans, cloud subscriptions) no cost per call can be measured, so
    a USD budget means nothing there. §10.1 lists what can be measured on every account: tokens, turns/requests and wall
    time; USD only where a price list is known. **Recommendation:** a budget is optional per subproject; if set, it is
