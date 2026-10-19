@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 24] = [
+const CHECK_IDS: [&str; 29] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -58,6 +58,11 @@ const CHECK_IDS: [&str; 24] = [
     "extensions.consistency",
     "extensions.revoked",
     "models.roles",
+    "approvals.integrity",
+    "dreams.last-runs",
+    "remote.exposure",
+    "models.decision",
+    "api.supervised",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -132,6 +137,15 @@ impl Check {
             summary: summary.into(),
             detail,
             hint,
+        }
+    }
+    pub(crate) fn info(id: &'static str, summary: impl Into<String>) -> Self {
+        Self {
+            id,
+            status: Status::Info,
+            summary: summary.into(),
+            detail: None,
+            hint: None,
         }
     }
     pub(crate) fn skip(id: &'static str, summary: impl Into<String>) -> Self {
@@ -362,7 +376,125 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         return checks;
     }
     checks.push(super::model::check_models_roles(layout));
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+    checks.push(check_approvals_integrity(layout, core_client.as_mut()));
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+    let core_reachable = core_status.is_some();
+    let dreams_status = core_client
+        .as_mut()
+        .and_then(|c| c.call("dreams.status", json!({})).ok());
+    checks.push(check_dreams_last_runs(
+        dreams_status.as_ref(),
+        env.now,
+        core_reachable,
+    ));
+    checks.push(check_remote_exposure(layout));
+    // Append-only: an `info` row, never a failure (the rule triage is a normal mode without a decision model).
+    checks.push(super::model::check_models_decision(layout));
+    checks.push(check_api_supervised(daemon_status));
     checks
+}
+
+/// Append-only P3 check: use the supervisor's authenticated view, never trust api.json alone.
+fn check_api_supervised(status: Option<&Value>) -> Check {
+    const ID: &str = "api.supervised";
+    let Some(status) = status else {
+        return Check::info(ID, "supervisor is not running");
+    };
+    let api = status["children"]
+        .as_array()
+        .and_then(|children| children.iter().find(|c| c["role"] == "api"));
+    match api {
+        Some(child) if child["process"]["state"] == "ready" => {
+            Check::ok(ID, "API is supervised and ready on loopback")
+        }
+        Some(child) => Check::fail(
+            ID,
+            "supervised API is not ready",
+            Some(child.clone()),
+            Some("Check api.out.log and the installed API runtime".into()),
+        ),
+        None => Check::info(ID, "this supervisor has no API role"),
+    }
+}
+
+// ---- approvals.integrity ------------------------------------------------------------------------
+
+/// D109 §9.7: calls `approval.verify` (HMAC chain + Ed25519 signatures). Skip when the core is down;
+/// warn when the call fails; fail when the chain or a signature does not verify. Unsigned legacy is ok.
+fn check_approvals_integrity(layout: &Layout, core_client: Option<&mut Client>) -> Check {
+    const ID: &str = "approvals.integrity";
+    let Some(client) = core_client else {
+        return Check::skip(ID, "core is not reachable");
+    };
+    // No store yet (a fresh or host-profile home nobody has asked a permission of): there is no chain to verify, and
+    // `approval.verify` would create the store as a side effect of this read-only check. Nothing recorded, nothing broken.
+    if !layout.state().join("approvals.sqlite").exists() {
+        return Check::ok(ID, "no approval store yet (nothing to verify)");
+    }
+    match client.call("approval.verify", json!({})) {
+        Ok(v) => check_approvals_from_verify(&v),
+        Err(_) => Check::warn(
+            ID,
+            "approval.verify did not answer",
+            None,
+            Some("core is up but approval.verify failed".to_string()),
+        ),
+    }
+}
+
+fn check_approvals_from_verify(v: &Value) -> Check {
+    const ID: &str = "approvals.integrity";
+    if v["ok"].as_bool() == Some(true) {
+        let report = v["signatures"]["report"].as_str().unwrap_or("");
+        let summary = if report == "unsigned (legacy)" {
+            "approval chain intact (unsigned (legacy))"
+        } else {
+            "approval chain intact"
+        };
+        Check::ok(ID, summary)
+    } else {
+        let reason = v["reason"].as_str().unwrap_or("unknown");
+        Check::fail(
+            ID,
+            format!("approval chain broken ({reason})"),
+            Some(v.clone()),
+            Some("see `plur1bus approval verify`".to_string()),
+        )
+    }
+}
+
+fn check_remote_exposure(layout: &Layout) -> Check {
+    const ID: &str = "remote.exposure";
+    let config: Value = std::fs::read_to_string(layout.config_path())
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(Value::Null);
+    if config.pointer("/remote/publish").and_then(Value::as_str) == Some("network") {
+        return Check::warn(
+            ID,
+            "Network publishing is enabled; the TLS API is reachable from the configured subnets",
+            None,
+            Some("Use remote.publish local or tailnet when network access is unnecessary".into()),
+        );
+    }
+    let status: Value = std::fs::read_to_string(layout.home.join("state/remote-status.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(Value::Null);
+    if status.get("phase").and_then(Value::as_str) == Some("failed") {
+        return Check::warn(
+            ID,
+            "Requested remote listener is unavailable; there is no network fallback",
+            None,
+            Some("Check Tailscale installation, login and remote TLS provisioning".into()),
+        );
+    }
+    Check::ok(ID, "No network exposure warning")
 }
 
 // ---- config.valid ---------------------------------------------------------------------------
@@ -1330,6 +1462,71 @@ fn check_jobs_from_status(jobs: &Value) -> Check {
     Check::warn(ID, parts.join("; "), Some(detail), hint)
 }
 
+// ---- dreams.last-runs ---------------------------------------------------------------------------
+
+/// Last run per phase and agent, error state, missed windows. `now` is the injectable clock
+/// (`Env.now`); a missed window is an enabled phase whose `nextRunAt` is at or before `now`.
+fn check_dreams_last_runs(status: Option<&Value>, now: u64, core_reachable: bool) -> Check {
+    const ID: &str = "dreams.last-runs";
+    if !core_reachable {
+        return Check::skip(ID, "core is not reachable");
+    }
+    let Some(agents) = status
+        .and_then(|s| s.get("agents"))
+        .and_then(Value::as_array)
+    else {
+        return Check::skip(ID, "the dreaming scheduler is not running");
+    };
+    let mut missed = Vec::new();
+    let mut errors = Vec::new();
+    for a in agents {
+        let agent_id = a["agentId"].as_str().unwrap_or("");
+        for ph in a["phases"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
+            let phase = ph["phase"].as_str().unwrap_or("");
+            let enabled = ph["enabled"].as_bool().unwrap_or(false);
+            if enabled {
+                if let Some(next) = ph["nextRunAt"].as_u64() {
+                    if next <= now {
+                        missed.push(json!({
+                            "agentId": agent_id,
+                            "phase": phase,
+                            "nextRunAt": next,
+                        }));
+                    }
+                }
+            }
+            if let Some(last) = ph.get("lastRun").filter(|v| !v.is_null()) {
+                let outcome = last["outcome"].as_str().unwrap_or("");
+                if matches!(outcome, "failed" | "aborted") {
+                    errors.push(json!({
+                        "agentId": agent_id,
+                        "phase": phase,
+                        "outcome": outcome,
+                        "reason": last["reason"],
+                        "runId": last["runId"],
+                    }));
+                }
+            }
+        }
+    }
+    if missed.is_empty() && errors.is_empty() {
+        return Check::ok(ID, "every enabled phase is on schedule");
+    }
+    let mut parts = Vec::new();
+    if !missed.is_empty() {
+        parts.push(format!("{} missed window(s)", missed.len()));
+    }
+    if !errors.is_empty() {
+        parts.push(format!("{} last run(s) failed or aborted", errors.len()));
+    }
+    Check::warn(
+        ID,
+        parts.join("; "),
+        Some(json!({ "missed": missed, "errors": errors })),
+        Some("plur1bus dreams status / dreams log for detail".into()),
+    )
+}
+
 // ---- api.deprecations ---------------------------------------------------------------------------
 
 fn check_api_deprecations(core_status: Option<&Value>) -> Check {
@@ -1522,6 +1719,28 @@ mod tests {
         json!({ "engine": { "ready": degraded.is_null(), "degraded": degraded, "models": {
             "embedder": embedder,
             "reranker": { "state": "ready", "warming": false, "checkedAt": 1, "id": "local-transformers" } } } })
+    }
+
+    #[test]
+    fn remote_exposure_warns_for_network_and_failed_tailnet() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::write(layout.config_path(), r#"{"remote":{"publish":"network"}}"#).unwrap();
+        assert_eq!(check_remote_exposure(&layout).status, Status::Warn);
+        std::fs::write(layout.config_path(), r#"{"remote":{"publish":"tailnet"}}"#).unwrap();
+        std::fs::create_dir_all(layout.home.join("state")).unwrap();
+        std::fs::write(
+            layout.home.join("state/remote-status.json"),
+            r#"{"phase":"failed"}"#,
+        )
+        .unwrap();
+        assert_eq!(check_remote_exposure(&layout).status, Status::Warn);
+        std::fs::write(
+            layout.home.join("state/remote-status.json"),
+            r#"{"phase":"active"}"#,
+        )
+        .unwrap();
+        assert_eq!(check_remote_exposure(&layout).status, Status::Ok);
     }
 
     #[cfg(unix)]
@@ -1941,6 +2160,63 @@ mod tests {
         );
     }
 
+    #[test]
+    fn doctor_reports_a_missed_window() {
+        let now = 1_000_000u64;
+        let status = json!({
+            "agents": [{
+                "agentId": "alpha",
+                "diary": null,
+                "phases": [{
+                    "phase": "deep",
+                    "enabled": true,
+                    "cron": "0 4 * * *",
+                    "timezone": "UTC",
+                    "staggerOffsetS": 0,
+                    "nextRunAt": now - 1,
+                    "running": false,
+                    "lastRun": null,
+                    "breaker": { "state": "closed", "until": null, "reason": null, "sessionsUsed": 0, "limit": 3 },
+                    "importance": { "accumulated": 0, "threshold": 450, "capturesSinceRun": 0, "minCorpus": 3 }
+                }]
+            }],
+            "counters": { "runs": {}, "skips": {}, "triggers": {}, "breakerTrips": 0, "reconciled": 0 },
+            "schemaVersion": 1
+        });
+        let check = check_dreams_last_runs(Some(&status), now, true);
+        assert_eq!(check.status, Status::Warn, "{check:?}");
+        assert_eq!(check.id, "dreams.last-runs");
+        assert!(check.summary.contains("missed"), "{check:?}");
+        assert_eq!(check.detail.as_ref().unwrap()["missed"][0]["phase"], "deep");
+        assert_eq!(
+            check.detail.as_ref().unwrap()["missed"][0]["agentId"],
+            "alpha"
+        );
+        assert_eq!(
+            check.hint.as_deref(),
+            Some("plur1bus dreams status / dreams log for detail")
+        );
+        assert_eq!(
+            check_dreams_last_runs(None, now, false).status,
+            Status::Skip
+        );
+        let on_time = json!({
+            "agents": [{
+                "agentId": "alpha",
+                "phases": [{
+                    "phase": "deep",
+                    "enabled": true,
+                    "nextRunAt": now + 1,
+                    "lastRun": { "outcome": "completed", "runId": "r1" }
+                }]
+            }]
+        });
+        assert_eq!(
+            check_dreams_last_runs(Some(&on_time), now, true).status,
+            Status::Ok
+        );
+    }
+
     fn module_child(name: &str, process: Value, next: Option<u64>) -> Value {
         json!({ "role": name, "kind": "module", "process": process, "pid": null, "instanceId": null,
             "adopted": false, "restarts": 4, "lastExit": { "code": 1, "signal": null, "at": 1, "reason": null },
@@ -2110,6 +2386,47 @@ mod tests {
     }
 
     #[test]
+    fn approvals_integrity_skips_when_core_is_down() {
+        let dir = tempfile::tempdir().unwrap();
+        let check = check_approvals_integrity(&Layout::new(dir.path().to_path_buf()), None);
+        assert_eq!(check.status, Status::Skip);
+        assert_eq!(check.id, "approvals.integrity");
+        assert_eq!(check.summary, "core is not reachable");
+    }
+
+    #[test]
+    fn approvals_integrity_unsigned_legacy_is_ok_and_tampered_signed_fails() {
+        let ok = check_approvals_from_verify(&json!({
+            "ok": true,
+            "entries": 1,
+            "head": null,
+            "signatures": { "unsignedLegacy": 1, "signedOk": 0, "signedBad": 0, "report": "unsigned (legacy)" }
+        }));
+        assert_eq!(ok.status, Status::Ok);
+        assert_eq!(ok.summary, "approval chain intact (unsigned (legacy))");
+
+        let signed = check_approvals_from_verify(&json!({
+            "ok": true,
+            "entries": 2,
+            "head": { "seq": 2, "mac": "aa" },
+            "signatures": { "unsignedLegacy": 1, "signedOk": 1, "signedBad": 0, "report": "signed-ok" }
+        }));
+        assert_eq!(signed.status, Status::Ok);
+        assert_eq!(signed.summary, "approval chain intact");
+
+        let bad = check_approvals_from_verify(&json!({
+            "ok": false,
+            "entries": 2,
+            "head": null,
+            "brokenAt": 2,
+            "reason": "signature-mismatch",
+            "signatures": { "unsignedLegacy": 1, "signedOk": 0, "signedBad": 1, "report": "signed-bad" }
+        }));
+        assert_eq!(bad.status, Status::Fail);
+        assert!(bad.summary.contains("signature-mismatch"), "{bad:?}");
+    }
+
+    #[test]
     fn config_valid_reports_ok_when_config_json_is_absent_without_creating_it() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
@@ -2141,5 +2458,34 @@ mod tests {
         // No rejection: the file decides, as without a supervisor.
         let clean = json!({ "revision": "0123456789abcdef", "rejected": null });
         assert_eq!(check_config_valid(&layout, Some(&clean)).status, Status::Ok);
+    }
+}
+
+#[cfg(test)]
+mod api_supervision_tests {
+    use super::*;
+    #[test]
+    fn supervision_check_distinguishes_absent_ready_and_failed_api() {
+        assert_eq!(check_api_supervised(None).status, Status::Info);
+        assert_eq!(
+            check_api_supervised(Some(&json!({"children":[]}))).status,
+            Status::Info
+        );
+        for state in ["starting", "crashed", "degraded"] {
+            assert_eq!(
+                check_api_supervised(Some(
+                    &json!({"children":[{"role":"api","process":{"state":state}}]})
+                ))
+                .status,
+                Status::Fail
+            );
+        }
+        assert_eq!(
+            check_api_supervised(Some(
+                &json!({"children":[{"role":"api","process":{"state":"ready"}}]})
+            ))
+            .status,
+            Status::Ok
+        );
     }
 }

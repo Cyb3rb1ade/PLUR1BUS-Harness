@@ -199,3 +199,65 @@ describe("egress.status", () => {
     assert.equal((await e.decide("https://a.example/")).allowed, true);
   });
 });
+
+describe("egress.request: POST-capable variant for harness-owned provider calls", () => {
+  const loop = (port: number) => mk({ allowHosts: ["127.0.0.1"], allowPorts: [port], allowLoopback: true });
+  const echo = () => startStub((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ method: req.method, body: Buffer.concat(chunks).toString("utf8"), auth: req.headers.authorization ?? null, type: req.headers["content-type"] ?? null, length: req.headers["content-length"] ?? null })); });
+  });
+
+  it("sends method, caller headers and a body with a computed content-length to the pinned address", async () => {
+    const s = await echo();
+    try {
+      const r = await loop(s.port).request(`http://127.0.0.1:${s.port}/v1/embeddings`, { userAgent: UA, method: "POST", headers: { Authorization: "Bearer test-only", "Content-Type": "application/json" }, body: JSON.stringify({ input: ["a"] }) });
+      assert.equal(r.status, 200);
+      assert.deepEqual(JSON.parse(r.body.toString("utf8")), { method: "POST", body: "{\"input\":[\"a\"]}", auth: "Bearer test-only", type: "application/json", length: "15" });
+    } finally { await s.close(); }
+  });
+
+  it("the gate judges a POST like a GET: an unlisted host is refused before anything is sent", async () => {
+    const s = await echo();
+    try {
+      await refused(mk({ allowHosts: [], allowPorts: [s.port], allowLoopback: true }).request(`http://127.0.0.1:${s.port}/`, { userAgent: UA, method: "POST", body: "x" }), "egress-denied");
+      assert.equal(s.hits.length, 0);
+    } finally { await s.close(); }
+  });
+
+  it("never follows a redirect with a body or caller headers: the 3xx comes back and the other host sees nothing", async () => {
+    const target = await echo();
+    const s = await startStub((_q, res) => { res.writeHead(307, { location: `http://127.0.0.1:${target.port}/stolen` }); res.end(); });
+    try {
+      const e = mk({ allowHosts: ["127.0.0.1"], allowPorts: [s.port, target.port], allowLoopback: true });
+      const r = await e.request(`http://127.0.0.1:${s.port}/`, { userAgent: UA, method: "POST", headers: { authorization: "Bearer test-only" }, body: "secret body" });
+      assert.equal(r.status, 307); assert.deepEqual(r.redirects, []);
+      const g = await e.request(`http://127.0.0.1:${s.port}/`, { userAgent: UA, headers: { authorization: "Bearer test-only" } });
+      assert.equal(g.status, 307);
+      assert.equal(target.hits.length, 0);
+    } finally { await s.close(); await target.close(); }
+  });
+
+  it("refuses connection-level headers, header injection, a GET body and an oversized body before any I/O", async () => {
+    const s = await echo();
+    try {
+      const e = loop(s.port), url = `http://127.0.0.1:${s.port}/`;
+      for (const name of ["Host", "Content-Length", "Transfer-Encoding", "Connection", "Proxy-Authorization", "Cookie"]) await refused(e.request(url, { userAgent: UA, method: "POST", headers: { [name]: "x" }, body: "x" }), "invalid-url", /set by the client/);
+      await refused(e.request(url, { userAgent: UA, method: "POST", headers: { "x-a": "b\r\nx-injected: 1" } }), "invalid-url", /invalid value/);
+      await refused(e.request(url, { userAgent: UA, method: "POST", headers: { "bad name": "x" } }), "invalid-url", /token/);
+      await refused(e.request(url, { userAgent: UA, body: "x" }), "invalid-url", /no body/);
+      await refused(e.request(url, { userAgent: UA, method: "CONNECT" as never }), "invalid-url", /method/);
+      await refused(e.request(url, { userAgent: UA, method: "POST", body: "x".repeat(11), maxRequestBytes: 10 }), "too-large", /request body/);
+      assert.equal(s.hits.length, 0);
+    } finally { await s.close(); }
+  });
+
+  it("keeps the response caps and the deadline for a POST", async () => {
+    const big = await startStub((req, res) => { req.resume(); req.on("end", () => { res.writeHead(200); res.end("y".repeat(100)); }); });
+    const slow = await startStub((req) => { req.resume(); });
+    try {
+      await refused(loop(big.port).request(`http://127.0.0.1:${big.port}/`, { userAgent: UA, method: "POST", body: "x", maxBytes: 10 }), "too-large");
+      await refused(loop(slow.port).request(`http://127.0.0.1:${slow.port}/`, { userAgent: UA, method: "POST", body: "x", timeoutMs: 100 }), "timeout");
+    } finally { await big.close(); await slow.close(); }
+  });
+});

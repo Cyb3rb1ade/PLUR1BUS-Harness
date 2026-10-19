@@ -345,7 +345,7 @@ impl Layout {
                 token: self.core_token(),
                 pid: self.core_pid(),
             },
-            RoleKind::Module => Endpoints {
+            RoleKind::Api | RoleKind::Module => Endpoints {
                 address: module_address(&self.home, platform, &role.name),
                 token: self.run().join(format!("module-{}.token", role.name)),
                 pid: self.run().join(format!("module-{}.pid", role.name)),

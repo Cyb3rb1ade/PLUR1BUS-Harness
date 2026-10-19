@@ -13,11 +13,13 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `memory.mediaEmbedding` | object | `{}` | core | Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index. |
 | `providers` | object | `{}` | live | Reserved namespace for model-provider configuration. |
 | `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. |
+| `privacy.localOnly` | boolean | `false` | core | Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly. |
 
 ## Advanced settings
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
+| `collaboration.fanoutEnabled` | boolean | `false` | live | Enable collaboration fan-out only after owner review of the equal-token-budget evaluation. |
 | `approvals.maxGrantDays` | integer | `90` | core | Always-grant idle lifetime in days. Explicit shorter expiries still apply. |
 | `approvals.requireOsConfirmation` | boolean | `true` | core | Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust. |
 | `breakglass.reasonMinChars` | integer | `10` | core | Minimum trimmed break-glass reason length. |
@@ -27,10 +29,11 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `inbox.retention.maxEntries` | integer | `1000` | core | Maximum number of inbox entries retained per person. |
 | `containers` | object |  | live | Container distribution library settings. Installer/runtime wiring is separate from the core. |
 | `sidecars` | object |  | live | Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate. |
-| `remote` | object | `{}` | core | Remote exposure configuration (listener integration is separate). |
+| `remote` | object | `{}` | core | Remote listeners: tailnet by default, network requires TLS and an audited notice acknowledgment. |
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `activity.maxEntries` | integer | `1000` | core | Maximum retained agent activity transitions. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
+| `tools.sandbox.required` | boolean | `true` | core | Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn. |
 | `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
 | `tools.hostctl.shell.allowed` | boolean | `false` | core | Allow proc.shell after normal D109 approval. |
 | `tools.hostctl.shell.default` | string | `"bash"` | core | Shell executable; set pwsh on Windows. |
@@ -58,7 +61,9 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `embedding.acceptedNcLicence` | boolean | `false` | core | Whether the owner has accepted the model's non-commercial licence terms. |
 | `embedding.acceptedNcLicenceAt` | string |  | core | Date-time when the non-commercial licence was accepted. |
 | `memory.embedding.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport. |
+| `memory.reranker.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport. |
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
+| `auth.requireSecondFactor` | string | `"remote"` | core | Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides. |
 | `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |
 | `auth.openai.httpTimeoutMs` | integer | `30000` | core | Bounded OpenAI HTTP deadline. |
 | `auth.openai.refreshSkewSeconds` | integer | `120` | core | Refresh before expiration, plus up to 15 seconds of jitter. |
@@ -77,6 +82,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
 | `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
+| `privacy.localEndpoints` | array | `[]` | core | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
 | `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |
 | `session.compaction.hardRatio` | number | `0.88` | core | Swap prepared summary above this fraction. Must exceed softRatio. |
 | `session.compaction.summaryMaxTokens` | integer | `1228` | core | Maximum summary tokens; also capped to 15 percent of the catalogue window. |

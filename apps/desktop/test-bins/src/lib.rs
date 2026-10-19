@@ -32,6 +32,14 @@ struct Case {
 
 pub fn run(kind: &str) -> ! {
     let argv: Vec<String> = env::args().skip(1).collect();
+    // Help explicitly describes this test binary's synthetic contract. It is read-only,
+    // including no argv recording or scenario file access during compatibility probes.
+    if kind == "plur1bus" {
+        if let Some(help) = synthetic_help(&argv.iter().map(String::as_str).collect::<Vec<_>>()) {
+            print!("{help}");
+            process::exit(0);
+        }
+    }
     if let Err(error) = record(&argv) {
         fail("E_RECORD", &error.to_string());
     }
@@ -198,4 +206,18 @@ fn fail(code: &str, reason: &str) -> ! {
         json!({"schema":"error/1","code":code,"reason":reason})
     );
     process::exit(2)
+}
+
+/// Exact, test-only clap-shaped help for the documented synthetic desktop protocol.
+pub fn synthetic_help(argv: &[&str]) -> Option<&'static str> {
+    match argv {
+        ["--help"]=>Some("Synthetic desktop test CLI\n\nCommands:\n  state  Cold state helpers\n  admin  Administration\n\nOptions:\n  --json  JSON output\n"),
+        ["state","--help"]=>Some("Synthetic state helpers\n\nCommands:\n  snapshot  Snapshot\n  verify  Verify\n  restore  Restore\n\nOptions:\n  --json  JSON output\n"),
+        ["admin","--help"]=>Some("Synthetic administration\n\nCommands:\n  migrate  Migrate\n  smoke  Smoke\n\nOptions:\n  --json  JSON output\n"),
+        ["state","snapshot"|"restore","--help"]=>Some("Options:\n  --src <PATH>  Source\n  --dst <PATH>  Destination\n  --json  JSON output\n"),
+        ["state","verify","--help"]=>Some("Options:\n  --dir <PATH>  Snapshot directory\n  --json  JSON output\n"),
+        ["admin","migrate","--help"]=>Some("Options:\n  --from <VERSION>  From\n  --to <VERSION>  To\n  --yes  Confirm\n  --json  JSON output\n"),
+        ["admin","smoke","--help"]=>Some("Options:\n  --json  JSON output\n"),
+        _=>None,
+    }
 }

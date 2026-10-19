@@ -2,7 +2,7 @@
 // homes, no real data. Two markers must never appear in any report: FAKE_TOKEN (planted in every secret file and
 // secret-shaped config value) and CONTENT_MARKER (planted in memory rows, the embedding cache's debug_text and skill
 // bodies).
-import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { loadLanceDb } from "../../src/import/readonly.ts";
@@ -46,11 +46,12 @@ export function skill(dir: string, name: string, description: string, body = `# 
   write(join(dir, "SKILL.md"), `---\nname: ${name}\ndescription: ${description}\nversion: 1.0.0\n---\n${body}`);
 }
 
-export async function lanceStore(partition: string, dims: number, rows: number, extra: Record<string, unknown> = {}): Promise<void> {
+/** `hotOf(i)` picks the one-hot index of row i's vector (default i): two values of it are two "models" of the same dimension. */
+export async function lanceStore(partition: string, dims: number, rows: number, extra: Record<string, unknown> = {}, hotOf: (i: number) => number = (i) => i): Promise<void> {
   const lancedb = (await loadLanceDb())!;
   mkdirSync(partition, { recursive: true });
   const db = await lancedb.connect(partition) as any;
-  const data = Array.from({ length: rows }, (_, i) => ({ id: `00000000-0000-4000-8000-00000000000${i}`, text: `${CONTENT_MARKER} ${i}`, vector: Array.from({ length: dims }, (_, j) => (j === i ? 1 : 0)), ...extra }));
+  const data = Array.from({ length: rows }, (_, i) => ({ id: `00000000-0000-4000-8000-00000000000${i}`, text: `${CONTENT_MARKER} ${i}`, vector: Array.from({ length: dims }, (_, j) => (j === hotOf(i) ? 1 : 0)), ...extra }));
   await db.createTable("memories", data);
   db.close();
 }
@@ -444,4 +445,18 @@ memory:
       pendingPath,
     },
   };
+}
+
+/** Adds agent `id` to the OpenClaw fixture at `root` WITHOUT a store of its own (no partition under the store root),
+ *  with the given MEMORY.md / USER.md texts. Its memory cards are the ones the card import writes to the shared store. */
+export function addOpenclawAgentWithoutStore(root: string, id: string, files: { memory?: string; user?: string }): string {
+  const cfg = join(root, "openclaw.json");
+  const text = readFileSync(cfg, "utf8");
+  if (!text.includes("agents: { list: [ ")) throw new Error("fixture agents list changed");
+  const ws = join(root, `ws-${id}`);
+  write(cfg, text.replace("agents: { list: [ ", `agents: { list: [ { id: ${JSON.stringify(id)}, workspace: ${JSON.stringify(ws)} }, `));
+  write(join(ws, "SOUL.md"), `# ${id} persona\n${CONTENT_MARKER} ${id} persona\n`);
+  if (files.memory !== undefined) write(join(ws, "MEMORY.md"), files.memory);
+  if (files.user !== undefined) write(join(ws, "USER.md"), files.user);
+  return ws;
 }

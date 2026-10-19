@@ -1,3 +1,4 @@
+import { LicenceLedger } from "../licences/ledger.ts";
 import { createVoiceV3 } from '../voice/v3.ts';
 import { voiceV3Catalog } from '../voice/v3-catalog.ts';
 import { LocalVoice } from '../../../voice-providers/src/index.ts';
@@ -14,6 +15,7 @@ import type { CompositionDeps } from './index.ts';
 import type { OpenAIRuntime } from '../openai-auth/runtime.ts';
 import type { CallBudget } from '../budget/index.ts';
 import type { SessionService } from '../session/service.ts';
+import { localOnlyFor } from '../privacy/local-only.ts';
 /** One registration in composition. Existing D110 broker transports and handles retain their ownership. */
 export function composeVoice(d: CompositionDeps, openai: OpenAIRuntime, budget: CallBudget | null, sessions: () => SessionService) {
   const { onVoice, ...options } = d.options ?? {};
@@ -24,6 +26,7 @@ export function composeVoice(d: CompositionDeps, openai: OpenAIRuntime, budget: 
     budget: ledger?.port ?? { reserve: async () => false, record: async () => false, release: async () => {} },
     registry: (config, usage) => createVoiceProviders(config, { getSecret: ref => secrets.get(ref), fetch: voiceFetch(d.egress), wsFactory: voiceSockets(d.egress), usage, now: d.clock,
       pollyClientFactory: () => loadSdkClient({ ...(config?.polly?.region ? { region: config.polly.region } : {}), ...(config?.polly?.credentials?.profile ? { profile: config.polly.credentials.profile } : {}) }, pollyRequestHandler(d.egress)) }),
+    localOnly: agentId => localOnlyFor(d.config(), agentId),
     localModelAllowed(provider) {
       const def = d.options?.definitions?.[provider] ?? d.config().providers[provider];
       if (!def || typeof def !== 'object' || !('profile' in def)) return false;
@@ -44,11 +47,12 @@ export function composeVoice(d: CompositionDeps, openai: OpenAIRuntime, budget: 
       for (const host of declaration.hosts) if (!(await d.egress.decide(`https://${host.host}:${host.port}/`)).allowed) return false;
       return true;
     } });
+  const modelLicences = new LicenceLedger(join(d.home, "state", "model-licences.sqlite"), d.audit, d.clock);
   const metricsStarted = d.clock();
-  const v3 = createVoiceV3({ config: d.config, set: d.voiceConfigSource ?? (() => null), modelsDir: join(d.home, 'models', 'voice'), resolve: d.resolvePrincipal ?? (() => null), hasAgent: id => d.agents.has(id), notify: d.notify, openTalk: v2.openTalk, ...(d.options?.voiceAudio ? { audio: d.options.voiceAudio } : {}), session: id => sessions().store.getSession(id) ?? undefined, signal: d.signal, clock: d.clock,
+  const v3 = createVoiceV3({ confirmLicence: (who,m) => { modelLicences.confirm(who,m.id,m.licence.id,m.download.map(file => file.sha256 ?? "unversioned").join(";"),"voice"); }, config: d.config, set: d.voiceConfigSource ?? (() => null), modelsDir: join(d.home, 'models', 'voice'), resolve: d.resolvePrincipal ?? (() => null), hasAgent: id => d.agents.has(id), notify: d.notify, openTalk: v2.openTalk, ...(d.options?.voiceAudio ? { audio: d.options.voiceAudio } : {}), session: id => sessions().store.getSession(id) ?? undefined, signal: d.signal, clock: d.clock,
     fetch: voiceFetch(d.egress), metrics: () => { const r = v2.metrics(); return { speechEndToFirstAudio: { medianMs: r.speechEndToFirstAudio.medianMs, p95Ms: r.speechEndToFirstAudio.p95Ms, samples: r.speechEndToFirstAudio.count }, featureCost: Object.fromEntries(Object.entries(r.features).map(([k,v]) => [k, { medianMs: v.medianMs, p95Ms: v.p95Ms }])), windowSec: Math.max(1, Math.floor((d.clock() - metricsStarted) / 1000)) }; } });
   let closed = false;
-  const result = { ...native, v3, openTalk: v2.openTalk, metrics: v2.metrics, renderMetrics: v2.renderMetrics, async close() { if (closed) return; closed = true; try { await v3.close(); await v2.close(); } finally { ledger?.close(); await native.close(); } } };
+  const result = { ...native, v3, openTalk: v2.openTalk, metrics: v2.metrics, renderMetrics: v2.renderMetrics, async close() { if (closed) return; closed = true; try { await v3.close(); await v2.close(); } finally { modelLicences.close(); ledger?.close(); await native.close(); } } };
   onVoice?.(result); return result;
 }
 export type VoiceRuntime = ReturnType<typeof composeVoice>;

@@ -136,7 +136,7 @@ test('MCP bridge and media output store register in the same policy dispatcher',
   const request = req();
   const registry = await composeTools({ home, roots: [], grants: { get: () => undefined, list: () => [] }, audit,
     mcp: { servers: ['fixture'], port: { listTools: async () => [{ name: 'echo', description: 'Echo fixture', inputSchema: { type: 'object', properties: {}, additionalProperties: false } }], callTool: async (_server, _name, _args, caller) => { assert.equal(caller.principal, request.principal); mcpCalls++; return { content: [{ type: 'text', text: 'MCP ok' }] } as never; } } },
-    media: { store: new OutputStore(join(home, 'outputs')), adapter: { id: 'fixture', capabilities: () => ({ generate: true, edit: false, inpaint: false }), generate: async () => ({ files: [{ bytes: new Uint8Array([1, 2, 3]), format: 'png' }], metadata: { adapter: 'fixture', model: 'synthetic', durationMs: 1 } }), edit: async () => { throw new Error('not used'); } } },
+    media: { store: new OutputStore(join(home, 'outputs')), adapter: { id: 'fixture', capabilities: () => ({ generate: true, edit: false, inpaint: false }), generate: async () => ({ files: [{ bytes: makePng(), format: 'png' }], metadata: { adapter: 'fixture', model: 'synthetic', durationMs: 1 } }), edit: async () => { throw new Error('not used'); } } },
   }, request);
   for (const name of ['mcp.fixture.echo', 'image.generate']) {
     let calls = 0;
@@ -213,7 +213,7 @@ for (const wire of ['chat_completions', 'anthropic_messages', 'codex_responses',
   const f = await fixture(wireAdapter(wire, w.fetch), { family: { fixture: family }, topK: 128,
     toolsForTurn: req => composeTools({ home, roots: [], budget: f.budget, grants: r.stores.grants, audit: r.audit,
       mcp: { servers: ['fixture'], port: { listTools: async (_server, caller) => { assert.equal(caller.principal, request.principal); return [{ name: 'echo', inputSchema: { type: 'object', properties: {}, additionalProperties: false } }]; }, callTool: async (_server, _tool, _args, caller) => { assert.equal(caller.principal, request.principal); runs++; return { content: [{ type: 'text', text: 'MCP wire ok' }] } as never; } } },
-      media: { store, adapter: { id: 'fixture', capabilities: () => ({ generate: true, edit: false, inpaint: false }), generate: async () => { runs++; return { files: [{ bytes: new Uint8Array([1, 2, 3]), format: 'png' }], metadata: { adapter: 'fixture', model: 'synthetic', durationMs: 1 } }; }, edit: async () => { throw new Error('unused'); } } },
+      media: { store, adapter: { id: 'fixture', capabilities: () => ({ generate: true, edit: false, inpaint: false }), generate: async () => { runs++; return { files: [{ bytes: makePng(), format: 'png' }], metadata: { adapter: 'fixture', model: 'synthetic', durationMs: 1 } }; }, edit: async () => { throw new Error('unused'); } } },
     }, req),
     approval: { async request(ask) { const pending = r.service.request(ask); await tick(); const { id, nonce } = lastNonce(r); assert.equal(ask.principal, 'local-owner'); assert.equal(r.service.decide({ requestId: id, nonce, person: 'local-owner', surface: 3, decision: 'approve' }).ok, true); return pending; }, begin: (answer, ask) => r.service.begin(answer, ask) }, grants: r.stores.grants, grantUse: r.stores.grants,
   });
@@ -231,6 +231,7 @@ test('fallback changes prompt cache profile and usage model to the actual candid
 
 // ---- PR #293 review fixes ----
 import { homedir } from 'node:os';
+import { makePng } from '../../../media/test/adapters-fixtures.ts';
 import { AuthError } from '../../src/auth/errors.ts';
 import { approvalPolicyContext } from '../../src/composition/index.ts';
 import { billingClassOf } from '../../src/composition/auth.ts';
@@ -388,7 +389,7 @@ test('finding 8: composeTools fs deny-list refuses ~/.ssh/id_ed25519 through the
 
 test('finding 8: exec.run through composition runs an allowlisted program after D109 approval', async () => {
   const home = await mkdtemp(join(tmpdir(), 'turn-exec-')); const r = await rig();
-  const registry = await composeTools({ home, roots: [{ id: 'a1', path: home }], grants: r.stores.grants, audit: memoryAuditSink(), exec: { mode: 'allowlist', allowlist: [{ program: process.execPath }], envAllow: ['PATH'] } }, req());
+  const registry = await composeTools({ home, roots: [{ id: 'a1', path: home }], grants: r.stores.grants, audit: memoryAuditSink(), sandbox: { required: false }, exec: { mode: 'allowlist', allowlist: [{ program: process.execPath }], envAllow: ['PATH'] } }, req());
   const f = await fixture(toolOnce('exec.run', () => ({ program: process.execPath, args: ['-e', 'console.log("exec via composition")'], cwd: home })), { registry, topK: 128, grants: r.stores.grants, grantUse: r.stores.grants,
     approval: { async request(ask) { const pending = r.service.request(ask); await tick(); const { id, nonce } = lastNonce(r); assert.equal(r.service.decide({ requestId: id, nonce, person: req().principal!, surface: 3, decision: 'approve' }).ok, true); return pending; }, begin: (answer, ask) => r.service.begin(answer, ask) } });
   try {

@@ -132,7 +132,7 @@ describe("models: list states", opts, () => {
       assert.equal(await state.getAttribute("aria-busy"), "true");
       await app.page.getByRole("heading", { name: "Models", level: 1 }).waitFor();
       assert.equal(await app.page.locator(".model-list").count(), 0);
-      for (const name of ["Scan providers", "Add manual model", "Refresh"]) assert.equal(await app.page.getByRole("button", { name }).count(), 0, `no ${name} while loading`);
+      for (const name of ["Scan now", "Add manual model", "Refresh"]) assert.equal(await app.page.getByRole("button", { name }).count(), 0, `no ${name} while loading`);
       g.open();
       await link(app.page, /Gamma One/).waitFor();
       assert.equal(await app.page.locator(".page-state").count(), 0);
@@ -160,7 +160,7 @@ describe("models: list states", opts, () => {
       installCatalog(app.server.rpc, { models: [], newIds: new Set() }); await open(app);
       await app.page.getByRole("heading", { name: "No models in the catalog yet" }).waitFor();
       await app.page.getByText("Scan your providers to discover their models, or add one by hand.").waitFor();
-      await app.page.locator(".page-state").getByRole("button", { name: "Scan providers" }).waitFor();
+      await app.page.locator(".page-state").getByRole("button", { name: "Scan now" }).waitFor();
       assert.equal(await app.page.locator(".model-list").count(), 0);
       assert.equal(await app.page.locator("#mf-provider").count(), 0);
       assert.equal(await app.page.getByRole("group", { name: "Providers" }).count(), 0);
@@ -192,7 +192,7 @@ describe("models: list states", opts, () => {
         const box = app.page.locator(`.page-state[data-state=${state}]`);
         await box.waitFor();
         if (state === "error") assert.equal(await box.getAttribute("role"), "alert");
-        for (const name of ["Scan providers", "Add manual model", "Refresh"]) assert.equal(await app.page.getByRole("button", { name }).count(), 0, `${state}: no ${name}`);
+        for (const name of ["Scan now", "Add manual model", "Refresh"]) assert.equal(await app.page.getByRole("button", { name }).count(), 0, `${state}: no ${name}`);
         assert.equal(await app.page.locator(".model-list").count(), 0);
         assert.equal(await app.page.getByRole("button", { name: "Try again" }).count(), state === "error" ? 1 : 0);
         if (state === "error") {
@@ -222,7 +222,7 @@ describe("models: list states", opts, () => {
 });
 
 describe("models: detail states", opts, () => {
-  test("no selection shows the hint, an unknown model says so, a malformed route is treated as no selection", async () => {
+  test("no selection shows the hint, unknown models are identified and malformed escapes are rejected", async () => {
     await withApp({}, async (app) => {
       installCatalog(app.server.rpc); await open(app);
       await link(app.page, /Gamma One/).waitFor();
@@ -237,10 +237,15 @@ describe("models: detail states", opts, () => {
       assert.deepEqual(await rowNames(app.page), ALL, "the list is untouched");
       assert.equal(await app.page.locator(".model-list [aria-current]").count(), 0);
 
-      for (const bad of ["#/models/only-one-part", "#/models/%E0%A4%A/x", "#/models/a/b/c"]) {
+      for (const bad of ["#/models/only-one-part", "#/models/a/b/c"]) {
         await app.page.evaluate((h) => { location.hash = h; }, bad);
         await detailOf(app.page).getByText("Select an item to see its details.").waitFor();
       }
+      // Invalid URI escapes are rejected by the router before Models ever receives a selection.
+      await app.page.evaluate(() => { location.hash = "#/models/%E0%A4%A/x"; });
+      await app.page.getByRole("heading", { name: "Page not found", exact: true, level: 1 }).waitFor();
+      assert.equal(await detailOf(app.page).count(), 0, "malformed encoding must not reach the model surface");
+      assert.equal(await app.page.getByRole("button", { name: "Edit overrides" }).count(), 0);
     });
   });
 

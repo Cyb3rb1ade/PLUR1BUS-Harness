@@ -31,6 +31,11 @@ export class SlackApiError extends Error {
 export const MIN_RETRY_AFTER_MS = 1_000;
 export const MAX_RETRY_AFTER_MS = 300_000;
 
+function retryAfterMs(res: Response): number {
+  const sec = Number(res.headers.get("retry-after"));
+  return Math.min(MAX_RETRY_AFTER_MS, Math.max(MIN_RETRY_AFTER_MS, Math.round((Number.isFinite(sec) ? sec : 0) * 1000)));
+}
+
 export const DEFAULT_BASE_URL = "https://slack.com/api";
 const UNAUTHORIZED = new Set(["invalid_auth", "not_authed", "account_inactive", "token_revoked", "token_expired", "invalid_token"]);
 const RETRYABLE_SERVER = new Set(["internal_error", "service_unavailable", "fatal_error", "request_timeout", "team_added_to_org"]);
@@ -121,9 +126,7 @@ export class SlackApi {
     }
     const status = res.status;
     if (status === 429 || payload?.error === "ratelimited" || payload?.error === "rate_limited") {
-      const sec = Number(res.headers.get("retry-after"));
-      const ms = Math.min(MAX_RETRY_AFTER_MS, Math.max(MIN_RETRY_AFTER_MS, Math.round((Number.isFinite(sec) ? sec : 0) * 1000)));
-      throw new SlackApiError("rate-limited", `${method} rate limited`, { status, retryAfterMs: ms });
+      throw new SlackApiError("rate-limited", `${method} rate limited`, { status, retryAfterMs: retryAfterMs(res) });
     }
     if (res.ok && payload?.ok === true) return payload as T;
     const code =
@@ -177,6 +180,14 @@ export class SlackApi {
           if (!loc) throw new SlackApiError("protocol", "Slack file download failed");
           target = this.#checkHost(new URL(loc, target).toString(), "file");
           continue;
+        }
+        if (res.status === 429) {
+          await res.body?.cancel();
+          throw new SlackApiError("rate-limited", "Slack file download rate limited", { status: 429, retryAfterMs: retryAfterMs(res) });
+        }
+        if (res.status >= 500) {
+          await res.body?.cancel();
+          throw new SlackApiError("http", `Slack file download failed with HTTP ${res.status}`, { status: res.status });
         }
         if (!res.ok || !res.body) throw new SlackApiError("protocol", "Slack file download failed");
         const type = (res.headers.get("content-type") ?? "application/octet-stream").split(";")[0]!.trim().toLowerCase();

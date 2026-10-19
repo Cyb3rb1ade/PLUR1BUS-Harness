@@ -294,7 +294,7 @@ describe("rule classifier: edge cases", () => {
     assert.equal(triage("a".repeat(200_000)).tasks.length, 1);
   });
 
-  it(gap("ruleClassifier (segmentation regex)", "time linear in the message length, within the documented 200 ms p95 local budget, for any message up to the 200 000 characters session.submit accepts", "a message with a long run of whitespace takes quadratic time (30 000 spaces ~1.2 s, 100 000 spaces ~14 s, 200 000 ~1 min), blocking the core's event loop"), { todo: gap("ruleClassifier (segmentation regex)", "time linear in the message length, within the documented 200 ms p95 local budget, for any message up to the 200 000 characters session.submit accepts", "a message with a long run of whitespace takes quadratic time (30 000 spaces ~1.2 s, 100 000 spaces ~14 s, 200 000 ~1 min), blocking the core's event loop") }, () => {
+  it("segments long whitespace input within the local decision budget", () => {
     // Wall-clock on purpose: the property under test is the runtime itself. A linear implementation needs a few milliseconds
     // for this input; the 200 ms budget from D105 leaves a margin of ~50x.
     const message = "a" + " ".repeat(30_000) + "b";

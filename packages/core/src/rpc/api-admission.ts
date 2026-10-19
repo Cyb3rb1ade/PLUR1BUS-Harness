@@ -4,10 +4,11 @@ import { authorize } from "../rbac/authorize.ts";
 import type { PrincipalResolver } from "../rbac/guard.ts";
 import type { Handler } from "./server.ts";
 import { RpcError } from "./errors.ts";
-import { apiPrincipal } from "@plur1bus/module-api";
+import { apiPrincipal, isClientContext } from "@plur1bus/module-api";
 
 export function apiAdmission(methods: Record<string, Handler>, resolve: PrincipalResolver): Record<string, Handler> {
   return Object.fromEntries(Object.entries(methods).map(([method, inner]) => [method, async (params, ctx) => {
+    if (isClientContext(ctx)) return inner(params, ctx); // transport already checked the narrow host-method/agent allowlist
     if (method.startsWith("admin.api.") || (method === "user.invite.redeem" && apiPrincipal(ctx) === null) || apiPrincipal(ctx) === undefined || RPC_RULES[method] || method.startsWith("secret.")) return inner(params, ctx);
     const who = await resolve(ctx, method, params);
     if (!who) throw new RpcError("E_UNAUTHORIZED", "authentication required", { reason: "no-principal" });

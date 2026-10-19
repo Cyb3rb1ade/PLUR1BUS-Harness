@@ -475,7 +475,17 @@ class Host implements Switchboard {
       return t;
     };
     return {
-      findActive: async (chat: ChatKey) => turns().store.activeForChat(chatKeyOf(chat.channel, chat.chatId))?.id ?? null,
+      findActive: async (chat: ChatKey, forOwner?: { userId: string }) => {
+        const t = turns();
+        const active = t.store.activeForChat(chatKeyOf(chat.channel, chat.chatId));
+        if (!active) return null;
+        if (forOwner && active.owner !== deriveUserPrincipal(forOwner.userId)) {
+          // The chat key outlives the link: the handle now belongs to someone else, so the old person's conversation is closed, not shared.
+          t.store.archiveSession(active.id);
+          return null;
+        }
+        return active.id;
+      },
       create: async (chat, owner) => {
         const t = turns();
         const chatKey = chatKeyOf(chat.channel, chat.chatId);
@@ -483,7 +493,7 @@ class Host implements Switchboard {
           return t.store.createSession({ kind: "channel", agentId: t.agentId(), owner: deriveUserPrincipal(owner.userId), chatKey, title: `${chat.channel} chat` }).id;
         } catch (e) {
           const existing = t.store.activeForChat(chatKey); // a racing first message made it already
-          if (existing) return existing.id;
+          if (existing && (this.#kinds.get(chatKey) !== "direct" || existing.owner === deriveUserPrincipal(owner.userId))) return existing.id;
           throw e;
         }
       },
@@ -495,6 +505,8 @@ class Host implements Switchboard {
         const chat = parseChatKey(session.chatKey);
         if (!chat) throw new Error("malformed chat key");
         const kind = this.#kinds.get(session.chatKey);
+        // Defence in depth: a private chat's session only ever runs a turn for the person who owns it.
+        if (kind === "direct" && session.owner !== deriveUserPrincipal(input.userId)) throw new Error("session belongs to someone else");
         // D109 §5: a private chat with a linked person is surface T2; anything else (a group, an unknown chat) is the lower T1.
         const surface = kind === "direct" ? 2 : 1;
         const handle = t.runner.submit({

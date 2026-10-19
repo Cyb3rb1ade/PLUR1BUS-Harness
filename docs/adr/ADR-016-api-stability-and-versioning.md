@@ -250,6 +250,18 @@ Plan D112 (`docs/superpowers/plans/2026-10-03-d112-model-discovery.md`, `feat/d1
 
 **The WebMCP deny list.** `models.scan`, `models.setOverride`, `models.removeManual`, `models.acknowledge` were added to `FORBIDDEN_EXACT` in `packages/webmcp/src/provider.ts` so administrative model discovery operations are never exposed as WebMCP tools.
 
+## Implementation record (M1b-3 dreaming leftovers)
+
+Additive under §2, `experimental` under §4, no schema version bump (methods sit in RPC 1.6.0 with `x-since: "1.6.0"`).
+
+**RPC.** `dreams.diary` (core, experimental): params `{ agentId }`, result `{ agentId, path, exists, bytes, text, truncated }`. RBAC `agent.manage` on the agent resource; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged.
+
+**CLI `schema` id (G15).** `dreams.diary/1`. About starts with `[experimental] `.
+
+**`1staid.check/1` ids stay append-only.** `dreams.last-runs` is appended after `models.roles` (`CHECK_IDS` grows from 24 to 25).
+
+**HTTP.** `packages/api/**` was out of scope for this leftover wave. `WEB_CORE_METHODS` still lists `dreams.status|log|schedule.get|schedule.set|enable|disable|run` and not `dreams.diary`; a web `/rpc` caller gets `E_DENIED` / `web-method` for diary while local RPC and the CLI work.
+
 ## Implementation record (M2 secret store)
 
 **RPC 1.5.0, additively.** The new core methods are `secret.status`, `secret.list`, `secret.set`, `secret.get` and `secret.delete`, all `experimental`, `x-server: "core"`, `x-since: "1.5.0"`; new `$defs` `SecretBackend`, `SecretMeta`, `SecretStatus`. This change makes no version bump (the task forbade one), so the methods sit in 1.5.0; if 1.5.0 has been released by the time this merges, bump to 1.6.0 and move `x-since` with it. `secret.get` is the only method that can return a secret value (`reveal: true`), owner only.
@@ -257,3 +269,7 @@ Plan D112 (`docs/superpowers/plans/2026-10-03-d112-model-discovery.md`, `feat/d1
 **Config.** `secrets.fileFallback.enabled` (`x-restart: live`, `x-tier: advanced`, default `false`).
 
 **New CLI `schema` ids (G15).** `secret.status/1`, `secret.set/1`, `secret.get/1`, `secret.rm/1`, `secret.ls/1` (`crates/plur1bus/src/commands/secret.rs`). Every new leaf's `about` starts with `[experimental] `.
+
+## Implementation record (decision role hint, 2026-10-18)
+
+**`1staid.check/1` ids stay append-only.** `models.decision` is appended after `remote.exposure` (`CHECK_IDS` grows from 27 to 28). It reports `info` (never `warn` or `fail`) while `modelRoles.decision` is unset and `ok` once it is set. `plur1bus setup` adds `detail.decisionRole` (`{ set, limited, hint }`) to its `config` step; no new RPC, config key or error code.

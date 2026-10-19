@@ -484,7 +484,14 @@ fn config_schema_tier_basic_filters() {
     keys.sort();
     assert_eq!(
         keys,
-        ["agents", "embedding", "memory", "modelRoles", "providers"]
+        [
+            "agents",
+            "embedding",
+            "memory",
+            "modelRoles",
+            "privacy",
+            "providers"
+        ]
     );
 
     // default (no --tier) is unfiltered and tagged "all"
@@ -946,6 +953,13 @@ fn dreams_phase_commands_call_the_scheduler_methods_and_print_their_documents() 
             serde_json::json!({"schedule": schedule.clone()}),
             "dreams.disable/1",
             "deep",
+        ),
+        (
+            "dreams.diary",
+            vec!["dreams", "diary", "--agent", "bernd"],
+            serde_json::json!({"agentId": "bernd", "path": "agents/bernd/workspace/dreaming.md", "exists": true, "bytes": 12, "text": "diary body\n", "truncated": false}),
+            "dreams.diary/1",
+            "diary body",
         ),
     ];
     for (method, args, result, schema, human) in cases {

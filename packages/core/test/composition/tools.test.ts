@@ -7,6 +7,7 @@ import { RegistryError, type ToolDef, type ToolRegistry, type ToolRunContext } f
 import { CallBudgetExceededError } from "../../src/budget/index.ts";
 import { WebFailure } from "../../src/tools/web/failure.ts";
 import { OutputStore, MediaError } from "../../../media/src/index.ts";
+import { makePng } from "../../../media/test/adapters-fixtures.ts";
 import type { ChatRequest } from "../../src/session/provider.ts";
 import { useTempDirs } from "./helpers.ts";
 
@@ -21,11 +22,13 @@ const get = (r: ToolRegistry, name: string) => r.entries().find((t) => t.name ==
 
 // From docs/host-tools.md: the D106 catalogue and its capability and risk.
 const HOST: Record<string, [string, string]> = {
+  "sys.memory": ["sys.read", "low"], "sys.startupItems": ["sys.read", "low"], "sys.services": ["sys.read", "low"], "sys.updates": ["sys.read", "low"],
+  "apps.focus": ["apps.launch", "medium"], "apps.quit": ["proc.signal", "medium"], "pkg.upgrade": ["pkg.change", "high"],
   "sys.info": ["sys.read", "low"], "sys.disks": ["sys.read", "low"], "sys.network": ["sys.read", "low"], "sys.battery": ["sys.read", "low"],
   "proc.list": ["sys.read", "low"], "proc.info": ["sys.read", "low"], "proc.kill": ["proc.signal", "medium"], "proc.wait": ["sys.read", "low"],
   "pkg.detect": ["sys.read", "low"], "pkg.search": ["sys.read", "low"], "pkg.list-installed": ["sys.read", "low"], "pkg.info": ["sys.read", "low"],
   "pkg.install": ["pkg.change", "high"], "pkg.remove": ["pkg.change", "high"],
-  "apps.list": ["sys.read", "low"], "apps.open": ["sys.read", "low"], "apps.running": ["sys.read", "low"],
+  "apps.list": ["sys.read", "low"], "apps.open": ["apps.launch", "medium"], "apps.running": ["sys.read", "low"],
   "clipboard.read": ["clipboard.read", "low"], "clipboard.write": ["clipboard.read", "low"], notify: ["sys.read", "low"],
 };
 
@@ -234,8 +237,8 @@ describe("composition/tools composeTools: media generate and edit", () => {
     const calls: { op: string; request: unknown }[] = [];
     const adapter = {
       id: "fixture", model: "synthetic-1", capabilities: () => ({ generate: true, edit: true, inpaint: false }),
-      generate: async (request: unknown) => { calls.push({ op: "generate", request }); return { files: [{ bytes: new Uint8Array([1, 2, 3]), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
-      edit: async (request: unknown) => { calls.push({ op: "edit", request }); return { files: [{ bytes: new Uint8Array([4, 5, 6]), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
+      generate: async (request: unknown) => { calls.push({ op: "generate", request }); return { files: [{ bytes: makePng(), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
+      edit: async (request: unknown) => { calls.push({ op: "edit", request }); return { files: [{ bytes: makePng(), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
       ...over,
     };
     return { adapter: adapter as never, calls };
@@ -326,7 +329,7 @@ describe("composition/tools composeTools: media generate and edit", () => {
     const edited = await get(reg, "image.edit").execute({ prompt: "variation", referenceIds: [made.id] }, run()) as { id: string };
     assert.notEqual(edited.id, made.id);
     assert.deepEqual(calls.map((c) => c.op), ["generate", "edit"]);
-    assert.equal((calls[1]!.request as { referenceImages: { bytes: Uint8Array }[] }).referenceImages[0]!.bytes.length, 3);
+    assert.equal((calls[1]!.request as { referenceImages: { bytes: Uint8Array }[] }).referenceImages[0]!.bytes.length, makePng().length);
   });
 
   it("without a budget the tool still works (the budget is optional in composition)", async () => {
@@ -352,6 +355,13 @@ describe("composition/tools composeTools: web.search", () => {
     const ctx = run();
     assert.deepEqual(await t.execute({ query: "cats" }, ctx), { results: [] });
     assert.deepEqual(seen!.args, { query: "cats" }); assert.equal(seen!.signal, ctx.signal);
+  });
+
+  it("tells the search service which agent and session call, so the provider can be chosen per agent (D95)", async () => {
+    let seen: { agentId?: string; sessionId?: string } | undefined;
+    const t = get(await composeTools(options({ webSearch: search(async (_args, o) => { seen = o as never; return { results: [] }; }) }), turn()), "web.search");
+    await t.execute({ query: "cats" }, run());
+    assert.equal(seen!.agentId, "a1"); assert.equal(seen!.sessionId, "s1");
   });
 
   it("a typed web failure becomes a tool-failed error carrying the structured result", async () => {

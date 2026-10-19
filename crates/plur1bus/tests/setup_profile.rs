@@ -195,30 +195,26 @@ fn rerun_without_use_class_keeps_the_recorded_class() {
 
 #[test]
 fn a_profile_change_is_refused_and_changes_nothing() {
-    for (first, second, hint) in [
-        ("host", "full", "host \u{2192} full arrives with HM4"),
-        (
-            "full",
-            "host",
-            "Hermes on an existing full installation arrives with HM4",
-        ),
-    ] {
-        let e = Env::new();
-        let (code, v) = e.setup(&["--non-interactive", "--no-service", "--profile", first]);
-        assert_success(code, &v);
-        assert_eq!(v["manifest"]["profile"], first);
-        // A running supervisor keeps writing its logs; stop it so the tree holds still.
-        let stop = e.cmd(&["daemon", "stop"]).output().unwrap();
-        assert!(stop.status.success(), "{stop:?}");
-        let before = tree(&e.home);
-        let (code, v) = e.setup(&["--non-interactive", "--no-service", "--profile", second]);
-        assert_refused_as_profile_change(code, &v, hint);
-        assert_eq!(
-            tree(&e.home),
-            before,
-            "{first} -> {second} changed the home"
-        );
-    }
+    let (first, second, hint) = (
+        "full",
+        "host",
+        "Hermes on an existing full installation arrives with HM4",
+    );
+    let e = Env::new();
+    let (code, v) = e.setup(&["--non-interactive", "--no-service", "--profile", first]);
+    assert_success(code, &v);
+    assert_eq!(v["manifest"]["profile"], first);
+    // A running supervisor keeps writing its logs; stop it so the tree holds still.
+    let stop = e.cmd(&["daemon", "stop"]).output().unwrap();
+    assert!(stop.status.success(), "{stop:?}");
+    let before = tree(&e.home);
+    let (code, v) = e.setup(&["--non-interactive", "--no-service", "--profile", second]);
+    assert_refused_as_profile_change(code, &v, hint);
+    assert_eq!(
+        tree(&e.home),
+        before,
+        "{first} -> {second} changed the home"
+    );
 }
 
 #[test]
@@ -256,12 +252,15 @@ fn firstaid_check_passes_on_a_host_profile() {
     assert_eq!(v["check"]["fail"], 0, "{v:#}");
     // Every row that is not `ok` is one a full `--no-service` install shows as well: a module or skill row reporting
     // drift as a warning would not pass.
-    const EXPECTED: [(&str, &str); 5] = [
+    const EXPECTED: [(&str, &str); 7] = [
         ("service.registration", "warn"),
         ("models.cache", "warn"),
         ("memory.shared", "skip"),
         ("windows.pipe-acl", "skip"),
         ("models.roles", "skip"),
+        ("dreams.last-runs", "skip"),
+        // Setup asks no model question; the row informs about the rule triage (never a warning).
+        ("models.decision", "info"),
     ];
     // A row the pass never reached before its 3 s budget reads `warn` "time budget exhausted". That is no finding
     // (repair plans nothing for it). On windows-2025 the last three rows read it on every pass for 90 s (CI round 2):
@@ -461,4 +460,62 @@ fn an_unknown_profile_is_a_usage_error_and_creates_nothing() {
         "{out:?}"
     );
     assert!(!e.home.exists());
+}
+
+#[test]
+fn host_upgrade_injected_failure_rolls_back_and_dry_run_is_read_only() {
+    let e = Env::new();
+    let (code, v) = e.setup(&HOST);
+    assert_success(code, &v);
+    assert!(e
+        .cmd(&["daemon", "stop"])
+        .output()
+        .unwrap()
+        .status
+        .success());
+    std::fs::create_dir_all(e.home.join("state/lancedb")).unwrap();
+    let store = e.home.join("state/lancedb/fact");
+    std::fs::write(&store, "keep-memory").unwrap();
+    let before = tree(&e.home);
+    let dry = e
+        .cmd(&["--json", "setup", "--profile", "full", "--dry-run"])
+        .output()
+        .unwrap();
+    assert!(dry.status.success());
+    assert_eq!(tree(&e.home), before);
+    let out = e
+        .cmd(&[
+            "--json",
+            "setup",
+            "--profile",
+            "full",
+            "--non-interactive",
+            "--no-service",
+            "--core-from",
+            payload().to_str().unwrap(),
+        ])
+        .env("PLUR1BUS_TEST_HM4_FAIL_AT", "runtime.node")
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let doc: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(doc.to_string().contains("rolled back"), "{doc:#}");
+    assert_eq!(read_json(&e.home.join("manifest.json"))["profile"], "host");
+    assert_eq!(std::fs::read_to_string(&store).unwrap(), "keep-memory");
+    assert!(!e.home.join(".profile-upgrade").exists());
+}
+
+#[test]
+fn host_upgrades_to_full_with_same_store_path() {
+    let e = Env::new();
+    let (code, doc) = e.setup(&HOST);
+    assert_success(code, &doc);
+    std::fs::create_dir_all(e.home.join("state/lancedb")).unwrap();
+    let store = e.home.join("state/lancedb/fact");
+    std::fs::write(&store, "keep-memory").unwrap();
+    let (code, doc) = e.setup(&["--non-interactive", "--no-service", "--profile", "full"]);
+    assert_eq!(code, 0, "{doc:#}");
+    assert_eq!(doc["upgraded"], true);
+    assert_eq!(read_json(&e.home.join("manifest.json"))["profile"], "full");
+    assert_eq!(std::fs::read_to_string(&store).unwrap(), "keep-memory");
 }

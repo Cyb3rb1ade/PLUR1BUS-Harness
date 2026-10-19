@@ -79,6 +79,57 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
     })
 }
 
+/// The first-party HTTP API has its own monitored slot; it always binds loopback.
+pub fn api_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String> {
+    let entry = std::env::var_os("PLUR1BUS_API_JS")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            if let Some(core) = std::env::var_os("PLUR1BUS_CORE_JS") {
+                let core = PathBuf::from(core);
+                if let Some(parent) = core.parent() {
+                    let sibling = parent.join("api.js");
+                    if sibling.is_file() {
+                        return sibling;
+                    }
+                }
+                if let Some(packages) = core
+                    .parent()
+                    .and_then(|p| p.parent())
+                    .and_then(|p| p.parent())
+                {
+                    let development = packages.join("api/dist/api.js");
+                    if development.is_file() {
+                        return development;
+                    }
+                }
+            }
+            layout.home.join("runtime/core/api.js")
+        });
+    if !entry.is_file() {
+        return Err(format!(
+            "api.js not found at {} (set PLUR1BUS_API_JS or run setup)",
+            entry.display()
+        ));
+    }
+    Ok(ChildSpec {
+        role: "api".into(),
+        program: locate_node(layout),
+        args: vec![
+            entry.into(),
+            "--home".into(),
+            layout.home.clone().into(),
+            "--host".into(),
+            "127.0.0.1".into(),
+            "--lifeline".into(),
+            "stdin".into(),
+            "--instance".into(),
+            instance_id.into(),
+        ],
+        env: Vec::new(),
+        cwd: None,
+    })
+}
+
 /// An installed module: `node <dir>/<entry> --home <home> --module <name> [--lifeline stdin] --instance <id>`, run in
 /// its own directory (`--lifeline stdin` unless the manifest says `lifeline: false`). Fails when its manifest is
 /// invalid.
@@ -160,6 +211,7 @@ pub fn spec_for(layout: &Layout, role: &Role, instance_id: &str) -> Result<Child
         RoleKind::Core => {
             core_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
         }
+        RoleKind::Api => api_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e)),
         RoleKind::Module => module_plan(layout, role, instance_id).map(|p| p.spec),
     }
 }
@@ -256,7 +308,7 @@ pub fn ready_timeout(kind: RoleKind, scale: f64, core_floor: bool) -> Duration {
     match kind {
         RoleKind::Core if core_floor => scaled.max(CORE_READY_FLOOR),
         RoleKind::Core => scaled,
-        RoleKind::Module => scaled.max(MODULE_READY_FLOOR),
+        RoleKind::Module | RoleKind::Api => scaled.max(MODULE_READY_FLOOR),
     }
 }
 
@@ -507,7 +559,7 @@ impl Monitor {
         };
         // `logs/core.out.log`; a module's is `logs/module-<name>.out.log`, beside the `module-<name>.log` it writes.
         let out_path = match role.kind {
-            RoleKind::Core => layout.out_log(&role.name),
+            RoleKind::Core | RoleKind::Api => layout.out_log(&role.name),
             RoleKind::Module => layout.out_log(&format!("module-{}", role.name)),
         };
         let out = match RotatingFile::open(&out_path, max_bytes, keep) {
@@ -755,6 +807,12 @@ impl Monitor {
         self.start_thread(&format!("{}-shutdown-{}", gen.role, gen.pid), move || {
             let params = json!({ "budgetMs": budget_ms });
             let method = c.role.method("shutdown");
+            if c.role.kind == RoleKind::Api {
+                // Closing stdin is the cross-platform lifeline stop; the API owns its graceful cleanup.
+                relock(&g.stdin).take();
+                let _ = tx.send(true);
+                return;
+            }
             let mut sent = false;
             if let Ok(mut ctl) = g.control.try_lock() {
                 if let Some(client) = ctl.as_mut() {
@@ -1004,6 +1062,10 @@ fn sleep_while_alive(gen: &Gen, d: Duration) -> bool {
 /// Readiness (connect + `core.auth` every 100 ms), then `core.status` every health interval. It only observes:
 /// the waiter enforces the ready timeout and the hang threshold.
 fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
+    if ctx.role.kind == RoleKind::Api {
+        api_health_loop(shared, ctx, gen);
+        return;
+    }
     if gen.peer.is_none() {
         wait_ready(shared, ctx, gen);
     }
@@ -1013,6 +1075,77 @@ fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     if gen.lifeline_in_control.swap(false, Ordering::SeqCst) {
         *relock(&gen.parked) = last;
     }
+}
+
+/// The HTTP child reports privately, then the supervisor verifies /meta before publishing api.json.
+fn api_health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
+    let client = reqwest::blocking::Client::builder()
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(ctx.timing.poll_deadline)
+        .build();
+    loop {
+        if gen.exited.load(Ordering::SeqCst) || gen.requested.load(Ordering::SeqCst) {
+            break;
+        }
+        let report = std::fs::read(ctx.layout.run().join("api-listen.json"))
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok());
+        let verified = report
+            .filter(|r| {
+                r["pid"].as_u64() == Some(u64::from(gen.pid))
+                    && r["address"] == "127.0.0.1"
+                    && r["port"].as_u64().is_some_and(|p| p > 0 && p <= 65535)
+            })
+            .filter(|r| {
+                let Ok(c) = &client else {
+                    return false;
+                };
+                c.get(format!("http://127.0.0.1:{}/api/v1/meta", r["port"]))
+                    .send()
+                    .ok()
+                    .filter(|res| res.status().is_success())
+                    .and_then(|res| res.text().ok())
+                    .and_then(|b| serde_json::from_str::<Value>(&b).ok())
+                    .is_some_and(|meta| {
+                        meta["version"] == r["version"] && meta["pairingRequired"] == true
+                    })
+            });
+        if let Some(report) = verified {
+            *relock(&gen.last_ok) = Instant::now();
+            if !gen.ready.swap(true, Ordering::SeqCst) {
+                // A fresh private file, never follow an old symlink or retain trailing bytes.
+                let path = ctx.layout.run().join("api.json");
+                let _ = std::fs::remove_file(&path);
+                let write = super::logfile::open_private_append(&path).and_then(|mut f| {
+                    f.write_all(report.to_string().as_bytes())?;
+                    f.sync_all()
+                });
+                if write.is_err() {
+                    gen.ready.store(false, Ordering::SeqCst);
+                    gen.kill();
+                    break;
+                }
+                if let Some(slot) = slot_mut(&mut shared.lock(), "api") {
+                    slot.backoff.on_ready(Instant::now());
+                }
+            }
+            set_health(shared, gen, Health::Ready, false);
+        } else if gen.ready.load(Ordering::SeqCst) {
+            set_health(shared, gen, Health::Degraded("unresponsive".into()), false);
+        }
+        if !sleep_while_alive(
+            gen,
+            if gen.ready.load(Ordering::SeqCst) {
+                ctx.timing.current(shared).health_interval
+            } else {
+                ctx.timing.ready_poll
+            },
+        ) {
+            break;
+        }
+    }
+    let _ = std::fs::remove_file(ctx.layout.run().join("api.json"));
 }
 
 /// Readiness of a spawned core: connect + `core.auth` every 100 ms, then one `core.status`; the connection becomes
@@ -1499,6 +1632,32 @@ fn mark_exited(g: &Gen) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn api_spec_is_a_loopback_child_with_stdin_lifeline_and_atomic_runtime_payload() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(dir.path().join("runtime/core")).unwrap();
+        std::fs::write(dir.path().join("runtime/core/api.js"), "").unwrap();
+        let spec = api_spec(&layout, "fixture");
+        // Test runners may explicitly override the runtime paths; that contract remains authoritative.
+        if std::env::var_os("PLUR1BUS_API_JS").is_none()
+            && std::env::var_os("PLUR1BUS_CORE_JS").is_none()
+        {
+            let spec = spec.unwrap();
+            assert_eq!(spec.role, "api");
+            let args: Vec<_> = spec
+                .args
+                .iter()
+                .map(|v| v.to_string_lossy().to_string())
+                .collect();
+            assert!(args.windows(2).any(|a| a == ["--host", "127.0.0.1"]));
+            assert!(args.windows(2).any(|a| a == ["--lifeline", "stdin"]));
+            assert!(args.windows(2).any(|a| a == ["--instance", "fixture"]));
+        }
+        assert_eq!(Role::api().kind, RoleKind::Api);
+        assert_eq!(fresh_child(&Role::api()).to_json()["kind"], "api");
+    }
 
     #[test]
     fn child_env_passes_the_run_acl_only_when_it_was_set() {

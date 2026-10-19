@@ -56,11 +56,9 @@ describe("mapEngineEvent redaction", () => {
 });
 
 describe("audience of per-agent events", () => {
-  // KNOWN GAP (see report): every event below is delivered by params.agentId only to subscriptions that filter on that agent,
-  // but to EVERY subscription without an agent filter, and events.subscribe checks no caller rights. Naming the agent as the
-  // audience would close that, yet core.test.ts ("a subscriber without names gets recall.completed") depends on unfiltered delivery
-  // and the Transport PR #468 consumes these events: that is a decision for the owner, not for this module.
   for (const name of Object.keys(AGENT_EVENTS)) {
-    test.todo(`KNOWN GAP: ${name} names its agent as the audience instead of being delivered to every unfiltered subscription`);
+    test(`${name} names its agent as the audience`, () => {
+      assert.deepEqual(mapEngineEvent(name, AGENT_EVENTS[name])!.audience, ["bernd"]);
+    });
   }
 });

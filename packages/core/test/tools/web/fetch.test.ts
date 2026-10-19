@@ -432,3 +432,116 @@ describe("web.fetch: the egress gate applies to every request it makes", () => {
     }
   });
 });
+
+describe("web.fetch: walls, sniffing and long documents (corpus regressions)", () => {
+  const html = (body: string, head = "") => `<!doctype html><html><head><title>t</title>${head}</head><body>${body}</body></html>`;
+  const serve = async (status: number, ct: string, body: string | Buffer, headers: Record<string, string> = {}) => startStub(send(ct, body, status, headers));
+
+  it("a CAPTCHA page is captcha whatever its status; a 429 with a CAPTCHA keeps Retry-After; a plain 429 stays rate-limited", async () => {
+    const wall = html('<main><h1>Verify</h1><div class="h-captcha"></div></main>');
+    const s = await serve(429, "text/html", wall, { "retry-after": "30" });
+    const plain = await serve(429, "text/plain", "slow down", { "retry-after": "30" });
+    try {
+      await assert.rejects(mk().fetch({ url: `http://127.0.0.1:${s.port}/` }), (e: unknown) => e instanceof WebFailure && e.code === "captcha" && e.extra.status === 429 && e.extra.retryAfterSeconds === 30);
+      await fails(mk().fetch({ url: `http://127.0.0.1:${plain.port}/` }), "rate-limited");
+    } finally {
+      await s.close();
+      await plain.close();
+    }
+  });
+
+  it("a 403 sign-in page and a 200 sign-in wall are both auth-required", async () => {
+    const form = html('<main><h1>Sign in</h1><form><input type="password"></form></main>');
+    const a = await serve(403, "text/html", form);
+    const b = await serve(200, "text/html", form);
+    try {
+      await fails(mk().fetch({ url: `http://127.0.0.1:${a.port}/` }), "auth-required");
+      await fails(mk().fetch({ url: `http://127.0.0.1:${b.port}/` }), "auth-required");
+    } finally {
+      await a.close();
+      await b.close();
+    }
+  });
+
+  it("a teaser with a visible paywall prompt is paywall, with the status; the same markup in a full article is returned", async () => {
+    const teaser = html('<main><article class="paywalled"><h1>Story</h1><p>Two sentences. Then it stops.</p><div class="paywall">Subscribe to keep reading</div></article></main>');
+    const full = html(`<main><article><h1>Story</h1><p>${"A full paragraph of real text. ".repeat(80)}</p><div class="paywall" style="display:none">Subscribe</div></article></main>`);
+    const a = await serve(200, "text/html", teaser);
+    const b = await serve(200, "text/html", full);
+    try {
+      await assert.rejects(mk().fetch({ url: `http://127.0.0.1:${a.port}/` }), (e: unknown) => e instanceof WebFailure && e.code === "paywall" && e.extra.status === 200);
+      assert.match((await mk().fetch({ url: `http://127.0.0.1:${b.port}/` })).markdown, /full paragraph/);
+    } finally {
+      await a.close();
+      await b.close();
+    }
+  });
+
+  it("an HTML page labelled octet-stream or text/plain is read as HTML; other octet-streams and binary files under any label are refused", async () => {
+    const page = html("<main><h1>Real page</h1><p>Content.</p></main>");
+    const o = await serve(200, "application/octet-stream", page);
+    const p = await serve(200, "text/plain", page);
+    const pdf = await serve(200, "text/html", "%PDF-1.7\n1 0 obj");
+    const zip = await serve(200, "text/plain", Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]));
+    const text = await serve(200, "text/plain", "RIFF notes and GIF8 tips are ordinary text");
+    try {
+      assert.match((await mk().fetch({ url: `http://127.0.0.1:${o.port}/` })).markdown, /^# Real page/);
+      assert.match((await mk().fetch({ url: `http://127.0.0.1:${p.port}/` })).markdown, /^# Real page/);
+      assert.equal((await mk().fetch({ url: `http://127.0.0.1:${p.port}/`, mode: "raw" })).markdown, page, "raw mode never reinterprets");
+      await fails(mk().fetch({ url: `http://127.0.0.1:${pdf.port}/` }), "unsupported-type");
+      await fails(mk().fetch({ url: `http://127.0.0.1:${zip.port}/` }), "unsupported-type");
+      assert.match((await mk().fetch({ url: `http://127.0.0.1:${text.port}/` })).markdown, /^RIFF notes/);
+    } finally {
+      for (const s of [o, p, pdf, zip, text]) await s.close();
+    }
+  });
+
+  it("a document with more sections than the table of contents lists says how many there are, and the ids beyond the list still work", async () => {
+    const body = Array.from({ length: 250 }, (_, i) => `<h2>Part ${i}</h2><p>Text of part ${i}.</p>`).join("");
+    const s = await serve(200, "text/html", html(`<main><h1>Big</h1>${body}</main>`));
+    try {
+      const r = await mk().fetch({ url: `http://127.0.0.1:${s.port}/` });
+      assert.equal(r.sections.length, 200);
+      assert.equal(r.sectionsTotal, 251);
+      const last = await mk().fetch({ url: `http://127.0.0.1:${s.port}/`, section: "Part 249" });
+      assert.match(last.markdown, /Text of part 249/);
+      assert.equal((await mk().fetch({ url: `http://127.0.0.1:${s.port}/` })).sectionsTotal, 251);
+    } finally {
+      await s.close();
+    }
+  });
+
+  it("chunks end at a paragraph, line or word boundary: the cursor walk gives back every word", async () => {
+    const words = Array.from({ length: 3000 }, (_, i) => `word${i}`).join(" ");
+    const s = await serve(200, "text/plain", words);
+    try {
+      const f = mk();
+      let r = await f.fetch({ url: `http://127.0.0.1:${s.port}/`, maxTokens: 500 });
+      const got: string[] = [r.markdown];
+      while (r.cursor) {
+        r = await f.fetch({ url: `http://127.0.0.1:${s.port}/`, cursor: r.cursor, maxTokens: 500 });
+        got.push(r.markdown);
+      }
+      assert.ok(got.length > 3);
+      assert.equal(got.join(" "), words);
+    } finally {
+      await s.close();
+    }
+  });
+
+  it("an unexpected exception is traced as internal-error, not as a network error", async () => {
+    const events: string[] = [];
+    class Faulty extends DocStore {
+      override put(): string {
+        throw new Error("boom");
+      }
+    }
+    const s = await serve(200, "text/plain", "x ".repeat(5000));
+    try {
+      await assert.rejects(mk({ store: new Faulty(), trace: (e: { error?: string }) => events.push(String(e.error)) }).fetch({ url: `http://127.0.0.1:${s.port}/`, maxTokens: 100 }), /boom/);
+      assert.deepEqual(events, ["internal-error"]);
+    } finally {
+      await s.close();
+    }
+  });
+});

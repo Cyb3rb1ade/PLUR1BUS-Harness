@@ -1,7 +1,10 @@
 // The one HTTP client the web tools use. Every hop — the first request and each redirect — goes through the SSRF
 // guard (`resolveGuarded`), connects to the vetted address only (the socket's `lookup` is pinned, so the name is
 // never resolved a second time: no DNS rebinding), and runs under one shared deadline and one byte cap that
-// counts DECOMPRESSED bytes. No cookies, no credentials, no caller headers are ever forwarded.
+// counts DECOMPRESSED bytes. The web tools send no cookies, no credentials and no caller headers. A harness-owned
+// provider call (egress.request with `method`/`headers`/`body`, e.g. a model API POST) may send its own headers and a
+// capped body; those calls never follow a redirect (the 3xx is returned as is), so a body or an Authorization header
+// never reaches a host the request was not addressed to.
 import http from "node:http";
 import https from "node:https";
 import { createBrotliDecompress, createGunzip, createInflate, type BrotliDecompress, type Gunzip, type Inflate } from "node:zlib";
@@ -17,6 +20,8 @@ export interface HttpOptions {
   maxRedirects?: number | undefined;
   /** Cap on the decompressed body. Default 20 MB (D94). */
   maxBytes?: number | undefined;
+  /** Read up to this many (decompressed) bytes of an error response (status >= 400) so the caller can recognise a CAPTCHA or a login form. Default 0: error bodies are discarded. */
+  errorBodyBytes?: number | undefined;
   /** One deadline for the whole call, all hops and the body. Default 30 s. */
   timeoutMs?: number | undefined;
   userAgent: string;
@@ -28,6 +33,42 @@ export interface HttpOptions {
   gate?: { beforeResolve(url: URL): void; afterResolve(url: URL, pin: ResolvedAddress): void } | undefined;
   /** Extra trusted CA (PEM) — for tests with a local TLS stub; production uses the system store. */
   tlsCa?: string | undefined;
+  /** HTTP method. Default GET. Any other method (or a body) turns redirect following off: a 3xx is returned unread. */
+  method?: HttpMethod | undefined;
+  /** Caller headers for a harness-owned provider call (e.g. authorization, content-type). Connection-level headers are refused. */
+  headers?: Readonly<Record<string, string>> | undefined;
+  /** Request body, sent with a computed content-length (never chunked). Capped by `maxRequestBytes`. */
+  body?: string | Uint8Array | undefined;
+  /** Cap on the request body. Default 20 MB. */
+  maxRequestBytes?: number | undefined;
+}
+
+export type HttpMethod = "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE";
+const METHODS = new Set<string>(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]);
+/** Set by the client itself or connection-level: a caller can neither smuggle a second request nor redirect the socket. */
+const RESERVED_HEADERS = new Set(["host", "connection", "content-length", "transfer-encoding", "te", "trailer", "upgrade", "keep-alive", "expect", "proxy-authorization", "proxy-connection", "accept-encoding", "cookie"]);
+const TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
+/** Validated caller headers (lower-cased names) and the body as bytes; throws `invalid-url` (or `too-large`) before any I/O. */
+function requestParts(o: HttpOptions): { method: HttpMethod; headers: Record<string, string>; body: Buffer | undefined } {
+  const method = (o.method ?? "GET").toUpperCase();
+  if (!METHODS.has(method)) throw new WebFailure("invalid-url", `method ${JSON.stringify(method.slice(0, 16))} is not allowed`);
+  const headers: Record<string, string> = {};
+  for (const [rawName, value] of Object.entries(o.headers ?? {})) {
+    const name = rawName.toLowerCase();
+    if (!TOKEN.test(name)) throw new WebFailure("invalid-url", "a request header name is not a valid token");
+    if (RESERVED_HEADERS.has(name) || name.startsWith("proxy-")) throw new WebFailure("invalid-url", `request header ${name} is set by the client and cannot be given`);
+    if (typeof value !== "string" || /[\r\n\0]/.test(value)) throw new WebFailure("invalid-url", `request header ${name} has an invalid value`);
+    headers[name] = value;
+  }
+  let body: Buffer | undefined;
+  if (o.body !== undefined) {
+    if (method === "GET" || method === "HEAD") throw new WebFailure("invalid-url", `a ${method} request has no body`);
+    body = typeof o.body === "string" ? Buffer.from(o.body, "utf8") : Buffer.from(o.body);
+    const cap = o.maxRequestBytes ?? DEFAULT_MAX_BYTES;
+    if (body.length > cap) throw new WebFailure("too-large", `request body is ${body.length} bytes (limit ${cap})`);
+  }
+  return { method: method as HttpMethod, headers, body };
 }
 
 export interface HttpResponse {
@@ -35,7 +76,7 @@ export interface HttpResponse {
   url: string;
   status: number;
   headers: http.IncomingHttpHeaders;
-  /** Empty for status >= 400 and for 3xx. */
+  /** Empty for 3xx, and for status >= 400 unless `errorBodyBytes` asked for a (possibly cut-off) copy. */
   body: Buffer;
   /** Every URL requested before `url`, in order. */
   redirects: string[];
@@ -79,6 +120,21 @@ function decoders(encodingHeader: string | undefined): Array<Gunzip | Inflate | 
   return out;
 }
 
+/** Read at most `max` bytes and stop; a longer body is cut, never an error (used for error pages, which are only inspected). */
+async function readUpTo(stream: Readable, max: number): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of stream) {
+    chunks.push(chunk as Buffer);
+    total += (chunk as Buffer).length;
+    if (total >= max) {
+      stream.destroy();
+      break;
+    }
+  }
+  return Buffer.concat(chunks).subarray(0, max);
+}
+
 async function readCapped(stream: Readable, maxBytes: number): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
@@ -99,7 +155,7 @@ function mapError(err: unknown): WebFailure {
 }
 
 /** One hop. Resolves with the response, its headers and (for 2xx) the capped, decoded body. */
-function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number }, signal: AbortSignal): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: Buffer }> {
+function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number; parts: ReturnType<typeof requestParts> }, signal: AbortSignal): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: Buffer }> {
   return new Promise((resolve, reject) => {
     const secure = url.protocol === "https:";
     const hostname = url.hostname.startsWith("[") ? url.hostname.slice(1, -1) : url.hostname;
@@ -108,7 +164,7 @@ function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number
         host: hostname,
         port: url.port === "" ? (secure ? 443 : 80) : Number(url.port),
         path: `${url.pathname}${url.search}`,
-        method: "GET",
+        method: o.parts.method,
         agent: false,
         lookup: makePinnedLookup(pin) as never,
         // SNI and certificate verification use the NAME; an IP literal has no name to verify against.
@@ -117,8 +173,10 @@ function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number
         headers: {
           "user-agent": o.userAgent,
           accept: o.accept ?? "text/html,application/xhtml+xml,text/plain;q=0.9,application/json;q=0.8,*/*;q=0.1",
+          ...o.parts.headers,
           "accept-encoding": "gzip, deflate, br",
           connection: "close",
+          ...(o.parts.body ? { "content-length": String(o.parts.body.length) } : {}),
         },
       },
       (res) => {
@@ -129,8 +187,25 @@ function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number
           return resolve({ status, headers, body: Buffer.alloc(0) });
         }
         if (status < 200 || status >= 400) {
-          res.destroy();
-          return resolve({ status, headers, body: Buffer.alloc(0) });
+          const peek = status >= 400 ? (o.errorBodyBytes ?? 0) : 0;
+          if (peek <= 0) {
+            res.destroy();
+            return resolve({ status, headers, body: Buffer.alloc(0) });
+          }
+          void (async () => {
+            try {
+              let stream: Readable = res;
+              for (const d of decoders(headers["content-encoding"])) {
+                stream.on("error", (e) => d.destroy(e));
+                stream = stream.pipe(d);
+              }
+              resolve({ status, headers, body: await readUpTo(stream, peek) });
+            } catch {
+              res.destroy();
+              resolve({ status, headers, body: Buffer.alloc(0) }); // an unreadable error page is still an error status
+            }
+          })();
+          return;
         }
         void (async () => {
           try {
@@ -159,15 +234,18 @@ function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number
     signal.addEventListener("abort", onAbort, { once: true });
     req.on("error", reject);
     req.on("close", () => signal.removeEventListener("abort", onAbort));
-    req.end();
+    req.end(o.parts.body);
   });
 }
 
 export async function guardedRequest(rawUrl: string, options: HttpOptions): Promise<HttpResponse> {
   const resolver = options.resolver ?? systemResolver;
   const policy = options.policy ?? makeAddressPolicy([]);
-  const maxRedirects = options.maxRedirects ?? 10;
-  const o = { ...options, maxBytes: options.maxBytes ?? DEFAULT_MAX_BYTES };
+  const parts = requestParts(options);
+  // Only a plain GET/HEAD without caller headers follows redirects: a provider call's body and headers stay with its host.
+  const follows = (parts.method === "GET" || parts.method === "HEAD") && parts.body === undefined && Object.keys(parts.headers).length === 0;
+  const maxRedirects = follows ? (options.maxRedirects ?? 10) : 0;
+  const o = { ...options, maxBytes: options.maxBytes ?? DEFAULT_MAX_BYTES, parts };
 
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
@@ -185,7 +263,7 @@ export async function guardedRequest(rawUrl: string, options: HttpOptions): Prom
       options.gate?.afterResolve(url, pin);
       const r = await hop(url, pin, o, ac.signal);
       const location = r.headers.location;
-      if (REDIRECT.has(r.status) && typeof location === "string" && location !== "") {
+      if (follows && REDIRECT.has(r.status) && typeof location === "string" && location !== "") {
         if (redirects.length >= maxRedirects) throw new WebFailure("too-many-redirects", `more than ${maxRedirects} redirects`);
         redirects.push(url.href);
         try {

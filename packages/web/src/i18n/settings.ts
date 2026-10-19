@@ -1,6 +1,23 @@
 // settings area catalogue (Settings page, `/settings/<section>`): keys `settings.<topic>`; en and de have the same keys and
 // {placeholders}. The section labels are read by src/settings-sections.ts. The page agent adds its own keys below.
 export const en = {
+  "settings.roles.test": "Test",
+  "settings.roles.testHint": "Sends a short model request, charged to your budget. Cloud models send it to their provider.",
+  "settings.roles.testRunning": "Testing (maximum 10 seconds)…",
+  "settings.roles.testOk": "Model responded successfully.",
+  "settings.roles.testFailed": "Model test failed. Check credentials, egress and budget, or try again after a timeout.",
+
+  "settings.roles.chat": "Main conversation model.",
+  "settings.roles.reasoning": "Model for tasks requiring reasoning.",
+  "settings.roles.capture": "Extracts facts for memory.",
+  "settings.roles.dream": "Processes and consolidates memory.",
+  "settings.roles.embedding": "Embedding role metadata; changing the stored vector space requires a re-embedding migration.",
+  "settings.roles.rerank": "Ranks retrieved memory results.",
+  "settings.roles.decision": "Model-based triage, tool preselection by category, and model class and reasoning effort per task.",
+  "settings.roles.summarize": "Writes session compaction summaries; without it a deterministic digest is used.",
+  "settings.roles.unavailable": "unavailable",
+  "settings.roles.licenceRequired": "licence confirmation required",
+
   "settings.title": "Settings",
   "settings.nav": "Settings sections",
   "settings.section.general": "General",
@@ -8,6 +25,7 @@ export const en = {
   "settings.section.memory": "Memory",
   "settings.section.extensions": "Extensions",
   "settings.section.network": "Network",
+  "settings.section.privacy": "Privacy",
   "settings.section.users": "Users & roles",
   "settings.section.providers": "Providers",
   "settings.section.secrets": "Secrets",
@@ -104,6 +122,23 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "settings.roles.test": "Test",
+  "settings.roles.testHint": "Sendet eine kurze Modellanfrage über dein Budget. Bei Cloud-Modellen geht sie an den Anbieter.",
+  "settings.roles.testRunning": "Test läuft (höchstens 10 Sekunden)…",
+  "settings.roles.testOk": "Das Modell hat erfolgreich geantwortet.",
+  "settings.roles.testFailed": "Modelltest fehlgeschlagen. Prüfe Zugangsdaten, Egress und Budget oder versuche es nach einem Timeout erneut.",
+
+  "settings.roles.chat": "Hauptmodell für Gespräche.",
+  "settings.roles.reasoning": "Modell für Aufgaben mit Denkaufwand.",
+  "settings.roles.capture": "Extrahiert Fakten für das Gedächtnis.",
+  "settings.roles.dream": "Verarbeitet und konsolidiert das Gedächtnis.",
+  "settings.roles.embedding": "Embedding-Rollenmetadaten; ein Wechsel des gespeicherten Vektorraums benötigt eine Reembedding-Migration.",
+  "settings.roles.rerank": "Sortiert gefundene Gedächtniseinträge.",
+  "settings.roles.decision": "Modellbasierte Triage, Werkzeug-Vorauswahl nach Kategorie sowie Modellklasse und Denkaufwand je Aufgabe.",
+  "settings.roles.summarize": "Schreibt Zusammenfassungen zur Sitzungskompaktierung; ohne Modell wird ein deterministischer Digest verwendet.",
+  "settings.roles.unavailable": "nicht verfügbar",
+  "settings.roles.licenceRequired": "Lizenzbestätigung erforderlich",
+
   "settings.title": "Einstellungen",
   "settings.nav": "Einstellungsbereiche",
   "settings.section.general": "Allgemein",
@@ -111,6 +146,7 @@ export const de: Record<keyof typeof en, string> = {
   "settings.section.memory": "Gedächtnis",
   "settings.section.extensions": "Erweiterungen",
   "settings.section.network": "Netzwerk",
+  "settings.section.privacy": "Datenschutz",
   "settings.section.users": "Benutzer & Rollen",
   "settings.section.providers": "Provider",
   "settings.section.secrets": "Geheimnisse",

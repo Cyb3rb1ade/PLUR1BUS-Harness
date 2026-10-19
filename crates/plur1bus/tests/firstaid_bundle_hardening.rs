@@ -131,7 +131,7 @@ fn unzip(path: &Path) -> BTreeMap<String, Vec<u8>> {
         let mut f = z.by_index(i).unwrap();
         let mut b = Vec::new();
         f.read_to_end(&mut b).unwrap();
-        out.insert(f.name().to_string(), b);
+        out.insert(f.name().expect("zip entry name").to_string(), b);
     }
     out
 }
