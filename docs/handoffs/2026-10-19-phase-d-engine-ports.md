@@ -32,7 +32,9 @@ and their RPC/UI wiring remain separate work.
 
 Validation results:
 
-- Focused host/provider/contract/egress/HTTP/error-map suite: 240 passed.
+- Focused host/provider/contract/egress/HTTP/error-map suite: 241 passed.
+- Standalone import/probe regression suite after port wiring: 1,098 tests, 1,082 passed, the same nine baseline
+  path/rollback failures, four skipped and three todo.
 - Built CLI-entry and Core regression rerun: 45 passed.
 - `pnpm lint`: passed (including typecheck, build/generation, hygiene, i18n and 106 tooling tests).
 - Full Core run: 9,602 tests, 9,537 passed, 19 failed, 21 skipped, 25 todo. Nine entrypoint failures came from the
@@ -43,6 +45,8 @@ Validation results:
   checkout also gives 64 passed / 9 failed; failures involve canonical `/private` versus symlinked temporary paths.
   These import/path behaviors were left in their owning scope.
 
-The ports above are wired at the running Core composition root. Standalone importer/probe helper hosts still construct
-engines separately and remain a follow-up for shared host composition; this change does not claim their network or
-secret-store wiring. The controller’s ongoing import-link/rollback changes are kept separate.
+The ports are wired at the running Core composition root and at standalone importer/probe hosts. Store probes use
+scratch state directories, but their network policy and keys come from the actual target home. They re-read that
+home’s validated configuration for each request/lease and never initialize a missing config file. The additional
+regression test uses different scratch/target homes, an encrypted file secret backend and a live policy change.
+The controller’s ongoing import-link/rollback logic remains separate.

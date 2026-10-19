@@ -147,3 +147,28 @@ test("aborting a stalled request body rejects fetch and cancels its source befor
   clearTimeout(timer!);
   assert.equal(settled, "aborted"); assert.equal(cancelled, true);
 });
+
+test("standalone probe hosts use the target home's live egress and encrypted secret store", async t => {
+  const { createTempHost } = await import("../src/import/importers/hermes-stores.ts");
+  const { writeConfigAtomic } = await import("../src/config-load.ts");
+  const { createCoreSecretStore } = await import("../src/secrets/runtime.ts");
+  const { createPlatformCapabilities } = await import("../src/platform.ts");
+  const target = layout(tempDir("p1b-import-port-target-")), probe = layout(tempDir("p1b-import-port-probe-"));
+  const cfg = defaults(); cfg.secrets.fileFallback.enabled = true;
+  const url = await server(t, (_req, res) => { res.end("guarded"); });
+  cfg.egress = { allowHosts: ["127.0.0.1"], allowPorts: [Number(new URL(url).port)], allowLoopback: true };
+  writeConfigAtomic(target.configPath, cfg);
+  const oldGuard = process.env.PLUR1BUS_ALLOW_TEST_INTERNALS, oldKeyring = process.env.PLUR1BUS_SECRETS_KEYRING;
+  process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = "1"; process.env.PLUR1BUS_SECRETS_KEYRING = "off";
+  t.after(() => {
+    if (oldGuard === undefined) delete process.env.PLUR1BUS_ALLOW_TEST_INTERNALS; else process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = oldGuard;
+    if (oldKeyring === undefined) delete process.env.PLUR1BUS_SECRETS_KEYRING; else process.env.PLUR1BUS_SECRETS_KEYRING = oldKeyring;
+  });
+  const store = createCoreSecretStore({ layout: target, securePath: createPlatformCapabilities().securePath, fileFallback: () => true });
+  await store.set({ kind: "owner" }, "models/probe", "target-home-fixture");
+  const host = createTempHost(probe.state, async id => probe.workspaceDir(id), target.home);
+  assert.equal(await host.secrets!.resolve("models/probe", "embedding"), "target-home-fixture");
+  assert.equal(await (await host.fetch!(url)).text(), "guarded");
+  cfg.egress.allowHosts = []; writeConfigAtomic(target.configPath, cfg);
+  await assert.rejects(() => host.fetch!(url));
+});

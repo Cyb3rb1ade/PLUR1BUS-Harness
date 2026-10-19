@@ -1,3 +1,4 @@
+import { importEnginePorts } from "../engine-ports.ts";
 // Store take-over for Hermes and existing PLUR1BUS stores (docs/import.md §2.3, M7 Batch 3).
 // Evaluates store schema and embedding identity via Engine.stores.adopt.
 // Apply order (all under withTargetLock, BEFORE any engine opens or initialises the target store):
@@ -51,7 +52,7 @@ export interface StoreAdoptReport {
   hint?: string | undefined;
 }
 
-export function createTempHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
+export function createTempHost(stateDir: string, workspaceDir: (id: string) => Promise<string>, targetHome = dirname(stateDir)): HostServices {
   return {
     logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
     stateDir,
@@ -66,6 +67,7 @@ export function createTempHost(stateDir: string, workspaceDir: (id: string) => P
       ...platformCapabilities,
     },
     runtime: null,
+    ...importEnginePorts(targetHome),
   } as unknown as HostServices;
 }
 
@@ -103,6 +105,7 @@ export async function inspectStoreAdopt(opts: {
   expectedIdentity?: any;
   /** Target harness config: the identity a copied store must match is the TARGET engine's identity. */
   targetConfig?: unknown;
+  targetHome?: string | undefined;
   testInternals?: Record<string, unknown> | undefined;
 }): Promise<{
   verdict: "ok" | "incompatible";
@@ -115,7 +118,7 @@ export async function inspectStoreAdopt(opts: {
   const tmpL = layout(tmpDir);
 
   const engine = createEngine(
-    createTempHost(tmpL.state, async (id: string) => tmpL.workspaceDir(id)),
+    createTempHost(tmpL.state, async (id: string) => tmpL.workspaceDir(id), opts.targetHome),
     buildEngineConfig((targetConfig ?? defaults()) as any, tmpL) as any,
     testInternals ? { internals: testInternals } : undefined,
   );
@@ -215,7 +218,7 @@ export async function prepareStoreAdopt(opts: {
   }
 
   if (!isApply) {
-    const check = await inspectStoreAdopt({ storePath: resolvedSource, expectedIdentity, targetConfig, testInternals });
+    const check = await inspectStoreAdopt({ storePath: resolvedSource, expectedIdentity, targetConfig, targetHome: l.home, testInternals });
     if (check.verdict === "ok") {
       return {
         report: { ...base, verdict: "ok", action: "preview-ok", identitySource: check.identitySource, schemaVersion: check.schemaVersion },
@@ -252,7 +255,7 @@ export async function prepareStoreAdopt(opts: {
 
   let check: Awaited<ReturnType<typeof inspectStoreAdopt>>;
   try {
-    check = await inspectStoreAdopt({ storePath: stagingDir, expectedIdentity, targetConfig, testInternals });
+    check = await inspectStoreAdopt({ storePath: stagingDir, expectedIdentity, targetConfig, targetHome: l.home, testInternals });
   } catch (err) {
     rmSync(stagingDir, { recursive: true, force: true });
     throw err;
