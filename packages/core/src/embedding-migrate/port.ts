@@ -19,7 +19,8 @@ export interface EngineRecord {
 
 export interface PlanRequest {
   id: string;
-  target: { fingerprint: EmbeddingFingerprint };
+  /** `secretRef` names where a remote target's key lives (env var name), never the key; absent for a local target. */
+  target: { fingerprint: EmbeddingFingerprint; secretRef?: { source: "env"; provider: "default"; id: string } };
   targetGeneration?: string;
   confirmationTtlMs?: number;
 }
@@ -49,5 +50,5 @@ export interface ReembedEngine {
 /** The Harness-owned half of the switch: make `generation` the active one for the next core start. */
 export interface SwitchPort {
   /** One atomic step; rejects without any partial effect. */
-  apply(sel: { generation: string; fingerprint: EmbeddingFingerprint; fingerprintId: string }): Promise<void>;
+  apply(sel: { generation: string; fingerprint: EmbeddingFingerprint; fingerprintId: string; remote?: { apiKeyEnv: string; baseUrl?: string; privacyAck?: import("@plur1bus/config-schema").PrivacyAcknowledgment } }): Promise<void>;
 }

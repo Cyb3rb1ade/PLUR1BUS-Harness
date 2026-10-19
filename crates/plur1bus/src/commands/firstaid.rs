@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 29] = [
+const CHECK_IDS: [&str; 30] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -62,6 +62,7 @@ const CHECK_IDS: [&str; 29] = [
     "dreams.last-runs",
     "remote.exposure",
     "models.decision",
+    "privacy.local-only",
     "api.supervised",
 ];
 
@@ -395,8 +396,73 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     checks.push(check_remote_exposure(layout));
     // Append-only: an `info` row, never a failure (the rule triage is a normal mode without a decision model).
     checks.push(super::model::check_models_decision(layout));
+    checks.push(check_local_only(layout));
     checks.push(check_api_supervised(daemon_status));
     checks
+}
+
+fn check_local_only(layout: &Layout) -> Check {
+    const ID: &str = "privacy.local-only";
+    let path = layout.config_path();
+    let info = |message: &str| Check {
+        id: ID,
+        status: Status::Info,
+        summary: message.into(),
+        detail: None,
+        hint: None,
+    };
+    let config = match std::fs::metadata(&path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Value::Null,
+        Ok(meta) if meta.len() <= 8 * 1024 * 1024 => match std::fs::read(&path)
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+        {
+            Some(v) => v,
+            None => return info("privacy configuration is unreadable; see config.valid"),
+        },
+        _ => return info("privacy configuration is unreadable or oversized; see config.valid"),
+    };
+    let policy = crate::privacy::shared(&config);
+    if !policy.required {
+        return Check::ok(
+            ID,
+            "local-only is off; configured and acknowledged cloud models may be used",
+        );
+    }
+    let mut findings = crate::privacy::findings(&config);
+    if let Some(running) = crate::privacy::running_violation(layout, &config) {
+        for role in running.blocked {
+            if !findings.contains(&role) {
+                findings.push(role);
+            }
+        }
+    }
+    if !findings.is_empty() {
+        return Check::fail(
+            ID,
+            format!(
+                "local-only is on but cloud models are configured: {}",
+                findings.join(", ")
+            ),
+            Some(json!({"agents":policy.agents,"blocked":findings})),
+            Some(
+                "Choose local models, review privacy.localEndpoints, or turn local-only off".into(),
+            ),
+        );
+    }
+    if !policy.agents.is_empty() {
+        return Check {
+            id: ID,
+            status: Status::Info,
+            summary: format!(
+                "shared engine is local-only because of agents {}",
+                policy.agents.join(", ")
+            ),
+            detail: Some(json!({"agents":policy.agents})),
+            hint: None,
+        };
+    }
+    Check::ok(ID, "local-only is on; configured model endpoints are local")
 }
 
 /// Append-only P3 check: use the supervisor's authenticated view, never trust api.json alone.

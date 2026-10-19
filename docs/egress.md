@@ -84,3 +84,28 @@ it is never replaced by another model. Egress still applies on top: a local endp
 Web tools (`web.fetch`, `web.search`) are not model calls: `privacy.localOnly` does not block them; egress alone governs
 them. The doctor report (`doctor.report`, check `privacy.local-only`) fails while the switch is on and a cloud model is
 still configured, and lists what will be refused.
+
+
+## Live local-only policy (II)
+
+`privacy.localOnly`, `agents.<id>.privacy.localOnly` and `privacy.localEndpoints` have restart class `live`.
+Chat and role adapters check the current policy before every new model request, including the next tool round
+and fallback attempt. An already admitted response may finish. File-only Core reads a changed valid config before
+the next admission; supervisor snapshots and pushes apply directly. Doctor overlays privacy on its cached report.
+
+A single explicit `true` agent override pins the shared embedding, reranker and engine LLM features for all agents.
+Cloud engine configurations are rejected before writing (`E_DENIED`, `local-only-shared-engine`, naming the agents).
+Changing the installation flag cannot remove another agent's pin. An explicit `false` override affects only that agent's
+individual model calls. Model server origins require an exact scheme, host and port match; allowing a home server
+does not exempt it from egress, SSRF, TLS, license or function-specific privacy acknowledgment checks.
+
+The running Engine keeps its startup endpoints. A private `run/engine-models.json` inventory (Core PID and instance,
+role and origin only, no credentials) prevents a proposed local engine configuration from disguising a still-bound
+remote engine. First migrate/change engine models with local-only off, wait for the existing Core restart job, then
+enable local-only. An older running Core without a verifiable inventory must be restarted first.
+
+**KNOWN GAP C/D:** the pinned contract 1.12 has no host request gate or public hot-reconfiguration port. An unsafe
+live transition is rejected with a restart hint; automatic engine-only restart / `restartPending` for that rejected
+transition is not implemented. No switch is reported as enabled while an uncontrolled remote Engine keeps running.
+Phase D needs the approved, merged Engine 1.15 commit before wiring request-level enforcement. Reembed usage remains
+an explicit token/cost estimate until that port exposes actual provider usage; its desired behavior has a todo test.
