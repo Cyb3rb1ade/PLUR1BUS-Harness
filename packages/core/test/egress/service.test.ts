@@ -252,6 +252,17 @@ describe("egress.request: POST-capable variant for harness-owned provider calls"
     } finally { await s.close(); }
   });
 
+  it("discardBody returns status and headers only: a 2xx body over the cap is never read and does not fail the call", async () => {
+    const big = await startStub((req, res) => { req.resume(); req.on("end", () => { res.writeHead(200, { "content-type": "text/plain", "x-seen": "1" }); res.end("y".repeat(5000)); }); });
+    try {
+      const e = loop(big.port), url = `http://127.0.0.1:${big.port}/`;
+      const r = await e.request(url, { userAgent: UA, method: "POST", body: "x", maxBytes: 10, discardBody: true });
+      assert.equal(r.status, 200); assert.equal(r.headers["x-seen"], "1"); assert.equal(r.body.length, 0);
+      // without it the cap still applies
+      await refused(e.request(url, { userAgent: UA, method: "POST", body: "x", maxBytes: 10 }), "too-large");
+    } finally { await big.close(); }
+  });
+
   it("keeps the response caps and the deadline for a POST", async () => {
     const big = await startStub((req, res) => { req.resume(); req.on("end", () => { res.writeHead(200); res.end("y".repeat(100)); }); });
     const slow = await startStub((req) => { req.resume(); });

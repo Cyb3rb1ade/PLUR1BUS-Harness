@@ -91,6 +91,47 @@ describe("secrets: create, rotate, delete", opts, () => {
       assert.ok(c[0]!.csrf);
     });
   });
+  test("description: shown in the list, sent on create, kept by a rotation that leaves it alone, sent when edited or emptied", async () => {
+    await withApp({}, async (app) => {
+      seedSecrets(app.server.rpc, [meta("anthropic.apiKey", { description: "Billing key for the team account" }), meta("telegram.token")]); await open(app);
+      await app.page.getByRole("row", { name: /anthropic\.apiKey.*Billing key for the team account/ }).waitFor();
+      await app.page.getByRole("columnheader", { name: "Description" }).waitFor();
+      // create with a description
+      await app.page.getByRole("button", { name: "Add secret" }).click();
+      let dlg = app.page.getByRole("dialog", { name: "Add a secret" });
+      await dlg.getByLabel("Name", { exact: true }).fill("openai.key");
+      await dlg.getByLabel("Value", { exact: true }).fill("sk-test-123");
+      await dlg.getByLabel("Description (optional)").fill("  Shared OpenAI key  ");
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await app.page.getByRole("row", { name: /openai\.key.*Shared OpenAI key/ }).waitFor();
+      // rotate without touching the description: the field shows it, nothing about it is sent
+      await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
+      dlg = app.page.getByRole("dialog", { name: "Rotate anthropic.apiKey" });
+      assert.equal(await dlg.getByLabel("Description (optional)").inputValue(), "Billing key for the team account");
+      await dlg.getByLabel("New value").fill("new-val");
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await dlg.getByRole("button", { name: "Rotate now" }).click();
+      await dlg.waitFor({ state: "detached" });
+      await app.page.getByText(/^anthropic\.apiKey: updated on /).waitFor();
+      // rotate and empty the description
+      await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
+      dlg = app.page.getByRole("dialog", { name: "Rotate anthropic.apiKey" });
+      await dlg.getByLabel("Description (optional)").fill("");
+      await dlg.getByLabel("New value").fill("newer-val");
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await dlg.getByRole("button", { name: "Rotate now" }).click();
+      // the first rotation's notice has the same text, so wait for the dialog to close (it closes once the save has returned)
+      await dlg.waitFor({ state: "detached" });
+      await app.page.getByText(/^anthropic\.apiKey: updated on /).waitFor();
+      assert.deepEqual(calls(app, "secret.set").map((c) => c.params), [
+        { name: "openai.key", value: "sk-test-123", description: "Shared OpenAI key" },
+        { name: "anthropic.apiKey", value: "new-val" },
+        { name: "anthropic.apiKey", value: "newer-val", description: "" },
+      ]);
+      // the list reloads after the save: the emptied description is gone from the row
+      await app.page.getByRole("row", { name: /anthropic\.apiKey.*Billing key/ }).waitFor({ state: "detached" });
+    });
+  });
   test("create validates the name, refuses an existing one and an empty value", async () => {
     await withApp({}, async (app) => {
       seedSecrets(app.server.rpc); await open(app);
