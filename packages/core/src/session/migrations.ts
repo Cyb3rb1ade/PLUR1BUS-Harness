@@ -121,6 +121,8 @@ export const MIGRATIONS: readonly string[] = [
    CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL);
    CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(session_id,ref));`,
   `CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL);`,
+  // v5: the chat's reasoning choice beside its model profile (NULL = provider default).
+  `ALTER TABLE session_model_profiles ADD COLUMN reasoning TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -97,6 +97,7 @@ import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
 import { createModelsScanJob } from "./discovery/job.ts";
 import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
+import { loadReasoningTable, resolveReasoning } from "./discovery/reasoning.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
 import { createDreams, forgetRemovedAgent, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
@@ -560,6 +561,17 @@ export function createCore(o: CoreOptions): Core {
         ...(o.discovery?.scanners ? { scanners: o.discovery.scanners } : {}),
       });
       discovery.onChanged((e) => server?.notify("models.changed", e));
+      // Per-chat model choice: reasoning per model from the scan's API hint, else the curated table (cached per catalog change).
+      const reasoningTable = loadReasoningTable();
+      let catalogIndex: Map<string, import("./discovery/types.ts").CatalogModel> | null = null;
+      discovery.onChanged(() => { catalogIndex = null; });
+      const catalogEntry = (provider: string, model: string) => (catalogIndex ??= new Map(catalogStore.read().models.map(m => [JSON.stringify([m.provider, m.id]), m]))).get(JSON.stringify([provider, model]));
+      const profileOf = (provider: string) => discProfiles.list().find(p => p.id === provider);
+      const chatModels = {
+        reasoning: (provider: string, model: string) => resolveReasoning({ vendor: profileOf(provider)?.vendor, id: model, api: catalogEntry(provider, model)?.api?.reasoning }, reasoningTable),
+        catalog: (provider: string, model: string) => { const e = catalogEntry(provider, model); return e ? { displayName: e.displayName, status: e.status } : undefined; },
+        endpoint: (provider: string) => profileOf(provider)?.baseUrl,
+      };
 
       const ledgerPath = path.join(l.systemJobs, "ledger.jsonl");
       const systemJobs = createSystemJobs({
@@ -674,7 +686,7 @@ export function createCore(o: CoreOptions): Core {
           server?.notify(method,params,person?{...opts,audience:[{personId:person}]}:opts);
         },
         onStoredCapture: agentId => dreams?.scheduler.recordCapture(agentId), ...(o.chatProvider ? { provider: o.chatProvider } : {}),
-        ...(o.composition ? { options: o.composition } : {}), ...(o.budget?.prices ? { prices: o.budget.prices } : {}),
+        ...(o.composition ? { options: o.composition } : {}), ...(o.budget?.prices ? { prices: o.budget.prices } : {}), chatModels,
       });
       sessions = turnComposition.sessions; } catch (e) { logger.error("session composition unavailable", { err: e }); sessions = null; }
 
@@ -872,7 +884,7 @@ export function createCore(o: CoreOptions): Core {
           actor: (ctx) => { try { const p = authenticatedPrincipal(ctx); return { user: p.userId, host: "rpc" }; } catch { return { user: "unknown", host: "rpc" }; } },
         }),
       };
-      Object.assign(rawMethods, buildChatSurface({ sessions: () => sessions, agents: executionRegistry, audit: rbacAudit, now: clock, approver: async (ctx,p) => { const who = await resolvePrincipal(ctx,"chat.submit",p); return { person: who?.kind === "person" ? who.userId : null, surface: connectionSurface({ principal: who, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; } }));
+      Object.assign(rawMethods, buildChatSurface({ sessions: () => sessions, models: () => turnComposition?.chatModels ?? null, agents: executionRegistry, audit: rbacAudit, now: clock, approver: async (ctx,p) => { const who = await resolvePrincipal(ctx,"chat.submit",p); return { person: who?.kind === "person" ? who.userId : null, surface: connectionSurface({ principal: who, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; } }));
       Object.assign(rawMethods, sessionWriteAccess({ methods: rawMethods, sessions: () => sessions?.store ?? null, lookup: id => sessions?.forSession(id).store ?? null, ownership, validateCaller: true }));
       const listAgents = rawMethods["agent.list"], agentStatus = rawMethods["agent.status"];
       rawMethods["agent.list"] = async (p, ctx) => { const r = await listAgents!(p,ctx) as { agents: { agentId: string }[] }; return { ...r, agents: r.agents.filter(a => !lifecycle.state(a.agentId).deleted).map(a => ({ ...a, lifecycle: lifecycle.state(a.agentId) })) }; };

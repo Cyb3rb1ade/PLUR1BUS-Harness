@@ -73,7 +73,11 @@ export function validateCatalog(raw: unknown): { ok: true; file: CatalogFile } |
       if (!isStr(m.firstSeen) || !isStr(m.lastSeen)) errors.push(`${w}.firstSeen and lastSeen must be strings`);
       if (!SOURCES.includes(m.source as string)) errors.push(`${w}.source is not a source`);
       if (!isObj(m.overrides)) errors.push(`${w}.overrides must be an object`); else checkApi(m.overrides, `${w}.overrides`, errors);
-      if (m.api !== undefined) checkApi(m.api, `${w}.api`, errors);
+      if (m.api !== undefined) {
+        checkApi(m.api, `${w}.api`, errors);
+        const r = isObj(m.api) ? m.api.reasoning : undefined;
+        if (r !== undefined && !(isObj(r) && typeof r.supported === "boolean" && ["openrouter", "gemini", "ollama"].includes(r.style as string))) errors.push(`${w}.api.reasoning must be { supported, style }`);
+      }
     });
   }
   return errors.length === 0 ? { ok: true, file: raw as unknown as CatalogFile } : { ok: false, errors };

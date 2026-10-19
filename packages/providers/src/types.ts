@@ -38,6 +38,11 @@ export type ResponseFormat =
 
 export interface ChatRequest {
   model: string;
+  /**
+   * Reasoning / thinking intensity as the one vendor parameter this adapter writes (see `reasoning.ts`). An adapter
+   * refuses a parameter its wire cannot express (invalid_request before any I/O); it never drops it silently.
+   */
+  reasoning?: import("./reasoning.ts").ReasoningDirective;
   messages: ChatMessage[];
   tools?: ToolDefinition[];
   toolChoice?: ToolChoice;
