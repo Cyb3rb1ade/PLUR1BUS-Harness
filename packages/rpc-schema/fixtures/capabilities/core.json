@@ -60,6 +60,14 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "chat.model.get": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "chat.model.set": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
     "jobs.create": {
       "stability": "experimental",
       "since": "1.6.0"

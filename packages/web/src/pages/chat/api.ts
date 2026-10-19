@@ -16,6 +16,8 @@ export function directChatApi(base: Api): Api {
         case "session.submit": {const {sessionId:_id,...body}=p;answer=await base.post(`/api/v1/chats/${id}/messages`,body,options);break;}
         case "session.events":answer=await base.get(`/api/v1/chats/${id}/events`+query({afterSeq:p.afterSeq,limit:p.limit}),options);break;
         case "session.cancel":answer=await base.post(`/api/v1/chats/${id}/cancel`,{},options);break;
+        case "chat.model.get":answer=await base.get(`/api/v1/chats/${id}/model`,options);break;
+        case "chat.model.set": {const {sessionId:_id,...body}=p;answer=await base.patch(`/api/v1/chats/${id}/model`,body,options);break;}
         default:return base.rpc(method,params,opts);
       }
       return answer as RpcMethods[M]["result"];

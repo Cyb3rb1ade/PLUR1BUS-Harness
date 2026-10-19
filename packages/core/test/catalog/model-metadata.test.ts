@@ -8,6 +8,7 @@ import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadBundledMetadataTable, loadMetadataTable, lookup } from "../../src/discovery/metadata.ts";
+import { loadReasoningTable } from "../../src/discovery/reasoning.ts";
 import { duplicateKeys, useTempDirs } from "./helpers.ts";
 
 const CATALOG_DIR = fileURLToPath(new URL("../../catalog/", import.meta.url));
@@ -15,7 +16,9 @@ const FIXTURES = fileURLToPath(new URL("../fixtures/model-ids/", import.meta.url
 // The vocabularies, copied from the design document (§2.5 "Fields"), not imported.
 const DOC_KINDS = ["chat", "embedding", "tts", "asr", "image", "moderation", "rerank", "realtime", "unknown"];
 const DOC_CAPABILITIES = ["tools", "vision", "reasoning", "audio_in", "audio_out", "structured_output", "prompt_caching"];
-const KNOWN_SCHEMAS: Record<string, (raw: unknown) => unknown> = { "plur1bus.model-metadata/1": (raw) => loadMetadataTable(raw) };
+const KNOWN_SCHEMAS: Record<string, (raw: unknown) => unknown> = { "plur1bus.model-metadata/1": (raw) => loadMetadataTable(raw),
+  "plur1bus.reasoning-metadata/1": (raw) => loadReasoningTable(raw),
+};
 
 interface Rule { pattern: string; kind: string; contextWindow?: number; capabilities: string[]; aliases?: string[] }
 const files = readdirSync(CATALOG_DIR).sort();

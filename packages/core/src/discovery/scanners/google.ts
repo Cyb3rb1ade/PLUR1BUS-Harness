@@ -37,8 +37,13 @@ export const scanGoogle: Scanner = async (_profile: ProfileInfo, client: PinnedC
         }
       }
 
+      // Gemini model metadata carries `thinking: true|false` for models that take a thinking configuration
+      // (an optional hint: any other value is treated as silence, never as a failed scan).
+      const reasoning = typeof item.thinking === "boolean" ? { supported: item.thinking, style: "gemini" as const } : undefined;
+
       allEntries.push({
         id,
+        ...(reasoning !== undefined ? { reasoning } : {}),
         ...(displayName !== undefined ? { displayName } : {}),
         ...(contextWindow !== undefined ? { contextWindow } : {}),
         ...(kind !== undefined ? { kind } : {}),

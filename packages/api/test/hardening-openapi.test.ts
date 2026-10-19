@@ -232,7 +232,7 @@ test("every route, driven through its success and failure paths on the real serv
     core.impl = async (method, params) => method.startsWith("chat.") ? JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`, import.meta.url), "utf8")).result : previousCore(method, params);
     for (const spec of ROUTES.filter(r => r.id.startsWith("chats."))) {
       const concrete = spec.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat");
-      const body = spec.id === "chats.create" ? { agentId: "main" } : spec.id === "chats.submit" ? { text: "Contract hello" } : spec.requestBody ? {} : undefined;
+      const body = spec.id === "chats.create" ? { agentId: "main" } : spec.id === "chats.submit" ? { text: "Contract hello" } : spec.id === "chats.model-set" ? { profile: "default", reasoning: "high", expectedRevision: 0 } : spec.requestBody ? {} : undefined;
       await rt(h, alice, spec.id, "owned contract result", { path: concrete, ...(body !== undefined ? { body } : {}) });
       await anon(h, spec.id);
       if (spec.requestBody) await rt(h, alice, spec.id, "unknown fields refused", { path: concrete, body: { unexpected: true } });
