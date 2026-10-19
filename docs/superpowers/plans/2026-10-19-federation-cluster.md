@@ -42,6 +42,7 @@ or stash. Each WP that adds RPC methods, config keys, error reasons or a princip
 ```text
 Prereqs: M6 phase N (MCP server) · phase O (ACP client) · phase P (A2A 1.0 out/in, API-served) · M5 on main · M3 remote access
          · #570 localOnly enforcement · POST egress.request · D109 external principal + taint · RBAC kind "peer"
+         · M5+ subprojects track (D115) for WP14
 
 S0 spike ──► WP1 control profile ─────────────────────────────────────────────────┐
    │                                                                               │
@@ -53,7 +54,8 @@ S0 spike ──► WP1 control profile ─────────────�
                                      WP8 orchestration + trace ◄── WP5, WP6        │
                                      WP12 agent loan (b2) ◄── WP3, WP4 ─────────────┤
                                      WP13 agent hand-over (b3) ◄── WP12             │
-WP9 web UI (per WP, final pass after WP13) · WP10 docs · WP11 two-instance CI/E2E ◄┘
+                                     WP14 subproject share/mission unit ◄── WP4, WP12, M5+ subprojects
+WP9 web UI (per WP, final pass after WP14) · WP10 docs · WP11 two-instance CI/E2E ◄┘
 ```
 
 One branch and one PR per WP (`codex/fed-<wp>-<slug>` or the controller's naming). A WP whose predecessor PR is still
@@ -507,6 +509,51 @@ receiver's store never contains vectors of another embedding identity.
 
 ---
 
+## WP14 — Subproject as share and mission unit (≈ 4 agent days)
+
+**Purpose.** Make one **subproject** (subprojects spec, D115) the unit a peer is given and a b2 mission is bound to, so
+that a guest or mission agent sees exactly that subproject and nothing lateral (subprojects spec §12, §13.1). The
+subprojects spec only defined the interface because Track F did not exist; this WP builds the federation side.
+
+**Prerequisites.** The M5+ subprojects track on `main` (at least its WP1 hierarchy, WP2 `visibleFrom`, WP5 report channel,
+WP7 allocation and WP11 isolation suite), WP4 (share records), WP12 (loan, lease, mission agent). Federation spec Q14
+decided 2026-10-19 (a mission is bound to exactly one borrower project the lender does not see).
+
+**Files.**
+- `packages/core/src/collab/shares.ts`: share target `SubprojectRef { rootId, projectId, depth, parentId }`; a share
+  names **exactly one** subproject; a root share covers descendants only with an explicit `includeDescendants` set by
+  the owner (default off).
+- `packages/core/src/collab/visibility.ts` (with the subprojects owners): principal kind `peer` evaluated by
+  `visibleFrom` like a child member of the bound node (`self`), never `ancestor`; lookups outside it answer
+  `E_NOT_FOUND`.
+- `packages/core/src/federation/project-api.ts`: `federation/project.list|get|subscribe` filtered to the bound
+  subproject; no breadcrumb beyond it, no sibling, no parent board.
+- `packages/core/src/federation/loan.ts` and `mission-agent.ts`: mission scope = one borrower **subproject**; mission
+  agent runs with the subproject's D109 roots (its worktree only), the subproject allocation as hard cap for
+  borrower-side mission spend (on top of the lease), upward path only `plur1bus.report/1` (tainted on arrival), never
+  coordinator tools; loan ends with return when the subproject reaches `completed`, `cancelled` or `archived`; mission
+  memories = the subproject pool entries authored by the mission agent.
+- RPC (schema change in this WP's PR): optional `subprojectId` target on `project.share.create` and
+  `federation.loan.offer|accept`; audit fields `subprojectId` on `federation.share.*` and `federation.loan.*` events.
+- Web: share dialog and loan acceptance offer the subproject picker; the guest view shows only the subproject.
+
+**Tests.**
+- Subprojects isolation suite (its WP11) gains the rows "federation peer bound to A" and "mission agent in A": no marker of
+  sibling B, of the root board or of A's parent anywhere; lookups `E_NOT_FOUND`; refusals audited.
+- Root share without `includeDescendants` hides every child; with it, children are visible and grandchildren follow the
+  same rule.
+- A peer or mission agent cannot call coordinator tools, control or merge the subproject, or create a grandchild (peer
+  principals never count as child coordinators for `childrenMayCreate`).
+- Mission in subproject A: host tools refuse paths outside A's worktree; exhausted allocation pauses the mission like a
+  lease loss; cancelling A ends the loan with return and pushes the mission memories; the lender sees only the redacted
+  mission summary.
+- A share or loan naming two subprojects, or a subproject of another root, is refused (`E_INVALID_PARAMS`).
+
+**Acceptance.** Every share and every mission binds to at most one subproject; the extended isolation matrix is green;
+no peer principal ever receives `ancestor` visibility.
+
+---
+
 ## Effort and gates
 
 | WP | Est. (agent days) | Gate |
@@ -522,15 +569,16 @@ receiver's store never contains vectors of another embedding identity.
 | WP8 | 6 | WP5, WP6 (Q4 decided) |
 | WP12 | 8 | WP3, WP4; M5 project sessions; D109 dispatcher wiring (P8); **Q9, Q10, Q11, Q13, Q14** |
 | WP13 | 6 | WP12; **Q12** |
-| WP9 | 8 | per WP; final pass after WP13 |
-| WP10 | 3 | WP13 |
-| WP11 | 5 | WP13 |
+| WP14 | 4 | WP4, WP12; M5+ subprojects track on `main` (D115) |
+| WP9 | 8 | per WP; final pass after WP14 |
+| WP10 | 3 | WP14 |
+| WP11 | 5 | WP14 |
 
-**Total ≈ 73 agent days** for S0–WP13 (range about 61–92 depending on S0's SDK finding, how much of the M5/M6
+**Total ≈ 77 agent days** for S0–WP14 (range about 65–96 depending on S0's SDK finding, how much of the M5/M6
 prerequisites is on `main` when the work starts, and the answers to Q9–Q14). Before the owner decisions of 2026-10-19
-the total was ≈ 54 (45–68); the increase is WP12 (8), WP13 (6), memory share items in WP4 (+1) and the loan and
-hand-over parts of WP9 (+2), WP10 (+1) and WP11 (+1). Not in the v0.1.0 total of `docs/milestones.md`; recorded there
-as Track F (Beta 2).
+the total was ≈ 54 (45–68); the increase is WP12 (8), WP13 (6), memory share items in WP4 (+1), the loan and
+hand-over parts of WP9 (+2), WP10 (+1) and WP11 (+1), and WP14 (+4, added 2026-10-19 with the subprojects decisions,
+D115). Not in the v0.1.0 total of `docs/milestones.md`; recorded there as Track F (Beta 2).
 
 ## Open points carried from the spec
 
@@ -542,3 +590,5 @@ as Track F (Beta 2).
   borrower after a loan: a compromised borrower can keep the definition and the selected memories.
 - Owner questions Q9–Q14 (spec §15) on lease and grace times, memory flow back, the lent agent at home, hand-over undo,
   kept mission-memory copies and mission scope gate WP12/WP13; the proposed defaults are in spec §12.
+- WP14 waits for the M5+ subprojects track ([`2026-10-19-subprojects.md`](2026-10-19-subprojects.md)), which is
+  scheduled directly after the M5 base and therefore before Track F (D115).
