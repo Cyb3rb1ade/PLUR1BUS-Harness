@@ -22931,6 +22931,12 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "boolean",
       "description": "true until the person acknowledges the model via models.acknowledge"
     },
+    "locked": {
+      "enum": [
+        "local-only"
+      ],
+      "description": "Present when the model may not be used now: local-only means privacy.localOnly is on and the model's provider endpoint is not loopback or listed in privacy.localEndpoints. Locked models are listed, not hidden."
+    },
     "kind": {
       "$ref": "#/$defs/ModelKind"
     },

@@ -20,6 +20,7 @@ export const SECTIONS: readonly SectionDef[] = [
   { id: "extensions", kind: "config", label: "settings.section.extensions", keys: ["extensions."] },
   { id: "network", kind: "config", label: "settings.section.network", keys: ["egress."] },
   { id: "security", kind: "security", label: "settings.section.security" },
+  { id: "privacy", kind: "config", label: "settings.section.privacy", keys: ["privacy."] },
   { id: "users", kind: "users", label: "settings.section.users" },
   { id: "providers", kind: "providers", label: "settings.section.providers", keys: ["auth."] },
   { id: "secrets", kind: "secrets", label: "settings.section.secrets", keys: ["secrets."] },
