@@ -1814,7 +1814,11 @@ mod tests {
     fn no_nc_question_is_asked_for_the_permissive_defaults_and_invalid_answers_are_asked_again() {
         let mut p = scripted(vec!["Not An Id", "anna", "sometimes", "research"], true);
         let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
-        assert_eq!(p.asked.len(), 5);
+        assert_eq!(
+            p.asked.len(),
+            4,
+            "agent (twice), use class (twice); the privacy question is asked by answer_privacy"
+        );
         assert!(
             p.confirms.is_empty(),
             "EmbeddingGemma 2 is Apache-2.0: no licence question for the default (ADR-006 amendment 2026-10-08)"
