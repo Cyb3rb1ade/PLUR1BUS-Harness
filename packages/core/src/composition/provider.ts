@@ -26,6 +26,7 @@ import type { ReasoningDescriptor } from '../../../providers/src/reasoning.ts';
 import { directiveFor } from '../session/chat-models.ts';
 import { currentTrace, newTrace, withTrace } from '../logs/trace.ts';
 import { stage, type PipelineLog } from './trace.ts';
+import { LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
 import { decide } from '../policy/index.ts';
 import { turnContext, promptContext } from './context.ts';
 
@@ -103,6 +104,13 @@ export interface TurnProviderOptions {
   /** Reasoning descriptor of one candidate (fitted to its wire). With a chat's reasoning choice, every attempt sends the
    *  nearest level that candidate supports; a fallback model with other levels is mapped the same way. */
   reasoningFor?: (provider: string, model: string) => ReasoningDescriptor;
+  /**
+   * privacy.localOnly (owner decision 2026-10-18): whether this agent may use only local models, read per turn. With it
+   * on, a candidate whose provider `isLocalProvider` does not confirm is refused: the turn fails with `local-only` when
+   * the chosen model is a cloud model, and a cloud fallback is never tried. Never replaced by another model silently.
+   */
+  localOnly?: (agentId: string) => boolean;
+  isLocalProvider?: (provider: string) => boolean;
 }
 const retryKinds = new Set(['rate_limit', 'overloaded', 'network', 'timeout']);
 /** One attempt as the turn's adapter wrapper observed it; the budget ticket settles from this when the router knows no usage. */
@@ -252,6 +260,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     });
     const candidate = o.profiles[profile]?.[0];
     if (!candidate) throw new TurnToolError('unknown_profile', profile);
+    const localOnly = o.localOnly?.(req.agentId) === true;
+    const isLocal = (provider: string) => o.isLocalProvider?.(provider) === true;
+    if (localOnly && !isLocal(candidate.provider)) throw new TurnToolError('local-only', { provider: candidate.provider, model: candidate.model, profile, message: `${candidate.provider}/${candidate.model} is not a local model; ${LOCAL_ONLY_HINT}` });
     const key = `${req.agentId}:${req.sessionId}`;
     if (!snapshots.has(key)) snapshots.set(key, req.memory);
     if (snapshots.size > 1024) snapshots.delete(snapshots.keys().next().value!);
@@ -313,6 +324,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const guardFor = (call: CallState): BudgetGuard => ({
       async authorize(info, request) {
         if (req.turnProfile?.allowModel && !req.turnProfile.allowModel(info.provider, info.model)) return { ok: false as const, reason: "voice privacy pin requires a local model" };
+        if (localOnly && !isLocal(info.provider)) return { ok: false as const, reason: 'privacy.localOnly refuses a cloud model' };
         // ADR-005: never fall back silently between plan and paid billing; refusing this candidate lets the router try the next.
         const from = primary && o.billing?.[primary.provider], to = o.billing?.[info.provider];
         if (from && to && from !== to && !(o.allowCrossBilling?.(info.profile) ?? false)) {

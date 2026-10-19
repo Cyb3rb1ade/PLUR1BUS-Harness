@@ -281,6 +281,8 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
           const agentId = parts[2] || (entry.targetRef ? entry.targetRef.split("/")[1] ?? "" : "");
           if (agentId) createdAgents.add(agentId);
         } else if (entry.entity === "memory") {
+          // A linked, parked or deferred card wrote nothing to the store: there is nothing to revert.
+          if (entry.action === "linked" || entry.action === "pending-reembed" || entry.action === "deferred") continue;
           const count = (entry.details?.created as number ?? entry.details?.count as number ?? 1);
           memoryCardsImported += count;
         } else if (entry.entity === "store") {

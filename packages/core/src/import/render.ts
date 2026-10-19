@@ -106,7 +106,7 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
   L.push("", `Agents (${r.agents.length}):`);
   for (const a of r.agents) {
     const memInfo = (a as any).memory
-      ? ` [memory: ${(a as any).memory.importedCount} imported, ${(a as any).memory.skippedDuplicateCount} duplicate/matched, ${(a as any).memory.rejectedCount} rejected${(a as any).memory.unresolvedUserScopeCount ? `, ${(a as any).memory.unresolvedUserScopeCount} unresolved-user-scope` : ""}${(a as any).memory.skippedOwnStoreCount ? `, ${(a as any).memory.skippedOwnStoreCount} skipped (agent-has-own-store)` : ""}]`
+      ? ` [memory: ${(a as any).memory.importedCount} imported, ${(a as any).memory.skippedDuplicateCount} duplicate/matched, ${(a as any).memory.rejectedCount} rejected${(a as any).memory.unresolvedUserScopeCount ? `, ${(a as any).memory.unresolvedUserScopeCount} unresolved-user-scope` : ""}${(a as any).memory.linkedCount ? `, ${(a as any).memory.linkedCount} linked (duplicate of an existing memory)` : ""}${(a as any).memory.pendingReembedCount ? `, ${(a as any).memory.pendingReembedCount} pending-reembed` : ""}${(a as any).memory.deferredCount ? `, ${(a as any).memory.deferredCount} deferred (agent store not taken over)` : ""}]`
       : "";
     const details = a.action === "rejected"
       ? `rejected (${a.reason ?? "invalid"})`
@@ -149,7 +149,7 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
   }
   const c = r.counts;
   const memSummary = c.memoryCardsImported !== undefined || c.memoryCardsSkippedDuplicate !== undefined
-    ? `; ${c.memoryCardsImported ?? 0} memory cards imported, ${c.memoryCardsSkippedDuplicate ?? 0} duplicate/matched${c.unresolvedUserScope ? `, ${c.unresolvedUserScope} unresolved user scope` : ""}${(c as any).memoryCardsSkippedOwnStore ? `, ${(c as any).memoryCardsSkippedOwnStore} skipped (agent-has-own-store)` : ""}`
+    ? `; ${c.memoryCardsImported ?? 0} memory cards imported, ${c.memoryCardsSkippedDuplicate ?? 0} duplicate/matched${c.unresolvedUserScope ? `, ${c.unresolvedUserScope} unresolved user scope` : ""}${c.memoryCardsLinked ? `, ${c.memoryCardsLinked} linked` : ""}${c.memoryCardsPendingReembed ? `, ${c.memoryCardsPendingReembed} pending-reembed (imported once the agent's store has been taken over)` : ""}${c.memoryCardsDeferred ? `, ${c.memoryCardsDeferred} deferred` : ""}`
     : "";
   L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}${memSummary}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred ?? c.channelsImported} channels deferred; ${c.cronJobsDeferred} cron jobs deferred; stores: ${c.storesTakenOver} taken over, ${c.storesMatched} matched, ${c.storesReembedMigration} to re-embedding migration${c.storesSkipped ? `, ${c.storesSkipped} skipped` : ""}.`);
   return L.join("\n");
@@ -162,7 +162,7 @@ export function renderHermes(r: any): string {
   L.push("", `Profiles / Agents (${r.profilesOrAgents.length}):`);
   for (const a of r.profilesOrAgents) {
     const memInfo = a.memory
-      ? ` [memory: ${a.memory.importedCount} imported, ${a.memory.skippedDuplicateCount} duplicate/matched, ${a.memory.rejectedCount} rejected${a.memory.unresolvedUserScopeCount ? `, ${a.memory.unresolvedUserScopeCount} unresolved-user-scope` : ""}]`
+      ? ` [memory: ${a.memory.importedCount} imported, ${a.memory.skippedDuplicateCount} duplicate/matched, ${a.memory.rejectedCount} rejected${a.memory.unresolvedUserScopeCount ? `, ${a.memory.unresolvedUserScopeCount} unresolved-user-scope` : ""}${a.memory.linkedCount ? `, ${a.memory.linkedCount} linked (duplicate of an existing memory)` : ""}${a.memory.pendingReembedCount ? `, ${a.memory.pendingReembedCount} pending-reembed` : ""}${a.memory.deferredCount ? `, ${a.memory.deferredCount} deferred (store not taken over)` : ""}]`
       : "";
     const details = a.action === "rejected"
       ? `rejected (${a.reason ?? "invalid"})`
@@ -218,7 +218,7 @@ export function renderHermes(r: any): string {
     if (r.reportPath) L.push(`Resume with: plur1bus import hermes --resume ${r.runId}`);
   }
   const c = r.counts;
-  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}; ${c.memoryCardsImported} memory cards imported, ${c.memoryCardsSkippedDuplicate} duplicate/matched${c.unresolvedUserScope ? `, ${c.unresolvedUserScope} unresolved user scope` : ""}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred} channel pairings deferred; ${c.cronJobsDeferred} cron jobs deferred.`);
+  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}; ${c.memoryCardsImported} memory cards imported, ${c.memoryCardsSkippedDuplicate} duplicate/matched${c.unresolvedUserScope ? `, ${c.unresolvedUserScope} unresolved user scope` : ""}${c.memoryCardsLinked ? `, ${c.memoryCardsLinked} linked` : ""}${c.memoryCardsPendingReembed ? `, ${c.memoryCardsPendingReembed} pending-reembed (imported by the first run after the store's re-embedding migration)` : ""}${c.memoryCardsDeferred ? `, ${c.memoryCardsDeferred} deferred` : ""}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred} channel pairings deferred; ${c.cronJobsDeferred} cron jobs deferred.`);
   return L.join("\n");
 }
 

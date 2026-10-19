@@ -5,7 +5,10 @@ import { assertMemoryConfiguration } from "./licences/memory.ts";
 import type { LicenceAcceptance } from "./licences/ledger.ts";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type { Layout } from "./paths.ts";
-import { resolveEmbeddingProvider, resolveRerankerProvider } from "./composition/embedding-policy.ts";
+import { assertEngineFeaturesLocal, engineModelEndpoints, resolveEmbeddingProvider, resolveRerankerProvider } from "./composition/embedding-policy.ts";
+import { localEndpoints, localOnlyShared, redactEndpoint } from "./privacy/local-only.ts";
+import { RpcError } from "./rpc/errors.ts";
+import type { Egress } from "./egress/service.ts";
 
 const E5_SMALL = "intfloat/multilingual-e5-small";
 const BGE_RERANKER = "woxpas-ai/bge-reranker-v2-m3-onnx";
@@ -21,8 +24,13 @@ export function buildEngineConfig(cfg: HarnessConfig, l: Layout): Record<string,
   const emb = plain(passthrough.embedding), rer = plain(passthrough.reranker), rec = plain(passthrough.recall);
   // Owner decision 2026-10-18: cloud and OpenAI-compatible providers are allowed for both roles; refused only for
   // missing details, a key in the config, a missing privacy acknowledgment or a provider the engine has no adapter for.
-  const embPlan = resolveEmbeddingProvider(emb, plain(plain(plain(cfg).memory).embedding).privacyAck);
-  const rerPlan = resolveRerankerProvider(rer);
+  // privacy.localOnly (owner decision 2026-10-18): the engine is shared by every agent, so it stays local while the
+  // installation or any agent is local-only.
+  const policy = { localOnly: localOnlyShared(cfg), localEndpoints: localEndpoints(cfg) };
+  const memory = plain(plain(cfg).memory);
+  const embPlan = resolveEmbeddingProvider(emb, plain(memory.embedding).privacyAck, policy);
+  const rerPlan = resolveRerankerProvider(rer, plain(memory.reranker).privacyAck, policy);
+  assertEngineFeaturesLocal(passthrough, policy);
   const embedding = embPlan.kind === "remote" ? embPlan.block : { ...emb, provider: "local-transformers", local: { model: E5_SMALL, dimensions: 384, cacheDir: l.models, ...plain(emb.local) } };
   const reranker = rerPlan.kind === "remote" ? rerPlan.block : { ...rer, enabled: true, provider: "local-transformers", local: { model: BGE_RERANKER, cacheDir: l.models, ...plain(rer.local) } };
   const recall = { ...rec, softBudgetMs: cfg.core.recall.softBudgetMs, globalInjectMaxChars: cfg.core.recall.capChars, decisionTrace: { ...plain(rec.decisionTrace), enabled: true } };
@@ -49,4 +57,23 @@ export function checkEngineConfigLicences(engineConfig: unknown,l: Layout): void
     try { accepted = db.prepare("SELECT * FROM model_licences").all() as unknown as LicenceAcceptance[]; } finally { db.close(); }
   }
   assertMemoryConfiguration(engineConfig,accepted);
+}
+
+/**
+ * Egress check at construction: every model endpoint the engine will call (remote embedding, remote reranker, engine LLM
+ * features with their own transport) must pass the harness egress policy (`egress.decide`), the same decision every
+ * harness-owned provider call takes. The pinned engine has no fetch port yet, so its calls cannot go through
+ * `egress.request`; this refuses a configuration the policy would never allow before the engine is built.
+ * A refusal fails the engine start with E_DENIED reason egress-denied. A name that does not resolve right now (offline
+ * start, `not-found`) is not a policy refusal and is only reported; an endpoint without a known host (a feature key
+ * without baseUrl) cannot be judged here and is reported too.
+ */
+export async function checkEngineEgress(engineConfig: Record<string, unknown>, egress: Pick<Egress, "decide">, warn: (message: string, fields: Record<string, unknown>) => void = () => {}): Promise<void> {
+  for (const e of engineModelEndpoints(engineConfig)) {
+    if (e.endpoint === undefined) { warn("engine model endpoint not checked by egress: no baseUrl, provider default", { role: e.role }); continue; }
+    const d = await egress.decide(e.endpoint);
+    if (d.allowed) continue;
+    if (d.reason === "not-found") { warn("engine model endpoint did not resolve; egress could not judge it", { role: e.role, endpoint: redactEndpoint(e.endpoint) }); continue; }
+    throw new RpcError("E_DENIED", `engine ${e.role} endpoint ${redactEndpoint(e.endpoint)} is refused by the egress policy (${d.reason}); list the host in egress.allowHosts (loopback also needs egress.allowLoopback)`, { reason: "egress-denied" });
+  }
 }

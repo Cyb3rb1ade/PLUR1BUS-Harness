@@ -39,6 +39,7 @@ import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.j
 import { buildEngineConfig } from "../../engine-config.ts";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { hasOpenclawCardFiles, importOpenclawMemories, type OpenclawMemoryImportResult } from "./openclaw-memories.ts";
+import { PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode } from "./card-links.ts";
 
 export interface OpenclawImportOptions {
   home: string;
@@ -112,8 +113,12 @@ export interface OpenclawImportReport {
     memoryCardsImported: number;
     memoryCardsSkippedDuplicate: number;
     memoryCardsRejected: number;
-    /** Cards of agents with their own memory store: left out of the shared store, reason `agent-has-own-store`. */
-    memoryCardsSkippedOwnStore: number;
+    /** Cards of agents with their own store that duplicate a memory already in it: linked to it, not written again. */
+    memoryCardsLinked: number;
+    /** Cards of agents whose own store is routed to the re-embedding migration: parked, imported by a later run. */
+    memoryCardsPendingReembed: number;
+    /** Cards of agents whose own store was not taken over for another reason: deferred to a later run. */
+    memoryCardsDeferred: number;
     unresolvedUserScope: number;
     channelsDeferred: number;
     channelsImported: number; // backward compatibility
@@ -272,8 +277,8 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     let createdEngineLocally = false;
     const testInternals = opts.testInternals;
 
-    // The engine is opened on first use only: an import with no card to write (an agent with its own store, no
-    // MEMORY.md / USER.md) never creates or touches state/lancedb through it.
+    // The engine is opened on first use only: an import with no card to write (no MEMORY.md / USER.md, or only cards that
+    // are parked) never creates or touches state/lancedb through it.
     const ensureEngine = (): void => {
       if (!isApply || engine) return;
       const engineDefaults = defaults().engine;
@@ -314,12 +319,27 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       let totalCardsSkippedDuplicate = 0;
       let totalCardsRejected = 0;
       let totalUnresolvedUserScope = 0;
-      let totalCardsSkippedOwnStore = 0;
-      // Agents that keep their own memory store (a PLUR1BUS store partition of their own in the source): their cards
-      // are not written to the shared store, they are listed in the report as skipped with the reason.
-      const ownStoreAgents = new Set(
-        sourceReport.plur1bus.stores.filter((st) => st.kind === "agent" && st.agentId).map((st) => st.agentId!.toLowerCase()),
-      );
+      let totalCardsLinked = 0;
+      let totalCardsPendingReembed = 0;
+      let totalCardsDeferred = 0;
+      // Agents with a PLUR1BUS store partition of their own (owner decision 2026-10-19): their cards are imported too.
+      // Store in the harness (taken over, matched, dry-run preview-ok) -> import with duplicate linking; store routed to
+      // the re-embedding migration -> parked as pending-reembed; store not taken over (skipped) -> deferred.
+      const ownStoreModes = new Map<string, OwnStoreCardMode>();
+      const priorLinks = isApply ? readPriorCardLinks(join(l.home, "imports")) : new Map<string, string>();
+      for (const st of preparedStores.stores) {
+        if (st.kind !== "agent" || !st.agentId) continue;
+        const id = st.agentId.toLowerCase();
+        const mode: OwnStoreCardMode = st.action === "re-embedding-migration"
+          ? PARK_PENDING_REEMBED
+          : st.action === "skipped"
+            ? PARK_DEFERRED
+            : { kind: "link", priorLinks };
+        const prev = ownStoreModes.get(id);
+        // Several partitions for one agent: the most cautious verdict wins (pending-reembed > deferred > link).
+        const rank = (m: OwnStoreCardMode) => (m.kind === "link" ? 0 : m.outcome === "deferred" ? 1 : 2);
+        if (!prev || rank(mode) > rank(prev)) ownStoreModes.set(id, mode);
+      }
       const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? []), ...preparedStores.errors];
 
       for (const agent of sourceReport.agents) {
@@ -365,8 +385,8 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         let memoryRes: OpenclawMemoryImportResult | undefined;
         if (report.action !== "rejected") {
           const agentWs = agent.workspace ?? sourceReport.source.root;
-          const ownStore = ownStoreAgents.has(normId);
-          if (!ownStore && hasOpenclawCardFiles(agentWs)) ensureEngine();
+          const ownStore = ownStoreModes.get(normId);
+          if (ownStore?.kind !== "park" && hasOpenclawCardFiles(agentWs)) ensureEngine();
           memoryRes = await importOpenclawMemories({
             workspaceDir: agentWs,
             agentId: agent.agentId,
@@ -377,9 +397,11 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
             userPrincipal: opts.userPrincipal,
             onConflict,
             replacedBackupDir,
-            ...(ownStore ? { skipReason: "agent-has-own-store" } : {}),
+            ...(ownStore ? { ownStore } : {}),
           });
-          totalCardsSkippedOwnStore += memoryRes.skippedOwnStoreCount;
+          totalCardsLinked += memoryRes.linkedCount;
+          totalCardsPendingReembed += memoryRes.pendingReembedCount;
+          totalCardsDeferred += memoryRes.deferredCount;
           totalCardsImported += memoryRes.importedCount;
           totalCardsSkippedDuplicate += memoryRes.skippedDuplicateCount;
           totalCardsRejected += memoryRes.rejectedCount;
@@ -546,7 +568,9 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         memoryCardsImported: totalCardsImported,
         memoryCardsSkippedDuplicate: totalCardsSkippedDuplicate,
         memoryCardsRejected: totalCardsRejected,
-        memoryCardsSkippedOwnStore: totalCardsSkippedOwnStore,
+        memoryCardsLinked: totalCardsLinked,
+        memoryCardsPendingReembed: totalCardsPendingReembed,
+        memoryCardsDeferred: totalCardsDeferred,
         unresolvedUserScope: totalUnresolvedUserScope,
         channelsDeferred: channelReports.length,
         channelsImported: channelReports.length,

@@ -1,7 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { defaults } from "@plur1bus/config-schema";
-import { buildEngineConfig } from "../src/engine-config.ts";
+import { buildEngineConfig, checkEngineEgress } from "../src/engine-config.ts";
+import { createEgress } from "../src/egress/index.ts";
 import { layout } from "../src/paths.ts";
 
 describe("engine-config", () => {
@@ -72,7 +73,8 @@ describe("engine-config", () => {
     });
   }
   it("passes a Cohere cloud reranker through, mandatory and without a fallback model", () => {
-    const cfg = defaults(); cfg.engine.reranker = { provider: "cohere", model: "rerank-v3.5", apiKeyEnv: "COHERE_API_KEY", enabled: false };
+    const cfg = defaults() as any; cfg.engine.reranker = { provider: "cohere", model: "rerank-v3.5", apiKeyEnv: "COHERE_API_KEY", enabled: false };
+    cfg.memory = { ...cfg.memory, reranker: { privacyAck: ack("cohere") } };
     const e = buildEngineConfig(cfg, l) as any;
     assert.deepEqual(e.reranker, { provider: "cohere", model: "rerank-v3.5", apiKeyEnv: "COHERE_API_KEY", enabled: true, fallbackProvider: "disabled" });
     assert.equal(e.embedding.provider, "local-transformers");
@@ -137,12 +139,96 @@ describe("engine-config", () => {
     }
     assert.throws(() => buildEngineConfig(remote({ provider: "tei", baseUrl: "http://192.168.1.5:8080/v1", model: "m", dimensions: 8, apiKeyEnv: "K" }), l), (x: any) => x.reason === "privacy-acknowledgment-required");
   });
-  it("KNOWN GAP: an installation- or agent-wide privacy pin (local-only) refuses cloud providers", { todo: "no such config key exists (docs/handoff/2026-10-14-backend-gaps.md item 3, owner question); only per-turn voice pins and the media privacyPinned callback exist" }, () => {
-    assert.fail("no installation-wide privacy pin to test against");
+  // Owner decision 2026-10-18: "Nur lokal" exists; a cloud reranker needs its own privacy acknowledgment.
+  const localOnly = (cfg: any, endpoints: string[] = []) => { cfg.privacy = { localOnly: true, localEndpoints: endpoints }; return cfg; };
+  it("privacy.localOnly refuses every cloud embedding with E_DENIED reason local-only, even with a privacy acknowledgment", () => {
+    for (const [embedding, privacyAck] of [
+      [{ provider: "openai", model: "text-embedding-3-small", dimensions: 1536, apiKeyEnv: "K" }, ack("openai")],
+      [{ provider: "openrouter", baseUrl: "https://openrouter.ai/api/v1", model: "qwen/qwen3-embedding-8b", dimensions: 4096, apiKeyEnv: "K" }, ack("openrouter", "https://openrouter.ai/api/v1")],
+    ] as const) {
+      assert.throws(() => buildEngineConfig(localOnly(remote(embedding, privacyAck)), l), (e: any) => e.error === "E_DENIED" && e.reason === "local-only" && /privacy\.localOnly/.test(e.message));
+    }
   });
-  it("KNOWN GAP: a cloud reranker needs a function-specific privacy acknowledgment", { todo: "the config schema has memory.embedding.privacyAck but no reranker acknowledgment; adding one is a schema change" }, () => {
-    const cfg = defaults(); cfg.engine.reranker = { provider: "cohere", apiKeyEnv: "K" };
-    assert.throws(() => buildEngineConfig(cfg, l));
+  it("privacy.localOnly treats a LAN embedding server as cloud unless privacy.localEndpoints lists its exact origin", () => {
+    const baseUrl = "http://192.168.1.20:11434/v1", e = { provider: "ollama", baseUrl, model: "nomic-embed-text", dimensions: 768, apiKeyEnv: "K" };
+    assert.throws(() => buildEngineConfig(localOnly(remote(e, ack("ollama", baseUrl))), l), (x: any) => x.reason === "local-only");
+    assert.throws(() => buildEngineConfig(localOnly(remote(e, ack("ollama", baseUrl)), ["http://192.168.1.20:8080"]), l), (x: any) => x.reason === "local-only");
+    assert.equal((buildEngineConfig(localOnly(remote(e, ack("ollama", baseUrl)), ["http://192.168.1.20:11434"]), l) as any).embedding.baseUrl, baseUrl);
+    // Listed as local, the endpoint is still off this machine: the privacy acknowledgment stays required.
+    assert.throws(() => buildEngineConfig(localOnly(remote(e), ["http://192.168.1.20:11434"]), l), (x: any) => x.reason === "privacy-acknowledgment-required");
+  });
+  it("privacy.localOnly keeps loopback and the pinned local models", () => {
+    const e = buildEngineConfig(localOnly(remote({ provider: "tei", baseUrl: "http://127.0.0.1:8080/v1", model: "m", dimensions: 8, apiKeyEnv: "K" })), l) as any;
+    assert.equal(e.embedding.baseUrl, "http://127.0.0.1:8080/v1");
+    const d = buildEngineConfig(localOnly(defaults() as any), l) as any;
+    assert.equal(d.embedding.provider, "local-transformers"); assert.equal(d.reranker.provider, "local-transformers");
+  });
+  it("privacy.localOnly refuses the Cohere cloud reranker", () => {
+    const cfg = localOnly(defaults() as any); cfg.engine.reranker = { provider: "cohere", apiKeyEnv: "K" };
+    cfg.memory = { ...cfg.memory, reranker: { privacyAck: ack("cohere") } };
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.error === "E_DENIED" && e.reason === "local-only");
+  });
+  it("one local-only agent keeps the shared engine local; an agent lifting the switch does not open it", () => {
+    const cfg = remote({ provider: "openai", model: "text-embedding-3-small", dimensions: 1536, apiKeyEnv: "K" }, ack("openai"));
+    cfg.agents = { bernd: { privacy: { localOnly: true } } };
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "local-only");
+    cfg.privacy = { localOnly: true, localEndpoints: [] }; cfg.agents = { bernd: { privacy: { localOnly: false } } };
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "local-only");
+    cfg.privacy = { localOnly: false, localEndpoints: [] }; cfg.agents = { bernd: { privacy: { localOnly: false } } };
+    assert.equal((buildEngineConfig(cfg, l) as any).embedding.provider, "openai");
+  });
+  it("privacy.localOnly refuses an engine LLM feature with a cloud transport or a key without endpoint", () => {
+    for (const [key, value] of [["merging", { baseUrl: "https://api.openai.com/v1", model: "gpt-x", apiKey: "${OPENAI}" }], ["emotion", { t3: { baseUrl: "https://example.com/v1" } }], ["skillMiner", { apiKeyEnv: "K", model: "m" }]] as const) {
+      const cfg = localOnly(defaults() as any); cfg.engine[key] = value;
+      assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.error === "E_DENIED" && e.reason === "local-only" && e.message.includes(key), key);
+    }
+    const cfg = localOnly(defaults() as any); cfg.engine.merging = { baseUrl: "http://localhost:11434/v1", model: "llama" };
+    assert.equal((buildEngineConfig(cfg, l) as any).merging.baseUrl, "http://localhost:11434/v1");
+    const off = defaults() as any; off.engine.merging = { baseUrl: "https://api.openai.com/v1", model: "gpt-x" };
+    assert.equal((buildEngineConfig(off, l) as any).merging.baseUrl, "https://api.openai.com/v1");
+  });
+  it("a cloud reranker needs memory.reranker.privacyAck for exactly that provider", () => {
+    const cfg = defaults() as any; cfg.engine.reranker = { provider: "cohere", apiKeyEnv: "K" };
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.error === "E_DENIED" && e.reason === "privacy-acknowledgment-required" && /memory\.reranker\.privacyAck/.test(e.message));
+    cfg.memory = { ...cfg.memory, embedding: { privacyAck: ack("cohere") } };
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "privacy-acknowledgment-required", "the embedding acknowledgment does not stand in for the reranker");
+    cfg.memory = { ...cfg.memory, reranker: { privacyAck: ack("jina") } };
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "privacy-acknowledgment-mismatch");
+    cfg.memory = { ...cfg.memory, reranker: { privacyAck: ack("cohere", "https://api.cohere.com/v2/rerank") } };
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "privacy-acknowledgment-mismatch", "the engine fixes the endpoint, so the acknowledgment binds the provider alone");
+    cfg.memory = { ...cfg.memory, reranker: { privacyAck: ack("cohere") } };
+    assert.equal((buildEngineConfig(cfg, l) as any).reranker.provider, "cohere");
+  });
+  describe("egress check at construction", () => {
+    const egressFor = (allowHosts: string[], extra: { allowLoopback?: boolean; allowPorts?: number[] } = {}) => createEgress({ config: () => ({ allowHosts, allowPorts: extra.allowPorts ?? [443], allowLoopback: extra.allowLoopback ?? false }), resolver: async (host: string) => host === "localhost" ? [{ address: "127.0.0.1", family: 4 }] : host.endsWith(".invalid") ? [] : [{ address: "93.184.216.34", family: 4 }] });
+    const openrouter = () => buildEngineConfig(remote({ provider: "openrouter", baseUrl: "https://openrouter.ai/api/v1", model: "qwen/qwen3-embedding-8b", dimensions: 4096, apiKeyEnv: "K" }, ack("openrouter", "https://openrouter.ai/api/v1")), l);
+    it("refuses a cloud embedding endpoint the egress policy does not list with E_DENIED reason egress-denied", async () => {
+      await assert.rejects(checkEngineEgress(openrouter(), egressFor([])), (e: any) => e.error === "E_DENIED" && e.reason === "egress-denied" && /embedding/.test(e.message) && /host-not-allowed/.test(e.message));
+      await checkEngineEgress(openrouter(), egressFor(["openrouter.ai"]));
+    });
+    it("checks the default OpenAI endpoint, the Cohere reranker and engine LLM feature endpoints", async () => {
+      const cfg = remote({ provider: "openai", model: "text-embedding-3-small", dimensions: 1536, apiKeyEnv: "K" }, ack("openai"));
+      cfg.engine.reranker = { provider: "cohere", apiKeyEnv: "K" }; cfg.memory.reranker = { privacyAck: ack("cohere") };
+      cfg.engine.merging = { baseUrl: "https://llm.example.com/v1", model: "m" };
+      const e = buildEngineConfig(cfg, l);
+      await assert.rejects(checkEngineEgress(e, egressFor(["api.openai.com", "api.cohere.com"])), (x: any) => x.reason === "egress-denied" && /merging/.test(x.message));
+      await assert.rejects(checkEngineEgress(e, egressFor(["api.openai.com", "llm.example.com"])), (x: any) => x.reason === "egress-denied" && /reranker/.test(x.message));
+      await checkEngineEgress(e, egressFor(["api.openai.com", "api.cohere.com", "llm.example.com"]));
+    });
+    it("a loopback endpoint needs egress.allowLoopback and its name listed, like every harness provider call", async () => {
+      const e = buildEngineConfig(remote({ provider: "tei", baseUrl: "http://localhost:8080/v1", model: "m", dimensions: 8, apiKeyEnv: "K" }), l);
+      await assert.rejects(checkEngineEgress(e, egressFor(["localhost"], { allowPorts: [8080] })), (x: any) => x.reason === "egress-denied");
+      await checkEngineEgress(e, egressFor(["localhost"], { allowLoopback: true, allowPorts: [8080] }));
+    });
+    it("the pinned local models call nothing; an unresolvable name and a feature without baseUrl are reported, not refused", async () => {
+      await checkEngineEgress(buildEngineConfig(defaults(), l), egressFor([]));
+      const warned: string[] = [];
+      const cfg = remote({ provider: "openrouter", baseUrl: "https://emb.invalid/v1", model: "m", dimensions: 8, apiKeyEnv: "K" }, ack("openrouter", "https://emb.invalid/v1"));
+      cfg.engine.skillMiner = { apiKeyEnv: "K", model: "m" };
+      await checkEngineEgress(buildEngineConfig(cfg, l), egressFor(["emb.invalid"]), (m, f) => warned.push(`${f.role}: ${m}`));
+      assert.equal(warned.length, 2);
+      assert.ok(warned.some(w => w.startsWith("embedding:")) && warned.some(w => w.startsWith("skillMiner:")));
+    });
   });
   it("KNOWN GAP: a key from the harness secret store reaches the engine as a reference", { todo: "the pinned engine resolves keys only from apiKeyEnv or host-SDK SecretRefs the harness does not provide; HostServices has no secret port" }, () => {
     const cfg = defaults() as any; cfg.engine.embedding = { provider: "openai", model: "m", dimensions: 8, apiKey: { source: "store", id: "openai" } };

@@ -484,7 +484,14 @@ fn config_schema_tier_basic_filters() {
     keys.sort();
     assert_eq!(
         keys,
-        ["agents", "embedding", "memory", "modelRoles", "providers"]
+        [
+            "agents",
+            "embedding",
+            "memory",
+            "modelRoles",
+            "privacy",
+            "providers"
+        ]
     );
 
     // default (no --tier) is unfiltered and tagged "all"
