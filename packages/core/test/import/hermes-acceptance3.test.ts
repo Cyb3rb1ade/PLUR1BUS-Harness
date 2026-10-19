@@ -63,8 +63,9 @@ describe("M7 acceptance 3: Hermes soul, skills, cron, cards", () => {
       const home = tempDir("p2-acc3-oc-");
       const r = await importOpenclaw({ home, source: fx.root, apply: true, testInternals: flatTestInternals() as any });
       assert.equal(r.counts.memoryCardsImported, 2, "gamma MEMORY.md cards imported");
-      assert.equal(r.counts.unresolvedUserScope, 1, "gamma USER.md unlinked without userPrincipal");
-      assert.equal(r.counts.memoryCardsDeferred, 2, "alpha (MEMORY.md, USER.md): store not taken over, deferred");
+      // USER.md without a user binding stays unresolved-user-scope also for a parked agent (ADR-007 Q4 first, as for Hermes).
+      assert.equal(r.counts.unresolvedUserScope, 2, "gamma and alpha USER.md unresolved without userPrincipal");
+      assert.equal(r.counts.memoryCardsDeferred, 1, "alpha (MEMORY.md): store not taken over, deferred");
       assert.equal(r.counts.memoryCardsPendingReembed, 1, "beta (MEMORY.md): store in the re-embedding migration, pending-reembed");
       const ledger = ledgerOf(r.ledgerPath!);
       const memEntries = ledger.filter((e) => e.entity === "memory");
