@@ -163,7 +163,7 @@ describe("usage: changing limits", opts, () => {
       await dlg.getByRole("button", { name: "Review" }).click();
       await dlg.getByText("Enter an agent id.").waitFor(); await dlg.getByText("Enter at least one limit.").waitFor();
       await dlg.getByLabel("Agent id").fill("qa");
-      await dlg.getByLabel("Period").selectOption("month"); assert.equal(await dlg.getByLabel("Metric").count(), 0, "tokens are the only metric");
+      await dlg.getByLabel("Period").selectOption("month"); assert.equal(await dlg.getByLabel("Metric").inputValue(), "tokens", "tokens are the default metric");
       await dlg.getByLabel("Soft limit").fill("1.5"); await dlg.getByLabel("Hard limit").fill("50");
       await dlg.getByRole("button", { name: "Review" }).click();
       await dlg.getByText("Enter a whole number of tokens.").waitFor();
@@ -182,6 +182,43 @@ describe("usage: changing limits", opts, () => {
       assert.ok(sets(app)[0]!.csrf);
       await app.page.getByRole("tab", { name: "Agents" }).click();
       await app.page.getByRole("heading", { name: "qa", level: 2, exact: true }).waitFor();
+    });
+  });
+  test("an image limit: pick the metric, whole images only, and it is shown with its own title and use", async () => {
+    await withApp({}, async (app) => {
+      const s = seed(app.server.rpc, { limits: [] }); await open(app);
+      await app.page.locator(".page-state").getByRole("button", { name: "Set limit" }).click();
+      const dlg = app.page.getByRole("dialog", { name: "Set limit" });
+      await dlg.getByLabel("Metric").selectOption("images");
+      await dlg.getByText("Image limits count generated images", { exact: false }).waitFor();
+      await dlg.getByLabel("Hard limit").fill("2.5");
+      await dlg.getByRole("button", { name: "Review" }).click();
+      await dlg.getByText("Enter a whole number of images.").waitFor();
+      await dlg.getByLabel("Hard limit").fill("2");
+      await dlg.getByRole("button", { name: "Review" }).click();
+      const review = app.page.getByRole("dialog", { name: "Confirm limit" });
+      assert.match((await review.textContent()) ?? "", /Images/);
+      await review.getByRole("button", { name: "Confirm and save" }).click();
+      await review.waitFor({ state: "detached" });
+      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "images", hard: 2 } });
+      s.limits = [lim({ scope: "global", period: "day", metric: "images", hard: 2, used: 2, state: "hard" }), lim({ scope: "global", period: "month", metric: "videoSeconds", soft: 60, hard: 120, used: 8, state: "ok" })];
+      await app.page.getByRole("button", { name: "Refresh" }).click();
+      const images = app.page.getByRole("group", { name: "Daily images" });
+      await images.waitFor();
+      assert.match((await images.textContent()) ?? "", /2 of 2 \(100%\)/);
+      await app.page.getByRole("group", { name: "Monthly video seconds" }).waitFor();
+    });
+  });
+  test("usage shows images and video seconds per period and a media model line", async () => {
+    await withApp({}, async (app) => {
+      const media = usage({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, events: 2, images: 3, videoSeconds: 8 });
+      seed(app.server.rpc, { periods: [{ period: "day", key: "2026-10-07", start: "", end: "", total: media, agents: [{ agentId: "main", total: media, models: [{ model: "img-small", ...media }] }] }] });
+      await open(app, "#/usage/usage");
+      const day = app.page.getByRole("group", { name: "Today · 2026-10-07" });
+      await day.waitFor();
+      const text = (await day.textContent()) ?? "";
+      assert.match(text, /Images generated\s*3/); assert.match(text, /Video seconds generated\s*8/);
+      assert.match(text, /img-small: 2 calls, 3 images, 8 video seconds/);
     });
   });
   test("limits are whole token counts; a dollar amount is refused", async () => {

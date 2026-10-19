@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { t, type Key } from "../../i18n.ts";
-import { buildSetParams, currentConsumption, parseAmount, type Limit, type LimitKey } from "./model.ts";
+import { buildSetParams, currentConsumption, METRICS, parseAmount, type Limit, type LimitKey } from "./model.ts";
 import type { BudgetMetric, BudgetPeriod, BudgetPeriodName } from "./rpc-types.ts";
 import { amount, fullTitle, isForbidden, limitKey, limitTitle } from "./shared.ts";
 
@@ -28,8 +28,8 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
   const [scope, setScope] = useState<"global" | "agent">(limit?.scope === "agent" ? "agent" : "global");
   const [agent, setAgent] = useState(limit?.agentId ?? "");
   const [period, setPeriod] = useState<BudgetPeriodName>(limit?.period ?? "day");
-  // Tokens are the only metric (no money dimension since 2026-10-19).
-  const metric: BudgetMetric = "tokens";
+  // Tokens, images or video seconds (no money dimension since 2026-10-19); an edit keeps the limit's metric.
+  const [metric, setMetric] = useState<BudgetMetric>(limit?.metric ?? "tokens");
   const text = (b: number | null): string => (b === null ? "" : String(b));
   const [soft, setSoft] = useState(text(limit?.soft ?? null));
   const [hard, setHard] = useState(text(limit?.hard ?? null));
@@ -61,7 +61,7 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
     if (scope === "agent" && agent.trim() === "") errs.agent = t("budget.err.agent");
     else if (agent.trim().length > 128) errs.agent = t("budget.err.agentLength");
     const s = parseAmount(soft), hd = parseAmount(hard);
-    const invalid = t("budget.err.tokens");
+    const invalid = t(`budget.err.${metric}` as Key);
     if (s === "invalid") errs.soft = invalid;
     if (hd === "invalid") errs.hard = invalid;
     if (s !== "invalid" && hd !== "invalid") {
@@ -128,7 +128,7 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
       h("button", { key: "r", type: "button", class: "btn btn-primary", onClick: review }, t("budget.review")),
     ],
   },
-    h("p", { class: "reading" }, edit ? t("budget.form.editHint") : t("budget.form.newHint"), " ", t("budget.form.tokensHint")),
+    h("p", { class: "reading" }, edit ? t("budget.form.editHint") : t("budget.form.newHint"), " ", t(`budget.form.${metric}Hint` as Key)),
     errors.none ? h("p", { class: "form-error", role: "alert" }, errors.none) : null,
     edit
       ? h("dl", { class: "facts" },
@@ -140,6 +140,7 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
         select("lm-scope", t("budget.field.scope"), scope, [["global", t("budget.scope.global")], ["agent", t("budget.scope.agent")]], setScope),
         scope === "agent" ? input("lm-agent", t("budget.form.agent"), agent, setAgent, errors.agent) : null,
         select("lm-period", t("budget.field.period"), period, [["day", t("budget.period.day")], ["month", t("budget.period.month")]], setPeriod),
+        select("lm-metric", t("budget.field.metric"), metric, METRICS.map((m) => [m, t(`budget.metric.${m}` as Key)] as const), setMetric),
       ],
     input("lm-soft", t("budget.form.soft"), soft, setSoft, errors.soft),
     input("lm-hard", t("budget.form.hard"), hard, setHard, errors.hard));
