@@ -1,3 +1,4 @@
+import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
 import { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -19,6 +20,7 @@ const BGE_RERANKER = "woxpas-ai/bge-reranker-v2-m3-onnx";
  * Engine PR E5 (host-neutral engine-config.schema.json) will let this file shrink.
  */
 export function buildEngineConfig(cfg: HarnessConfig, l: Layout): Record<string, unknown> {
+  assertSharedEnginePrivacy(cfg);
   const user = plain(cfg.engine);
   const { baseDbPathOverride, baseDbPath: _b, autoRecall: _r, autoCapture: _c, ...passthrough } = user;
   const emb = plain(passthrough.embedding), rer = plain(passthrough.reranker), rec = plain(passthrough.recall);

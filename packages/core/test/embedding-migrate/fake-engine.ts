@@ -32,15 +32,17 @@ const cosine = (a: number[], b: number[]) => a.reduce((s, x, i) => s + x * b[i]!
 export interface FakeOptions {
   rows?: Record<string, number>; // table → row count
   sourceModel?: string; sourceDims?: number;
+  /** A real source identity (e.g. the engine's own fingerprint of a local or cloud provider) instead of the "fake" one. */
+  source?: EmbeddingFingerprint;
   batchSize?: number;
-  /** Throw this from the n-th (1-based) provider batch overall. */
-  failBatch?: { n: number; error: Error };
+  /** Throw this from the n-th (1-based) provider batch overall (`times` consecutive attempts, default 1). */
+  failBatch?: { n: number; error: Error; times?: number };
   withValidate?: boolean;
   diskFree?: number;
 }
 
 export function createFakeEngine(o: FakeOptions = {}) {
-  const source = fp(o.sourceModel ?? "a", o.sourceDims ?? 8);
+  const source = o.source ?? fp(o.sourceModel ?? "a", o.sourceDims ?? 8);
   const tables = new Map<string, Row[]>();
   for (const [t, n] of Object.entries(o.rows ?? { memories: 10, shared: 5 })) {
     tables.set(t, Array.from({ length: n }, (_, i) => {
@@ -52,10 +54,12 @@ export function createFakeEngine(o: FakeOptions = {}) {
     activeGeneration: "g0" as string, activeFingerprint: source,
     generations: new Map<string, { fingerprint: EmbeddingFingerprint; tables: Map<string, Row[]> }>(),
     records: new Map<string, EngineRecord & { token: string }>(),
-    calls: [] as string[], providerBatches: 0, busy: false, sourceVersion: 1,
+    calls: [] as string[], planRequests: [] as PlanRequest[], providerBatches: 0, busy: false, sourceVersion: 1,
   };
   state.generations.set("g0", { fingerprint: source, tables });
   const batchSize = o.batchSize ?? 3;
+  // With a real source identity the inventory counts its vectors too (as the engine's does): 100 bytes of text per row.
+  const rowBytes = o.source ? source.dimensions * 4 + 100 : 100;
 
   const guard = async <T>(name: string, fn: () => T | Promise<T>): Promise<T> => {
     state.calls.push(name);
@@ -64,7 +68,7 @@ export function createFakeEngine(o: FakeOptions = {}) {
     try { await Promise.resolve(); return await fn(); } finally { state.busy = false; }
   };
   const snapshot = (r: EngineRecord & { token: string }): EngineRecord => { const { token: _t, ...rest } = r; return structuredClone(rest); };
-  const tablesOf = () => [...state.generations.get(state.activeGeneration)!.tables].map(([tableId, rows]) => ({ tableId, version: String(state.sourceVersion), rowCount: rows.length, estimatedBytes: rows.length * 100 }));
+  const tablesOf = () => [...state.generations.get(state.activeGeneration)!.tables].map(([tableId, rows]) => ({ tableId, version: String(state.sourceVersion), rowCount: rows.length, estimatedBytes: rows.length * rowBytes }));
   const drift = (r: EngineRecord) => { if (r.source.tables[0]!.version !== String(state.sourceVersion)) throw new Error(`reembedding source version drift: ${r.source.tables[0]!.tableId}`); };
 
   const runBatch = (r: EngineRecord & { token: string }): void => {
@@ -73,7 +77,7 @@ export function createFakeEngine(o: FakeOptions = {}) {
     const srcRows = state.generations.get(r.source.generation)!.tables.get(t.tableId)!;
     const rows = srcRows.slice(r.cursor.offset, r.cursor.offset + batchSize);
     state.providerBatches += 1;
-    if (o.failBatch && o.failBatch.n === state.providerBatches) throw o.failBatch.error;
+    if (o.failBatch && state.providerBatches >= o.failBatch.n && state.providerBatches < o.failBatch.n + (o.failBatch.times ?? 1)) throw o.failBatch.error;
     const g = state.generations.get(r.target.generation)!;
     const out = g.tables.get(t.tableId) ?? [];
     for (const row of rows) out.push({ id: row.id, text: row.text, vector: embed(r.target.fingerprint, row.text) });
@@ -86,6 +90,7 @@ export function createFakeEngine(o: FakeOptions = {}) {
   const engine: ReembedEngine & { validate?: ReembedEngine["validate"] } = {
     batchSize,
     plan: (req: PlanRequest): Promise<EnginePlan> => guard("plan", () => {
+      state.planRequests.push(structuredClone(req));
       if (idOf(req.target.fingerprint) === idOf(state.activeFingerprint)) throw new Error("reembedding plan does not change the embedding fingerprint");
       if (o.diskFree !== undefined && o.diskFree < 1) throw new Error("insufficient disk space for reembedding target generation (required 1 bytes)");
       const inv = tablesOf(); const rowsN = inv.reduce((s, t) => s + t.rowCount, 0);
@@ -95,7 +100,7 @@ export function createFakeEngine(o: FakeOptions = {}) {
       const token = `reemb_v1_${createHash("sha256").update(req.id).digest("base64url")}`;
       state.generations.set(targetGeneration, { fingerprint: req.target.fingerprint, tables: new Map() });
       state.records.set(req.id, { id: req.id, state: "planned", cursor: { tableIndex: 0, offset: 0, completedRows: 0, providerCalls: 0, bytes: 0 }, source: src, target: tgt, error: null, token });
-      return { plan: { id: req.id, source: src, target: { ...tgt, probeStatus: "passed" }, estimates: { rows: rowsN, providerCalls: rowsN, sourceBytes: rowsN * 100, targetBytes: rowsN * 300, requiredFreeBytes: rowsN * 375, freeBytes: 1e9 } }, planDigest: `sha256:${"0".repeat(64)}`, confirmation: { token } };
+      return { plan: { id: req.id, source: src, target: { ...tgt, probeStatus: "passed" }, estimates: { rows: rowsN, providerCalls: rowsN, sourceBytes: rowsN * rowBytes, targetBytes: rowsN * 300, requiredFreeBytes: rowsN * 375, freeBytes: 1e9 } }, planDigest: `sha256:${"0".repeat(64)}`, confirmation: { token } };
     }),
     apply: ({ id, token }) => guard("apply", () => {
       const r = state.records.get(id); if (!r) throw new Error("reembedding migration not found");

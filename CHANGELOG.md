@@ -8,6 +8,13 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **Engine pin 98dfe2f0 (contract 1.16.0): duplicate cards are linked in the engine.** `@cyb3rb1ade/plur1bus-memory` is
+  pinned to the merge of plugin PR #253 (it also carries 1.13.0 to 1.15.0); `CORE_CONTRACT` is 1.16.0, the floor stays 1.8.0.
+  The OpenClaw and Hermes card importers attach a card that duplicates an existing memory to it through `memory.link` when the
+  engine reports `capabilities.memoryLink` (report `linkId`, ledger `details.linkId`), and `--rollback` unlinks that run's
+  links through `memory.unimport` (report `memoryLinks`). OpenClaw `USER.md` cards without a user binding are now
+  `unresolved-user-scope` also for an agent whose store is parked or deferred, and a second copy of a linked card is
+  `matched-existing`, as for Hermes. See `docs/import.md` §10.3, §10.4.
 - **`web.fetch` golden corpus and gate (M2 acceptance 12, D94).** 127 synthetic fixtures (70 extraction goldens, 57 typed
   failures) served by an offline fixture server; the gate requires at least 95 % of each golden's main-text tokens and every
   heading and table, covers every typed failure the tool can produce through an enum test, and a new SSRF suite drives

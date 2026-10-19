@@ -184,6 +184,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         apply: values.apply === true,
         force: values.force === true,
         sourceType: sourceType as SourceType,
+        testInternals,
       });
       return { ok: true, schema: "import.rollback/1", value: r as unknown as Record<string, unknown>, human: renderRollback(r) };
     }

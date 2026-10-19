@@ -6,12 +6,29 @@ import type { HarnessLogger } from "../logger.ts";
 import { RpcError } from "../rpc/errors.ts";
 import type { Handler } from "../rpc/server.ts";
 import { MigrationError, type MigrationDriver } from "./driver.ts";
-import { targetFromModel } from "./target.ts";
+import type { PrivacyAcknowledgment } from "@plur1bus/config-schema";
+import { isLocalTarget, targetFromSpec, type TargetPolicy } from "./target.ts";
+import { authenticatedPrincipal } from "../rbac/guard.ts";
+import type { CallContext } from "../rpc/server.ts";
+import { checkEngineEgress } from "../engine-config.ts";
+import type { Egress } from "../egress/service.ts";
 
 export const REEMBED_METHODS = ["admin.reembed.plan", "admin.reembed.run", "admin.reembed.status", "admin.reembed.abort"] as const;
 export type ReembedMethod = (typeof REEMBED_METHODS)[number];
 
-export interface ReembedRpcDeps { driver: MigrationDriver; isStopping: () => boolean; logger: Pick<HarnessLogger, "debug" | "info" | "warn"> }
+export interface ReembedRpcDeps {
+  driver: MigrationDriver; isStopping: () => boolean; logger: Pick<HarnessLogger, "debug" | "info" | "warn">;
+  /** The live privacy rules a cloud target is checked against (memory.embedding.privacyAck, privacy.localOnly). */
+  targetPolicy?: () => TargetPolicy;
+  /** A cloud target's endpoint must pass the harness egress policy, like the engine start (checkEngineEgress). */
+  egress?: Pick<Egress, "decide">;
+  now?: () => number;
+}
+
+/** The calling person (the CLI's owner); a connection without one is the local owner, as for config.set without a principal. */
+function personOf(ctx: CallContext | undefined): string {
+  try { return ctx ? authenticatedPrincipal(ctx).userId : "local-owner"; } catch { return "local-owner"; }
+}
 
 /** The wire error for a driver failure; the reason is the driver's stable code. */
 export function mapMigrationError(e: unknown): RpcError | null {
@@ -25,10 +42,10 @@ export function mapMigrationError(e: unknown): RpcError | null {
 }
 
 export function buildReembedMethods(d: ReembedRpcDeps): Record<ReembedMethod, Handler> {
-  function op<P, R>(method: ReembedMethod, fn: (p: P) => Promise<R>): Handler {
-    return async (p: P) => {
+  function op<P, R>(method: ReembedMethod, fn: (p: P, ctx?: CallContext) => Promise<R>): Handler {
+    return async (p: P, ctx?: CallContext) => {
       if (d.isStopping()) throw new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });
-      try { return await fn(p); } catch (e) {
+      try { return await fn(p, ctx); } catch (e) {
         const mapped = mapMigrationError(e);
         if (!mapped) throw e; // the server answers E_INTERNAL handler-threw
         d.logger.debug("re-embedding op refused", { method, error: mapped.error, reason: mapped.reason });
@@ -37,9 +54,22 @@ export function buildReembedMethods(d: ReembedRpcDeps): Record<ReembedMethod, Ha
     };
   }
   return {
-    "admin.reembed.plan": op("admin.reembed.plan", async (p: AdminReembedPlanParams) => {
-      const t = targetFromModel({ model: p.model, ...(p.dimensions !== undefined ? { dimensions: p.dimensions } : {}), ...(p.queryPrefix !== undefined ? { queryPrefix: p.queryPrefix } : {}), ...(p.passagePrefix !== undefined ? { passagePrefix: p.passagePrefix } : {}) });
+    "admin.reembed.plan": op("admin.reembed.plan", async (p: AdminReembedPlanParams, ctx) => {
+      // Every direction (local/cloud → local/cloud); only the provider rules refuse (they throw their own RpcError).
+      const policy = d.targetPolicy?.() ?? {};
+      // acknowledgePrivacy: the calling person acknowledges THIS cloud target now (bound to provider and endpoint). It is
+      // what makes cloud → cloud possible while memory.embedding.privacyAck still admits the current provider; the
+      // switch writes it together with the new embedding block, so the configuration is never half-acknowledged.
+      const ack: PrivacyAcknowledgment | undefined = p.acknowledgePrivacy === true && !isLocalTarget(p.provider)
+        ? { provider: p.provider!, acknowledgedAt: new Date((d.now ?? Date.now)()).toISOString(), by: personOf(ctx), ...(p.baseUrl !== undefined ? { endpoint: p.baseUrl } : {}) }
+        : undefined;
+      const t = targetFromSpec({ model: p.model, ...(p.provider !== undefined ? { provider: p.provider } : {}), ...(p.baseUrl !== undefined ? { baseUrl: p.baseUrl } : {}), ...(p.apiKeyEnv !== undefined ? { apiKeyEnv: p.apiKeyEnv } : {}), ...(p.dimensions !== undefined ? { dimensions: p.dimensions } : {}), ...(p.queryPrefix !== undefined ? { queryPrefix: p.queryPrefix } : {}), ...(p.passagePrefix !== undefined ? { passagePrefix: p.passagePrefix } : {}) }, ack ? { ...policy, privacyAck: ack } : policy);
       if (!t.ok) return { probe: t.probe, plan: null };
+      if (!t.local) {
+        if (d.egress) await checkEngineEgress({ embedding: t.block }, d.egress, (message, fields) => d.logger.warn(message, fields));
+        if (ack) d.logger.info("re-embedding target privacy acknowledged", { provider: ack.provider, by: ack.by });
+        return d.driver.plan({ target: t.fingerprint, remote: { apiKeyEnv: t.apiKeyEnv, ...(typeof t.block.baseUrl === "string" ? { baseUrl: t.block.baseUrl } : {}), ...(ack ? { privacyAck: ack } : {}) }, ...(p.throttleMs !== undefined ? { throttleMs: p.throttleMs } : {}) });
+      }
       return d.driver.plan({ target: t.fingerprint, ...(p.throttleMs !== undefined ? { throttleMs: p.throttleMs } : {}) });
     }),
 

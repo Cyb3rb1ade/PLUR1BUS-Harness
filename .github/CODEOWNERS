@@ -1,0 +1,5 @@
+# Audit exceptions and their enforcement are controlled by the repository owner.
+/audit-allowlist.json @Cyb3rb1ade
+/scripts/release/audit-policy.mjs @Cyb3rb1ade
+/.github/workflows/release-quality.yml @Cyb3rb1ade
+/.github/CODEOWNERS @Cyb3rb1ade

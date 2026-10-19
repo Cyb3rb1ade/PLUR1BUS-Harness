@@ -2,11 +2,13 @@ import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.j
 import type { Engine, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RpcError } from "./rpc/errors.ts";
 
-export const CORE_CONTRACT = "1.12.0";
+export const CORE_CONTRACT = "1.16.0";
 /** The engine contract's supported major version (ADR-016 §1): the core accepts major 1 only. */
 export const SUPPORTED_CONTRACT_MAJOR = 1;
 /** The lowest minor the core runs on (S18): 1.8.0 (E4) adds `Engine.models` and the model-derived `EngineStatus`.
- *  The pinned engine is 1.12.0 (plugin #219: memory.rebind, memory.unbind); the floor stays 1.8.0 because nothing here needs a 1.12.0 member (HB2). */
+ *  The pinned engine is 1.16.0 (plugin #253: memory.link, Engine.capabilities; #252: 1.15.0 host fetch/secret ports, HTTP
+ *  reranker, unimport by sourceRef run). The floor stays 1.8.0: the importer feature-tests `engine.capabilities.memoryLink`
+ *  before it calls memory.link (import/importers/card-links.ts) and falls back to the ledger-only link without it (HB2). */
 export const MIN_CONTRACT_MINOR = 8;
 
 /** Refuses to start against an engine whose `contract` isn't a `<int>.<int>.<int>` string with the

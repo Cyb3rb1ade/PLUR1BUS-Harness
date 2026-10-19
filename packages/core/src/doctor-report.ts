@@ -60,6 +60,12 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; sandb
   }
   function currentReport(report: Report): Report {
     const copy = structuredClone(report);
+    // Privacy is checked from the live configuration even while the expensive provisioning snapshot is cached.
+    const group=copy.groups[0];
+    if(group)for(const check of o.coreChecks?.()??[]){
+      const next={...check,summary:safe(check.summary),...(check.repair?{repair:{kind:check.repair.kind,label:safe(check.repair.label)}}:{})};
+      const at=group.checks.findIndex(c=>c.id===check.id);if(at<0)group.checks.push(next);else group.checks[at]=next;
+    }
     const capability = o.capabilityStatus?.();
     if (capability) copy.groups[0]?.checks.push({ id: 'capabilities.index', status: capability.sourceError ? 'fail' : capability.mode === 'fts5-only' ? 'warn' : 'ok', summary: `Capability index: ${capability.mode}. Last recheck: ${capability.lastRecheck ?? 'pending'}.` });
     const mining = o.miningStatus?.();
