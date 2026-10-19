@@ -9,13 +9,13 @@
 // NEVER writes directly to LanceDB or imports external vector store libraries.
 // Agents with a store of their own (owner decision 2026-10-19, docs/import.md §2.2): their cards are imported too.
 //   - store taken over / matched: before a card is written, the agent's store is asked whether the same memory is already
-//     there (engine duplicate rule, see DUPLICATE_SCORE); a duplicate is not written again but linked: ledger action
+//     there (engine duplicate rule, card-links.ts DUPLICATE_SCORE); a duplicate is not written again but linked: ledger action
 //     "linked" with the existing memory id, report outcome "linked".
 //   - store routed to the re-embedding migration: the cards are parked (outcome / ledger action "pending-reembed") and
 //     never embedded into a vector space the agent's store is not in; a later run that takes the store over imports them.
 //   - store not taken over for another reason (skipped): the cards are deferred (outcome / ledger action "deferred").
+// The rule's building blocks (duplicate check, ledger links, parking) are shared with the Hermes importer: card-links.ts.
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import type { Layout } from "../../paths.ts";
 import {
@@ -28,6 +28,7 @@ import { writeAtomicSync } from "../fs-atomic.ts";
 import { existsNoFollow, readSourceFileSafe, readSourceTextSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import { createCardLinker, recordParkedCard, type CardLink, type LinkCandidate, type OwnStoreCardMode } from "./card-links.ts";
 
 export const IMPORT_CARD_BATCH_LIMIT = 500;
 export const MAX_MEMORY_FILE_BYTES = 16 * 1024 * 1024; // 16 MiB
@@ -56,66 +57,6 @@ function importErrorCode(err: any): string {
 export function hasOpenclawCardFiles(workspaceDir: string): boolean {
   return ["MEMORY.md", "memory.md", "USER.md", "user.md"].some((n) => existsNoFollow(join(workspaceDir, n)));
 }
-
-/** The engine's capture duplicate threshold: `cfg.duplicateThreshold ?? 0.95` (engine/create-engine.js), compared against
- *  `distanceToScore(d) = 1 / (1 + d)` (lib/score.js) in MemoryDB.findSimilar. The harness never sets duplicateThreshold. */
-export const DUPLICATE_SCORE = 0.95;
-/** `memory.list` accepts a topic of at most this many characters (engine/memory-ops/read.js MAX_TOPIC_LENGTH). */
-const MAX_TOPIC_LENGTH = 2_000;
-
-/**
- * The engine's capture duplicate rule over its public contract: `memory.list({ topic })` (vector search in the agent's
- * store and the pools its principal reaches) scores a hit `max(0, 1 - d)` (lib/db-adapter.js searchByTopic), so the capture
- * score `1 / (1 + d)` is `1 / (2 - score)`. A hit is the same memory when that reaches DUPLICATE_SCORE or its text is the
- * card's text (findSimilar's `r.text === text`). A text-search fallback (score 0.5) never counts as a vector match.
- */
-export async function findExistingMemory(engine: Engine, text: string, principal: Principal): Promise<{ id: string; score: number } | null> {
-  const want = text.replace(/\r\n/g, "\n").trim();
-  if (want.length === 0 || want.length > MAX_TOPIC_LENGTH) return null;
-  const res = await engine.memory.list({ topic: want, limit: 5 }, principal, { origin: "system", background: false });
-  let best: { id: string; score: number } | null = null;
-  for (const item of res.items ?? []) {
-    if (typeof item?.id !== "string") continue;
-    if (typeof item.text === "string" && item.text.replace(/\r\n/g, "\n").trim() === want) return { id: item.id, score: 1 };
-    const listScore = typeof item.score === "number" && item.score > 0 ? Math.min(1, item.score) : 0;
-    const score = listScore > 0 ? 1 / (2 - listScore) : 0;
-    if (score >= DUPLICATE_SCORE && (!best || score > best.score)) best = { id: item.id, score };
-  }
-  return best;
-}
-
-/**
- * Cards an earlier, not rolled-back run of this home already linked (ledger action "linked", targetRef `memory:<id>`):
- * idempotency key -> memory id. A re-run reuses the link instead of asking the store again: a duplicate check goes through
- * `memory.list`, whose store handle the engine opens in write mode (MemoryDB.init's bootstrap-row cleanup commits a
- * LanceDB transaction even when nothing changes), so asking again would write to the store on every run.
- */
-export function readPriorCardLinks(importsDir: string): Map<string, string> {
-  const out = new Map<string, string>();
-  let runs: string[];
-  try { runs = readdirSync(importsDir); } catch { return out; }
-  for (const run of runs.sort()) {
-    const dir = join(importsDir, run);
-    if (existsSync(join(dir, "rolled-back", "status.json"))) continue;
-    let text: string;
-    try { text = readFileSync(join(dir, "ledger.jsonl"), "utf8"); } catch { continue; }
-    for (const line of text.split("\n")) {
-      if (!line.trim()) continue;
-      try {
-        const e = JSON.parse(line);
-        if (e?.entity !== "memory" || e?.action !== "linked" || typeof e?.idempotencyKey !== "string") continue;
-        const m = /^memory:([A-Za-z0-9-]{1,128})$/.exec(String(e.targetRef ?? ""));
-        if (m) out.set(e.idempotencyKey, m[1]!);
-      } catch { /* torn line: the ledger loader repairs it */ }
-    }
-  }
-  return out;
-}
-
-/** How the cards of an agent with a store of its own are handled (absent: an agent without one, the plain import). */
-export type OwnStoreCardMode =
-  | { kind: "link"; priorLinks?: ReadonlyMap<string, string> | undefined }
-  | { kind: "park"; outcome: "pending-reembed" | "deferred"; reason: string };
 
 export interface OpenclawMemoryImportResult {
   importedCount: number;
@@ -193,7 +134,8 @@ export async function importOpenclawMemories(opts: {
   // Agent whose own store is not in the harness yet (re-embedding migration, or not taken over): its cards are parked, never
   // embedded now (they would land in a vector space the store is not in, or create a partition that blocks the take-over).
   if (opts.ownStore?.kind === "park") {
-    const { outcome: parkOutcome, reason: parkReason } = opts.ownStore;
+    const park = opts.ownStore;
+    const { outcome: parkOutcome, reason: parkReason } = park;
     for (const [names, file] of [[["MEMORY.md", "memory.md"], "MEMORY.md"], [["USER.md", "user.md"], "USER.md"]] as const) {
       const found = names.map((n) => join(workspaceDir, n)).find((cand) => existsNoFollow(cand));
       if (found === undefined) continue;
@@ -211,15 +153,12 @@ export async function importOpenclawMemories(opts: {
       cards.forEach((text, i) => {
         const key = cardIdempotencyKey("openclaw", agentId, file, text);
         cardResults.push({ idempotencyKey: key, outcome: parkOutcome, reason: parkReason });
-        if (isApply && ledger) {
-          ledger.record({
-            entity: "memory",
+        if (isApply) {
+          recordParkedCard(ledger, park, {
             idempotencyKey: key,
-            action: parkOutcome,
+            text,
             sourceRef: `openclaw:${agentId}:${file}#${i + 1}${runSuffix}`,
             targetRef: `agents/${agentId}/workspace/${file === "MEMORY.md" ? "memories.md" : "USER.md"}`,
-            sha256: createHash("sha256").update(text.replace(/\r\n/g, "\n").trim()).digest("hex"),
-            reason: parkReason,
           });
         }
       });
@@ -229,58 +168,18 @@ export async function importOpenclawMemories(opts: {
 
   // Agent whose own store is in the harness (taken over or matched): a card that is already there is linked, not written
   // again. Apply only: a dry run has no target store to compare against (it plans every new card as created).
-  const linkMode = opts.ownStore?.kind === "link" && isApply && engine !== undefined;
-  type BatchCard = { idempotencyKey: string; text: string; sourceRef: string; isDuplicateInRun: boolean; provenance: "imported"; scope: "agent-private" | "user" };
+  const linker = createCardLinker({
+    engine, agentId, isApply, mode: opts.ownStore, ledger,
+    // No proof either way: the card is imported (never dropped), the failed check is reported.
+    onError: (sourceRef, reason) => errors.push({ sourceRef, reason }),
+  });
   /** Splits the cards the engine would create into duplicates of a memory already in the store (linked) and the rest. */
-  const linkDuplicates = async (batch: BatchCard[], bind: Principal, fileRef: string): Promise<Map<string, { id: string; score: number; reason: string }>> => {
-    const linked = new Map<string, { id: string; score: number; reason: string }>();
-    if (!linkMode || !engine) return linked;
-    const prior = opts.ownStore?.kind === "link" ? opts.ownStore.priorLinks : undefined;
-    for (const c of batch) {
-      const id = prior?.get(c.idempotencyKey);
-      if (id !== undefined && !c.isDuplicateInRun) linked.set(c.idempotencyKey, { id, score: 1, reason: "already-linked" });
-    }
-    const open = batch.filter((c) => !linked.has(c.idempotencyKey));
-    if (open.length === 0) return linked;
-    let planned: Set<string>;
-    try {
-      // The engine's own idempotency first: a card it already imported stays matched-existing, never "linked" to itself.
-      const dry = await engine.memory.import(
-        { agentId, principal: bind, cards: open.map(({ idempotencyKey, text, provenance, sourceRef, scope }) => ({ idempotencyKey, text, provenance, sourceRef, scope })), dryRun: true },
-        bind,
-        systemAgent,
-      );
-      planned = new Set((dry.cards ?? []).filter((c: any) => c.outcome === "created").map((c: any) => c.idempotencyKey));
-    } catch {
-      return linked; // the real import reports the failure
-    }
-    for (const c of open) {
-      if (c.isDuplicateInRun || !planned.has(c.idempotencyKey)) continue;
-      try {
-        const hit = await findExistingMemory(engine, c.text, bind);
-        if (hit) linked.set(c.idempotencyKey, { ...hit, reason: "duplicate-of-existing" });
-      } catch (err) {
-        // No proof either way: the card is imported (never dropped), the failed check is reported.
-        errors.push({ sourceRef: `${agentId}:${fileRef}`, reason: `duplicate-check-failed:${importErrorCode(err)}` });
-      }
-    }
-    return linked;
-  };
-  const recordLinked = (c: BatchCard, hit: { id: string; score: number; reason: string }, targetRefFile: string) => {
+  const linkDuplicates = (batch: LinkCandidate[], bind: Principal, fileRef: string): Promise<Map<string, CardLink>> =>
+    linker.split(batch, { request: bind, caller: bind }, fileRef);
+  const recordLinked = (c: LinkCandidate, hit: CardLink, targetRefFile: string) => {
     linkedCount++;
     cardResults.push({ idempotencyKey: c.idempotencyKey, outcome: "linked", reason: hit.reason, linkedTo: hit.id });
-    if (ledger) {
-      ledger.record({
-        entity: "memory",
-        idempotencyKey: c.idempotencyKey,
-        action: "linked",
-        sourceRef: c.sourceRef,
-        targetRef: `memory:${hit.id}`,
-        sha256: createHash("sha256").update(c.text.replace(/\r\n/g, "\n").trim()).digest("hex"),
-        reason: hit.reason,
-        details: { score: Math.round(hit.score * 1000) / 1000, card: targetRefFile },
-      });
-    }
+    linker.record(c, hit, targetRefFile);
   };
 
   // 1. Process MEMORY.md / memory.md (agent-scoped)

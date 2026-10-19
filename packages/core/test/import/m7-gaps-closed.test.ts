@@ -1,12 +1,14 @@
 // m7-gaps-closed.test.ts — Unit and integration tests for M7 import gaps:
 // 1. OpenClaw memory card path (provenance, deduplication, conflict logic, user scope)
-// 2. Hermes --adopt-store mismatch routing (--adopt-strategy reembed | import, dry-run offered strategies)
+// 2. Hermes --adopt-store mismatch routing (--adopt-strategy reembed | import, dry-run offered strategies); with reembed the
+//    cards are parked as pending-reembed (owner decision 2026-10-19)
 // 3. Hermes profile mapping (--map profile=<p>:agent=<a>, collision guard, --merge-profiles)
 // 4. Backfill CLI and programmatic execution (schema import.backfill/1, --agent required)
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { layout } from "../../src/paths.ts";
 import { importHermes } from "../../src/import/importers/hermes.ts";
 import { importBackfill } from "../../src/import/importers/backfill.ts";
@@ -22,6 +24,20 @@ function embedder(hot = 0, dim = 384) {
   const vector = () => Array.from({ length: dim }, (_, i) => (i === hot ? 1 : 0));
   const one = async () => vector();
   return { embed: one, embedQuery: one, embedPassage: one, embedBatch: async (t: string[]) => t.map(vector), shutdown: async () => {} };
+}
+
+/** Relative path -> sha256 of every file under `dir`, sorted. */
+function storeDigest(dir: string): string {
+  const out: string[] = [];
+  const walk = (d: string) => {
+    for (const ent of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, ent.name);
+      if (ent.isDirectory()) walk(full);
+      else out.push(`${relative(dir, full).replaceAll("\\", "/")}=${createHash("sha256").update(readFileSync(full)).digest("hex")}`);
+    }
+  };
+  walk(dir);
+  return out.sort().join("\n");
 }
 
 async function legacyStore(rows = 1): Promise<string> {
@@ -86,7 +102,9 @@ describe("M7 Import Gap 2: Hermes --adopt-store at mismatch", () => {
     }
   });
 
-  it("apply with mismatch and --adopt-strategy reembed adopts store and skips card re-embedding", { timeout }, async () => {
+  it("apply with mismatch and --adopt-strategy reembed adopts the store as-is and parks the cards as pending-reembed", { timeout }, async () => {
+    // Owner decision 2026-10-19 (same rule as OpenClaw, hermes-cards-own-store.test.ts): the cards are not dropped but
+    // parked, and nothing is embedded into the adopted store, whose vectors are in another model's space.
     const fx = await buildM7HermesFixture();
     try {
       const home = tempDir("m7-adopt-reembed-");
@@ -104,10 +122,21 @@ describe("M7 Import Gap 2: Hermes --adopt-store at mismatch", () => {
 
       assert.equal(r.storeAdopt?.action, "taken-over");
       assert.equal(r.storeAdopt?.routedTo, "reembed");
-      assert.equal(r.counts.memoryCardsImported, 0, "card re-embedding skipped when adopting store for re-embedding");
+      assert.equal(r.counts.memoryCardsImported, 0, "no card embedded into the store routed to the re-embedding migration");
+      // MEMORY.md of both profiles (default: 2 cards, work: 2 cards) is parked; USER.md has no user binding (3 cards).
+      assert.equal(r.counts.memoryCardsPendingReembed, 4);
+      assert.equal(r.counts.unresolvedUserScope, 3);
+      assert.equal(r.counts.memoryCardsDeferred + r.counts.memoryCardsLinked + r.counts.memoryCardsRejected, 0);
+      for (const p of r.profilesOrAgents) {
+        const parked = p.memory!.cardResults.filter((c) => c.idempotencyKey.includes(":memories/MEMORY.md:"));
+        assert.deepEqual(parked.map((c) => [c.outcome, c.reason]), [["pending-reembed", "agent-store-reembed-migration"], ["pending-reembed", "agent-store-reembed-migration"]], p.harnessAgentId);
+      }
       assert.ok(existsSync(l.lancedb), "store was adopted");
-      const ledger = readFileSync(r.ledgerPath!, "utf8");
-      assert.ok(ledger.includes('"entity":"store"') && ledger.includes('"action":"adopted"'));
+      assert.equal(storeDigest(l.lancedb), storeDigest(src), "the adopted store is exactly the source copy (the engine never opened it)");
+      const entries = readFileSync(r.ledgerPath!, "utf8").trim().split("\n").map((x) => JSON.parse(x));
+      assert.equal(entries.filter((e) => e.entity === "store" && e.action === "adopted").length, 1);
+      assert.equal(entries.filter((e) => e.entity === "memory" && e.action === "pending-reembed").length, 4);
+      assert.equal(entries.filter((e) => e.entity === "memory" && e.action !== "pending-reembed").length, 0, "no memory batch was imported");
     } finally {
       // tempDir handles temp folders
     }
