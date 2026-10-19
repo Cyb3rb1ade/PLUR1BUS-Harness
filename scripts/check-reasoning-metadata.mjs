@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 const Ajv=createRequire(new URL("../packages/config-schema/package.json",import.meta.url))("ajv");
 import { loadReasoningTable, lookupReasoning } from "../packages/core/src/discovery/reasoning.ts";
 import { SHIPPED_PRICE_TABLES } from "../packages/core/src/budget/prices.ts";
-const schema=JSON.parse(readFileSync(new URL("../packages/core/catalog/reasoning-metadata.schema.json",import.meta.url),"utf8"));
+const schema=JSON.parse(readFileSync(new URL("./reasoning-metadata.schema.json",import.meta.url),"utf8"));
 const validate=new Ajv({allErrors:true,strict:false}).compile(schema);
 export function checkReasoningMetadata(raw, known=[]) {
   if(!validate(raw))throw new Error(`reasoning metadata schema: ${new Ajv().errorsText(validate.errors)}`);
