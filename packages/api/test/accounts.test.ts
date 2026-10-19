@@ -153,7 +153,7 @@ test("the routes that need no role are exactly the session self-service routes, 
 
 test("every route: unauthenticated is 401; a Viewer is refused on every route that needs a role (reads and writes)", async () => {
   const h = await setup();
-  const previous=h.core.impl; h.core.impl=async(method,params)=>method==="chat.list"?{sessions:[],truncated:false,nextCursor:null}:method==="chat.get"||method==="chat.events"||method==="chat.export"?Promise.reject({error:"E_NOT_FOUND",reason:"not-found"}):previous(method,params);
+  const previous=h.core.impl; h.core.impl=async(method,params)=>method==="chat.list"?{sessions:[],truncated:false,nextCursor:null}:method==="chat.get"||method==="chat.events"||method==="chat.export"||method==="chat.model.get"?Promise.reject({error:"E_NOT_FOUND",reason:"not-found"}):previous(method,params);
   try {
     const { cookie } = await loginAs(h, "vera");
     for (const r of ROUTES.filter((x) => x.auth !== "none")) {

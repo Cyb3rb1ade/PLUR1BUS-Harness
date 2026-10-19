@@ -1,5 +1,9 @@
 import { ProviderError } from "./errors.ts";
 import type { ChatMessage, ChatRequest, ContentPart, ToolChoice } from "./types.ts";
+import { checkReasoningDirective, type ReasoningVendorParam } from "./reasoning.ts";
+
+/** The reasoning parameters an OpenAI-compatible `/chat/completions` body can carry. */
+const CHAT_REASONING: readonly ReasoningVendorParam[] = ["reasoning_effort", "reasoning.effort", "chat_template_kwargs.enable_thinking"];
 
 export interface BuildOptions {
   stream: boolean;
@@ -64,6 +68,12 @@ export function validateRequest(req: ChatRequest): void {
   if (req.responseFormat?.type === "json_schema" && !req.responseFormat.name) throw bad("json_schema response format needs a name");
 }
 
+function checkChatReasoning(req: ChatRequest): void {
+  if (req.reasoning === undefined) return;
+  const problem = checkReasoningDirective(req.reasoning, CHAT_REASONING, "chat_completions");
+  if (problem) throw bad(problem);
+}
+
 function wireMessage(m: ChatMessage): Record<string, unknown> {
   switch (m.role) {
     case "system":
@@ -98,6 +108,7 @@ function wireToolChoice(c: ToolChoice): unknown {
  */
 export function buildRequestBody(req: ChatRequest, opts: BuildOptions): Record<string, unknown> {
   validateRequest(req);
+  checkChatReasoning(req);
   const body: Record<string, unknown> = { model: req.model, messages: req.messages.map(wireMessage) };
   if (req.tools && req.tools.length > 0) {
     body["tools"] = req.tools.map((t) => {
@@ -119,6 +130,12 @@ export function buildRequestBody(req: ChatRequest, opts: BuildOptions): Record<s
     body["response_format"] = f.type === "json_schema"
       ? { type: "json_schema", json_schema: { name: f.name, schema: f.schema, ...(f.strict === undefined ? {} : { strict: f.strict }) } }
       : { type: f.type };
+  }
+  if (req.reasoning !== undefined) {
+    const r = req.reasoning;
+    if (r.vendorParam === "reasoning_effort") body["reasoning_effort"] = r.value;
+    else if (r.vendorParam === "reasoning.effort") body["reasoning"] = { effort: r.value };
+    else body["chat_template_kwargs"] = { enable_thinking: r.value };
   }
   body["stream"] = opts.stream;
   if (opts.stream && opts.includeUsage) body["stream_options"] = { include_usage: true };

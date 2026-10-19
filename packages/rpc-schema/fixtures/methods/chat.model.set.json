@@ -1,0 +1,1 @@
+{"params":{"sessionId":"ses_1","profile":"default","reasoning":"xhigh","expectedRevision":0},"result":{"sessionId":"ses_1","profile":"default","previousProfile":null,"reasoning":"xhigh","effectiveReasoning":"high","adjusted":true,"revision":1,"warning":"cache-rebuild-cost-prefixes-preserved","costHint":"reasoning-cost-higher"}}
