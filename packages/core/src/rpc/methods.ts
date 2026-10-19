@@ -334,7 +334,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       try {
         const st = d.budget.status(p?.agentId !== undefined ? { agentId: p.agentId } : {});
         return {
-          timeZone: st.timeZone, priceVersion: st.priceVersion, now: iso(st.now),
+          timeZone: st.timeZone, now: iso(st.now),
           periods: st.periods.map((x) => ({ ...x, start: iso(x.start), end: iso(x.end) })),
           limits: st.limits,
         };

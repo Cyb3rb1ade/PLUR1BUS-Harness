@@ -4,8 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { atomicJson, safeId } from './files.ts';
 import { MediaError, failure, validateRequest } from './types.ts';
 import type { ImageAdapter, ImageRequest, ResumeToken, Progress } from './types.ts';
-import { estimateCost } from './cost.ts';
-import type { BudgetPort } from './cost.ts';
+import { deliveredUnits, requestedUnits } from './units.ts';
+import type { BudgetPort } from './units.ts';
 import type { OutputStore, Manifest } from './store.ts';
 export type JobState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 export interface Job { id: string; adapter: string; operation: 'generate' | 'edit'; request: ImageRequest; state: JobState; progress: Progress; createdAt: number; updatedAt: number; checkpoint?: ResumeToken; output?: Manifest; error?: MediaError['code'] }
@@ -79,7 +79,7 @@ export class JobRunner {
       const resuming = job.state === 'running';
       const existing = await this.store.get(id);
       if (existing) {
-        await this.budget?.settle(id, existing.metadata.costUsd ?? null); job.output = existing; job.state = 'succeeded'; job.progress = { fraction: 1 }; job.updatedAt = Date.now(); await this.persistence.put(job); return;
+        await this.budget?.settle(id, deliveredUnits(job.request, existing)); job.output = existing; job.state = 'succeeded'; job.progress = { fraction: 1 }; job.updatedAt = Date.now(); await this.persistence.put(job); return;
       }
       const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
       let reserved = false;
@@ -87,13 +87,13 @@ export class JobRunner {
       try {
         combined.throwIfAborted();
         if (resuming && (!job.checkpoint || !adapter.resume)) throw new MediaError('interrupted');
-        await this.budget?.reserve(id, estimateCost(job.request, adapter)); reserved = true;
+        await this.budget?.reserve(id, requestedUnits(job.request)); reserved = true;
         job.state = 'running'; await save();
         const context = { signal: combined, onCheckpoint: async (token: ResumeToken) => { job.checkpoint = token; await save(); }, onProgress: async (p: Progress) => { if (!Number.isFinite(p.fraction) || p.fraction < 0 || p.fraction > 1) throw new MediaError('invalid_response'); job.progress = p; await save(); }, ...(job.checkpoint ? { resume: job.checkpoint } : {}) };
         const result = await raceAbort(resuming ? adapter.resume!(job.request, context) : adapter[job.operation](job.request, context), combined);
         combined.throwIfAborted();
         job.output = await this.store.put(id, job.request, result);
-        await this.budget?.settle(id, result.metadata.costUsd ?? null); reserved = false;
+        await this.budget?.settle(id, deliveredUnits(job.request, job.output)); reserved = false;
         job.state = 'succeeded'; job.progress = { fraction: 1 }; await save();
       } catch (e) {
         // A deadline on the caller's signal is a timeout; only a deliberate abort (cancel() or the caller aborting) is a cancellation.

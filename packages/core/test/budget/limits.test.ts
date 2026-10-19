@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { DatabaseSync } from "node:sqlite";
 import { BudgetExceededError, BudgetInputError } from "../../src/budget/service.ts";
-import { Clock, open, PRICES_V1, PRICES_V2 } from "./helpers.ts";
+import { Clock, open } from "./helpers.ts";
 
-const usd = (n: number) => Math.round(n * 1_000_000);
 const call = (svc: ReturnType<typeof open>["svc"], agent: string, inTok: number, outTok = 0, model = "m-small") => svc.recordUsage({ agent, model, inputTokens: inTok, outputTokens: outTok });
 
 describe("limits", () => {
@@ -60,27 +60,17 @@ describe("limits", () => {
     assert.equal(svc.check("a2", "m-small", { inputTokens: 100 }).allowed, true);
   });
 
-  it("cost limits use the price table; an unpriced model under a hard cost limit is refused", () => {
-    const { svc } = open();
-    svc.setLimit({ scope: "agent", agentId: "a1", period: "day", metric: "cost", soft: usd(0.5), hard: usd(1) });
-    // m-large: 10 USD/M in, 50 USD/M out. 60k in = 0.60 USD.
+  it("there is no cost metric: setting one is refused and a cost limit left by an older core is ignored", () => {
+    const { svc, path } = open();
+    assert.throws(() => svc.setLimit({ scope: "global", period: "day", metric: "cost" as never, hard: 1 }), /metric must be tokens/);
+    const db = new DatabaseSync(path);
+    db.prepare("INSERT INTO budget_limit (scope, agent, period, metric, soft, hard) VALUES ('agent', 'a1', 'day', 'cost', NULL, 1)").run();
+    db.close();
     call(svc, "a1", 60_000, 0, "m-large");
-    const warn = svc.check("a1", "m-large", { inputTokens: 10_000 }); // 0.70 > soft 0.50
-    assert.equal(warn.allowed, true);
-    assert.equal(warn.warnings.length, 1);
-    const refuse = svc.check("a1", "m-large", { inputTokens: 10_000, outputTokens: 10_000 }); // 0.60 + 0.10 + 0.50 > 1.00
-    assert.equal(refuse.allowed, false);
-    assert.match(refuse.breaches[0]!.kind, /hard/);
-    const unpriced = svc.check("a1", "mystery", { inputTokens: 1 });
-    assert.equal(unpriced.allowed, false);
-    assert.equal(unpriced.breaches[0]!.kind, "unpriced-model");
-    assert.match(new BudgetExceededError(unpriced, "a1", "mystery").message, /no price/);
-    // token limits don't care about prices
-    svc.setLimit({ scope: "agent", agentId: "a3", period: "day", metric: "tokens", hard: 10 });
-    assert.equal(svc.check("a3", "mystery", { inputTokens: 1 }).allowed, true);
-    // a soft-only cost limit cannot be evaluated for an unpriced model, and does not refuse
-    svc.setLimit({ scope: "agent", agentId: "a1", period: "day", metric: "cost", hard: null, soft: usd(0.5) });
-    assert.equal(svc.check("a1", "mystery", { inputTokens: 1 }).allowed, true);
+    assert.deepEqual(svc.check("a1", "mystery", { inputTokens: 10_000, outputTokens: 10_000 }), { allowed: true, breaches: [], warnings: [] });
+    assert.deepEqual(svc.limits(), []);
+    assert.deepEqual(svc.status().limits, []);
+    svc.close();
   });
 
   it("recording usage that crosses a limit emits the soft and the hard event once", () => {
@@ -121,31 +111,16 @@ describe("limits", () => {
     assert.throws(() => svc.setTimeZone("Nowhere/Land"), /time zone/);
   });
 
-  it("price versioning: old events keep the price they were recorded with", () => {
-    const clock = new Clock(Date.UTC(2026, 9, 9, 12)); // before v2 is effective
-    const { svc } = open({ clock, tables: [PRICES_V1, PRICES_V2] });
-    const a = call(svc, "a1", 1_000_000);
-    assert.deepEqual([a.priceVersion, a.costMicros], ["v1", 1_000_000]);
-    clock.set(Date.UTC(2026, 9, 10, 12)); // v2 in force: m-small input is 2 USD/M
-    const b = call(svc, "a1", 1_000_000);
-    assert.deepEqual([b.priceVersion, b.costMicros], ["v2", 2_000_000]);
-    // an event stamped before the change is still priced with the table in force at its own time
-    const late = svc.recordUsage({ agent: "a1", model: "m-small", inputTokens: 1_000_000, outputTokens: 0, ts: Date.UTC(2026, 9, 9, 13) });
-    assert.deepEqual([late.priceVersion, late.costMicros], ["v1", 1_000_000]);
-    assert.equal(svc.status().periods[1]!.total.costMicros, 4_000_000);
-    assert.equal(svc.status().priceVersion, "v2");
-  });
-
   it("setLimit merges bounds, clears with null, validates", () => {
     const { svc } = open();
-    assert.deepEqual(svc.setLimit({ scope: "global", period: "day", metric: "cost", soft: 5 }), { scope: "global", period: "day", metric: "cost", soft: 5, hard: null });
-    assert.deepEqual(svc.setLimit({ scope: "global", period: "day", metric: "cost", hard: 9 }), { scope: "global", period: "day", metric: "cost", soft: 5, hard: 9 });
-    assert.throws(() => svc.setLimit({ scope: "global", period: "day", metric: "cost", soft: 10 }), /soft limit must not exceed/);
-    assert.throws(() => svc.setLimit({ scope: "agent", period: "day", metric: "cost", hard: 1 }), BudgetInputError);
-    assert.throws(() => svc.setLimit({ scope: "global", agentId: "a1", period: "day", metric: "cost", hard: 1 }), BudgetInputError);
-    assert.throws(() => svc.setLimit({ scope: "global", period: "week" as never, metric: "cost", hard: 1 }), BudgetInputError);
-    assert.throws(() => svc.setLimit({ scope: "global", period: "day", metric: "cost", hard: -1 }), BudgetInputError);
-    assert.equal(svc.setLimit({ scope: "global", period: "day", metric: "cost", soft: null, hard: null }), null);
+    assert.deepEqual(svc.setLimit({ scope: "global", period: "day", metric: "tokens", soft: 5 }), { scope: "global", period: "day", metric: "tokens", soft: 5, hard: null });
+    assert.deepEqual(svc.setLimit({ scope: "global", period: "day", metric: "tokens", hard: 9 }), { scope: "global", period: "day", metric: "tokens", soft: 5, hard: 9 });
+    assert.throws(() => svc.setLimit({ scope: "global", period: "day", metric: "tokens", soft: 10 }), /soft limit must not exceed/);
+    assert.throws(() => svc.setLimit({ scope: "agent", period: "day", metric: "tokens", hard: 1 }), BudgetInputError);
+    assert.throws(() => svc.setLimit({ scope: "global", agentId: "a1", period: "day", metric: "tokens", hard: 1 }), BudgetInputError);
+    assert.throws(() => svc.setLimit({ scope: "global", period: "week" as never, metric: "tokens", hard: 1 }), BudgetInputError);
+    assert.throws(() => svc.setLimit({ scope: "global", period: "day", metric: "tokens", hard: -1 }), BudgetInputError);
+    assert.equal(svc.setLimit({ scope: "global", period: "day", metric: "tokens", soft: null, hard: null }), null);
     assert.deepEqual(svc.limits(), []);
   });
 

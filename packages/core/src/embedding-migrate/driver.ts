@@ -31,14 +31,14 @@ export interface PlanSummary {
   /** The pauses alone (batches × throttle); provider time comes on top. */
   minDurationMs: number;
   probeStatus: string;
-  /** A cloud or self-hosted target only: what leaves this machine and what it may cost. */
+  /** A cloud or self-hosted target only: what leaves this machine and how many tokens it takes. */
   cloud?: CloudEstimate;
 }
 /**
  * Every card text goes to the provider. Tokens are estimated from the source size without its vectors (bytes / 4), an
- * upper bound since metadata is counted too; the cost comes from the price table when it lists the model, else null.
+ * upper bound since metadata is counted too. There is no cost estimate: the budget counts tokens (owner 2026-10-19).
  */
-export interface CloudEstimate { provider: string; model: string; endpoint: string; cards: number; estimatedTokens: number; estimatedCostMicros: number | null; sendsText: true }
+export interface CloudEstimate { provider: string; model: string; endpoint: string; cards: number; estimatedTokens: number; sendsText: true }
 export interface PlanOutcome { probe: ProbeResult; plan: PlanSummary | null }
 export interface StatusView {
   checkpoint: PublicCheckpoint | null;
@@ -60,8 +60,6 @@ export interface DriverDeps {
   logger?: { info(m: string, f?: Record<string, unknown>): void; warn(m: string, f?: Record<string, unknown>): void };
   /** The call budget for a remote target, asked before every batch; null/absent: no budget is configured. */
   budget?: () => BatchBudget | null;
-  /** Micro-USD for `tokens` input tokens of this model, or null when the price table does not list it. */
-  priceMicros?: (provider: string, model: string, tokens: number) => number | null;
   /** Retry of a batch that failed with a rate limit or a transient provider error (429, 5xx, network), with backoff. */
   retry?: RetryOptions;
   /** Re-checks a remote target before a run starts (privacy.localOnly, acknowledgment, egress may have changed since the plan). */
@@ -187,8 +185,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       const rows = p.estimates.rows;
       const textBytes = Math.max(0, p.estimates.sourceBytes - rows * (p.source.fingerprint.dimensions ?? 0) * 4);
       const estimatedTokens = Math.ceil(textBytes / 4);
-      const priced = d.priceMicros?.(req.target.provider, req.target.model, estimatedTokens);
-      cloud = { provider: req.target.provider, model: req.target.model, endpoint: redactEndpoint(req.remote.baseUrl ?? req.target.endpoint ?? OPENAI_DEFAULT_ENDPOINT), cards: rows, estimatedTokens, estimatedCostMicros: typeof priced === "number" && Number.isSafeInteger(priced) && priced >= 0 ? priced : null, sendsText: true };
+      cloud = { provider: req.target.provider, model: req.target.model, endpoint: redactEndpoint(req.remote.baseUrl ?? req.target.endpoint ?? OPENAI_DEFAULT_ENDPOINT), cards: rows, estimatedTokens, sendsText: true };
       remote = { apiKeyEnv: req.remote.apiKeyEnv, ...(req.remote.baseUrl !== undefined ? { baseUrl: req.remote.baseUrl } : {}), ...(req.remote.privacyAck ? { privacyAck: req.remote.privacyAck } : {}), tokensPerRow: rows === 0 ? 0 : Math.max(1, Math.ceil(estimatedTokens / rows)) };
     }
     const cp: Checkpoint = {

@@ -34,7 +34,6 @@ export interface Adapter {
   local: boolean;
   /** Parameters the adapter spells out itself; when present they replace the derived ones. */
   params: ParamSpec[] | null;
-  pricing: { perImageUsd: number | null; perVideoSecondUsd: number | null } | null;
 }
 
 const rec = (v: unknown): Record<string, unknown> => (typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {});
@@ -81,12 +80,6 @@ function parseParams(v: unknown): ParamSpec[] | null {
   return out;
 }
 
-function parsePricing(v: unknown): Adapter["pricing"] {
-  const o = rec(v);
-  if (Object.keys(o).length === 0) return null;
-  return { perImageUsd: num(o["perImageUsd"]) ?? null, perVideoSecondUsd: num(o["perVideoSecondUsd"]) ?? null };
-}
-
 /** media.adapters.list → adapters. Unknown or malformed rows are dropped; nothing is invented for missing fields. */
 export function parseAdapters(v: unknown): Adapter[] {
   const list = rec(v)["adapters"];
@@ -106,7 +99,6 @@ export function parseAdapters(v: unknown): Adapter[] {
       video: parseVideo(caps["video"]),
       local: o["local"] === true || o["where"] === "local" || caps["local"] === true,
       params: parseParams(caps["params"]),
-      pricing: parsePricing(o["pricing"] ?? caps["pricing"]),
     });
   }
   return out;
@@ -233,20 +225,6 @@ export function buildParams(i: SubmitInput): { method: "media.generate" | "media
     method: i.operation === "edit" ? "media.edit" : "media.generate",
     params: { agentId: i.agentId, adapter: i.adapter, kind: i.kind, request },
   };
-}
-
-/** Estimated cost in USD, or null when the backend gave no price (never a guess). */
-export function estimateUsd(adapter: Adapter, kind: Kind, values: FormValues): number | null {
-  const p = adapter.pricing;
-  if (!p) return null;
-  if (kind === "video") {
-    const unit = p.perVideoSecondUsd;
-    const secs = Number(values["durationSeconds"] ?? "");
-    return unit === null || !Number.isFinite(secs) || secs <= 0 ? null : unit * secs;
-  }
-  const unit = p.perImageUsd;
-  const count = values["n"] === undefined || values["n"] === "" ? 1 : Number(values["n"]);
-  return unit === null || !Number.isFinite(count) ? null : unit * count;
 }
 
 // ---- Jobs -------------------------------------------------------------------------------------------------------------

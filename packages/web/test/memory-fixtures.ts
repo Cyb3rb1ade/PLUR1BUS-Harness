@@ -24,7 +24,7 @@ export function makeRun(over: Partial<DreamRun> = {}): DreamRun {
   return {
     runId: "run_001", agentId: "main", phase: "light", jobId: "light-dream", idempotencyKey: "k1", claimed: true, trigger: "cron",
     scheduledFor: T0 - 5 * HOUR, startedAt: T0 - 5 * HOUR, finishedAt: T0 - 5 * HOUR + 42_000, durationMs: 42_000, outcome: "completed", reason: null,
-    counts: { captures: 7 }, tokensIn: 1200, tokensOut: 300, costMicros: null, logPath: "state/dreams/main/light/run_001.log", error: null, ...over,
+    counts: { captures: 7 }, tokensIn: 1200, tokensOut: 300, logPath: "state/dreams/main/light/run_001.log", error: null, ...over,
   };
 }
 

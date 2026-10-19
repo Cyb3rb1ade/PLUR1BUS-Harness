@@ -68,7 +68,6 @@ function rig(from: Spec, to: Spec, o: RigOptions = {}) {
     // the real config write first, then the fake engine's active generation (the restart that follows a config.set)
     switchPort: { async apply(sel) { await real.apply(sel); await fake.switchPort.apply(sel); } },
     budget: () => o.budget ?? null,
-    priceMicros: (provider, model, tokens) => (provider === "openrouter" ? tokens * 2 : null),
     // the core's wiring (core.ts): re-check a remote target before a run
     admitRun: async (c) => {
       const t = targetFromSpec({ provider: c.target.provider, model: c.target.model, dimensions: c.target.dimensions, ...blockRemote(c) }, { ...reembedTargetPolicy(cfg), ...(c.remote?.privacyAck ? { privacyAck: c.remote.privacyAck } : {}) });
@@ -117,7 +116,7 @@ describe("memory reembed: every direction migrates (plan, run, switch)", () => {
         if (isCloud(to)) {
           assert.equal(plan.plan.cloud.provider, to.provider); assert.equal(plan.plan.cloud.cards, 15); assert.equal(plan.plan.cloud.sendsText, true);
           assert.ok(plan.plan.cloud.estimatedTokens > 0); assert.equal(plan.plan.cloud.endpoint, new URL(to.baseUrl).origin);
-          assert.equal(plan.plan.cloud.estimatedCostMicros, to.provider === "openrouter" ? plan.plan.cloud.estimatedTokens * 2 : null, "unknown price stays null");
+          assert.equal("estimatedCostMicros" in plan.plan.cloud, false, "tokens only: no cost estimate");
           assert.deepEqual(sent.target.secretRef, { source: "env", provider: "default", id: to.apiKeyEnv });
           assert.ok(!JSON.stringify(plan).includes("reemb_v1_"));
         } else {

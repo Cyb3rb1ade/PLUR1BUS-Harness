@@ -1,6 +1,6 @@
 # M8a release pipeline
 
-[CI and local checks](ci.md) · [Document map](../README.md#document-map) · [Legacy native feed](manual-release.md)
+[Release evidence checklist](release-checklist-v0.1.0.md) · [Known release gaps](release-known-issues-v0.1.0.md) · [Documentation inventory](release-documentation-audit.md) · [CI and local checks](ci.md) · [Document map](../README.md#document-map) · [Legacy native feed](manual-release.md)
 
 ## Owner workflow
 

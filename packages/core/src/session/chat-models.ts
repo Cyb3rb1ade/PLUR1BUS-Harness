@@ -22,14 +22,12 @@ export interface ChatModelSources {
   endpoint?(provider: string): string | undefined;
   /** The current configuration, for "Nur lokal" (privacy.localOnly, agents.<id>.privacy.localOnly, privacy.localEndpoints). */
   config?(): unknown;
-  /** USD per million output tokens, when the price table knows the model. Reasoning tokens bill as output. */
-  outputPrice?(provider: string, model: string): number | undefined;
 }
 
 export interface WireReasoning { kind: ReasoningDescriptor["kind"]; levels: ReasoningLevel[]; default?: ReasoningLevel; source: ReasoningDescriptor["source"]; note?: string; budgetTokens?: Partial<Record<ReasoningLevel, number>> }
 export interface ChatModelOption {
   name: string; displayName: string; provider: string; model: string; local: boolean; selectable: boolean;
-  disabledReason?: "local-only" | "unavailable"; reasoning: WireReasoning; outputUsdPerMTok?: number;
+  disabledReason?: "local-only" | "unavailable"; reasoning: WireReasoning;
 }
 
 type PrivacyView = { privacy?: { localOnly?: unknown; localEndpoints?: unknown }; agents?: Record<string, { privacy?: { localOnly?: unknown } } | undefined> };
@@ -63,10 +61,9 @@ export function chatModelOptions(s: ChatModelSources, agentId: string): ChatMode
     const primary = candidates[0]!, facts = s.catalog?.(primary.provider, primary.model);
     const local = candidates.every((c) => isLocalEndpoint(s.endpoint?.(c.provider), cfg));
     const disabledReason = localOnly && !local ? "local-only" as const : facts?.status === "unavailable" ? "unavailable" as const : undefined;
-    const price = s.outputPrice?.(primary.provider, primary.model);
     return {
       name, displayName: facts?.displayName ?? primary.model, provider: primary.provider, model: primary.model, local, selectable: disabledReason === undefined,
-      ...(disabledReason ? { disabledReason } : {}), reasoning: toWire(s.reasoning(primary.provider, primary.model)), ...(price !== undefined ? { outputUsdPerMTok: price } : {}),
+      ...(disabledReason ? { disabledReason } : {}), reasoning: toWire(s.reasoning(primary.provider, primary.model)),
     };
   });
 }

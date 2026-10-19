@@ -221,7 +221,6 @@ describe(
                     status: "succeeded",
                     inputTokens: 10,
                     outputTokens: 20,
-                    costEstimate: 0,
                     inputPreview: "[redacted] question",
                     outputPreview: "Synthetic answer",
                   },

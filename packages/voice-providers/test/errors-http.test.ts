@@ -91,6 +91,6 @@ test("resolveSecret drops lookup errors and rejects empty or control-character v
 });
 
 test("usage maps onto core's VoiceUsage so the caller can hand it to VoiceBudgetPort.record unchanged", () => {
-  assert.deepEqual(toVoiceUsage({ provider: "p", operation: "asr", seconds: 2.5 }), { seconds: 2.5, costMicros: 0, inputTokens: 0, outputTokens: 0 });
-  assert.deepEqual(toVoiceUsage({ provider: "p", operation: "realtime", inputTokens: 4, outputTokens: 9 }, 120), { seconds: 0, costMicros: 120, inputTokens: 4, outputTokens: 9 });
+  assert.deepEqual(toVoiceUsage({ provider: "p", operation: "asr", seconds: 2.5 }), { seconds: 2.5, inputTokens: 0, outputTokens: 0 });
+  assert.deepEqual(toVoiceUsage({ provider: "p", operation: "realtime", inputTokens: 4, outputTokens: 9 }), { seconds: 0, inputTokens: 4, outputTokens: 9 });
 });

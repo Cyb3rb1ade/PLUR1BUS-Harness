@@ -8,14 +8,14 @@
  * on this package once it is wired, so a real import would break the package boundary (and later form a cycle). The
  * wiring package asserts the two stay assignable.
  */
-export interface VoiceUsage { seconds: number; costMicros: number; inputTokens: number; outputTokens: number }
+export interface VoiceUsage { seconds: number; inputTokens: number; outputTokens: number }
 
 export type AudioFormat = "pcm16" | "opus" | "mp3";
 export interface AudioSpec { format: AudioFormat; sampleRate: number }
 export interface AudioChunk extends AudioSpec { data: Uint8Array }
 
 export type VoiceOperation = "asr" | "tts" | "realtime";
-/** What one call cost in the provider's own units. Unknown parts are absent, never zero-filled. */
+/** What one call used in the provider's own units. Unknown parts are absent, never zero-filled. */
 export interface UsageReport {
   provider: string;
   operation: VoiceOperation;
@@ -30,10 +30,10 @@ export interface UsageReport {
 export type UsageSink = (report: UsageReport) => void;
 
 /** Map a provider report onto core's VoiceUsage so a caller can pass it to VoiceBudgetPort.record unchanged. */
-export function toVoiceUsage(report: UsageReport, costMicros = 0): VoiceUsage {
+export function toVoiceUsage(report: UsageReport): VoiceUsage {
   // A budget must never be credited by a negative number or poisoned by NaN/Infinity.
   const n = (v: number | undefined): number => (v !== undefined && Number.isFinite(v) && v > 0 ? v : 0);
-  return { seconds: n(report.seconds), costMicros: n(costMicros), inputTokens: n(report.inputTokens), outputTokens: n(report.outputTokens) };
+  return { seconds: n(report.seconds), inputTokens: n(report.inputTokens), outputTokens: n(report.outputTokens) };
 }
 
 export interface ModelInfo {
