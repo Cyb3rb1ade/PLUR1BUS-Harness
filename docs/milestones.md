@@ -44,6 +44,7 @@
 | HM1–HM3 | **Host-mode plugins** (D86–D91, owner 2026-09-28): OpenClaw plugin distribution on five targets + installers (HM1, after 2a-H3b-b), Hermes host-mode adapter (HM2, beside 2b; moved from M8), importer cross-platform fixes now (HM3) | 2a-H3b-b; 2a RPC | **17–26** (in the total) | plugin-distribution spec §C C1–C6, C11 |
 | HM4 | Host-mode remainder: coexistence guards, Hermes on an existing harness, host → harness upgrade, Hermes catalogue listing | HM2; M3 | **2–3** (not in the total) | spec §C C4, C9 |
 | X4–X5 | Extensions remainder: signed web catalogue + per-item updates + revocation (X4, target v0.2), publishing tooling + first packages (X5) | X1–X3 | **8–13** (not in the total) | extensions spec §13 Q2–Q4, Q11–Q13 |
+| M5+ | **Hierarchical subprojects** (owner 2026-10-19): card → subproject with inherited, only narrowed settings, own branch and worktree forked from the parent, a coordinator that starts, steers, observes, evaluates and merges, structured reports upwards, siblings isolated on every channel — after the M5 base, before Track F (recommended; owner question) | M5; M3 web transport and `AgentScope`; M2 budget hook; project memory pool; D109 taint producer; worktree provisioner with M6 | **26–40** (≈ 32; not in the total until the owner decides) | subprojects spec §16 Q1–Q10 |
 | F (Beta 2) | **Federation and full protocol control** (owner 2026-10-19, D114): schema-derived MCP/ACP control profile, pairing of PLUR1BUS instances over LAN or tailnet, single-project sharing, peer agents as a service or joined into a session, agent loan on a mission under a lease and permanent agent hand-over, cross-instance orchestration and trace, context-window negotiation with compaction at 80 % of the smallest window — **Beta 2, after v0.1.0** | M3; M5; M6 (MCP server, ACP client, outbound A2A 1.0.0); `privacy.localOnly` | **61–92** (≈ 73; not in the total) | federation spec §15 Q9–Q14 (Q1–Q8 decided 2026-10-19) |
 | | **Total** | | **343–527** (was 294–451, which did not equal its own rows; sum of the in-total rows: M1 49–76 + M1b-2b additions 16–24 + M2 67–103 + M3 40–60 + M4 23–36 + M5 24–38 + M6 32–48 + M7 17–27 + M8 21–34 + D1 22–33 + X1–X3 15–22 + HM1–HM3 17–26; history of the older total: was 242–370; +17–26 track HM, +3–5 M7, +12–19 direct chat D92/D93, 2026-09-28; +8–12 OpenAI auth D110, 2026-09-30; +9–14 logging and diagnostics D111, 2026-10-01; +3–5 model discovery D112, 2026-10-03; reconciled 2026-10-06) | |
 
@@ -321,6 +322,25 @@ Owner defaults: external targets remain stateless (ADR-003 Q4); depth 1 (Q5); fa
 **Exit:** demo guide, test report incl. guardrail suite and the fan-out eval numbers, `docs/architecture.md` isolation table updated.
 
 **M5 fan-out fixture evaluation — 2026-10-15 (M5 phase 4 PR stack).** 24 cases per mode; the same hard project token budget of **8,192 per case**. Single: **24/24**, **576 settled tokens**, **24 model calls**. Peer: **24/24**, **1,728 settled tokens**, **72 model calls**. Reproduce with `pnpm run eval:m5`; machine-readable inputs/results: `docs/evals/m5-fanout.json`; CI regression: `collab/fanout-eval.test.ts`. These are deterministic routing/arithmetic fixtures, not live-model quality evidence. No quality advantage is established; **fan-out default remains off** pending owner approval.
+
+### M5+ — Hierarchical subprojects (extension of M5; not in the total)
+
+Owner 2026-10-19: projects on the Kanban board get subprojects — "nicht vollkommen eigenständig, sondern mit allen Settings und mit dem zugeordneten GitHub-Worktree"; agents take the task into the subproject and report back to the parent task; a coordinator in the parent distributes, steers, observes and evaluates; subprojects communicate upwards but do not see their siblings. Spec: [`docs/superpowers/specs/2026-10-19-subprojects-design.md`](superpowers/specs/2026-10-19-subprojects-design.md); plan: [`docs/superpowers/plans/2026-10-19-subprojects.md`](superpowers/plans/2026-10-19-subprojects.md). A subproject is a project row with a parent (collab migration v5) and reuses board, trace, D104, D98 and budget admission; one isolation predicate drives RBAC object checks, event audience, memory scope and D109 roots; reports travel as `plur1bus.report/1` and arrive tainted. Recommended placement: after the M5 base, before Track F, which reuses the subproject as share and mission unit (federation spec Q14); **outside the v0.1.0 total** until the owner decides (spec §16 Q1). Open: spec §16 Q1–Q10 (placement, depth, grandchildren, default coordinator, sibling forwarding, raising memories, agent-private memory, merge policy, budget default, shared agents).
+
+| WP | Content | Depends on | Effort (ad) |
+|---|---|---|---|
+| WP0 | Owner decisions, prerequisite check | — | 0.5 |
+| WP1 | Data model, hierarchy, narrowing inheritance | WP0 | 3 |
+| WP2 | Isolation predicate in RBAC, scopes, events, object checks | WP1 | 4 |
+| WP3 | Memory scoping, pass-down, raise-up | WP2; project memory pool | 3 |
+| WP4 | Worktree fork, sandbox, merge back via D98 | WP1; provisioner with M6 | 4 |
+| WP5 | Hand-off down, report channel up, forward | WP2 | 3 |
+| WP6 | Coordinator role, control, agent tools | WP5 | 3 |
+| WP7 | Budget allocation, ancestor admission | WP2; M2 budget hook | 2 |
+| WP8–WP10 | Web UI, CLI, documentation | WP4–WP7 | 6.5 |
+| WP11 | Isolation suite "siblings see nothing" and end-to-end | all | 3 |
+
+**Total ≈ 32 ad (26–40), outside the v0.1.0 total.** Nothing is built.
 
 ### M6 — MCP / ACP / A2A, external coding agents, skills, plugins
 
@@ -659,6 +679,7 @@ Source: core spec D78; desktop spec DS24, DS28, §6.16, §6.16.7.
 | ~~**Desktop shell**~~ → **D1 is now required for v0.1.0** (owner 2026-09-27, desktop spec §11 Q5, decided: yes); D2–D4 stay track D, beside M4–M8 (ADR-004 amendment 2026-09-27; D77 container bundle, D78 update policy). Any **second UI shell** beyond it stays out of scope | ADR-004 §"Web UI — framework"; core spec D74, D77, D78 |
 | **Fan-out collaboration on by default**, and delegation chains deeper than 1 | ADR-003 guardrails; enabled only after the equal-budget eval |
 | **Federation of PLUR1BUS instances** (pairing over LAN or tailnet, project sharing, peer agents as a service or joined, agent loan on a mission and permanent hand-over, cross-instance orchestration, context-window negotiation) and the **full MCP/ACP control profile** — planned for **Beta 2**, after v0.1.0, as Track F | owner 2026-10-19; `docs/superpowers/specs/2026-10-19-federation-cluster-design.md` §1 |
+| **Hierarchical subprojects** (card → subproject, coordinator, sibling isolation, worktree fork and merge back) — recommended after the M5 base and before Track F, outside v0.1.0 until the owner decides (spec §16 Q1) | owner 2026-10-19; `docs/superpowers/specs/2026-10-19-subprojects-design.md` |
 | **Importing third-party memory-provider data** from Hermes; importing pending pairing codes | original §4.2; `import.md` §3.2 |
 | **Named-namespace routing on Windows** (fd-based directory capability self-disables) | `platform-matrix.md` §3 Tier-2 degradation |
 | **Importance-accumulation triggering for dreaming**, if ADR-009 Q2 is answered "cron-only in M1" — the cron floor alone is then the shipped system | ADR-009 Q2 |
@@ -691,7 +712,7 @@ Reconciled against `origin/main` @ `823c0a58`. Method: each milestone's scope an
 | HM1–HM3 | 21.5 (17–26) | 70 % | HM2 harness side and HM3 are done; HM1 and the HM2 installer sit in the Host-Addons repository and were not inspected. | HM1 and HM2 installer state (unverified); HM4 existing-harness client and upgrade (outside the total). | no numbered criteria |
 | **Total** | **435 (343–527)** | **≈ 62 %** | Effort-weighted sum of the rows above: about 271 of 435 ad built. | About 164 ad remain at the middle of the plan (about 130–200 ad across the plan range). | 28 of 89 numbered criteria erfüllt |
 
-Outside the total (not estimated): D2–D4 (31–48 ad), HM4 (2–3 ad; coexistence guard on main, scoped-client/upgrade proposal with local tests dated 2026-10-16 remains unaccepted), X4–X5 (8–13 ad; X4 has the catalogue index client, X5 nothing), Track F federation for Beta 2 (61–92 ad, ≈ 73, added 2026-10-19 and extended the same day by agent loan and hand-over, D114; nothing built).
+Outside the total (not estimated): D2–D4 (31–48 ad), HM4 (2–3 ad; coexistence guard on main, scoped-client/upgrade proposal with local tests dated 2026-10-16 remains unaccepted), X4–X5 (8–13 ad; X4 has the catalogue index client, X5 nothing), Track F federation for Beta 2 (61–92 ad, ≈ 73, added 2026-10-19 and extended the same day by agent loan and hand-over, D114; nothing built); M5+ hierarchical subprojects (26–40 ad, ≈ 32, added 2026-10-19, placement open; nothing built).
 
 **Overall estimate for v0.1.0: about 62 % built, effort-weighted** (the in-total rows: M1, M1b-2b additions, M2 to M8, D1, X1–X3, HM1–HM3). Read it with three caveats. First, it is a *built* share: 28 of the 89 numbered acceptance criteria are **erfüllt**, a further 37 are **teilweise**, 7 are **gebaut, aber nicht abgenommen**, and 17 are **offen** (counted over M1, the M1b-2b items, M2 to M8 as tallied in the table); the §6.2 release checklist has not been started. Second, no owner approval after M1a is recorded here, and the independent-reviewer reports of P6 are not part of this document. Third, the engine-repository work and the Host-Addons repository were not inspected, so M1's engine share and HM1 are the least certain rows.
 
