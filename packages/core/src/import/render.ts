@@ -95,6 +95,12 @@ export function renderRollback(r: PipelineRollbackReport | SkillsRollbackReport)
   if ("storeUndoStatus" in r && r.storeUndoStatus) {
     L.push(`Store: ${r.storeUndoStatus}`);
   }
+  if ("memoryLinks" in r && r.memoryLinks) {
+    const m = r.memoryLinks;
+    L.push(m.status === "reverted-with-store"
+      ? `Memory links: ${m.recorded} reverted with the store`
+      : `Memory links: ${m.recorded} recorded, ${m.selected ?? 0} selected, ${m.unlinked ?? 0} ${m.status === "planned" ? "to unlink" : "unlinked"}${m.alreadyUnlinked ? `, ${m.alreadyUnlinked} already unlinked` : ""} (the linked memories stay)`);
+  }
   return L.join("\n");
 }
 

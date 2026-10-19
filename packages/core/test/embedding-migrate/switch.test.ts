@@ -8,6 +8,9 @@ import { createConfigSwitchPort, targetSelection } from "../../src/embedding-mig
 import { MigrationError } from "../../src/embedding-migrate/driver.ts";
 import { layout } from "../../src/paths.ts";
 import { buildEngineConfig } from "../../src/engine-config.ts";
+import { targetFromSpec } from "../../src/embedding-migrate/target.ts";
+
+const orAck = { provider: "openrouter", acknowledgedAt: "2026-10-18T10:00:00.000Z", by: "person-owner", endpoint: "https://openrouter.ai/api/v1" };
 
 const l = layout("/tmp/p1-switch-home");
 const baseConfig = (): HarnessConfig => structuredClone(defaults()) as HarnessConfig;
@@ -63,11 +66,41 @@ describe("config switch port", () => {
     assert.deepEqual(r.sets, []);
   });
 
-  it("refuses a provider the Harness does not run (engine-config forces local-transformers), writing nothing", async () => {
-    const r = rig();
-    const remote = { provider: "openai", model: "text-embedding-3-small", dimensions: 1536 } as never;
-    await assert.rejects(r.port.apply(sel(remote)), (e) => e instanceof MigrationError && e.code === "switch-unavailable" && /local-transformers/.test(e.message));
-    assert.deepEqual(r.sets, []);
+  // Owner decision 2026-10-18: every direction is switchable; the old "local-transformers only" refusal is gone.
+  const openrouter = () => targetFromSpec({ provider: "openrouter", model: "qwen/qwen3-embedding-8b", dimensions: 4096, baseUrl: "https://openrouter.ai/api/v1", apiKeyEnv: "OPENROUTER_API_KEY" }, { privacyAck: orAck });
+  const acked = (cfg = baseConfig()) => { (cfg.memory as Record<string, unknown>).embedding = { privacyAck: orAck }; return cfg; };
+  const remoteSel = () => { const t = openrouter(); assert.ok(t.ok && !t.local); return { ...sel(t.fingerprint as never), remote: { apiKeyEnv: "OPENROUTER_API_KEY", baseUrl: "https://openrouter.ai/api/v1" } }; };
+
+  it("switches to a cloud provider: the #509 fields, the key only as apiKeyEnv, and the fingerprint the engine will derive", async () => {
+    const r = rig({ cfg: acked() });
+    await r.port.apply(remoteSel());
+    assert.equal(r.sets.length, 1);
+    const emb = r.sets[0]![0]!.value as Record<string, unknown>;
+    assert.deepEqual(emb, { provider: "openrouter", model: "qwen/qwen3-embedding-8b", dimensions: 4096, baseUrl: "https://openrouter.ai/api/v1", apiKeyEnv: "OPENROUTER_API_KEY" });
+    assert.ok(!("apiKey" in emb) && !("fallback" in emb) && !("local" in emb));
+    const cfg = acked(); (cfg.engine as Record<string, unknown>).embedding = emb;
+    const n = normalizeEmbeddingConfig(buildEngineConfig(cfg, l).embedding as Record<string, unknown>);
+    assert.equal(embeddingFingerprintId(embeddingFingerprintFromNormalizedConfig({ ...n, dimensions: n.dimensions })), remoteSel().fingerprintId);
+  });
+
+  it("refuses a cloud switch without the privacy acknowledgment or under privacy.localOnly, writing nothing (the old configuration stays)", async () => {
+    const noAck = rig();
+    await assert.rejects(noAck.port.apply(remoteSel()), (e) => e instanceof MigrationError && e.code === "switch-unavailable" && /privacyAck/.test(e.message));
+    assert.deepEqual(noAck.sets, []);
+    const cfg = acked(); (cfg as unknown as Record<string, unknown>).privacy = { localOnly: true, localEndpoints: [] };
+    const lo = rig({ cfg });
+    await assert.rejects(lo.port.apply(remoteSel()), (e) => e instanceof MigrationError && /privacy\.localOnly/.test(e.message));
+    assert.deepEqual(lo.sets, []);
+    const noKey = rig({ cfg: acked() });
+    await assert.rejects(noKey.port.apply((({ remote: _r, ...rest }) => rest)(remoteSel())), (e) => e instanceof MigrationError && /apiKeyEnv/.test(e.message));
+  });
+
+  it("cloud → local writes the pinned local block without the cloud provider's endpoint or key", async () => {
+    const cfg = acked(); (cfg.engine as Record<string, unknown>).embedding = { provider: "openrouter", model: "qwen/qwen3-embedding-8b", dimensions: 4096, baseUrl: "https://openrouter.ai/api/v1", apiKeyEnv: "OPENROUTER_API_KEY" };
+    const r = rig({ cfg });
+    await r.port.apply(sel(e5));
+    const emb = r.sets[0]![0]!.value as Record<string, unknown>;
+    assert.equal(emb.provider, "local-transformers"); assert.ok(!("baseUrl" in emb) && !("apiKeyEnv" in emb) && !("model" in emb));
   });
 
   it("refuses when no supervisor owns config.json (set is null), writing nothing", async () => {

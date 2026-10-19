@@ -4,12 +4,12 @@ import { CONFIG_SCHEMA, defaults, tierOf, validate } from "../src/index.ts";
 
 // Owner decision 2026-10-18: "Nur lokal" exists, installation-wide plus a per-agent override; a cloud reranker needs its own
 // function-specific privacy acknowledgment like the text embedding.
-test("privacy.localOnly defaults to off, is a basic core-restart key and needs owner/admin plus audit", () => {
+test("privacy.localOnly defaults to off, is a basic live key and needs owner/admin plus audit", () => {
   const cfg = defaults();
   assert.deepEqual(cfg.privacy, { localOnly: false, localEndpoints: [] });
   const node = CONFIG_SCHEMA.properties.privacy.properties.localOnly;
   assert.equal(node["x-tier"], "basic");
-  assert.equal(node["x-restart"], "core");
+  assert.equal(node["x-restart"], "live");
   assert.deepEqual(node["x-write-roles"], ["owner", "admin"]);
   assert.equal(node["x-audit"], true);
   assert.equal(tierOf("privacy.localOnly"), "basic");

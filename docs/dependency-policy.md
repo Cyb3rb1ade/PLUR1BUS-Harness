@@ -70,6 +70,55 @@ Approved exceptions live in `docs/dependency-exceptions.json`, never in the scri
 
 ## Vulnerabilities
 
+The release gate is `node scripts/release/audit-policy.mjs`, wired into `release-quality.yml`.
+The owner selected this policy on 2026-10-15:
+
+- Production **High and Critical** block; production Moderate/Low and development findings
+  (including High/Critical) appear as warnings in the GitHub job summary.
+- npm scope comes from separate `pnpm audit --prod --json` and full `pnpm audit --json` reports.
+  A package reachable in both scopes remains production.
+- Rust uses pinned `cargo-deny 0.20.2`, each of the root and desktop Cargo workspaces,
+  all features and targets, and paired reports with/without `--exclude-dev`. This conservatively
+  includes build dependencies used to produce the release; purely development dependencies warn.
+  RustSec CVSS 3.0/3.1 base vectors determine severity. Unscored/unsupported vulnerability vectors
+  and unsoundness advisories fail closed for production; unmaintained/yanked notices warn.
+- Invalid reports, unavailable tools/databases/network, invalid policy and expired exceptions fail
+  the job. The script still attempts each ecosystem and writes the summary on failure.
+- Only `audit-allowlist.json` can exempt an advisory. It starts empty; no exceptions were added.
+  Entries require `advisoryId` (GHSA/RUSTSEC), `reason`, `created` and `expires` (UTC `YYYY-MM-DD`).
+  Expiry is exclusive at 00:00 UTC and must be at most 90 days after creation. An expired entry
+  fails even if the advisory disappeared. No automatic renewal or package-wide exceptions.
+
+### Active exceptions: zip 4.6.1 in the desktop lock (owner decision 2026-10-19)
+
+`RUSTSEC-2026-0367`, `RUSTSEC-2026-0368` and `RUSTSEC-2026-0369` are allowed until 2027-01-17 for `zip 4.6.1`
+in `apps/desktop/Cargo.lock`. It is pulled in only by `tauri-plugin-updater =2.13.0` (Windows target dependency,
+feature `zip`); the fix starts at zip 9 and the plugin's successor exists only as `3.0.0-alpha`.
+Rationale, verified in the plugin source: `Update::download` runs `verify_signature` (minisign) on the downloaded
+bytes before returning them (`src/updater.rs:837`), and the Windows installer unpacks the archive only afterwards
+in `extract_zip` (`src/updater.rs:1074`, via `install_inner`). The desktop app calls `update.download(...)` and
+passes exactly those bytes to `update.install(...)` (`apps/desktop/src-tauri/src/update_commands.rs:416-423`).
+Without the private release signing key, no manipulated archive reaches the vulnerable parser.
+Remedy: upgrade to `tauri-plugin-updater` 3.x as soon as it is stable, then delete the three entries.
+
+**KNOWN GAP:** exceptions are keyed by advisory ID only. They cannot be scoped to a package, version or lockfile,
+so the three IDs above would also hide the same advisories for any other crate that carries them (for example a
+`zip` added to the root workspace) until 2027-01-17. Scoping needs a new optional allowlist field, which is a schema
+change and therefore an owner decision. The `todo` case `KNOWN GAP: an exception is not scoped to the package it was
+approved for` in `scripts/release/test/audit-policy.test.mjs` turns green once that exists. Second, `Update::install`
+is public API and does not verify its input; the guarantee above holds because the app only installs bytes returned by
+`Update::download`. A change that installs bytes from any other source voids this exception.
+
+Only the repository owner changes the allowlist. CODEOWNERS requests their review, and the
+release gate rejects an allowlist change in a PR created by anyone else. The owner must enable
+required `release-quality` checks and code-owner review in branch protection to enforce this
+against merges/direct pushes; repository files cannot enable that protection themselves.
+The enforcement script, workflow and CODEOWNERS are also owner-owned. The CI auditor uses an
+isolated cargo-deny configuration with no ignored advisories or severity filter.
+
+The following older, optional local advisory helper has different exit semantics and is **not**
+the release gate:
+
 `node scripts/audit-deps.mjs --advisories` runs `pnpm audit` and, when `cargo-audit` is installed, `cargo audit` on both
 `Cargo.lock` files. A missing tool or no network is reported as `skipped` with the reason; the mode then still exits 0.
 Only an advisory actually found exits 1. Python advisories are not wired.
@@ -83,9 +132,9 @@ Only an advisory actually found exits 1. Python advisories are not wired.
 | 2 | usage error, unreadable or malformed policy / exceptions file |
 | 3 | an ecosystem could not be collected (`--allow-incomplete` turns this into a warning) |
 
-## Suggested CI job (not enabled)
+## Optional legacy helper job (not the release gate)
 
-The repository does not run this in CI yet. A job could look like this (not part of `.github/workflows` today):
+The generic helper is not wired into CI. An optional informational job could look like this:
 
 ```yaml
 audit-deps:

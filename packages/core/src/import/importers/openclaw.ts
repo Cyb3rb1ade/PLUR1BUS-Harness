@@ -39,7 +39,7 @@ import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.j
 import { buildEngineConfig } from "../../engine-config.ts";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { hasOpenclawCardFiles, importOpenclawMemories, type OpenclawMemoryImportResult } from "./openclaw-memories.ts";
-import { PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode } from "./card-links.ts";
+import { PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode, type PriorCardLink } from "./card-links.ts";
 
 export interface OpenclawImportOptions {
   home: string;
@@ -326,7 +326,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       // Store in the harness (taken over, matched, dry-run preview-ok) -> import with duplicate linking; store routed to
       // the re-embedding migration -> parked as pending-reembed; store not taken over (skipped) -> deferred.
       const ownStoreModes = new Map<string, OwnStoreCardMode>();
-      const priorLinks = isApply ? readPriorCardLinks(join(l.home, "imports")) : new Map<string, string>();
+      const priorLinks = isApply ? readPriorCardLinks(join(l.home, "imports")) : new Map<string, PriorCardLink>();
       for (const st of preparedStores.stores) {
         if (st.kind !== "agent" || !st.agentId) continue;
         const id = st.agentId.toLowerCase();

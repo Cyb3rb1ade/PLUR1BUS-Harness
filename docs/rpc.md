@@ -9085,7 +9085,7 @@ Starts the engine's scoped-embedding IPC server (engine EmbeddingService.serve):
 
 **Served by:** core
 
-M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model (a pinned local-transformers model) and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk).
+M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk). Every direction is allowed (local or cloud to local or cloud): without provider (or with local-transformers) the target is a pinned local model; any other provider is checked by the same rules as the engine start (model, dimensions and apiKeyEnv required, baseUrl except for openai; E_DENIED reason=privacy-acknowledgment-required without memory.embedding.privacyAck for a non-loopback endpoint, reason=local-only under privacy.localOnly, reason=egress-denied when the egress policy refuses the endpoint). The engine's plan probes a cloud provider with one short text; a cloud plan carries `cloud`: the cards whose text all goes to the provider, estimated tokens and cost (null when the price table does not list the model).
 
 **params**
 
@@ -9101,6 +9101,28 @@ M2 re-embedding migration, step 1 (per installation, not per agent). Builds the 
       "type": "string",
       "minLength": 1,
       "maxLength": 256
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "Target embedding provider; default local-transformers (a pinned local model)."
+    },
+    "baseUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "OpenAI-compatible endpoint of a remote target (not for local-transformers); openai may leave it out."
+    },
+    "apiKeyEnv": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "description": "Name of the core's environment variable holding the remote target's key; the key itself is never sent."
+    },
+    "acknowledgePrivacy": {
+      "type": "boolean",
+      "description": "The calling person acknowledges now that every card text goes to this remote target (bound to provider and endpoint). Needed when memory.embedding.privacyAck does not already admit the target (e.g. cloud to cloud); the switch writes it as memory.embedding.privacyAck together with the new embedding block."
     },
     "dimensions": {
       "type": "integer",
@@ -22832,6 +22854,49 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "probeStatus": {
       "type": "string"
+    },
+    "cloud": {
+      "description": "Present for a cloud or self-hosted target: every card text goes to this provider. estimatedTokens is an upper bound from the source size without its vectors; estimatedCostMicros is micro-USD from the price table, null when unknown.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model",
+        "endpoint",
+        "cards",
+        "estimatedTokens",
+        "estimatedCostMicros",
+        "sendsText"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimatedTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimatedCostMicros": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "sendsText": {
+          "const": true
+        }
+      }
     }
   }
 }
@@ -22977,6 +23042,50 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           "type": "null"
         }
       ]
+    },
+    "remote": {
+      "description": "A cloud or self-hosted target: the name of the environment variable holding its key (never the key), the endpoint as configured, and the per-card token estimate the call budget reserves before each batch. A budget refusal pauses the run (phase aborted, error budget-exceeded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiKeyEnv",
+        "tokensPerRow"
+      ],
+      "properties": {
+        "apiKeyEnv": {
+          "type": "string"
+        },
+        "baseUrl": {
+          "type": "string"
+        },
+        "tokensPerRow": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "privacyAck": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "acknowledgedAt",
+            "by"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string"
+            },
+            "acknowledgedAt": {
+              "type": "string"
+            },
+            "by": {
+              "type": "string"
+            },
+            "endpoint": {
+              "type": "string"
+            }
+          }
+        }
+      }
     }
   }
 }

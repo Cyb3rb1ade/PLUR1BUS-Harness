@@ -714,9 +714,21 @@ pub struct ReembedArgs {
     /// Stop at the next batch boundary; --run continues the same migration
     #[arg(long)]
     pub abort: bool,
-    /// Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+    /// Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small, or the remote provider's model id with --provider (required with --plan)
     #[arg(long, conflicts_with_all = ["run", "status", "abort"], required_if_eq("plan", "true"))]
     pub model: Option<String>,
+    /// Target provider, e.g. openai, openrouter, jina or ollama (default local-transformers); every direction between local and cloud is possible
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub provider: Option<String>,
+    /// OpenAI-compatible endpoint of a remote target (openai may leave it out)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub base_url: Option<String>,
+    /// Name of the environment variable that holds the remote target's key (the key itself is never passed)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub api_key_env: Option<String>,
+    /// Acknowledge now that every memory text goes to this remote target (needed when memory.embedding.privacyAck does not already admit it)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub acknowledge_privacy: bool,
     /// Target vector dimensions, when the model supports more than one
     #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
     pub dimensions: Option<u32>,
