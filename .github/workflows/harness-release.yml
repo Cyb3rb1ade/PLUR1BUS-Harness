@@ -206,6 +206,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm gen
       - run: pnpm build
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: "1.95" }
+      - name: native-target third-party attribution
+        run: node scripts/release/third-party.mjs
       - name: assemble the core payload
         shell: bash
         run: node scripts/release/assemble-payload.mjs --target "${{ matrix.target }}" --out "dist/core-${{ needs.meta.outputs.version }}-${{ matrix.target }}.tar.gz"
