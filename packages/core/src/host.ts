@@ -1,3 +1,6 @@
+import { createEngineFetch, createEngineSecrets } from "./engine-host-ports.ts";
+import type { Egress } from "./egress/service.ts";
+import type { SecretStore } from "./secrets/store.ts";
 import { voiceEngineConfig } from "./voice/turn-profile.ts";
 import type { EngineConfig, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
@@ -16,7 +19,7 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
   /** Set only under a supervisor (B7): the engine's config changes go to the supervisor's `config.set`. */
   mutateConfig?: (patch: Record<string, unknown>) => Promise<void>;
   /** When given, `mutateConfig` is offered only while it answers true (read at each access). */
-  canMutateConfig?: () => boolean }): HostServices {
+  canMutateConfig?: () => boolean; egress?: Pick<Egress, "request">; secrets?: SecretStore }): HostServices {
   const host: HostServices = {
     logger: engineLoggerFrom(o.logger.child({ src: "engine" })),
     stateDir: o.layout.state,
@@ -30,6 +33,8 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
     clock: o.clock ?? Date.now,
     platform: createPlatformCapabilities({ logger: o.logger }),
     runtime: null,
+    ...(o.egress ? { fetch: createEngineFetch(o.egress) } : {}),
+    ...(o.secrets ? { secrets: createEngineSecrets(o.secrets) } : {}),
   };
   // Absent without a supervisor: nothing else owns config.json while the core runs on its own.
   const mutate = o.mutateConfig;

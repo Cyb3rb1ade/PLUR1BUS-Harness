@@ -62,8 +62,8 @@ export function checkEngineConfigLicences(engineConfig: unknown,l: Layout): void
 /**
  * Egress check at construction: every model endpoint the engine will call (remote embedding, remote reranker, engine LLM
  * features with their own transport) must pass the harness egress policy (`egress.decide`), the same decision every
- * harness-owned provider call takes. The pinned engine has no fetch port yet, so its calls cannot go through
- * `egress.request`; this refuses a configuration the policy would never allow before the engine is built.
+ * harness-owned provider call takes. This preflight gives early feedback; the injected HostServices.fetch additionally
+ * runs every request through `egress.request`, including redirects and later live policy changes.
  * A refusal fails the engine start with E_DENIED reason egress-denied. A name that does not resolve right now (offline
  * start, `not-found`) is not a policy refusal and is only reported; an endpoint without a known host (a feature key
  * without baseUrl) cannot be judged here and is reported too.

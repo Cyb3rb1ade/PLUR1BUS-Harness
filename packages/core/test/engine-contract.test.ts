@@ -12,7 +12,7 @@ import { RpcError } from "../src/rpc/errors.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
-// The engine's own `ContractVersion` type is pinned to the literal `"1.12.0"` at the current pin,
+// The engine's own `ContractVersion` type is a literal at the installed pin,
 // so these fixtures (deliberately mismatched or malformed) are widened to plain strings — exactly
 // what `assertEngineContract` must guard against at runtime, where the engine's declared type is
 // no guarantee against a differently-pinned build.
@@ -21,11 +21,11 @@ function fixture(contract: string): Parameters<typeof assertEngineContract>[0] {
 }
 
 describe("assertEngineContract", () => {
-  it("accepts 1.8.0, 1.11.0, 1.12.0 and 1.99.0", () => {
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.8.0")));
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.11.0")));
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.12.0")));
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.99.0")));
+  it("accepts 1.15.0, 1.16.0 and later compatible minors", () => {
+    for (const contract of ["1.15.0", "1.16.0", "1.99.0"]) assert.doesNotThrow(() => assertEngineContract(fixture(contract)));
+  });
+  it("refuses engines that would ignore the mandatory fetch and secret ports", () => {
+    for (const contract of ["1.8.0", "1.12.0", "1.14.0"]) assert.throws(() => assertEngineContract(fixture(contract)), (e: any) => e.reason === "engine-contract-minor");
   });
 
   it("refuses 2.0.0 with E_RPC_VERSION engine-contract-major", () => {
@@ -41,7 +41,7 @@ describe("assertEngineContract", () => {
     }
   });
 
-  it("refuses a 1.x contract older than 1.8.0 with E_RPC_VERSION engine-contract-minor (S18)", () => {
+  it("refuses a 1.x contract older than 1.15.0 with E_RPC_VERSION engine-contract-minor (S18)", () => {
     try {
       assertEngineContract(fixture("1.7.0"));
       assert.fail("expected assertEngineContract to throw");
@@ -54,7 +54,7 @@ describe("assertEngineContract", () => {
     }
   });
 
-  it("the pinned engine reports 1.12.0 and exposes memory.import, stores.adopt, memory.rebind and memory.unbind", async () => {
+  it("the pinned engine supports the host ports and exposes memory.import, stores.adopt, memory.rebind and memory.unbind", async () => {
     const l = layout(tempDir("p1b-contract-112-"));
     for (const d of [l.state, l.logs, l.agents, l.lancedb]) mkdirSync(d, { recursive: true, mode: 0o700 });
     const cfg = defaults();
@@ -66,7 +66,7 @@ describe("assertEngineContract", () => {
     const host = createHarnessHost({ layout: l, logger, config: cfg, engineConfig, agents: reg, events: () => {} });
     const engine = bindEngine(host, engineConfig, flatTestInternals());
     try {
-      assert.equal(engine.contract, "1.12.0");
+      assertEngineContract(engine);
       assert.equal(typeof engine.memory.import, "function");
       assert.equal(typeof engine.stores.adopt, "function");
       assert.equal(typeof engine.memory.rebind, "function");

@@ -59,14 +59,32 @@ the policy end to end. The gate, the SSRF check and the pinned connect apply exa
 `a2a/push.ts` and `auth/http.ts` still carry their own POST; moving them onto this variant is a follow-up (both have
 their own redirect and response handling with tests that would need to move with them).
 
-## Engine model endpoints at start
+## Engine HTTP and secrets (contract 1.15)
 
-The pinned memory engine has no fetch port yet, so its own model calls (a remote embedding, the Cohere reranker, an engine
-LLM feature with its own `baseUrl`) cannot run through `request`. Until it has one, the core judges every such endpoint
-with `decide(url)` before it builds the engine (`checkEngineEgress` in `engine-config.ts`). A refusal stops the engine
-start with `E_DENIED`, `reason: egress-denied`, naming the role and the origin (never a path). A name that does not
-resolve at start (offline, `not-found`) is logged, not refused; an engine feature that names a key but no `baseUrl`
-calls its provider's default endpoint, which cannot be judged here and is logged.
+The core supplies `HostServices.fetch` and `HostServices.secrets.resolve` to the memory engine. Every engine HTTP
+request goes through `egress.request`: embeddings, HTTP reranking, engine LLM calls, webhooks and model downloads.
+The live policy and DNS pinning apply on every request and every permitted redirect. A provider request with caller
+headers or a body returns redirects without following them, so credentials and memory text stay with their destination.
+There is no global-fetch fallback in the harness port. The core requires engine contract 1.15 or later.
+
+The fetch bridge accepts URL strings, URLs and Requests and returns a WHATWG Response, including status/error JSON,
+headers, final URL and a decoded body stream. Downloads stream under backpressure rather than accumulating the artifact
+in RAM. Request bodies are capped at 20 MiB, decoded responses at 2 GiB, with a five-minute transport deadline; caller
+cancellation and the engine's own shorter budgets still apply. Existing web tools keep their buffered 20-MB default.
+
+`checkEngineEgress` still gives preflight feedback before construction. A refusal stops startup with `E_DENIED`,
+`reason: egress-denied`; an offline name or an engine LLM feature using an unknown default endpoint is reported at
+startup and remains subject to the per-request gate when it actually connects.
+
+Provider configuration can name `apiKeyRef`, a harness secret-store name, or `apiKeyEnv`, an environment variable name.
+The engine prefers `apiKeyRef` and fails closed if it cannot resolve it. The host resolves it with an audited core lease
+and revokes that lease immediately after copying the value into memory; it never exports the value to an environment
+variable or config file. The engine caches credentials for at most 60 seconds and invalidates them on HTTP 401/403.
+
+HTTP reranking supports `cohere`, `jina`, `voyage` and `remote`; `protocol` is `cohere`, `jina`, `voyage` or `tei`.
+`remote` requires `baseUrl` and permits a keyless self-hosted service. The other providers retain their engine presets;
+an explicit `baseUrl` overrides the preset and needs its own endpoint-bound privacy acknowledgment. Remote reranking
+remains mandatory, with `fallbackProvider: "disabled"`: a failed call never silently changes the selected model.
 
 ## Model calls and `privacy.localOnly`
 

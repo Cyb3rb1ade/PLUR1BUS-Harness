@@ -34,6 +34,8 @@ const ERROR_MAP: Readonly<Record<E.MemoryOpErrorCode, ErrorCode>> = Object.freez
   unsupported: "E_NOT_AVAILABLE", // 1.8.0; Task 14 adds its tests and the daemon/1staid surfaces
   // 1.12.0 (rebind/unbind): no core RPC method calls them yet; the map stays total so the code type-checks and a future caller gets a closed code.
   "identity-already-bound": "E_CONFLICT", "ledger-corrupt": "E_STORAGE", "lock-lost": "E_STORAGE",
+  // Keep the RPC projection total for the host-port engine contract.
+  "lock-busy": "E_CONFLICT", EMBEDDER_UNAVAILABLE: "E_NOT_AVAILABLE", EMBEDDING_IDENTITY_MISMATCH: "E_CONFLICT",
 });
 
 const coreStopping = (ids?: Record<string, string>) =>

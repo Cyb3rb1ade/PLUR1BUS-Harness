@@ -2,12 +2,10 @@ import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.j
 import type { Engine, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RpcError } from "./rpc/errors.ts";
 
-export const CORE_CONTRACT = "1.12.0";
 /** The engine contract's supported major version (ADR-016 §1): the core accepts major 1 only. */
 export const SUPPORTED_CONTRACT_MAJOR = 1;
-/** The lowest minor the core runs on (S18): 1.8.0 (E4) adds `Engine.models` and the model-derived `EngineStatus`.
- *  The pinned engine is 1.12.0 (plugin #219: memory.rebind, memory.unbind); the floor stays 1.8.0 because nothing here needs a 1.12.0 member (HB2). */
-export const MIN_CONTRACT_MINOR = 8;
+/** Contract 1.15 is required: older engines ignore host.fetch and host.secrets and bypass per-request egress. */
+export const MIN_CONTRACT_MINOR = 15;
 
 /** Refuses to start against an engine whose `contract` isn't a `<int>.<int>.<int>` string with the
  *  supported major (G20): throws E_RPC_VERSION reason=engine-contract-major, detail=<contract>; and against

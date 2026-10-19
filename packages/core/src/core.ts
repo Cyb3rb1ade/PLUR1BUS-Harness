@@ -460,7 +460,7 @@ export function createCore(o: CoreOptions): Core {
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       checkEngineConfigLicences(engineConfig,l);
-      // Until the engine has a fetch port, its model endpoints are judged by the harness egress policy before it is built.
+      // Preflight feedback; host.fetch also enforces the live egress policy on every request.
       await checkEngineEgress(engineConfig, egress, (message, fields) => log.warn(message, fields));
       const unmapped = new Set<string>();
       const events = (name: string, payload: unknown) => {
@@ -475,7 +475,7 @@ export function createCore(o: CoreOptions): Core {
         }
       };
       const host = createHarnessHost({
-        layout: l, logger, config, engineConfig, agents: executionRegistry, events, clock,
+        layout: l, logger, config, engineConfig, agents: executionRegistry, events, clock, egress, secrets: secretStore,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
         mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
         canMutateConfig: () => cs.source === "supervisor",
