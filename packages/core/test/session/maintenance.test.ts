@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { defaults } from '../../../config-schema/src/index.ts';
 import { sessionMaintenance, sessionRoleFactory } from '../../src/session/maintenance.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 import { ToolRegistry } from '../../src/tools/registry.ts';
 import { openSessionService } from '../../src/session/service.ts';
 import type { AgentRegistry } from '../../src/agents.ts';
@@ -14,7 +14,7 @@ import { createLogger } from '../../src/logger.ts';
 import type { ChatRequest as WireRequest } from '../../../providers/src/index.ts';
 it('session composition consumes configuration and fake catalogue windows, calibrates usage, then runs background summary', async () => {
   const home = mkdtempSync(join(tmpdir(),'compaction-maintenance-')); const config = defaults(); config.modelRoles.summarize = 'cheap'; config.session.compaction.prune.enabled = false;
-  const budget = createCallBudget({ path:join(home,'budget.sqlite'),clock:{now:Date.now},prices:new PriceBook(SHIPPED_PRICE_TABLES) });
+  const budget = createCallBudget({ path:join(home,'budget.sqlite'),clock:{now:Date.now} });
   const calls: string[] = []; const identity: boolean[] = [];
   const adapter = { async *stream(req: WireRequest) {
     calls.push(req.model); const text = req.model === 'gpt-4.1-mini' ? 'summary facts' : 'reply '.repeat(70);
@@ -38,4 +38,20 @@ it('session composition consumes configuration and fake catalogue windows, calib
     const summaries = sessions.store.listSummaries(session.id); assert.ok(summaries.length>0); assert.ok(summaries.every(s => s.tokens <= 150));
     assert.equal(sessions.store.listMessages(session.id).length,10);
   } finally { await sessions.close(); budget.close(); await logger.close(); rmSync(home,{recursive:true,force:true}); }
+});
+it('live role configuration applies to the next request without replacing an in-flight provider', async () => {
+  const config = defaults();
+  const seen: string[] = [];
+  const { FakeChatProvider } = await import('../../src/session/provider.ts');
+  const create = ((_options: unknown) => {
+    seen.push(config.modelRoles.summarize ?? 'unset');
+    return { ...new FakeChatProvider(), id: 'fixture', telemetry: {} };
+  }) as unknown as typeof createTurnProvider;
+  // Construction only: inspect the selected role metadata, without paid calls or native stores.
+  const provider = sessionRoleFactory(create, () => config)({ profiles: {}, registry: new ToolRegistry() } as never);
+  const initial = seen.length;
+  config.modelRoles.summarize = 'new-profile';
+  provider.roleModels?.('summarize');
+  assert.ok(seen.length > initial);
+  assert.equal(seen.at(-1), 'new-profile');
 });

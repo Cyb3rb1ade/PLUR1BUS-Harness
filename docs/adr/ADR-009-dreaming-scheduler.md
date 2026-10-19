@@ -2,6 +2,8 @@
 
 **Status:** Accepted (2026-09-22, with amendment D15; placement confirmed 2026-10-07) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D4, D6, D9, D11, D15 · `docs/phase0/auftrag-original-2026-09-21.md` §4.1 (feature crons), §6.2, §9, §11, §12 · `docs/phase0/openclaw-sleep-plan-reference.png` (D4's reference screenshot) · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §1 · `docs/phase0/research/openclaw-layout-dreaming-ui.md` §2 · `docs/phase0/research/harness-engineering-state-of-the-art.md` §6, §7 · `docs/phase0/research/plur1bus-host-contract.md` §1, §5 · Source of record: `/home/claude/refs/openclaw-plur1bus-memory` @ `89148f9`; `/home/claude/refs/openclaw` @ `b9421f4` (2026.9.5). Companion: ADR-002 (`engine.jobs` registry), ADR-006 (embed/rerank), ADR-010 (budgets).
 
+**Amended 2026-10-19 (owner):** no money dimension in the harness — the `dream_run` cost column stays empty for good; dream cost is measured and limited in tokens and session counts only.
+
 ## Context
 
 ### The owner's experience

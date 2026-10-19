@@ -1,5 +1,8 @@
 // Rollback engine for harness imports (docs/import.md §5.5, §9.6, Batch 4).
 // Restores the target state prior to the import, verified via hashes, under withTargetLock.
+// Engine-side links of the run (engine contract 1.16.0, `memory.link`, ledger details.engineLink) are undone through
+// `memory.unimport({ importRunId, idempotencyKeys })` before any file is touched: only that run's links are selected (the
+// keys of its linked cards, which the run never imported), the linked memories themselves are never written.
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -19,6 +22,11 @@ import type { TargetSnapshotManifest } from "./snapshot-target.ts";
 import { ImportError, type SourceType } from "./types.ts";
 import { cleanEmptyDirs, isInsideDir, writeAtomicSync } from "./fs-atomic.ts";
 import type { LedgerEntry } from "./ledger.ts";
+import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
+import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import { defaults } from "@plur1bus/config-schema";
+import { buildEngineConfig } from "../engine-config.ts";
+import { createTempHost } from "./importers/hermes-stores.ts";
 
 export const RUN_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -39,6 +47,15 @@ export interface RollbackReport {
   memoryCardsNotReverted?: number | undefined;
   memoryUndoStatus?: "not-reverted (engine has no undo)" | undefined;
   storeUndoStatus?: "restored" | "removed" | "not-reverted" | undefined;
+  /** Engine-side links of the run (contract 1.16.0): `recorded` from the ledger; `unlinked` / `planned` with the counts of
+   *  `memory.unimport`'s `links` result, or `reverted-with-store` when the store the links live in is restored or removed. */
+  memoryLinks?: {
+    recorded: number;
+    status: "unlinked" | "planned" | "reverted-with-store";
+    selected?: number | undefined;
+    unlinked?: number | undefined;
+    alreadyUnlinked?: number | undefined;
+  } | undefined;
   startedAt: string;
   finishedAt?: string;
 }
@@ -134,6 +151,48 @@ export interface RollbackOptions {
   sourceType: SourceType;
   force?: boolean;
   now?: () => Date;
+  /** The engine that undoes the run's engine-side links (default: opened on the target home only when the run made any). */
+  engine?: Engine | undefined;
+  /** Test seam: engine internals (e.g. a stub embedder) for the engine opened here. */
+  testInternals?: Record<string, unknown> | undefined;
+}
+
+const AGENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+/** `memory.unimport` accepts at most this many idempotency keys per call. */
+const UNIMPORT_KEY_LIMIT = 500;
+
+/** The engine on the target home, configured like the importer's (target config.json over the defaults). */
+function openTargetEngine(l: ReturnType<typeof layout>, testInternals?: Record<string, unknown>): Engine {
+  let rawConfig: any;
+  try {
+    rawConfig = existsSync(l.configPath) ? JSON.parse(readFileSync(l.configPath, "utf8")) : defaults();
+  } catch {
+    rawConfig = defaults();
+  }
+  const base = defaults();
+  const target = {
+    ...base,
+    ...rawConfig,
+    core: { ...base.core, ...(rawConfig.core ?? {}), recall: { ...base.core.recall, ...(rawConfig.core?.recall ?? {}) } },
+    engine: {
+      ...base.engine,
+      ...(rawConfig.engine?.baseDbPathOverride ? { baseDbPathOverride: rawConfig.engine.baseDbPathOverride } : {}),
+      ...(rawConfig.engine?.embedding ? { embedding: rawConfig.engine.embedding } : {}),
+      ...(rawConfig.engine?.reranker ? { reranker: rawConfig.engine.reranker } : {}),
+      ...(rawConfig.engine?.recall ? { recall: rawConfig.engine.recall } : {}),
+    },
+  };
+  return createEngine(
+    createTempHost(l.state, async (id: string) => l.workspaceDir(id)),
+    buildEngineConfig(target, l) as any,
+    testInternals ? { internals: testInternals } : undefined,
+  );
+}
+
+/** A reason code only (never message text): a short token, else "storage". */
+function engineErrorCode(err: any): string {
+  const raw = err?.code ?? err?.reason;
+  return typeof raw === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(raw) ? raw : "storage";
 }
 
 export async function rollbackImport(opts: RollbackOptions): Promise<RollbackReport> {
@@ -254,6 +313,8 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
     const createdAgents = new Set<string>();
     let memoryCardsImported = 0;
     let storeAction: string | null = null;
+    /** agentId -> idempotency keys of the cards this run linked in the engine (ledger details.engineLink). */
+    const engineLinks = new Map<string, Set<string>>();
 
     const lines = ledgerText.split("\n");
     for (let i = 0; i < lines.length; i++) {
@@ -281,6 +342,18 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
           const agentId = parts[2] || (entry.targetRef ? entry.targetRef.split("/")[1] ?? "" : "");
           if (agentId) createdAgents.add(agentId);
         } else if (entry.entity === "memory") {
+          // A linked, parked or deferred card wrote no card to the store: there is no card to revert. A card this run linked
+          // in the engine (details.engineLink) left a link, which is undone below through memory.unimport.
+          if (entry.action === "linked") {
+            const agentId = entry.details?.agentId;
+            if (typeof entry.details?.engineLink === "string" && typeof agentId === "string" && AGENT_ID_RE.test(agentId)) {
+              const keys = engineLinks.get(agentId) ?? new Set<string>();
+              keys.add(entry.idempotencyKey);
+              engineLinks.set(agentId, keys);
+            }
+            continue;
+          }
+          if (entry.action === "pending-reembed" || entry.action === "deferred") continue;
           const count = (entry.details?.created as number ?? entry.details?.count as number ?? 1);
           memoryCardsImported += count;
         } else if (entry.entity === "store") {
@@ -420,6 +493,49 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
       storeUndoStatus,
       startedAt,
     };
+
+    // Engine-side links of this run, before any file is touched: a failure aborts the rollback with nothing changed (the
+    // run stays rollback-able). The store the links live in is reverted as a whole when this run adopted it or replaced
+    // one (with a backup): then there is nothing to unlink.
+    const recordedLinks = [...engineLinks.values()].reduce((n, keys) => n + keys.size, 0);
+    if (recordedLinks > 0) {
+      if (storeUndoStatus === "removed" || storeUndoStatus === "restored") {
+        out.memoryLinks = { recorded: recordedLinks, status: "reverted-with-store" };
+      } else {
+        const engine = opts.engine ?? openTargetEngine(l, opts.testInternals);
+        const totals = { selected: 0, unlinked: 0, alreadyUnlinked: 0 };
+        try {
+          for (const [agentId, keySet] of [...engineLinks].sort(([a], [b]) => a.localeCompare(b))) {
+            const principal: Principal = {
+              agentId,
+              workspace: "workspace:v1:main",
+              channel: "cli",
+              accountId: "default",
+              chat: { id: "c1", kind: "direct" },
+              trust: "proved",
+            } as Principal;
+            const keys = [...keySet].sort();
+            for (let i = 0; i < keys.length; i += UNIMPORT_KEY_LIMIT) {
+              const res = await engine.memory.unimport(
+                { agentId, importRunId: runId, idempotencyKeys: keys.slice(i, i + UNIMPORT_KEY_LIMIT), dryRun: !opts.apply },
+                principal,
+                { origin: "system", background: false },
+              );
+              totals.selected += res.links?.selected ?? 0;
+              totals.unlinked += res.links?.unlinked ?? 0;
+              totals.alreadyUnlinked += res.links?.alreadyUnlinked ?? 0;
+            }
+          }
+        } catch (err) {
+          throw invalid("memory-unlink-failed", `the run's engine-side links could not be undone (${engineErrorCode(err)}); nothing was rolled back`);
+        } finally {
+          if (!opts.engine) {
+            try { await (engine as any).close?.({ budgetMs: 1_000 }); } catch {}
+          }
+        }
+        out.memoryLinks = { recorded: recordedLinks, status: opts.apply ? "unlinked" : "planned", ...totals };
+      }
+    }
 
     if (!opts.apply) {
       return out;

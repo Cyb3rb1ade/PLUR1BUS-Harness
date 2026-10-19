@@ -44,7 +44,7 @@ export interface ImportedFileReport {
 export interface AgentImportReport {
   sourceId: string;
   harnessAgentId: string;
-  action: "created" | "matched-existing" | "rejected";
+  action: "created" | "matched-existing" | "rejected" | "merged";
   reason?: string | undefined;
   workspaceDir: string;
   files: ImportedFileReport[];

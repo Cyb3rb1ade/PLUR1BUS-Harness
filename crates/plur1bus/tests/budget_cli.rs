@@ -29,7 +29,7 @@ fn budget_set_refuses_an_incomplete_limit_before_touching_the_core() {
         .arg("--home")
         .arg(&home)
         .args([
-            "--json", "budget", "set", "--global", "--period", "day", "--hard", "5",
+            "--json", "budget", "set", "--global", "--metric", "tokens", "--hard", "5",
         ])
         .assert()
         .failure()
@@ -37,7 +37,7 @@ fn budget_set_refuses_an_incomplete_limit_before_touching_the_core() {
     let doc: Value = serde_json::from_slice(&out.get_output().stdout).unwrap();
     assert_eq!(doc["schema"], "error/1");
     assert_eq!(doc["error"], "E_INVALID_PARAMS");
-    assert!(doc["message"].as_str().unwrap().contains("--metric"));
+    assert!(doc["message"].as_str().unwrap().contains("--period"));
 }
 
 #[test]
@@ -47,15 +47,25 @@ fn budget_set_refuses_a_malformed_amount() {
         .arg("--home")
         .arg(dir.path().join("home"))
         .args([
-            "--json", "budget", "set", "--agent", "main", "--period", "day", "--metric", "cost",
-            "--hard", "five",
+            "--json", "budget", "set", "--agent", "main", "--period", "day", "--hard", "five",
         ])
         .assert()
         .failure()
         .code(2);
     let doc: Value = serde_json::from_slice(&out.get_output().stdout).unwrap();
     assert_eq!(doc["error"], "E_INVALID_PARAMS");
-    assert!(doc["message"].as_str().unwrap().contains("USD"));
+    assert!(doc["message"].as_str().unwrap().contains("token count"));
+}
+
+#[test]
+fn budget_set_refuses_a_cost_metric() {
+    // No money dimension since 2026-10-19: `--metric cost` is not a value the CLI accepts.
+    bin()
+        .args([
+            "budget", "set", "--global", "--period", "day", "--metric", "cost", "--hard", "1",
+        ])
+        .assert()
+        .failure();
 }
 
 #[test]
@@ -83,14 +93,13 @@ fn budget_status_and_set_fail_with_core_unavailable_when_no_core_runs() {
 fn budget_set_rejects_global_with_agent_and_unknown_period() {
     bin()
         .args([
-            "budget", "set", "--global", "--agent", "a", "--period", "day", "--metric", "cost",
-            "--hard", "1",
+            "budget", "set", "--global", "--agent", "a", "--period", "day", "--hard", "1",
         ])
         .assert()
         .failure();
     bin()
         .args([
-            "budget", "set", "--global", "--period", "week", "--metric", "cost", "--hard", "1",
+            "budget", "set", "--global", "--period", "week", "--hard", "1",
         ])
         .assert()
         .failure();

@@ -66,6 +66,8 @@ fn method_fixture(name: &str, f: &Value) {
         "chat.delete" => pair::<ChatDeleteParams, ChatDeleteResult>(name, f),
         "chat.events" => pair::<ChatEventsParams, ChatEventsResult>(name, f),
         "chat.export" => pair::<ChatExportParams, ChatExportResult>(name, f),
+        "chat.model.get" => pair::<ChatModelGetParams, ChatModelGetResult>(name, f),
+        "chat.model.set" => pair::<ChatModelSetParams, ChatModelSetResult>(name, f),
         "chat.fork" => pair::<ChatForkParams, ChatForkResult>(name, f),
         "chat.get" => pair::<ChatGetParams, ChatGetResult>(name, f),
         "chat.list" => pair::<ChatListParams, ChatListResult>(name, f),
@@ -98,6 +100,16 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "project.card.activity.list" => {
             pair::<ProjectCardActivityListParams, ProjectCardActivityListResult>(name, f)
+        }
+        "device.pair" => pair::<DevicePairParams, DevicePairResult>(name, f),
+        "admin.api.desktop.redeem" => {
+            pair::<AdminApiDesktopRedeemParams, AdminApiDesktopRedeemResult>(name, f)
+        }
+        "admin.api.desktop.token" => {
+            pair::<AdminApiDesktopTokenParams, AdminApiDesktopTokenResult>(name, f)
+        }
+        "admin.api.desktop.resolve" => {
+            pair::<AdminApiDesktopResolveParams, AdminApiDesktopResolveResult>(name, f)
         }
         "device.list" => pair::<DeviceListParams, DeviceListResult>(name, f),
         "device.revoke" => pair::<DeviceRevokeParams, Device>(name, f),
@@ -168,6 +180,12 @@ fn method_fixture(name: &str, f: &Value) {
         "project.agent.remove" => {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
         }
+        "task.complete" => pair::<TaskCompleteParams, TaskCompleteResult>(name, f),
+        "chat.promote.preview" => {
+            pair::<ChatPromotePreviewParams, ChatPromotePreviewResult>(name, f)
+        }
+        "chat.promote.commit" => pair::<ChatPromoteCommitParams, ChatPromoteCommitResult>(name, f),
+        "chat.promote.links" => pair::<ChatPromoteLinksParams, ChatPromoteLinksResult>(name, f),
         "collab.session.replay" => {
             pair::<CollabSessionReplayParams, CollabSessionReplayResult>(name, f)
         }
@@ -306,6 +324,7 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<AdminReembedStatusParams, AdminReembedStatusResult>(name, f)
         }
         "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
+        "models.test" => pair::<ModelsTestParams, ModelsTestResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),
@@ -482,6 +501,12 @@ fn every_method_fixture_round_trips() {
         "chat.fork",
         "chat.delete",
         "chat.export",
+        "chat.model.get",
+        "chat.model.set",
+        "device.pair",
+        "admin.api.desktop.redeem",
+        "admin.api.desktop.token",
+        "admin.api.desktop.resolve",
         "admin.api.device.pair",
         "admin.api.device.challenge",
         "admin.api.device.prove",
@@ -638,4 +663,15 @@ fn rpc_version_const_matches_the_schema() {
         .as_str()
         .unwrap()
         .contains(&format!("/{}/", plur1bus_rpc::RPC_VERSION)));
+}
+
+#[test]
+fn core_auth_preserves_owner_tokens_and_supports_scoped_client_tokens() {
+    for token in [
+        "0".repeat(64),
+        format!("plb_123456789abc_{}", "x".repeat(43)),
+    ] {
+        let value = serde_json::json!({ "token": token });
+        round_trip::<types::CoreAuthParams>(&value, "core.auth token variants");
+    }
 }

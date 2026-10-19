@@ -19,6 +19,15 @@
 .chat-pane > h2 { margin: 0; font-size: 18px; line-height: 1.3; }
 .chat-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .chat-head h2 { margin: 0; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
+/* Model and reasoning of the chat: its own row in the head; the two selects share it and stack below 400 px. */
+.chat-model { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; flex: 1 1 100%; min-width: 0; }
+.chat-model-field { display: grid; gap: 4px; flex: 1 1 12rem; min-width: 0; }
+.chat-model-field label { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.chat-model-field select { width: 100%; max-width: 100%; }
+.chat-model-hint { flex: 1 1 100%; margin: 0; color: var(--ink-2); font-size: 12.5px; overflow-wrap: anywhere; }
+.chat-model-hint:empty { display: none; }
+.chat-model-error { flex: 1 1 100%; margin: 0; color: var(--err-ink); font-size: 12.5px; }
+.chat-model-note { flex: 1 1 100%; }
 .chat-log { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; min-height: 200px; max-height: calc(100dvh - 380px); overflow-y: auto; padding: 4px 4px 8px; border-radius: 10px; }
 .chat-empty { margin: auto; padding: 24px 0; color: var(--ink-2); max-width: var(--w-reading); }
 
@@ -59,3 +68,14 @@
   .chat-compose-row .btn { flex: none; }
   .msg[data-role="user"] { max-width: 92%; }
 }
+
+.promotion-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; max-block-size: 24rem; overflow: auto; }
+.promotion-messages { display: grid; gap: 12px; max-block-size: 24rem; overflow: auto; }
+.promotion-message { display: flex; gap: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.chat-head { flex-wrap: wrap; }
+.chat-menu { margin-inline-start: auto; max-inline-size: 100%; }
+.chat-menu > summary { cursor: pointer; }
+.chat-menu .btn { white-space: normal; max-inline-size: 100%; }
+.promotion-fields { min-inline-size: 0; }
+.promotion-fields select, .promotion-fields input, .promotion-fields textarea { min-inline-size: 0; max-inline-size: 100%; }

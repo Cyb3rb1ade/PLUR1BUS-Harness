@@ -20,7 +20,7 @@ import { buildCollabSurface } from "../../core/src/rpc/collab-surface.ts";
 import { buildIdentitySurface } from "../../core/src/rpc/identity-surface.ts";
 import { createCollab } from "../../core/src/collab/service.ts";
 import { createIdentityService } from "../../core/src/identity/service.ts";
-import { createCallBudget, PriceBook } from "../../core/src/budget/index.ts";
+import { createCallBudget } from "../../core/src/budget/index.ts";
 import { OutputStore } from "../../media/src/index.ts";
 const bin =
   process.env.PLUR1BUS_BIN ??
@@ -49,9 +49,6 @@ test(
     const budget = createCallBudget({
       path: join(home, "budget.sqlite"),
       clock: { now: Date.now },
-      prices: new PriceBook([
-        { version: "fixture", effectiveFrom: 0, models: {} },
-      ]),
     });
     const collab = createCollab({ path: join(home, "collab.sqlite") });
     const identity = createIdentityService({

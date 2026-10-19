@@ -41,8 +41,8 @@ by `hash(agentId, phase) % 1800 s` so many agents do not start together; at most
 
 An engine job that fails, comes back `incomplete` or `abandoned`, or a diary the engine says it did not write, is recorded
 `failed` — never `completed`. A run that crashed mid-way is reconciled at the next start to `aborted / crashed` and its
-corpus stays eligible. Cost is **measured, not capped**: tokens per run are in the ledger (`cost_micros` stays empty until a
-price table exists).
+corpus stays eligible. Cost is **measured, not capped**, and only in tokens: tokens per run are in the ledger. There is no
+money dimension (owner decision 2026-10-19); the ledger's legacy money column stays empty.
 
 ## Where things live
 

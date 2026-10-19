@@ -1,6 +1,6 @@
 // Shared helpers for the composition tests (new file, composition tests only).
 import { afterEach } from "node:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PipelineRecord } from "../../src/composition/trace.ts";
@@ -23,7 +23,7 @@ export function useTempDirs(prefix = "p1b-composition-") {
   afterEach(() => {
     for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
-  return { make(): string { const dir = mkdtempSync(join(tmpdir(), prefix)); made.push(dir); return dir; } };
+  return { make(): string { const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix))); made.push(dir); return dir; } };
 }
 
 export function recordingLog() {
@@ -70,7 +70,7 @@ export function fakeEgress(allow: (url: string) => boolean = () => true) {
 
 // ---- turn provider fixture -------------------------------------------------------------------------------------------
 import { join as joinPath } from "node:path";
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES, type CallBudget } from "../../src/budget/index.ts";
+import { createCallBudget, type CallBudget } from "../../src/budget/index.ts";
 import { ToolRegistry, type ToolDef } from "../../src/tools/registry.ts";
 import { createTurnProvider, type TurnProviderOptions } from "../../src/composition/provider.ts";
 import type { StreamingAdapter, ChatRequest as WireRequest, ChatResult } from "../../../providers/src/index.ts";
@@ -105,7 +105,7 @@ export const turnRequest = (over: Partial<ChatRequest> = {}): ChatRequest => ({ 
 
 export function turnFixture(adapter: StreamingAdapter, extra: Partial<TurnProviderOptions> = {}, dir?: string) {
   const home = dir ?? (() => { throw new Error("pass a temp dir"); })();
-  const budget: CallBudget = createCallBudget({ path: joinPath(home, "budget.sqlite"), clock: { now: () => Date.UTC(2026, 9, 12) }, prices: new PriceBook(SHIPPED_PRICE_TABLES), emitter: { emit() { /* ignored */ } } });
+  const budget: CallBudget = createCallBudget({ path: joinPath(home, "budget.sqlite"), clock: { now: () => Date.UTC(2026, 9, 12) }, emitter: { emit() { /* ignored */ } } });
   const registry = new ToolRegistry();
   const logs: Record<string, unknown>[] = [];
   const stored: unknown[] = [];

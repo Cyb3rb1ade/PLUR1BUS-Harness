@@ -11,7 +11,7 @@ import { getApi } from "../common/load.ts";
 import { loadDefaults } from "./defaults.ts";
 import { FailureNote, failureText } from "./failure.ts";
 import {
-  adaptersFor, buildParams, classifyFailure, editOperations, estimateUsd, generateKinds, paramProblem, paramSpecs, parseAdapters,
+  adaptersFor, buildParams, classifyFailure, editOperations, generateKinds, paramProblem, paramSpecs, parseAdapters,
   type Adapter, type EditOp, type FormValues, type Kind, type MediaFailure, type ParamSpec,
 } from "./media-model.ts";
 import "../../styles/library-media.css";
@@ -138,7 +138,6 @@ export function MediaDialog(props: MediaDialogProps): View {
     if (loadFailure) return h(FailureNote, { failure: loadFailure });
     if (!data) return h(PageLoading, { label: t("state.loading") });
     if (candidates.length === 0 || (!edit && kinds.length === 0)) return h("p", { class: "libmedia-empty" }, edit ? t("libmedia.edit.none") : t("libmedia.noAdapters"));
-    const usd = adapter ? estimateUsd(adapter, submitKind, values) : null;
     return h("form", { class: "libmedia-form", noValidate: true, onSubmit: (e: Event) => { void submit(e); } },
       edit ? h("p", { class: "libmedia-source" }, t("libmedia.edit.source", { prompt: props.source.prompt })) : null,
       !edit && kinds.length > 1
@@ -179,9 +178,6 @@ export function MediaDialog(props: MediaDialogProps): View {
         h("legend", {}, t("libmedia.params")),
         specs.length === 0 ? h("p", { class: "field-hint" }, t("libmedia.params.none")) : null,
         specs.map((spec) => h(ParamField, { key: spec.key, spec, values, set, error: tried ? problems.find(([s]) => s === spec)?.[1] ?? null : null }))),
-      h("div", { class: "libmedia-cost", role: "status" },
-        h("strong", {}, t("libmedia.cost.title")), " ",
-        usd !== null ? t("libmedia.cost.value", { usd: usd.toFixed(usd < 0.1 ? 3 : 2) }) : adapter?.local ? t("libmedia.cost.local") : t("libmedia.cost.none")),
       failure ? h(FailureNote, { failure }) : null,
       h("div", { class: "dialog-actions" },
         h("button", { type: "button", class: "btn", onClick: props.onClose }, t("dialog.close")),

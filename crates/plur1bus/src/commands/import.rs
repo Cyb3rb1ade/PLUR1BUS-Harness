@@ -23,6 +23,7 @@ pub(crate) fn importer_args(a: &ImportArgs, layout: &Layout) -> Vec<OsString> {
     let mut v: Vec<OsString> = vec![match a.source_type {
         ImportSource::Openclaw => "openclaw".into(),
         ImportSource::Hermes => "hermes".into(),
+        ImportSource::Backfill => "backfill".into(),
     }];
     if a.detect {
         v.push("--detect".into());
@@ -80,6 +81,17 @@ pub(crate) fn importer_args(a: &ImportArgs, layout: &Layout) -> Vec<OsString> {
     if let Some(s) = &a.adopt_store {
         v.push("--adopt-store".into());
         v.push(s.clone().into_os_string());
+    }
+    if let Some(agent) = &a.agent {
+        v.push("--agent".into());
+        v.push(agent.into());
+    }
+    if let Some(strat) = &a.adopt_strategy {
+        v.push("--adopt-strategy".into());
+        v.push(strat.into());
+    }
+    if a.merge_profiles {
+        v.push("--merge-profiles".into());
     }
     v.push("--home".into());
     v.push(layout.home.clone().into_os_string());

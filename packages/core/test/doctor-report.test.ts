@@ -80,6 +80,11 @@ it("a failed startup snapshot is retried by a later read once the rate-limit win
   assert.equal(runs, 2);
   assert.equal(report.groups[0].id, "provisioning");
 });
+it("reports the absent skill-artifact queue without claiming that mining is enabled", async () => {
+  const methods = guardMethods(buildDoctorMethods({ home: "/fixture", clock: () => 1000, check: async () => ({ schema: "1staid.check/1", checks: [] }), miningStatus: () => ({ available: false }) }), viewer(() => 1000));
+  const report = await methods["doctor.report"]!({}, ctxOf()) as { groups: { checks: { id: string; status: string; summary: string }[] }[] };
+  const check = report.groups[0]!.checks.find(c => c.id === "skills.mining"); assert.equal(check?.status, "skipped"); assert.match(check!.summary, /no skill-artifact proposal API/);
+});
 
 it("lists composition problems (a refused turn provider) as failing checks next to the provisioning checks", async () => {
   const methods = guardMethods(buildDoctorMethods({ home: "/fixture", clock: () => 1000, check: async () => ({ schema: "1staid.check/1", checks: [{ id: "models.cache", status: "ok", summary: "fine" }] }),
@@ -88,4 +93,18 @@ it("lists composition problems (a refused turn provider) as failing checks next 
   const checks = report.groups.flatMap(g => g.checks);
   assert.deepEqual(checks.filter(c => c.id === "providers.broken").map(c => c.status), ["fail"]);
   assert.ok(checks.some(c => c.id === "models.cache"), "the provisioning checks stay");
+});
+
+
+it("privacy overlays the cached provisioning report immediately without another expensive check", async () => {
+ let active=false,runs=0;
+ const methods=guardMethods(buildDoctorMethods({home:"/fixture",clock:()=>1000,
+  check:async()=>{runs++;return {schema:"1staid.check/1",checks:[{id:"privacy.local-only",status:"ok",summary:"cached off"}]};},
+  coreChecks:()=>[{id:"privacy.local-only",status:active?"fail":"ok",summary:active?"active cloud refusal":"off"}]}),viewer(()=>1000));
+ const first=await methods["doctor.report"]!({},ctxOf()) as any;
+ assert.equal(first.groups[0].checks.find((c:any)=>c.id==="privacy.local-only").summary,"off");
+ active=true;
+ const second=await methods["doctor.report"]!({},ctxOf()) as any;
+ const rows=second.groups[0].checks.filter((c:any)=>c.id==="privacy.local-only");
+ assert.equal(runs,1);assert.equal(rows.length,1);assert.equal(rows[0].status,"fail");
 });

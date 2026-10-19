@@ -2093,7 +2093,7 @@
                 "description": "Per-agent privacy override; an unset key inherits the installation value.",
                 "type": "object",
                 "additionalProperties": false,
-                "x-restart": "core",
+                "x-restart": "live",
                 "x-tier": "basic",
                 "x-write-roles": [
                   "owner",
@@ -2104,7 +2104,7 @@
                   "localOnly": {
                     "description": "Only local models for this agent; overrides privacy.localOnly in both directions. The shared memory engine and media index stay local while the installation or any agent is local-only.",
                     "type": "boolean",
-                    "x-restart": "core",
+                    "x-restart": "live",
                     "x-tier": "basic",
                     "x-write-roles": [
                       "owner",
@@ -2747,7 +2747,7 @@
               "description": "Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly.",
               "type": "boolean",
               "default": false,
-              "x-restart": "core",
+              "x-restart": "live",
               "x-tier": "basic",
               "x-write-roles": [
                 "owner",
@@ -3281,6 +3281,25 @@
           "additionalProperties": false,
           "default": {},
           "properties": {
+            "sandbox": {
+              "description": "OS sandbox policy for processes that agent tools launch.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "required": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn.",
+                  "x-tier": "advanced",
+                  "x-restart": "core",
+                  "x-write-roles": [
+                    "owner"
+                  ],
+                  "x-audit": true
+                }
+              }
+            },
             "hostctl": {
               "description": "Local computer-control tools, gated by D109. No remote listener.",
               "type": "object",
@@ -4215,7 +4234,7 @@
                 "maxLength": 256,
                 "pattern": "^https?://[^/?#@\\s]+/?$"
               },
-              "x-restart": "core",
+              "x-restart": "live",
               "x-tier": "advanced",
               "x-write-roles": [
                 "owner",
@@ -4576,6 +4595,98 @@
                   "default": "en",
                   "x-restart": "module:slack",
                   "x-tier": "advanced"
+                }
+              }
+            },
+            "buzz": {
+              "type": "object",
+              "default": {},
+              "description": "NIP-17 text-only direct messages. Disabled by default.",
+              "x-restart": "module:buzz",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Start Buzz.",
+                  "x-restart": "module:buzz",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                },
+                "relays": {
+                  "type": "array",
+                  "default": [],
+                  "description": "Permitted wss relays; ws only for literal loopback.",
+                  "x-restart": "module:buzz",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true,
+                  "maxItems": 16,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 2048
+                  }
+                },
+                "privateKeySecret": {
+                  "type": "string",
+                  "default": "channels.buzz.private-key",
+                  "description": "Name of the secret holding the Buzz private key; never the key itself.",
+                  "x-restart": "module:buzz",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true,
+                  "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$"
+                },
+                "senderAllowlist": {
+                  "type": "array",
+                  "default": [],
+                  "description": "Allowed hex or npub sender keys.",
+                  "x-restart": "module:buzz",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true,
+                  "maxItems": 256,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 128
+                  }
+                },
+                "locale": {
+                  "type": "string",
+                  "default": "en",
+                  "description": "Local command language.",
+                  "x-restart": "module:buzz",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true,
+                  "enum": [
+                    "de",
+                    "en"
+                  ]
                 }
               }
             },

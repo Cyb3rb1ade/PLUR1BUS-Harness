@@ -102,3 +102,9 @@ export function addUser(tr: Transcript, m: { id: string; text: string; turnId: s
   const placeholder: Entry[] = m.state === "running" && !tr.done.has(m.turnId) ? [{ id: turnKey(m.turnId), role: "assistant", text: "", turnId: m.turnId, state: "running" }] : [];
   return { ...tr, entries: [...tr.entries, user, ...placeholder], runningTurnId: placeholder.length > 0 ? m.turnId : tr.runningTurnId };
 }
+
+/** A local note in the transcript (e.g. "Model changed: …"): a system entry with its own id, never tied to a turn. */
+export function addNotice(tr: Transcript, id: string, text: string): Transcript {
+  if (tr.entries.some((e) => e.id === id)) return tr;
+  return { ...tr, entries: [...tr.entries, { id, role: "system", text, turnId: null }] };
+}

@@ -34,6 +34,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -219,6 +222,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -496,6 +506,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -681,6 +694,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -958,6 +978,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -1143,6 +1166,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -1420,6 +1450,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -1605,6 +1638,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -1882,6 +1922,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -2067,6 +2110,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -2344,6 +2394,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -2529,6 +2582,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -2806,6 +2866,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -2991,6 +3054,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -3268,6 +3338,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -3453,6 +3526,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -3730,6 +3810,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -3915,6 +3998,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -4192,6 +4282,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -4377,6 +4470,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -4654,6 +4754,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -4839,6 +4942,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -5116,6 +5226,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -5301,6 +5414,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -5578,6 +5698,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -5763,6 +5886,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -6040,6 +6170,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -6225,6 +6358,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -6502,6 +6642,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -6687,6 +6830,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -6964,6 +7114,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -7149,6 +7302,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -7426,6 +7586,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -7611,6 +7774,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -7888,6 +8058,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -8073,6 +8246,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -8350,6 +8530,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -8535,6 +8718,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -8812,6 +9002,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -8997,6 +9190,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -9274,6 +9474,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -9459,6 +9662,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -9736,6 +9946,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -9921,6 +10134,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -10198,6 +10418,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -10383,6 +10606,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -10660,6 +10890,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -10845,6 +11078,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -11122,6 +11362,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -11307,6 +11550,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -11584,6 +11834,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -11769,6 +12022,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -12046,6 +12306,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -12231,6 +12494,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -12508,6 +12778,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -12693,6 +12966,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -12970,6 +13250,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -13155,6 +13438,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -13432,6 +13722,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -13614,6 +13907,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {
@@ -13891,6 +14191,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -14073,6 +14376,13 @@
           "dmAllowlist": [],
           "replyPolicy": "mention",
           "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "buzz": {
+          "enabled": false,
+          "relays": [],
+          "privateKeySecret": "channels.buzz.private-key",
+          "senderAllowlist": [],
           "locale": "en"
         },
         "matrix": {

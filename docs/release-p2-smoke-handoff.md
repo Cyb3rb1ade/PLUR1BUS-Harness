@@ -34,3 +34,5 @@ Replace the Unix shell stand-ins in `update_apply.rs` with native fixture progra
 Local macOS ARM: native update suite 7/7 passes; existing real-model/reranker/restart test 1/1 passes; installed-home real-model smoke 1/1 (~57 s) and flat smoke 1/1 pass with recall after restart. Native Windows outcomes remain pending.
 
 The five-target workflow now also invokes the existing real OS service registration/removal suite with `PLUR1BUS_SERVICE_TEST=1`. Linux requires a working systemd user manager (lingering setup); absence fails the job rather than becoming a pass/skip. No bwrap/tool package is installed. The real service fixture uses a fake core on POSIX and a running supervisor without a core on Windows, as the existing suite documents; it proves manager registration/lifecycle, not true reboot or installed-core recovery.
+
+Audit decision follow-up (2026-10-15): the owner selected production High/Critical blocking, development/lower severities warning, and an owner-only advisory allowlist with at most 90 days expiry. Implemented in phase 3; see [dependency policy](dependency-policy.md). The earlier threshold question above is resolved.

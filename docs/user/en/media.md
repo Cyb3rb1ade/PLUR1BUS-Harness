@@ -120,7 +120,7 @@ A job goes through the states `queued` and `running`, and ends in `succeeded`, `
 
 ## Costs and limits
 
-- Cloud providers bill their images themselves. Plur1bus only estimates the costs; only OpenRouter reports actual costs.
+- Cloud providers bill their images themselves. Plur1bus does not compute in money: it neither estimates nor shows costs.
 - If the budget is used up, Plur1bus does not send the job to the provider at all.
 - Reference and mask images lose their metadata before sending, for example the location from EXIF.
 - If a provider refuses a job on content grounds, it is not routed around through another provider and not retried

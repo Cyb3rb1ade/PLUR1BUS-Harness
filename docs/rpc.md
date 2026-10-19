@@ -74,6 +74,184 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `chat.promote.links`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+List this owned direct chat's private project links, filtered by current project visibility.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.preview`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion preview; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "card",
+            "project",
+            "new_project"
+          ]
+        },
+        "projectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "columnId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "summary",
+            "selected",
+            "transcript"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "messageIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "target"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.commit`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion commit; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "previewId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "previewId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `chat.create`
 
 **Stability:** experimental · since 1.6.0
@@ -821,6 +999,175 @@ Authenticated own direct-chat export. Identity is derived from the current princ
     "session",
     "messages"
   ]
+}
+```
+
+### `chat.model.get`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+The authenticated person's own direct chat: its model profile and reasoning choice, and the profiles it may pick with the reasoning levels each offers. Identity is derived from the current principal, never sent. chat:read scope and current agent read right. Incognito chats are answered from memory.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "defaultProfile",
+    "reasoning",
+    "revision",
+    "profiles"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "description": "The chat's own choice; null: it routes like any chat without one (defaultProfile or task class).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "defaultProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "profiles": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/ChatModelOption"
+      }
+    }
+  }
+}
+```
+
+### `chat.model.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by Nur lokal is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "expectedRevision"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "previousProfile",
+    "reasoning",
+    "effectiveReasoning",
+    "adjusted",
+    "revision"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string"
+    },
+    "previousProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "effectiveReasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "adjusted": {
+      "type": "boolean"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warning": {
+      "const": "cache-rebuild-cost-prefixes-preserved"
+    },
+    "costHint": {
+      "description": "The chosen level is high or above and higher than before: more output tokens are billed per answer.",
+      "const": "reasoning-cost-higher"
+    }
+  }
 }
 ```
 
@@ -3033,6 +3380,271 @@ Private API-service announce operation over the core device store; never exposed
 }
 ```
 
+### `device.pair`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "const": "desktop"
+    }
+  },
+  "required": [
+    "kind"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "expiresAt",
+    "scopes"
+  ]
+}
+```
+
+### `admin.api.desktop.redeem`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "publicKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "name",
+    "publicKey"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "object"
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "device",
+    "token",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.token`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "deviceId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
 ### `device.list`
 
 **Stability:** experimental · since 1.6.0
@@ -4337,6 +4949,51 @@ Authenticated project agent.remove using ADR-007 object rights.
 }
 ```
 
+### `task.complete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Complete an assigned coding card after sandboxed verifiers and exact-tree review. Human project leads may override with an audited note.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "overrideNote": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `collab.session.replay`
 
 **Stability:** experimental · since 1.5.0
@@ -4808,7 +5465,7 @@ Human-only principals; self or authenticated administrator, codes revealed only 
   "properties": {
     "token": {
       "type": "string",
-      "minLength": 64,
+      "minLength": 60,
       "maxLength": 64
     },
     "api": {
@@ -8428,7 +9085,7 @@ Starts the engine's scoped-embedding IPC server (engine EmbeddingService.serve):
 
 **Served by:** core
 
-M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model (a pinned local-transformers model) and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk).
+M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk). Every direction is allowed (local or cloud to local or cloud): without provider (or with local-transformers) the target is a pinned local model; any other provider is checked by the same rules as the engine start (model, dimensions and apiKeyEnv required, baseUrl except for openai; E_DENIED reason=privacy-acknowledgment-required without memory.embedding.privacyAck for a non-loopback endpoint, reason=local-only under privacy.localOnly, reason=egress-denied when the egress policy refuses the endpoint). The engine's plan probes a cloud provider with one short text; a cloud plan carries `cloud`: the cards whose text all goes to the provider and the estimated tokens (no cost: the harness has no money dimension).
 
 **params**
 
@@ -8444,6 +9101,28 @@ M2 re-embedding migration, step 1 (per installation, not per agent). Builds the 
       "type": "string",
       "minLength": 1,
       "maxLength": 256
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "Target embedding provider; default local-transformers (a pinned local model)."
+    },
+    "baseUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "OpenAI-compatible endpoint of a remote target (not for local-transformers); openai may leave it out."
+    },
+    "apiKeyEnv": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "description": "Name of the core's environment variable holding the remote target's key; the key itself is never sent."
+    },
+    "acknowledgePrivacy": {
+      "type": "boolean",
+      "description": "The calling person acknowledges now that every card text goes to this remote target (bound to provider and endpoint). Needed when memory.embedding.privacyAck does not already admit the target (e.g. cloud to cloud); the switch writes it as memory.embedding.privacyAck together with the new embedding block."
     },
     "dimensions": {
       "type": "integer",
@@ -10335,6 +11014,55 @@ Returns every installed extension and subscribes this connection to ext.changed.
 }
 ```
 
+### `models.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin model probe through the configured chat adapter and budget. Fixed prompt, no tools, memory or session writes. Ten second deadline. E_NOT_AVAILABLE reasons model-not-configured, model-test-timeout, model-test-failed. Embedding/reranking probes are not supported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "durationMs"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
 ### `models.list`
 
 **Stability:** experimental · since 1.5.0
@@ -10635,7 +11363,6 @@ Usage per period (the current local day and month in the configured time zone) a
   "additionalProperties": false,
   "required": [
     "timeZone",
-    "priceVersion",
     "now",
     "periods",
     "limits"
@@ -10643,10 +11370,6 @@ Usage per period (the current local day and month in the configured time zone) a
   "properties": {
     "timeZone": {
       "type": "string"
-    },
-    "priceVersion": {
-      "type": "string",
-      "description": "The price table in force now"
     },
     "now": {
       "type": "string",
@@ -10690,9 +11413,7 @@ Usage per period (the current local day and month in the configured time zone) a
               "inputTokens",
               "outputTokens",
               "cacheReadTokens",
-              "cacheWriteTokens",
-              "costMicros",
-              "unpricedEvents"
+              "cacheWriteTokens"
             ],
             "properties": {
               "events": {
@@ -10714,16 +11435,6 @@ Usage per period (the current local day and month in the configured time zone) a
               "cacheWriteTokens": {
                 "type": "integer",
                 "minimum": 0
-              },
-              "costMicros": {
-                "type": "integer",
-                "minimum": 0,
-                "description": "Micro-USD, summed over priced events only"
-              },
-              "unpricedEvents": {
-                "type": "integer",
-                "minimum": 0,
-                "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
               }
             }
           },
@@ -10749,9 +11460,7 @@ Usage per period (the current local day and month in the configured time zone) a
                     "inputTokens",
                     "outputTokens",
                     "cacheReadTokens",
-                    "cacheWriteTokens",
-                    "costMicros",
-                    "unpricedEvents"
+                    "cacheWriteTokens"
                   ],
                   "properties": {
                     "events": {
@@ -10773,16 +11482,6 @@ Usage per period (the current local day and month in the configured time zone) a
                     "cacheWriteTokens": {
                       "type": "integer",
                       "minimum": 0
-                    },
-                    "costMicros": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "Micro-USD, summed over priced events only"
-                    },
-                    "unpricedEvents": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
                     }
                   }
                 },
@@ -10797,9 +11496,7 @@ Usage per period (the current local day and month in the configured time zone) a
                       "inputTokens",
                       "outputTokens",
                       "cacheReadTokens",
-                      "cacheWriteTokens",
-                      "costMicros",
-                      "unpricedEvents"
+                      "cacheWriteTokens"
                     ],
                     "properties": {
                       "model": {
@@ -10822,14 +11519,6 @@ Usage per period (the current local day and month in the configured time zone) a
                         "minimum": 0
                       },
                       "cacheWriteTokens": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "costMicros": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "unpricedEvents": {
                         "type": "integer",
                         "minimum": 0
                       }
@@ -10961,7 +11650,7 @@ The outgoing-network policy in force (B4): normalised host allowlist, ports, loo
 
 **Served by:** core
 
-Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Cost bounds are micro-USD, token bounds are input + output tokens.
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.
 
 **params**
 
@@ -11000,7 +11689,6 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
         },
         "metric": {
           "enum": [
-            "cost",
             "tokens"
           ]
         },
@@ -14593,7 +15281,7 @@ Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving t
 
 **Served by:** core
 
-Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained.
+Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained. reasoning (since the per-chat reasoning choice) sets the chat's reasoning level with the profile; absent keeps the stored choice.
 
 **params**
 
@@ -14625,6 +15313,9 @@ Preview a model-profile switch and its cache/cost warning; applies only with con
     "expectedRevision": {
       "type": "integer",
       "minimum": 0
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
     }
   }
 }
@@ -14666,6 +15357,9 @@ Preview a model-profile switch and its cache/cost warning; applies only with con
     },
     "warning": {
       "const": "cache-rebuild-cost-prefixes-preserved"
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
     }
   }
 }
@@ -19633,9 +20327,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "kind": {
       "enum": [
         "core",
-        "module"
+        "module",
+        "api"
       ],
-      "description": "Experimental (1.3.0). Whether the child is the core or a module; absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
     }
   }
 }
@@ -20284,13 +20979,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "integer",
         "null"
       ]
-    },
-    "costMicros": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "description": "Null until a price table exists (measured in tokens first, ADR-009 B5/Q1)."
     },
     "logPath": {
       "type": [
@@ -21095,7 +21783,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.5.0). A budget limit. Cost bounds are micro-USD; token bounds count input + output tokens.",
+  "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -21125,7 +21813,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "cost",
         "tokens"
       ]
     },
@@ -21183,7 +21870,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "cost",
         "tokens"
       ]
     },
@@ -21620,6 +22306,162 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `ChatReasoningChoice`
+
+```json
+{
+  "description": "A chat's reasoning / thinking intensity on the harness scale (cheapest first), or default: send nothing and let the provider decide. Each attempt maps it onto the model's own levels (nearest supported) and wire parameter.",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "enum": [
+    "default",
+    "off",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh"
+  ]
+}
+```
+
+### `ChatModelOption`
+
+```json
+{
+  "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "displayName",
+    "provider",
+    "model",
+    "local",
+    "selectable",
+    "reasoning"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "displayName": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "provider": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "local": {
+      "type": "boolean"
+    },
+    "selectable": {
+      "type": "boolean"
+    },
+    "disabledReason": {
+      "enum": [
+        "local-only",
+        "unavailable"
+      ]
+    },
+    "reasoning": {
+      "description": "What the primary model offers. kind none: no setting (the model reasons on its own or not at all). source: the provider's own model list (api), the curated table (table) or nothing known (unknown).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "levels",
+        "source"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "effort",
+            "budget",
+            "toggle"
+          ]
+        },
+        "levels": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "enum": [
+              "off",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          }
+        },
+        "default": {
+          "enum": [
+            "off",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        },
+        "source": {
+          "enum": [
+            "api",
+            "table",
+            "unknown"
+          ]
+        },
+        "note": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$"
+        },
+        "budgetTokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "off": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minimal": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "low": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "medium": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "xhigh": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### `SessionRecord`
 
 ```json
@@ -21710,8 +22552,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "additionalProperties": false,
       "required": [
         "inputTokens",
-        "outputTokens",
-        "costMicros"
+        "outputTokens"
       ],
       "properties": {
         "inputTokens": {
@@ -21720,13 +22561,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         },
         "outputTokens": {
           "type": "integer",
-          "minimum": 0
-        },
-        "costMicros": {
-          "type": [
-            "integer",
-            "null"
-          ],
           "minimum": 0
         },
         "pendingCalls": {
@@ -22076,6 +22910,41 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "probeStatus": {
       "type": "string"
+    },
+    "cloud": {
+      "description": "Present for a cloud or self-hosted target: every card text goes to this provider. estimatedTokens is an upper bound from the source size without its vectors (the budget counts tokens; there is no cost estimate).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model",
+        "endpoint",
+        "cards",
+        "estimatedTokens",
+        "sendsText"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimatedTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sendsText": {
+          "const": true
+        }
+      }
     }
   }
 }
@@ -22221,6 +23090,50 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           "type": "null"
         }
       ]
+    },
+    "remote": {
+      "description": "A cloud or self-hosted target: the name of the environment variable holding its key (never the key), the endpoint as configured, and the per-card token estimate the call budget reserves before each batch. A budget refusal pauses the run (phase aborted, error budget-exceeded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiKeyEnv",
+        "tokensPerRow"
+      ],
+      "properties": {
+        "apiKeyEnv": {
+          "type": "string"
+        },
+        "baseUrl": {
+          "type": "string"
+        },
+        "tokensPerRow": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "privacyAck": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "acknowledgedAt",
+            "by"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string"
+            },
+            "acknowledgedAt": {
+              "type": "string"
+            },
+            "by": {
+              "type": "string"
+            },
+            "endpoint": {
+              "type": "string"
+            }
+          }
+        }
+      }
     }
   }
 }

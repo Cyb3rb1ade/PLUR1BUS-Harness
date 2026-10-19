@@ -7,7 +7,6 @@
 .libmedia-size { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .libmedia-size legend { grid-column: 1 / -1; padding: 0; font-size: 13px; }
 .libmedia-check label { display: inline-flex; align-items: center; gap: 8px; }
-.libmedia-cost { padding: 10px 12px; border-radius: 8px; background: var(--field-bg); border: 1px solid var(--border); font-size: 13.5px; }
 .libmedia-empty { margin: 0; color: var(--ink-2); }
 .libmedia-fail { margin: 0; }
 .libmedia-fail p { margin: 0 0 4px; }

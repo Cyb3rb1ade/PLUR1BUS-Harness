@@ -332,6 +332,13 @@ pub(crate) fn apply(
             };
             let plan = cfg::set_many(&loaded.config, &changes)
                 .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), extra.clone()));
+            if let Some(policy) = crate::privacy::running_violation(layout, &plan.after) {
+                out.fail(
+                    "E_DENIED",
+                    &policy.message(),
+                    json!({"reason":policy.reason()}),
+                );
+            }
             // B13: a changed `modules.<name>` must satisfy its manifest's configSchema, as through the supervisor.
             let module_errors = crate::modules::config_errors(
                 &crate::modules::scan(layout),

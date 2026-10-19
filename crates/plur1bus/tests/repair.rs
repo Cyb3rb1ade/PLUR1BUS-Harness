@@ -287,6 +287,10 @@ fn supervise(e: &Env, core_js: &Path, env: &[(&str, &str)]) -> Supervised {
         .cmd(&["supervise"])
         .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", "0.02")
         .env("PLUR1BUS_CORE_JS", core_js)
+        .env(
+            "PLUR1BUS_API_JS",
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-api.mjs"),
+        )
         .env("PLUR1BUS_NODE", "node")
         .env("FAKE_CORE_EVENTS", &e.events)
         .env("FAKE_CORE_GRACE_MS", "300")
@@ -300,6 +304,9 @@ fn supervise(e: &Env, core_js: &Path, env: &[(&str, &str)]) -> Supervised {
         home: e.home.clone(),
     };
     drop(supervisor_client(&e.home));
+    wait_until("the supervised API to become ready", WAIT, || {
+        e.home.join("run/api.json").exists()
+    });
     s
 }
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES, type CallBudgetEvent } from '../../src/budget/index.ts';
+import { createCallBudget, type CallBudgetEvent } from '../../src/budget/index.ts';
 import { ToolRegistry } from '../../src/tools/registry.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
 import type { StreamingAdapter, ChatRequest as WireRequest } from '../../../providers/src/index.ts';
@@ -15,7 +15,7 @@ const req = (): ChatRequest => ({ sessionId: 's1', turnId: 't1', agentId: 'a1', 
 async function fixture(adapter: StreamingAdapter, extra: Partial<Parameters<typeof createTurnProvider>[0]> = {}) {
   const home = await mkdtemp(join(tmpdir(), 'turn-composition-'));
   const budgetEvents: CallBudgetEvent[] = [];
-  const budget = createCallBudget({ path: join(home, 'budget.sqlite'), clock: { now: Date.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES), emitter: { emit: e => budgetEvents.push(e) } });
+  const budget = createCallBudget({ path: join(home, 'budget.sqlite'), clock: { now: Date.now }, emitter: { emit: e => budgetEvents.push(e) } });
   const logs: Record<string, unknown>[] = [];
   const registry = new ToolRegistry();
   const provider = createTurnProvider({ registry, budget, profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter }] }, approval: { request: async () => ({ approved: false }) }, grants: { get: () => undefined, list: () => [] }, log: (r) => logs.push({ ...r }), resultStore: { put: async () => 'result:1' }, ...extra });
@@ -266,9 +266,9 @@ test('finding 1: lease failure, egress refusal and HTTP 401 before the first byt
   }
 });
 
-test('finding 1: a media generate failure releases its reservation; an aborted generation settles the requested quantity', async () => {
+test('finding 1: a media generate failure releases its reservation; an aborted generation settles the call', async () => {
   const home = await mkdtemp(join(tmpdir(), 'turn-media-budget-')); const events: CallBudgetEvent[] = [];
-  const budget = createCallBudget({ path: join(home, 'budget.sqlite'), clock: { now: Date.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES), emitter: { emit: e => events.push(e) } });
+  const budget = createCallBudget({ path: join(home, 'budget.sqlite'), clock: { now: Date.now }, emitter: { emit: e => events.push(e) } });
   try {
     const registry = await composeTools({ home, roots: [], budget, grants: { get: () => undefined, list: () => [] }, audit: memoryAuditSink(),
       media: { store: new OutputStore(join(home, 'outputs')), adapter: { id: 'fixture', capabilities: () => ({ generate: true, edit: false, inpaint: false }), generate: async () => { throw new Error('synthetic provider failure'); }, edit: async () => { throw new Error('unused'); } } } }, req());
@@ -389,7 +389,7 @@ test('finding 8: composeTools fs deny-list refuses ~/.ssh/id_ed25519 through the
 
 test('finding 8: exec.run through composition runs an allowlisted program after D109 approval', async () => {
   const home = await mkdtemp(join(tmpdir(), 'turn-exec-')); const r = await rig();
-  const registry = await composeTools({ home, roots: [{ id: 'a1', path: home }], grants: r.stores.grants, audit: memoryAuditSink(), exec: { mode: 'allowlist', allowlist: [{ program: process.execPath }], envAllow: ['PATH'] } }, req());
+  const registry = await composeTools({ home, roots: [{ id: 'a1', path: home }], grants: r.stores.grants, audit: memoryAuditSink(), sandbox: { required: false }, exec: { mode: 'allowlist', allowlist: [{ program: process.execPath }], envAllow: ['PATH'] } }, req());
   const f = await fixture(toolOnce('exec.run', () => ({ program: process.execPath, args: ['-e', 'console.log("exec via composition")'], cwd: home })), { registry, topK: 128, grants: r.stores.grants, grantUse: r.stores.grants,
     approval: { async request(ask) { const pending = r.service.request(ask); await tick(); const { id, nonce } = lastNonce(r); assert.equal(r.service.decide({ requestId: id, nonce, person: req().principal!, surface: 3, decision: 'approve' }).ok, true); return pending; }, begin: (answer, ask) => r.service.begin(answer, ask) } });
   try {

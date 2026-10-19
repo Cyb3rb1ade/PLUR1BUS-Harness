@@ -52,7 +52,7 @@ test("per operation: method, path, id, tag, security, CSRF parameter, stability 
     if (JSON.stringify(op.tags) !== JSON.stringify([r.tag])) problems.push(`${at}: tags`);
     if (op["x-rate-class"] !== r.rate || op["x-csrf"] !== r.csrf || op["x-stability"] !== r.stability || op["x-since"] !== r.since) problems.push(`${at}: x- annotations`);
     const declared = Object.keys(op.responses).sort();
-    const expected = [String(r.successStatus), ...Object.keys(r.extra ?? {}), "401", "403", "413", "421", "429", ...(r.id === "web.rpc" ? [] : ["504"]), ...(r.requestBody ? ["400", "415"] : [])].filter((s, i, a) => a.indexOf(s) === i).sort();
+    const expected = [String(r.successStatus), ...Object.keys(r.extra ?? {}), ...(["desktop.meta", "desktop.pair", "desktop.redeem"].includes(r.id) ? [] : ["401"]), "403", "413", "421", "429", ...(r.id === "web.rpc" ? [] : ["504"]), ...(r.requestBody ? ["400", "415"] : [])].filter((s, i, a) => a.indexOf(s) === i).sort();
     if (JSON.stringify(declared) !== JSON.stringify(expected)) problems.push(`${at}: statuses ${declared} != table ${expected}`);
     if (!/^\/api\/v1\//.test(r.path) && !["/rpc", "/events", "/ws"].includes(r.path)) problems.push(`${at}: outside /api/v1`);
     const pathParams = [...r.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1]); const docParams = ((op.parameters ?? []) as any[]).filter((p) => p.in === "path").map((p) => p.name);
@@ -116,13 +116,25 @@ test("every route, driven through its success and failure paths on the real serv
   problems.length = 0; seen.length = 0;
   const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) });
   const core = fakeCore(); const inviteCode = randomBytes(32).toString("base64url"); let consumed = false;
-  Object.assign(core, { serviceCall: async (method: string, p: { token?: string }) => { if (p.token !== inviteCode || consumed) throw new Error("invalid invitation"); if (method === "user.invite.redeem") consumed = true; return { userId: "invited-person", role: "member" }; } });
+  Object.assign(core, { serviceCall: async (method: string, p: { token?: string }) => {
+    const identity={deviceId:"dev_00000000-0000-0000-0000-000000000001",userId:"desktop-person",scopes:["chat:read"],expiresAt:Date.now()+86400000};
+    if(method==="admin.api.desktop.redeem")return {device:JSON.parse(readFileSync(path.join(repo,"packages/rpc-schema/fixtures/methods/admin.api.device.pair.json"),"utf8")).result.device,token:"d".repeat(43),expiresAt:identity.expiresAt};
+    if(method==="admin.api.desktop.token"||method==="admin.api.desktop.resolve")return identity;
+    if(method==="admin.api.person.resolve")return {person:{userId:identity.userId,kind:"person",role:"member",version:1,disabled:false}};
+    if (p.token !== inviteCode || consumed) throw new Error("invalid invitation"); if (method === "user.invite.redeem") consumed = true; return { userId: "invited-person", role: "member" }; } });
   // Here the controller is an explicit response-contract fixture; real TLS/bootstrap/core ownership
   // and durable rollover are covered by remote-pairing(-tls).test.ts.
   const fixtureMethods = ["status", "offer", "proof", "pair", "getTrust", "challenge", "ack", "rotate"];
   const remotePairing = Object.fromEntries(fixtureMethods.map(method => [method, async () => ({ contract: method })])) as unknown as RemotePairingController;
   const h = await start({ rateClasses: wide, accounts, core, remotePairing, remoteCertificates: { importCompany: async (cert) => { if (cert !== "fixture-cert") throw new Error("invalid fixture certificate"); return { certPin: "sha256:" + "a".repeat(43), staged: true }; } } });
   try {
+    await anon(h,"desktop.meta");
+    for(const id of ["desktop.pair","desktop.redeem","desktop.ticket"])await anon(h,id,"malformed native request");
+    rec("desktop.ticket","invalid native ticket",await raw(h,{method:"POST",path:"/api/v1/desktop/ticket",headers:{...jsonHeaders(),origin:h.url},body:JSON.stringify({ticket:"x".repeat(43),deviceId:"device"})}));
+    await rt(h,"","desktop.pair","native pairing",{body:{code:"c".repeat(43),kind:"desktop",name:"Contract desktop",publicKey:"fixture"}});
+    const nativeTicket=await rt(h,"","desktop.redeem","native redemption",{body:{token:"d".repeat(43),origin:h.url}});
+    rec("desktop.ticket","native SPA cookie",await raw(h,{method:"POST",path:"/api/v1/desktop/ticket",headers:{...jsonHeaders(),origin:h.url},body:JSON.stringify({ticket:nativeTicket.json.ticket,deviceId:nativeTicket.json.deviceId})}));
+
     for (const [id, role] of [["u-alice", "member"], ["u-vera", "viewer"], ["u-ada", "admin"], ["u-dana", "member"], ["u-carol", "member"]] as const) await addUser(h, { id, username: id.slice(2), role });
     const owner = (await login(h)).cookie; const alice = (await loginAs(h, "alice")).cookie; const vera = (await loginAs(h, "vera")).cookie; const ada = (await loginAs(h, "ada")).cookie;
 
@@ -220,7 +232,7 @@ test("every route, driven through its success and failure paths on the real serv
     core.impl = async (method, params) => method.startsWith("chat.") ? JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`, import.meta.url), "utf8")).result : previousCore(method, params);
     for (const spec of ROUTES.filter(r => r.id.startsWith("chats."))) {
       const concrete = spec.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat");
-      const body = spec.id === "chats.create" ? { agentId: "main" } : spec.id === "chats.submit" ? { text: "Contract hello" } : spec.requestBody ? {} : undefined;
+      const body = spec.id === "chats.create" ? { agentId: "main" } : spec.id === "chats.submit" ? { text: "Contract hello" } : spec.id === "chats.model-set" ? { profile: "default", reasoning: "high", expectedRevision: 0 } : spec.requestBody ? {} : undefined;
       await rt(h, alice, spec.id, "owned contract result", { path: concrete, ...(body !== undefined ? { body } : {}) });
       await anon(h, spec.id);
       if (spec.requestBody) await rt(h, alice, spec.id, "unknown fields refused", { path: concrete, body: { unexpected: true } });
@@ -329,7 +341,7 @@ test("every route was exercised on its success status and on each failure status
   const missing: string[] = [];
   for (const r of ROUTES) {
     const got = byRoute(r.id);
-    const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), ...(["invitation.redeem", "account.bootstrap", "passkeys.login.options", "remote.pair-proof", "remote.device.pair"].includes(r.id) ? [] : [401]), ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
+    const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), ...(["desktop.meta", "desktop.pair", "desktop.redeem", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "remote.pair-proof", "remote.device.pair"].includes(r.id) ? [] : [401]), ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
     for (const s of want) if (!got.has(s)) missing.push(`${r.id}: ${s} was never observed (saw ${[...got].sort().join(",") || "nothing"})`);
   }
   for (const s of [413, 415, 421, 429, 504]) if (!seen.some((x) => x.status === s)) missing.push(`no route answered ${s} in this run`);

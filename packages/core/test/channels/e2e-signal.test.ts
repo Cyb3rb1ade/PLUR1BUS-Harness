@@ -135,7 +135,7 @@ test("an image a tool produced in the turn follows the text reply as an attachme
   const bytes = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
   mkdirSync(join(root, id), { recursive: true });
   writeFileSync(join(root, id, "0.png"), bytes);
-  const manifest = { schema: "media.output/1", id, createdAt: 0, prompt: "p", parameters: {}, referenceHashes: [], metadata: { seed: null, costUsd: null, origin: "test" }, partial: false, files: [{ path: "0.png", sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length, format: "png" }] };
+  const manifest = { schema: "media.output/1", id, createdAt: 0, prompt: "p", parameters: {}, referenceHashes: [], metadata: { seed: null, origin: "test" }, partial: false, files: [{ path: "0.png", sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length, format: "png" }] };
   writeFileSync(join(root, id, "manifest.json"), JSON.stringify(manifest));
   const store = new OutputStore(root);
   // The host's own `outputs` is not wired in the rig, so the real store comes in through the adapter seam.

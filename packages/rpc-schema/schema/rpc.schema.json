@@ -1375,7 +1375,7 @@
           ]
         },
         "nextRestartAt": { "type": ["integer", "null"], "description": "epoch ms of the scheduled restart; null when none is scheduled" },
-        "kind": { "enum": ["core", "module"], "description": "Experimental (1.3.0). Whether the child is the core or a module; absent from supervisors before 1.3.0." }
+        "kind": { "enum": ["core", "module", "api"], "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0." }
       }
     },
     "ModuleState": {
@@ -1498,7 +1498,7 @@
         "outcome": { "oneOf": [{ "$ref": "#/$defs/DreamOutcome" }, { "type": "null" }] },
         "reason": { "type": ["string", "null"] },
         "counts": { "type": "object", "additionalProperties": { "type": "integer" } },
-        "tokensIn": { "type": ["integer", "null"] }, "tokensOut": { "type": ["integer", "null"] }, "costMicros": { "type": ["integer", "null"], "description": "Null until a price table exists (measured in tokens first, ADR-009 B5/Q1)." },
+        "tokensIn": { "type": ["integer", "null"] }, "tokensOut": { "type": ["integer", "null"] },
         "logPath": { "type": ["string", "null"] },
         "error": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["message"], "properties": { "message": { "type": "string" }, "name": { "type": "string" } } }] }
       }
@@ -1661,6 +1661,148 @@
       }
     },
     "methods": {
+      "chat.promote.links": {
+        "description": "List this owned direct chat's private project links, filtered by current project visibility.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "chat.promote.preview": {
+        "description": "Private direct-chat promotion preview; content moves only by explicit selection and an owned unexpired preview.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "target": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "card",
+                    "project",
+                    "new_project"
+                  ]
+                },
+                "projectId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "columnId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "selection": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "none",
+                    "summary",
+                    "selected",
+                    "transcript"
+                  ]
+                },
+                "summary": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 65536
+                },
+                "messageIds": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 500,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "sessionId",
+            "target"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "chat.promote.commit": {
+        "description": "Private direct-chat promotion commit; content moves only by explicit selection and an owned unexpired preview.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "previewId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "previewId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
       "chat.create": {
         "x-stability": "experimental",
         "x-since": "1.6.0",
@@ -2265,6 +2407,151 @@
             "session",
             "messages"
           ]
+        }
+      },
+      "chat.model.get": {
+        "x-stability": "experimental",
+        "x-since": "1.7.0",
+        "x-server": "core",
+        "description": "The authenticated person's own direct chat: its model profile and reasoning choice, and the profiles it may pick with the reasoning levels each offers. Identity is derived from the current principal, never sent. chat:read scope and current agent read right. Incognito chats are answered from memory.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "profile",
+            "defaultProfile",
+            "reasoning",
+            "revision",
+            "profiles"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "profile": {
+              "description": "The chat's own choice; null: it routes like any chat without one (defaultProfile or task class).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "defaultProfile": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reasoning": {
+              "$ref": "#/$defs/ChatReasoningChoice"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profiles": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "$ref": "#/$defs/ChatModelOption"
+              }
+            }
+          }
+        }
+      },
+      "chat.model.set": {
+        "x-stability": "experimental",
+        "x-since": "1.7.0",
+        "x-server": "core",
+        "description": "Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by Nur lokal is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "profile",
+            "expectedRevision"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "profile": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "reasoning": {
+              "$ref": "#/$defs/ChatReasoningChoice"
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "profile",
+            "previousProfile",
+            "reasoning",
+            "effectiveReasoning",
+            "adjusted",
+            "revision"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "profile": {
+              "type": "string"
+            },
+            "previousProfile": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reasoning": {
+              "$ref": "#/$defs/ChatReasoningChoice"
+            },
+            "effectiveReasoning": {
+              "$ref": "#/$defs/ChatReasoningChoice"
+            },
+            "adjusted": {
+              "type": "boolean"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "warning": {
+              "const": "cache-rebuild-cost-prefixes-preserved"
+            },
+            "costHint": {
+              "description": "The chosen level is high or above and higher than before: more output tokens are billed per answer.",
+              "const": "reasoning-cost-higher"
+            }
+          }
         }
       },
       "jobs.create": {
@@ -4008,6 +4295,223 @@
           ]
         }
       },
+      "device.pair": {
+        "description": "Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "desktop"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 43
+            },
+            "kind": {
+              "const": "desktop"
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          },
+          "required": [
+            "code",
+            "kind",
+            "expiresAt",
+            "scopes"
+          ]
+        }
+      },
+      "admin.api.desktop.redeem": {
+        "description": "Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 43
+            },
+            "kind": {
+              "const": "desktop"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "publicKey": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "code",
+            "kind",
+            "name",
+            "publicKey"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "device": {
+              "type": "object"
+            },
+            "token": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 43
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "device",
+            "token",
+            "expiresAt"
+          ]
+        }
+      },
+      "admin.api.desktop.token": {
+        "description": "Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "token": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 43
+            }
+          },
+          "required": [
+            "token"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deviceId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "deviceId",
+            "userId",
+            "scopes",
+            "expiresAt"
+          ]
+        }
+      },
+      "admin.api.desktop.resolve": {
+        "description": "Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deviceId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "deviceId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deviceId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "deviceId",
+            "userId",
+            "scopes",
+            "expiresAt"
+          ]
+        }
+      },
       "device.list": {
         "x-stability": "experimental",
         "x-since": "1.6.0",
@@ -5025,6 +5529,39 @@
           "additionalProperties": true
         }
       },
+      "task.complete": {
+        "description": "Complete an assigned coding card after sandboxed verifiers and exact-tree review. Human project leads may override with an audited note.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cardId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "overrideNote": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "projectId",
+            "cardId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
       "collab.session.replay": {
         "description": "Replay a redacted delegation session; current project membership is required.",
         "x-server": "core",
@@ -5360,7 +5897,7 @@
       },
       "core.auth": {
         "x-stability": "stable", "x-since": "1.0.0", "x-server": "core",
-        "params": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 64, "maxLength": 64 }, "api": { "$ref": "#/$defs/ApiDelegation" } } },
+        "params": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 60, "maxLength": 64 }, "api": { "$ref": "#/$defs/ApiDelegation" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["contract", "rpc", "instanceId", "pid"], "properties": { "contract": { "type": "string" }, "rpc": { "type": "string" }, "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "capabilities": { "$ref": "#/$defs/Capabilities" }, "apiPrincipal": { "oneOf": [{ "$ref": "#/$defs/ApiPrincipal" }, { "type": "null" }] } } }
       },
       "core.status": {
@@ -6625,9 +7162,13 @@
       },
       "admin.reembed.plan": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model (a pinned local-transformers model) and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk).",
+        "description": "M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk). Every direction is allowed (local or cloud to local or cloud): without provider (or with local-transformers) the target is a pinned local model; any other provider is checked by the same rules as the engine start (model, dimensions and apiKeyEnv required, baseUrl except for openai; E_DENIED reason=privacy-acknowledgment-required without memory.embedding.privacyAck for a non-loopback endpoint, reason=local-only under privacy.localOnly, reason=egress-denied when the egress policy refuses the endpoint). The engine's plan probes a cloud provider with one short text; a cloud plan carries `cloud`: the cards whose text all goes to the provider and the estimated tokens (no cost: the harness has no money dimension).",
         "params": { "type": "object", "additionalProperties": false, "required": ["model"], "properties": {
           "model": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "provider": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$", "description": "Target embedding provider; default local-transformers (a pinned local model)." },
+          "baseUrl": { "type": "string", "minLength": 1, "maxLength": 2048, "description": "OpenAI-compatible endpoint of a remote target (not for local-transformers); openai may leave it out." },
+          "apiKeyEnv": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$", "description": "Name of the core's environment variable holding the remote target's key; the key itself is never sent." },
+          "acknowledgePrivacy": { "type": "boolean", "description": "The calling person acknowledges now that every card text goes to this remote target (bound to provider and endpoint). Needed when memory.embedding.privacyAck does not already admit the target (e.g. cloud to cloud); the switch writes it as memory.embedding.privacyAck together with the new embedding block." },
           "dimensions": { "type": "integer", "minimum": 1, "maximum": 65536 },
           "queryPrefix": { "type": "string", "minLength": 1, "maxLength": 64 },
           "passagePrefix": { "type": "string", "minLength": 1, "maxLength": 64 },
@@ -6888,6 +7429,43 @@
         "params": {"type": "object", "additionalProperties": false, "properties": {}},
         "result": {"type": "object", "additionalProperties": false, "required": ["subscriptionId", "items"], "properties": {"subscriptionId": {"type": "string"}, "items": {"type": "array", "items": {"$ref": "#/$defs/ExtItem"}}}}
       },
+      "models.test": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Human-only Owner/Admin model probe through the configured chat adapter and budget. Fixed prompt, no tools, memory or session writes. Ten second deadline. E_NOT_AVAILABLE reasons model-not-configured, model-test-timeout, model-test-failed. Embedding/reranking probes are not supported.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ok",
+            "durationMs"
+          ],
+          "properties": {
+            "ok": {
+              "const": true
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
       "models.list": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Lists models in the catalog, provider scan states, new model count, and warnings (D112).",
@@ -6994,10 +7572,9 @@
         },
         "result": {
           "type": "object", "additionalProperties": false,
-          "required": ["timeZone", "priceVersion", "now", "periods", "limits"],
+          "required": ["timeZone", "now", "periods", "limits"],
           "properties": {
             "timeZone": { "type": "string" },
-            "priceVersion": { "type": "string", "description": "The price table in force now" },
             "now": { "type": "string", "description": "RFC 3339" },
             "periods": {
               "type": "array",
@@ -7010,12 +7587,10 @@
                   "start": { "type": "string" }, "end": { "type": "string" },
                   "total": {
           "type": "object", "additionalProperties": false,
-          "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "costMicros", "unpricedEvents"],
+          "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
-            "costMicros": { "type": "integer", "minimum": 0, "description": "Micro-USD, summed over priced events only" },
-            "unpricedEvents": { "type": "integer", "minimum": 0, "description": "Events whose model had no price in the table in force; their tokens count, their cost does not" }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
           }
         },
                   "agents": {
@@ -7027,24 +7602,21 @@
                         "agentId": { "type": "string" },
                         "total": {
           "type": "object", "additionalProperties": false,
-          "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "costMicros", "unpricedEvents"],
+          "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
-            "costMicros": { "type": "integer", "minimum": 0, "description": "Micro-USD, summed over priced events only" },
-            "unpricedEvents": { "type": "integer", "minimum": 0, "description": "Events whose model had no price in the table in force; their tokens count, their cost does not" }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
           }
         },
                         "models": {
                           "type": "array",
                           "items": {
                             "type": "object", "additionalProperties": false,
-                            "required": ["model", "events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "costMicros", "unpricedEvents"],
+                            "required": ["model", "events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
                             "properties": {
                               "model": { "type": "string" },
                               "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
-                              "costMicros": { "type": "integer", "minimum": 0 }, "unpricedEvents": { "type": "integer", "minimum": 0 }
+                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
                             }
                           }
                         }
@@ -7092,7 +7664,7 @@
       },
       "budget.set": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Cost bounds are micro-USD, token bounds are input + output tokens.",
+        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.",
         "params": {
           "type": "object", "additionalProperties": false,
           "minProperties": 1,
@@ -7104,7 +7676,7 @@
                 "scope": { "enum": ["global", "agent"] },
                 "agentId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Required for scope agent, refused for global" },
                 "period": { "enum": ["day", "month"] },
-                "metric": { "enum": ["cost", "tokens"] },
+                "metric": { "enum": ["tokens"] },
                 "soft": { "type": ["integer", "null"], "minimum": 0 },
                 "hard": { "type": ["integer", "null"], "minimum": 0 }
               }
@@ -8978,7 +9550,7 @@
         "x-stability": "experimental",
         "x-since": "1.7.0",
         "x-server": "core",
-        "description": "Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained.",
+        "description": "Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained. reasoning (since the per-chat reasoning choice) sets the chat's reasoning level with the profile; absent keeps the stored choice.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -9006,6 +9578,9 @@
             "expectedRevision": {
               "type": "integer",
               "minimum": 0
+            },
+            "reasoning": {
+              "$ref": "#/$defs/ChatReasoningChoice"
             }
           }
         },
@@ -9042,6 +9617,9 @@
             },
             "warning": {
               "const": "cache-rebuild-cost-prefixes-preserved"
+            },
+            "reasoning": {
+              "$ref": "#/$defs/ChatReasoningChoice"
             }
           }
         }
@@ -9506,11 +10084,11 @@
       }
     },
     "BudgetLimit": {
-      "description": "Experimental (1.5.0). A budget limit. Cost bounds are micro-USD; token bounds count input + output tokens.",
+      "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["cost", "tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
@@ -9519,7 +10097,7 @@
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard", "used", "state"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["cost", "tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 },
         "used": { "type": "integer", "minimum": 0 }, "state": { "enum": ["ok", "soft", "hard"] }
       }
@@ -9596,6 +10174,152 @@
     "SessionId": { "type": "string", "minLength": 1, "maxLength": 128 },
     "SessionKind": { "enum": ["direct", "card", "project", "channel", "acp"] },
     "MemoryMode": { "enum": ["remember", "incognito"] },
+    "ChatReasoningChoice": {
+      "description": "A chat's reasoning / thinking intensity on the harness scale (cheapest first), or default: send nothing and let the provider decide. Each attempt maps it onto the model's own levels (nearest supported) and wire parameter.",
+      "x-stability": "experimental",
+      "x-since": "1.7.0",
+      "enum": [
+        "default",
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "ChatModelOption": {
+      "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+      "x-stability": "experimental",
+      "x-since": "1.7.0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "displayName",
+        "provider",
+        "model",
+        "local",
+        "selectable",
+        "reasoning"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "provider": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "local": {
+          "type": "boolean"
+        },
+        "selectable": {
+          "type": "boolean"
+        },
+        "disabledReason": {
+          "enum": [
+            "local-only",
+            "unavailable"
+          ]
+        },
+        "reasoning": {
+          "description": "What the primary model offers. kind none: no setting (the model reasons on its own or not at all). source: the provider's own model list (api), the curated table (table) or nothing known (unknown).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "levels",
+            "source"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "none",
+                "effort",
+                "budget",
+                "toggle"
+              ]
+            },
+            "levels": {
+              "type": "array",
+              "maxItems": 6,
+              "items": {
+                "enum": [
+                  "off",
+                  "minimal",
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh"
+                ]
+              }
+            },
+            "default": {
+              "enum": [
+                "off",
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ]
+            },
+            "source": {
+              "enum": [
+                "api",
+                "table",
+                "unknown"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,63}$"
+            },
+            "budgetTokens": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "off": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "minimal": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "low": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "medium": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "high": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "xhigh": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "SessionRecord": {
       "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
       "x-stability": "experimental", "x-since": "1.5.0",
@@ -9608,7 +10332,7 @@
         "turnCount": { "type": "integer", "minimum": 0 },
         "owner": {"type": "string", "minLength": 1, "maxLength": 128},
         "model": { "type": ["string", "null"] },
-        "usage": {"type": "object", "additionalProperties": false, "required": ["inputTokens", "outputTokens", "costMicros"], "properties": {"inputTokens": {"type": "integer", "minimum": 0}, "outputTokens": {"type": "integer", "minimum": 0}, "costMicros": {"type": ["integer", "null"], "minimum": 0}, "pendingCalls": {"type": "integer", "minimum": 0}}}
+        "usage": {"type": "object", "additionalProperties": false, "required": ["inputTokens", "outputTokens"], "properties": {"inputTokens": {"type": "integer", "minimum": 0}, "outputTokens": {"type": "integer", "minimum": 0}, "pendingCalls": {"type": "integer", "minimum": 0}}}
       }
     },
     "SessionMessage": {
@@ -9658,7 +10382,12 @@
         "rows": { "type": "integer", "minimum": 0 }, "tables": { "type": "integer", "minimum": 0 }, "batches": { "type": "integer", "minimum": 0 }, "batchSize": { "type": "integer", "minimum": 1 },
         "providerCalls": { "type": "integer", "minimum": 0 }, "sourceBytes": { "type": "integer", "minimum": 0 }, "targetBytes": { "type": "integer", "minimum": 0 },
         "requiredFreeBytes": { "type": "integer", "minimum": 0 }, "freeBytes": { "type": "integer", "minimum": 0 },
-        "throttleMs": { "type": "integer", "minimum": 0 }, "minDurationMs": { "type": "integer", "minimum": 0 }, "probeStatus": { "type": "string" }
+        "throttleMs": { "type": "integer", "minimum": 0 }, "minDurationMs": { "type": "integer", "minimum": 0 }, "probeStatus": { "type": "string" },
+        "cloud": { "description": "Present for a cloud or self-hosted target: every card text goes to this provider. estimatedTokens is an upper bound from the source size without its vectors (the budget counts tokens; there is no cost estimate).", "type": "object", "additionalProperties": false, "required": ["provider", "model", "endpoint", "cards", "estimatedTokens", "sendsText"], "properties": {
+          "provider": { "type": "string" }, "model": { "type": "string" }, "endpoint": { "type": "string" },
+          "cards": { "type": "integer", "minimum": 0 }, "estimatedTokens": { "type": "integer", "minimum": 0 },
+          "sendsText": { "const": true }
+        } }
       }
     },
     "ReembedCheckpoint": {
@@ -9673,7 +10402,9 @@
         "target": { "type": "object", "additionalProperties": true, "required": ["provider", "model", "dimensions"], "properties": { "provider": { "type": "string" }, "model": { "type": "string" }, "dimensions": { "type": "integer", "minimum": 1 } } },
         "counts": { "type": "object", "additionalProperties": false, "required": ["rows", "tables", "batches", "rowsDone", "batchesDone"], "properties": { "rows": { "type": "integer", "minimum": 0 }, "tables": { "type": "integer", "minimum": 0 }, "batches": { "type": "integer", "minimum": 0 }, "rowsDone": { "type": "integer", "minimum": 0 }, "batchesDone": { "type": "integer", "minimum": 0 } } },
         "throttleMs": { "type": "integer", "minimum": 0 }, "abortRequested": { "type": "boolean" },
-        "error": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["code", "message"], "properties": { "code": { "type": "string" }, "message": { "type": "string" } } }, { "type": "null" }] }
+        "error": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["code", "message"], "properties": { "code": { "type": "string" }, "message": { "type": "string" } } }, { "type": "null" }] },
+        "remote": { "description": "A cloud or self-hosted target: the name of the environment variable holding its key (never the key), the endpoint as configured, and the per-card token estimate the call budget reserves before each batch. A budget refusal pauses the run (phase aborted, error budget-exceeded).", "type": "object", "additionalProperties": false, "required": ["apiKeyEnv", "tokensPerRow"], "properties": { "apiKeyEnv": { "type": "string" }, "baseUrl": { "type": "string" }, "tokensPerRow": { "type": "integer", "minimum": 0 },
+          "privacyAck": { "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "properties": { "provider": { "type": "string" }, "acknowledgedAt": { "type": "string" }, "by": { "type": "string" }, "endpoint": { "type": "string" } } } } }
       }
     },
     "MemoryCard": {

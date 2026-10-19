@@ -29,9 +29,15 @@ export const scanOllama: Scanner = async (_profile: ProfileInfo, client: PinnedC
       if (present(item.details.parameter_size)) checkString(item.details.parameter_size);
     }
 
+    // Newer Ollama servers list per-model capabilities; `thinking` means the model takes the think switch.
+    let reasoning: { supported: boolean; style: "ollama" } | undefined;
+    // An optional hint: anything but an array is silence, never a failed scan.
+    if (Array.isArray(item.capabilities)) reasoning = { supported: item.capabilities.includes("thinking"), style: "ollama" };
+
     return {
       id,
       ...(created !== undefined ? { created } : {}),
+      ...(reasoning !== undefined ? { reasoning } : {}),
     };
   });
 

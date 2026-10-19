@@ -50,6 +50,7 @@ describe("scanners", () => {
         created: 1_700_000_000_000,
         contextWindow: 200000,
         capabilities: ["tools", "structured_output", "reasoning", "vision"],
+        reasoning: { supported: true, style: "openrouter" },
       },
     ]);
     assert.equal("pricing" in (res.entries[0] ?? {}), false);

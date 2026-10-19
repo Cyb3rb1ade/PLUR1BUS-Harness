@@ -20,7 +20,6 @@ export interface CollabSettings {
   allowCrossProject: boolean;
   repeatWindowMs: number;
   tokenBudget: number | null;
-  costBudget: number | null;
 }
 
 export interface ProjectMember { userId: string; role: ProjectRole }
@@ -43,7 +42,7 @@ export interface Provenance {
   spanId: string;
   at: number;
   cost: { inputTokens: number; outputTokens: number };
-  targetKind: "local";
+  targetKind: "local" | "external" | "a2a";
 }
 
 export interface ConsultAnswer {
@@ -56,6 +55,7 @@ export interface ConsultAnswer {
 }
 
 export interface DelegateTask {
+  targetKind?: "local" | "external" | "a2a";
   id: string;
   projectId: string;
   traceId: string;
@@ -85,6 +85,7 @@ export interface DelegateHandle {
 }
 
 export interface CollabSpan {
+  targetKind?: "local" | "external" | "a2a";
   sessionId?: string;
   spanId: string;
   traceId: string;
@@ -96,7 +97,6 @@ export interface CollabSpan {
   status: SpanStatus;
   inputTokens: number;
   outputTokens: number;
-  costEstimate: number | null;
   inputPreview: string;
   outputPreview: string;
   error: string | null;

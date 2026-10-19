@@ -1,3 +1,6 @@
+import { classifyHostTool } from '../host-tools/classify.ts';
+import { createSandboxProcessPort, createSandboxHostExec, type SandboxOptions } from '../tools/sandbox/ports.ts';
+import { codingCompletionTool, type CodingCompletion } from '../collab/coding-surface.ts';
 import { collaborationTools, type CollaborationTools } from '../tools/collaboration.ts';
 import type { createHostctlPool } from '../../../hostctl/src/pool.ts';
 import { randomUUID } from 'node:crypto';
@@ -5,15 +8,15 @@ import { dirname, join } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { CallBudgetExceededError, type CallBudget } from '../budget/index.ts';
 import { homedir } from 'node:os';
-import { ToolRegistry, type ToolClassification, type ToolDef } from '../tools/registry.ts';
+import { ToolRegistry, type ToolClassification, type ToolDef, type ToolProcessSandbox } from '../tools/registry.ts';
 import { createFsTools } from '../tools/fs/tools.ts';
 import { canonicalisePath, type PathRoot, type DenyEntry } from '../policy/paths-index.ts';
 import { CAPABILITIES } from '../policy/index.ts';
-import { HOST_TOOLS, createNodeHostContext, denyEntriesFor, isHostPlatform, type HostContext } from '../host-tools/index.ts';
+import { HOST_TOOLS, createNodeHostContext, denyEntriesFor, redactText, isHostPlatform, type HostContext } from '../host-tools/index.ts';
 import { secretNamesTool, type SecretNamesPort } from '../tools/secret-names.ts';
 import { createExecTool } from '../tools/exec/tool.ts';
 import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint } from '../tools/exec/env.ts';
-import { createNodeProcessPort, systemTimers } from '../tools/exec/node-process.ts';
+import { systemTimers } from '../tools/exec/node-process.ts';
 import { scopedMcpPort } from '../mcp/index.ts';
 import type { ExecConfig } from '../tools/exec/types.ts';
 import type { LogWriter } from '../logs/writer.ts';
@@ -27,8 +30,13 @@ import type { WebSearch } from '../tools/web/search.ts';
 import { WEB_SEARCH_DESCRIPTION, WEB_SEARCH_SCHEMA } from '../tools/web/tools.ts';
 import { DOCUMENT_RENDER_DESCRIPTION, DOCUMENT_RENDER_SCHEMA, reviewDocument, type DocumentRenderArgs, type ReviewBrowser, type TemplateId } from '../../../documents/src/index.ts';
 
+/** hostctl routes that launch processes, native apps or OS services through the hostctl worker (no sandbox policy yet). */
+const HOSTCTL_UNSANDBOXED = /^hostctl\.(?:proc\.(?:exec|start|shell)|app\.open|clipboard\.|notify|fs\.(?:search|trash))/;
+
 export interface ToolCompositionOptions {
+  sandbox?: SandboxOptions;
   collaboration?: CollaborationTools;
+  coding?: CodingCompletion;
   home: string; budget?: CallBudget; degraded?: (service: string, error: unknown) => void; roots: readonly PathRoot[]; deny?: readonly DenyEntry[];
   host?: HostContext; exec?: Partial<ExecConfig>; audit: AuditSink; grants: GrantSource;
   mcp?: { port: McpToolPort; servers: readonly string[] };
@@ -47,10 +55,10 @@ export interface ToolCompositionOptions {
 async function classifyExecRun(args: unknown, o: { roots: readonly PathRoot[]; deny: readonly DenyEntry[]; exec?: Partial<ExecConfig> }): Promise<ToolClassification> {
   const raw = args && typeof args === 'object' && !Array.isArray(args) ? args as { cwd?: unknown; env?: unknown } : undefined;
   if (typeof raw?.cwd !== 'string') throw new Error('cwd must be a string');
-  const resolved = await canonicalisePath(raw.cwd, { roots: o.roots, deny: o.deny, access: 'read', requireRoot: true, platform: process.platform });
+  const resolved = await canonicalisePath(raw.cwd, { roots: o.roots, deny: o.deny, access: 'read', requireRoot: false, platform: process.platform });
   if (!resolved.ok) throw new Error(`cwd refused: ${resolved.reason}`);
   const env = buildEnv({ allow: o.exec?.envAllow ?? DEFAULT_ENV_ALLOW, base: process.env, requested: raw.env === undefined ? undefined : raw.env as Record<string, string>, windows: process.platform === 'win32' });
-  return { flags: { outsideRoots: false, denyListHit: false }, targets: [resolved.canonical], hashExtra: envFingerprint(env), access: 'write' };
+  return { flags: { outsideRoots: resolved.rootId === null, denyListHit: false }, targets: [resolved.canonical], hashExtra: envFingerprint(env), access: 'write' };
 }
 
 function unwrap(value: unknown): unknown {
@@ -66,10 +74,12 @@ export class ToolAdapterError extends Error {
 }
 /** Registration is per turn for scoped MCP visibility. No executable tool escapes the dispatcher. */
 export async function composeTools(o: ToolCompositionOptions, req: ChatRequest): Promise<ToolRegistry> {
+  if (req.readOnlyWorktree) o = { ...o, roots: [{ id: req.agentId, path: req.readOnlyWorktree }] };
   const registry = new ToolRegistry();
+  if (o.coding && o.collaboration) registry.register(codingCompletionTool(o.coding, req, () => o.collaboration!.principal(req)));
   if (o.collaboration) for (const tool of collaborationTools(o.collaboration, req)) registry.register(tool);
   const platform = isHostPlatform(process.platform) ? process.platform : 'linux';
-  const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, ...(o.deny ?? [])];
+  const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, { path: join(o.home, 'config.json') }, { path: join(o.home, 'bin') }, { path: join(o.home, 'runtime') }, { path: join(o.home, 'secrets') }, ...(o.deny ?? [])];
   const fs = o.roots.length ? createFsTools({ roots: o.roots, deny }) : { tools: [] };
   for (const tool of fs.tools) {
     const run = tool.execute;
@@ -81,10 +91,11 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     return { flags: { outsideRoots: resolved.rootId === null, denyListHit: false }, targets: [resolved.canonical], access };
   }, execute: async (args, ctx) => unwrap(await run(args, ctx)) });
   }
-  const host = o.host ?? createNodeHostContext();
+  const sandboxOptions = { home: o.home, roots: o.roots, deny, audit: o.audit, principal: req.principal!, ...(o.sandbox ? { sandbox: o.sandbox } : {}) };
+  const host = { ...(o.host ?? createNodeHostContext()), exec: createSandboxHostExec(sandboxOptions) };
   for (const tool of HOST_TOOLS) {
     const cap = CAPABILITIES.get(tool.capability)!;
-    registry.register({ name: tool.name, description: tool.description, inputSchema: tool.schema.input, capability: tool.capability, effect: cap.intrinsicEffect, risk: tool.riskClass, trust: 'first-party', classify: () => ({ flags: { outsideRoots: true } }), execute: async (args, ctx) => tool.run(args, { ...host, signal: ctx.signal }) });
+    registry.register({ name: tool.name, description: tool.description, inputSchema: tool.schema.input, capability: tool.capability, effect: cap.intrinsicEffect, risk: tool.riskClass, trust: 'first-party', classify: args => classifyHostTool(tool, args, { roots: o.roots, deny }), execute: async (args, ctx) => tool.run(args, { ...host, signal: ctx.signal }) });
   }
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
@@ -95,8 +106,9 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
         throw new Error('exec.run cwd/env no longer matches the classified call');
       }
     }
-    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: o.roots, deny }, process: createNodeProcessPort(), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(o.output ? { output: o.output } : {}) });
-    const run = tool.execute; return unwrap(await run(args, ctx));
+    const invocationRoots = ctx.classified?.flags?.outsideRoots && ctx.classified.targets?.[0] ? [...o.roots, { id: 'invocation-only', path: ctx.classified.targets[0] }] : o.roots;
+    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(o.output ? { output: o.output } : {}) });
+    const run = tool.execute; const value = unwrap(await run(args, ctx)); const result = value as { stdout: string; stderr: string }; return { ...(value as object), stdout: redactText(result.stdout), stderr: redactText(result.stderr), sandboxed: o.sandbox?.required !== false };
   } });
   if (o.media) for (const name of ['image.generate', 'image.edit', 'media.generate', 'media.edit'] as const) {
     if (name.startsWith('media.') && !CAPABILITIES.has(name)) continue;
@@ -119,23 +131,22 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
         request.referenceVideo = {bytes:await readFile(join(o.media!.store.root,referenceVideoId,file.path)),format:file.format as 'mp4'|'mov'|'webm'};
       }
       if (operation === 'edit'  && !request.referenceImages?.length && !request.referenceVideo) throw new MediaError('unsupported_parameter');
-      const media = [{ kind: request.kind === 'video' ? 'videoSecond' as const : 'image' as const, resolution: request.resolution ?? (request.size ? `${request.size.width}x${request.size.height}` : 'default'), quantity: request.kind === 'video' ? request.durationSeconds ?? 8 : request.n ?? 1 }];
-      const admitted = o.budget?.checkBeforeCall({ principal: req.principal!, agent: ctx.agentId, project: req.projectId ?? 'direct', model: (request.kind === 'video' ? o.media!.adapter.capabilities().video?.model : undefined) ?? o.media!.adapter.model ?? o.media!.adapter.id, provider: o.media!.adapter.id, session: req.sessionId, ...(req.turnId ? { turn: req.turnId } : {}), estimatedInputTokens: 0, maxOutputTokens: 0, media });
+      const admitted = o.budget?.checkBeforeCall({ principal: req.principal!, agent: ctx.agentId, project: req.projectId ?? 'direct', model: (request.kind === 'video' ? o.media!.adapter.capabilities().video?.model : undefined) ?? o.media!.adapter.model ?? o.media!.adapter.id, provider: o.media!.adapter.id, session: req.sessionId, ...(req.turnId ? { turn: req.turnId } : {}), estimatedInputTokens: 0, maxOutputTokens: 0 });
       if (admitted?.kind === 'refuse') throw new CallBudgetExceededError(admitted);
       let result: Awaited<ReturnType<ImageAdapter['generate']>>;
       try { result = await o.media!.adapter[operation](request, { signal: ctx.signal }); }
       catch (e) {
-        // A failed generation returns no media: nothing is billed, so the reservation is released. An abort may still complete
-        // (and bill) remotely (docs/media.md), so it settles the requested quantity instead of leaving the reservation pending.
+        // A failed generation returns no media, so the reservation is released. An abort may still complete remotely
+        // (docs/media.md), so the call is settled (0 tokens) instead of leaving the reservation pending.
         if (admitted?.kind === 'allow') {
-          if (ctx.signal.aborted) o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, media });
+          if (ctx.signal.aborted) o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0 });
           else if (request.kind !== 'video') o.budget!.releaseUnused(admitted.reservationId);
         }
         throw e;
       }
       ctx.signal.throwIfAborted();
       const manifest = await o.media!.store.put(randomUUID(), request, result);
-      if (admitted?.kind === 'allow') o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, media: [{ ...media[0]!, quantity: request.kind === 'video' ? manifest.files.reduce((n,f)=>n+(f.durationSeconds ?? request.durationSeconds ?? 8),0) : result.files.length }] });
+      if (admitted?.kind === 'allow') o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0 });
       return { id: manifest.id, files: manifest.files, metadata: manifest.metadata };
     } });
   }
@@ -148,7 +159,10 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     } });
   }
   if (o.secretNames) registry.register(secretNamesTool(o.secretNames));
-  for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) registry.register(tool);
+  // D106: hostctl's worker launches processes the harness sandbox cannot confine. The dispatcher enforces processSandbox on
+  // every call (refused while required; owner bypass audited before each launch), so the tool itself stays unwrapped.
+  const hostctlProcessSandbox: ToolProcessSandbox = { required: o.sandbox?.required !== false, recordBypass: launch => o.audit.append({ at: Date.now(), actor: { user: launch.principal, host: 'local' }, action: 'sandbox.bypass', target: launch.tool, detail: { required: false, sandboxed: false } }) };
+  for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) registry.register(HOSTCTL_UNSANDBOXED.test(tool.name) ? { ...tool, processSandbox: hostctlProcessSandbox } : tool);
   if (o.documents) {
     const browser = o.documents.browser;
     // Output is confined to the granted roots only: `requireRoot: true` refuses a path outside every root (no approval path).

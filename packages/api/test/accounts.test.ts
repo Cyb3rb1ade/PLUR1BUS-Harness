@@ -147,13 +147,13 @@ const SELF_SERVICE = ["csrf.issue", "session.delete", "sessions.revoke-all", "wh
 
 test("the routes that need no role are exactly the session self-service routes, nothing else", () => {
   assert.deepEqual(ROUTES.filter((r) => r.authz === "authenticated").map((r) => r.id).sort(), SELF_SERVICE);
-  assert.deepEqual(ROUTES.filter((r) => r.authz === "public").map((r) => r.id), ["invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair", "session.create", "session.totp"], "invitation/login plus explicitly reviewed owner-opened pairing bootstrap grants");
+  assert.deepEqual(ROUTES.filter((r) => r.authz === "public").map((r) => r.id), ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair", "session.create", "session.totp"], "invitation/login plus explicitly reviewed owner-opened pairing bootstrap grants");
   for (const r of ROUTES) assert.ok(r.authz !== undefined, `${r.id} declares an authorization`);
 });
 
 test("every route: unauthenticated is 401; a Viewer is refused on every route that needs a role (reads and writes)", async () => {
   const h = await setup();
-  const previous=h.core.impl; h.core.impl=async(method,params)=>method==="chat.list"?{sessions:[],truncated:false,nextCursor:null}:method==="chat.get"||method==="chat.events"||method==="chat.export"?Promise.reject({error:"E_NOT_FOUND",reason:"not-found"}):previous(method,params);
+  const previous=h.core.impl; h.core.impl=async(method,params)=>method==="chat.list"?{sessions:[],truncated:false,nextCursor:null}:method==="chat.get"||method==="chat.events"||method==="chat.export"||method==="chat.model.get"?Promise.reject({error:"E_NOT_FOUND",reason:"not-found"}):previous(method,params);
   try {
     const { cookie } = await loginAs(h, "vera");
     for (const r of ROUTES.filter((x) => x.auth !== "none")) {

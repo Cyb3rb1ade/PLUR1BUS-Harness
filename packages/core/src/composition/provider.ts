@@ -4,7 +4,7 @@ import { permitsTool } from '../channels/behaviour-context.ts';
 import { waitForVoiceConfirmation } from '../voice/turn-profile.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ProviderRouter, ProviderError, type ProfileTable, type ChatRequest as WireRequest, type ChatMessage, type ToolDefinition, type Usage, type ChatResult, type RouterConfig, type BudgetGuard, type RouterEvent } from '../../../providers/src/index.ts';
-import { CallBudgetExceededError, RetryBudget, DEFAULT_RETRY_POLICY, type CallBudget, type RetryClass } from '../budget/index.ts';
+import { CallBudgetExceededError, RetryBudget, type CallBudget, type RetryClass } from '../budget/index.ts';
 import { createPromptBuilder, createCacheTelemetry, type CacheUsageRecord, type RenderedPrompt, type RenderInput } from '../prompt/index.ts';
 import { triage } from '../triage/index.ts';
 import { toolEntry, type LiveCapabilityIndex, type SkillSelection } from '../toolcall/live-index.ts';
@@ -22,6 +22,8 @@ import type { Served } from '../../../providers/src/router/types.ts';
 import type { GrantSource, Context } from '../policy/index.ts';
 import type { PolicyAudit } from '../policy/audit.ts';
 import type { ChatProvider, ChatRequest, ChatChunk } from '../session/provider.ts';
+import type { ReasoningDescriptor } from '../../../providers/src/reasoning.ts';
+import { directiveFor } from '../session/chat-models.ts';
 import { currentTrace, newTrace, withTrace } from '../logs/trace.ts';
 import { stage, type PipelineLog } from './trace.ts';
 import { LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
@@ -71,6 +73,7 @@ export interface TurnProviderOptions {
   triageTimeoutMs?: number;
   classifyMessage?: (request: ChatRequest, signal: AbortSignal) => Promise<TriageDecision>;
   profileForAgent?: (agent: string) => string | undefined;
+  onExecution?: (execution: import('../skill-mining/evidence.ts').WorkflowExecution) => void;
   onDecision?: (decision: MessageDecision) => void;
   capabilities?: LiveCapabilityIndex;
   skillsForAgent?: (agent: string) => SkillSelection;
@@ -98,8 +101,11 @@ export interface TurnProviderOptions {
   onPrompt?: (prompt: RenderedPrompt) => void;
   onUsage?: (record: CacheUsageRecord) => void;
   snapshot?: (request: ChatRequest, memory: string) => string;
+  /** Reasoning descriptor of one candidate (fitted to its wire). With a chat's reasoning choice, every attempt sends the
+   *  nearest level that candidate supports; a fallback model with other levels is mapped the same way. */
+  reasoningFor?: (provider: string, model: string) => ReasoningDescriptor;
   /**
-   * privacy.localOnly (owner decision 2026-10-18): whether this agent may use only local models, read per turn. With it
+   * privacy.localOnly (owner decision 2026-10-18): whether this agent may use only local models, read per model request. With it
    * on, a candidate whose provider `isLocalProvider` does not confirm is refused: the turn fails with `local-only` when
    * the chosen model is a cloud model, and a cloud fallback is never tried. Never replaced by another model silently.
    */
@@ -254,9 +260,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     });
     const candidate = o.profiles[profile]?.[0];
     if (!candidate) throw new TurnToolError('unknown_profile', profile);
-    const localOnly = o.localOnly?.(req.agentId) === true;
+    const localOnly = () => o.localOnly?.(req.agentId) === true;
     const isLocal = (provider: string) => o.isLocalProvider?.(provider) === true;
-    if (localOnly && !isLocal(candidate.provider)) throw new TurnToolError('local-only', { provider: candidate.provider, model: candidate.model, profile, message: `${candidate.provider}/${candidate.model} is not a local model; ${LOCAL_ONLY_HINT}` });
+    if (localOnly() && !isLocal(candidate.provider)) throw new TurnToolError('local-only', { provider: candidate.provider, model: candidate.model, profile, message: `${candidate.provider}/${candidate.model} is not a local model; ${LOCAL_ONLY_HINT}` });
     const key = `${req.agentId}:${req.sessionId}`;
     if (!snapshots.has(key)) snapshots.set(key, req.memory);
     if (snapshots.size > 1024) snapshots.delete(snapshots.keys().next().value!);
@@ -269,7 +275,6 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       ]),
       ...req.messages.map((m): ChatMessage => m.role === 'tool' ? { role: 'user', content: m.text } : { role: m.role, content: m.text }),
     ];
-    let totalCostMicros: number | null = 0;
     let fatal: unknown;
     const turn = { sessionId: req.sessionId, turnId, agentId: req.agentId };
     const emitEvent = (event: TurnRouterEvent) => { try { o.onRouterEvent?.(event, turn); } catch { /* a faulty sink never changes routing */ } };
@@ -296,8 +301,16 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           return { name: spec.name, description: spec.description, parameters: spec.parameters ?? spec.input_schema ?? spec.parametersJsonSchema, ...(spec.strict === undefined ? {} : { strict: spec.strict }) } as ToolDefinition;
         });
         const mapped = request.messages.map(m => m.role === 'assistant' && m.toolCalls ? { ...m, toolCalls: m.toolCalls.map(t => ({ ...t, name: aliases.get(t.name) ?? t.name })) } : m);
-        const stream = c.adapter.stream({ ...request, messages: mapped, tools }, options);
+        const assertCurrentPrivacy = () => {
+          if(localOnly() && !isLocal(c.provider)) throw new TurnToolError('local-only', {provider:c.provider,model:c.model,message:LOCAL_ONLY_HINT});
+        };
+        assertCurrentPrivacy();
+        const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(c.provider, c.model)) : undefined;
+        const stream = c.adapter.stream({ ...request, messages: mapped, tools, ...(directive ? { reasoning: directive } : {}) }, options);
+        let began=false;
         try { while (true) {
+          // An adapter may begin eagerly or only on its first next(). Once started, let that response finish.
+          if(!began){assertCurrentPrivacy();began=true;}
           if (attempt) attempt.invoked = true;
           const next = await (rendered ? promptContext.run(rendered, () => stream.next()) : stream.next());
           if (next.done) break;
@@ -317,7 +330,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const guardFor = (call: CallState): BudgetGuard => ({
       async authorize(info, request) {
         if (req.turnProfile?.allowModel && !req.turnProfile.allowModel(info.provider, info.model)) return { ok: false as const, reason: "voice privacy pin requires a local model" };
-        if (localOnly && !isLocal(info.provider)) return { ok: false as const, reason: 'privacy.localOnly refuses a cloud model' };
+        if (localOnly() && !isLocal(info.provider)) return { ok: false as const, reason: 'privacy.localOnly refuses a cloud model' };
         // ADR-005: never fall back silently between plan and paid billing; refusing this candidate lets the router try the next.
         const from = primary && o.billing?.[primary.provider], to = o.billing?.[info.provider];
         if (from && to && from !== to && !(o.allowCrossBilling?.(info.profile) ?? false)) {
@@ -335,7 +348,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             const retryClass = info.attempt > 1 ? call.lastFailure ?? 'network' : call.firstClass;
             let ticket: number | undefined;
             if (retryClass) {
-              try { ticket = retryBudget.consume(turnId, retryClass, admitted.estimatedCostMicros ?? DEFAULT_RETRY_POLICY[retryClass].maxCostMicros); }
+              try { ticket = retryBudget.consume(turnId, retryClass, admitted.estimatedTokens); }
               catch (e) { o.budget.releaseUnused(admitted.reservationId); throw e; }
             }
             const attempt: AttemptState = { invoked: false, received: false, outputChars: 0 };
@@ -355,9 +368,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               }
               const settled = counts;
               try { await stage('usage', new AbortController().signal, o.log, () => {
-                const s = o.budget.settle(admitted.reservationId, settled);
-                totalCostMicros = totalCostMicros === null || s.costMicros === null ? null : totalCostMicros + s.costMicros;
-                if (ticket !== undefined && s.costMicros !== null) retryBudget.settle(ticket, s.costMicros);
+                o.budget.settle(admitted.reservationId, settled);
+                if (ticket !== undefined) retryBudget.settle(ticket, settled.inputTokens + settled.outputTokens);
                 if (rendered && !estimated) { const cacheRecord = telemetry.record(rendered, { cache_read: settled.cacheReadTokens, cache_creation: settled.cacheWriteTokens, input: Math.max(0, settled.inputTokens - settled.cacheReadTokens - settled.cacheWriteTokens) }); o.onUsage?.(cacheRecord); }
               }); } catch (e) { fatal = e; throw e; }
             } } };
@@ -415,7 +427,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (fatal) throw fatal;
         if (!done) throw new ProviderError('unknown', 'provider stream ended without result');
         if (done.text.startsWith(roundText) && done.text.length > roundText.length) yield { type: 'delta', text: done.text.slice(roundText.length) };
-        if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens, ...(req.projectId ? { costMicros: totalCostMicros } : {}) }; }
+        if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens }; }
         if (!done.toolCalls.length) return;
         const calls = uniqueToolCallIds(done.toolCalls);
         const toolCalls = calls.map(c => ({ id: c.id, name: c.name, arguments: c.argumentsRaw }));
@@ -432,6 +444,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           const capabilityId = toolEntry(tool, JSON.stringify([req.agentId, principal])).id;
           if (o.capabilities?.registry.hash(capabilityId)) o.capabilities.registry.record(capabilityId, req.agentId, 'used');
           const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
+          try { o.onExecution?.({ owner: principal, agentId: req.agentId, sessionId: req.sessionId, turnId, callId: call.id, tool: tool.name, version: toolEntry(tool, JSON.stringify([req.agentId, principal])).version, success: !output.isError && !(output.value && typeof output.value === 'object' && 'isError' in output.value && output.value.isError === true) }); } catch { /* Missing evidence excludes the operation from mining; it never re-runs an effect. */ }
           if (o.capabilities?.registry.hash(capabilityId) && !output.isError) o.capabilities.registry.record(capabilityId, req.agentId, 'succeeded');
           if (fatal) throw fatal;
           if (output.isError && approvalNeedsPerson) throw new TurnToolError('approval-requires-person', toolErrorDetail(output, o.secrets?.() ?? []));

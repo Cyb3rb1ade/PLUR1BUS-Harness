@@ -103,6 +103,18 @@ pub(crate) fn describe_plan(v: &Value) -> String {
         plan["sourceGeneration"].as_str().unwrap_or("?"),
         plan["targetGeneration"].as_str().unwrap_or("?"),
     ));
+    if let Some(c) = plan["cloud"].as_object() {
+        let num = |k: &str| c.get(k).and_then(Value::as_u64).unwrap_or(0);
+        s.push_str(&format!(
+            "\ncloud target {} / {} at {}:\n  all {} card texts are sent to this provider\n  \
+             estimated tokens: up to {}",
+            c.get("provider").and_then(Value::as_str).unwrap_or("?"),
+            c.get("model").and_then(Value::as_str).unwrap_or("?"),
+            c.get("endpoint").and_then(Value::as_str).unwrap_or("?"),
+            num("cards"),
+            num("estimatedTokens"),
+        ));
+    }
     s
 }
 
@@ -238,6 +250,18 @@ pub fn run(out: &Out, layout: &Layout, a: ReembedArgs) {
         if let Some(t) = a.throttle_ms {
             params["throttleMs"] = json!(t);
         }
+        if let Some(p) = &a.provider {
+            params["provider"] = json!(p);
+        }
+        if let Some(u) = &a.base_url {
+            params["baseUrl"] = json!(u);
+        }
+        if let Some(k) = &a.api_key_env {
+            params["apiKeyEnv"] = json!(k);
+        }
+        if a.acknowledge_privacy {
+            params["acknowledgePrivacy"] = json!(true);
+        }
         let v = call(out, layout, "admin.reembed.plan", params);
         // A model the store cannot move to is a refusal, with its reasons printed above.
         if v["probe"]["verdict"] == "incompatible" {
@@ -296,6 +320,13 @@ fn run_migration(out: &Out, layout: &Layout, a: &ReembedArgs) {
         format!(
             "switch to the re-embedded generation {} (the old one is kept)?",
             cp["targetGeneration"].as_str().unwrap_or("?")
+        )
+    } else if cp["remote"].is_object() {
+        format!(
+            "re-embed {} rows into {} / {}? Every card text is sent to that provider (the current store is kept until the switch)",
+            cp["counts"]["rows"],
+            cp["target"]["provider"].as_str().unwrap_or("?"),
+            cp["target"]["model"].as_str().unwrap_or("?")
         )
     } else {
         format!(
@@ -374,6 +405,21 @@ mod tests {
         // validating waits only when it says why
         assert!(!settled(&v("validating", false, false), true));
         assert!(settled(&v("validating", false, true), true));
+    }
+
+    #[test]
+    fn a_cloud_plan_says_what_leaves_the_machine_and_how_many_tokens() {
+        let plan = || {
+            json!({ "probe": { "verdict": "migration-needed", "message": "m", "reasons": [] }, "plan": {
+                "id": "r1", "rows": 15, "tables": 2, "batches": 6, "batchSize": 3, "providerCalls": 15, "sourceBytes": 1, "targetBytes": 1,
+                "requiredFreeBytes": 1, "freeBytes": 1, "throttleMs": 0, "minDurationMs": 0, "sourceGeneration": "g0", "targetGeneration": "g1",
+                "cloud": { "provider": "openrouter", "model": "qwen/qwen3-embedding-8b", "endpoint": "https://openrouter.ai", "cards": 15,
+                           "estimatedTokens": 375, "sendsText": true } } })
+        };
+        let s = describe_plan(&plan());
+        assert!(s.contains("all 15 card texts are sent to this provider"));
+        assert!(s.contains("up to 375"));
+        assert!(!s.contains("cost") && !s.contains('$'), "{s}");
     }
 
     #[test]

@@ -197,3 +197,9 @@ human confirmation. Group chats never claim a proof. Production hosts must bind
 this optional port; the standalone adapter does not manufacture an identity
 service or automatically approve claims. The API-layer Web principal binding is
 outside this work package's allowed files.
+
+## Native desktop device credentials (2026-10-18)
+
+`device.pair` accepts the closed parameter `{kind: "desktop"}` and binds the ten-minute, one-use code to the authenticated person and their current authority version. Agents and Viewers cannot issue it. Enrolment through the API service writes the existing DeviceStore with platform `desktop`, the client's Ed25519 public key, person and fixed scope. The separately persisted device bearer credential is stored only as a SHA-256 hash. Its thirty-day expiry and the stored person's authority version are checked on redemption and on every device session request.
+
+`device.list`, `device.rename` and `device.revoke` continue to operate on the same device records. Revocation closes device connections and invalidates native API sessions. Person disable/role changes also invalidate credentials permanently; enable does not restore an old credential. The private `admin.api.desktop.redeem`, `.token` and `.resolve` operations accept only the independently authenticated API service, never forwarded people or agents. [Desktop attach](desktop.md#native-attach-server-contracts-2026-10-18) documents the HTTP/ticket flow and its remaining MFA acceptance gap.

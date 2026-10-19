@@ -105,15 +105,22 @@ export class SessionStore {
     const row = this.#db.prepare("SELECT profile,revision FROM session_model_profiles WHERE session_id=?").get(sessionId) as { profile: string; revision: number } | undefined;
     return row ? { profile: row.profile, revision: row.revision } : { profile: null, revision: 0 };
   }
-  /** Atomic compare-and-swap; an in-flight turn or stale preview cannot change model routing. */
-  setModelProfile(sessionId: string, profile: string, expectedRevision: number): number {
+  /** The chat's reasoning choice beside its profile; null = provider default (nothing sent). */
+  modelReasoning(sessionId: string): string | null {
+    const row = this.#db.prepare("SELECT reasoning FROM session_model_profiles WHERE session_id=?").get(sessionId) as { reasoning: string | null } | undefined;
+    return row?.reasoning ?? null;
+  }
+  /** Atomic compare-and-swap; an in-flight turn or stale preview cannot change model routing. `reasoning` undefined keeps
+   *  the stored choice, null clears it (provider default). */
+  setModelProfile(sessionId: string, profile: string, expectedRevision: number, reasoning?: string | null): number {
     return this.#tx(() => {
       const session = this.getSession(sessionId);
       if (!session || session.kind !== "direct" || session.archivedAt !== null || this.runningTurn(sessionId)) throw new SessionError("conflict", "model switch requires an idle direct session", "session-busy");
       const current = this.modelProfile(sessionId);
       if (current.revision !== expectedRevision) throw new SessionError("conflict", "model switch preview is stale", "stale-model-preview");
       const revision = current.revision + 1;
-      this.#db.prepare("INSERT INTO session_model_profiles(session_id,profile,revision) VALUES (?,?,?) ON CONFLICT(session_id) DO UPDATE SET profile=excluded.profile,revision=excluded.revision").run(sessionId, profile, revision);
+      const nextReasoning = reasoning === undefined ? this.modelReasoning(sessionId) : reasoning;
+      this.#db.prepare("INSERT INTO session_model_profiles(session_id,profile,revision,reasoning) VALUES (?,?,?,?) ON CONFLICT(session_id) DO UPDATE SET profile=excluded.profile,revision=excluded.revision,reasoning=excluded.reasoning").run(sessionId, profile, revision, nextReasoning);
       return revision;
     });
   }
@@ -222,7 +229,7 @@ export class SessionStore {
 
   /** F42 metadata listing; omitting owner is allowed only by the admin RPC's role gate.
    * Own-session listing/search keeps the original query semantics. No message or event payload leaves this method. */
-  listOverview(f: Omit<ListFilter, "owner"> & { owner?: string; owners?: string[] }): { sessions: (SessionRecord & { model: string | null; usage: { inputTokens: number; outputTokens: number; costMicros: number | null } })[]; truncated: boolean } {
+  listOverview(f: Omit<ListFilter, "owner"> & { owner?: string; owners?: string[] }): { sessions: (SessionRecord & { model: string | null; usage: { inputTokens: number; outputTokens: number } })[]; truncated: boolean } {
     const limit = Math.min(Math.max(f.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
     const where = ["1=1"], args: (string | number | null)[] = [];
     if (f.owner) { where.push("s.owner=?"); args.push(f.owner); }
@@ -238,18 +245,16 @@ export class SessionStore {
     const rows = this.#all(`SELECT s.* FROM sessions s WHERE ${where.join(" AND ")} ORDER BY s.pinned DESC,COALESCE(s.last_turn_at,s.created_at) DESC,s.created_at DESC,s.id LIMIT ?`, ...args, limit+1);
     return { truncated: rows.length > limit, sessions: rows.slice(0,limit).map(row => {
       const s = toSession(row);
-      // Existing turn.completed records contain provider/usage. Costs not recorded per session stay null, never a false zero.
+      // Existing turn.completed records contain provider/usage (tokens; there is no money dimension).
       const events = this.#all("SELECT data FROM events WHERE session_id=? AND type='turn.completed' ORDER BY seq", s.id);
-      let model: string | null = null, inputTokens=0, outputTokens=0, costMicros: number | null = events.length ? 0 : null;
+      let model: string | null = null, inputTokens=0, outputTokens=0;
       for (const e of events) {
         const d = JSON.parse(e.data as string);
         if (typeof d.model === "string") model=d.model; else if (typeof d.provider === "string") model=d.provider;
         const count = (v: unknown) => typeof v === "number" && Number.isSafeInteger(v) && v>=0 ? v : 0;
         inputTokens += count(d.usage?.inputTokens); outputTokens += count(d.usage?.outputTokens);
-        if (typeof d.usage?.costMicros !== "number" || !Number.isSafeInteger(d.usage.costMicros) || d.usage.costMicros<0) costMicros=null;
-        else if (costMicros!==null) costMicros+=d.usage.costMicros;
       }
-      return { ...s, model, usage: { inputTokens, outputTokens, costMicros } };
+      return { ...s, model, usage: { inputTokens, outputTokens } };
     }) };
   }
 

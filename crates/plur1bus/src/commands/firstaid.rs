@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 28] = [
+const CHECK_IDS: [&str; 30] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -62,6 +62,8 @@ const CHECK_IDS: [&str; 28] = [
     "dreams.last-runs",
     "remote.exposure",
     "models.decision",
+    "privacy.local-only",
+    "api.supervised",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -136,6 +138,15 @@ impl Check {
             summary: summary.into(),
             detail,
             hint,
+        }
+    }
+    pub(crate) fn info(id: &'static str, summary: impl Into<String>) -> Self {
+        Self {
+            id,
+            status: Status::Info,
+            summary: summary.into(),
+            detail: None,
+            hint: None,
         }
     }
     pub(crate) fn skip(id: &'static str, summary: impl Into<String>) -> Self {
@@ -385,7 +396,96 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     checks.push(check_remote_exposure(layout));
     // Append-only: an `info` row, never a failure (the rule triage is a normal mode without a decision model).
     checks.push(super::model::check_models_decision(layout));
+    checks.push(check_local_only(layout));
+    checks.push(check_api_supervised(daemon_status));
     checks
+}
+
+fn check_local_only(layout: &Layout) -> Check {
+    const ID: &str = "privacy.local-only";
+    let path = layout.config_path();
+    let info = |message: &str| Check {
+        id: ID,
+        status: Status::Info,
+        summary: message.into(),
+        detail: None,
+        hint: None,
+    };
+    let config = match std::fs::metadata(&path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Value::Null,
+        Ok(meta) if meta.len() <= 8 * 1024 * 1024 => match std::fs::read(&path)
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+        {
+            Some(v) => v,
+            None => return info("privacy configuration is unreadable; see config.valid"),
+        },
+        _ => return info("privacy configuration is unreadable or oversized; see config.valid"),
+    };
+    let policy = crate::privacy::shared(&config);
+    if !policy.required {
+        return Check::ok(
+            ID,
+            "local-only is off; configured and acknowledged cloud models may be used",
+        );
+    }
+    let mut findings = crate::privacy::findings(&config);
+    if let Some(running) = crate::privacy::running_violation(layout, &config) {
+        for role in running.blocked {
+            if !findings.contains(&role) {
+                findings.push(role);
+            }
+        }
+    }
+    if !findings.is_empty() {
+        return Check::fail(
+            ID,
+            format!(
+                "local-only is on but cloud models are configured: {}",
+                findings.join(", ")
+            ),
+            Some(json!({"agents":policy.agents,"blocked":findings})),
+            Some(
+                "Choose local models, review privacy.localEndpoints, or turn local-only off".into(),
+            ),
+        );
+    }
+    if !policy.agents.is_empty() {
+        return Check {
+            id: ID,
+            status: Status::Info,
+            summary: format!(
+                "shared engine is local-only because of agents {}",
+                policy.agents.join(", ")
+            ),
+            detail: Some(json!({"agents":policy.agents})),
+            hint: None,
+        };
+    }
+    Check::ok(ID, "local-only is on; configured model endpoints are local")
+}
+
+/// Append-only P3 check: use the supervisor's authenticated view, never trust api.json alone.
+fn check_api_supervised(status: Option<&Value>) -> Check {
+    const ID: &str = "api.supervised";
+    let Some(status) = status else {
+        return Check::info(ID, "supervisor is not running");
+    };
+    let api = status["children"]
+        .as_array()
+        .and_then(|children| children.iter().find(|c| c["role"] == "api"));
+    match api {
+        Some(child) if child["process"]["state"] == "ready" => {
+            Check::ok(ID, "API is supervised and ready on loopback")
+        }
+        Some(child) => Check::fail(
+            ID,
+            "supervised API is not ready",
+            Some(child.clone()),
+            Some("Check api.out.log and the installed API runtime".into()),
+        ),
+        None => Check::info(ID, "this supervisor has no API role"),
+    }
 }
 
 // ---- approvals.integrity ------------------------------------------------------------------------
@@ -2424,5 +2524,34 @@ mod tests {
         // No rejection: the file decides, as without a supervisor.
         let clean = json!({ "revision": "0123456789abcdef", "rejected": null });
         assert_eq!(check_config_valid(&layout, Some(&clean)).status, Status::Ok);
+    }
+}
+
+#[cfg(test)]
+mod api_supervision_tests {
+    use super::*;
+    #[test]
+    fn supervision_check_distinguishes_absent_ready_and_failed_api() {
+        assert_eq!(check_api_supervised(None).status, Status::Info);
+        assert_eq!(
+            check_api_supervised(Some(&json!({"children":[]}))).status,
+            Status::Info
+        );
+        for state in ["starting", "crashed", "degraded"] {
+            assert_eq!(
+                check_api_supervised(Some(
+                    &json!({"children":[{"role":"api","process":{"state":state}}]})
+                ))
+                .status,
+                Status::Fail
+            );
+        }
+        assert_eq!(
+            check_api_supervised(Some(
+                &json!({"children":[{"role":"api","process":{"state":"ready"}}]})
+            ))
+            .status,
+            Status::Ok
+        );
     }
 }

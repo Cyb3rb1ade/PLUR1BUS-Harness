@@ -13,7 +13,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `memory.mediaEmbedding` | object | `{}` | core | Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index. |
 | `providers` | object | `{}` | live | Reserved namespace for model-provider configuration. |
 | `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. |
-| `privacy.localOnly` | boolean | `false` | core | Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly. |
+| `privacy.localOnly` | boolean | `false` | live | Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly. |
 
 ## Advanced settings
 
@@ -33,6 +33,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `activity.maxEntries` | integer | `1000` | core | Maximum retained agent activity transitions. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
+| `tools.sandbox.required` | boolean | `true` | core | Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn. |
 | `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
 | `tools.hostctl.shell.allowed` | boolean | `false` | core | Allow proc.shell after normal D109 approval. |
 | `tools.hostctl.shell.default` | string | `"bash"` | core | Shell executable; set pwsh on Windows. |
@@ -81,7 +82,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
 | `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
-| `privacy.localEndpoints` | array | `[]` | core | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
+| `privacy.localEndpoints` | array | `[]` | live | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
 | `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |
 | `session.compaction.hardRatio` | number | `0.88` | core | Swap prepared summary above this fraction. Must exceed softRatio. |
 | `session.compaction.summaryMaxTokens` | integer | `1228` | core | Maximum summary tokens; also capped to 15 percent of the catalogue window. |
@@ -112,6 +113,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `channels.slack.replyPolicy` | enum | `"mention"` | module:slack | When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed. |
 | `channels.slack.maxMediaBytes` | integer | `10485760` | module:slack | Largest attachment accepted or sent, in bytes (checked before and during download and before upload). |
 | `channels.slack.locale` | enum | `"en"` | module:slack | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
+| `channels.buzz` | object | `{}` | module:buzz | NIP-17 text-only direct messages. Disabled by default. |
 | `channels.matrix.e2ee` | object | `{}` | module:matrix | Experimental E2EE. Memory mode is NOT persistent: restart loses keys and requires device verification again. |
 | `channels.matrix.enabled` | boolean | `false` | module:matrix | Whether the matrix channel is started. Off by default; nothing connects until this is true. |
 | `channels.matrix.homeserverUrl` | string |  | module:matrix | Base URL of the Matrix homeserver. Must be https, or http for a loopback host. |

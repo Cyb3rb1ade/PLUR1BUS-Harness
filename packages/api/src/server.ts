@@ -1,3 +1,4 @@
+import { buildDesktopAttachHandlers } from "./desktop-attach-routes.ts";
 import { buildWebAuthnHandlers, type PendingWebAuthn } from "./webauthn-routes.ts";
 import {TLSSocket} from "node:tls";
 import {certPin} from "../../remote-access/src/fingerprint.ts";
@@ -167,7 +168,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const events = createEventsRoute({ core: o.core, sessions, initTimeoutMs: limits.handlerTimeoutMs, now: () => clock.now() });
   const perRequest = requestCore(o.core);
   const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
-  const handlers = { ...buildHandlers(handlerDeps), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
+  const handlers = { ...buildHandlers(handlerDeps), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
@@ -200,7 +201,18 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
   /** The principal of a session as it is *now*: owner from the bootstrap, users from the directory (so a demotion, a
    *  disabled account or a deleted one takes effect at the next request, whatever the session was made with). */
-  async function resolve(session: Session): Promise<Resolved | undefined> { return resolveSubject(session.principal.kind, session.principal.id); }
+  async function resolve(session: Session): Promise<Resolved | undefined> {
+    if(session.device) {
+      try {
+        const identity=await o.core.serviceCall?.<import("./desktop-attach-routes.ts").DesktopIdentity>("admin.api.desktop.resolve",{deviceId:session.device.deviceId});
+        if(!identity || identity.userId!==session.principal.id || identity.expiresAt<=clock.now())return undefined;
+        const result=await o.core.serviceCall?.<{person:import("./account-store.ts").CorePerson|null}>("admin.api.person.resolve",{userId:identity.userId});
+        const p=result?.person;if(!p||p.disabled)return undefined;
+        return {principal:{kind:"user",id:identity.userId,role:p.role},rbac:{...p,kind:"person",tokenScopes:identity.scopes.filter(s=>session.device!.scopes.includes(s))},version:p.version};
+      } catch {return undefined;}
+    }
+    return resolveSubject(session.principal.kind, session.principal.id);
+  }
 
   async function resolveSubject(kind: Principal["kind"] | undefined, id: string): Promise<Resolved | undefined> {
     if (kind === "owner" || (kind === undefined && id === OWNER.id)) {

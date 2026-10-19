@@ -68,6 +68,7 @@ function def(d: Omit<CapabilityDef, "taintSensitive" | "lowerable"> & Partial<Pi
 }
 
 const TABLE: readonly CapabilityDef[] = [
+  def({ id: "apps.launch", covers: "apps.open/focus, hostctl.app.open", intrinsicEffect: "local-write", base: same(P), ceiling: "once", minSurface: 2, baseRisk: "medium" }),
   def({ id: "fs.read", covers: "fs.list/stat/read/search", intrinsicEffect: "read", base: { inside: A, outside: P }, ceiling: "always", minSurface: 1, baseRisk: "low" }),
   def({ id: "fs.write", covers: "fs.write/edit/mkdir/copy/move, fs.trash inside roots", intrinsicEffect: "local-write", base: { inside: A, outside: P }, ceiling: "always", minSurface: 1, baseRisk: "low" }),
   def({ id: "fs.delete", covers: "fs.delete, fs.trash outside roots", intrinsicEffect: "local-destructive", base: same(P), ceiling: "task", minSurface: 2, baseRisk: "high" }),

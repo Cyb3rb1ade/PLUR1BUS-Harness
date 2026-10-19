@@ -171,6 +171,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus secret rm`↴](#plur1bus-secret-rm)
 * [`plur1bus secret ls`↴](#plur1bus-secret-ls)
 * [`plur1bus device`↴](#plur1bus-device)
+* [`plur1bus device pair`↴](#plur1bus-device-pair)
 * [`plur1bus device list`↴](#plur1bus-device-list)
 * [`plur1bus device revoke`↴](#plur1bus-device-revoke)
 * [`plur1bus device rename`↴](#plur1bus-device-rename)
@@ -365,6 +366,8 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 
 ###### **Options:**
 
+* `--dry-run` — Show the setup/profile-upgrade plan without changing files or services
+* `--recover-profile` — Restore a preserved interrupted profile-upgrade snapshot (daemon is stopped first)
 * `--container` — Install in container mode on this host
 * `--container-manifest <MANIFEST>` — Signed release manifest path or HTTPS URL (default: the channel feed); used when no image is supplied
 * `--runtime <RUNTIME>` — Container runtime; automatic selection prefers Apple on macOS ARM
@@ -1105,7 +1108,11 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 * `--run` — Copy the planned migration into a new generation in throttled batches, validate it and switch
 * `--status` — Show the migration's phase and progress
 * `--abort` — Stop at the next batch boundary; --run continues the same migration
-* `--model <MODEL>` — Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+* `--model <MODEL>` — Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small, or the remote provider's model id with --provider (required with --plan)
+* `--provider <PROVIDER>` — Target provider, e.g. openai, openrouter, jina or ollama (default local-transformers); every direction between local and cloud is possible
+* `--base-url <BASE_URL>` — OpenAI-compatible endpoint of a remote target (openai may leave it out)
+* `--api-key-env <API_KEY_ENV>` — Name of the environment variable that holds the remote target's key (the key itself is never passed)
+* `--acknowledge-privacy` — Acknowledge now that every memory text goes to this remote target (needed when memory.embedding.privacyAck does not already admit it)
 * `--dimensions <DIMENSIONS>` — Target vector dimensions, when the model supports more than one
 * `--query-prefix <QUERY_PREFIX>` — Query prefix of the target model
 * `--passage-prefix <PASSAGE_PREFIX>` — Passage prefix of the target model
@@ -2506,7 +2513,7 @@ One-time invitations through the existing identity pairing path
 
 [experimental] Set or clear a limit, or the time zone budget periods follow
 
-A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals), token values are input + output tokens. A bound left out stays as it is.
+A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Values are input + output tokens (output includes reported reasoning tokens). A bound left out stays as it is.
 
 **Usage:** `plur1bus budget set [OPTIONS]`
 
@@ -2518,9 +2525,9 @@ A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least o
 
   Possible values: `day`, `month`
 
-* `--metric <METRIC>` — what is counted: cost in USD or input + output tokens
+* `--metric <METRIC>` — what is counted: input + output tokens (the only metric; may be left out)
 
-  Possible values: `cost`, `tokens`
+  Possible values: `tokens`
 
 * `--soft <VALUE>` — warn (once per period) above this value
 * `--hard <VALUE>` — refuse calls that would exceed this value
@@ -2727,9 +2734,25 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 
 ###### **Subcommands:**
 
+* `pair` — [experimental] Issue a person-bound desktop attach code valid for ten minutes
 * `list` — [experimental] List your devices (Owner/Admin: all), including revoked devices
 * `revoke` — [experimental] Revoke a device and close its connections immediately
 * `rename` — [experimental] Rename a device you own
+
+
+
+## `plur1bus device pair`
+
+[experimental] Issue a person-bound desktop attach code valid for ten minutes
+
+**Usage:** `plur1bus device pair --kind <KIND>`
+
+###### **Options:**
+
+* `--kind <KIND>`
+
+  Possible values: `desktop`
+
 
 
 
@@ -4096,7 +4119,7 @@ Examples:
 
 * `<SOURCE_TYPE>` — Source system to read (never modified)
 
-  Possible values: `openclaw`, `hermes`
+  Possible values: `openclaw`, `hermes`, `backfill`
 
 
 ###### **Options:**
@@ -4124,6 +4147,9 @@ Examples:
 * `--resume <RUN_ID>` — Resume an interrupted import run by run ID
 * `--force` — Force rollback: delete user-modified files created by the import instead of keeping them
 * `--adopt-store <PATH>` — Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
+* `--agent <AGENT>` — Target agent ID (required for backfill)
+* `--adopt-strategy <STRATEGY>` — Store adoption strategy when identity mismatches: 'reembed' or 'import'
+* `--merge-profiles` — Allow multiple Hermes profiles to merge into the same target agent
 
 
 

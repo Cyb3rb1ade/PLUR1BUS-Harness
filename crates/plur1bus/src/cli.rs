@@ -370,12 +370,22 @@ pub struct ImportArgs {
     /// Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
     #[arg(long = "adopt-store", value_name = "PATH")]
     pub adopt_store: Option<PathBuf>,
+    /// Target agent ID (required for backfill)
+    #[arg(long, value_name = "AGENT")]
+    pub agent: Option<String>,
+    /// Store adoption strategy when identity mismatches: 'reembed' or 'import'
+    #[arg(long = "adopt-strategy", value_name = "STRATEGY")]
+    pub adopt_strategy: Option<String>,
+    /// Allow multiple Hermes profiles to merge into the same target agent
+    #[arg(long = "merge-profiles")]
+    pub merge_profiles: bool,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ImportSource {
     Openclaw,
     Hermes,
+    Backfill,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -391,6 +401,12 @@ pub enum OnConflict {
 /// `plur1bus setup` (spec §6.5, HB11).
 #[derive(Args, Debug)]
 pub struct SetupArgs {
+    /// Show the setup/profile-upgrade plan without changing files or services
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Restore a preserved interrupted profile-upgrade snapshot (daemon is stopped first)
+    #[arg(long)]
+    pub recover_profile: bool,
     /// Install in container mode on this host
     #[arg(long)]
     pub container: bool,
@@ -698,9 +714,21 @@ pub struct ReembedArgs {
     /// Stop at the next batch boundary; --run continues the same migration
     #[arg(long)]
     pub abort: bool,
-    /// Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+    /// Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small, or the remote provider's model id with --provider (required with --plan)
     #[arg(long, conflicts_with_all = ["run", "status", "abort"], required_if_eq("plan", "true"))]
     pub model: Option<String>,
+    /// Target provider, e.g. openai, openrouter, jina or ollama (default local-transformers); every direction between local and cloud is possible
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub provider: Option<String>,
+    /// OpenAI-compatible endpoint of a remote target (openai may leave it out)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub base_url: Option<String>,
+    /// Name of the environment variable that holds the remote target's key (the key itself is never passed)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub api_key_env: Option<String>,
+    /// Acknowledge now that every memory text goes to this remote target (needed when memory.embedding.privacyAck does not already admit it)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub acknowledge_privacy: bool,
     /// Target vector dimensions, when the model supports more than one
     #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
     pub dimensions: Option<u32>,
@@ -1148,9 +1176,9 @@ pub enum BudgetCmd {
     },
     /// [experimental] Set or clear a limit, or the time zone budget periods follow
     ///
-    /// A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of
-    /// `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals),
-    /// token values are input + output tokens. A bound left out stays as it is.
+    /// A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`, `--hard`,
+    /// `--clear-soft`, `--clear-hard`. Values are input + output tokens (output includes reported
+    /// reasoning tokens). A bound left out stays as it is.
     Set {
         /// the limit covers all agents together
         #[arg(long, conflicts_with = "agent")]
@@ -1161,8 +1189,8 @@ pub enum BudgetCmd {
         /// the period the limit resets on (local calendar day or month)
         #[arg(long, value_parser = ["day", "month"])]
         period: Option<String>,
-        /// what is counted: cost in USD or input + output tokens
-        #[arg(long, value_parser = ["cost", "tokens"])]
+        /// what is counted: input + output tokens (the only metric; may be left out)
+        #[arg(long, value_parser = ["tokens"])]
         metric: Option<String>,
         /// warn (once per period) above this value
         #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
@@ -2196,6 +2224,11 @@ pub enum PairingCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum DeviceCmd {
+    /// [experimental] Issue a person-bound desktop attach code valid for ten minutes
+    Pair {
+        #[arg(long, value_parser = ["desktop"])]
+        kind: String,
+    },
     /// [experimental] List your devices (Owner/Admin: all), including revoked devices
     List,
     /// [experimental] Revoke a device and close its connections immediately

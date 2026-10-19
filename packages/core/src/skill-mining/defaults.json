@@ -1,0 +1,7 @@
+{
+  "minSessions": 2,
+  "minSteps": 2,
+  "maxSteps": 20,
+  "maxSessions": 200,
+  "maxEvents": 20000
+}

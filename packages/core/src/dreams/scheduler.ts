@@ -397,9 +397,9 @@ export class DreamScheduler {
     const runKey = `${agentId}\0${phase}`;
     let owned = false; // only the run that put the marker up takes it down
 
-    const finish = (outcome: Outcome, reason: string | null, counts: RunCounts, extra: { tokensIn?: number | null; tokensOut?: number | null; costMicros?: number | null; error?: DreamRun["error"]; consumed?: boolean } = {}): DreamRun => {
+    const finish = (outcome: Outcome, reason: string | null, counts: RunCounts, extra: { tokensIn?: number | null; tokensOut?: number | null; error?: DreamRun["error"]; consumed?: boolean } = {}): DreamRun => {
       const finishedAt = this.#o.clock.now();
-      store.finishRun(runId, { outcome, reason, finishedAt, counts, tokensIn: extra.tokensIn ?? null, tokensOut: extra.tokensOut ?? null, costMicros: extra.costMicros ?? null, ...(extra.error ? { error: extra.error } : {}) });
+      store.finishRun(runId, { outcome, reason, finishedAt, counts, tokensIn: extra.tokensIn ?? null, tokensOut: extra.tokensOut ?? null, ...(extra.error ? { error: extra.error } : {}) });
       this.#openSessions.delete(runId);
       if (owned) this.#running.delete(runKey);
       const patch: Parameters<DreamStore["updateSchedule"]>[2] = { lastRunId: runId };
@@ -449,15 +449,15 @@ export class DreamScheduler {
   async #execute(
     agentId: string, phase: Phase, runId: string, jobs: { name: string; needsLlm: boolean }[], logFile: string | null, callerSignal: AbortSignal | undefined,
     counts: RunCounts, promotable: { candidateId: string; decision: Decision }[],
-    finish: (o: Outcome, r: string | null, c: RunCounts, x?: { tokensIn?: number | null; tokensOut?: number | null; costMicros?: number | null; error?: DreamRun["error"] }) => DreamRun,
+    finish: (o: Outcome, r: string | null, c: RunCounts, x?: { tokensIn?: number | null; tokensOut?: number | null; error?: DreamRun["error"] }) => DreamRun,
   ): Promise<DreamRun> {
     const signal = callerSignal ? AbortSignal.any([callerSignal, this.#stop.signal]) : this.#stop.signal;
     const primary = this.#phase(phase).primary;
     const results: { job: string; run: DreamJobRun }[] = [];
-    let sessions = 0, tokensIn = 0, tokensOut = 0, costMicros: number | null = null, sawTokens = false;
+    let sessions = 0, tokensIn = 0, tokensOut = 0, sawTokens = false;
     this.#openSessions.set(runId, { agentId, n: 0 });
     const tally = (): RunCounts => ({ ...counts, jobs: results.length, llmSessions: sessions });
-    const usage = () => ({ tokensIn: sawTokens ? tokensIn : null, tokensOut: sawTokens ? tokensOut : null, costMicros });
+    const usage = () => ({ tokensIn: sawTokens ? tokensIn : null, tokensOut: sawTokens ? tokensOut : null });
 
     for (const j of jobs) {
       if (signal.aborted) return finish("aborted", this.#stop.signal.aborted ? REASON.shutdown : REASON.cancelled, tally(), usage());
@@ -477,7 +477,7 @@ export class DreamScheduler {
       results.push({ job: j.name, run: r });
       if (countsAsSession && r.outcome !== "skipped") { sessions++; this.#openSessions.set(runId, { agentId, n: sessions }); }
       if (r.cost?.inputTokens !== undefined || r.cost?.outputTokens !== undefined) { sawTokens = true; tokensIn += r.cost?.inputTokens ?? 0; tokensOut += r.cost?.outputTokens ?? 0; }
-      if (typeof r.cost?.costMicros === "number") costMicros = (costMicros ?? 0) + r.cost.costMicros; // RULING: cost is measured in tokens; micros stay NULL until a price table exists.
+      // RULING (ADR-009 Q1, amended 2026-10-19): cost is measured in tokens only; the harness has no money dimension.
       this.#log(logFile, `job ${j.name} ${r.outcome}${r.reason ? ` (${r.reason})` : ""}`);
       if (r.outcome === "failed" || r.outcome === "incomplete" || r.outcome === "abandoned") {
         return finish("failed", r.outcome === "failed" ? (r.reason ?? REASON.engineError) : `${REASON.incomplete}:${r.reason ?? r.outcome}`, tally(), usage());

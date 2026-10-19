@@ -120,6 +120,7 @@ describe("secrets: create, rotate, delete", opts, () => {
       await dlg.getByLabel("New value").fill("newer-val");
       await dlg.getByRole("button", { name: "Save" }).click();
       await dlg.getByRole("button", { name: "Rotate now" }).click();
+      // the first rotation's notice has the same text, so wait for the dialog to close (it closes once the save has returned)
       await dlg.waitFor({ state: "detached" });
       await app.page.getByText(/^anthropic\.apiKey: updated on /).waitFor();
       assert.deepEqual(calls(app, "secret.set").map((c) => c.params), [

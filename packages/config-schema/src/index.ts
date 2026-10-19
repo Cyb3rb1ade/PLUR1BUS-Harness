@@ -32,7 +32,7 @@ export interface HarnessConfig {
   $schema?: string;
   schemaVersion: 1;
   session: { compaction: { softRatio: number; hardRatio: number; summaryMaxTokens: number; maxMessageTokens: number; summarizer: "llm" | "digest"; prune: { enabled: boolean; keepLastTurns: number; decider: "laya" | "heuristic" | "off"; maxMs: number; batchSize: number } } };
-  tools: { hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };
+  tools: { sandbox: { required: boolean }; hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };
   core: { logLevel: "debug" | "info" | "warn" | "error"; recall: { softBudgetMs: number; hardBudgetMs: number; capChars: number }; capture: { waitMs: number }; shutdownBudgetMs: number };
   supervisor: { graceMs: number; healthIntervalMs: number };
   logs: { maxBytes: number; keep: number };
@@ -55,6 +55,7 @@ export interface HarnessConfig {
   channels: {
     discord: ChannelCommonConfig & { tokenSecret: string; applicationId?: string; intents: string[] };
     slack: ChannelCommonConfig & { botTokenSecret: string; appTokenSecret: string; teamId?: string };
+    buzz: { enabled: boolean; relays: string[]; privateKeySecret: string; senderAllowlist: string[]; locale: "de" | "en" };
     matrix: ChannelCommonConfig & { homeserverUrl?: string; userId?: string; accessTokenSecret: string; deviceId?: string; autoJoin: "allowlist" | "never"; e2ee?: { mode: "off" | "memory"; unverifiedDevices: "reject" | "allow" } };
     signal: ChannelCommonConfig & { account?: string; endpoint: { socketPath?: string; host?: string; port?: number }; allowRemoteEndpoint: boolean };
     email: {

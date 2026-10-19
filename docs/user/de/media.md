@@ -123,7 +123,7 @@ Ein Auftrag durchläuft die Zustände `queued`, `running` und endet in `succeede
 
 ## Kosten und Grenzen
 
-- Cloud-Anbieter berechnen ihre Bilder selbst. Plur1bus schätzt die Kosten nur; nur OpenRouter meldet tatsächliche Kosten.
+- Cloud-Anbieter berechnen ihre Bilder selbst. Plur1bus rechnet nicht in Geld: es schätzt keine Kosten und zeigt keine an.
 - Ist das Budget erschöpft, schickt Plur1bus den Auftrag gar nicht erst an den Anbieter.
 - Referenz- und Maskenbilder werden vor dem Versand von Metadaten befreit, etwa Standort aus EXIF.
 - Lehnt ein Anbieter einen Auftrag inhaltlich ab, wird er nicht über einen anderen Anbieter umgangen und nicht automatisch

@@ -22,7 +22,9 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { coreChecks?: () => Check[]; home: string; clock: () => number; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
+export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; miningStatus?: () => { available: boolean } | undefined; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void;
+  /** Checks the core answers itself from its live configuration (e.g. privacy.local-only); appended to the provisioning group. */
+  coreChecks?: () => Check[] }): Record<string, Handler> {
   let cached: Report | null = null;
   let lastStarted = -Infinity;
   let inFlight: Promise<Report> | null = null;
@@ -46,6 +48,7 @@ export function buildDoctorMethods(o: { coreChecks?: () => Check[]; home: string
       const status: Status = c.status === "info" ? "ok" : c.status === "skip" ? "skipped" : c.status as Status;
       return { id: c.id, status, summary: safe(c.summary), ...(typeof c.hint === "string" ? { repair: { kind: "hint", label: safe(c.hint) } } : {}) };
     });
+    if (o.sandboxRequired?.() === false) checks.push({ id: "tools.sandbox.bypass", status: "warn", summary: "NOT SANDBOXED: owner disabled tools.sandbox.required; each process launch is audited." });
     for (const c of o.coreChecks?.() ?? []) if (!checks.some(x => x.id === c.id)) checks.push({ ...c, summary: safe(c.summary), ...(c.repair ? { repair: { kind: c.repair.kind, label: safe(c.repair.label) } } : {}) });
     const sandbox = await detectSandbox(join(o.home, "bin", "plur1bus-sandbox-limits"));
     checks.push({ id: "tools.sandbox", status: sandbox.available ? "warn" : "fail", summary: safe(`${sandbox.backend} (${sandbox.strength}): ${sandbox.reason}`), ...(sandbox.hint ? { repair: { kind: "hint", label: safe(sandbox.hint) } } : {}) });
@@ -57,8 +60,16 @@ export function buildDoctorMethods(o: { coreChecks?: () => Check[]; home: string
   }
   function currentReport(report: Report): Report {
     const copy = structuredClone(report);
+    // Privacy is checked from the live configuration even while the expensive provisioning snapshot is cached.
+    const group=copy.groups[0];
+    if(group)for(const check of o.coreChecks?.()??[]){
+      const next={...check,summary:safe(check.summary),...(check.repair?{repair:{kind:check.repair.kind,label:safe(check.repair.label)}}:{})};
+      const at=group.checks.findIndex(c=>c.id===check.id);if(at<0)group.checks.push(next);else group.checks[at]=next;
+    }
     const capability = o.capabilityStatus?.();
     if (capability) copy.groups[0]?.checks.push({ id: 'capabilities.index', status: capability.sourceError ? 'fail' : capability.mode === 'fts5-only' ? 'warn' : 'ok', summary: `Capability index: ${capability.mode}. Last recheck: ${capability.lastRecheck ?? 'pending'}.` });
+    const mining = o.miningStatus?.();
+    if (mining) copy.groups[0]?.checks.push({ id: 'skills.mining', status: mining.available ? 'ok' : 'skipped', summary: mining.available ? 'Skill mining proposes inactive artifacts for human review.' : 'Skill mining unavailable: the engine exposes memory corrections but no skill-artifact proposal API.' });
     return copy;
   }
   function start(): Promise<Report> {

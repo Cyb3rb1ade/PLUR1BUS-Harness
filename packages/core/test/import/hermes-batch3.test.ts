@@ -28,6 +28,7 @@ import {
 import { tempDir } from "../helpers/temp-dir.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
 import type { Engine, HostServices, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import { flatTestInternals } from "../helpers/flat-embedder.ts";
 
 function createTestHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
   return {
@@ -587,7 +588,7 @@ describe("Hermes Importer Batch 3", () => {
       "--source",
       badFx.root,
       "--apply",
-    ]);
+    ], process.env, undefined, flatTestInternals());
 
     assert.equal(cliRes.ok, true);
     if (cliRes.ok) {

@@ -13,10 +13,13 @@ import { setUnsaved } from "../unsaved.ts";
 import { DecisionHint, decisionRoleMissing } from "../../common/decision-hint.ts";
 import { FieldRow, groupOf, groupTitle, RestartBadge } from "../config/fields.ts";
 import { fieldId } from "../config/meta.ts";
-import { buildFields, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type Draft, type Field } from "../config/model.ts";
+import { buildFields, localOnlyAgentSources, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type Draft, type Field } from "../config/model.ts";
+import { normalizeList } from "../../models/model.ts";
+import { MODEL_CHOICES } from "../../setup/licences.ts";
+import { roleFields } from "../config/roles.ts";
 import "../../../styles/config.css";
 
-type Loaded = { config: unknown; revision: string; restart: Record<string, string | null> };
+type Loaded = { config: unknown; revision: string; restart: Record<string, string | null>; catalog?: unknown; licenceBlocked?: string[] };
 type Plan = { live?: string[]; core?: boolean; modules?: string[] };
 type Review = { changes: Change[]; plan: Plan | null; local: boolean };
 type Banner = { tone: "warn" | "info"; text: string; reload?: boolean };
@@ -41,20 +44,28 @@ async function loadConfig(section: SectionProps["section"], signal: AbortSignal)
       return [key, null];
     }
   }));
-  return { config, revision, restart: Object.fromEntries(classes) };
+  const catalog = section.id === "models" ? await api.rpc("models.list", undefined, { write: false, signal }).catch(() => null) : undefined;
+  const nc = new Set(MODEL_CHOICES.filter(m => m.nc).map(m => m.hf));
+  const licenceBlocked = (await Promise.all(normalizeList(catalog).models.filter(m => nc.has(m.id)).map(async m => {
+    try { await api.rpc("model.licence.check", { changes: [{ key: "modelRoles.embedding", value: m.id }] }, { write: false, signal }); return null; }
+    catch { return m.id; }
+  }))).filter((id): id is string => id !== null);
+  return { config, revision, restart: Object.fromEntries(classes), catalog, licenceBlocked };
 }
 
 export function ConfigSection({ section, focus }: SectionProps): View {
   const { state, reload } = useLoad((signal) => loadConfig(section, signal), [section.id]);
   const [saved, setSaved] = useState<Saved | null>(null);
   useEffect(() => { setSaved(null); }, [section.id]);
-  const title = t(section.label);
+  const title = section.id === "privacy" ? t("settings.privacy.sectionTitle") : t(section.label);
   let body: View;
   if (state.status === "loading") body = h(PageLoading, { label: t("state.loading") });
   else if (state.status === "fail") body = h(FailureState, { failure: state.failure, unavailable: t("settings.cfg.unavailable"), onRetry: reload });
   else body = h(Form, { key: state.data.revision, data: state.data, section, ...(focus === undefined ? {} : { focus }), saved, onSaved: (s: Saved) => { setSaved(s); reload(); }, reload });
   return h("section", { "data-section": section.id, "aria-labelledby": "cfg-title", class: "cfg" },
     h("h2", { id: "cfg-title", class: "cfg-title" }, title),
+    section.id === "privacy" ? h("p",{class:"cfg-help",role:"status",style:"overflow-wrap:anywhere"},t("settings.privacy.liveNotice")) : null,
+    section.id === "privacy" && state.status === "ok" && localOnlyAgentSources(state.data.config).length ? h(Notice,{},t("settings.privacy.sharedAgents",{agents:localOnlyAgentSources(state.data.config).join(", ")})) : null,
     saved ? h(SavedNotice, { saved }) : null,
     body);
 }
@@ -72,7 +83,7 @@ type FormProps = { data: Loaded; section: SectionProps["section"]; focus?: strin
 function Form({ data, section, focus, onSaved, reload }: FormProps): View {
   const role = currentRole();
   const canWrite = roleIn(role, ["owner", "admin"]);
-  const fields = useMemo(() => buildFields(data.config, section, data.restart), [data, section]);
+  const fields = useMemo(() => [...buildFields(data.config, section, data.restart).filter(f => section.id !== "models" || f.key !== "modelRoles"), ...(section.id === "models" ? roleFields(data.config, data.catalog, data.licenceBlocked) : [])], [data, section]);
   const [draft, setDraft] = useState<Draft>(() => initialDraft(fields));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [review, setReview] = useState<Review | null>(null);
@@ -87,7 +98,7 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
   const focused = focus !== undefined ? fields.find((f) => f.key === focus) : undefined;
   const [open, setOpen] = useState<Record<string, boolean>>(() => {
     const o: Record<string, boolean> = {};
-    groups.forEach(([g], i) => { o[g] = fields.length <= 12 || i === 0; });
+    groups.forEach(([g], i) => { o[g] = g === "modelRoles" || fields.length <= 12 || i === 0; });
     if (focused) o[groupOf(focused.key)] = true;
     return o;
   });

@@ -2,6 +2,8 @@
 
 Status: Accepted; image v0.1 and video v0.2 library/RPC/CLI implementation.
 Owner decisions: 2026-10-07. Protocol inventory refreshed: 2026-10-10.
+Amended 2026-10-19 (owner): no money dimension in the harness — no price table, no cost field in manifests, no cost
+estimate; media usage is counted in native units (images, video seconds). Cost statements below are historical.
 
 ## Decision
 

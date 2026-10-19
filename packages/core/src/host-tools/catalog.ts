@@ -1,17 +1,18 @@
+import { sysMemoryTool, sysStartupItemsTool, sysServicesTool, sysUpdatesTool, appsFocusTool, appsQuitTool } from './remaining.ts';
 import { appsListTool, appsOpenTool, appsRunningTool } from "./apps.ts";
 import { clipboardReadTool, clipboardWriteTool } from "./clipboard.ts";
 import { HostFailure } from "./errors.ts";
 import { notifyTool } from "./notify.ts";
-import { pkgDetectTool, pkgInfoTool, pkgInstallTool, pkgListTool, pkgRemoveTool, pkgSearchTool } from "./pkg.ts";
+import { pkgDetectTool, pkgInfoTool, pkgInstallTool, pkgUpgradeTool, pkgListTool, pkgRemoveTool, pkgSearchTool } from "./pkg.ts";
 import { procInfoTool, procKillTool, procListTool, procWaitTool } from "./proc.ts";
 import { sysBatteryTool, sysDisksTool, sysInfoTool, sysNetworkTool } from "./sys.ts";
 import type { HostContext, HostOutcome, HostTool } from "./types.ts";
 
 export const HOST_TOOLS: readonly HostTool[] = Object.freeze([
   procListTool, procInfoTool, procKillTool, procWaitTool,
-  sysInfoTool, sysDisksTool, sysNetworkTool, sysBatteryTool,
-  pkgDetectTool, pkgSearchTool, pkgListTool, pkgInfoTool, pkgInstallTool, pkgRemoveTool,
-  appsListTool, appsOpenTool, appsRunningTool,
+  sysInfoTool, sysDisksTool, sysNetworkTool, sysBatteryTool, sysMemoryTool, sysStartupItemsTool, sysServicesTool, sysUpdatesTool,
+  pkgDetectTool, pkgSearchTool, pkgListTool, pkgInfoTool, pkgInstallTool, pkgUpgradeTool, pkgRemoveTool,
+  appsListTool, appsOpenTool, appsRunningTool, appsFocusTool, appsQuitTool,
   clipboardReadTool, clipboardWriteTool,
   notifyTool,
 ]);
