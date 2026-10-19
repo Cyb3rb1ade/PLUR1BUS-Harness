@@ -4,6 +4,8 @@
 
 **Amended 2026-09-30 (D110):** OpenAI rows in §1, §2 and §4 updated for Sign in with ChatGPT (plan usage), workload identity, Realtime and GPT-Live (`docs/superpowers/specs/2026-09-30-openai-auth-design.md`). Every row is sourced. "unverified" is written explicitly rather than inventing a value; see §8 for the closing plan. All checks below are dated **2026-09-22** unless a row says otherwise.
 
+**Amended 2026-10-19:** the harness has no money dimension — it keeps no price table, records no cost and sets no cost limit; budgets count tokens, turns and time. Vendor prices quoted below are research background only.
+
 ---
 
 ## 1. Legend and conventions
