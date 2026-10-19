@@ -1,3 +1,4 @@
+import { EngineRoleTests } from "../../components/engine-role-tests.ts";
 // Memories & Dreams (`#/memories`, `#/memories/<cardId>`, `#/memories/dreams`, `#/memories/dreams/<runId>`, `#/memories/media`): the
 // tab and the selected card or run live in the URL. Live updates come from /events (job.run, memory.proposal) when that channel
 // exists; without it the page says so and "Refresh" does the work.
@@ -67,6 +68,7 @@ export function MemoriesPage({ sub }: PageProps): View {
   const refresh = h("button", { type: "button", class: "btn", onClick: () => { setTick((n) => n + 1); } }, t("memory.refresh"));
   return h(Page, { title: t("nav.memories"), width: "full", actions: refresh },
     h("p", { class: "m-muted m-live" }, on ? t("memory.live.on") : live === "connecting" || live === "off" ? t("memory.live.connecting") : t("memory.live.off")),
+    h(EngineRoleTests, {}),
     h(Tabs, {
       label: t("memory.views"), selected: route.tab,
       onSelect: (id) => { navigate(id === "dreams" ? "/memories/dreams" : id === "media" ? "/memories/media" : "/memories"); },

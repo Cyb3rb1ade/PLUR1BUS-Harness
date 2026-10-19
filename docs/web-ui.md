@@ -611,14 +611,17 @@ Each role has a de/en purpose text. Embedding identifiers here are role metadata
 The Test button on chat/LLM roles calls `models.test`: a fixed short prompt, 16 output tokens, ten-second deadline, no tools,
 no recalled memory, no session or transcript writes. It uses the configured adapter and production budget; cloud models
 make a cloud call. Provider output and raw provider errors are never displayed. RPC is human-only and forbidden to WebMCP.
-Embedding/reranking have no Test button until the engine ports are wired (Phase D).
+Models and Memory also offer Engine role tests through `admin.engine.test`: a minimal real embedding or rerank call,
+ten-second deadline, current Engine model, latency and embedding dimension, or a fixed error class (egress, key,
+download, provider or timeout). The human Owner/Admin scope is `settings.write`; provider text and key values are
+never returned. A cold model can require a download; remote roles can call their configured provider. Captioning
+has no Engine role contract and is explicitly reported as unsupported.
 
 The setup wizard now has nine standalone/eight bundled steps. Decision follows Main model, defaults to skip, and writes
 only an explicit choice with a revision check. Skipping keeps the existing role, if any. CLI setup offers catalog chat
 models with configured providers; unattended setup never assigns Decision. Doctor's `models.decision` reports last catalog
 availability; unknown is info, unavailable is fail, and no live paid probe is performed by Doctor.
 
-KNOWN GAP: #570's canonical local-only policy is not on this branch's main base; gating in selectors and the model probe
-must be connected after that merge. `composition/model-test.test.ts` has the corresponding todo. Engine-role probes have a
-second todo pending Phase D. The current role schema has no captioning role; captioning remains in its existing media
-settings. These limits are not presented as completed acceptance criteria.
+The Engine tests use the same host fetch, secret store and live egress/privacy checks as production calls. The current
+role schema has no captioning role; captioning remains in its existing media settings. Existing broader role-selector
+acceptance work is tracked separately; these buttons do not claim completion of the whole model-role package.

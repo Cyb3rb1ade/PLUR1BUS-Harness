@@ -70,3 +70,16 @@ test("NC config mutations preflight through authenticated core and refuse before
   const r=await rpcRoute(core,{jsonrpc:"2.0",id:1,method:"config.set",params:{changes:[{key:"modelRoles.rerank",value:"jinaai/jina-reranker-v2-base-multilingual"}]}},person);
   assert.equal((r.error as any).data.error,"E_DENIED");assert.deepEqual(calls,["model.licence.check"]);
 });
+
+test("engine role tests route explicit closed params and authenticated principal to core", async () => {
+  const calls: unknown[] = [];
+  const core: CoreRpc = { call: async () => { throw new Error("legacy"); }, callAs: async (method, params, principal) => { calls.push({ method, params, principal }); return { ok: true } as never; } };
+  assert.equal(webEndpoint("admin.engine.test"), "core");
+  const request = { jsonrpc: "2.0", id: 1, method: "admin.engine.test", params: { role: "embedder" } };
+  const admin = { ...person, role: "admin" } as const;
+  assert.ok("result" in await rpcRoute(core, request, admin));
+  assert.deepEqual(calls, [{ method: "admin.engine.test", params: { role: "embedder" }, principal: admin }]);
+  assert.ok("error" in await rpcRoute(core, { ...request, params: { role: "embedder", apiKey: "private" } }, admin));
+  assert.ok("error" in await rpcRoute(core, request, { ...person, tokenScopes: ["chat:read"] } as any));
+  assert.equal(calls.length, 1);
+});

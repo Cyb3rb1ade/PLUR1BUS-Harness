@@ -46,6 +46,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "chat.promote.commit": { ...rule("chat:write", system), humanOnly: true },
   "events.subscribe": rule("agent.list", system),
   "voice.session.create": { ...rule("agent.use", agent), humanOnly: true },
+  "admin.engine.test": { ...rule("settings.write", system), humanOnly: true },
   "models.test": { ...rule("settings.write", system), humanOnly: true },
   "budget.set": { ...rule("settings.write", system), humanOnly: true },
   "chat.create": rule("chat:write", system),

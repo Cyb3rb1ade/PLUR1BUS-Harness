@@ -1,3 +1,4 @@
+import { buildEngineTestSurface, createEngineTestDiagnostics } from "./rpc/engine-test-surface.ts";
 import { engineModelEndpoints } from "./composition/embedding-policy.ts";
 import { hermesClientAuth } from "./rpc/hermes-client-auth.ts";
 import { authorize } from "./rbac/authorize.ts";
@@ -475,7 +476,9 @@ export function createCore(o: CoreOptions): Core {
           server?.notify("engine.event", { name, ...(typeof agentId === "string" && AGENT_ID.test(agentId) ? { agentId } : {}), payload }, { optIn: true });
         }
       };
+      const engineTestDiagnostics = createEngineTestDiagnostics();
       const host = createHarnessHost({
+        onPortFailure: engineTestDiagnostics.observe,
         layout: l, logger, config, engineConfig, agents: executionRegistry, events, clock, egress, secrets: secretStore,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
         mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
@@ -864,6 +867,7 @@ export function createCore(o: CoreOptions): Core {
         ...buildIdentitySurface(() => identity),
         ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, signal: shutdown.signal, revoked: userId => server?.notify("api.account.changed", {userId}, {audience:apiIdentity.services().map(connectionId=>({connectionId}))}), personVersion: id => { const p=people.person(id); return p && !p.disabled ? p.version : null; }, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,
+        ...buildEngineTestSurface({ embedding: eng.embedding, config: () => engineConfig, diagnostics: engineTestDiagnostics }),
         ...buildLicenceSurface(licenceLedger,cfg),
         ...buildEmbeddingSelectionSurface({ ledger:licenceLedger, currentModel:() => String((engineConfig.embedding as any).local.model), migration, port:reembedEnginePort, audit:rbacAudit, clock }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, breakglass, ownership, personOf }),

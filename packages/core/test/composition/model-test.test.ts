@@ -33,7 +33,6 @@ test('provider error text never leaves the probe boundary', async () => {
   await assert.rejects(() => testModel('p/m', { p: [{ provider: 'p', model: 'm', adapter: s.adapter }] }, () => ({ id: 'fake', async *stream() { throw new Error('private-provider-response'); } }), TURN_PRINCIPAL, 'a1', new AbortController().signal), (e: unknown) => e instanceof RpcError && e.reason === 'model-test-failed' && !e.message.includes('private-provider-response'));
 });
 test.todo('KNOWN GAP: after #570 merges, role choices and probes enforce the canonical local-only policy');
-test.todo('KNOWN GAP: engine embedding/reranker role probes require the Phase D host ports');
 test('probe RPC is human-only, scope-limited and absent from WebMCP', async () => {
   const { guardMethods, LOCAL_OWNER } = await import('../../src/rbac/guard.ts');
   const { isForbiddenMethod } = await import('../../../webmcp/src/provider.ts');

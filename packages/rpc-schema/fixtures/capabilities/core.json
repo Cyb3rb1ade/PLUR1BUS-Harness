@@ -612,6 +612,10 @@
       "stability": "stable",
       "since": "1.0.0"
     },
+    "admin.engine.test": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "models.test": {
       "stability": "experimental",
       "since": "1.6.0"

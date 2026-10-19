@@ -11014,6 +11014,83 @@ Returns every installed extension and subscribes this connection to ext.changed.
 }
 ```
 
+### `admin.engine.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin test of the active engine embedder or reranker through engine ports. Fixed small inputs, ten second deadline, no memory or session writes. May contact the configured provider or download local model artifacts under the host policy. Captioner is unsupported: this engine has no captioner role. Returns only safe failure classifications; never provider error messages or credentials.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "embedder",
+        "reranker",
+        "captioner"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "ok",
+    "durationMs"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "embedder",
+        "reranker",
+        "captioner"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "dimensions": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "errorClass": {
+      "enum": [
+        "egress",
+        "key",
+        "download",
+        "provider",
+        "timeout",
+        "unsupported"
+      ]
+    }
+  }
+}
+```
+
 ### `models.test`
 
 **Stability:** experimental · since 1.6.0
