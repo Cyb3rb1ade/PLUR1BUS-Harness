@@ -80,6 +80,11 @@ it("a failed startup snapshot is retried by a later read once the rate-limit win
   assert.equal(runs, 2);
   assert.equal(report.groups[0].id, "provisioning");
 });
+it("reports the absent skill-artifact queue without claiming that mining is enabled", async () => {
+  const methods = guardMethods(buildDoctorMethods({ home: "/fixture", clock: () => 1000, check: async () => ({ schema: "1staid.check/1", checks: [] }), miningStatus: () => ({ available: false }) }), viewer(() => 1000));
+  const report = await methods["doctor.report"]!({}, ctxOf()) as { groups: { checks: { id: string; status: string; summary: string }[] }[] };
+  const check = report.groups[0]!.checks.find(c => c.id === "skills.mining"); assert.equal(check?.status, "skipped"); assert.match(check!.summary, /no skill-artifact proposal API/);
+});
 
 it("lists composition problems (a refused turn provider) as failing checks next to the provisioning checks", async () => {
   const methods = guardMethods(buildDoctorMethods({ home: "/fixture", clock: () => 1000, check: async () => ({ schema: "1staid.check/1", checks: [{ id: "models.cache", status: "ok", summary: "fine" }] }),

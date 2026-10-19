@@ -7,6 +7,7 @@ import { META, type Kind } from "./meta.ts";
 
 export type Field = {
   key: string; kind: Kind; /** value in the running config, undefined when unset */ value: unknown; def: unknown;
+  choices?: readonly { value: string; label: string; disabled?: "unavailable" | "licenceRequired" }[];
   options?: readonly string[]; min?: number; max?: number;
   /** from config.get for this key: "live", "core", "module:<name>", or null when unknown */ restartClass: string | null;
   /** true when the widget cannot edit it safely: shown as formatted JSON */ readOnly: boolean;
@@ -95,7 +96,8 @@ export function parseDraft(f: Field, raw: string | boolean): Parsed {
     return null;
   };
   switch (f.kind) {
-    case "enum": return f.options && !f.options.includes(text) ? { ok: false, error: "settings.err.enum" } : { ok: true, value: text };
+    case "enum": if (f.choices?.some(c => c.value === text && c.disabled)) return { ok: false, error: "settings.err.enum" };
+      return f.options && !f.options.includes(text) ? { ok: false, error: "settings.err.enum" } : { ok: true, value: text };
     case "string": return { ok: true, value: text };
     case "int": case "number": {
       const s = text.trim();

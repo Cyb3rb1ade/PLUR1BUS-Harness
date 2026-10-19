@@ -27,6 +27,7 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from ._client import pmc
+from .existing import bound_client, client_token_path
 from .binding import (
     Binding,
     BindingConflict,
@@ -117,7 +118,7 @@ def status_doc(hermes_home: str, client_factory: ClientFactory | None = None) ->
     else:
         client = None
         try:
-            client = (client_factory or _factory)(b.home)
+            client = (client_factory(b.home) if client_factory else bound_client(hermes_home, b.home))
             hello = client.connect(deadline_s=CALL_DEADLINE_S)
             st = client.status(deadline_s=CALL_DEADLINE_S)
             core.update(
@@ -181,7 +182,7 @@ def selftest_doc(hermes_home: str, client_factory: ClientFactory | None = None) 
         return {"schema": SELFTEST_SCHEMA, "ok": False, "checks": checks}
     add("binding", True, f"agent {b.agent_id}")
     try:
-        client = (client_factory or _factory)(b.home)
+        client = (client_factory(b.home) if client_factory else bound_client(hermes_home, b.home))
     except Exception as e:  # noqa: BLE001 - e.g. a binding home that is not absolute on this platform
         add("connect", False, _code(e))
         for check_id in ("core.status", "agent.status", "memory.recall"):
@@ -316,6 +317,7 @@ def bind(
     bin: str | None = None,
     version: str | None = None,
     installed_by: str | None = None,
+    existing_harness: bool = False,
     runner: Callable[..., Any] = subprocess.run,
 ) -> dict[str, Any]:
     """Derive the agent id, ``<bin> --home <home> --json agent create <id>`` (already exists is fine),
@@ -338,6 +340,26 @@ def bind(
         agent_id = agent_id_for(hermes_home)
     except HomeUnresolvable as e:
         doc["error"] = {"code": "E_BINDING_WRITE", "message": str(e)}
+        return doc
+    if client_token_path(hermes_home, home) is not None:
+        existing_harness = True
+    if existing_harness:
+        client = None
+        try:
+            check_binding(home, agent_id, hermes_home)
+            client = bound_client(hermes_home, home)
+            if client.token_path is None:
+                raise ValueError("approve a separate Hermes client token first")
+            client.connect(deadline_s=CALL_DEADLINE_S)
+            client.agent_status(agent_id, deadline_s=CALL_DEADLINE_S)
+            register_binding(home, agent_id, hermes_home)
+            write_binding(hermes_home, (existing or Binding(home=home, agent_id=agent_id)).with_(home=home, agent_id=agent_id))
+            doc.update(ok=True, home=home, agentId=agent_id, created=False)
+        except Exception as e:  # noqa: BLE001 - report codes without credential values
+            doc["error"] = {"code": _code(e), "message": "existing harness binding refused; approve its agent and scoped token first"}
+        finally:
+            if client is not None:
+                client.close()
         return doc
     exe = bin or (existing.bin if existing else None)
     if exe is None:
@@ -453,6 +475,7 @@ def register_cli(subparser: argparse.ArgumentParser) -> None:
             help=argparse.SUPPRESS,
         )
         if name == "bind":
+            p.add_argument("--existing", action="store_true", help="bind to an approved running harness; never create an agent or start a daemon")
             p.add_argument(
                 "--home",
                 dest="plur1bus_home",
@@ -489,6 +512,7 @@ def plur1bus_command(
         text, rc = _selftest_text, (0 if doc["ok"] else 1)
     elif action == "bind":
         kw: dict[str, Any] = {
+            "existing_harness": bool(getattr(args, "existing", False)),
             "home": getattr(args, "plur1bus_home", None),
             "bin": getattr(args, "plur1bus_bin", None),
         }

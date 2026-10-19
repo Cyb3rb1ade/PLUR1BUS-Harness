@@ -85,6 +85,10 @@ pub fn start_with_core(
         .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
         .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", scale)
         .env("PLUR1BUS_CORE_JS", &fixture)
+        .env(
+            "PLUR1BUS_API_JS",
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-api.mjs"),
+        )
         .env("PLUR1BUS_NODE", "node")
         .env_remove("PLUR1BUS_TEST_INTERNALS")
         .env("FAKE_CORE_EVENTS", events)

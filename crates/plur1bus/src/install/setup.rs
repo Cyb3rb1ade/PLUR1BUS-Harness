@@ -22,7 +22,7 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub const STEP_IDS: [&str; 9] = [
     "state-root",
@@ -52,6 +52,10 @@ pub const PROMPTS: &[(&str, &str)] = &[
     (
         "memory.mediaEmbedding",
         "Memory & media search: embedding models for text and media",
+    ),
+    (
+        "privacy.localOnly",
+        "Only local models, so no model call leaves this machine (yes or no)",
     ),
 ];
 
@@ -285,16 +289,22 @@ pub fn run_steps(
             continue;
         }
         maybe_pause(layout, id);
-        let r = match id {
-            "state-root" => step_state_root(layout, o, &mut ctx),
-            "runtime.node" => step_node(layout, &mut ctx),
-            "runtime.core" => step_core(layout, o, &mut ctx),
-            "modules.bundled" => step_modules(out, layout, &mut ctx),
-            "config" => step_config(out, layout, o, ctx.profile, ask),
-            "skills" => step_skills(layout, &mut ctx),
-            "service" => step_service(out, layout, o),
-            "start" => step_start(out, layout, &mut ctx),
-            _ => step_check(layout),
+        let r = if test_internals()
+            && std::env::var("PLUR1BUS_TEST_HM4_FAIL_AT").as_deref() == Ok(id)
+        {
+            Err(StepError::new("io", "injected profile upgrade failure"))
+        } else {
+            match id {
+                "state-root" => step_state_root(layout, o, &mut ctx),
+                "runtime.node" => step_node(layout, &mut ctx),
+                "runtime.core" => step_core(layout, o, &mut ctx),
+                "modules.bundled" => step_modules(out, layout, &mut ctx),
+                "config" => step_config(out, layout, o, ctx.profile, ask),
+                "skills" => step_skills(layout, &mut ctx),
+                "service" => step_service(out, layout, o),
+                "start" => step_start(out, layout, &mut ctx),
+                _ => step_check(layout),
+            }
         };
         results.push(r.unwrap_or_else(|e| StepResult::failed(id, e)));
     }
@@ -353,7 +363,7 @@ fn now_ms() -> u64 {
 
 /// The profile a run installs (HM2-R9): the requested one, else the recorded one (`full` when the manifest has none),
 /// else `full` for a new home. A request that differs from the recorded profile fails with
-/// `profile-change-unsupported` (HB16 vocabulary): until HM4 an installation cannot change profile in place.
+/// `profile-change-unsupported` for downgrades; host → full is run inside the HM4 transaction.
 pub fn effective_profile(
     requested: Option<&str>,
     recorded: Option<&InstallManifest>,
@@ -380,6 +390,7 @@ pub fn effective_profile(
     match requested {
         None => Ok(recorded),
         Some(r) if r == recorded => Ok(recorded),
+        Some(PROFILE_FULL) if recorded == PROFILE_HOST => Ok(PROFILE_FULL),
         Some(r) => {
             let e = StepError::new(
                 "profile-change-unsupported",
@@ -836,6 +847,13 @@ pub struct ConfigAnswers {
     pub agent: Option<String>,
     pub use_class: String,
     pub accept_nc: bool,
+    /// `privacy.localOnly` answered "yes". Setup only ever switches it on; "no" leaves the configuration as it is
+    /// (a re-run never relaxes an installation that is local-only; `config set privacy.localOnly false` does).
+    pub local_only: bool,
+}
+
+fn valid_yes_no(a: &str) -> bool {
+    matches!(a.to_ascii_lowercase().as_str(), "yes" | "y" | "no" | "n")
 }
 
 fn valid_agent_id(id: &str) -> bool {
@@ -869,6 +887,7 @@ pub fn answer_config(
             .unwrap_or(DEFAULT_USE_CLASS)
             .to_string()
     });
+    let mut local_only = "no".to_string();
     if !o.non_interactive {
         for (key, question) in PROMPTS {
             if (host && *key == "agents")
@@ -879,6 +898,7 @@ pub fn answer_config(
             let (slot, valid): (&mut String, fn(&str) -> bool) = match *key {
                 "agents" => (&mut agent, valid_agent_id),
                 "embedding.useClass" => (&mut use_class, |v| USE_CLASSES.contains(&v)),
+                "privacy.localOnly" => (&mut local_only, valid_yes_no),
                 other => unreachable!("no answer slot for {other}"),
             };
             let default = slot.clone();
@@ -905,10 +925,12 @@ pub fn answer_config(
         ));
     }
     let accept_nc = use_class != "commercial" && o.accept_nc;
+    let local_only = matches!(local_only.to_ascii_lowercase().as_str(), "yes" | "y");
     Ok(ConfigAnswers {
         agent,
         use_class,
         accept_nc,
+        local_only,
     })
 }
 
@@ -962,6 +984,9 @@ fn config_changes(config: &Value, a: &ConfigAnswers, now: &str) -> Vec<(String, 
         changes.push(("embedding.acceptedNcLicence".to_string(), json!(true)));
         changes.push(("embedding.acceptedNcLicenceAt".to_string(), json!(now)));
     }
+    if a.local_only && config["privacy"]["localOnly"] != json!(true) {
+        changes.push(("privacy.localOnly".to_string(), json!(true)));
+    }
     changes
 }
 
@@ -1005,6 +1030,9 @@ fn step_config(
         changes.extend(media_changes(&config, &m));
         Some(m)
     };
+    if let Some(model) = answer_decision(o.non_interactive, &config, layout, ask) {
+        changes.push(("modelRoles.decision".to_string(), json!(model)));
+    }
     let accepted = changes
         .iter()
         .any(|(k, _)| k == "embedding.acceptedNcLicence");
@@ -1035,7 +1063,7 @@ fn step_config(
             "acceptedNcLicence": answers.accept_nc || config["embedding"]["acceptedNcLicence"] == json!(true),
             "changed": keys,
             "supervised": supervised,
-            "decisionRole": decision_role_note(&config),
+            "decisionRole": decision_role_note(&plur1bus_config::read(&layout.config_path()).unwrap_or_else(|_| config.clone())),
             "media": media.as_ref().map_or_else(
                 || json!({ "skipped": "profile-host" }),
                 MediaAnswers::detail,
@@ -1044,7 +1072,57 @@ fn step_config(
     ))
 }
 
-/// Setup asks no model question, so a home without `modelRoles.decision` finishes setup with message triage on the
+/// Only catalog chat models with a configured provider are offered; default is always skip.
+fn answer_decision(
+    non_interactive: bool,
+    config: &Value,
+    layout: &Layout,
+    ask: &mut dyn Prompter,
+) -> Option<String> {
+    if non_interactive {
+        return None;
+    }
+    let catalog: Value = fs::read_to_string(layout.catalog_models())
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or(Value::Null);
+    let choices: Vec<String> = catalog["models"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|m| {
+            let provider = m["provider"].as_str()?;
+            let id = m["id"].as_str()?;
+            let kind = m["kind"].as_str()?;
+            if !matches!(kind, "chat" | "unknown")
+                || !matches!(m["status"].as_str(), Some("available" | "manual"))
+                || config["providers"].get(provider).is_none()
+            {
+                return None;
+            }
+            Some(format!("{provider}/{id}"))
+        })
+        .collect();
+    if choices.is_empty() {
+        return None;
+    }
+    let question = format!(
+        "Optional Decision model: {}. Empty = skip; rule triage remains active",
+        choices.join(", ")
+    );
+    loop {
+        let answer = ask.ask("modelRoles.decision", &question, "");
+        if answer.is_empty() {
+            return None;
+        }
+        if choices.contains(&answer) {
+            return Some(answer);
+        }
+        eprintln!("Choose a listed configured model or leave empty to skip");
+    }
+}
+
+/// Skipping the optional Decision step leaves a home without `modelRoles.decision` on the
 /// built-in rules. `{ set, limited, hint }` tells the person (and `setup/1` readers) which features are limited and how
 /// to set the role later; `limited` is empty once the role is set.
 fn decision_role_note(config: &Value) -> Value {
@@ -1489,7 +1567,36 @@ fn step_service(out: &Out, layout: &Layout, o: &SetupOpts) -> Result<StepResult,
 /// `daemon start` (it prints and exits on failure). Once the core is ready, reads its contract and RPC versions for
 /// the manifest and drops `runtime/core.prev`.
 fn step_start(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, StepError> {
-    let (started, via, status) = crate::commands::daemon::start(out, layout, false);
+    let (started, via, mut status) = crate::commands::daemon::start(out, layout, false);
+    // Setup is complete only when the bundled HTTP child is usable too. Retain core.prev on failure.
+    let reset_api = status["children"]
+        .as_array()
+        .and_then(|children| children.iter().find(|c| c["role"] == "api"))
+        .map(|c| c["process"].clone());
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let api = status["children"]
+            .as_array()
+            .and_then(|children| children.iter().find(|c| c["role"] == "api"));
+        if api.is_some_and(|c| c["process"]["state"] == "ready") {
+            break;
+        }
+        if api.is_some_and(|c| {
+            c["process"]["state"] == "crashed"
+                && c["nextRestartAt"].is_null()
+                && Some(&c["process"]) != reset_api.as_ref()
+        }) || Instant::now() >= deadline
+        {
+            return Err(
+                StepError::new("api-not-ready", "the supervised API did not become ready")
+                    .hint("Check logs/api.out.log and the bundled runtime/core/api.js"),
+            );
+        }
+        std::thread::sleep(Duration::from_millis(20));
+        if let Some(next) = crate::commands::daemon::probe_status(layout) {
+            status = next;
+        }
+    }
     let state = crate::commands::daemon::core_child(&status)
         .map(|c| c["process"]["state"].clone())
         .unwrap_or(Value::Null);
@@ -1504,7 +1611,7 @@ fn step_start(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, S
     let _ = fs::remove_dir_all(layout.runtime().join("core.prev"));
     Ok(StepResult::done(
         "start",
-        json!({ "started": started, "via": via, "core": state }),
+        json!({ "started": started, "via": via, "core": state, "api": "ready" }),
     ))
 }
 
@@ -1660,6 +1767,39 @@ mod tests {
     }
 
     #[test]
+    fn decision_selection_is_explicit_configured_and_never_asked_unattended() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().join("h"));
+        fs::create_dir_all(layout.catalog_models().parent().unwrap()).unwrap();
+        fs::write(
+            layout.catalog_models(),
+            json!({ "models": [
+            { "provider": "p", "id": "small", "kind": "chat", "status": "available" },
+            { "provider": "p", "id": "dead", "kind": "chat", "status": "unavailable" },
+            { "provider": "other", "id": "unconfigured", "kind": "chat", "status": "available" }
+        ] })
+            .to_string(),
+        )
+        .unwrap();
+        let config = json!({ "providers": { "p": {} } });
+        let mut skipped = scripted(vec![], false);
+        assert_eq!(answer_decision(false, &config, &layout, &mut skipped), None);
+        assert_eq!(skipped.asked.len(), 1);
+        let mut selected = scripted(vec!["p/dead", "p/small"], false);
+        assert_eq!(
+            answer_decision(false, &config, &layout, &mut selected),
+            Some("p/small".into())
+        );
+        assert_eq!(selected.asked.len(), 2);
+        let mut unattended = scripted(vec!["p/small"], false);
+        assert_eq!(
+            answer_decision(true, &config, &layout, &mut unattended),
+            None
+        );
+        assert!(unattended.asked.is_empty());
+    }
+
+    #[test]
     fn setup_asks_only_basic_tier_questions() {
         let schema: Value = serde_json::from_str(plur1bus_config::SCHEMA_JSON).unwrap();
         let mut keys = basic_tier_keys(&schema);
@@ -1683,7 +1823,8 @@ mod tests {
             ConfigAnswers {
                 agent: Some("bernd".into()),
                 use_class: "commercial".into(),
-                accept_nc: false
+                accept_nc: false,
+                local_only: false
             }
         );
     }
@@ -1692,7 +1833,7 @@ mod tests {
     fn no_nc_question_is_asked_for_the_permissive_defaults_and_invalid_answers_are_asked_again() {
         let mut p = scripted(vec!["Not An Id", "anna", "sometimes", "research"], true);
         let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
-        assert_eq!(p.asked.len(), 4);
+        assert_eq!(p.asked.len(), 5);
         assert!(
             p.confirms.is_empty(),
             "EmbeddingGemma 2 is Apache-2.0: no licence question for the default (ADR-006 amendment 2026-10-08)"
@@ -1758,11 +1899,34 @@ mod tests {
     }
 
     #[test]
+    fn local_only_is_switched_on_by_yes_asked_again_on_nonsense_and_never_switched_off() {
+        let mut p = scripted(vec!["anna", "general", "maybe", "Yes"], true);
+        let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
+        assert_eq!(p.asked.len(), 4, "an invalid yes/no answer is asked again");
+        assert!(a.local_only);
+        let keys = |c: Vec<(String, Value)>| c.into_iter().map(|(k, _)| k).collect::<Vec<_>>();
+        assert!(
+            keys(config_changes(&Value::Null, &a, "x")).contains(&"privacy.localOnly".to_string())
+        );
+        let local = json!({ "agents": { "anna": {} }, "embedding": { "useClass": "general" }, "privacy": { "localOnly": true } });
+        assert!(config_changes(&local, &a, "x").is_empty());
+        // The default ("no") and --non-interactive leave an installation that is local-only as it is.
+        let mut p = scripted(vec!["anna", "general"], true);
+        let no = answer_config(&opts(false), "full", None, &mut p).unwrap();
+        assert!(!no.local_only);
+        assert!(config_changes(&local, &no, "x").is_empty());
+        let unattended =
+            answer_config(&opts(true), "full", None, &mut scripted(vec![], true)).unwrap();
+        assert!(!unattended.local_only);
+    }
+
+    #[test]
     fn config_changes_add_only_what_is_missing_and_never_revoke() {
         let a = ConfigAnswers {
             agent: Some("main".into()),
             use_class: "general".into(),
             accept_nc: true,
+            local_only: false,
         };
         let keys = |c: Vec<(String, Value)>| c.into_iter().map(|(k, _)| k).collect::<Vec<_>>();
         assert_eq!(
@@ -1838,7 +2002,7 @@ mod tests {
             (Some("full"), Some(&full), Ok("full")),
             (None, Some(&legacy), Ok("full")),
             (Some("full"), Some(&legacy), Ok("full")),
-            (Some("full"), Some(&host), Err("profile-change-unsupported")),
+            (Some("full"), Some(&host), Ok("full")),
             (Some("host"), Some(&full), Err("profile-change-unsupported")),
             (
                 Some("host"),
@@ -1855,11 +2019,6 @@ mod tests {
                 recorded.map(|m| &m.profile)
             );
         }
-        let e = effective_profile(Some("full"), Some(&host)).unwrap_err();
-        assert_eq!(
-            e.hint.as_deref(),
-            Some("host \u{2192} full arrives with HM4")
-        );
     }
 
     #[test]
@@ -1867,7 +2026,7 @@ mod tests {
         let mut p = scripted(vec!["commercial"], true);
         let a = answer_config(&opts(false), "host", None, &mut p).unwrap();
         let asked: Vec<&str> = p.asked.iter().map(|(k, _)| k.as_str()).collect();
-        assert_eq!(asked, ["embedding.useClass"]);
+        assert_eq!(asked, ["embedding.useClass", "privacy.localOnly"]);
         assert_eq!((a.agent, a.use_class.as_str()), (None, "commercial"));
         let mut o = opts(true);
         o.agent = Some("hermes-default".into());

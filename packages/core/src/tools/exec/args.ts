@@ -10,7 +10,7 @@ const MAX_TOTAL_BYTES = 256 * 1024;
 // RULING: shell interpreters are never started (they would turn the argument array back into a command string),
 // and privilege escalators belong to `os.privilege`, which this tool does not serve. Fail closed, in every tier.
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ash", "ksh", "csh", "tcsh", "fish", "cmd", "powershell", "pwsh", "wsl", "busybox"]);
-const PRIVILEGED = new Set(["sudo", "doas", "pkexec", "su", "runas", "gsudo"]);
+const PRIVILEGED = new Set(["sudo", "doas", "pkexec", "su", "runas", "gsudo", "expect", "sshpass"]);
 const WIN_SCRIPT = /\.(bat|cmd)$/i;
 
 /** Windows drops trailing dots and spaces from a file name, so `bash.exe.` starts bash.exe and `x.bat.` is x.bat. */

@@ -131,16 +131,17 @@ fn firstaid_check_includes_models_roles_at_end() {
     );
 
     let checks = doc["checks"].as_array().unwrap();
-    // `remote.exposure` and `models.decision` are appended after it (check ids are append-only).
-    let last = &checks[checks.len() - 4];
+    // `remote.exposure`, `models.decision`, `privacy.local-only` and `api.supervised` are appended after it (check ids are append-only).
+    let last = &checks[checks.len() - 5];
     assert_eq!(last["id"], "dreams.last-runs");
     assert_eq!(last["status"], "skip");
-    assert_eq!(checks[checks.len() - 3]["id"], "remote.exposure");
+    assert_eq!(checks[checks.len() - 4]["id"], "remote.exposure");
     // No decision role on a fresh home: an info row, not a warning, naming the way to set it.
     let decision = checks
         .iter()
         .find(|c| c["id"] == "models.decision")
         .unwrap();
+    assert_eq!(checks.last().unwrap()["id"], "api.supervised");
     assert_eq!(decision["id"], "models.decision");
     assert_eq!(decision["status"], "info", "{decision}");
     assert_eq!(
@@ -164,6 +165,15 @@ fn firstaid_check_reports_the_decision_role_as_ok_once_it_is_set() {
     )
     .unwrap();
 
+    fs::create_dir_all(home.join("catalog")).unwrap();
+    fs::write(
+        home.join("catalog/models.json"),
+        json!({ "models": [
+        { "provider": "p", "id": "small", "aliases": [], "status": "available" }
+    ] })
+        .to_string(),
+    )
+    .unwrap();
     let mut cmd = bin();
     cmd.arg("--home")
         .arg(&home)

@@ -1,6 +1,6 @@
 // Shared helpers for the composition tests (new file, composition tests only).
 import { afterEach } from "node:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PipelineRecord } from "../../src/composition/trace.ts";
@@ -23,7 +23,7 @@ export function useTempDirs(prefix = "p1b-composition-") {
   afterEach(() => {
     for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
-  return { make(): string { const dir = mkdtempSync(join(tmpdir(), prefix)); made.push(dir); return dir; } };
+  return { make(): string { const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix))); made.push(dir); return dir; } };
 }
 
 export function recordingLog() {

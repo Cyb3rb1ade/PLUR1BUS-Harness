@@ -33,6 +33,75 @@ pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
             serde_json::json!({ "reason": "foreign-host-store-path" }),
         );
     }
+    if args.dry_run {
+        match crate::install::profile_upgrade::plan(layout, args.profile.as_deref()) {
+            Ok(plan) => {
+                out.ok("setup.plan/1", &plan, || plan.to_string());
+                crate::output::exit(0);
+            }
+            Err(e) => out.fail("E_CONFIG_INVALID", &e, json!({ "reason": "profile-plan" })),
+        }
+    }
+    let binary = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("plur1bus"));
+    let host = crate::update::host::SystemHost::new(binary.clone());
+    if args.recover_profile {
+        match crate::install::profile_upgrade::recover(layout, &host, &binary) {
+            Ok(()) => {
+                out.ok("setup.recovery/1", &json!({ "recovered": true }), || {
+                    "profile restored".into()
+                });
+                crate::output::exit(0);
+            }
+            Err(e) => out.fail(
+                "E_CONFIG_INVALID",
+                &e,
+                json!({ "reason": "profile-recovery" }),
+            ),
+        }
+    }
+    match crate::install::profile_upgrade::requested(layout, args.profile.as_deref()) {
+        Ok(true) if !crate::install::profile_upgrade::child_authorized(layout) => {
+            let result =
+                crate::install::profile_upgrade::transaction(layout, &host, &binary, || {
+                    let mut child_args: Vec<_> = std::env::args_os().skip(1).collect();
+                    if !args.no_service {
+                        child_args.push("--no-service".into());
+                    }
+                    let output = std::process::Command::new(&binary)
+                        .args(child_args)
+                        .env("PLUR1BUS_HM4_PARENT", std::process::id().to_string())
+                        .stdin(std::process::Stdio::null())
+                        .output()
+                        .map_err(|e| e.to_string())?;
+                    if output.status.success() {
+                        Ok(())
+                    } else {
+                        Err(format!(
+                            "setup child failed ({}): {}",
+                            output.status,
+                            String::from_utf8_lossy(&output.stdout)
+                        ))
+                    }
+                });
+            match result {
+                Ok(()) => {
+                    out.ok(
+                        "setup.upgrade/1",
+                        &json!({ "upgraded": true, "profile": "full", "store": "reused-in-place" }),
+                        || "upgraded host → full; existing store retained".into(),
+                    );
+                    crate::output::exit(0);
+                }
+                Err(e) => out.fail(
+                    "E_CONFIG_INVALID",
+                    &e,
+                    json!({ "reason": "profile-upgrade" }),
+                ),
+            }
+        }
+        Err(_) => {} // run_steps keeps the established state-root failure document
+        _ => {}
+    }
     let opts = SetupOpts {
         non_interactive: args.non_interactive,
         accept_nc: args.accept_nc_licence,

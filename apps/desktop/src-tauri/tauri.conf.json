@@ -40,7 +40,12 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/icon.ico",
+      "packaging-assets/hicolor/16x16/apps/app.plur1bus.desktop.png",
+      "packaging-assets/hicolor/24x24/apps/app.plur1bus.desktop.png",
+      "packaging-assets/hicolor/48x48/apps/app.plur1bus.desktop.png",
+      "packaging-assets/hicolor/64x64/apps/app.plur1bus.desktop.png",
+      "packaging-assets/hicolor/512x512/apps/app.plur1bus.desktop.png"
     ],
     "windows": {
       "nsis": {

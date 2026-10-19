@@ -131,8 +131,13 @@ an explicit backup/migration orchestrator and cannot be made safe by an image-on
 
 ## Publication and verification
 
-`.github/workflows/containers.yml` is independent of the existing workflow. PRs build OCI
-archives; only pushes to main or version tags push to GHCR. Actions use commit SHA pins;
+`.github/workflows/containers.yml` is independent of the existing workflow. PRs build an
+OCI archive for linux/amd64 only; pushes to main, version tags and manual runs also build
+linux/arm64. Each architecture builds natively on its own runner (`ubuntu-24.04-arm` for
+arm64), without QEMU emulation. Only pushes to main or version tags push to GHCR: each
+architecture is pushed by digest with its own SBOM and provenance, then `imagetools create`
+joins them into one multi-arch index under the `sha-` and ref tags. The job fails if that
+index lacks a platform or the attestation manifests. Actions use commit SHA pins;
 publication has package-write permission only in its job. Builds include SBOM and maximum
 provenance. Trivy's JSON report is informational and uploaded as an artifact. New packages
 are private; release publication may switch visibility to public. Registry visibility is
