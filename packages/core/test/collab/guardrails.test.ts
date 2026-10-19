@@ -8,7 +8,7 @@ import type { GuardrailInput } from "../../src/collab/guardrails.ts";
 function base(over: Partial<GuardrailInput> = {}): GuardrailInput {
   return {
     settings: DEFAULT_COLLAB_SETTINGS, fromAgent: "a", toAgent: "b", path: ["a"], fanout: 0, pairCount: 0,
-    now: 1000, chainStartedAt: 0, lastRepeatAt: null, sameProject: true, tokensUsed: 0, nextTokens: 1, costUsed: 0, nextCost: 0,
+    now: 1000, chainStartedAt: 0, lastRepeatAt: null, sameProject: true, tokensUsed: 0, nextTokens: 1,
     ...over,
   };
 }
@@ -24,7 +24,6 @@ describe("guardrails (pure)", () => {
     assert.equal(evaluateGuardrails(base({ lastRepeatAt: 990, now: 1000 })), "repeat");
     assert.equal(evaluateGuardrails(base({ sameProject: false })), "project-boundary");
     assert.equal(evaluateGuardrails(base({ settings: { ...DEFAULT_COLLAB_SETTINGS, tokenBudget: 1 }, tokensUsed: 1, nextTokens: 1 })), "token-budget");
-    assert.equal(evaluateGuardrails(base({ settings: { ...DEFAULT_COLLAB_SETTINGS, costBudget: 1 }, costUsed: 1, nextCost: 1 })), "cost-budget");
     assert.equal(evaluateGuardrails(base()), null);
   });
 });

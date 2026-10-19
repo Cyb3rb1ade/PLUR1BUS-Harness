@@ -146,8 +146,8 @@ test("usage maths: invalid rates and negative or non-finite numbers never reach 
   for (const rate of [0, -1, Number.NaN]) assert.equal(pcm16Seconds(32000, rate), 0);
   assert.equal(pcm16Seconds(-10, 16000), 0);
   assert.equal(pcm16Seconds(32000, 16000), 1);
-  const u = toVoiceUsage({ provider: "p", operation: "asr", seconds: -5, inputTokens: Number.NaN, outputTokens: Number.POSITIVE_INFINITY }, -3);
-  assert.deepEqual(u, { seconds: 0, costMicros: 0, inputTokens: 0, outputTokens: 0 });
+  const u = toVoiceUsage({ provider: "p", operation: "asr", seconds: -5, inputTokens: Number.NaN, outputTokens: Number.POSITIVE_INFINITY });
+  assert.deepEqual(u, { seconds: 0, inputTokens: 0, outputTokens: 0 });
 });
 
 test("grok: negative token counts in a usage frame are dropped, not reported", async () => {

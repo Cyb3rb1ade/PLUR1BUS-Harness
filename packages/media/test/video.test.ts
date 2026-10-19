@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { HttpImageAdapter, OutputStore, JobRunner, FileJobPersistence, estimateCost, MediaError } from '../src/index.ts';
+import { HttpImageAdapter, OutputStore, JobRunner, FileJobPersistence, requestedUnits, deliveredUnits, MediaError } from '../src/index.ts';
 import { videoFormat, type VideoProcessor } from '../src/video.ts';
 import { fakeServer, makeLeakyPng, SECRET_GPS } from './adapters-fixtures.ts';
 const mp4 = Buffer.concat([Buffer.from([0,0,0,24]), Buffer.from('ftypisom'), Buffer.alloc(40)]);
@@ -16,8 +16,7 @@ test('video magic bytes and seconds cost, unknown is explicit', () => {
   assert.equal(videoFormat(Buffer.concat([Buffer.from([0,0,0,24]), Buffer.from('ftypqt  '), Buffer.alloc(12)])), 'mov');
   assert.equal(videoFormat(Buffer.concat([Buffer.from([0x1a,0x45,0xdf,0xa3]), Buffer.from('webm')])), 'webm');
   assert.throws(() => videoFormat(Buffer.from('not video')), MediaError);
-  const c = estimateCost({ kind: 'video', prompt: 'forest', durationSeconds: 4 }, { id: 'openai', model: 'unknown-configured-model' });
-  assert.equal(c.usd, null); assert.equal(c.quantity, 4); assert.equal(c.unit, 'videoSecond');
+  assert.deepEqual(requestedUnits({ kind: 'video', prompt: 'forest', durationSeconds: 4 }), { unit: 'videoSecond', quantity: 4 });
 });
 test('streaming store publishes poster and measured fields, metadata defaults off; limits leave no output', async () => {
   const root = await mkdtemp(join(tmpdir(), 'video-store-'));
@@ -91,14 +90,18 @@ for (const id of ['google','xai','replicate','fal','openrouter'] as const) {
         const a=new HttpImageAdapter({id,model:id === 'replicate' ? 'owner/configured' : 'configured',baseUrl:base,video:{textToVideo:true,imageToVideo:false,videoToVideo:false,inputSchema:{prompt:{type:'string'}}},retry:{sleep:async(ms,s)=>{assert.equal(ms,2000);s.throwIfAborted();sleeps++;}},pollWait:async(_ms,s)=>{if(scenario==='cancel') controller.abort();s.throwIfAborted();}});
         const run=async()=>{const result=await a.generate({kind:'video',prompt:'x'}, {signal:controller.signal});return new OutputStore(root,{videoProcessor:processor,maxVideoBytes:scenario==='oversize'?10:4096}).put('out',{kind:'video',prompt:'x'},result);};
         const code=scenario==='auth'?'backend_unavailable':scenario==='refusal'?'content_policy':scenario==='cancel'?'cancelled':scenario==='mime'?'invalid_response':scenario==='oversize'?'too_large':null;
-        if(code) await assert.rejects(run(),{code}); else {const m=await run();assert.equal(posts,2);assert.equal(sleeps,1); if(id==='openrouter')assert.equal(m.metadata.costUsd,0.25);}
+        if(code) await assert.rejects(run(),{code}); else {const m=await run();assert.equal(posts,2);assert.equal(sleeps,1); if(id==='openrouter')assert.equal(JSON.stringify(m.metadata).includes('cost'),false);}
         if(scenario==='cancel' && ['replicate','fal'].includes(id))assert.equal(cancels,1);
       } finally {await server.close();await rm(root,{recursive:true,force:true});}
     });
   }
 }
-test('configured table estimate is per second and resolution',()=>{
-  const cost=estimateCost({kind:'video',prompt:'x',durationSeconds:4,resolution:'720p'},{id:'google',model:'veo-3.1-generate-preview'});assert.equal(cost.usd,1.6);
+test('delivered video units are the measured seconds, the requested duration where a file has none',()=>{
+  const req={kind:'video' as const,prompt:'x',durationSeconds:4};
+  assert.deepEqual(deliveredUnits(req,{files:[{path:'0.mp4',sha256:'',bytes:1,format:'mp4',durationSeconds:3.5}]}),{unit:'videoSecond',quantity:3.5});
+  assert.deepEqual(deliveredUnits(req,{files:[{path:'0.mp4',sha256:'',bytes:1,format:'mp4'}]}),{unit:'videoSecond',quantity:4});
+  assert.deepEqual(deliveredUnits({kind:'video',prompt:'x'},{files:[{path:'0.mp4',sha256:'',bytes:1,format:'mp4'}]}),{unit:'videoSecond',quantity:8});
+  assert.deepEqual(deliveredUnits({prompt:'x',n:3},{files:[]}),{unit:'image',quantity:0});
 });
 
 test('video requests enforce kind, positive duration, count, FPS, container and input limit', async()=>{

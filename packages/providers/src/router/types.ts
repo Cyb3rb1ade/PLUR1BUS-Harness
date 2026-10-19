@@ -57,8 +57,9 @@ export interface BudgetTicket {
 export type BudgetDecision = { ok: true; ticket: BudgetTicket } | { ok: false; reason: string };
 
 /**
- * Port to the cost limiter. Asked before EVERY attempt, including retries and fallbacks, so a fallback can never
- * route around a soft/hard limit. An implementation prices the attempt from `request`, provider and model.
+ * Port to the usage limiter (tokens; there is no money dimension). Asked before EVERY attempt, including retries and
+ * fallbacks, so a fallback can never route around a soft/hard limit. An implementation estimates the attempt's tokens
+ * from `request`, provider and model.
  */
 export interface BudgetGuard {
   /** `ctx.signal` is the caller's abort signal: a guard that does I/O should stop when it fires. */

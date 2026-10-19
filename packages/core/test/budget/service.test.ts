@@ -12,15 +12,16 @@ describe("recordUsage", () => {
   afterEach(() => { for (const c of closers.splice(0)) c(); });
   const mk = (...a: Parameters<typeof open>) => { const r = open(...a); closers.push(() => r.svc.close()); return r; };
 
-  it("records counts and prices them at record time", () => {
+  it("records token counts (no money dimension)", () => {
     const { svc } = mk();
     const r = svc.recordUsage({ agent: "a1", model: "m-small", inputTokens: 1000, outputTokens: 200, cacheReadTokens: 500, cacheWriteTokens: 100 });
-    assert.deepEqual(r, { recorded: true, costMicros: 1000 + 1000 + 50 + 125, priceVersion: "v1" });
+    assert.deepEqual(r, { recorded: true });
     const s = svc.status();
     const day = s.periods[0]!;
     assert.equal(day.key, "2026-10-06");
     assert.equal(day.total.events, 1);
-    assert.equal(day.total.costMicros, 2175);
+    assert.deepEqual(Object.keys(day.total).sort(), ["cacheReadTokens", "cacheWriteTokens", "events", "inputTokens", "outputTokens"]);
+    assert.equal("priceVersion" in s, false);
     assert.deepEqual(day.agents[0]!.models.map((m) => [m.model, m.inputTokens, m.outputTokens, m.cacheReadTokens, m.cacheWriteTokens]), [["m-small", 1000, 200, 500, 100]]);
   });
 
@@ -49,14 +50,12 @@ describe("recordUsage", () => {
     assert.equal(svc.status().periods[0]!.total.events, 1);
   });
 
-  it("an unknown model is recorded unpriced (null cost), counted, and reported", () => {
+  it("any model is counted the same way: there is no price table", () => {
     const { svc } = mk();
-    const r = svc.recordUsage({ agent: "a1", model: "mystery", inputTokens: 10, outputTokens: 10 });
-    assert.equal(r.costMicros, null);
+    assert.deepEqual(svc.recordUsage({ agent: "a1", model: "mystery", inputTokens: 10, outputTokens: 10 }), { recorded: true });
     const t = svc.status().periods[0]!.total;
-    assert.equal(t.unpricedEvents, 1);
-    assert.equal(t.costMicros, 0);
     assert.equal(t.inputTokens, 10);
+    assert.equal(t.outputTokens, 10);
   });
 
   it("refuses malformed events with a typed error", () => {

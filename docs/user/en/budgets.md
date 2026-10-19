@@ -4,7 +4,7 @@ The Usage & Quota page (`#/usage`) shows what your agents have used and where th
 
 ## Reading the page
 
-- Each meter shows one limit as "used of limit (percent)", for example *Daily cost* or *Monthly tokens*.
+- Each meter shows one limit as "used of limit (percent)", for example *Daily tokens* or *Monthly tokens*.
 - The state is one of: **Within limit**, **Warning: soft limit reached**, **Exceeded: hard limit reached**.
 - Without a limit nothing is stopped. The page still shows what has been used so far.
 
@@ -13,7 +13,7 @@ The Usage & Quota page (`#/usage`) shows what your agents have used and where th
 1. Choose **Set limit**.
 2. Pick the scope: **Global** (all agents together) or one **Agent**.
 3. Enter a **soft limit**, a **hard limit**, or both. The soft limit must not be higher than the hard limit.
-4. Cost limits are in US dollars, for example `5` or `0.25`. Token limits count input and output tokens.
+4. Limits count tokens: input and output tokens (output includes reported reasoning tokens), as a whole number. Plur1bus never computes in money; there are no cost limits and no prices shown.
 5. Confirm the limit.
 
 Use **Edit limit** to change a limit and **Remove limit** to delete it. Removing asks for confirmation first.

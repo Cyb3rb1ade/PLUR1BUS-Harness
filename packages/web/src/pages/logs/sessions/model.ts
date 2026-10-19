@@ -9,7 +9,6 @@ export type SessionMeta = {
   usage?: {
     inputTokens: number;
     outputTokens: number;
-    costMicros: number | null;
     pendingCalls?: number;
   };
 };

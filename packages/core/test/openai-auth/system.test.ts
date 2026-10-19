@@ -28,7 +28,7 @@ test('stack: Core AuthService login → authenticated session.submit → plan us
     const caller = { channel: 'cli', accountId: 'fixture-host', userId: 'fixture-user' };
     const { session } = await client.call<any>('session.create', { caller, agentId: 'bernd' });
     const result = await client.call<any>('session.submit', { caller, sessionId: session.id, text: 'hello', wait: true }); assert.equal(result.state, 'completed', JSON.stringify(result)); assert.equal(result.reply, 'plan answer');
-    for (const file of ['budget.sqlite','openai-plan-usage.sqlite']) { const db = new DatabaseSync(join(home, 'state', file)); const row = db.prepare(file === 'budget.sqlite' ? 'SELECT input_tokens,output_tokens,cost_micros FROM usage_event' : 'SELECT input,output FROM plan_usage').get(); assert.ok(row); db.close(); }
+    for (const file of ['budget.sqlite','openai-plan-usage.sqlite']) { const db = new DatabaseSync(join(home, 'state', file)); const row = db.prepare(file === 'budget.sqlite' ? 'SELECT input_tokens,output_tokens FROM usage_event' : 'SELECT input,output FROM plan_usage').get(); assert.ok(row); db.close(); }
     const output = JSON.stringify(result) + await readFile(join(home, 'logs', 'core.log'), 'utf8') + await readFile(join(home, 'logs', 'audit.log'), 'utf8'); for (const value of local.fake.secrets) assert.equal(output.includes(value), false);
     await auth.logout(credential.id, principal);
   } finally { await client?.close(); await core.stop(); await local.close(); await rm(home, { recursive: true, force: true }); for (const [name,value] of [['PLUR1BUS_ALLOW_TEST_INTERNALS',old.allow],['PLUR1BUS_SECRETS_KEYRING',old.keyring]] as const) if (value === undefined) delete process.env[name]; else process.env[name] = value; }

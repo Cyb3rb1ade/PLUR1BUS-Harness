@@ -57,7 +57,7 @@ export interface DreamRun {
   trigger: Trigger; scheduledFor: number | null; startedAt: number; finishedAt: number | null;
   /** null while the run is open; a row that stays open after a crash is reconciled to `aborted/crashed` at start. */
   outcome: Outcome | null; reason: string | null; counts: RunCounts;
-  tokensIn: number | null; tokensOut: number | null; costMicros: number | null;
+  tokensIn: number | null; tokensOut: number | null;
   logPath: string | null; error: { message: string; name?: string } | null;
 }
 
@@ -80,7 +80,7 @@ export interface DreamEngine {
 /** The slice of the engine's `JobRun` the scheduler reads. */
 export interface DreamJobRun {
   runId: string; job: string; outcome: "completed" | "skipped" | "incomplete" | "failed" | "abandoned"; reason?: string;
-  cost?: { ms?: number; inputTokens?: number; outputTokens?: number; costMicros?: number };
+  cost?: { ms?: number; inputTokens?: number; outputTokens?: number };
   counts?: Record<string, number>; diary?: { written: boolean; reason?: string };
 }
 

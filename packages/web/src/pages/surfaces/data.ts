@@ -28,7 +28,6 @@ export interface Trace {
     status: string;
     inputTokens: number;
     outputTokens: number;
-    costEstimate: number | null;
     inputPreview: string;
     outputPreview: string;
   }[];

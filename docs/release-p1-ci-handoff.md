@@ -34,3 +34,5 @@ Local environment: macOS arm64, verified Node 24.21.0 tarball, pnpm frozen lockf
 ## First own PR results (single read, 2026-10-15)
 
 Run 38761885193: Python Linux 3.11/3.13 and macOS 3.13 passed. Windows client offline and mandatory named-pipe gate now passed; the next provider-offline step exposed three native-path test assumptions on x64 and ARM. Fix only the tests: a Windows PATH fixture uses `.exe`; explicit-home resolution expects the native absolute path; native filesystem agent classification uses the actual platform/default-root convention. Shared synthetic POSIX/Windows vectors remain intact. Unit jobs were still running at that read; no success or three-run evidence inferred.
+
+Audit decision follow-up (2026-10-15): the owner selected production High/Critical blocking, development/lower severities warning, and an owner-only advisory allowlist with at most 90 days expiry. Implemented in phase 3; see [dependency policy](dependency-policy.md). The earlier threshold question above is resolved.

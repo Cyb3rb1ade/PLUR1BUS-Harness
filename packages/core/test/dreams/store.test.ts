@@ -207,10 +207,10 @@ describe("dreams/store: runs and the idempotency key", () => {
   it("finishRun records outcome, reason, counts, tokens and the error, and refuses an unknown run", () => {
     const { store } = open();
     store.insertRun(run("r1", { startedAt: T0, logPath: "/x/r1.log", scheduledFor: T0 - 1, trigger: "catchup" }));
-    store.finishRun("r1", { outcome: "failed", reason: "engine_error", finishedAt: T0 + 9, counts: { jobs: 2, llmSessions: 1 }, tokensIn: 10, tokensOut: 4, costMicros: 3, error: { message: "bad", name: "Error" } });
+    store.finishRun("r1", { outcome: "failed", reason: "engine_error", finishedAt: T0 + 9, counts: { jobs: 2, llmSessions: 1 }, tokensIn: 10, tokensOut: 4, error: { message: "bad", name: "Error" } });
     const r = store.getRun("r1")!;
     assert.equal(r.outcome, "failed"); assert.equal(r.reason, "engine_error"); assert.equal(r.finishedAt, T0 + 9); assert.deepEqual(r.counts, { jobs: 2, llmSessions: 1 });
-    assert.equal(r.tokensIn, 10); assert.equal(r.tokensOut, 4); assert.equal(r.costMicros, 3); assert.deepEqual(r.error, { message: "bad", name: "Error" });
+    assert.equal(r.tokensIn, 10); assert.equal(r.tokensOut, 4); assert.equal("costMicros" in r, false); assert.deepEqual(r.error, { message: "bad", name: "Error" });
     assert.equal(r.trigger, "catchup"); assert.equal(r.scheduledFor, T0 - 1); assert.equal(r.logPath, "/x/r1.log");
     assert.throws(() => store.finishRun("nope", fin("failed")), /unknown dream run nope/);
     store.close();
