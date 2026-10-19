@@ -7,8 +7,15 @@
 // USER.md cards are reported as unresolved-user-scope unless an unambiguous user principal is provided.
 // Errors from memory.import are tracked in errors[] and counted as rejected, never swallowed.
 // NEVER writes directly to LanceDB or imports external vector store libraries.
+// Agents with a store of their own (owner decision 2026-10-19, docs/import.md §2.2): their cards are imported too.
+//   - store taken over / matched: before a card is written, the agent's store is asked whether the same memory is already
+//     there (engine duplicate rule, card-links.ts DUPLICATE_SCORE); a duplicate is not written again but linked: ledger action
+//     "linked" with the existing memory id, report outcome "linked".
+//   - store routed to the re-embedding migration: the cards are parked (outcome / ledger action "pending-reembed") and
+//     never embedded into a vector space the agent's store is not in; a later run that takes the store over imports them.
+//   - store not taken over for another reason (skipped): the cards are deferred (outcome / ledger action "deferred").
+// The rule's building blocks (duplicate check, ledger links, parking) are shared with the Hermes importer: card-links.ts.
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import type { Layout } from "../../paths.ts";
 import {
@@ -21,6 +28,7 @@ import { writeAtomicSync } from "../fs-atomic.ts";
 import { existsNoFollow, readSourceFileSafe, readSourceTextSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import { createCardLinker, recordParkedCard, type CardLink, type LinkCandidate, type OwnStoreCardMode } from "./card-links.ts";
 
 export const IMPORT_CARD_BATCH_LIMIT = 500;
 export const MAX_MEMORY_FILE_BYTES = 16 * 1024 * 1024; // 16 MiB
@@ -56,12 +64,18 @@ export interface OpenclawMemoryImportResult {
   rejectedCount: number;
   unresolvedUserScopeCount: number;
   totalCards: number;
-  /** Cards left out because the agent keeps its own memory store (never written to the shared store, never lost silently). */
-  skippedOwnStoreCount: number;
+  /** Cards that duplicate a memory already in the agent's own store: not written again, linked to it. */
+  linkedCount: number;
+  /** Cards parked until the agent's store has gone through the re-embedding migration (never in a foreign vector space). */
+  pendingReembedCount: number;
+  /** Cards of an agent whose own store was not taken over for another reason (skipped): written by a later run. */
+  deferredCount: number;
   cardResults: Array<{
     idempotencyKey: string;
-    outcome: "created" | "matched-existing" | "rejected" | "unresolved-user-scope" | "skipped";
+    outcome: "created" | "matched-existing" | "rejected" | "unresolved-user-scope" | "linked" | "pending-reembed" | "deferred";
     reason?: string | undefined;
+    /** outcome "linked": the id of the memory the card duplicates. */
+    linkedTo?: string | undefined;
   }>;
   errors: Array<{ sourceRef: string; reason: string }>;
 }
@@ -76,8 +90,8 @@ export async function importOpenclawMemories(opts: {
   userPrincipal?: any | undefined;
   onConflict?: ConflictStrategy | undefined;
   replacedBackupDir?: string | undefined;
-  /** Set for an agent that has its own memory store: its cards are counted and reported as skipped with this reason, nothing is embedded or written. */
-  skipReason?: string | undefined;
+  /** Set for an agent that has a memory store of its own (see OwnStoreCardMode). */
+  ownStore?: OwnStoreCardMode | undefined;
 }): Promise<OpenclawMemoryImportResult> {
   const {
     workspaceDir,
@@ -94,7 +108,9 @@ export async function importOpenclawMemories(opts: {
   let skippedDuplicateCount = 0;
   let rejectedCount = 0;
   let unresolvedUserScopeCount = 0;
-  let skippedOwnStoreCount = 0;
+  let linkedCount = 0;
+  let pendingReembedCount = 0;
+  let deferredCount = 0;
   const cardResults: OpenclawMemoryImportResult["cardResults"] = [];
   const errors: Array<{ sourceRef: string; reason: string }> = [];
 
@@ -111,9 +127,15 @@ export async function importOpenclawMemories(opts: {
   const runSuffix = ledger ? `;run=${ledger.runId}` : "";
 
 
-  // Agent with its own store: owner decision 18.10. The cards stay with that store; they are only counted and listed.
-  if (opts.skipReason !== undefined) {
-    const skipReason = opts.skipReason;
+  const summary = (): OpenclawMemoryImportResult => ({
+    importedCount, skippedDuplicateCount, rejectedCount, unresolvedUserScopeCount, linkedCount, pendingReembedCount, deferredCount, totalCards, cardResults, errors,
+  });
+
+  // Agent whose own store is not in the harness yet (re-embedding migration, or not taken over): its cards are parked, never
+  // embedded now (they would land in a vector space the store is not in, or create a partition that blocks the take-over).
+  if (opts.ownStore?.kind === "park") {
+    const park = opts.ownStore;
+    const { outcome: parkOutcome, reason: parkReason } = park;
     for (const [names, file] of [[["MEMORY.md", "memory.md"], "MEMORY.md"], [["USER.md", "user.md"], "USER.md"]] as const) {
       const found = names.map((n) => join(workspaceDir, n)).find((cand) => existsNoFollow(cand));
       if (found === undefined) continue;
@@ -126,25 +148,39 @@ export async function importOpenclawMemories(opts: {
       }
       const cards = splitOpenclawCards(content);
       totalCards += cards.length;
-      skippedOwnStoreCount += cards.length;
+      if (parkOutcome === "pending-reembed") pendingReembedCount += cards.length;
+      else deferredCount += cards.length;
       cards.forEach((text, i) => {
         const key = cardIdempotencyKey("openclaw", agentId, file, text);
-        cardResults.push({ idempotencyKey: key, outcome: "skipped", reason: skipReason });
-        if (isApply && ledger) {
-          ledger.record({
-            entity: "memory",
+        cardResults.push({ idempotencyKey: key, outcome: parkOutcome, reason: parkReason });
+        if (isApply) {
+          recordParkedCard(ledger, park, {
             idempotencyKey: key,
-            action: "skipped",
+            text,
             sourceRef: `openclaw:${agentId}:${file}#${i + 1}${runSuffix}`,
             targetRef: `agents/${agentId}/workspace/${file === "MEMORY.md" ? "memories.md" : "USER.md"}`,
-            sha256: createHash("sha256").update(text.replace(/\r\n/g, "\n").trim()).digest("hex"),
-            reason: skipReason,
           });
         }
       });
     }
-    return { importedCount, skippedDuplicateCount, rejectedCount, unresolvedUserScopeCount, skippedOwnStoreCount, totalCards, cardResults, errors };
+    return summary();
   }
+
+  // Agent whose own store is in the harness (taken over or matched): a card that is already there is linked, not written
+  // again. Apply only: a dry run has no target store to compare against (it plans every new card as created).
+  const linker = createCardLinker({
+    engine, agentId, isApply, mode: opts.ownStore, ledger,
+    // No proof either way: the card is imported (never dropped), the failed check is reported.
+    onError: (sourceRef, reason) => errors.push({ sourceRef, reason }),
+  });
+  /** Splits the cards the engine would create into duplicates of a memory already in the store (linked) and the rest. */
+  const linkDuplicates = (batch: LinkCandidate[], bind: Principal, fileRef: string): Promise<Map<string, CardLink>> =>
+    linker.split(batch, { request: bind, caller: bind }, fileRef);
+  const recordLinked = (c: LinkCandidate, hit: CardLink, targetRefFile: string) => {
+    linkedCount++;
+    cardResults.push({ idempotencyKey: c.idempotencyKey, outcome: "linked", reason: hit.reason, linkedTo: hit.id });
+    linker.record(c, hit, targetRefFile);
+  };
 
   // 1. Process MEMORY.md / memory.md (agent-scoped)
   let memoryMdPath: string | null = null;
@@ -214,7 +250,11 @@ export async function importOpenclawMemories(opts: {
         // Chunk into batches of at most 500 cards
         for (let b = 0; b < cardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
           const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
-          const batch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
+          const fullBatch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
+          const linked = await linkDuplicates(fullBatch, principal, "MEMORY.md");
+          for (const c of fullBatch) { const hit = linked.get(c.idempotencyKey); if (hit) recordLinked(c, hit, `agents/${agentId}/workspace/memories.md`); }
+          const batch = fullBatch.filter((c) => !linked.has(c.idempotencyKey));
+          if (batch.length === 0) continue;
 
           let result: any;
           try {
@@ -385,7 +425,11 @@ export async function importOpenclawMemories(opts: {
         } else if (engine) {
           for (let b = 0; b < userCardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
             const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
-            const batch = userCardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
+            const fullBatch = userCardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
+            const linked = await linkDuplicates(fullBatch, userScopePrincipal, "USER.md");
+            for (const c of fullBatch) { const hit = linked.get(c.idempotencyKey); if (hit) recordLinked(c, hit, `agents/${agentId}/workspace/USER.md`); }
+            const batch = fullBatch.filter((c) => !linked.has(c.idempotencyKey));
+            if (batch.length === 0) continue;
 
             let result: any;
             try {
@@ -458,14 +502,5 @@ export async function importOpenclawMemories(opts: {
     }
   }
 
-  return {
-    importedCount,
-    skippedDuplicateCount,
-    rejectedCount,
-    unresolvedUserScopeCount,
-    skippedOwnStoreCount,
-    totalCards,
-    cardResults,
-    errors,
-  };
+  return summary();
 }

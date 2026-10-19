@@ -37,8 +37,10 @@ export interface HarnessConfig {
   supervisor: { graceMs: number; healthIntervalMs: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
-  memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
+  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean } }>;
+  memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; reranker?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
+  /** Installation-wide privacy switches (privacy.localOnly: no model call leaves the machine). */
+  privacy: { localOnly: boolean; localEndpoints: string[] };
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string };
   providers: Record<string, unknown>;

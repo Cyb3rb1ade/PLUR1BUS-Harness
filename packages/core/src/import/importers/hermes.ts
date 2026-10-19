@@ -3,7 +3,8 @@
 // ingests memory cards via Engine.memory.import (batch size <= 500),
 // extracts channel pairings (approved hashed, pending excluded),
 // reports cron as deferred (zero disk writes),
-// supports existing store take-over via Engine.stores.adopt (--adopt-store),
+// supports existing store take-over via Engine.stores.adopt (--adopt-store); the cards of a taken-over store follow the
+// owner decision 2026-10-19 (hermesCardMode below: linked / pending-reembed / deferred, docs/import.md §10.3),
 // enforces single-writer lock withTargetLock,
 // writes pre-apply snapshot for rollback, records atomic ledger.jsonl, and supports conflict strategies.
 import { createHash } from "node:crypto";
@@ -26,16 +27,20 @@ import { ImportError, type SourceCtx } from "../types.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
 import { RUN_ID_RE } from "../rollback.ts";
 import { planAndMigrateHermesAgent } from "./hermes-agents.ts";
-import { importHermesMemories, type HermesMemoryImportResult } from "./hermes-memories.ts";
+import { hasHermesCardFiles, importHermesMemories, type HermesMemoryImportResult } from "./hermes-memories.ts";
 import { readHermesPairings, type HermesChannelAllowlistReport } from "./hermes-platforms.ts";
 import { readHermesCronJobs, type HermesCronJob } from "./hermes-cron.ts";
 import {
   abortStoreAdopt,
   commitStoreAdopt,
+  inspectStoreAdopt,
   prepareStoreAdopt,
   type PreparedStoreAdopt,
   type StoreAdoptReport,
 } from "./hermes-stores.ts";
+import { lastTakenOverStoreKey, PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode } from "./card-links.ts";
+import { ROUTED_REASONS } from "./openclaw-stores.ts";
+import { storeIdempotencyKey } from "../ledger.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
 import { buildEngineConfig } from "../../engine-config.ts";
 import { platformCapabilities } from "../../platform.ts";
@@ -43,6 +48,48 @@ import type { AgentImportReport } from "./openclaw-agents.ts";
 import type { Engine, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
 const SAFE_READ_REFUSALS = new Set(["unsafe-symlink", "not-regular-file", "file-too-large", "source-unreadable"]);
+
+/**
+ * How the memory cards are handled when --adopt-store names a store (owner decision 2026-10-19, docs/import.md §10.3). A
+ * Hermes take-over swaps the whole harness store, so one verdict covers every profile:
+ *   - no --adopt-store, or --adopt-strategy import (the store is deliberately left out): undefined, the plain card import;
+ *   - --adopt-strategy reembed (taken over in a foreign vector space for `memory reembed`): parked as pending-reembed;
+ *   - taken over / dry-run preview-ok with a matching identity: imported, a card already in the store is linked;
+ *   - the harness store is this source's store from an earlier take-over (store-exists-skipped with the last recorded
+ *     take-over of this home naming the same source, or already-adopted-in-run on --resume): decided by the engine's
+ *     identity check on state/lancedb itself, so the run after the re-embedding migration imports the parked cards;
+ *   - anything else (another harness store left untouched, aborted): deferred.
+ */
+async function hermesCardMode(o: {
+  report: StoreAdoptReport | undefined;
+  importsDir: string;
+  lancedb: string;
+  priorLinks: ReadonlyMap<string, string>;
+  targetConfig: unknown;
+  testInternals: Record<string, unknown> | undefined;
+  errors: Array<{ sourceRef: string; reason: string }>;
+}): Promise<OwnStoreCardMode | undefined> {
+  const r = o.report;
+  if (!r || r.routedTo === "import") return undefined;
+  if (r.routedTo === "reembed") return PARK_PENDING_REEMBED;
+  const link: OwnStoreCardMode = { kind: "link", priorLinks: o.priorLinks };
+  if (r.verdict === "ok" && (r.action === "taken-over" || r.action === "preview-ok")) return link;
+  const sameStore = r.action === "skipped"
+    && (r.reason === "already-adopted-in-run" || r.reason === "store-exists-skipped")
+    && lastTakenOverStoreKey(o.importsDir) === storeIdempotencyKey(r.sourcePath);
+  if (!sameStore) return PARK_DEFERRED;
+  let check: Awaited<ReturnType<typeof inspectStoreAdopt>>;
+  try {
+    // Engine.stores.adopt dry run: reads the store, never writes it (the same check a dry run runs on a source store).
+    check = await inspectStoreAdopt({ storePath: o.lancedb, targetConfig: o.targetConfig, testInternals: o.testInternals });
+  } catch (err) {
+    const code = (err as { code?: unknown } | null)?.code;
+    o.errors.push({ sourceRef: "state/lancedb", reason: `store-check-failed:${typeof code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(code) ? code : "engine-unavailable"}` });
+    return PARK_DEFERRED;
+  }
+  if (check.verdict === "ok") return link;
+  return ROUTED_REASONS.has(check.reason ?? "identity-unverifiable") ? PARK_PENDING_REEMBED : PARK_DEFERRED;
+}
 
 function createImportHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
   return {
@@ -138,6 +185,12 @@ export interface HermesImportReport {
     memoryCardsImported: number;
     memoryCardsSkippedDuplicate: number;
     memoryCardsRejected: number;
+    /** Cards that duplicate a memory already in the taken-over store: linked to it, not written again. */
+    memoryCardsLinked: number;
+    /** Cards of a store taken over for the re-embedding migration: parked, imported by a later run. */
+    memoryCardsPendingReembed: number;
+    /** Cards of a store that was not taken over for another reason: deferred to a later run. */
+    memoryCardsDeferred: number;
     unresolvedUserScope: number;
     channelsDeferred: number;
     cronJobsDeferred: number;
@@ -337,7 +390,10 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
       // state/lancedb and engine marker files); its card counts are planned counts derived from the source.
       const testInternals = opts.testInternals;
 
-      if (isApply && !engine) {
+      // Opened on first use only: an import with no card to write (no card files, or only parked cards) never creates or
+      // touches state/lancedb through it, so a store taken over for the re-embedding migration stays exactly as copied.
+      const ensureEngine = (): void => {
+        if (!isApply || engine) return;
         const engineDefaults = defaults().engine;
         const engineConfigTarget = {
           ...defaults(),
@@ -365,7 +421,18 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
           testInternals ? { internals: testInternals } : undefined,
         );
         createdEngineLocally = true;
-      }
+      };
+
+      const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? [])];
+      const cardMode = await hermesCardMode({
+        report: storeAdoptReport,
+        importsDir: join(l.home, "imports"),
+        lancedb: l.lancedb,
+        priorLinks: isApply ? readPriorCardLinks(join(l.home, "imports")) : new Map<string, string>(),
+        targetConfig: rawConfig,
+        testInternals,
+        errors,
+      });
 
       try {
 
@@ -378,7 +445,9 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         let totalCardsSkippedDuplicate = 0;
         let totalCardsRejected = 0;
         let totalUnresolvedUserScope = 0;
-        const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? [])];
+        let totalCardsLinked = 0;
+        let totalCardsPendingReembed = 0;
+        let totalCardsDeferred = 0;
 
         for (const agent of sourceReport.agents) {
           const sourceProfile = agent.agentId;
@@ -435,33 +504,34 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
             configChanged = true;
           }
 
-          // Migrate memory cards
-          let memoryRes: HermesMemoryImportResult | undefined;
-          if (storeAdoptReport?.routedTo === "reembed") {
-            // Store was taken over as-is for memory reembed migration: skip card re-embedding
-          } else {
-            memoryRes = await importHermesMemories({
-              profileDir: agentWorkspace,
-              profileName: sourceProfile,
-              agentId: targetAgentId,
-              l,
-              engine,
-              isApply,
-              ledger,
-              userPrincipal: userBindingActive ? opts.userPrincipal : undefined,
-              onConflict,
-              replacedBackupDir,
-            });
+          // Migrate memory cards (the engine is opened only for a profile with cards to write, never for parked ones)
+          const userPrincipal = userBindingActive ? opts.userPrincipal : undefined;
+          if (cardMode?.kind !== "park" && hasHermesCardFiles(agentWorkspace, userPrincipal !== undefined)) ensureEngine();
+          const memoryRes: HermesMemoryImportResult = await importHermesMemories({
+            profileDir: agentWorkspace,
+            profileName: sourceProfile,
+            agentId: targetAgentId,
+            l,
+            engine,
+            isApply,
+            ledger,
+            userPrincipal,
+            onConflict,
+            replacedBackupDir,
+            ...(cardMode ? { ownStore: cardMode } : {}),
+          });
 
-            totalCardsImported += memoryRes.importedCount;
-            totalCardsSkippedDuplicate += memoryRes.skippedDuplicateCount;
-            totalCardsRejected += memoryRes.rejectedCount;
-            totalUnresolvedUserScope += memoryRes.unresolvedUserScopeCount;
+          totalCardsImported += memoryRes.importedCount;
+          totalCardsSkippedDuplicate += memoryRes.skippedDuplicateCount;
+          totalCardsRejected += memoryRes.rejectedCount;
+          totalUnresolvedUserScope += memoryRes.unresolvedUserScopeCount;
+          totalCardsLinked += memoryRes.linkedCount;
+          totalCardsPendingReembed += memoryRes.pendingReembedCount;
+          totalCardsDeferred += memoryRes.deferredCount;
 
-            if (memoryRes.errors.length > 0) {
-              for (const err of memoryRes.errors) {
-                errors.push(err);
-              }
+          if (memoryRes.errors.length > 0) {
+            for (const err of memoryRes.errors) {
+              errors.push(err);
             }
           }
 
@@ -470,7 +540,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
             sourceId: sourceProfile,
             harnessAgentId: targetAgentId,
             ...(alreadySeen ? { action: "merged" as any } : {}),
-            ...(memoryRes ? { memory: memoryRes } : {}),
+            memory: memoryRes,
           });
         }
 
@@ -608,6 +678,9 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
             memoryCardsImported: totalCardsImported,
             memoryCardsSkippedDuplicate: totalCardsSkippedDuplicate,
             memoryCardsRejected: totalCardsRejected,
+            memoryCardsLinked: totalCardsLinked,
+            memoryCardsPendingReembed: totalCardsPendingReembed,
+            memoryCardsDeferred: totalCardsDeferred,
             unresolvedUserScope: totalUnresolvedUserScope,
             channelsDeferred: channelReports.length,
             cronJobsDeferred: userJobs.length,

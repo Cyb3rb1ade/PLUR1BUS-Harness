@@ -70,7 +70,13 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   const allowedRoots = [join(d.home, 'media'), ...(d.store ? [d.store.root] : [])];
   const ports = createFfmpegPorts({ tempDir: join(d.home, 'media', 'tmp'), allowedRoots, ...d.ffmpeg });
   let port: MediaIndexPort; let kind: MediaIndexKind;
-  try {
+  // privacy pin (privacy.localOnly): a cloud media embedding provider is not started; the index stays disabled with
+  // the reason instead of switching to another model (the same local set the config validation uses).
+  const mediaProvider = cfg().provider;
+  if (cfg().enabled !== false && !['local', 'local-transformers', 'egemma2', 'off'].includes(mediaProvider) && d.privacyPinned?.()) {
+    d.logger.warn('media index disabled by privacy.localOnly', { provider: mediaProvider });
+    port = new DisabledMediaIndex(`privacy.localOnly: media embedding provider ${mediaProvider} is not local`); kind = 'disabled';
+  } else try {
     ({ port, kind } = selectMediaIndex({ engine: d.engine, config: cfg(), ports: { frames: ports.frames, audio: ports.audio, budget: budgetCallback }, ...(d.testPort ? { test: d.testPort } : {}) }));
   } catch (e) {
     d.logger.error('media index unavailable', { err: e });

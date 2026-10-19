@@ -18,7 +18,11 @@ export type DryRun =
   | { allowed: false; reason: DenyReason; message: string };
 
 export interface Egress {
-  /** The guarded request: every hop (first and redirects) passes the gate and the SSRF range check, then connects to the pinned IP. */
+  /**
+   * The guarded request: every hop (first and redirects) passes the gate and the SSRF range check, then connects to the
+   * pinned IP. GET by default (web.fetch); `method`, `headers` and a capped `body` make it the POST-capable variant for
+   * harness-owned provider calls (model APIs), which never follow a redirect.
+   */
   request(url: string, options: Omit<HttpOptions, "resolver" | "policy" | "gate">): Promise<HttpResponse>;
   /** Judge one URL without connecting. */
   decide(url: string): Promise<DryRun>;

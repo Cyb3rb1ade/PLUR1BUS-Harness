@@ -29,7 +29,7 @@ import {
 
 const SCHEMA_MARKER = "_schema.json";
 /** The engine could not vouch for the vectors: a different model/dimension, or no proof either way (never assumed equal). */
-const ROUTED_REASONS = new Set(["identity-mismatch", "dimension-mismatch", "identity-unverifiable", "identity-unreadable"]);
+export const ROUTED_REASONS: ReadonlySet<string> = new Set(["identity-mismatch", "dimension-mismatch", "identity-unverifiable", "identity-unreadable"]);
 
 export type OpenclawStoreAction = "taken-over" | "preview-ok" | "matched-existing" | "re-embedding-migration" | "skipped";
 

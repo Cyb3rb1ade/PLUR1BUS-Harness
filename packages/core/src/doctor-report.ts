@@ -24,7 +24,9 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean; toolEvalDefaults?: () => readonly ModelRef[]; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; miningStatus?: () => { available: boolean } | undefined; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
+export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean; toolEvalDefaults?: () => readonly ModelRef[]; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; miningStatus?: () => { available: boolean } | undefined; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void;
+  /** Checks the core answers itself from its live configuration (e.g. privacy.local-only); appended to the provisioning group. */
+  coreChecks?: () => Check[] }): Record<string, Handler> {
   let cached: Report | null = null;
   let lastStarted = -Infinity;
   let inFlight: Promise<Report> | null = null;
@@ -49,6 +51,7 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; sandb
       return { id: c.id, status, summary: safe(c.summary), ...(typeof c.hint === "string" ? { repair: { kind: "hint", label: safe(c.hint) } } : {}) };
     });
     if (o.sandboxRequired?.() === false) checks.push({ id: "tools.sandbox.bypass", status: "warn", summary: "NOT SANDBOXED: owner disabled tools.sandbox.required; each process launch is audited." });
+    for (const c of o.coreChecks?.() ?? []) if (!checks.some(x => x.id === c.id)) checks.push({ ...c, summary: safe(c.summary), ...(c.repair ? { repair: { kind: c.repair.kind, label: safe(c.repair.label) } } : {}) });
     const sandbox = await detectSandbox(join(o.home, "bin", "plur1bus-sandbox-limits"));
     checks.push({ id: "tools.sandbox", status: sandbox.available ? "warn" : "fail", summary: safe(`${sandbox.backend} (${sandbox.strength}): ${sandbox.reason}`), ...(sandbox.hint ? { repair: { kind: "hint", label: safe(sandbox.hint) } } : {}) });
     const toolGate = hostEvalGate(o.toolEvalDefaults?.() ?? [], await readHostEvalReports(o.home, o.clock()));

@@ -14,6 +14,7 @@ import { importOpenclaw, type OpenclawImportReport } from "../../src/import/impo
 import { createTempHost } from "../../src/import/importers/hermes-stores.ts";
 import { rollbackImport } from "../../src/import/rollback.ts";
 import { renderOpenclaw } from "../../src/import/render.ts";
+import { splitOpenclawCards } from "../../src/import/importers/openclaw-memories.ts";
 import { loadLanceDb } from "../../src/import/readonly.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { buildM7OpenclawFixture, CONTENT_MARKER, FAKE_TOKEN, lanceStore, write, type M7OpenclawFixture } from "./fixtures.ts";
@@ -25,20 +26,22 @@ const DIM = 384;
 /** A deterministic stub "model": the text `<marker> <n>` maps to the unit vector at n + offset. The fixture rows
  *  are `<marker> <i>` with the unit vector at i, so `modelEmbedder(0)` is the model that wrote the matching stores and
  *  `modelEmbedder(10)` is "another model of the same dimension". It counts calls made for the adopt probe
- *  (`purpose: "adopt-probe"`) apart from any other embedding work (which a take-over must never cause). */
+ *  (`purpose: "adopt-probe"`) apart from any other embedding work, and records the texts of that other work: the take-over
+ *  itself embeds nothing else; since the owner decision of 2026-10-19 the only other embedding is the card path's (an
+ *  agent's MEMORY.md / USER.md cards, checked against and written to the agent's own store). */
 function modelEmbedder(offset = 0) {
-  const calls = { probe: 0, other: 0, probeTexts: 0 };
+  const calls = { probe: 0, other: 0, probeTexts: 0, otherTexts: [] as string[] };
   const hot = (text: string) => Number(/(\d+)\s*$/.exec(text)?.[1] ?? 0) + offset;
   const vector = (text: string) => Array.from({ length: DIM }, (_, i) => (i === hot(text) ? 1 : 0));
-  const count = (opts: unknown, n: number) => {
-    if ((opts as { purpose?: string } | undefined)?.purpose === "adopt-probe") { calls.probe += 1; calls.probeTexts += n; } else calls.other += 1;
+  const count = (opts: unknown, texts: string[]) => {
+    if ((opts as { purpose?: string } | undefined)?.purpose === "adopt-probe") { calls.probe += 1; calls.probeTexts += texts.length; } else { calls.other += 1; calls.otherTexts.push(...texts); }
   };
-  const one = async (text: string, opts?: unknown) => { count(opts, 1); return vector(text); };
+  const one = async (text: string, opts?: unknown) => { count(opts, [text]); return vector(text); };
   return {
     calls,
     embeddings: {
       embed: one, embedQuery: one, embedPassage: one,
-      embedBatch: async (texts: string[], _size?: number, opts?: unknown) => { count(opts, texts.length); return texts.map(vector); },
+      embedBatch: async (texts: string[], _size?: number, opts?: unknown) => { count(opts, texts); return texts.map(vector); },
       shutdown: async () => {},
     },
   };
@@ -102,6 +105,16 @@ async function vectorsOf(root: string): Promise<{ partition: string; dimension: 
   return out;
 }
 
+/** Every row of one partition (id, text, vector), ordered by id. */
+async function rowsOf(partition: string): Promise<{ id: string; text: string; vector: number[] }[]> {
+  const lancedb = (await loadLanceDb())!;
+  const db = await lancedb.connect(partition) as any;
+  const t = await db.openTable("memories");
+  const rows = await t.query().select(["id", "text", "vector"]).toArray();
+  t.close(); db.close();
+  return rows.map((r: any) => ({ id: String(r.id), text: String(r.text), vector: Array.from(r.vector.toArray() as Float32Array) })).sort((a: any, b: any) => a.id.localeCompare(b.id));
+}
+
 /** Recall through a real engine on the target home, against the adopted store. */
 async function recallTexts(home: string, agentId: string, topic: string, embeddings: unknown): Promise<string[]> {
   const l = layout(home);
@@ -134,11 +147,24 @@ describe("OpenClaw store take-over (M7 acceptance 2 and 5)", () => {
     assert.equal(byId(r, "agent:alpha").rows, 3);
     assert.equal(byId(r, `shared:workspaces:${fx.sharedPool.key}`).action, "taken-over");
     assert.equal(r.counts.storesTakenOver, 2);
-    assert.equal(model.calls.other, 0, "a take-over never embeds anything outside the adopt probe");
+    // Owner decision 2026-10-19: alpha's cards are imported into alpha's own (taken-over) store, so the card path embeds
+    // alpha's MEMORY.md card for the duplicate check against that store. Nothing else is embedded outside the probe.
+    const alphaCards = splitOpenclawCards(readFileSync(fx.curatedFiles.memory, "utf8"));
+    assert.ok(model.calls.other > 0, "the card path checks alpha's card against alpha's store");
+    assert.ok(model.calls.otherTexts.every((t) => alphaCards.includes(t)), "outside the adopt probe only alpha's card is embedded (no store row is re-embedded)");
     assert.ok(model.calls.probe > 0 && model.calls.probeTexts <= 16 * 3, "the probe samples a few rows per store, it does not re-embed the store");
+    // The stub model maps alpha's card onto the vector of row 0: the same memory, so it is linked, not written again.
+    const alphaMem = r.agents.find((a) => a.harnessAgentId === "alpha")!.memory!;
+    const memoryCard = alphaMem.cardResults.find((c) => c.idempotencyKey.includes(":MEMORY.md:"))!;
+    assert.equal(memoryCard.outcome, "linked");
+    assert.equal(memoryCard.linkedTo, "00000000-0000-4000-8000-000000000000");
+    assert.equal(r.counts.memoryCardsLinked, 1);
+    assert.equal(r.counts.memoryCardsImported, 0);
 
     const l = layout(home);
-    assert.deepEqual(treeEntries(join(l.lancedb, "alpha"), { mtime: false }), treeEntries(join(storeRoot(fx), "alpha"), { mtime: false }), "the adopted partition is an exact copy of the source partition");
+    // The engine opened alpha's partition for the duplicate check (schema upgrade, bootstrap-row cleanup), so its files
+    // are no longer byte-identical; its data is: the same rows with the same vectors, no row added, none re-embedded.
+    assert.deepEqual(await rowsOf(join(l.lancedb, "alpha")), await rowsOf(join(storeRoot(fx), "alpha")), "the adopted partition holds exactly the source rows and vectors");
     assert.ok(existsSync(join(l.lancedb, ".plur1bus-shared", "workspaces", fx.sharedPool.key, "memories.lance")));
     assert.ok(existsSync(join(l.lancedb, "_schema.json")));
     assert.deepEqual(stagingLeftovers(home), []);
@@ -182,6 +208,8 @@ describe("OpenClaw store take-over (M7 acceptance 2 and 5)", () => {
     }
     assert.equal(r.counts.storesTakenOver, 2);
     assert.equal(r.counts.storesReembedMigration, 2);
+    // beta's card waits for its store (owner decision 2026-10-19): parked, not embedded into the harness store.
+    assert.equal(r.counts.memoryCardsPendingReembed, 1);
 
     // Nothing of beta or gamma is in the harness store: no partition, and every vector in it is a 384-d vector of the
     // harness model (alpha rows point at 0..2; gamma's foreign vectors point at 10..12).

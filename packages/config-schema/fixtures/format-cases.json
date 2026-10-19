@@ -178,6 +178,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -645,6 +649,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -1114,6 +1122,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -1581,6 +1593,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -2050,6 +2066,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -2517,6 +2537,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -2986,6 +3010,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -3453,6 +3481,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -3922,6 +3954,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -4389,6 +4425,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -4858,6 +4898,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -5325,6 +5369,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -5794,6 +5842,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -6261,6 +6313,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -6730,6 +6786,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -7197,6 +7257,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -7666,6 +7730,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -8133,6 +8201,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -8602,6 +8674,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -9069,6 +9145,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -9538,6 +9618,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -10005,6 +10089,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -10474,6 +10562,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -10941,6 +11033,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -11410,6 +11506,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -11877,6 +11977,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -12346,6 +12450,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -12813,6 +12921,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {
@@ -13282,6 +13394,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -13747,6 +13863,10 @@
         ],
         "allowLoopback": false
       },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
+      },
       "session": {
         "compaction": {
           "softRatio": 0.65,
@@ -14211,6 +14331,10 @@
           443
         ],
         "allowLoopback": false
+      },
+      "privacy": {
+        "localOnly": false,
+        "localEndpoints": []
       },
       "session": {
         "compaction": {

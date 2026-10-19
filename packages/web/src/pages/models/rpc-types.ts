@@ -28,6 +28,8 @@ export type ModelEntry = {
   lastSeen: string;
   source: ModelSource;
   overrides: ModelOverrides;
+  /** Present when the model may not be used now: privacy.localOnly is on and its provider is not local. Listed, never hidden. */
+  locked?: "local-only";
 };
 
 export type ModelScanResultCode = "ok" | "failed:auth" | "failed:network" | "failed:server" | "failed:invalid" | "failed:empty";

@@ -40,7 +40,7 @@ export function maskSecrets(v: unknown): unknown {
 
 // `new` is a documented field of ModelEntry (true until models.acknowledge); the page takes the "new" set from models.list { newOnly },
 // so the flag must not turn up as a "further field" of every entry.
-const KNOWN = new Set(["toolUse", "provider", "id", "displayName", "new", "kind", "contextWindow", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides"]);
+const KNOWN = new Set(["toolUse", "provider", "id", "displayName", "new", "kind", "contextWindow", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides", "locked"]);
 
 function overrides(v: unknown): ModelOverrides {
   const o = rec(v);
@@ -73,6 +73,7 @@ export function normalizeModel(raw: unknown): ModelEntry | null {
     status: oneOf(STATUSES, o.status) ?? "unavailable",
     firstSeen: str(o.firstSeen) ?? "", lastSeen: str(o.lastSeen) ?? "",
     source: oneOf(SOURCES, o.source) ?? "unknown", overrides: overrides(o.overrides), extra,
+    ...(o.locked === "local-only" ? { locked: "local-only" as const } : {}),
   };
 }
 

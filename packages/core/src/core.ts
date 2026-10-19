@@ -34,7 +34,9 @@ import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
 import { assertEngineContract, bindEngine } from "./engine.ts";
-import { buildEngineConfig, checkEngineConfigLicences } from "./engine-config.ts";
+import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
+import { isLocalEndpoint, localEndpoints, localOnlyFor } from "./privacy/local-only.ts";
+import { localOnlyCheck } from "./privacy/doctor.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
@@ -458,6 +460,8 @@ export function createCore(o: CoreOptions): Core {
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       checkEngineConfigLicences(engineConfig,l);
+      // Until the engine has a fetch port, its model endpoints are judged by the harness egress policy before it is built.
+      await checkEngineEgress(engineConfig, egress, (message, fields) => log.warn(message, fields));
       const unmapped = new Set<string>();
       const events = (name: string, payload: unknown) => {
         // ADR-016 §6: the harness-owned notification, projected onto its schema.
@@ -550,6 +554,8 @@ export function createCore(o: CoreOptions): Core {
         settings: discSettings,
         logger,
         onScanned: (p) => scanScheduler?.onScanned(p),
+        // privacy.localOnly: cloud models stay in the list, marked locked, so the person sees why they cannot be chosen.
+        modelLocked: (_provider, profile) => localOnlyFor(cfg()) && !(profile !== undefined && isLocalEndpoint(profile.baseUrl, localEndpoints(cfg()))),
         ...(o.discovery?.scanners ? { scanners: o.discovery.scanners } : {}),
       });
       discovery.onChanged((e) => server?.notify("models.changed", e));
@@ -864,7 +870,7 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; } }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg())] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});

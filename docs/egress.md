@@ -41,3 +41,46 @@ Never a URL, a path or an address.
 `createEgress({ config: () => cfg.egress, resolver? })` returns `request(url, options)` (the guarded client with the gate on
 every hop), `decide(url)` (dry run, no connect) and `status()`. The core builds one and answers `egress.status` from it.
 `web.fetch` and the provider adapters are **not** rewired onto it in this change (see the PR's open points).
+
+### POST-capable `request` (harness-owned provider calls)
+
+`request(url, { method, headers, body, maxRequestBytes, maxBytes, timeoutMs, userAgent })` is the same guarded client
+with a method other than GET, caller headers and a body, so a model API call (embeddings, rerank, chat) can run through
+the policy end to end. The gate, the SSRF check and the pinned connect apply exactly as for GET. On top:
+
+- the body is sent with a computed `content-length` (never chunked) and capped by `maxRequestBytes` (default 20 MB,
+  `too-large` before any I/O); a GET or HEAD with a body is refused;
+- connection-level headers (`host`, `content-length`, `transfer-encoding`, `connection`, `te`, `trailer`, `upgrade`,
+  `keep-alive`, `expect`, `cookie`, `accept-encoding`, any `proxy-*`) are set by the client and cannot be given; a header
+  name that is not a token or a value with CR, LF or NUL is refused (`invalid-url`);
+- a request with a body, a method other than GET/HEAD or caller headers **never follows a redirect**: the 3xx answer is
+  returned unread, so a body or an `Authorization` header never reaches a host it was not addressed to.
+
+`a2a/push.ts` and `auth/http.ts` still carry their own POST; moving them onto this variant is a follow-up (both have
+their own redirect and response handling with tests that would need to move with them).
+
+## Engine model endpoints at start
+
+The pinned memory engine has no fetch port yet, so its own model calls (a remote embedding, the Cohere reranker, an engine
+LLM feature with its own `baseUrl`) cannot run through `request`. Until it has one, the core judges every such endpoint
+with `decide(url)` before it builds the engine (`checkEngineEgress` in `engine-config.ts`). A refusal stops the engine
+start with `E_DENIED`, `reason: egress-denied`, naming the role and the origin (never a path). A name that does not
+resolve at start (offline, `not-found`) is logged, not refused; an engine feature that names a key but no `baseUrl`
+calls its provider's default endpoint, which cannot be judged here and is logged.
+
+## Model calls and `privacy.localOnly`
+
+`privacy.localOnly` (Settings > Privacy, installation-wide, with `agents.<id>.privacy.localOnly` as a per-agent override in
+both directions) decides **which model providers** may be used: only loopback (`localhost`, `127.0.0.0/8`, `::1`) or an
+exact origin listed in `privacy.localEndpoints` (a self-hosted Ollama or vLLM server in the home network; a LAN address
+is never local by itself). It is enforced where a provider is chosen: chat and role models (also compaction summaries),
+model discovery (cloud models are listed with `locked: "local-only"`, not hidden), voice (local tier only, no cloud adapter
+is built), media generation, the media index and captioning, and the memory engine (embedding, reranker, engine LLM
+features). The memory engine and the media index are shared by all agents, so they stay local while the installation or
+**any** agent is local-only. A refused provider fails with `E_DENIED`, `reason: local-only`, and a hint to the switch;
+it is never replaced by another model. Egress still applies on top: a local endpoint must also be reachable under
+`egress.*` (loopback needs `allowLoopback`).
+
+Web tools (`web.fetch`, `web.search`) are not model calls: `privacy.localOnly` does not block them; egress alone governs
+them. The doctor report (`doctor.report`, check `privacy.local-only`) fails while the switch is on and a cloud model is
+still configured, and lists what will be refused.
