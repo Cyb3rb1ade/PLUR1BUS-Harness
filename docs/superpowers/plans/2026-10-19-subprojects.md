@@ -9,9 +9,9 @@ M5 path (board, trace, replay, D104, D98, budget admission) is reused by project
 `visibleFrom()` in `packages/core/src/collab/` feeds every object check, the event audience, the memory scope and the D109
 roots; worktree fork/merge extends `ProjectWorktreePort` with a provisioner shared with M6; a new closed schema
 `plur1bus.report/1` carries reports upwards as tainted data.
-**Status.** Plan only. Owner decisions of 2026-10-19 recorded (spec §16 Q1–Q8 and Q10 decided, **D115**): outside the
-v0.1.0 total but scheduled as the next track directly after the M5 base, before Track F. WP1–WP6 and WP8–WP11 are
-unblocked by the decisions (prerequisites R2–R8 still apply); WP7 waits only for Q9 (budget default, reformulated, open).
+**Status.** Plan only. Owner decisions of 2026-10-19 recorded (spec §16 Q1–Q10 decided, **D115**): outside the
+v0.1.0 total but scheduled as the next track directly after the M5 base, before Track F. WP1–WP11 are
+unblocked by the decisions (prerequisites R2–R8 still apply); Q9 (budget defaults) decided the same day.
 Track F WP14 (subproject as share and mission unit) builds on this track.
 **Constraints.** Additive only: new RPC methods with `x-stability: "experimental"`, `x-server: "core"`, `x-since`, closed
 params (AGENTS.md); no new RPC error codes (reuse `E_DENIED`, `E_NOT_FOUND`, `E_CONFLICT`, `E_INVALID_PARAMS`,
@@ -35,7 +35,7 @@ version change. Git only with fixed argv, never history rewrite. No CI polling, 
 ```text
 WP0 decisions ──► WP1 model + inheritance ──► WP2 isolation ──┬──► WP5 hand-off + reports ──► WP6 coordinator ──► WP8 web
                                    │                            ├──► WP3 memory scope (R4)                            │
-                                   │                            └──► WP7 budget (R3, Q9) ─────────────────────────────┤
+                                   │                            └──► WP7 budget (R3) ─────────────────────────────────┤
                                    └──► WP4 worktree fork/merge/revert (R6) ──► WP4b GitHub root merge (R8) ──────────┤
                                                                                          WP9 CLI ◄────────────────────┤
                                                                        WP11 isolation suite + E2E ◄── all ──► WP10 docs
@@ -58,7 +58,7 @@ taint producer). WP4 needs R6 (provisioner agreed with M6). WP4b needs R8 (GitHu
 **Content.** Record answers to spec §16 Q1–Q10 in the spec (status lines as in the federation spec), assign the decision
 number, update `docs/milestones.md` placement if Q1 changes it. Check R2–R8 on current `main` and note gaps in the plan.
 **Done 2026-10-19:** Q1–Q8 and Q10 decided and worked into the spec, **D115** in the core spec's register, milestones
-placement "next track after the M5 base, before Track F"; Q9 reformulated (open). **Remaining:** the R2–R8 check at the
+placement "next track after the M5 base, before Track F"; Q9 reformulated and decided (budget defaults, spec §10.1). **Remaining:** the R2–R8 check at the
 start of WP1.
 **Acceptance.** Spec §16 carries a status per question; this plan's Status line names the WPs that are unblocked.
 
@@ -163,10 +163,12 @@ carrying the old agent's memory; a child agent that is neither the child's coord
 call coordinator tools; with `childrenMayCreate` on the child's lead agent creates a grandchild (D109) and the root sees
 it, with it off the creation waits for the root coordinator; a grandchild never gets coordinator tools.
 
-## WP7 — Budget allocation (≈ 3 agent days; R3; Q9 open)
+## WP7 — Budget allocation (≈ 3 agent days; R3; Q9 decided)
 
-**Files.** `project.subproject.budget.set` with the dimensions tokens, turns, wall time and USD (spec §10.1: USD only with
-a known price list, never for subscription accounts; turns and wall time enforced by the collab runner); allocation as M2
+**Files.** `project.subproject.budget.set` with the dimensions tokens, turns and wall time, each a number or `unlimited`
+(spec §10.1; USD shown as information only, never a limit; turns and wall time enforced by the collab runner); defaults
+tokens unlimited, 150 turns, 36 h from the config key `collab.subprojects.budgetDefaults` (`x-restart: live`,
+`x-tier: advanced`, run `pnpm gen` and `pnpm docs:gen`), overridable per project; allocation as M2
 project-scope ceiling + reservation against the parent;
 ancestor chain in admission (`packages/core/src/budget` call site through the collab `BudgetPort`, no budget-store schema
 change if the existing project scope suffices — otherwise stop and report); pause on exhaustion; release on terminal
@@ -174,8 +176,10 @@ state.
 **Tests.** Allocation sum bound per dimension; top-up beyond parent refused (`E_CONFLICT`, `allocation-exceeds-parent`);
 cut below used + in-flight refused; ancestor limit refuses a child call even when the child has allocation left; turn and
 wall-time limits pause the child at the next turn boundary; a subscription account never gets a USD figure or a USD limit;
-unused part released on completion; child sees only its own figures; the start rule follows the Q9 answer (optional
-budget by default until then).
+unused part released on completion; child sees only its own figures; a child without explicit values gets the defaults
+(tokens unlimited, 150 turns, 36 h) clamped to the parent's remainder; changed installation defaults apply to new
+children; per project all three dimensions can be `unlimited` and the ancestors' limits still refuse; wall time is not
+summed across siblings; USD never refuses a call.
 
 ## WP8 — Web UI (≈ 4 agent days; live acceptance needs R2)
 
@@ -234,7 +238,7 @@ all, A sees nothing of root's board except pass-down items.
 | WP4b | Root → base branch on GitHub (push, pull request, merge, revert) | WP4; R8 | 2 |
 | WP5 | Hand-off down, `plur1bus.report/1` up, forward | WP2 | 3 |
 | WP6 | Coordinator role, control, agent tools, grandchildren by children | WP5 | 3.5 |
-| WP7 | Budget dimensions, allocation and ancestor admission | WP2; R3; Q9 | 3 |
+| WP7 | Budget dimensions, defaults, allocation and ancestor admission | WP2; R3 | 3 |
 | WP8 | Web UI | WP4–WP7; R2 for live | 4.5 |
 | WP9 | CLI | WP4–WP7 | 1.5 |
 | WP10 | Documentation and demo | WP8, WP9 | 1 |
@@ -274,6 +278,6 @@ be built here from scratch and the events audience hook needs its own change.
 
 ## Open points carried from the spec
 
-Spec §16 Q9 (budget default, reformulated; Q1–Q8 and Q10 decided 2026-10-19, D115); prerequisites R2–R8 (spec §14). The
+None of the owner questions (spec §16 Q1–Q10 decided 2026-10-19, D115); prerequisites R2–R8 (spec §14). The
 federation side (spec §12) is built in Track F **WP14** ("Subproject as share and mission unit",
 [`2026-10-19-federation-cluster.md`](2026-10-19-federation-cluster.md)), with this track as its precondition.

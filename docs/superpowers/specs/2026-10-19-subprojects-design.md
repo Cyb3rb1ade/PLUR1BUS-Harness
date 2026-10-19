@@ -1,7 +1,7 @@
 # Hierarchical subprojects in the project/Kanban system (M5+) — design
 
-**Status:** Phase 1: specification and plan, no product code. Owner decisions of 2026-10-19 incorporated (§16 Q1–Q8 and
-Q10 decided, **D115**); Q9 (budget) reformulated and open · **Date:** 2026-10-19 ·
+**Status:** Phase 1: specification and plan, no product code. Owner decisions of 2026-10-19 incorporated (§16 Q1–Q10
+decided, **D115**) · **Date:** 2026-10-19 ·
 **Owner:** Christian (Cyb3rb1ade) · **Track:** M5+ (collaboration extension; outside the v0.1.0 total but **scheduled**:
 the next track directly after the M5 base and before Track F, to be built soon — decided 2026-10-19, Q1) ·
 **Decision record:** **D115** in the core spec's register
@@ -82,7 +82,7 @@ Concretely, after this design is built:
 | S6 | Visibility | **Down: full** (ancestors see descendants). **Up: only the report channel** plus what was passed down. **Sideways: nothing**, enforced in RBAC/object checks, `AgentScope`, event audience, memory scope and D109 roots — not only in the UI. A sibling object answers `E_NOT_FOUND`, never `E_DENIED`. | UI-only hiding: an agent with the board tools or a person with the CLI would still read sibling cards. |
 | S7 | Upward channel | **`plur1bus.report/1`** for progress, question, blocker and milestone; `plur1bus.return/1` stays the completion envelope; both arrive in the parent as **tainted, untrusted data** with provenance. | Free-text comments on the origin card: no structure for aggregation, no taint boundary, injection-prone. |
 | S8 | Sibling hand-over | Only via **coordinator forward** (`project.subproject.forward`); the receiving child sees "from coordinator", never the source sibling's id or name; no direct channel (decided, Q5). | Direct child-to-child messages: the request says siblings do not see each other. |
-| S9 | Budget | A budget is **optional** per child. If set, it is an **allocation** carved from the parent's remaining budget in the dimensions tokens, turns/requests and wall time — USD only where a price list is known; subscription accounts count in tokens/turns/time, never in USD (§10.1); hard limit; every call checks the child **and all ancestors**; unused allocation flows back on close. Whether an allocation is mandatory before start is open (Q9). | Shared pool without allocation: one child can starve its siblings, and "how much did this subproject cost" has no limit to compare against. |
+| S9 | Budget | A budget is **optional** per child. If set, it is an **allocation** carved from the parent's remaining budget in the dimensions tokens, turns/requests and wall time — USD only where a price list is known; subscription accounts count in tokens/turns/time, never in USD (§10.1); hard limit; every call checks the child **and all ancestors**; unused allocation flows back on close. Every project has a budget with defaults (tokens unlimited, 150 turns, 36 h wall time; §10.1, Q9); each value is user-modifiable and may be set to unlimited per project. | Shared pool without allocation: one child can starve its siblings, and "how much did this subproject cost" has no limit to compare against. |
 | S10 | Memory | Child work is captured into a **subproject pool** (`project:<childId>`), not into the agents' private stores; recall inside a child sees only that pool plus items passed down; **no agent-private recall or capture** in children and grandchildren (decided, Q7). Raising memories to the parent is **explicit per entry**; at completion the coordinator confirms a pre-selected list (decided, Q6). | Agent-private capture: the same agent working in two siblings would carry one sibling's knowledge into the other (a covert sibling channel). |
 | S11 | Federation | A subproject is the **share unit** and **mission scope**; Track F builds this as **WP14** (on WP4/WP12; federation spec Q14 decided: one borrower project); this spec defines `SubprojectRef` and the isolation predicate WP14 reuses (§12). | Sharing whole root projects only: a guest would see all siblings. |
 
@@ -165,7 +165,7 @@ value follows the parent (the override is then redundant, and the UI marks it "o
      checklist in the description or entered explicitly; the card description is untrusted text and is quoted, never
      interpreted),
    - inherited effective settings with an editable narrowing override,
-   - an optional allocation (§10; whether start needs one is open, Q9),
+   - an allocation (§10; defaults from §10.1 unless set, Q9),
    - members and agents (default: the card's assignees that are eligible, §4.2),
    - branch and worktree names if the parent has a repo binding (§6.2).
 3. **Commit** (`preview: false` with the preview id): one transaction creates the project row, its board (existing
@@ -482,11 +482,27 @@ three exist on every account:
 | **Wall time** | running time of the subproject (paused time excluded) | collab state log | measured |
 | **USD** (`costMicros`) | price × tokens | only where a price list for the model is known (catalogue or provider price table) | **not measurable**: never computed, never a limit; shown as "n/a (subscription)" |
 
-Rules: a budget is **optional**; when set it may use any combination of the dimensions, and each dimension that is set is
-a hard limit; USD is a limit only on accounts with a known price list and otherwise information at most. Tokens and USD
-use the existing M2 budget scopes; turns and wall time are enforced by the collab runner (as the existing `maxTurns` and
-`timeoutMs` guardrails are), so no budget-store schema change is needed. Whether every child must have an allocation
-before it starts is owner question Q9 (open).
+Rules (decided 2026-10-19, Q9): every project — root and subproject — has a budget in the three measurable dimensions,
+with these **defaults**:
+
+| Dimension | Default | Setting it |
+|---|---|---|
+| Tokens | **unlimited** | a number or `unlimited` |
+| Turns / requests | **150** | a number or `unlimited` |
+| Wall time | **36 h** (`wallMs` 129 600 000) | a duration or `unlimited` |
+| USD | none: information only | never a limit (owner decision; shown where a price list is known, "n/a (subscription)" otherwise) |
+
+- The user can change the defaults installation-wide (config key `collab.subprojects.budgetDefaults`, `x-restart: live`,
+  `x-tier: advanced`) and per project (`project.subproject.budget.set`, §10.2), and per project **every** dimension may be set to `unlimited`, including all three
+  at once. A child created without explicit values gets the defaults.
+- A dimension with a finite value is a **hard limit**, checked against the project and all its ancestors (§10.2);
+  `unlimited` means no limit at that level, the ancestors' limits still apply.
+- Turns and tokens are **summed** across a parent and its children (§10.2 reservation). Wall time is **not** summed,
+  because siblings run in parallel: a child's wall-time ceiling is at most the parent's remaining wall time.
+- A child's default is **clamped** to what the parent has left in each dimension (a default never fails a start; an
+  explicit value beyond the parent's remainder is refused, §10.2).
+- Tokens use the existing M2 budget scopes; turns and wall time are enforced by the collab runner (as the existing
+  `maxTurns` and `timeoutMs` guardrails are), so no budget-store schema change is needed.
 
 ### 10.2 Allocation, admission and return
 
@@ -734,8 +750,8 @@ R8 gates only root → base on GitHub (local merges work without it).
 
 ## 16. Owner questions
 
-Q1–Q8 and Q10 were answered by the owner on 2026-10-19 (**D115**); the answers are worked into the sections named. Q9 is
-reformulated after the owner's question what a budget means for subscription accounts and stays open.
+Q1–Q10 were answered by the owner on 2026-10-19 (**D115**); the answers are worked into the sections named. Q9 was
+reformulated after the owner's question what a budget means for subscription accounts and then decided the same day.
 
 1. **Q1 — Placement and release.** *Status: entschieden 2026-10-19.* Outside the v0.1.0 total, but firmly scheduled and
    to be built soon: the next track directly after the M5 base, before Track F (`docs/milestones.md` §2, §M5+). Track F
@@ -766,7 +782,10 @@ reformulated after the owner's question what a budget means for subscription acc
    switchable to **auto-merge**: the coordinator merges by itself when the D98 gate is green and the review (verifier and
    agent review) passed. Default: proposal + confirmation. Merge commit, no squash (§6.6, §6.7, R8). Recommended was:
    always a human decision in v1; merge commit.
-9. **Q9 — Budget for subprojects: optional, and in which unit?** *Status: offen (neu formuliert 2026-10-19).* With
+9. **Q9 — Budget for subprojects: optional, and in which unit?** *Status: entschieden 2026-10-19.* **Decision:** every project has
+   a budget with defaults tokens **unlimited**, turns **150**, wall time **36 h**; the user can change the defaults and,
+   per project, set any or all dimensions to unlimited; finite values are hard limits checked against all ancestors; USD
+   is information only, never a limit (§10.1). Background: with
    subscription accounts (e.g. Codex, ChatGPT or Claude plans, cloud subscriptions) no cost per call can be measured, so
    a USD budget means nothing there. §10.1 lists what can be measured on every account: tokens, turns/requests and wall
    time; USD only where a price list is known. **Recommendation:** a budget is optional per subproject; if set, it is
