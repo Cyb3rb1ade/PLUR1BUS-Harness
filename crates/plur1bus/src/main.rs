@@ -14,6 +14,7 @@ mod journal;
 mod modules;
 mod output;
 mod paths;
+mod privacy;
 mod proc;
 mod repair;
 mod service;
@@ -83,6 +84,7 @@ fn main() {
         Cmd::User { sub } => commands::user::run(&out, &layout, sub),
         Cmd::Model { sub } => commands::model::run(&out, &layout, sub),
         Cmd::Audit { sub } => commands::audit::run(&out, &layout, sub),
+        Cmd::Logs { sub } => commands::logs::run(&out, &layout, sub),
         Cmd::Voice { sub } => commands::voice::run(&out, &layout, sub),
         Cmd::Jobs { sub } => commands::jobs::run(&out, &layout, sub),
         Cmd::Budget { sub } => commands::budget::run(&out, &layout, sub),

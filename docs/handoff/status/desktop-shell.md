@@ -1,5 +1,17 @@
 # Desktop shell status
 
+## Current D1 status — 2026-10-15 draft stack
+
+WP12 implementation: [#498](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/498),
+[phase 1 handoff](2026-10-15-d1-p1.md). WP13 implementation:
+[#501](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/501),
+[phase 2 handoff](2026-10-15-d1-p2.md). Real-image compatibility/migration:
+[phase 3 handoff](2026-10-15-d1-p3.md), [#502](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/502). CI and acceptance: [#504](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/504), [phase 4 handoff](2026-10-15-d1-p4.md), [owner worksheet](../../demos/d1.md). These are draft-stack changes, not a claim
+that `main` or D1 acceptance is complete. Real API/pairing/cold-snapshot contracts,
+production migration/SIGKILL evidence and native/manual acceptance remain open.
+The chronological reports below retain the scope and evidence of their own PRs.
+CI was not polled for this package.
+
 ## WP1 — Scaffold, workspace, hygiene, desktop CI
 
 Status: MERGED — PR #59 is now in main; root and desktop CI passed at the WP1 head.
@@ -2009,3 +2021,19 @@ Open / next (no additional policy question):
 No new feature-policy default, no real keys/certificates, no root crates/packages
 or unrelated workflows changed. Main checkout untouched. Exactly one PR is opened
 for both WPs after push; CI and merge decisions remain with the controller.
+
+## WP12 / D1 phase 1 — 2026-10-15
+
+Implementation, decisions, threat table, test inventory, validation boundaries,
+owner questions and follow-ups: [phase 1 handoff](2026-10-15-d1-p1.md).
+Branch `codex/d1-p1-deeplinks`, base `4557176c`; four-phase package continues with
+WP13 packaging after this phase's PR. Earlier “WP12 NOT STARTED” rows above are
+historical. Native/manual limitations in the new handoff remain explicit.
+
+### 2026-10-15 — D1 phase 2 packaging
+
+[WP13 implementation handoff](2026-10-15-d1-p2.md): runtime assistance, marked CLI copy/PATH, tiered uninstall, native shortcut ownership and explicit online/offline build staging implemented. macOS preview bundles built with inert payloads. Cross-platform native and real-image acceptance remains open; no CI polling. Stacked after #498.
+
+### 2026-10-15 — D1 phase 3 real-image boundary
+
+[Real-image/migration handoff](2026-10-15-d1-p3.md): actual M8 layout reconciled and read-only upgrade contract refusal added before stopping old harness. Immutable native image probe and non-gating build job added. Production real-store migration and full desktop API gate remain explicit KNOWN GAPs; no server policy/engine expansion and no native identity file implemented. Builds on #501; no CI polling.

@@ -2,7 +2,9 @@
 
 `@plur1bus/media` is a standalone, dependency-free Node 24 package. It exports
 image adapters, `AdapterRegistry`, `JobRunner`, `FileJobPersistence`, `OutputStore`,
-`estimateCost`, and capability-name constants `media.generate` / `media.edit`.
+`requestedUnits`/`deliveredUnits` (native usage units: images, video seconds), and capability-name constants
+`media.generate` / `media.edit`. There is no cost estimate or price table: the harness has no money dimension (owner
+decision 2026-10-19).
 The MG-1 library adds no permission approval flow. MG-3 RPC/CLI/UI/channel
 surfaces and their remaining production gates are documented below.
 The supplied MG-1 owner decisions are the implementation contract; the referenced
@@ -39,12 +41,10 @@ the old runner has exited and obtaining exclusive ownership, the host calls
 root per runner; roots and manifests are private application-owned data, not an
 import interface. Files use mode 0600 and directories 0700 on POSIX.
 
-`BudgetPort.reserve(jobId, estimate)` must reserve atomically and idempotently;
-`settle(jobId, actualUsd)` must reconcile idempotently. Unknown estimates/actual
-costs are `null`, not free usage. Budget refusal prevents provider submission.
-The dated `src/prices.json` table is an estimate, without warranty; only the listed
-model has a fixed price. Local provider billing is zero (hardware/electricity
-costs are excluded). Verify current billing before use.
+`BudgetPort.reserve(jobId, units)` must reserve atomically and idempotently;
+`settle(jobId, delivered)` must reconcile idempotently. Units are native: `{ unit: "image" | "videoSecond", quantity }`
+(requested: `n` images or `durationSeconds`; delivered: stored image count or measured seconds). A job that delivered
+nothing settles `null`. Budget refusal prevents provider submission. There are no prices.
 
 ## Adapters and verification
 
@@ -126,15 +126,15 @@ that Draw Things stops rendering.
 Each output directory is published by a single rename after files and manifest
 have been flushed. SHA-256 hashes describe the stored bytes (including embedded
 metadata). The manifest always includes adapter/model, prompt, parameters,
-reference/mask hashes, seed and cost (null when unknown), duration, origin and
+reference/mask hashes, seed, duration, origin and
 partial-result flag. Reference bytes and mask bytes are not duplicated into the
 manifest. Job persistence retains request bytes to enable polling recovery.
 Quota includes images and manifest bytes and is checked under an exclusive store
 lock. Quota refusal leaves no output directory. A put that finds the lock held fails fast with `backend_unavailable`
 instead of waiting, so two jobs finishing at the same moment may not both publish (not yet enforced: waiting for the lock). Only
 stable error codes leave the store; raw file-system or parse errors are mapped to one. With metadata embedding off, `put()` stores the
-bytes as given and does not check that they are the declared image format (not yet enforced: magic-byte verification; the adapters check
-provider output themselves). `prune()` removes expired jobs;
+bytes after checking that they start with the magic bytes of the declared image format (`invalid_response` otherwise; the adapters also
+check provider output themselves). A job runner never waits on an adapter that missed the abort: the caller's signal wins and the job ends as `timeout` or `cancelled`. `prune()` removes expired jobs;
 the host must schedule it. No background scheduler is installed.
 
 Embedding precedence is **call > agent > global > false**. The global setting is
@@ -208,8 +208,7 @@ Primary protocol references: [OpenRouter](https://openrouter.ai/docs/api-referen
 [Google](https://ai.google.dev/gemini-api/docs/generate-content/image-generation),
 [xAI](https://docs.x.ai/developers/model-capabilities/images/generation),
 [Draw Things](https://github.com/drawthingsai/draw-things-community/blob/main/Libraries/HTTPAPIServer/Sources/HTTPAPIServer.swift),
-[Apple](https://github.com/apple/ml-stable-diffusion),
-[price estimate](https://www.together.ai/pricing). Checked 2026-10-07.
+[Apple](https://github.com/apple/ml-stable-diffusion). Checked 2026-10-07.
 
 ## MG-3 surfaces
 
@@ -249,7 +248,9 @@ plur1bus media rm <output-id>
 ```
 
 `--wait` reports progress on stderr and returns a terminal job; JSON stdout remains
-one document. It waits up to ten minutes; timeout leaves the job queryable. `--out`
+one document. It waits up to ten minutes; timeout leaves the job queryable. A job that
+ends `failed` or `cancelled` exits 1 with `E_INTERNAL`, `reason=media-job-failed` (the job's error is `detail`); a
+wait that runs out exits 1 with `E_INTERNAL`, `reason=media-wait-timeout` ([errors.md](errors.md#media-reasons-plur1bus-media---wait)). `--out`
 creates a new file and preserves existing files. References and masks are existing
 private output IDs, not arbitrary paths or provider URLs. RPC image transfer is
 bounded to 16 MiB per file; larger files remain stored. Output deletion preserves
@@ -316,14 +317,11 @@ MP4/MOV comment metadata or WebM Tags only when enabled; default off. Native tes
 verify both embedding states and removal of a synthetic GPS/device canary in all
 three containers. Manifests always retain the prompt independently of embedding.
 
-Budget requests use videoSecond quantities; successful settlement uses measured
-stored seconds, not one unit per file. `costUsd` comes from a vendor response when
-provided. Otherwise it is null, `costStatus: "unknown"`, with a separate
-`estimatedCostUsd` from the dated, resolution-specific prices.json table (null for
-unpriced models). Existing PriceBook controls budget ceilings, so an unpriced
-model under a hard cost ceiling remains refused. Estimates never become claims of
-actual provider billing. Cancellation can leave remote usage uncertain; submitted
-video errors retain a reservation for the existing reconciliation/expiry policy.
+The media package counts video in seconds (`requestedUnits`/`deliveredUnits`: measured stored seconds, not one unit
+per file). The core call budget admits a generation as a call of 0 tokens; it has no image or video-second metric, and
+there is no money dimension (owner decision 2026-10-19: no cost field, no price table, no cost estimate). A cost a vendor
+reports is not copied into the manifest. Cancellation can leave remote usage uncertain; submitted video errors retain a
+reservation for the existing reconciliation/expiry policy.
 
 Telegram's existing sendOutput supports MP4 via sendVideo and MOV/WebM as documents,
 up to 50 MiB. Larger files send a download hint through the existing media sending path. No
@@ -339,7 +337,7 @@ Base: origin/main `433ca5b3` (refreshed 2026-10-10).
 | Store quota and atomic publication | buffered images | bounded streaming, measured video fields, poster |
 | Cloud protocols | image adapters | OpenRouter, Replicate, fal, xAI, Google video; OpenAI false |
 | Metadata preferences and reference sanitization | images | video remux stripping and optional container comments/Tags |
-| Budget media units | videoSecond available | duration-based admission/settlement and explicit unknown cost |
+| Budget media units | videoSecond available | duration-based units in the media package (no cost since 2026-10-19) |
 | RPC/CLI, Media RBAC | image surfaces | kind video, edit refs, bounded file ranges, CLI options |
 | Telegram output port | photos | video/document delivery within existing sending path |
 | ADR-017 | absent; owner decisions in docs | accepted decision record |

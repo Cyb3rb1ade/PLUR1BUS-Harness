@@ -88,7 +88,7 @@ export class CoreMLAdapter implements ImageAdapter {
         request: { prompt: req.prompt, ...(req.negativePrompt === undefined ? {} : { negativePrompt: req.negativePrompt }), ...(req.n === undefined ? {} : { n: req.n }), ...(req.seed === undefined ? {} : { seed: req.seed }), ...(req.steps === undefined ? {} : { steps: req.steps }), ...(req.guidance === undefined ? {} : { guidance: req.guidance }), ...(this.config.scheduler ? { scheduler: this.config.scheduler } : {}), ...(op === 'img2img' ? { strength: this.config.strength ?? 0.75 } : {}) },
       }, aborts, f => context.onProgress?.({ fraction: f, stage: 'running' }));
       const { files } = await this.collect(result, output);
-      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - start, costUsd: 0, origin: 'local', ...(typeof result.seed === 'number' ? { seed: result.seed } : {}) }, partial: files.length < (req.n ?? 1) };
+      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - start, origin: 'local', ...(typeof result.seed === 'number' ? { seed: result.seed } : {}) }, partial: files.length < (req.n ?? 1) };
     } catch (e) { throw failure(e, context.signal); } finally { await rm(output, { recursive: true, force: true }); }
   }
   private async invoke(operation: string, request: ImageRequest | undefined, context: GenerationContext, outputDir: string): Promise<Record<string, unknown>> {
@@ -154,7 +154,7 @@ export class CoreMLAdapter implements ImageAdapter {
     try {
       const result = await this.invoke('generate', req, context, output);
       const { files } = await this.collect(result, output);
-      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - start, costUsd: 0, origin: 'local', ...(typeof result.seed === 'number' ? { seed: result.seed } : {}) }, partial: files.length < (req.n ?? 1) };
+      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - start, origin: 'local', ...(typeof result.seed === 'number' ? { seed: result.seed } : {}) }, partial: files.length < (req.n ?? 1) };
     } catch (e) { throw failure(e, context.signal); } finally { await rm(output, { recursive: true, force: true }); }
   }
 }

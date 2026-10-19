@@ -46,12 +46,12 @@ export const en = {
   "projects.traces": "Collaboration traces",
   "projects.status": "Status",
   "projects.tokens": "Tokens",
-  "projects.cost": "Estimated cost",
   "projects.cancel": "Cancel chain",
   "projects.input": "Redacted input",
   "projects.output": "Redacted output",
   "identity.channel": "Channel",
   "identity.request": "Issue pairing code",
+  "identity.removeFor": "Remove {channel} account {account} identity {user}",
   "identity.code": "One-time code: {code}",
   "identity.expires": "Expires: {at}",
   "identity.approve": "Approve link",
@@ -59,6 +59,7 @@ export const en = {
   "identity.unlinkBody":
     "Unlink this channel identity? Its old channel memories leave your union; canonical user memories remain.",
   "identity.principals": "My principal union",
+  "identity.removeLabel": "Remove {name}",
 } as const;
 export const de: Record<keyof typeof en, string> = {
   "nav.media": "Medien",
@@ -108,12 +109,12 @@ export const de: Record<keyof typeof en, string> = {
   "projects.traces": "Kollaborations-Traces",
   "projects.status": "Status",
   "projects.tokens": "Tokens",
-  "projects.cost": "Geschätzte Kosten",
   "projects.cancel": "Kette abbrechen",
   "projects.input": "Redigierte Eingabe",
   "projects.output": "Redigierte Ausgabe",
   "identity.channel": "Kanal",
   "identity.request": "Pairing-Code erzeugen",
+  "identity.removeFor": "{channel}-Konto {account} mit Identität {user} entfernen",
   "identity.code": "Einmaliger Code: {code}",
   "identity.expires": "Gültig bis: {at}",
   "identity.approve": "Verknüpfung genehmigen",
@@ -121,4 +122,5 @@ export const de: Record<keyof typeof en, string> = {
   "identity.unlinkBody":
     "Diese Kanalidentität lösen? Ihre alten Kanal-Erinnerungen verlassen deine Union; kanonische Nutzer-Erinnerungen bleiben.",
   "identity.principals": "Meine Principal-Union",
+  "identity.removeLabel": "Entfernen: {name}",
 };

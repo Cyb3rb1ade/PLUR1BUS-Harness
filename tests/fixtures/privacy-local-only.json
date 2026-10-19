@@ -1,0 +1,9 @@
+[
+ {"name":"off permits cloud","config":{"privacy":{"localOnly":false},"engine":{"embedding":{"provider":"openai"}}},"required":false,"agents":[],"blocked":[]},
+ {"name":"installation rejects cloud","config":{"privacy":{"localOnly":true},"engine":{"embedding":{"provider":"openai"}}},"required":true,"agents":[],"blocked":["embedding"]},
+ {"name":"one agent pins the shared engine","config":{"privacy":{"localOnly":false},"agents":{"alice":{"privacy":{"localOnly":true}},"bob":{"privacy":{"localOnly":false}}},"engine":{"embedding":{"provider":"openai"},"reranker":{"provider":"cohere"}}},"required":true,"agents":["alice"],"blocked":["embedding","reranker"]},
+ {"name":"override cannot lift the shared installation pin","config":{"privacy":{"localOnly":true},"agents":{"alice":{"privacy":{"localOnly":false}}},"engine":{"merging":{"baseUrl":"https://models.example/v1"}}},"required":true,"agents":[],"blocked":["merging"]},
+ {"name":"loopback and explicitly listed home server stay local","config":{"privacy":{"localOnly":true,"localEndpoints":["http://192.168.1.20:11434"]},"engine":{"embedding":{"provider":"tei","baseUrl":"http://192.168.1.20:11434/v1"},"merging":{"baseUrl":"http://[::1]:8000/v1"}}},"required":true,"agents":[],"blocked":[]},
+ {"name":"another port is not the allowed origin","config":{"privacy":{"localOnly":true,"localEndpoints":["http://192.168.1.20:11434"]},"engine":{"embedding":{"provider":"tei","baseUrl":"http://192.168.1.20:8080/v1"}}},"required":true,"agents":[],"blocked":["embedding"]},
+ {"name":"an engine feature with a vendor default stays blocked","config":{"agents":{"z":{"privacy":{"localOnly":true}},"a":{"privacy":{"localOnly":true}}},"engine":{"emotion":{"t3":{"apiKeyEnv":"FIXTURE_KEY_REFERENCE"}}}},"required":true,"agents":["a","z"],"blocked":["emotion.t3"]}
+]

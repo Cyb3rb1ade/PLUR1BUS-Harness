@@ -116,6 +116,16 @@ Embedding identity = model + revision/artefact hash + quantization + dimension +
 - **Mismatch (or target has no compatible provider configured yet):** the importer routes the store through PLUR1BUS's guided re-embedding migration — prepare target generation → dry-run → copy into new generation → separate switch → old generation retained for rollback (plur1bus-crons-embedding-portability.md §2, auftrag §6.2) — never a silent re-embed and never a mixed-vector-space table.
 - A store whose embedding identity cannot be determined at all (e.g. missing/corrupt provider metadata) is treated as a mismatch, never as an assumed match.
 
+**As built (OpenClaw, `import/importers/openclaw-stores.ts`).** The decision is made per partition (one per agent, one per shared pool), never for the store as a whole, and always on a copy: the source is only read (when it is a source snapshot, §12, its manifest is verified first) and stays byte-identical, content and permission bits.
+
+1. The partition is copied (the Hermes copy routine of `hermes-stores.ts`: no links, no special files) into a one-partition probe root next to `state/lancedb.adopt-<runId>` (dry run: the OS temp dir), together with the store's `_schema.json`.
+2. `Engine.stores.adopt` (dry run) checks that copy: schema marker of the current version, dimension, and, for stores without a generation manifest, the sample cosine probe that re-embeds a few stored texts and compares. This is what catches a store of the same dimension written by another model, which the recorded evidence (config, cache) cannot.
+3. Verdict `ok`: the copy joins the staging dir; after the snapshot and ledger exist, the staging dir is swapped into `state/lancedb` in one rename (`commitStoreAdopt`, ledger entity `store`, action `adopted`; rollback removes it). Nothing is embedded outside the probe.
+4. Identity mismatch, dimension mismatch, or an identity that cannot be proven: the partition is **not copied**. The report entry has `action: "re-embedding-migration"`, the reasons, and a `nextStep`: make the harness embed with the store's model, re-run the import, then `plur1bus memory reembed --plan --model <harness model>` (the guided migration of M2: plan, throttled copy into a new generation, validation, separate switch; its checkpoint checks are untouched by the import).
+5. A store without a readable current schema marker is `skipped` (`schema-mismatch`/`schema-unreadable`): the import never migrates or writes a source.
+6. Namespaced and generation layouts are `skipped` (`layout-unsupported`); only the flat layout (`<root>/<agent>/memories.lance`, `<root>/.plur1bus-shared/<kind>/<key>`) is mapped onto the harness store.
+7. An existing `state/lancedb` is never merged into: partitions already present byte-for-byte are `matched-existing`; otherwise `--conflict skip` reports `store-exists-skipped`, `rename` reports `store-rename-unsupported`, and `replace` swaps the store whole (the old one is kept under `imports/<runId>/replaced/lancedb`; rollback restores it). A second run on an unchanged source and target therefore writes nothing outside `imports/`.
+
 #### 2.3.2 Reranker (added 2026-09-27)
 
 The reranker was missing from this document. It touches **no stored vector** (ADR-006 §"Rerankers": switchable at runtime without migration), so a reranker difference is never a reason to re-embed or to block a take-over.
@@ -345,6 +355,9 @@ Extended for the harness's own provider matrix (ADR-006) with the equivalent env
       "counts": {
         "memoryCardsImported": 0,
         "memoryCardsSkippedDuplicate": 0,
+        "memoryCardsLinked": 0,
+        "memoryCardsPendingReembed": 0,
+        "memoryCardsDeferred": 0,
         "skillsImported": 0,
         "skillsConflicted": 0,
         "cronJobsImported": 0,
@@ -352,6 +365,16 @@ Extended for the harness's own provider matrix (ADR-006) with the equivalent env
         "allowlistEntriesImported": 0,
         "sessionsImported": 0
       }
+    }
+  ],
+  "stores": [
+    {
+      "storeId": "agent:alpha | shared:workspaces:<key>",
+      "plannedAction": "take-over | re-embedding-migration",
+      "action": "taken-over | preview-ok | matched-existing | re-embedding-migration | skipped",
+      "rows": 0,
+      "reasons": ["identity-mismatch"],
+      "nextStep": "string | null"
     }
   ],
   "secrets": {
@@ -374,6 +397,10 @@ Extended for the harness's own provider matrix (ADR-006) with the equivalent env
     "filesSkipped": 0,
     "channelsDeferred": 0,
     "cronJobsDeferred": 0,
+    "storesTakenOver": 0,
+    "storesMatched": 0,
+    "storesReembedMigration": 0,
+    "storesSkipped": 0,
     "corruptLedgerLines": 0
   },
   "errors": [ { "sourceRef": "string", "reason": "string" } ]
@@ -603,8 +630,23 @@ plur1bus --home <home> import hermes   --source ~/.hermes   --apply [--adopt-sto
 What an apply does, in order: takes the single-writer lock, snapshots the target state it will touch to `<home>/imports/<runId>/snapshot/`, registers agents in `config.agents` and scaffolds their workspaces, copies `SOUL.md` and the curated files (D14/D15) into `<home>/agents/<id>/workspace`, then writes the ledger and `report.json` (mode 0600) to `<home>/imports/<runId>/`.
 
 - **Conflicts.** `--conflict` (alias `--on-conflict`) is `skip` (default: an existing differing file stays and is reported as `conflict`), `rename`, or `replace` (the old file is kept under the run directory).
-- **Hermes memory cards** go through the engine's `memory.import` with provenance `imported`, in batches of at most 500. `USER.md` content is not imported unless a user binding exists (§2.4); it is reported as `unresolvedUserScope`.
-- **Hermes store take-over** is opt-in: `--adopt-store <path>` adopts an existing PLUR1BUS store through `stores.adopt`, after an identity probe. An identity mismatch aborts before anything is replaced.
+- **Hermes memory cards** go through the engine's `memory.import` with provenance `imported`, in batches of at most 500. `USER.md` content is not imported unless a user binding exists (§2.4); it is reported as `unresolvedUserScope`. Multiple profiles can map to a target agent via `--map profile=<p>:agent=<a>`, and `--merge-profiles` allows consolidating profiles into one agent while binding user preferences for that agent.
+- **OpenClaw memory cards** go through `memory.import` with provenance `imported`, `sourceRef: "openclaw:<agentId>:<file>#<n>;run=<runId>"`, full deduplication and conflict tracking. **Cards are imported for every agent, also for an agent with a store of its own (owner decision 2026-10-19, replaces the skip of 2026-10-18).** What happens to an agent's `MEMORY.md` and `USER.md` cards depends on its PLUR1BUS store partition in the source (§2.3):
+  - **Store taken over or already in the harness** (`taken-over`, `matched-existing`): before a card is written, the agent's store is asked whether the same memory is already there. The rule is the engine's capture duplicate rule: `memory.list({ topic })` over the agent's store, a hit counts when its text equals the card's text or its capture score `1 / (1 + d)` reaches the engine's `duplicateThreshold` default of 0.95 (the harness never overrides it). A duplicate is **not written again but linked**: `memory.cardResults` outcome `linked` with `linkedTo: <memory id>` and reason `duplicate-of-existing`, ledger action `linked` with `targetRef: "memory:<id>"`, counted in `memory.linkedCount` / `counts.memoryCardsLinked`. A later run reuses that link from the ledger (reason `already-linked`) instead of asking the store again. **Engine-side link (engine contract 1.16.0):** when the engine reports `capabilities.memoryLink`, the importer also calls `memory.link(<memory id>, { sourceRef, provenance: "imported", importRunId: <runId>, idempotencyKey })` for every duplicate it found, so the existing memory carries the card's source as an additional source (`show`/`list` → `links[]`); the memory's own row (text, vector, provenance) is never written. The report adds `linkId` to the card result, the ledger entry `details.linkId`, `details.engineLink` (the engine outcome, only when this run called `memory.link`) and `details.agentId`. A link reused from an earlier run that already has an engine link id is not linked again; a ledger-only link from an earlier run is linked in the engine by the next run. Without the capability, or when the engine refuses the link (reported in `errors[]` as `memory-link-failed:<code>`), the link stays ledger-only; the card is never written a second time either way. A second copy of a linked card in the same file is reported `matched-existing` (`duplicate-in-batch`), as the engine reports an in-batch duplicate; it is never linked a second time. Any other card is written into the agent's store, embedded with the harness model. The engine's own idempotency comes first: a card it already imported stays `matched-existing`, it is never linked to itself. A dry run has no target store to compare against and plans every new card as `created`.
+  - **Store routed to the re-embedding migration** (`re-embedding-migration`): the cards are **parked**, never embedded now (they would land in a vector space the store is not in, or create a partition that blocks the later take-over). Outcome and ledger action `pending-reembed`, reason `agent-store-reembed-migration`, counted in `memory.pendingReembedCount` / `counts.memoryCardsPendingReembed`, named in the human report. They are imported (or linked) by the first later import run in which that agent's store is taken over, with the harness model, i.e. in the vector space the store is in then; the `memory reembed` migration carries them along with the store's rows. `--resume` of the same run keeps that run's store verdicts, so its parked cards stay `pending-reembed`.
+  - **Store not taken over for another reason** (`skipped`: schema mismatch, store check failed, an existing harness store without `--conflict replace`, unsupported layout): the cards are deferred the same way, outcome and ledger action `deferred`, reason `agent-store-not-taken-over`, `counts.memoryCardsDeferred`.
+  - **No store of its own**: unchanged, the cards go straight through `memory.import`.
+
+  `USER.md` without a user binding stays `unresolved-user-scope` (reason `unambiguous-user-required`, ledger action `skipped`) in every case, also for an agent whose store is parked or deferred: ADR-007 Q4 comes first, such cards are never parked because no later run would import them either (the Hermes rule). Linked, parked and deferred cards wrote no card, so a rollback does not count them under `memoryCardsNotReverted`; a rollback undoes the run's engine-side links (§10.4). The engine is opened on first use, so an import whose cards are all parked never opens one and never creates `state/lancedb`.
+- **Hermes store take-over** is opt-in: `--adopt-store <path>` adopts an existing PLUR1BUS store through `stores.adopt`, after an identity probe. In dry-run mode, an identity mismatch offers two routing paths (`reembed` and `import`) with instructive hints. In apply mode, `--adopt-strategy reembed` adopts the store as-is for subsequent `memory reembed` migration (its cards are parked, see below), while `--adopt-strategy import` skips store adoption and imports cards into the target store using target embeddings.
+- **Hermes memory cards with `--adopt-store`** follow the same rule as the OpenClaw cards above (owner decision 2026-10-19, "the same rule for Hermes"; the building blocks are shared, `importers/card-links.ts`). A Hermes take-over swaps the whole harness store, so one verdict covers the `memories/MEMORY.md` (and, with a user binding, `memories/USER.md`) cards of every profile:
+  - **Store taken over in the harness vector space** (`storeAdopt.action` `taken-over`, or `preview-ok` in a dry run, with verdict `ok`): imported with duplicate linking exactly as for OpenClaw, engine duplicate rule, outcome / ledger action `linked` with `linkedTo` / `targetRef: "memory:<id>"`, reason `duplicate-of-existing` (`already-linked` when a later run reuses the ledger link), linked in the engine too when it reports `capabilities.memoryLink` (`linkId`, as for OpenClaw), counted in `memory.linkedCount` / `counts.memoryCardsLinked`. A second copy of a linked card in the same file is reported `matched-existing` (`duplicate-in-batch`), as the engine reports an in-batch duplicate. The `memories.md` / `USER.md` mirror keeps the source order and includes linked cards (their memory is in the store).
+  - **`--adopt-strategy reembed`** (the store is taken over as-is, in another model's vector space): the cards are **parked**, outcome and ledger action `pending-reembed`, reason `agent-store-reembed-migration`, `counts.memoryCardsPendingReembed`; no mirror is written. The engine is not opened for them, so the adopted store stays exactly the source copy.
+  - **The harness store is this source's store from an earlier run** (`store-exists-skipped` while the last store take-over recorded in this home's not rolled-back ledgers names the same source path, or `already-adopted-in-run` on `--resume`): the engine's identity check (`stores.adopt` dry run, read-only) runs on `state/lancedb` itself. Identity matches (the `memory reembed` migration has switched the store to the harness model): the cards are imported with linking, so **the first run with the same `--adopt-store` after the migration imports the parked cards**. Still another model's space: they stay `pending-reembed`. The check fails for another reason: `deferred`.
+  - **Store not taken over for another reason** (another harness store is left untouched, `store-exists-skipped`; dry-run `aborted`): `deferred`, reason `agent-store-not-taken-over`, `counts.memoryCardsDeferred`; nothing reaches the engine.
+  - **No `--adopt-store`, or `--adopt-strategy import`** (the store is deliberately left out): unchanged, the cards go straight through `memory.import`.
+
+  `USER.md` without a user binding stays `unresolved-user-scope` in every case (ADR-007 Q4 comes first; such cards are never parked, because no later run would import them either). The engine is opened only when a profile has cards to write, so a run whose cards are all parked or deferred never opens one. Rollback treats linked, parked and deferred Hermes cards like the OpenClaw ones (no card written, the run's engine-side links undone, §10.4). A run **without** `--adopt-store` after a reembed take-over imports the parked cards through the plain path, without duplicate linking and without the identity check (KNOWN GAP, §11.3).
 - **Interrupted run.** `--resume <runId>` continues it; a re-run converges without duplicates (every entity reports `matched-existing`).
 - **Secrets.** `--migrate-secrets` is refused with `secret-store-unavailable` until the M2 secret store exists. The report lists only allowlisted key names (`unmigrated_secrets`), never values.
 - **Deferred.** Cron jobs are reported (count, names, schedule, delivery kind) and **not** written anywhere; channel allowlists are reported with counts and fingerprints. See §11.3.
@@ -618,15 +660,27 @@ plur1bus --home <home> import openclaw --rollback <home>/imports/<runId>/report.
 
 Rollback takes the same lock, verifies the snapshot hashes and the ledger, then restores the pre-apply target state. Files the import created and the user later changed are kept (backed up to `rolled-back/replaced/`) and reported as `kept-modified`; `--force` deletes them after the backup. A corrupt ledger or a tampered snapshot fails closed. Limits: Hermes memory cards stay in the engine store (`not-reverted (engine has no undo)`, §5.5), and the source is never touched. (`docs/cli.md` still words `--rollback` as "undo one --skills run"; it also reverts a full import, see §11.1 item 11.)
 
+**Engine-side links (contract 1.16.0).** The cards a run linked in the engine (ledger `linked` entries with `details.engineLink`, §10.3) are undone before any file is touched: per agent, `memory.unimport({ agentId, importRunId: <runId>, idempotencyKeys: <the linked cards' keys>, dryRun })`. The key filter selects only this run's links (the run never imported those keys), so no card is undone and the linked memories are never written; a link a later run reused belongs to the earlier run and is left alone. The report's `memoryLinks` gives `recorded` (from the ledger), `status` (`planned` on a preview, `unlinked` on `--apply`) and the engine's `selected`, `unlinked`, `alreadyUnlinked`; the human report prints `Memory links: …`. When the run adopted the store or replaced one with a backup, the store (and the link sidecar in it) is restored or removed as a whole: `status: "reverted-with-store"`, the engine is not opened. If the engine cannot undo the links, the rollback fails with `E_ROLLBACK_INVALID` reason `memory-unlink-failed` before anything changed, so the run stays rollback-able. A later import links the card again (a rolled-back run's link is never reused).
+
 ### 10.5 Reports
 
 Per run: `<home>/imports/<runId>/report.json` (apply only), `ledger.jsonl` (one line per mutation with its idempotency key) and the human rendering printed to the terminal. None of them contains secret values, token strings, memory or message content, or plain channel ids (counts and 8-hex fingerprints instead). §11 names the tests that enforce this.
+
+### 10.6 Identity backfill (CLI)
+
+```bash
+plur1bus --home <home> import backfill --agent <agent-id>          # preview: dry run
+plur1bus --home <home> import backfill --agent <agent-id> --apply  # apply rebind
+```
+
+Executes the identity rebind pipeline for a target agent without modifying the engine. In dry run mode, it lists all active identity links and how many memory cards would be rebound from external channel scopes to the harness human identity. With `--apply`, the cards are rebound atomically with audit logging. Outputs envelope `import.backfill/1`.
+
 
 ---
 
 ## 11. M7 exit report: test evidence
 
-Status 2026-10-06. Each item of the 12-point checklist in `docs/superpowers/plans/2026-10-05-m7-importers.md` ("Verification & Acceptance Checklist") is ticked only where a named test proves it. Tests live in `packages/core/test/import/`; titles are quoted as written so a script can grep them (the PR runs that check).
+Status 2026-10-16 (branch `agy/m7-p2-provenance-backfill`, built on PR #543 `agy/m7-p1-openclaw-store`; neither is on `main` yet, so "ticked" below means ticked on this branch). The first report of 2026-10-06 ticked 9 of 12 items. Each item of the 12-point checklist in `docs/superpowers/plans/2026-10-05-m7-importers.md` ("Verification & Acceptance Checklist") is ticked only where a named test proves it. Tests live in `packages/core/test/import/` unless a path is given; titles are quoted as written so a script can grep them (the PR runs that check).
 
 ### 11.1 Checklist
 
@@ -635,33 +689,61 @@ Status 2026-10-06. Each item of the 12-point checklist in `docs/superpowers/plan
 | 1 | Dry-run default: zero writes, full preview | `openclaw-import.test.ts` → "dry-run is default: returns complete plan and writes zero files to source or target"; `hermes-batch3.test.ts` → "dry run writes zero bytes and does not initialize target engine (P4, B4)"; `hermes-batch3-takeover.test.ts` → "B4/P4: dry run writes nothing — fresh home, populated home, and with --adopt-store" | [x] |
 | 2 | Single-writer safety: `target-running` | `openclaw-import.test.ts` → "single-writer safety (C1): refuses with target-running when core is running or lock is held"; `pipeline-batch4.test.ts` → "rollback safety: refuses when core.lock is held and fails closed on unconditionally tampered snapshot (B5)". The Hermes importer shares `single-writer.ts` but has no test of its own for the refusal | [x] |
 | 3 | Byte-identical source | `openclaw-import.test.ts` → "apply copies files, registers agents in config.agents, and scaffolds workspace (copy-never-move)" (tree digest of the fixture before and after apply) | [x] |
-| 4 | Store take-over without re-embedding, after format check (OpenClaw alpha, 384-d) | Hermes store only: `hermes-batch3-takeover.test.ts` → "B1/P10: fresh home + default --conflict skip adopts the store byte-identically (not preview-ok)". No test for the OpenClaw store (`openclaw-stores.ts` of plan Task 2.2 does not exist) | [ ] open: OpenClaw store take-over not built (Task 2.2, waits for the engine's store-format check) |
-| 5 | Cards only through `memory.import` | `hermes-batch3.test.ts` → "batches cards exceeding 500 into multiple calls with correct counters" (all cards reach the engine call in batches 500/5/2); "memory import engine failure surfaces in errors[] and CLI exits 1 with resumable run (P7, B6)"; `hermes-batch3-takeover.test.ts` → "B1: fresh home with the REAL target engine adopts first; the engine then writes into the adopted store". "No direct LanceDB write" rests on `hermes-memories.ts` not importing LanceDB, which no test asserts | [x] for the Hermes card path (the only card path); the no-direct-write half is by construction, not by test |
-| 6 | Mismatched store (beta, 768-d) routed to guided re-embedding | Fail-closed half only: `hermes-batch3-takeover.test.ts` → "B2/P5a: a REAL identity mismatch (same 384-d, different model) aborts and leaves a populated target byte-identical" and "B2: identity mismatch on a fresh home leaves nothing but the lock file, no store, no run dir". No re-embedding migration exists, and no test uses the 768-d `beta` store | [ ] open: the mismatch aborts safely (never mixed into the vector space) but is not routed into a re-embedding migration |
-| 7 | Hermes: cards with provenance `imported`; approved pairings imported; pending excluded | Pairings: `hermes-batch3.test.ts` → "imports Hermes profiles, cards, persona, pairings, and reports deferred crons" (approved fingerprinted, `pendingExcludedCount` 1) and "excludes pending pairing codes from allowlists and ledgers". Cards land (`memoryCardsImported`) in the same test. **No test asserts the value `provenance: "imported"`** (set in `hermes-memories.ts`) | [ ] open: pairings proven; the `provenance: "imported"` value is not asserted by any test |
+| 4 | Store take-over without re-embedding, after format check (OpenClaw alpha, 384-d) | `openclaw-store-takeover.test.ts` → "P1.1: a store with the harness identity is taken over without re-embedding, recall finds the old memories, the source is byte-identical" (#543); Hermes store: `hermes-batch3-takeover.test.ts` → "B1/P10: fresh home + default --conflict skip adopts the store byte-identically (not preview-ok)" | [x] |
+| 5 | Cards only through `memory.import` | `hermes-batch3.test.ts` → "batches cards exceeding 500 into multiple calls with correct counters" (all cards reach the engine call in batches 500/5/2); `hermes-acceptance3.test.ts` → "OpenClaw fixture: cards imported via memory.import with provenance, duplicate and conflict logic"; `m7-gaps-closed.test.ts`. Both Hermes and OpenClaw memory card paths go exclusively through `memory.import` with provenance `imported` | [x] |
+| 6 | Mismatched store (beta, 768-d) routed to guided re-embedding | OpenClaw: `openclaw-store-takeover.test.ts` → "P1.2: 768-d and same-dimension foreign-model stores go to the re-embedding migration and never reach state/lancedb". Hermes: `m7-gaps-closed.test.ts` → "dry run with identity mismatch offers reembed and import strategies without throwing", "apply with mismatch and --adopt-strategy reembed adopts the store as-is and parks the cards as pending-reembed", and "apply with mismatch and --adopt-strategy import skips store and imports cards". Mismatch offers both routes in dry-run and executes `--adopt-strategy reembed` or `import` | [x] |
+| 7 | Hermes: cards with provenance `imported`; approved pairings imported; pending excluded | Pairings: `hermes-batch3.test.ts` → "imports Hermes profiles, cards, persona, pairings, and reports deferred crons" and "excludes pending pairing codes from allowlists and ledgers". Provenance: `provenance-imported.test.ts` → "every imported Hermes card (MEMORY.md and USER.md) carries provenance, source, import run and time" (real engine; `provenance: "imported"`, `sourceRef` = `hermes:<profile>:memories/<file>#<n>;run=<runId>`, time inside the run) and "a second run keeps the origin of the first (matched-existing, no new run id on the cards)". The limits are KNOWN GAPs, see §11.3 | [x] |
 | 8 | Secrets pre-M2: refusal, key names only | `openclaw-import.test.ts` → "secrets safety: --migrate-secrets fails closed before M2 and reports secret keys only" | [x] |
 | 9 | Deferred cron: reported, zero files written | `openclaw-import.test.ts` → "apply copies files, registers agents in config.agents, and scaffolds workspace (copy-never-move)" (no `<home>/cron`, no `state/system-jobs/cron`) and "dry-run is default: returns complete plan and writes zero files to source or target" (`cron.status` deferred, managed job excluded); `hermes-batch3.test.ts` → "imports Hermes profiles, cards, persona, pairings, and reports deferred crons" | [x] |
 | 10 | Idempotency: second run all `matched-existing`, zero writes | `openclaw-import.test.ts` → "idempotency: a second apply run produces matched-existing for all entities and zero new writes outside imports/ (I4)"; `hermes-batch3.test.ts` → "second apply run converges: all matched-existing, zero duplicates (idempotency)"; `pipeline-batch4.test.ts` → "crash then --resume converges to complete import state and rolls back cleanly (B3)" | [x] |
 | 11 | Rollback restores the pre-import target | `pipeline-batch4.test.ts` → "pre-apply snapshot and rollback: restores exact pre-import state (B5 assert against digestBefore)" (OpenClaw: files, config, agents); `hermes-batch3.test.ts` → "rollback after Hermes apply restores files and reports cards as not-reverted". Exception: Hermes memory cards stay in the engine (§5.5) | [x] for files, config and agents; the card exception is explicit and reported |
-| 12 | Zero leaks: no `FAKE_TOKEN`/`CONTENT_MARKER` in any report | `openclaw-import.test.ts` → "leak test: neither report JSON nor human rendering contains FAKE_TOKEN or CONTENT_MARKER"; `pipeline-batch4.test.ts` → "report schema conforming to docs/import.md §5.7 with leak assertions including ledger (B5)"; `hermes-batch3.test.ts` → "leak test: zero secrets, card texts, delivery targets, or channel IDs in reports, ledgers, or render (P1, P2, P10)"; `openclaw-import-leak.test.ts` → "report.json, ledger.jsonl, returned report and rendered output contain no plain ids" | [x] |
+| 12 | Zero leaks: no `FAKE_TOKEN`/`CONTENT_MARKER` in any report | `openclaw-import.test.ts` → "leak test: neither report JSON nor human rendering contains FAKE_TOKEN or CONTENT_MARKER"; `pipeline-batch4.test.ts` → "report schema conforming to docs/import.md §5.7 with leak assertions including ledger (B5)"; `hermes-batch3.test.ts` → "leak test: zero secrets, card texts, delivery targets, or channel IDs in reports, ledgers, or render (P1, P2, P10)"; `openclaw-import-leak.test.ts` → "report.json, ledger.jsonl, returned report and rendered output contain no plain ids"; `leak-sweep.test.ts` → "Hermes: apply with a proved user, skills, a second run and a rollback" and "OpenClaw: dry run, apply with store take-over, second run and rollback" (the whole `imports/` tree except the verbatim snapshot copies of the user's own files, every log, every returned report and rendering, and what the run printed; the fake secret is absent from the entire home) and "the sweep itself catches a planted token in a report, a ledger, a log and a rendering" | [x] |
 
-Result: **9 of 12 ticked, 3 open** (4, 6, 7). Items 2, 5 and 11 carry the stated qualification.
+Result: **12 of 12 ticked on this branch**. Items 2 and 11 carry the stated qualification; the gaps behind them are listed in §11.3 and none is hidden by a tick.
 
 ### 11.2 Also covered (not checklist items)
 
 Path-traversal and symlink refusal in rollback (`pipeline-batch4.test.ts`, B1 titles), conflict strategies skip/rename/replace (`openclaw-import.test.ts` "conflict safety (C2)…", `pipeline-batch4.test.ts` "conflict strategy 'rename' is strictly idempotent…" and "…'replace': backs up…"), hostile agent ids (`openclaw-import.test.ts` "untrusted agentId safety (C3)…"), oversized, FIFO and symlinked Hermes inputs (`hermes-batch3-takeover.test.ts` P6 titles), the CLI envelope (`cli.test.ts`, `openclaw-import.test.ts` "runs openclaw import end-to-end through CLI envelope", `pipeline-batch4.test.ts` "CLI integration: supports --conflict alias and full import rollback via runImport").
 
+Milestone acceptance 3 (Hermes soul, skills, cron, cards; OpenClaw memory card path) is covered by `hermes-acceptance3.test.ts` and `m7-gaps-closed.test.ts`. The identity back-fill (ADR-007 Q4) is covered against the real engine by `test/identity/engine-rebind.test.ts` and CLI integration by `m7-gaps-closed.test.ts`.
+
 ### 11.3 Open and deliberately deferred
 
 | Item | State | Reason |
 |---|---|---|
-| Checklist 4: OpenClaw store take-over | open | `openclaw-stores.ts` (plan Task 2.2) not built; waits for the engine's store-format check on the OpenClaw path |
-| Checklist 6: guided re-embedding routing | open | only the fail-closed abort exists; the migration and a `beta` (768-d) test are not built |
-| Checklist 7: `provenance: "imported"` assertion | open | the code sets it; a test asserting the call payload is missing (small follow-up, no design question) |
-| Plan Task 2.5: identity linking and memory back-fill (ADR-007 Q4) | open | needs engine `memory.rebind` (contract 1.11.0, grok PR #216); no code in this repo yet |
-| Cron import | deliberately deferred | no harness cron scheduler yet (ADR-009); jobs are reported, never written (checklist 9 proves the report-only behaviour) |
+| Rollback of imported cards | KNOWN GAP | The engine has no undo, and `forget` writes a tombstone that blocks the same card from ever being imported again, so rolling back through `forget` would make a later re-import silently lose those cards. Rollback therefore reports exactly this run's cards (`memoryCardsNotReverted`, status `not-reverted (engine has no undo)`) and leaves the store byte-identical: `provenance-imported.test.ts` → "rollback reports exactly this run's cards as not reverted (the engine has no undo) and touches no card of any run". Owner question: should the engine get an `unimport(runId)` that removes without a tombstone? |
+| Provenance after an edit | KNOWN GAP (engine) | `memory.correct` supersedes a card with a new id; the origin marker is keyed by id, so the corrected card has no `provenance`. The archived original keeps it. `provenance-imported.test.ts` → "KNOWN GAP: editing a card (memory.correct) writes a new card id, so the new version loses provenance; the origin stays on the archived original" pins today's behaviour and fails the day the engine carries the marker over. Needs an engine change (not allowed in this package) |
+| OpenClaw memory cards | CLOSED | Built in `openclaw-memories.ts`. Imported through `memory.import` with provenance `imported`, `sourceRef: "openclaw:<agentId>:<file>#<n>;run=<runId>"`, duplicate skip and conflict handling. Proven by `hermes-acceptance3.test.ts` and `m7-gaps-closed.test.ts`. Agents with their own store: duplicates linked (`linked`), cards of a store in the re-embedding migration parked (`pending-reembed`) and imported once the store is taken over, proven by `openclaw-cards-own-store.test.ts` and `openclaw-store-takeover.test.ts`. |
+| Engine-side link of a duplicate card | CLOSED (engine contract 1.16.0) | A card that duplicates a memory already in the agent's store is linked in the engine through `memory.link` when the engine reports `capabilities.memoryLink` (the memory gains the card's `sourceRef` as an additional source, `links[]`; report `linkId`, ledger `details.linkId`/`engineLink`), and a rollback of the run unlinks it through `memory.unimport` (§10.4). Without the capability the link stays in the ledger and report. Proven by `openclaw-cards-own-store.test.ts` → "engine-side link (contract 1.16.0): the existing memory carries the card's source; rolling the run back unlinks it", `hermes-cards-own-store.test.ts` → "engine-side link (contract 1.16.0): …" and `card-links-engine.test.ts` (capability absent, refused link, reused link, second copy). |
+| Cron import | KNOWN GAP, deliberately not built | Jobs are read, fingerprinted and reported as `deferred` (Hermes and OpenClaw), nothing is written (`hermes-acceptance3.test.ts`, checklist 9). See Design Note below. |
+| Hermes `--adopt-store` mismatch | CLOSED | In dry-run mode, offers both `reembed` and `import` strategies with actionable hints. On apply, `--adopt-strategy reembed` takes over the store for `memory reembed` and parks the cards as `pending-reembed`; `--adopt-strategy import` skips store adoption and imports cards. Proven by `m7-gaps-closed.test.ts`. |
+| Hermes memory cards with `--adopt-store` | CLOSED | Same rule as the OpenClaw cards (owner decision 2026-10-19): store taken over in the harness space → duplicates linked (`linked`); `--adopt-strategy reembed` → `pending-reembed`, imported by the first run with the same `--adopt-store` after the migration; another harness store left untouched → `deferred`. Proven by `hermes-cards-own-store.test.ts` and `m7-gaps-closed.test.ts`. |
+| Hermes parked cards without `--adopt-store` | KNOWN GAP | A run without `--adopt-store` names no store, so it takes the plain card path: after a reembed take-over it neither links duplicates nor checks that the harness store has left the foreign vector space. The documented path is to re-run with the same `--adopt-store`. `hermes-cards-own-store.test.ts` → todo "KNOWN GAP: a run without --adopt-store after a reembed take-over". Owner question: should a plain Hermes run apply the identity check whenever the harness store came from a take-over? |
+| Hermes `USER.md` for several profiles | CLOSED | `--map profile=<p>:agent=<a>` maps profiles to agents. Multiple profiles mapping to the same agent require `--merge-profiles` (collision protection). When mapped target matches `userPrincipal.agentId`, user preferences bind to that agent. Proven by `m7-gaps-closed.test.ts`. |
+| Plan Task 2.5: identity back-fill (ADR-007 Q4) | CLI BUILT | Built CLI `plur1bus import backfill --agent <id> [--apply]` (schema `import.backfill/1`). Default mode is preview dry-run showing affected cards; `--apply` executes atomic rebind via engine port. Web/wizard surfaces deferred pending owner direction. |
 | Secret import (`--migrate-secrets`) | deliberately deferred | no M2 secret store; refused fail-closed (checklist 8) |
 | Sessions, desktop wizard | out of M7 | sessions are sensitive and not imported by default (§3); the wizard belongs to M3/D2 |
+| Host-to-container transport (`host.importSnapshot`, D91/D2) | open | outside the allowed paths of this work; §12 |
+
+#### Design Note: Cron Import (Owner Question from #547 Point 3)
+
+Imported cron jobs are currently reported as `deferred` (status `deferred`, counts and schedules recorded in report and ledger, zero files written).
+
+**Options for Ingestion:**
+1. **Option A: Auto-activation into scheduler.**
+   - Ingest directly as active jobs in `UserJobs`.
+   - *Risk:* Untrusted imported prompt text would execute autonomously without human review, possibly under operator authority or with outdated context.
+2. **Option B (Recommended): Disabled UserJobs owned by the importing operator.**
+   - Ingest jobs into `UserJobs` with `enabled: false` and `runAs` set to the importing operator principal.
+   - The CLI/Web report displays the job definitions, schedule, target channel, and a preview of the next 3 scheduled run times.
+   - The operator must explicitly inspect and toggle jobs to `enabled` via CLI (`plur1bus jobs enable <id>`) or the web UI.
+   - Delivery channels are validated against active harness pairing allowlists before activation.
+3. **Option C: Archive-only export.**
+   - Write definitions to `<home>/imports/<runId>/cron/` as static JSON files.
+   - *Drawback:* Poor UX; requires manual recreation by the user.
+
+**Recommendation:** Proceed with Option B as a dedicated M7.1/M8 feature once the Web UI jobs management interface is live.
+
 
 ## 12. Cross-platform source snapshots (D90/D91)
 

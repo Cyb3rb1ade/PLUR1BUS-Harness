@@ -2,6 +2,8 @@
 
 **Status:** Accepted (2026-09-22) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D6, D7, D9 · `docs/phase0/auftrag-original-2026-09-21.md` §4, §6.1, §6.2, §10, §11, §12 · `docs/phase0/research/harness-engineering-state-of-the-art.md` §2, §3, §4, §"Top 15" · `docs/phase0/research/providers-chat-auth-caching.md` §"Prompt caching (cross-provider)" · `docs/phase0/research/plur1bus-host-contract.md` §1, §2, §5 · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §2 · `docs/phase0/research/platform-binaries-and-startup.md` §"Node runtime facts", §"CLI cold-start technique comparison" · `docs/phase0/research/verification-log.md` V1–V4 · Companion: `docs/provider-matrix.md`, `docs/platform-matrix.md`, ADR-001 (process model), ADR-002 (engine budgets), ADR-006 (embed/rerank).
 
+**Amended 2026-10-19 (owner):** budgets (§4) count tokens, turns and time only; price tables and cost limits were removed from the harness.
+
 ## Context
 
 D6 makes latency a design goal with numbers: CLI cold start **< 100 ms** for `--help`/simple commands, core daemon warm in the background, recall inside a time budget **in parallel with prompt assembly**, first token streamed immediately, local embedding/rerank models pre-loaded, benchmarked from M1. D7 makes caching a three-layer requirement: provider prompt caching with a cache-stable layout (volatile recall/temporal/mood blocks placed *after* the cached prefix), an embedding cache keyed by embedding identity + content hash, and a response/tool-result cache with explicit invalidation.

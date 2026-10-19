@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { ProviderError } from "../errors.ts";
 import { validateRequest } from "../request.ts";
 import type { ChatMessage, ContentPart, ResponseFormat, ToolChoice } from "../types.ts";
+import { checkReasoningDirective } from "../reasoning.ts";
 import type { ReasoningEffort, ReasoningSummary, ResponsesProfile, ResponsesRequest } from "./types.ts";
 
 export interface ResponsesBuildOptions {
@@ -16,6 +17,8 @@ export interface ResponsesBuildOptions {
 type Item = { type: string; [key: string]: unknown };
 
 const EFFORTS: ReadonlySet<string> = new Set(["minimal", "low", "medium", "high"]);
+/** Newer reasoning models also take `none` (GPT-5.1) and `xhigh`; the catalog decides which a model gets. */
+const DIRECTIVE_EFFORTS: ReadonlySet<string> = new Set(["none", "minimal", "low", "medium", "high", "xhigh"]);
 const SUMMARIES: ReadonlySet<string> = new Set(["auto", "concise", "detailed"]);
 const MAX_CALL_ID = 64;
 
@@ -87,9 +90,17 @@ export function buildResponsesBody(req: ResponsesRequest, opts: ResponsesBuildOp
   validateRequest(req);
   if (req.stop !== undefined) throw bad("stop sequences are not supported by the Responses API");
   const own = req.providerOptions?.responses;
-  const effort = own?.reasoningEffort ?? opts.reasoningEffort;
+  // A per-request reasoning directive (the session's chosen level) wins over the adapter default; an explicit
+  // provider option on the request still wins over both.
+  if (req.reasoning !== undefined) {
+    const problem = checkReasoningDirective(req.reasoning, ["reasoning.effort"], "Responses");
+    if (problem) throw bad(problem);
+    if (!DIRECTIVE_EFFORTS.has(req.reasoning.value as string)) throw bad("reasoning.effort must be none, minimal, low, medium, high or xhigh");
+  }
+  const effort: string | undefined = own?.reasoningEffort ?? (req.reasoning?.value as string | undefined) ?? opts.reasoningEffort;
   const summary = own?.reasoningSummary ?? opts.reasoningSummary;
-  if (effort !== undefined && !EFFORTS.has(effort)) throw bad("reasoningEffort must be minimal, low, medium or high");
+  const configured = own?.reasoningEffort ?? (req.reasoning === undefined ? opts.reasoningEffort : undefined);
+  if (configured !== undefined && !EFFORTS.has(configured)) throw bad("reasoningEffort must be minimal, low, medium or high");
   if (summary !== undefined && !SUMMARIES.has(summary)) throw bad("reasoningSummary must be auto, concise or detailed");
   const plan = opts.profile === "chatgpt_plan";
   if (plan) {

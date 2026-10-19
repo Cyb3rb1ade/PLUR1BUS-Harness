@@ -65,3 +65,16 @@ test("TOTP enrollment, backup hashes and replay counter persist; only enabled cr
   clock.advance(30_000); assert.equal((await reopened.verify("person", totpCodeAt(setup.secret, clock.now()))).ok, true); assert.equal((await store.findById("person"))!.version, version);
   assert.equal((await reopened.status("person")).backupCodesRemaining, 10);
 });
+
+test("passkeys persist across reopen and changes bump the account version; consumed bootstrap never reinitializes", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "passkeys-durable-")), path = join(dir, "accounts.db"); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const resolve = async (userId: string): Promise<CorePerson> => ({ userId, kind: "person", role: "owner", disabled: false, version: 1 }); let store = new AccountStore({ path, resolve });
+  const { bootstrapHash } = await import("../src/bootstrap.ts"); const proof = randomBytes(32).toString("base64url"); store.initializeBootstrap(bootstrapHash(proof)); await store.bootstrapOwner("christian", "unused");
+  const v = (await store.findById("local-owner"))!.version, id = randomBytes(32).toString("base64url"); store.putPasskey("local-owner", { id, name: "Laptop", publicKey: "public-test-key", signCount: 1 }); assert.equal((await store.findById("local-owner"))!.version, v + 1);
+  store.close(); store = new AccountStore({ path, resolve }); t.after(() => store.close()); assert.deepEqual(store.passkeysFor("local-owner").map(k => k.name), ["Laptop"]);
+  assert.equal(store.advancePasskey("local-owner", id, 1, 2), true); assert.equal(store.advancePasskey("local-owner", id, 1, 3), false);
+  store.changePasskey("local-owner", id, "Desktop"); assert.equal((await store.findById("local-owner"))!.version, v + 2);
+  store.changePasskey("local-owner", id); assert.equal(store.passkeysFor("local-owner").length, 0); assert.equal((await store.findById("local-owner"))!.version, v + 3);
+  store.initializeBootstrap(bootstrapHash(randomBytes(32).toString("base64url"))); assert.equal(store.bootstrapState()?.consumed, true); assert.equal(store.bootstrapState()?.hash, null);
+  await assert.rejects(store.bootstrapOwner("someone", "unused"), { status: 404 });
+});

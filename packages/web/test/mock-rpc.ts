@@ -36,7 +36,7 @@ export type MockErrorCode =
   | "E_UNAUTHORIZED" | "E_RPC_VERSION" | "E_NOT_AVAILABLE" | "E_CORE_UNAVAILABLE" | "E_INVALID_PARAMS" | "E_AGENT_UNKNOWN" | "E_CONFIG_INVALID"
   | "E_MODULE_UNKNOWN" | "E_INTERNAL" | "E_LOCKED" | "E_NOT_FOUND" | "E_DENIED" | "E_APPROVAL_REQUIRED" | "E_CONFLICT" | "E_STORAGE" | "E_INBOX_CURSOR"
   | "E_MEDIA_CAPABILITY" | "E_MEDIA_LICENSE" | "E_MEDIA_PRIVACY" | "E_MEDIA_UNAVAILABLE" | "E_MEDIA_DIMENSION" | "E_MEDIA_UNSUPPORTED_KIND"
-  | "E_ENGINE_ERASURE_UNAVAILABLE" | "E_VOICE_LICENCE" | "E_VOICE_UNAVAILABLE" | "E_PROJECT_WIP_LIMIT";
+  | "E_AGENT_EXISTS" | "E_ENGINE_ERASURE_UNAVAILABLE" | "E_VOICE_LICENCE" | "E_VOICE_UNAVAILABLE" | "E_PROJECT_WIP_LIMIT";
 
 /** Throw this from a handler to answer a JSON-RPC error (`error.data.error` = code, optional reason). */
 export class MockRpcError extends Error {
@@ -91,12 +91,12 @@ export class MockRpc {
   async serve(req: IncomingMessage, res: ServerResponse, path: string, body: string): Promise<boolean> {
     let rest=false;
     if(path.startsWith("/api/v1/chats")) {
-      const url=new URL(req.url!,"http://localhost");const match=/^\/api\/v1\/chats(?:\/([^/]+)(?:\/(messages|events|cancel))?)?$/.exec(url.pathname);
+      const url=new URL(req.url!,"http://localhost");const match=/^\/api\/v1\/chats(?:\/([^/]+)(?:\/(messages|events|cancel|model))?)?$/.exec(url.pathname);
       if(!match)return false;
       rest=true;let params:Record<string,unknown>={};try{params=body?JSON.parse(body):{};}catch{httpError(res,400,"E_INVALID_PARAMS","body");return true;}
       const id=match[1],action=match[2];let method:string;
       if(!id) {method=req.method==="POST"?"session.create":"session.list";if(method==="session.create")params.kind="direct";else {params={kind:"direct",...Object.fromEntries(url.searchParams)};if(params.agent){params.agentId=params.agent;delete params.agent;}if(params.state){params.archived=params.state;delete params.state;}if(params.q){params.search=params.q;delete params.q;}}}
-      else {params.sessionId=id;method=action==="messages"?"session.submit":action==="events"?"session.events":action==="cancel"?"session.cancel":"session.resume";for(const [key,value]of url.searchParams)params[key]=Number(value);}
+      else {params.sessionId=id;method=action==="messages"?"session.submit":action==="events"?"session.events":action==="cancel"?"session.cancel":action==="model"?(req.method==="PATCH"?"chat.model.set":"chat.model.get"):"session.resume";for(const [key,value]of url.searchParams)params[key]=Number(value);}
       body=JSON.stringify({jsonrpc:"2.0",id:1,method,params});path="/rpc";
     }
     if (path !== "/rpc") return false;

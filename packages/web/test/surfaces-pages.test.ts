@@ -163,12 +163,14 @@ describe(
           expiresAt: 1000,
         }));
         await openRoute(app.page, "#/identities");
+        await app.page.getByLabel("Channel", { exact: true }).fill("matrix");
         await app.page
           .getByRole("button", { name: "Issue pairing code" })
           .click();
         await app.page
           .getByText("One-time code: ABCDEFGH", { exact: false })
           .waitFor();
+        assert.deepEqual(app.server.rpc.calls.filter(c => c.method === "identity.link.request").map(c => c.params), [{ channel: "matrix" }]);
         await app.page
           .getByRole("link", { name: "Projects", exact: true })
           .click();
@@ -219,7 +221,6 @@ describe(
                     status: "succeeded",
                     inputTokens: 10,
                     outputTokens: 20,
-                    costEstimate: 0,
                     inputPreview: "[redacted] question",
                     outputPreview: "Synthetic answer",
                   },

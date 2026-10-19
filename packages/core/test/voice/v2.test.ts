@@ -40,12 +40,11 @@ test('deferred writes run after the answer and are drained; off writes never run
   let writes = 0; await p.after('memoryWrite', async () => { writes++; }, new AbortController().signal);
   assert.equal(writes, 0); await p.drain(); assert.equal(writes, 1);
 });
-test('metrics use closed feature sets, report median/p95 and costs, and cap retained turns', () => {
+test('metrics use closed feature sets, report median/p95 without any cost, and cap retained turns', () => {
   let now = 0; const m = new VoiceMetrics(() => now, 2);
   for (const [id, ms] of [['a', 10], ['b', 30], ['c', 50]] as const) { m.speechEnd(id); now += ms; m.firstAudio(id); m.feature(id, 'asr', ms); }
-  m.cost('tts', 5); m.cost('arbitrary-client-label', 100);
   const report = m.report(); assert.equal(report.turns, 2);
   assert.equal(report.speechEndToFirstAudio.medianMs, 40); assert.equal(report.speechEndToFirstAudio.p95Ms, 50);
-  assert.deepEqual(report.costMicros, { tts: 5 });
-  assert.ok(!m.render().includes('arbitrary-client-label'));
+  assert.equal('costMicros' in report, false); assert.equal('unpricedReports' in report, false);
+  assert.ok(!m.render().includes('cost'));
 });

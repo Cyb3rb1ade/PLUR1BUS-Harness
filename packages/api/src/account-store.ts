@@ -23,12 +23,14 @@ export class AccountStore implements UserDirectory {
     try {
       if (o.path !== ":memory:") { mkdirSync(dirname(o.path), { recursive: true, mode: 0o700 }); chmodSync(dirname(o.path), 0o700); closeSync(openSync(o.path, "a", 0o600)); chmodSync(o.path, 0o600); const secure = createSecurePath(); if (!secure(dirname(o.path), { mode: 0o700 }).applied || !secure(o.path, { mode: 0o600 }).applied) throw storage(); }
       this.#db = opened = new DatabaseSync(o.path);
-      if (Number(this.#db.prepare("PRAGMA user_version").get()?.user_version) > 1) throw storage();
+      if (Number(this.#db.prepare("PRAGMA user_version").get()?.user_version) > 2) throw storage();
       this.#db.exec(`PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
         CREATE TABLE IF NOT EXISTS accounts (person_id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,pending INTEGER NOT NULL DEFAULT 1,version INTEGER NOT NULL DEFAULT 1,core_version INTEGER,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL) STRICT;
         CREATE TABLE IF NOT EXISTS totp (user_id TEXT PRIMARY KEY,record TEXT NOT NULL) STRICT;
         CREATE TABLE IF NOT EXISTS tokens (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,record TEXT NOT NULL,core_version INTEGER NOT NULL) STRICT;
-        PRAGMA user_version=1;`);
+        CREATE TABLE IF NOT EXISTS passkeys (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,name TEXT NOT NULL,public_key TEXT NOT NULL,sign_count INTEGER NOT NULL) STRICT;
+        CREATE TABLE IF NOT EXISTS bootstrap (id INTEGER PRIMARY KEY CHECK(id=1),hash TEXT,consumed INTEGER NOT NULL DEFAULT 0,expires_at INTEGER NOT NULL) STRICT;
+        PRAGMA user_version=2;`);
     } catch { try { opened?.close(); } catch { /* preserve the redacted storage failure */ } throw storage(); }
     this.totp = {
       get: async id => this.#safe(() => { const r = this.#db.prepare("SELECT record FROM totp WHERE user_id=?").get(id); return r ? JSON.parse(r.record as string) as TotpRecord : undefined; }),
@@ -82,6 +84,37 @@ export class AccountStore implements UserDirectory {
     return { id, username: row.username as string, passwordHash: row.password_hash as string, role: p?.role ?? "member", disabled: !p || p.disabled, agentRights: p?.agentRights ?? {}, projectRights: p?.projectRights ?? {}, version: Number(row.version) + (changed ? 1 : 0) };
   }
   async updatePasswordHash(id: string, hash: string): Promise<void> { this.#factor(id, () => { this.#db.prepare("UPDATE accounts SET password_hash=? WHERE person_id=?").run(hash, id); }); }
+  passkeysFor(id: string): { id: string; name: string; publicKey: string; signCount: number }[] {
+    return this.#safe(() => this.#db.prepare("SELECT id,name,public_key,sign_count FROM passkeys WHERE user_id=? ORDER BY id").all(id).map(r => ({ id: r.id as string, name: r.name as string, publicKey: r.public_key as string, signCount: Number(r.sign_count) })));
+  }
+  putPasskey(userId: string, r: { id: string; name: string; publicKey: string; signCount: number }): void {
+    if (this.passkeysFor(userId).length >= 20) throw new ApiError(409, "E_CONFLICT", "passkey limit reached");
+    this.#factor(userId, () => this.#db.prepare("INSERT INTO passkeys VALUES (?,?,?,?,?)").run(r.id, userId, r.name, r.publicKey, r.signCount));
+  }
+  changePasskey(userId: string, id: string, name?: string): void {
+    this.#factor(userId, () => { const r = name === undefined ? this.#db.prepare("DELETE FROM passkeys WHERE user_id=? AND id=?").run(userId, id) : this.#db.prepare("UPDATE passkeys SET name=? WHERE user_id=? AND id=?").run(name, userId, id); if (Number(r.changes) !== 1) throw new ApiError(404, "E_NOT_FOUND", "passkey not found"); });
+  }
+  advancePasskey(userId: string, id: string, before: number, after: number): boolean {
+    return this.#safe(() => Number(this.#db.prepare("UPDATE passkeys SET sign_count=? WHERE user_id=? AND id=? AND sign_count=?").run(after, userId, id, before).changes) === 1);
+  }
+  hasOwnerAccount(): boolean { return !!this.#safe(() => this.#db.prepare("SELECT person_id FROM accounts WHERE person_id='local-owner'").get()); }
+  bootstrapState(): { hash: string | null; consumed: boolean; expiresAt: number } | undefined {
+    return this.#safe(() => { const r = this.#db.prepare("SELECT hash,consumed,expires_at FROM bootstrap WHERE id=1").get(); return r ? { hash: r.hash as string | null, consumed: !!r.consumed, expiresAt: Number(r.expires_at) } : undefined; });
+  }
+  initializeBootstrap(hash: string | null, installed = false): void {
+    this.#safe(() => this.#db.prepare("INSERT INTO bootstrap VALUES (1,?,?,?) ON CONFLICT(id) DO UPDATE SET hash=NULL,consumed=1 WHERE excluded.consumed=1").run(hash, installed ? 1 : 0, this.#now() + 15 * 60000));
+  }
+  renewExpiredBootstrap(hash: string): boolean {
+    return this.#safe(() => Number(this.#db.prepare("UPDATE bootstrap SET hash=?,expires_at=? WHERE id=1 AND consumed=0 AND expires_at<=?").run(hash, this.#now() + 15 * 60000, this.#now()).changes) === 1);
+  }
+  async bootstrapOwner(username: string, passwordHash: string, beforeCommit?: () => void): Promise<void> {
+    this.#safe(() => { this.#db.exec("BEGIN IMMEDIATE"); try {
+      if (this.#db.prepare("SELECT person_id FROM accounts WHERE person_id='local-owner'").get() || (this.bootstrapState()?.consumed || (this.bootstrapState()?.expiresAt ?? 0) <= this.#now())) throw new ApiError(404, "E_NOT_FOUND", "bootstrap unavailable");
+      this.#db.prepare("INSERT INTO accounts(person_id,username,password_hash,pending,created_at,updated_at) VALUES ('local-owner',?,?,0,?,?)").run(normalizeUsername(username), passwordHash, this.#now(), this.#now());
+      this.#db.prepare("UPDATE bootstrap SET consumed=1,hash=NULL WHERE id=1").run(); beforeCommit?.(); this.#db.exec("COMMIT");
+    } catch (e) { this.#db.exec("ROLLBACK"); if ((e as { errcode?: number }).errcode === 2067) throw conflict(); throw e; } });
+    this.onChange?.("local-owner");
+  }
   startPolling(): void {
     if (this.#poll) return;
     let running = false;

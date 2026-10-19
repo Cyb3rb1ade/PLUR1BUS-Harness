@@ -36,20 +36,20 @@ function seedModels(rpc: MockRpc): void {
   }), { write: false });
 }
 
-const lim = (o: Rec): Rec => ({ period: "day", metric: "cost", soft: null, hard: null, used: 0, state: "ok", ...o });
-const usage = (o: Rec = {}): Rec => ({ events: 4, inputTokens: 1200, outputTokens: 300, cacheReadTokens: 50, cacheWriteTokens: 10, costMicros: 1500, unpricedEvents: 1, ...o });
+const lim = (o: Rec): Rec => ({ period: "day", metric: "tokens", soft: null, hard: null, used: 0, state: "ok", ...o });
+const usage = (o: Rec = {}): Rec => ({ events: 4, inputTokens: 1200, outputTokens: 300, cacheReadTokens: 50, cacheWriteTokens: 10, ...o });
 function seedBudget(rpc: MockRpc): void {
   const limits = [
-    lim({ scope: "global", period: "day", metric: "cost", soft: 5_000_000, hard: 10_000_000, used: 2_000_000, state: "ok" }),
+    lim({ scope: "global", period: "day", metric: "tokens", soft: 5_000_000, hard: 10_000_000, used: 2_000_000, state: "ok" }),
     lim({ scope: "global", period: "month", metric: "tokens", soft: 1_000_000, hard: 2_000_000, used: 1_500_000, state: "soft" }),
-    lim({ scope: "agent", agentId: "main", period: "day", metric: "cost", hard: 1_000_000, used: 1_200_000, state: "hard" }),
+    lim({ scope: "agent", agentId: "main", period: "day", metric: "tokens", hard: 1_000_000, used: 1_200_000, state: "hard" }),
     lim({ scope: "agent", agentId: "dev", period: "month", metric: "tokens", soft: 500, used: 500, state: "soft" }),
   ];
   const periods = [
     { period: "day", key: "2026-10-07", start: "2026-10-07T00:00:00+02:00", end: "2026-10-08T00:00:00+02:00", total: usage(), agents: [{ agentId: "main", total: usage(), models: [{ model: "claude-x", ...usage() }] }] },
     { period: "month", key: "2026-10", start: "2026-10-01T00:00:00+02:00", end: "2026-11-01T00:00:00+01:00", total: usage({ events: 40 }), agents: [] },
   ];
-  rpc.handle("budget.status", () => ({ timeZone: "Europe/Berlin", priceVersion: "2026-10-01", now: "2026-10-07T09:00:00+02:00", periods, limits }), { write: false });
+  rpc.handle("budget.status", () => ({ timeZone: "Europe/Berlin", now: "2026-10-07T09:00:00+02:00", periods, limits }), { write: false });
 }
 
 const LONG = "Ich habe die Ergebnisse zusammengefasst. Die drei wichtigsten Punkte: erstens läuft der Import stabil, zweitens ist die Latenz der Suche unter 40 ms geblieben, drittens fehlt noch ein Test für den Fall, dass die Konfiguration während eines Laufs geändert wird.\n\nSoll ich damit weitermachen?";
@@ -224,7 +224,7 @@ const SHOTS: Shot[] = [
     await p.getByRole("list", { name: "People with access" }).getByRole("listitem").nth(3).waitFor();
   }),
   shot("settings-secrets", "#/settings/secrets", (app) => { M3.seedSecretsPage(app.server); }, async (p) => { await p.getByRole("row", { name: /openai\.apiKey/ }).waitFor(); }),
-  shot("settings-devices", "#/settings/devices", (app) => { M3.seedDevices(app.server); }, async (p) => { await p.getByText("Published as lan").waitFor(); }),
+  shot("settings-devices", "#/settings/devices", (app) => { M3.seedDevices(app.server); }, async (p) => { await p.getByText("Published as tailnet").waitFor(); }),
   shot("logs-viewer", "#/logs", (app) => { M3.seedLogs(app.server); }, async (p) => { await p.getByRole("grid", { name: "Log entries" }).locator('[role="row"][data-row]').first().waitFor(); }),
   shot("logs-activity", "#/logs/activity", (app) => { M3.seedActivity(app.server); }, async (p) => { await p.getByRole("region", { name: "Recent activity" }).getByRole("heading", { level: 3 }).first().waitFor(); }),
   shot("logs-sessions", "#/logs/sessions", (app) => { M3.seedSessions(app.server); }, async (p) => { await p.locator("li.session-row").first().waitFor(); }),

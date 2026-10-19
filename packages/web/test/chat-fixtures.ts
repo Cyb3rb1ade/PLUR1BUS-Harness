@@ -3,6 +3,7 @@
 // every state is deterministic. Not shipped, not part of the product code.
 import type { Page } from "playwright";
 import type { SessionEvent, SessionEventType, SessionMessage, SessionRecord } from "../src/pages/chat/rpc-types.ts";
+import type { ChatModelOption, ReasoningChoice } from "../src/pages/chat/model-switch.ts";
 import { signIn, withApp, type App, type AppOptions } from "./harness.ts";
 import { rpcError } from "./mock-rpc.ts";
 import type { MockHarnessServer } from "./mock-server.ts";
@@ -20,6 +21,13 @@ export class FakeChat {
   readonly server: MockHarnessServer;
   /** false: events are only logged (a push would switch the mock /events on). */
   live = true;
+  /** The model profiles chat.model.get offers (the core's shape); tests may replace them. */
+  models: ChatModelOption[] = [
+    { name: "default", displayName: "Example Chat", provider: "example", model: "example-chat", local: false, selectable: true, reasoning: { kind: "effort", levels: ["low", "medium", "high"], default: "medium", source: "table" } },
+    { name: "deep", displayName: "Example Thinker", provider: "example", model: "example-thinker", local: false, selectable: true, reasoning: { kind: "budget", levels: ["off", "low", "medium", "high", "xhigh"], default: "off", source: "table", budgetTokens: { off: 0, low: 3840, medium: 7936, high: 15872, xhigh: 32000 } } },
+    { name: "local", displayName: "Example Local", provider: "home", model: "example-local", local: true, selectable: true, reasoning: { kind: "none", levels: [], source: "unknown", note: "reasoning-unknown" } },
+  ];
+  readonly modelChoice = new Map<string, { profile: string | null; reasoning: ReasoningChoice; revision: number }>();
   #n = 0;
 
   constructor(server: MockHarnessServer) { this.server = server; }
@@ -114,6 +122,29 @@ export class FakeChat {
       const events = all.slice(0, q.limit ?? 2000);
       return { sessionId: q.sessionId, events, lastSeq: this.log.get(q.sessionId)?.at(-1)?.seq ?? 0, running: this.running.has(q.sessionId) };
     }, { write: false });
+    rpc.handle("chat.model.get", (p) => {
+      const id = (p as { sessionId: string }).sessionId;
+      if (!this.sessions.some((s) => s.id === id)) throw rpcError("E_NOT_FOUND", "no such session");
+      const c = this.modelChoice.get(id) ?? { profile: null, reasoning: "default" as const, revision: 0 };
+      return { sessionId: id, profile: c.profile, defaultProfile: "default", reasoning: c.reasoning, revision: c.revision, profiles: this.models };
+    }, { write: false });
+    rpc.handle("chat.model.set", (p) => {
+      const q = p as { sessionId: string; profile: string; reasoning?: ReasoningChoice; expectedRevision: number };
+      const c = this.modelChoice.get(q.sessionId) ?? { profile: null, reasoning: "default" as const, revision: 0 };
+      if (this.running.has(q.sessionId)) throw rpcError("E_CONFLICT", "a turn is running", "session-busy");
+      if (q.expectedRevision !== c.revision) throw rpcError("E_CONFLICT", "stale", "stale-model-preview");
+      const option = this.models.find((m) => m.name === q.profile);
+      if (!option) throw rpcError("E_NOT_AVAILABLE", "unknown profile", "model-profile-unavailable");
+      if (option.disabledReason === "local-only") throw rpcError("E_DENIED", "local only", "local-only");
+      const reasoning = q.reasoning ?? "default", order = ["off", "minimal", "low", "medium", "high", "xhigh"];
+      const levels = option.reasoning.levels;
+      const effective = reasoning === "default" || levels.length === 0 ? "default" : levels.includes(reasoning) ? reasoning
+        : levels.reduce((b, l) => Math.abs(order.indexOf(l) - order.indexOf(reasoning)) < Math.abs(order.indexOf(b) - order.indexOf(reasoning)) ? l : b, levels[0]!);
+      const next = { profile: q.profile, reasoning, revision: c.revision + 1 };
+      this.modelChoice.set(q.sessionId, next);
+      return { sessionId: q.sessionId, profile: q.profile, previousProfile: c.profile, reasoning, effectiveReasoning: effective, adjusted: effective !== reasoning, revision: next.revision,
+        warning: "cache-rebuild-cost-prefixes-preserved", ...(effective !== "default" && order.indexOf(effective) >= order.indexOf("high") ? { costHint: "reasoning-cost-higher" } : {}) };
+    });
     rpc.handle("session.cancel", (p) => {
       const id = (p as { sessionId: string }).sessionId;
       const turnId = this.running.get(id) ?? null;

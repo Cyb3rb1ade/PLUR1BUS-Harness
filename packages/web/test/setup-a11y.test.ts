@@ -18,6 +18,7 @@ async function eachStep(app: App, check: (label: string) => Promise<void>): Prom
   await page.getByLabel("Display name").fill("Hal"); await next(page);
   await stepHeading(page, /Main model/).waitFor(); await page.getByLabel("Chat model").waitFor(); await check("model");
   await page.getByLabel("Chat model").selectOption("anthropic/claude-x"); await next(page);
+  await stepHeading(page, /Decision model/).waitFor(); await check("decision"); await skip(page);
   await stepHeading(page, /Switchboard/).waitFor(); await check("switchboard"); await skip(page);
   await stepHeading(page, /Memory/).waitFor(); await check("memory"); await next(page);
   await stepHeading(page, /Language for voice features/).waitFor(); await check("voice"); await skip(page);
@@ -44,12 +45,12 @@ describe("setup wizard: a11y", opts, () => {
       await next(page); await page.getByText("Enter a display name.").waitFor();
       await expectAxeClean(page, "persona error");
       await page.getByLabel("Display name").fill("Hal");
-      app.server.rpc.scenario("config.set", "error"); await next(page);
+      app.server.rpc.scenario("agent.create", "error"); await next(page);
       await page.getByRole("alert").waitFor(); await expectAxeClean(page, "save failed");
-      app.server.rpc.scenario("config.set", "success"); await next(page);
+      app.server.rpc.scenario("agent.create", "success"); await next(page);
       await stepHeading(page, /Main model/).waitFor(); await next(page);
       await page.getByText("Choose a model, or skip this step.").waitFor(); await expectAxeClean(page, "model error");
-      await skip(page); await skip(page);
+      await skip(page); await skip(page); await skip(page);
       await stepHeading(page, /Memory/).waitFor();
       await page.getByRole("radio", { name: /Jina v5 Text Nano/ }).click();
       await page.getByRole("dialog").waitFor(); await expectAxeClean(page, "licence dialog");
@@ -78,6 +79,7 @@ describe("setup wizard: a11y", opts, () => {
       await stepHeading(page, /Main model/).waitFor();
       await page.getByLabel("Chat model").selectOption("anthropic/claude-x");
       await press(/^Next$/);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
       await stepHeading(page, /Switchboard/).waitFor();
       await press(/^Skip this step$/);
       await stepHeading(page, /Memory/).waitFor();

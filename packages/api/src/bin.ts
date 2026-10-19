@@ -1,14 +1,31 @@
 #!/usr/bin/env node
-// Standalone entry of the Harness API (`dist/api.js`): loopback only, a peer client of the core. Wiring it under the
-// supervisor (a module manifest, `daemon start`) and the config keys for host/port are later slices.
+import { LoginChallenges } from "./challenge.ts";
+import type { PendingWebAuthn } from "./webauthn-routes.ts";
+import { ensureBootstrap } from "./bootstrap.ts";
+// Harness API entry (`dist/api.js`), standalone or supervised through the stdin lifeline.
+// The local listener is always loopback; configured remote TLS publishing stays a separate listener.
 import { AccountStore, type CorePerson } from "./account-store.ts";
 import { join } from "node:path";
 import { createLogger, createSecurePath, runDir } from "@plur1bus/module-api";
 import { createBufferedSink } from "./audit-queue.ts";
 import { createCoreLink } from "./core-link.ts";
-import { ensureOwnerToken } from "./owner-token.ts";
+import { randomBytes } from "node:crypto";
+import { acquireExclusiveLock } from "@plur1bus/module-api";
+import { privateAtomicJson } from "./remote-certificates.ts";
 import { createAuditChain } from "./rbac-bridge.ts";
 import { createApiServer } from "./server.ts";
+import { API_VERSION } from "./routes.ts";
+
+import { mkdirSync, rmSync, existsSync } from "node:fs";
+import { hostname } from "node:os";
+import { isIP } from "node:net";
+import { SessionStore } from "./session.ts";
+import { systemClock } from "./clock.ts";
+import { loadRemoteStartup, startRemoteRuntime, type RemoteRuntime } from "./remote-runtime.ts";
+import { RemoteCertificates } from "./remote-certificates.ts";
+
+import { RemotePairingController } from "./remote-pairing-controller.ts";
+import type { Pin } from "../../remote-access/src/fingerprint.ts";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -18,6 +35,10 @@ function arg(name: string): string | undefined {
 async function main(): Promise<void> {
   const home = arg("--home");
   if (!home) { console.error("usage: plur1bus-api --home <path> [--host <loopback address>] [--port <n>] [--web-root <dir>]"); process.exit(2); }
+  const supervised = arg("--lifeline") === "stdin";
+  mkdirSync(join(home,"run"),{recursive:true,mode:0o700});
+  const lock=acquireExclusiveLock(join(home,"run","api.lock"),{instanceId:arg("--instance")??"standalone"});
+  if(!lock){console.error("plur1bus-api: another API owns this home");process.exit(3);}
   const portArg = arg("--port"); const port = portArg === undefined ? 0 : Number(portArg);
   if (!Number.isInteger(port) || port < 0 || port > 65535) { console.error("--port must be an integer between 0 and 65535"); process.exit(2); }
   const logger = createLogger({ file: join(home, "logs", "api.log"), level: "info", role: "api" });
@@ -29,14 +50,34 @@ async function main(): Promise<void> {
   const audit = createBufferedSink(chain, { log: logger });
   const resolve = async (userId: string) => (await core.serviceCall!<{ person: CorePerson | null }>("admin.api.person.resolve", { userId })).person;
   const accounts = new AccountStore({ path: join(home, "state", "api", "accounts.db"), resolve });
-  const api = createApiServer({ core, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: ensureOwnerToken(home), logger, audit, breakGlassAudit: chain, port, ...(arg("--host") ? { host: arg("--host")! } : {}), ...(arg("--web-root") ? { webRoot: arg("--web-root")! } : {}) });
-  accounts.onChange = id => { api.rightsChanged(id); };
-  core.subscribePeople(id => { api.rightsChanged(id); void accounts.findById(id).catch(() => {}); });
+  const cleanBootstrap = ensureBootstrap(home, accounts, process.env.PLUR1BUS_OWNER_INSTALLED === "1");
+  if (!accounts.bootstrapState()?.consumed) logger.info("Owner bootstrap proof: [REDACTED]; read the private run/api-bootstrap.token file locally");
+  const startup = loadRemoteStartup(home), sharedSessions = new SessionStore(systemClock), sharedLoginChallenges = new LoginChallenges(systemClock), sharedWebauthnChallenges = new Map<string, PendingWebAuthn>();
+  const name = startup.publicOrigin ? new URL(startup.publicOrigin).hostname.replace(/^\[|\]$/g, "") : hostname();
+  const certificates = new RemoteCertificates({ home, names: isIP(name) ? { hostnames: [], ips: [name] } : { hostnames: [name] } });
+  let remote: RemoteRuntime | undefined;
+  mkdirSync(join(home, "state", "remote"), { mode: 0o700, recursive: true });
+  const remotePairing = new RemotePairingController({ core, audit: chain, now: Date.now, trustFile: join(home, "state", "remote", "trust.json"),
+    publish: () => startup.config.publish, tlsMode: () => startup.config.tls, origin: () => remote?.state.publicOrigin ?? startup.publicOrigin ?? "",
+    current: () => { if (remote?.state.phase !== "active") return undefined; if (startup.config.publish === "tailnet") return remote.state.fingerprint ? { certPin: remote.state.fingerprint as Pin } : undefined; const current = certificates.current(); return current ? { certPin: current.certPin, ...(current.caPin ? { caPin: current.caPin } : {}) } : undefined; },
+    transport: input => input.remoteTransport,
+    stage: async () => { if (startup.config.publish !== "network") throw new Error("Tailscale owns its certificate; local TLS rollover is network-only"); const staged = certificates.staged(); if (!staged && startup.config.tls === "company-ca") throw new Error("Upload the next company certificate before staging rollover"); const next = staged ?? await certificates.stageSelfSigned(); return { certPin: next.certPin, ...(next.caPin ? { caPin: next.caPin } : {}) }; },
+    activate: async () => { if (!remote) throw new Error("remote runtime unavailable"); await remote.activateStaged(); }, cancelStage: async () => { certificates.cancelStaged(); },
+  });
+  const common = { core, home, bootstrapConsumed: cleanBootstrap, remotePairing, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: randomBytes(32).toString("base64url"), logger, audit, breakGlassAudit: chain, sharedSessions, sharedLoginChallenges, sharedWebauthnChallenges, requireSecondFactor: startup.requireSecondFactor,
+    remoteCertificates: { importCompany: async (certPem: string, keyPem: string) => { const current = certificates.hasCurrent(), staged = await certificates.stageCompany({ certChainPem: certPem, keyPem }); if (!current) certificates.activateStaged(); return { certPin: staged.certPin, staged: current }; } },
+    ...(arg("--web-root") ? { webRoot: arg("--web-root")! } : existsSync(join(home,"runtime","web","index.html")) ? {webRoot:join(home,"runtime","web")} : {}) };
+  const api = createApiServer({ ...common, port, ...(arg("--host") ? { host: arg("--host")! } : {}) }), apis = new Set([api]);
+  accounts.onChange = id => { for (const endpoint of apis) endpoint.rightsChanged(id); };
+  core.subscribePeople(id => { for (const endpoint of apis) endpoint.rightsChanged(id); void accounts.findById(id).catch(() => {}); });
   accounts.startPolling();
-  const { url } = await api.listen();
-  console.log(JSON.stringify({ ready: true, url, pid: process.pid }));
+  const { url, port: localPort } = await api.listen();
+  if(supervised) privateAtomicJson(join(home,"run","api-listen.json"),{address:"127.0.0.1",port:localPort,version:API_VERSION,fingerprint:null,pid:process.pid,instanceId:arg("--instance")});
+  remote = await startRemoteRuntime({ home, ...startup, certificates, localPort, createApi: bind => { const endpoint = createApiServer({ ...common, ...bind }); apis.add(endpoint); return endpoint; }, report: status => { for (const check of status.doctor) logger.warn(check.message, { check: check.id }); } });
+  console.log(JSON.stringify({ ready: true, url, pid: process.pid, remote: { publish: remote.state.publish, phase: remote.state.phase, ...(remote.state.doctor[0] ? { reason: remote.state.doctor[0].id } : {}) } }));
   let stopping = false;
-  const stop = async () => { if (stopping) return; stopping = true; await api.close(); await audit.flush(); await core.close(); accounts.close(); await logger.close(); process.exit(0); };
+  const stop = async () => { if (stopping) return; stopping = true; await remote?.close().catch(() => logger.error("remote cleanup failed; private backend closed")); await api.close(); await audit.flush(); await core.close(); accounts.close(); await logger.close(); if(supervised) rmSync(join(home,"run","api-listen.json"),{force:true}); lock.release(); process.exit(0); };
+  if(supervised) { process.stdin.on("end",()=>void stop()); process.stdin.on("error",()=>void stop()); process.stdin.resume(); }
   process.on("SIGTERM", () => void stop()); process.on("SIGINT", () => void stop());
 }
 

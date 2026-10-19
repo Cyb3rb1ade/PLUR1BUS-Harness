@@ -190,6 +190,6 @@ export class VoiceBroker {
     if (errors.length) throw errors[0];
   }
 }
-function zero(): VoiceUsage { return { seconds: 0, costMicros: 0, inputTokens: 0, outputTokens: 0 }; }
-function usageOf(e: { seconds?: number; costMicros?: number; inputTokens?: number; outputTokens?: number }): VoiceUsage { const v = zero(); for (const k of Object.keys(v) as (keyof VoiceUsage)[]) { const n = e[k] ?? 0; if (!Number.isFinite(n) || n < 0) throw new OpenAIError('invalid-request'); v[k] = n; } return v; }
+function zero(): VoiceUsage { return { seconds: 0, inputTokens: 0, outputTokens: 0 }; }
+function usageOf(e: { seconds?: number; inputTokens?: number; outputTokens?: number }): VoiceUsage { const v = zero(); for (const k of Object.keys(v) as (keyof VoiceUsage)[]) { const n = e[k] ?? 0; if (!Number.isFinite(n) || n < 0) throw new OpenAIError('invalid-request'); v[k] = n; } return v; }
 function textSdp(v: unknown): string { if (typeof v !== 'string' || !v.startsWith('v=0') || v.length > 128 * 1024) throw new OpenAIError('endpoint-rejected'); return v; }

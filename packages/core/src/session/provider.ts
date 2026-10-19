@@ -14,13 +14,23 @@ export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  /** Trusted scoped reviewer checkout. No transport accepts this field. */
+  readOnlyWorktree?: string;
+  collaborationTier?: 'cheap' | 'standard' | 'premium';
+  /** Internal peer envelopes: persisted/rendered as tool results, never system or assistant text. */
+  peerResults?: readonly { id: string; name: string; text: string }[];
   /** Derived from the stored mode; large tool results must not be spooled to disk. */
   incognito?: boolean;
   /** Trusted internal origin, never accepted as session.submit params. */
   recurring?: RecurringOrigin;
   turnProfile?: import("../voice/turn-profile.ts").TurnProfile;
   /** Internal background role: the same router/budget, with no tool execution. */
-  role?: "summarize"; maxOutputTokens?: number;
+  role?: "summarize" | "decision";
+  taskBoundary?: import("../triage/runtime.ts").TaskBoundary; maxOutputTokens?: number;
+  modelProfile?: string;
+  /** The chat's reasoning choice (a level of the harness scale); absent = provider default. Each attempt maps it onto the
+   *  candidate model's own levels (nearest supported) and wire parameter. */
+  reasoning?: import("./chat-models.ts").ReasoningChoice;
   sessionId: string; agentId: string;
   turnId?: string; projectId?: string; headlessJobId?: string; toolView?: readonly string[]; principal?: string; authenticatedPerson?: string; caller?: import("@plur1bus/rpc-schema").CallerIdentity;
   /** The RPC connection's resolved approver (D109 §5): `person` null for a non-person principal; `surface` its derived trust level. */
@@ -43,7 +53,8 @@ export interface ChatProvider {
   stream(req: ChatRequest): AsyncIterable<ChatChunk>;
   /** Resolved profile candidates before context assembly (including possible fallbacks). */
   roleModels?: (role: "summarize") => import("./tokens.ts").ContextModel[];
-  contextModels?: (text: string) => import("./tokens.ts").ContextModel[];
+  modelProfiles?: () => readonly string[];
+  contextModels?: (text: string, profile?: string) => import("./tokens.ts").ContextModel[];
 }
 
 export interface FakeProviderOptions {

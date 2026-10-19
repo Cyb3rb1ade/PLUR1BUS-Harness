@@ -81,12 +81,13 @@ describe("settings config: sections and fields", opts, () => {
       assert.equal(await app.page.locator("#cfg-core-logLevel").count(), 0);
       assert.equal(await app.page.locator("#cfg-egress-allowLoopback").getAttribute("role"), "switch");
       await app.page.evaluate(() => { location.hash = "#/settings/models"; });
-      const roles = app.page.locator("#cfg-modelRoles");
+      const roles = app.page.locator("#cfg-modelRoles-chat");
       await roles.waitFor();
       const text = await app.page.locator("main").innerText();
       assert.ok(!text.includes("sk-secret-123") && !text.includes("sk-should-not-show"), "secret value shown");
-      assert.match(await roles.innerText(), /chat/);
-      assert.match(await app.page.locator(".cfg-field", { has: roles }).innerText(), /read-only/i);
+      assert.equal(await roles.inputValue(), "anthropic/claude-x");
+      assert.equal(await roles.isEnabled(), true);
+      assert.equal(await app.page.locator("#cfg-modelRoles-decision").count(), 1);
       assert.equal(await app.page.locator("#cfg-models-scan-enabled").getAttribute("role"), "switch");
     });
   });
@@ -314,8 +315,9 @@ describe("settings config: a11y and layout", opts, () => {
         await app.page.getByRole("button", { name: "Review changes" }).click();
         await app.page.locator(".cfg-diff").waitFor();
         await expectAxeClean(app.page, `review ${scheme}`);
+        app.page.once("dialog", (d) => { void d.accept(); }); // the review still holds the edits; leaving the section asks first (covered above)
         await app.page.evaluate(() => { location.hash = "#/settings/models"; });
-        await app.page.locator("#cfg-modelRoles").waitFor();
+        await app.page.locator("#cfg-modelRoles-chat").waitFor();
         await expectAxeClean(app.page, `models ${scheme}`);
       });
     });
@@ -344,8 +346,9 @@ describe("settings config: a11y and layout", opts, () => {
       await app.page.getByRole("button", { name: "Review changes" }).click();
       await app.page.locator(".cfg-diff").waitFor();
       assert.equal(await wide(), false);
+      app.page.once("dialog", (d) => { void d.accept(); }); // leaving the section with the edit asks first (covered above)
       await app.page.evaluate(() => { location.hash = "#/settings/models"; });
-      await app.page.locator("#cfg-modelRoles").waitFor();
+      await app.page.locator("#cfg-modelRoles-chat").waitFor();
       assert.equal(await wide(), false);
     });
   });
@@ -357,4 +360,83 @@ describe("settings config: a11y and layout", opts, () => {
       await app.page.getByRole("button", { name: "Änderungen prüfen" }).waitFor();
     });
   });
+});
+
+describe("settings config: leaving through the shell", opts, () => {
+  const dirty = async (app: App): Promise<void> => {
+    seedConfig(app.server.rpc);
+    await open(app, "#/agents");
+    await app.page.getByRole("heading", { name: "Agents", level: 1 }).waitFor();
+    await app.page.evaluate(() => { location.hash = "#/settings/general"; });
+    await app.page.locator("#cfg-core-recall-softBudgetMs").fill("500");
+    await app.page.locator(".cfg-count").getByText(/: 1$/).waitFor();
+    await new Promise((r) => setTimeout(r, 200));
+  };
+  const refuse = (app: App): string[] => { const seen: string[] = []; app.page.once("dialog", (d) => { seen.push(d.message()); void d.dismiss(); }); return seen; };
+  const stays = async (app: App, seen: string[]): Promise<void> => {
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal(seen.length, 1);
+    assert.equal(await app.page.evaluate(() => location.hash), "#/settings/general");
+    assert.equal(await app.page.locator("#cfg-core-recall-softBudgetMs").inputValue(), "500");
+  };
+  test("the sidebar asks first; declining keeps the page and the edit, accepting leaves", async () => {
+    await withApp({}, async (app) => {
+      await dirty(app);
+      const seen = refuse(app);
+      await app.page.locator(".sidebar").getByRole("link", { name: "Agents" }).click();
+      await stays(app, seen);
+      app.page.once("dialog", (d) => { void d.accept(); });
+      await app.page.locator(".sidebar").getByRole("link", { name: "Agents" }).click();
+      await app.page.getByRole("heading", { name: "Agents", level: 1 }).waitFor();
+    });
+  });
+  test("the browser's back button asks first and returns to Settings when declined", async () => {
+    await withApp({}, async (app) => {
+      await dirty(app);
+      const seen = refuse(app);
+      await app.page.goBack();
+      await stays(app, seen);
+    });
+  });
+  test("the palette asks first", async () => {
+    await withApp({}, async (app) => {
+      await dirty(app);
+      const seen = refuse(app);
+      await app.page.locator(".search-pill").click();
+      const box = app.page.locator("dialog.palette [role=combobox]");
+      await box.waitFor();
+      await box.fill("Agents");
+      await app.page.keyboard.press("Enter");
+      await stays(app, seen);
+    });
+  });
+  test("a section with no edits, or a query-only change inside the open section, does not ask", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc);
+      let asked = 0;
+      app.page.on("dialog", (d) => { asked++; void d.accept(); });
+      await open(app, "#/settings/general");
+      await app.page.locator("#cfg-core-recall-softBudgetMs").waitFor();
+      await app.page.getByRole("link", { name: "Network" }).click();
+      await app.page.locator("#cfg-egress-allowHosts").waitFor();
+      assert.equal(asked, 0);
+    });
+  });
+});
+
+
+describe("local-only II live settings", opts, () => {
+ for (const lang of ["en", "de"] as const) test(`agent pins, live explanation and 400px accessibility (${lang})`, async () => {
+  await withApp({locale:lang==="de"?"de-DE":"en-US",width:400,height:800},async app=>{
+   const id="home-agent-".repeat(9);
+   seedConfig(app.server.rpc,{privacy:{localOnly:false,localEndpoints:[]},agents:{[id]:{privacy:{localOnly:true}}}});
+   await openRoute(app.page,"#/settings/privacy",lang);
+   await app.page.locator("#cfg-privacy-localOnly").waitFor();
+   const text=await app.page.locator("main").innerText();
+   assert.ok(text.includes(id));assert.match(text,lang==="de"?/nächsten Modell|nächste Modell/:/next model request/);
+   assert.match(text,lang==="de"?/gemeinsam|Embedding/:/Embedding/);
+   assert.equal(await app.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   await expectAxeClean(app.page, `local-only privacy (${lang})`);
+  });
+ });
 });

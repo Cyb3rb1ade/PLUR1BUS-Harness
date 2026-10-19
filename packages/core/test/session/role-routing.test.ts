@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createSessionRoleProvider } from '../../src/session/role-routing.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
-import { createCallBudget, PriceBook, SHIPPED_PRICE_TABLES } from '../../src/budget/index.ts';
+import { createCallBudget } from '../../src/budget/index.ts';
 import { ToolRegistry } from '../../src/tools/registry.ts';
 import type { ChatRequest } from '../../src/session/provider.ts';
 import { ProviderError } from '../../../providers/src/index.ts';
@@ -14,7 +14,7 @@ const request = (): ChatRequest => ({ sessionId: 's', agentId: 'a', principal: '
 function fixture() {
   const calls: WireRequest[] = [];
   const dir = mkdtempSync(join(tmpdir(), 'compaction-role-'));
-  const budget = createCallBudget({ path: join(dir,'budget.sqlite'), clock: { now: Date.now }, prices: new PriceBook(SHIPPED_PRICE_TABLES) });
+  const budget = createCallBudget({ path: join(dir,'budget.sqlite'), clock: { now: Date.now } });
   const adapter = { async *stream(req: WireRequest) { calls.push(req); yield { type: 'text_delta' as const, text: 'summary' }; yield { type: 'done' as const, result: { text: 'summary', toolCalls: [], finishReason: 'stop' as const, rawFinishReason: 'stop', usage: { inputTokens: 20, outputTokens: 2 }, meta: {} } }; } };
   const registry = new ToolRegistry(); let approvals = 0;
   const options = { profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter }], cheap: [{ provider: 'fixture', model: 'gpt-4.1-mini', adapter }] }, profileForClass: () => 'default', registry, budget, approval: { request: async () => { approvals++; return { approved: false }; } }, grants: { get: () => undefined, list: () => [] }, log: () => {}, resultStore: { put: async () => 'result:fixture' } };
@@ -62,4 +62,22 @@ it('an exact summarize model keeps its profile fallback order and measured serve
   const profiles={cheap:[{provider:'first',model:'gpt-4.1-mini',adapter:{async *stream():AsyncGenerator<never>{throw new ProviderError('network','unavailable');}}},{provider:'second',model:'gpt-4.1',adapter:{async *stream(req:WireRequest){fallback++; yield* f.options.profiles.default[0]!.adapter.stream(req);}}}]};
   const p=createSessionRoleProvider(createTurnProvider,{...f.options,profiles,billing:{first:'paid',second:'paid'},router:{retry:{maxRetries:0},clock:{now:Date.now,sleep:async()=>{}}}},{summarize:'first/gpt-4.1-mini'},40);
   try {let served=''; for await(const c of p.stream(request())) if(c.type==='usage') served=c.model??''; assert.equal(fallback,1); assert.equal(served,'second/gpt-4.1');} finally{f.close();}
+});
+it('L7/L9: selected profile reaches the real router; returning to a model keeps stable-zone hashes and fresh recall stays in the tail', async () => {
+  const f = fixture();
+  const renders: import('../../src/prompt/types.ts').RenderedPrompt[] = [];
+  const provider = createSessionRoleProvider(createTurnProvider, { ...f.options, onPrompt: p => { renders.push(p); } }, {}, 40);
+  const { role: _role, ...foreground } = request();
+  try {
+    assert.deepEqual(provider.modelProfiles?.(), ['default', 'cheap']);
+    assert.deepEqual(provider.contextModels?.('chat', 'cheap'), [{ provider: 'fixture', model: 'gpt-4.1-mini' }]);
+    for (const [i, profile] of ['default', 'cheap', 'default'].entries()) {
+      for await (const chunk of provider.stream({ ...foreground, modelProfile: profile, turnId: `t${i}`, memory: i === 0 ? 'frozen memory' : `fresh fact ${i}` })) void chunk;
+    }
+    assert.deepEqual(f.calls.map(c => c.model), ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1']);
+    assert.deepEqual(renders[0]!.prefixHashes, renders[2]!.prefixHashes);
+    assert.equal(renders[0]!.zoneHashes.memory, renders[2]!.zoneHashes.memory);
+    assert.ok(renders[2]!.segments.some(s => s.zone === 'volatile' && s.text.includes('fresh fact 2')));
+    assert.ok(!renders[2]!.segments.some(s => s.zone === 'memory' && s.text.includes('fresh fact')));
+  } finally { f.close(); }
 });

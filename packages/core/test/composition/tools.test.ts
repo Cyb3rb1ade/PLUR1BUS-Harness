@@ -7,6 +7,7 @@ import { RegistryError, type ToolDef, type ToolRegistry, type ToolRunContext } f
 import { CallBudgetExceededError } from "../../src/budget/index.ts";
 import { WebFailure } from "../../src/tools/web/failure.ts";
 import { OutputStore, MediaError } from "../../../media/src/index.ts";
+import { makePng } from "../../../media/test/adapters-fixtures.ts";
 import type { ChatRequest } from "../../src/session/provider.ts";
 import { useTempDirs } from "./helpers.ts";
 
@@ -21,11 +22,13 @@ const get = (r: ToolRegistry, name: string) => r.entries().find((t) => t.name ==
 
 // From docs/host-tools.md: the D106 catalogue and its capability and risk.
 const HOST: Record<string, [string, string]> = {
+  "sys.memory": ["sys.read", "low"], "sys.startupItems": ["sys.read", "low"], "sys.services": ["sys.read", "low"], "sys.updates": ["sys.read", "low"],
+  "apps.focus": ["apps.launch", "medium"], "apps.quit": ["proc.signal", "medium"], "pkg.upgrade": ["pkg.change", "high"],
   "sys.info": ["sys.read", "low"], "sys.disks": ["sys.read", "low"], "sys.network": ["sys.read", "low"], "sys.battery": ["sys.read", "low"],
   "proc.list": ["sys.read", "low"], "proc.info": ["sys.read", "low"], "proc.kill": ["proc.signal", "medium"], "proc.wait": ["sys.read", "low"],
   "pkg.detect": ["sys.read", "low"], "pkg.search": ["sys.read", "low"], "pkg.list-installed": ["sys.read", "low"], "pkg.info": ["sys.read", "low"],
   "pkg.install": ["pkg.change", "high"], "pkg.remove": ["pkg.change", "high"],
-  "apps.list": ["sys.read", "low"], "apps.open": ["sys.read", "low"], "apps.running": ["sys.read", "low"],
+  "apps.list": ["sys.read", "low"], "apps.open": ["apps.launch", "medium"], "apps.running": ["sys.read", "low"],
   "clipboard.read": ["clipboard.read", "low"], "clipboard.write": ["clipboard.read", "low"], notify: ["sys.read", "low"],
 };
 
@@ -234,8 +237,8 @@ describe("composition/tools composeTools: media generate and edit", () => {
     const calls: { op: string; request: unknown }[] = [];
     const adapter = {
       id: "fixture", model: "synthetic-1", capabilities: () => ({ generate: true, edit: true, inpaint: false }),
-      generate: async (request: unknown) => { calls.push({ op: "generate", request }); return { files: [{ bytes: new Uint8Array([1, 2, 3]), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
-      edit: async (request: unknown) => { calls.push({ op: "edit", request }); return { files: [{ bytes: new Uint8Array([4, 5, 6]), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
+      generate: async (request: unknown) => { calls.push({ op: "generate", request }); return { files: [{ bytes: makePng(), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
+      edit: async (request: unknown) => { calls.push({ op: "edit", request }); return { files: [{ bytes: makePng(), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
       ...over,
     };
     return { adapter: adapter as never, calls };
@@ -244,7 +247,7 @@ describe("composition/tools composeTools: media generate and edit", () => {
     const events: [string, unknown][] = [];
     const budget = {
       checkBeforeCall: (r: unknown) => { events.push(["check", r]); return decision === "allow" ? { kind: "allow", reservationId: "res-1" } : { kind: "refuse", code: "budget_exceeded", reason: "hard", scope: "global", id: "", metric: "cost", limit: 1, used: 1 }; },
-      settle: (id: string, usage: unknown) => { events.push(["settle", { id, usage }]); return { recorded: true, costMicros: 0, overages: [] }; },
+      settle: (id: string, usage: unknown) => { events.push(["settle", { id, usage }]); return { recorded: true, overages: [] }; },
       releaseUnused: (id: string) => { events.push(["release", id]); },
     };
     return { budget: budget as never, events };
@@ -272,7 +275,7 @@ describe("composition/tools composeTools: media generate and edit", () => {
     assert.equal(names(reg).some((n) => n.startsWith("image.") || n.startsWith("media.")), false);
   });
 
-  it("generate: admits against the budget with the adapter identity, stores the output and settles the produced quantity", async () => {
+  it("generate: admits against the budget with the adapter identity, stores the output and settles the call in tokens (media reports none)", async () => {
     const { reg, events, calls } = await mk();
     const out = await get(reg, "image.generate").execute({ prompt: "a cat", n: 1 }, run()) as { id: string; files: unknown[] };
     assert.match(out.id, /^[0-9a-f-]{36}$/); assert.equal(out.files.length, 1);
@@ -281,7 +284,8 @@ describe("composition/tools composeTools: media generate and edit", () => {
     assert.equal(events[0]![0], "check");
     assert.deepEqual([check.principal, check.agent, check.provider, check.model, check.session, check.project], ["user-1", "a1", "fixture", "synthetic-1", "s1", "direct"]);
     assert.deepEqual(events.map((e) => e[0]), ["check", "settle"]);
-    assert.deepEqual((events[1]![1] as { usage: { media: unknown[] } }).usage.media, [{ kind: "image", resolution: "default", quantity: 1 }]);
+    assert.deepEqual((events[1]![1] as { usage: unknown }).usage, { inputTokens: 0, outputTokens: 0 }); // no money dimension: no media price units
+    assert.equal("media" in check, false);
   });
 
   it("a budget refusal is a typed budget_exceeded error and the adapter is never called", async () => {
@@ -297,12 +301,12 @@ describe("composition/tools composeTools: media generate and edit", () => {
     assert.deepEqual(events.map((e) => e[0]), ["check", "release"]);
   });
 
-  it("an aborted generation settles the requested quantity instead of releasing (it may still bill remotely)", async () => {
+  it("an aborted generation settles the call instead of releasing (it may still complete remotely)", async () => {
     const ac = new AbortController();
     const { reg, events } = await mk({ generate: async () => { ac.abort(new Error("stop")); throw new Error("aborted by caller"); } });
     await assert.rejects(() => get(reg, "image.generate").execute({ prompt: "a cat", n: 3 }, run(ac.signal)), /aborted by caller/);
     assert.deepEqual(events.map((e) => e[0]), ["check", "settle"]);
-    assert.deepEqual((events[1]![1] as { usage: { media: { quantity: number }[] } }).usage.media[0]!.quantity, 3);
+    assert.deepEqual((events[1]![1] as { usage: unknown }).usage, { inputTokens: 0, outputTokens: 0 });
   });
 
   it("edit without reference images is refused before the adapter runs", async () => {
@@ -326,7 +330,7 @@ describe("composition/tools composeTools: media generate and edit", () => {
     const edited = await get(reg, "image.edit").execute({ prompt: "variation", referenceIds: [made.id] }, run()) as { id: string };
     assert.notEqual(edited.id, made.id);
     assert.deepEqual(calls.map((c) => c.op), ["generate", "edit"]);
-    assert.equal((calls[1]!.request as { referenceImages: { bytes: Uint8Array }[] }).referenceImages[0]!.bytes.length, 3);
+    assert.equal((calls[1]!.request as { referenceImages: { bytes: Uint8Array }[] }).referenceImages[0]!.bytes.length, makePng().length);
   });
 
   it("without a budget the tool still works (the budget is optional in composition)", async () => {
@@ -352,6 +356,13 @@ describe("composition/tools composeTools: web.search", () => {
     const ctx = run();
     assert.deepEqual(await t.execute({ query: "cats" }, ctx), { results: [] });
     assert.deepEqual(seen!.args, { query: "cats" }); assert.equal(seen!.signal, ctx.signal);
+  });
+
+  it("tells the search service which agent and session call, so the provider can be chosen per agent (D95)", async () => {
+    let seen: { agentId?: string; sessionId?: string } | undefined;
+    const t = get(await composeTools(options({ webSearch: search(async (_args, o) => { seen = o as never; return { results: [] }; }) }), turn()), "web.search");
+    await t.execute({ query: "cats" }, run());
+    assert.equal(seen!.agentId, "a1"); assert.equal(seen!.sessionId, "s1");
   });
 
   it("a typed web failure becomes a tool-failed error carrying the structured result", async () => {

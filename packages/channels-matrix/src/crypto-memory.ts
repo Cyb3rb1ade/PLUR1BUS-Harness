@@ -1,5 +1,10 @@
-import * as crypto from '@matrix-org/matrix-sdk-crypto-wasm';
+import type * as CryptoTypes from '@matrix-org/matrix-sdk-crypto-wasm';
 import { isObj, isRoomId, isUserId, type MatrixEvent, type SyncResponse } from './events.ts';
+
+/** The WASM module is loaded on first use, never at import time: the core bundle imports this file for every
+ *  deployment, and only an operator who opts in to Matrix memory crypto needs the package to resolve. */
+let crypto!: typeof CryptoTypes;
+async function loadCrypto(): Promise<typeof CryptoTypes> { return crypto ??= await import('@matrix-org/matrix-sdk-crypto-wasm'); }
 
 export const MEMORY_CRYPTO_WARNING = 'Not persistent: encryption keys are lost after restart; device verification is required again.';
 export interface CryptoRequest { id?: string | undefined; type: number; body: string; event_type?: string; txn_id?: string; room_id?: string }
@@ -11,17 +16,17 @@ export interface VerificationInput { actor: string; action: 'start' | 'inspect' 
 
 /** Deliberately opt-in and memory-only. No claim of restart-safe E2EE or backup support. */
 export class MatrixMemoryCrypto {
-  readonly #machine: crypto.OlmMachine;
+  readonly #machine: CryptoTypes.OlmMachine;
   readonly #transport: CryptoTransport;
   readonly #unverified: 'reject' | 'allow';
   readonly #flows = new Map<string, { actor: string; userId: string; deviceId: string; expires: number }>();
   #tail: Promise<unknown> = Promise.resolve();
-  private constructor(machine: crypto.OlmMachine, transport: CryptoTransport, unverified: 'reject' | 'allow') {
+  private constructor(machine: CryptoTypes.OlmMachine, transport: CryptoTransport, unverified: 'reject' | 'allow') {
     this.#machine = machine; this.#transport = transport; this.#unverified = unverified;
   }
   static async open(userId: string, deviceId: string, transport: CryptoTransport, unverified: 'reject' | 'allow' = 'reject'): Promise<MatrixMemoryCrypto> {
     if (!isUserId(userId) || !/^[A-Za-z0-9._-]{1,255}$/.test(deviceId)) throw new Error('invalid matrix crypto identity');
-    await crypto.initAsync();
+    await (await loadCrypto()).initAsync();
     const machine = await crypto.OlmMachine.initialize(new crypto.UserId(userId), new crypto.DeviceId(deviceId));
     const out = new MatrixMemoryCrypto(machine, transport, unverified);
     try { await out.#flush(); return out; } catch (error) { await out.close(); throw error; }

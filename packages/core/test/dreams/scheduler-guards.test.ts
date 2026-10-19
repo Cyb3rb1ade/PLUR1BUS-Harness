@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { createCandidateSource, itemsFromEngineList } from "../../src/dreams/producer.ts";
 import type { DreamJobRun } from "../../src/dreams/types.ts";
 import { DAY, harness, HOUR, T0, useTempDirs } from "./helpers.ts";
 
@@ -63,7 +64,7 @@ describe("dreams scheduler: engine result -> run outcome", () => {
     h.engine.behaviours.set("auto-accept-stale", () => ({ cost: { inputTokens: 30 } }));
     h.engine.behaviours.set("gc-run", () => ({ cost: {} }));
     const r = await manual(h, "deep");
-    assert.equal(r.tokensIn, 1030); assert.equal(r.tokensOut, 200); assert.equal(r.costMicros, null, "cost_micros stays empty without a price table");
+    assert.equal(r.tokensIn, 1030); assert.equal(r.tokensOut, 200); assert.equal("costMicros" in r, false, "tokens only: there is no money dimension");
     const h2 = harness(dirs); h2.captures("alpha", 3);
     h2.engine.behaviours.set("light-dream", () => ({ cost: {} })); h2.engine.behaviours.set("embedding-drain", () => ({ cost: {} }));
     const q = await manual(h2, "light");
@@ -336,6 +337,25 @@ describe("dreams scheduler: candidate guards", () => {
   it("the light phase ingests candidates but never requires one", async () => {
     const h = harness(dirs, { over: { candidates: src([]) } }); h.sched = h.make(); h.captures("alpha", 1);
     assert.equal((await manual(h, "light")).outcome, "completed");
+  });
+
+  it("a workspace/user card is not ingested as agent-private", async () => {
+    const source = createCandidateSource({
+      list: () => itemsFromEngineList({
+        truncated: false,
+        items: [
+          { text: "same text", scope: "workspace" },
+          { text: "same text", scope: "user" },
+          { text: "same text", scope: "agent-private" },
+        ],
+      }),
+    });
+    const h = harness(dirs, { over: { candidates: source } }); h.sched = h.make(); h.captures("alpha", 1);
+    assert.equal((await manual(h, "light")).outcome, "completed");
+    const cs = h.store.listCandidates("alpha");
+    assert.equal(cs.length, 1);
+    assert.equal(cs[0]!.partition, "agent-private");
+    assert.equal(cs[0]!.recalls, 0);
   });
 });
 

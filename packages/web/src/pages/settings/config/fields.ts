@@ -1,9 +1,11 @@
 // Rendering of one config field and of the groups: label, key, widget by kind, default, restart badge, help, error. Controls are
 // `id="cfg-<key with dots as dashes>"` (the anchor of the palette's deep links) and point at their hint and error with aria-describedby.
 import { h } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { getApi } from "../../../api/shared.ts";
 import type { View } from "../../../view.ts";
 import { Badge } from "../../../components/card.ts";
-import { t } from "../../../i18n.ts";
+import { t, type Key } from "../../../i18n.ts";
 import { SETTINGS } from "../../../palette/settings-index.ts";
 import { effective, redact, restartKind, show, type Draft, type Field } from "./model.ts";
 import { fieldId, humanize } from "./meta.ts";
@@ -29,9 +31,21 @@ export type FieldRowProps = {
 };
 
 export function FieldRow({ field: f, draft, error, disabled, highlighted, onChange }: FieldRowProps): View {
+  const [probe, setProbe] = useState<"idle" | "running" | "ok" | "failed">("idle");
+  const active = useRef<AbortController | null>(null);
+  useEffect(() => () => { active.current?.abort(); }, []);
+  useEffect(() => { active.current?.abort(); setProbe("idle"); }, [draft[f.key]]);
+  const test = async (): Promise<void> => {
+    if (active.current && !active.current.signal.aborted) return;
+    const controller = new AbortController(); active.current = controller; setProbe("running");
+    try { await getApi().rpc("models.test", { model: String(draft[f.key]) }, { signal: controller.signal }); if (!controller.signal.aborted) setProbe("ok"); }
+    catch { if (!controller.signal.aborted) setProbe("failed"); }
+    finally { if (active.current === controller) active.current = null; }
+  };
   const id = fieldId(f.key);
   const raw = draft[f.key];
-  const help = HELP.get(f.key);
+  const role = f.key.startsWith("modelRoles.") ? f.key.slice(11) : undefined;
+  const help = role ? t(`settings.roles.${role}` as Key) : HELP.get(f.key);
   const meta = [defaultText(f), f.min !== undefined ? t("settings.cfg.min", { min: f.min }) : "", f.max !== undefined ? t("settings.cfg.max", { max: f.max }) : ""].filter(Boolean).join(" · ");
   const described = [`${id}-key`, f.readOnly ? "" : `${id}-meta`, help ? `${id}-help` : "", f.kind === "strings" || f.kind === "ints" ? `${id}-list` : "", error ? `${id}-err` : ""].filter(Boolean).join(" ");
   const common = { id, disabled, "aria-describedby": described, ...(error ? { "aria-invalid": true } : {}) };
@@ -46,7 +60,12 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
     case "enum":
       // A value from a newer harness is not among the known options: it stays visible (and selected) instead of showing the first option.
       control = h("select", { ...common, value: String(raw ?? ""), onChange: onInput },
-        (typeof raw === "string" && raw !== "" && !(f.options ?? []).includes(raw) ? [raw, ...(f.options ?? [])] : (f.options ?? [])).map((o) => h("option", { value: o, selected: o === raw }, o)));
+        (typeof raw === "string" && raw !== "" && !(f.options ?? []).includes(raw) ? [raw, ...(f.options ?? [])] : (f.options ?? [])).map(o => {
+          const choice = f.choices?.find(c => c.value === o);
+          const label = o === "" ? t("settings.cfg.unset") : choice?.label ?? o;
+          const reason = choice?.disabled ? ` — ${t(`settings.roles.${choice.disabled}` as Key)}` : "";
+          return h("option", { value: o, selected: o === raw, disabled: !!choice?.disabled }, label + reason);
+        }));
       break;
     case "strings": case "ints":
       control = h("textarea", { ...common, rows: 3, spellcheck: false, value: String(raw ?? ""), onInput });
@@ -64,6 +83,10 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
       h(RestartBadge, { cls: f.restartClass })),
     h("p", { class: "cfg-key", id: `${id}-key` }, h("span", { class: "sr-only" }, `${t("settings.cfg.key")}: `), h("code", null, f.key)),
     control,
+    role && !["embedding", "rerank"].includes(role) ? h("div", {},
+      h("p", { class: "field-hint" }, t("settings.roles.testHint")),
+      h("button", { type: "button", class: "btn", disabled: disabled || !raw || probe === "running", onClick: () => { void test(); } }, t("settings.roles.test")),
+      probe === "idle" ? null : h("p", { role: probe === "failed" ? "alert" : "status", class: "field-hint" }, t(`settings.roles.test${probe === "running" ? "Running" : probe === "ok" ? "Ok" : "Failed"}`))) : null,
     f.readOnly ? h("p", { class: "field-hint" }, t("settings.cfg.readonly.note"), " ", t("settings.cfg.readonly.masked")) : null,
     f.kind === "strings" || f.kind === "ints" ? h("p", { class: "field-hint", id: `${id}-list` }, t("settings.cfg.listHint")) : null,
     f.readOnly ? null : h("p", { class: "field-hint", id: `${id}-meta` }, meta),

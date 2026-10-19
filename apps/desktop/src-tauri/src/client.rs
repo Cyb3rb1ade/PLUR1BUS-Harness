@@ -204,6 +204,17 @@ impl HarnessClient {
             observed: Arc::default(),
         }
     }
+    /// Trust from an explicitly confirmed OS pairing payload, never a typed pin field.
+    pub async fn from_pairing_payload(
+        origin: Origin,
+        pin: Option<CertPin>,
+        ca: Option<CertPin>,
+    ) -> Result<Self, ClientError> {
+        let mut client = Self::new(origin, pin);
+        client.ca = ca;
+        client.prepare().await?;
+        Ok(client)
+    }
     #[cfg(debug_assertions)]
     pub fn with_trusted_roots(mut self, roots: Vec<Vec<u8>>) -> Self {
         self.roots = Some(roots);

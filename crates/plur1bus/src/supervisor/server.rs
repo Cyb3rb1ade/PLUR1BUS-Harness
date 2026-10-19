@@ -212,6 +212,14 @@ fn config_unavailable(id: &Value) -> Value {
 
 fn set_error_reply(id: &Value, e: SetError) -> Value {
     match e {
+        SetError::LocalOnly(policy) => error_reply(
+            id,
+            "E_DENIED",
+            &policy.message(),
+            Some(policy.reason()),
+            None,
+            None,
+        ),
         SetError::Invalid(errors) if errors == ["config-write-role"] => error_reply(
             id,
             "E_DENIED",
@@ -339,9 +347,11 @@ impl ConnCtx {
                 None,
             );
         }
-        if let Some(core) = st.slot_mut("core") {
-            core.backoff.reset();
-            core.start_requested = true;
+        for role in ["core", "api"] {
+            if let Some(slot) = st.slot_mut(role) {
+                slot.backoff.reset();
+                slot.start_requested = true;
+            }
         }
         self.shared.wake.notify_all();
         drop(st);

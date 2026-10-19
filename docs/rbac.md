@@ -129,9 +129,9 @@ through untouched. A refusal is `E_DENIED` with the reason code, a missing or fa
 the installation owner (RULING R8), so today's behaviour is unchanged until the M3 Harness API supplies sessions.
 
 Secured now: `memory.forget` (→ `memory.forget` on the agent), `agent.status` (→ `agent.read`), `jobs.run`,
-`models.setOverride` and `models.removeManual` (→ `models.write`), `logs.query` and `logs.tail` (→ `logs.query`, Owner/Admin only, D4), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
+`models.setOverride` and `models.removeManual` (→ `models.write`), `logs.query`, `logs.tail` and `logs.levels` (→ `logs.query`, Owner/Admin only, D4/D111), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
 `admin.migrate`, `admin.embedding.*`, `admin.reembed.*`). A test pins that every `admin.*` method in the schema has a rule.
-The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` → `jobs.run` (Owner, Admin, Operator), `dreams.schedule.set|enable|disable` → `settings.write` (Owner, Admin); the reads `dreams.status|log|schedule.get` stay open like `jobs.list|history`.
+The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` → `jobs.run` (Owner, Admin, Operator), `dreams.schedule.set|enable|disable` → `settings.write` (Owner, Admin); the reads `dreams.status|log|schedule.get` stay open like `jobs.list|history`. `dreams.diary` → `agent.manage` on the agent resource (Owner, Admin, member with manage); a viewer is denied and does not see a foreign agent's diary.
 
 The M3 `identity.*` methods are secured by the nearest existing pattern: `identity.list` → `users.read`, and `identity.human.create`, `identity.link`, `identity.unlink`, `identity.pair.start|claim|confirm` → `users.manage` (system resource, Owner and Admin). Their descriptions say "Owner only"; today every connection is the owner, so nothing changes, and whether these should be Owner-only is for the roles ruling (R4/R5 open).
 
@@ -305,6 +305,9 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `inbox.markRead`, `inbox.dismiss` | `inbox.write` | All five, human principals only; own entries only, foreign ids change nothing |
 | `session.list` | `admin.sessions.read` | All five; Member own only; Owner/Admin/Operator/Viewer may filter all metadata |
 | `session.get`, `session.resume`, `session.events` | `admin.sessions.transcript` | All five; own session or live audited Break-Glass grant |
+| `session.model.set` | `admin.sessions.write` | Human Owner, Admin, Operator, Member; own idle direct session and `agent.use`; never WebMCP |
+| `chat.model.get` | `chat:read` | Owner, Admin, Operator, Member, Viewer; own direct chat (identity from the authenticated person) and `agent.read` |
+| `chat.model.set` | `chat:write` | Human Owner, Admin, Operator, Member; own idle direct chat and `agent.use`; a profile locked by "Nur lokal" is `E_DENIED` `local-only`; never WebMCP |
 | `session.create`, `session.submit`, `session.cancel`, `session.archive` | `admin.sessions.write` | Owner, Admin, Operator, Member; own session and `agent.use` required |
 | `memory.list`, `memory.show` | `admin.memory.read` | All five; optional `targetUserId` requires `agent.read` and live library `memory.user.read` authorization |
 | `pairing.qr` | `admin.pairing.read` | Owner, Admin; existing payload only, no code issuance |
@@ -410,7 +413,7 @@ The session-only `/rpc` gateway uses an explicit exposure list in `packages/api/
 
 Config get/set and module list/graph use the supervisor, which obtains current identity from the core; config writes are Owner/Admin and additionally obey every affected x-write-roles annotation, including parent replacements. Annotations and sensitivity are checked at the mutation boundary. Internal lifecycle/auth/subscription RPCs, admin backup/import, secret reveal and raw caller-based memory calls remain excluded. For legacy methods without a guard, API admission is conservative: actual Owner only, except authorized diagnostics and filtered agent listing. This is narrower than the previous local-token compatibility path. Remaining exposed methods keep their existing Core policy and humanOnly requirements.
 
-Person-bound SSE is independent of WebMCP. An event requires a matching person/connection audience; only process-only core.state is globally forwarded. Replay retains already filtered events per person and session. A delegated connection has no automatic step-up/OS attestation. See [api.md](api.md#browser-rpc-and-events) for limits and local trust boundaries.
+Person-bound SSE is independent of WebMCP. An event requires a matching person/connection audience, or (for recall, jobs, dreams, ACL denials and agent activity) a typed agent audience plus current `agent.read` permission; only process-only `core.state` is globally forwarded. Subscription filters do not grant access. Explicit agent subscriptions are checked at admission and agent events are checked again at delivery, so rights revocation takes effect on existing subscriptions. Owner/Admin see all agents; Member/Viewer need `use` or `manage` rights. Operator follows the existing `agent.read` policy. Local owner IPC keeps its unfiltered event stream. Replay retains already filtered events per person and session. A delegated connection has no automatic step-up/OS attestation. See [api.md](api.md#browser-rpc-and-events) for limits and local trust boundaries.
 
 ### Agent activity history
 
@@ -430,3 +433,21 @@ The internal `admin.api.person.resolve` and `admin.api.invite.validate` methods 
 
 | `admin.api.person.resolve` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |
 | `admin.api.invite.validate` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |
+
+Remote trust challenge and acknowledgement use the additive human-only `remote.device.write` action (Owner/Admin/Operator/Member; Viewer denied) and cookie sessions with CSRF. Nonce-only pairing proof and one-use code redemption are reviewed bootstrap exceptions: no delegated identity or normal session is manufactured. All four private device services use the existing DeviceStore and a separately authenticated API service credential without a delegated principal.
+
+| `admin.api.device.pair` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.desktop.redeem` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.desktop.token` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.desktop.resolve` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `device.pair` | `remote.device.write` | ✔ | ✔ | ✔ | ✔ | – | Human only; code belongs to the authenticated person and kind desktop |
+| `admin.api.device.challenge` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.prove` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.announce` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+
+### Model role probe (Phase A, 2026-10-18)
+
+`models.test` requires `settings.write` (Owner/Admin) and an explicit human principal at the RPC guard. Token scopes can
+only narrow access. It is forbidden as a WebMCP tool. The handler takes only a model identifier; prompt, output cap, tool
+set, memory and timeout are server-owned. It selects one configured candidate without fallback and admits the request
+through the same budget/router and adapter egress as ordinary model calls. It creates no session or transcript.

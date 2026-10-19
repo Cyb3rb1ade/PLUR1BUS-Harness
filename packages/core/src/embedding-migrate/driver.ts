@@ -6,6 +6,9 @@ import { randomBytes } from "node:crypto";
 import { checkTarget, probeCompatibility, type EmbeddingFingerprint, type ProbeResult } from "./probe.ts";
 import type { EngineRecord, ReembedEngine, SwitchPort } from "./port.ts";
 import { MigrationStateError, TERMINAL, type Checkpoint, type Phase, type StateStore } from "./state.ts";
+import type { PrivacyAcknowledgment } from "@plur1bus/config-schema";
+import { OPENAI_DEFAULT_ENDPOINT } from "../composition/embedding-policy.ts";
+import { redactEndpoint } from "../privacy/local-only.ts";
 
 export type MigrationErrorCode =
   | "migration-active" | "migration-running" | "no-migration" | "not-runnable" | "not-abortable" | "not-ready-to-switch"
@@ -28,7 +31,14 @@ export interface PlanSummary {
   /** The pauses alone (batches × throttle); provider time comes on top. */
   minDurationMs: number;
   probeStatus: string;
+  /** A cloud or self-hosted target only: what leaves this machine and how many tokens it takes. */
+  cloud?: CloudEstimate;
 }
+/**
+ * Every card text goes to the provider. Tokens are estimated from the source size without its vectors (bytes / 4), an
+ * upper bound since metadata is counted too. There is no cost estimate: the budget counts tokens (owner 2026-10-19).
+ */
+export interface CloudEstimate { provider: string; model: string; endpoint: string; cards: number; estimatedTokens: number; sendsText: true }
 export interface PlanOutcome { probe: ProbeResult; plan: PlanSummary | null }
 export interface StatusView {
   checkpoint: PublicCheckpoint | null;
@@ -48,10 +58,31 @@ export interface DriverDeps {
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
   newId?: () => string;
   logger?: { info(m: string, f?: Record<string, unknown>): void; warn(m: string, f?: Record<string, unknown>): void };
+  /** The call budget for a remote target, asked before every batch; null/absent: no budget is configured. */
+  budget?: () => BatchBudget | null;
+  /** Retry of a batch that failed with a rate limit or a transient provider error (429, 5xx, network), with backoff. */
+  retry?: RetryOptions;
+  /** Re-checks a remote target before a run starts (privacy.localOnly, acknowledgment, egress may have changed since the plan). */
+  admitRun?: (c: PublicCheckpoint) => Promise<void> | void;
+}
+
+export interface BatchTicket { settle(tokens: number): void; release(): void }
+export interface BatchBudget { admit(a: { provider: string; model: string; estimatedTokens: number }): { ok: true; ticket: BatchTicket } | { ok: false; message: string } }
+export interface RetryOptions { attempts?: number; baseMs?: number; maxMs?: number }
+export const DEFAULT_RETRY: Required<RetryOptions> = { attempts: 4, baseMs: 1000, maxMs: 30_000 };
+/** A provider answer worth waiting for: rate limit, overload, a 5xx or a network failure. Never drift or a bad token. */
+export const retryable = (message: string): boolean =>
+  /\b429\b|rate.?limit|too many requests|\b5(?:0\d|2\d)\b|overloaded|temporarily unavailable|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up/i.test(message);
+
+export interface PlanRequest {
+  target: EmbeddingFingerprint;
+  /** A cloud or self-hosted target: where its key lives (env var name) and the endpoint as configured. */
+  remote?: { apiKeyEnv: string; baseUrl?: string; privacyAck?: PrivacyAcknowledgment };
+  throttleMs?: number; targetGeneration?: string;
 }
 
 export interface MigrationDriver {
-  plan(req: { target: EmbeddingFingerprint; throttleMs?: number; targetGeneration?: string }): Promise<PlanOutcome>;
+  plan(req: PlanRequest): Promise<PlanOutcome>;
   /** Validates, marks the run started and returns; the loop continues in the background and `done` settles when it ends. */
   start(): Promise<{ checkpoint: PublicCheckpoint; done: Promise<PublicCheckpoint> }>;
   run(): Promise<PublicCheckpoint>;
@@ -110,7 +141,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
 
   const batchesOf = (tables: { rowCount: number }[]) => tables.reduce((s, t) => s + Math.ceil(t.rowCount / d.engine.batchSize), 0);
 
-  async function plan(req: { target: EmbeddingFingerprint; throttleMs?: number; targetGeneration?: string }): Promise<PlanOutcome> {
+  async function plan(req: PlanRequest): Promise<PlanOutcome> {
     const throttleMs = req.throttleMs ?? DEFAULT_THROTTLE_MS;
     if (!Number.isSafeInteger(throttleMs) || throttleMs < 0 || throttleMs > MAX_THROTTLE_MS) throw new MigrationError("plan-refused", `throttleMs must be an integer between 0 and ${MAX_THROTTLE_MS}`);
     if (loop) throw new MigrationError("migration-running", "a re-embedding run is in progress; stop it with --abort first");
@@ -119,7 +150,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     try { return await planLocked(req, throttleMs); } finally { busy = null; }
   }
 
-  async function planLocked(req: { target: EmbeddingFingerprint; targetGeneration?: string }, throttleMs: number): Promise<PlanOutcome> {
+  async function planLocked(req: PlanRequest, throttleMs: number): Promise<PlanOutcome> {
     const existing = read();
     // A planned migration that never started has copied nothing: planning again simply replaces it.
     if (existing && !TERMINAL.includes(existing.phase) && existing.phase !== "planned") throw new MigrationError("migration-active", `migration ${existing.id} is ${existing.phase}; finish it with --run or stop it with --abort first`);
@@ -129,7 +160,8 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     const id = newId();
     let enginePlan;
     try {
-      enginePlan = await d.engine.plan({ id, target: { fingerprint: req.target }, ...(req.targetGeneration ? { targetGeneration: req.targetGeneration } : {}), confirmationTtlMs: CONFIRMATION_TTL_MS });
+      const secretRef = req.remote ? { secretRef: { source: "env" as const, provider: "default" as const, id: req.remote.apiKeyEnv } } : {};
+      enginePlan = await d.engine.plan({ id, target: { fingerprint: req.target, ...secretRef }, ...(req.targetGeneration ? { targetGeneration: req.targetGeneration } : {}), confirmationTtlMs: CONFIRMATION_TTL_MS });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (/does not change the embedding fingerprint/.test(message)) {
@@ -147,11 +179,20 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       targetProbe: { ok: p.target.probeStatus === "passed" || p.target.probeStatus === "probe_deferred_local_artifact" },
     });
     const batches = batchesOf(p.source.tables);
+    let cloud: CloudEstimate | undefined;
+    let remote: Checkpoint["remote"];
+    if (req.remote) {
+      const rows = p.estimates.rows;
+      const textBytes = Math.max(0, p.estimates.sourceBytes - rows * (p.source.fingerprint.dimensions ?? 0) * 4);
+      const estimatedTokens = Math.ceil(textBytes / 4);
+      cloud = { provider: req.target.provider, model: req.target.model, endpoint: redactEndpoint(req.remote.baseUrl ?? req.target.endpoint ?? OPENAI_DEFAULT_ENDPOINT), cards: rows, estimatedTokens, sendsText: true };
+      remote = { apiKeyEnv: req.remote.apiKeyEnv, ...(req.remote.baseUrl !== undefined ? { baseUrl: req.remote.baseUrl } : {}), ...(req.remote.privacyAck ? { privacyAck: req.remote.privacyAck } : {}), tokensPerRow: rows === 0 ? 0 : Math.max(1, Math.ceil(estimatedTokens / rows)) };
+    }
     const cp: Checkpoint = {
       v: 1, id: p.id, token: enginePlan.confirmation.token, planDigest: enginePlan.planDigest, createdAt: now(), updatedAt: now(), phase: "planned",
       sourceGeneration: p.source.generation, targetGeneration: p.target.generation, target: req.target,
       counts: { rows: p.estimates.rows, tables: p.source.tables.length, batches, rowsDone: 0, batchesDone: 0 },
-      throttleMs, abortRequested: false, error: null,
+      throttleMs, abortRequested: false, error: null, ...(remote ? { remote } : {}),
     };
     put(cp);
     d.logger?.info("re-embedding planned", { id: p.id, rows: cp.counts.rows, batches });
@@ -161,6 +202,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
         id: p.id, sourceGeneration: p.source.generation, targetGeneration: p.target.generation, rows: p.estimates.rows, tables: p.source.tables.length,
         batches, batchSize: d.engine.batchSize, providerCalls: p.estimates.providerCalls, sourceBytes: p.estimates.sourceBytes, targetBytes: p.estimates.targetBytes,
         requiredFreeBytes: p.estimates.requiredFreeBytes, freeBytes: p.estimates.freeBytes, throttleMs, minDurationMs: batches * throttleMs, probeStatus: p.target.probeStatus,
+        ...(cloud ? { cloud } : {}),
       },
     };
   }
@@ -177,6 +219,42 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     return n;
   };
 
+  const retry = { ...DEFAULT_RETRY, ...d.retry };
+  /**
+   * One engine batch for this checkpoint. A remote target first reserves its estimated tokens in the call budget (a hard
+   * limit pauses the run: phase aborted with error budget-exceeded, resumable with --run once the limit allows it), and a
+   * rate limit or transient provider error is retried with exponential backoff before the run halts (resumable too).
+   */
+  async function oneBatch(c: Checkpoint, rec: EngineRecord, signal: AbortSignal): Promise<{ kind: "ok"; rec: EngineRecord } | { kind: "stopped"; error: Checkpoint["error"] }> {
+    const remote = c.remote;
+    const rowsLeft = Math.max(0, c.counts.rows - c.counts.rowsDone);
+    const estimate = remote ? Math.max(1, Math.min(d.engine.batchSize, rowsLeft || d.engine.batchSize) * Math.max(1, remote.tokensPerRow)) : 0;
+    let state = rec.state;
+    for (let attempt = 0; ; attempt++) {
+      const budget = remote ? d.budget?.() ?? null : null;
+      const admitted = budget ? budget.admit({ provider: c.target.provider, model: c.target.model, estimatedTokens: estimate }) : null;
+      if (admitted && !admitted.ok) return { kind: "stopped", error: { code: "budget-exceeded", message: `the call budget refuses the next batch (${admitted.message}); the run is paused and continues with --run once the budget allows it` } };
+      const ticket = admitted?.ok ? admitted.ticket : null;
+      try {
+        const next = state === "running" ? await d.engine.resume({ id: c.id, token: c.token }) : await d.engine.apply({ id: c.id, token: c.token });
+        ticket?.settle(estimate);
+        return { kind: "ok", rec: next };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        const again = !classify(e).final && retryable(message) && attempt < retry.attempts;
+        // A refused or rate-limited request is not billed; any other failure may have been, so it is settled.
+        if (ticket) { if (retryable(message)) ticket.release(); else ticket.settle(estimate); }
+        if (!again) throw e;
+        const wait = Math.min(retry.maxMs, retry.baseMs * 2 ** attempt);
+        d.logger?.warn("re-embedding batch retried", { id: c.id, attempt: attempt + 1, waitMs: wait });
+        await sleep(wait, signal);
+        if (signal.aborted) return { kind: "stopped", error: null };
+        // apply moves a planned migration to running before its batch; a retry continues it
+        state = (await d.engine.status(c.id))?.state ?? state;
+      }
+    }
+  }
+
   async function body(initial: Checkpoint, signal: AbortSignal): Promise<Checkpoint> {
     let c = initial;
     const stop = (phase: Phase, error: Checkpoint["error"] = null) => save(c, { phase, error, abortRequested: false });
@@ -186,7 +264,9 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       while (rec.state === "planned" || rec.state === "confirmed" || rec.state === "running") {
         if (signal.aborted) return stop("aborted");
         const before = rec.cursor;
-        rec = rec.state === "running" ? await d.engine.resume({ id: c.id, token: c.token }) : await d.engine.apply({ id: c.id, token: c.token });
+        const batch = await oneBatch(c, rec, signal);
+        if (batch.kind === "stopped") return stop("aborted", batch.error);
+        rec = batch.rec;
         c = track(c, rec, true);
         // Every batch moves the cursor; one that does not would repeat for ever (each pass costs provider calls).
         if (rec.state === "running" && rec.cursor.tableIndex === before.tableIndex && rec.cursor.offset === before.offset && rec.cursor.completedRows === before.completedRows) {
@@ -221,6 +301,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     const c = read();
     if (!c) throw new MigrationError("no-migration", "no re-embedding migration is planned (plan one first)");
     if (!["planned", "running", "aborted", "validating"].includes(c.phase)) throw new MigrationError("not-runnable", `migration ${c.id} is ${c.phase}; there is nothing to run`);
+    if (c.remote) await d.admitRun?.(publicView(c)); // throws the provider rule's refusal; nothing is changed
     const started = save(c, { phase: "running", abortRequested: false, error: null });
     const ac = new AbortController();
     const done = body(started, ac.signal).finally(() => { loop = null; });
@@ -267,12 +348,15 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     }
     const rec = await d.engine.status(c.id);
     if (!rec || rec.state !== "ready_to_switch") throw new MigrationError("not-ready-to-switch", `the engine reports ${rec?.state ?? "no record"} for ${c.id}`);
+    if (rec.id !== c.id || rec.source.generation !== c.sourceGeneration || rec.target.generation === rec.source.generation) {
+      throw new MigrationError("not-ready-to-switch", "the engine migration record or source generation differs from the checkpoint; not switching");
+    }
     // The generation the engine finished must be the one this checkpoint planned: never write another vector space into the config.
     if (rec.target.generation !== c.targetGeneration || !sameSpace(rec.target.fingerprint, c.target)) {
       throw new MigrationError("not-ready-to-switch", `the engine's target for ${c.id} (generation, provider, model or dimensions) differs from the planned one; plan again`);
     }
     try {
-      await d.switchPort.apply({ generation: c.targetGeneration, fingerprint: c.target, fingerprintId: rec.target.fingerprintId });
+      await d.switchPort.apply({ generation: c.targetGeneration, fingerprint: c.target, fingerprintId: rec.target.fingerprintId, ...(c.remote ? { remote: { apiKeyEnv: c.remote.apiKeyEnv, ...(c.remote.baseUrl !== undefined ? { baseUrl: c.remote.baseUrl } : {}), ...(c.remote.privacyAck ? { privacyAck: c.remote.privacyAck } : {}) } } : {}) });
     } catch (e) {
       const err = e instanceof MigrationError ? e : new MigrationError("switch-failed", (e instanceof Error ? e.message : String(e)).slice(0, 500));
       save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why

@@ -27,15 +27,18 @@ const rank = (role: string) => ROLES.length - ROLES.indexOf(role as (typeof ROLE
 /** The lowest role the policy table lets through for a route's action (a role-level answer: ownership and object rights come on top). */
 const MIN_ROLE: Record<string, string> = {
   "channel.history.list": "viewer", "channel.history.get": "viewer", "channel.handoff.create": "member", "channel.handoff.redeem": "member",
+  "passkeys.list": "viewer", "passkeys.options": "member", "passkeys.register": "member", "passkeys.change": "member",
   "chats.list": "viewer", "chats.create": "member", "chats.create-agent": "member", "chats.get": "viewer", "chats.update": "member",
   "chats.messages": "viewer", "chats.submit": "member", "chats.events": "viewer", "chats.cancel": "member", "chats.archive": "member",
-  "chats.restore": "member", "chats.fork": "member", "chats.export": "viewer", "chats.delete": "member", "ws.ticket": "admin", "ws.reserved": "admin",
+  "chats.restore": "member", "chats.fork": "member", "chats.export": "viewer", "chats.delete": "member", "chats.model-get": "viewer", "chats.model-set": "member", "ws.ticket": "admin", "ws.reserved": "admin",
+  "remote.get": "admin", "remote.set": "admin", "remote.confirm": "admin", "remote.certificate": "admin",
+  "remote.pairing.status": "admin", "remote.pairing.offer": "admin", "remote.trust.get": "viewer", "remote.trust.challenge": "member", "remote.trust.ack": "member", "remote.trust.rotate": "admin",
   "health": "operator", "agents.list": "viewer", "tokens.list": "viewer", "tokens.create": "member", "tokens.revoke": "member",
   "totp.status": "viewer", "totp.setup": "member", "totp.confirm": "member", "totp.disable": "member",
   "breakglass.request": "admin", "breakglass.list": "admin", "breakglass.revoke": "admin", "notices.list": "viewer",
 };
-const PUBLIC = ["invitation.redeem", "session.create", "session.totp"];
-const SELF_SERVICE = ["account.bootstrap", "csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
+const PUBLIC = ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair"];
+const SELF_SERVICE = ["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
 
 function minRoleOf(action: string): string | undefined {
   const spec = policyFor(action); if (!spec) return undefined;
@@ -189,7 +192,9 @@ test("the owner token is a credential for the login body only: in no other place
       if (spec.id === "session.create") continue;
       for (const [label, headers, query] of placements) {
         const r = await raw(h, { method: spec.method, path: spec.path + query, headers: { ...headers, ...(spec.requestBody ? jsonHeaders() : {}) }, ...(spec.requestBody ? { body: JSON.stringify({ token: t, challenge: t, code: t, id: t, name: t }) } : {}) });
-        if (r.status < 400 || r.status >= 500) bad.push(`${spec.id} via ${label}: ${r.status}`);
+        if(spec.id==="desktop.meta") {
+          assert.equal(r.status,200);assert.deepEqual(Object.keys(r.json).sort(),["capabilities","pairingRequired","version"]);assert.equal(r.headers["set-cookie"],undefined);
+        } else if (r.status < 400 || r.status >= 500) bad.push(`${spec.id} via ${label}: ${r.status}`);
         if (r.text.includes(t)) bad.push(`${spec.id} via ${label}: the answer echoes the token`);
       }
     }

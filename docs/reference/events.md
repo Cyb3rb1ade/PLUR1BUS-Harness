@@ -307,8 +307,8 @@ Conventions:
 | `budget.hard` | core/budget (bus) | kind, scope, agentId (scope=agent only), period, metric, limit, used, periodKey | packages/core/src/budget/service.ts:221 (factory :153–154) |
 | `warn` | core/budget/calls (bus, no namespace) | scope, id, used, limit, metric | packages/core/src/budget/calls.ts:140 |
 | `refuse` | core/budget/calls (bus, no namespace) | refusal | packages/core/src/budget/calls.ts:168 |
-| `reserve` | core/budget/calls (bus, no namespace) | reservationId, tokens, costMicros | packages/core/src/budget/calls.ts:171 |
-| `settle` | core/budget/calls (bus, no namespace) | reservationId, tokens, costMicros, overages | packages/core/src/budget/calls.ts:191 |
+| `reserve` | core/budget/calls (bus, no namespace) | reservationId, tokens | packages/core/src/budget/calls.ts:171 |
+| `settle` | core/budget/calls (bus, no namespace) | reservationId, tokens, overages | packages/core/src/budget/calls.ts:191 |
 | `prompt.unknown-model` | core/prompt (bus) | agentId, model | packages/core/src/prompt/builder.ts:91 |
 | `prompt.zone-clipped` | core/prompt (bus) | agentId, model, zone, from, to, cap, reason | packages/core/src/prompt/builder.ts:112 |
 | `prompt.below-minimum` | core/prompt (bus) | agentId, model, tokensEstimate, minTokens | packages/core/src/prompt/builder.ts:138 |
@@ -350,13 +350,34 @@ Conventions:
 ### Private audiences
 
 `RpcServer.notify(method, params, { audience })` restricts delivery independently of
-subscription names. Audience entries may be `{ connectionId }` or `{ personId }`.
+subscription names. Audience entries may be `{ connectionId }`, `{ personId }`,
+or a typed `{ agentId }` (see below).
 Person delivery requires the server's trusted `personOfConnection` resolver;
 missing identities and resolver failures deny delivery. Legacy string entries
 match connection IDs or subscriptions explicitly filtered to that agent ID.
 An empty audience delivers nothing. A set audience never includes an unassigned
 subscription merely because it has no agent filter. Agent filters continue to
-apply to connection/person delivery. Without an audience, existing subscription
+apply to connection/person delivery. Agent-scoped legacy emissions without an
+audience still require current agent visibility; other subscription selection
 behavior is unchanged. Disconnected connections cannot receive queued identity
 lookups. Voice transcripts and `inbox.changed` can use the same private delivery
 mechanism; clients cannot supply or extend an event's audience.
+
+### Agent audiences and subscriptions
+
+Engine recall, job, dream and agent-scoped ACL notifications carry an agent
+audience; `agent.activity` does too. The shared server accepts typed
+`{ agentId }` targets separately from `{ connectionId }` and `{ personId }`.
+An unfiltered local owner receives agent events. Delegated API connections
+receive them only when the current principal passes `authorize(..., "agent.read",
+{ kind: "agent", agentId })`; missing or failed visibility lookup denies delivery.
+Explicit `events.subscribe` agent filters require the same permission. Core
+subscription admission runs through `RPC_RULES` and its audit guard. The API
+service connection may subscribe only to the account-change control feed without
+a person. Agent rights are rechecked for every delivery, and queued lookups keep
+event generation order. The queue is bounded to 1,024 notifications per
+connection; excess disconnects that connection.
+
+The web SSE transport forwards these agent events only with a typed agent
+audience and a matching RBAC check. Existing connection/person audiences and
+per-session replay isolation remain in force.

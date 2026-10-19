@@ -81,6 +81,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus dreams schedule set`↴](#plur1bus-dreams-schedule-set)
 * [`plur1bus dreams enable`↴](#plur1bus-dreams-enable)
 * [`plur1bus dreams disable`↴](#plur1bus-dreams-disable)
+* [`plur1bus dreams diary`↴](#plur1bus-dreams-diary)
 * [`plur1bus config`↴](#plur1bus-config)
 * [`plur1bus config get`↴](#plur1bus-config-get)
 * [`plur1bus config set`↴](#plur1bus-config-set)
@@ -159,6 +160,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus audit`↴](#plur1bus-audit)
 * [`plur1bus audit verify`↴](#plur1bus-audit-verify)
+* [`plur1bus logs`↴](#plur1bus-logs)
+* [`plur1bus logs query`↴](#plur1bus-logs-query)
+* [`plur1bus logs tail`↴](#plur1bus-logs-tail)
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
@@ -166,19 +170,23 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus secret rm`↴](#plur1bus-secret-rm)
 * [`plur1bus secret ls`↴](#plur1bus-secret-ls)
 * [`plur1bus device`↴](#plur1bus-device)
+* [`plur1bus device pair`↴](#plur1bus-device-pair)
 * [`plur1bus device list`↴](#plur1bus-device-list)
 * [`plur1bus device revoke`↴](#plur1bus-device-revoke)
 * [`plur1bus device rename`↴](#plur1bus-device-rename)
 * [`plur1bus grant`↴](#plur1bus-grant)
 * [`plur1bus grant list`↴](#plur1bus-grant-list)
+* [`plur1bus grant show`↴](#plur1bus-grant-show)
 * [`plur1bus grant add`↴](#plur1bus-grant-add)
 * [`plur1bus grant revoke`↴](#plur1bus-grant-revoke)
 * [`plur1bus approval`↴](#plur1bus-approval)
 * [`plur1bus approval list`↴](#plur1bus-approval-list)
 * [`plur1bus approval pending`↴](#plur1bus-approval-pending)
+* [`plur1bus approval show`↴](#plur1bus-approval-show)
 * [`plur1bus approval approve`↴](#plur1bus-approval-approve)
 * [`plur1bus approval deny`↴](#plur1bus-approval-deny)
 * [`plur1bus approval verify`↴](#plur1bus-approval-verify)
+* [`plur1bus approval audit`↴](#plur1bus-approval-audit)
 * [`plur1bus login`↴](#plur1bus-login)
 * [`plur1bus login status`↴](#plur1bus-login-status)
 * [`plur1bus login list`↴](#plur1bus-login-list)
@@ -309,6 +317,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
+* `logs` — [experimental] Diagnostic logs: query and tail through the core
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `device` — [experimental] Paired devices: list, revoke and rename (F44)
 * `grant` — [experimental] Standing permissions: list, add and revoke grants (D109)
@@ -356,6 +365,8 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 
 ###### **Options:**
 
+* `--dry-run` — Show the setup/profile-upgrade plan without changing files or services
+* `--recover-profile` — Restore a preserved interrupted profile-upgrade snapshot (daemon is stopped first)
 * `--container` — Install in container mode on this host
 * `--container-manifest <MANIFEST>` — Signed release manifest path or HTTPS URL (default: the channel feed); used when no image is supplied
 * `--runtime <RUNTIME>` — Container runtime; automatic selection prefers Apple on macOS ARM
@@ -1096,7 +1107,11 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 * `--run` — Copy the planned migration into a new generation in throttled batches, validate it and switch
 * `--status` — Show the migration's phase and progress
 * `--abort` — Stop at the next batch boundary; --run continues the same migration
-* `--model <MODEL>` — Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+* `--model <MODEL>` — Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small, or the remote provider's model id with --provider (required with --plan)
+* `--provider <PROVIDER>` — Target provider, e.g. openai, openrouter, jina or ollama (default local-transformers); every direction between local and cloud is possible
+* `--base-url <BASE_URL>` — OpenAI-compatible endpoint of a remote target (openai may leave it out)
+* `--api-key-env <API_KEY_ENV>` — Name of the environment variable that holds the remote target's key (the key itself is never passed)
+* `--acknowledge-privacy` — Acknowledge now that every memory text goes to this remote target (needed when memory.embedding.privacyAck does not already admit it)
 * `--dimensions <DIMENSIONS>` — Target vector dimensions, when the model supports more than one
 * `--query-prefix <QUERY_PREFIX>` — Query prefix of the target model
 * `--passage-prefix <PASSAGE_PREFIX>` — Passage prefix of the target model
@@ -1188,6 +1203,8 @@ Chat sessions: list, show, archive
 
 ###### **Options:**
 
+* `--model <PROFILE>` — Configured model profile for this session; warns and asks before switching
+* `--yes` — Confirm the model switch for scripts (including --json)
 * `--agent <AGENT>` — The agent to talk to (default: the only registered agent)
 * `--session <SESSION>` — Continue this session instead of starting a new one
 * `--no-memory` — Start the chat incognito: nothing of it is remembered
@@ -1281,6 +1298,7 @@ Dreaming: phase schedules, status, run, log
 * `schedule` — [experimental] Phase schedules: get, set
 * `enable` — [experimental] Enable one phase's schedule
 * `disable` — [experimental] Disable one phase's schedule (run now still works)
+* `diary` — [experimental] Read the private dreaming diary of an agent
 
 
 
@@ -1415,6 +1433,18 @@ Dreaming: phase schedules, status, run, log
 
   Possible values: `light`, `rem`, `deep`
 
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus dreams diary`
+
+[experimental] Read the private dreaming diary of an agent
+
+**Usage:** `plur1bus dreams diary --agent <AGENT>`
 
 ###### **Options:**
 
@@ -2482,7 +2512,7 @@ One-time invitations through the existing identity pairing path
 
 [experimental] Set or clear a limit, or the time zone budget periods follow
 
-A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals), token values are input + output tokens. A bound left out stays as it is.
+A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Values are input + output tokens (output includes reported reasoning tokens). A bound left out stays as it is.
 
 **Usage:** `plur1bus budget set [OPTIONS]`
 
@@ -2494,9 +2524,9 @@ A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least o
 
   Possible values: `day`, `month`
 
-* `--metric <METRIC>` — what is counted: cost in USD or input + output tokens
+* `--metric <METRIC>` — what is counted: input + output tokens (the only metric; may be left out)
 
-  Possible values: `cost`, `tokens`
+  Possible values: `tokens`
 
 * `--soft <VALUE>` — warn (once per period) above this value
 * `--hard <VALUE>` — refuse calls that would exceed this value
@@ -2525,6 +2555,70 @@ A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least o
 Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
 
 **Usage:** `plur1bus audit verify`
+
+
+
+## `plur1bus logs`
+
+[experimental] Diagnostic logs: query and tail through the core
+
+**Usage:** `plur1bus logs <COMMAND>`
+
+###### **Subcommands:**
+
+* `query` — [experimental] Query diagnostic logs (newest first)
+* `tail` — [experimental] Tail diagnostic logs (oldest of the newest page first)
+
+
+
+## `plur1bus logs query`
+
+[experimental] Query diagnostic logs (newest first)
+
+**Usage:** `plur1bus logs query [OPTIONS]`
+
+###### **Options:**
+
+* `--level <LEVEL>` — Minimum level
+
+  Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
+
+* `--component <COMPONENT>` — File role, source.id or source.kind
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
+* `--from <TS>` — Inclusive lower bound
+* `--to <TS>` — Inclusive upper bound
+* `--limit <LIMIT>`
+
+  Default value: `100`
+* `--stream <STREAM>`
+
+  Possible values: `diagnostic`, `audit`
+
+
+
+
+## `plur1bus logs tail`
+
+[experimental] Tail diagnostic logs (oldest of the newest page first)
+
+**Usage:** `plur1bus logs tail [OPTIONS]`
+
+###### **Options:**
+
+* `--level <LEVEL>` — Minimum level
+
+  Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
+
+* `--component <COMPONENT>` — File role, source.id or source.kind
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
+* `--follow` — Keep polling until interrupted
+* `--limit <LIMIT>`
+
+  Default value: `50`
+* `--stream <STREAM>`
+
+  Possible values: `diagnostic`, `audit`
+
 
 
 
@@ -2617,9 +2711,25 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 
 ###### **Subcommands:**
 
+* `pair` — [experimental] Issue a person-bound desktop attach code valid for ten minutes
 * `list` — [experimental] List your devices (Owner/Admin: all), including revoked devices
 * `revoke` — [experimental] Revoke a device and close its connections immediately
 * `rename` — [experimental] Rename a device you own
+
+
+
+## `plur1bus device pair`
+
+[experimental] Issue a person-bound desktop attach code valid for ten minutes
+
+**Usage:** `plur1bus device pair --kind <KIND>`
+
+###### **Options:**
+
+* `--kind <KIND>`
+
+  Possible values: `desktop`
+
 
 
 
@@ -2667,6 +2777,7 @@ A grant lets an agent use a capability without asking each time. Only a person c
 ###### **Subcommands:**
 
 * `list` — [experimental] List grants, newest first (owner/admin only)
+* `show` — [experimental] Show one grant of the calling person
 * `add` — [experimental] Give an agent a standing permission (scope task, session or always)
 * `revoke` — [experimental] Revoke a grant now; revoking a revoked grant changes nothing
 
@@ -2687,6 +2798,18 @@ A grant lets an agent use a capability without asking each time. Only a person c
   Possible values: `active`, `revoked`, `consumed`, `suspended`
 
 * `--limit <LIMIT>` — at most this many (1-500, default 100)
+
+
+
+## `plur1bus grant show`
+
+[experimental] Show one grant of the calling person
+
+**Usage:** `plur1bus grant show <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the grant id (grt_...)
 
 
 
@@ -2748,9 +2871,11 @@ A grant lets an agent use a capability without asking each time. Only a person c
 
 * `list` — [experimental] List approval requests, newest first
 * `pending` — [experimental] The pending queue: requests waiting for a person (approval list --status pending)
+* `show` — [experimental] Show one approval request
 * `approve` — [experimental] Approve a pending request after showing exactly what it asks for
 * `deny` — [experimental] Deny a pending request
 * `verify` — [experimental] Verify the HMAC chain of the approval store; exit 1 and the first broken position if it breaks
+* `audit` — [experimental] Redacted approval-related HMAC-chain entries of the calling person
 
 
 
@@ -2776,6 +2901,18 @@ A grant lets an agent use a capability without asking each time. Only a person c
 [experimental] The pending queue: requests waiting for a person (approval list --status pending)
 
 **Usage:** `plur1bus approval pending`
+
+
+
+## `plur1bus approval show`
+
+[experimental] Show one approval request
+
+**Usage:** `plur1bus approval show <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the request id (apr_...)
 
 
 
@@ -2821,6 +2958,18 @@ A request above low risk needs one more thing on a plain local connection: a fre
 [experimental] Verify the HMAC chain of the approval store; exit 1 and the first broken position if it breaks
 
 **Usage:** `plur1bus approval verify`
+
+
+
+## `plur1bus approval audit`
+
+[experimental] Redacted approval-related HMAC-chain entries of the calling person
+
+**Usage:** `plur1bus approval audit [OPTIONS]`
+
+###### **Options:**
+
+* `--limit <LIMIT>` — at most this many (1-500, default 100)
 
 
 
@@ -3947,7 +4096,7 @@ Examples:
 
 * `<SOURCE_TYPE>` — Source system to read (never modified)
 
-  Possible values: `openclaw`, `hermes`
+  Possible values: `openclaw`, `hermes`, `backfill`
 
 
 ###### **Options:**
@@ -3975,6 +4124,9 @@ Examples:
 * `--resume <RUN_ID>` — Resume an interrupted import run by run ID
 * `--force` — Force rollback: delete user-modified files created by the import instead of keeping them
 * `--adopt-store <PATH>` — Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
+* `--agent <AGENT>` — Target agent ID (required for backfill)
+* `--adopt-strategy <STRATEGY>` — Store adoption strategy when identity mismatches: 'reembed' or 'import'
+* `--merge-profiles` — Allow multiple Hermes profiles to merge into the same target agent
 
 
 

@@ -20,13 +20,12 @@ export const rbacAuthorizePort: AuthorizePort = (principal, action, resource) =>
 
 export interface BudgetCheck {
   tokens: number;
-  cost: number;
   projectId: string;
   agentId: string;
   chainId: string;
 }
 
-export type BudgetDecision = { allowed: true } | { allowed: false; reason: Extract<GR, "token-budget" | "cost-budget"> };
+export type BudgetDecision = { allowed: true } | { allowed: false; reason: Extract<GR, "token-budget"> };
 
 export interface BudgetPort {
   check(estimate: BudgetCheck): BudgetDecision;
@@ -76,3 +75,10 @@ export function activeDirectory(): AgentDirectoryPort {
 }
 
 export type { GR as GuardrailReason };
+
+/** Credentials can be registered after startup; trace redaction must follow the live broker set. */
+export function liveLogsRedactionPort(secrets: () => Iterable<string>): RedactionPort {
+  let key = '', cached = logsRedactionPort();
+  const current = () => { const values = [...secrets()], next = JSON.stringify(values); if (next !== key) { key = next; cached = logsRedactionPort(values); } return cached; };
+  return { text: s => current().text(s), value: v => current().value(v) };
+}

@@ -76,7 +76,7 @@ pub fn validate_pending(
     bytes: &[u8],
 ) -> Result<Kind, String> {
     use sha2::{Digest, Sha256};
-    if p.pending.to_string() != bundle.version
+    if !crate::updates::same_version_str(&bundle.version, &p.pending)
         || p.bundle_digest.as_deref() != Some(format!("{:x}", Sha256::digest(bytes)).as_str())
     {
         return Err("update-bundle-mismatch".into());
@@ -207,10 +207,10 @@ async fn operate(
         let should_mutate = manual
             || journal.as_ref().is_some_and(|j| !j.step.terminal())
             || pending.as_ref().is_some_and(|p| {
-                installed.installed_version != p.pending.to_string()
-                    && journal
-                        .as_ref()
-                        .is_none_or(|j| j.to != p.pending || !j.step.terminal())
+                !crate::updates::same_version_str(&installed.installed_version, &p.pending)
+                    && journal.as_ref().is_none_or(|j| {
+                        !crate::updates::same_version(&j.to, &p.pending) || !j.step.terminal()
+                    })
             });
         let was_active = if should_mutate {
             crate::native::suspend_for_upgrade(&app, conn.id)
@@ -236,10 +236,9 @@ async fn operate(
             } else if let Some(p) = pending {
                 let bundle = crate::controller::bundle::embedded();
                 // A terminal record for this approval is never automatically retried.
-                if c.upgrade_journal()
-                    .map_err(|e| e.code())?
-                    .is_some_and(|j| j.to == p.pending && j.step.terminal())
-                    || installed.installed_version == p.pending.to_string()
+                if c.upgrade_journal().map_err(|e| e.code())?.is_some_and(|j| {
+                    crate::updates::same_version(&j.to, &p.pending) && j.step.terminal()
+                }) || crate::updates::same_version_str(&installed.installed_version, &p.pending)
                 {
                     None
                 } else {

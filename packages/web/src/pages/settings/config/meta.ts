@@ -27,6 +27,8 @@ export const META: readonly FieldMeta[] = [
   { key: "egress.allowHosts", kind: "strings", def: [], restart: "live" },
   { key: "egress.allowPorts", kind: "ints", def: [443], min: 1, max: 65535, restart: "live" },
   b("egress.allowLoopback", false),
+  b("privacy.localOnly", false, "live"),
+  { key: "privacy.localEndpoints", kind: "strings", def: [], restart: "live" },
 ];
 
 const BY_KEY = new Map(META.map((m) => [m.key, m]));

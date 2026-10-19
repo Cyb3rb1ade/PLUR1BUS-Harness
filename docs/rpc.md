@@ -577,6 +577,184 @@ Own principal-bound delivery targets. Confirm sends a new challenge into the tar
 }
 ```
 
+### `chat.promote.links`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+List this owned direct chat's private project links, filtered by current project visibility.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.preview`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion preview; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "card",
+            "project",
+            "new_project"
+          ]
+        },
+        "projectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "columnId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "summary",
+            "selected",
+            "transcript"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "messageIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "target"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.commit`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion commit; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "previewId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "previewId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `chat.create`
 
 **Stability:** experimental · since 1.6.0
@@ -1327,6 +1505,175 @@ Authenticated own direct-chat export. Identity is derived from the current princ
 }
 ```
 
+### `chat.model.get`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+The authenticated person's own direct chat: its model profile and reasoning choice, and the profiles it may pick with the reasoning levels each offers. Identity is derived from the current principal, never sent. chat:read scope and current agent read right. Incognito chats are answered from memory.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "defaultProfile",
+    "reasoning",
+    "revision",
+    "profiles"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "description": "The chat's own choice; null: it routes like any chat without one (defaultProfile or task class).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "defaultProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "profiles": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/ChatModelOption"
+      }
+    }
+  }
+}
+```
+
+### `chat.model.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by Nur lokal is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "expectedRevision"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "previousProfile",
+    "reasoning",
+    "effectiveReasoning",
+    "adjusted",
+    "revision"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string"
+    },
+    "previousProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "effectiveReasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    },
+    "adjusted": {
+      "type": "boolean"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warning": {
+      "const": "cache-rebuild-cost-prefixes-preserved"
+    },
+    "costHint": {
+      "description": "The chosen level is high or above and higher than before: more output tokens are billed per answer.",
+      "const": "reasoning-cost-higher"
+    }
+  }
+}
+```
+
 ### `jobs.create`
 
 **Stability:** experimental · since 1.6.0
@@ -1785,6 +2132,79 @@ Voice V3: voice.agent.override.clear. Reads are available to all five human role
     "agentId",
     "override",
     "effective"
+  ]
+}
+```
+
+### `voice.session.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+D110 server-side voice session broker. Requires a person with agent use rights and an authenticated T2+ surface. Parent kind, billing path, region and provider terms acceptance come from providers.openaiVoice. Returns no credential. Delegation defaults to client.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "provider": {
+      "enum": [
+        "openai:realtime",
+        "openai:gpt-live"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "transport": {
+      "enum": [
+        "webrtc",
+        "websocket",
+        "sip"
+      ]
+    },
+    "sdp": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 131072
+    }
+  },
+  "required": [
+    "agentId",
+    "provider",
+    "model",
+    "transport"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sdpAnswer": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "sessionId"
   ]
 }
 ```
@@ -3242,6 +3662,502 @@ Project board card.activity.list. Live stored membership and token scopes are en
 }
 ```
 
+### `admin.api.device.pair`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private API-service pair operation over the core device store; never exposed through web RPC or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "publicKey": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "pairedBy": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "scope": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "name",
+    "platform",
+    "publicKey",
+    "pairedBy",
+    "scope"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "device"
+  ]
+}
+```
+
+### `admin.api.device.challenge`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private API-service challenge operation over the core device store; never exposed through web RPC or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "challenge": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "challenge"
+  ]
+}
+```
+
+### `admin.api.device.prove`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private API-service prove operation over the core device store; never exposed through web RPC or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dev_[a-f0-9-]{36}$"
+    },
+    "publicKey": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "challenge": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 86,
+      "maxLength": 86,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    }
+  },
+  "required": [
+    "id",
+    "publicKey",
+    "challenge",
+    "signature"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "device"
+  ]
+}
+```
+
+### `admin.api.device.announce`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private API-service announce operation over the core device store; never exposed through web RPC or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "next": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "cert",
+            "ca"
+          ]
+        },
+        "pin": {
+          "type": "string",
+          "pattern": "^sha256:[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "kind",
+        "pin"
+      ]
+    },
+    "stagedAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "next",
+    "stagedAt"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "announced": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "announced"
+  ]
+}
+```
+
+### `device.pair`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "const": "desktop"
+    }
+  },
+  "required": [
+    "kind"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "expiresAt",
+    "scopes"
+  ]
+}
+```
+
+### `admin.api.desktop.redeem`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "publicKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "name",
+    "publicKey"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "object"
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "device",
+    "token",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.token`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "deviceId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
 ### `device.list`
 
 **Stability:** experimental · since 1.6.0
@@ -4546,6 +5462,93 @@ Authenticated project agent.remove using ADR-007 object rights.
 }
 ```
 
+### `task.complete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Complete an assigned coding card after sandboxed verifiers and exact-tree review. Human project leads may override with an audited note.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "overrideNote": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `collab.session.replay`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Replay a redacted delegation session; current project membership is required.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "traceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "spanId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "traceId",
+    "spanId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `collab.trace.get`
 
 **Stability:** experimental · since 1.5.0
@@ -4975,7 +5978,7 @@ Human-only principals; self or authenticated administrator, codes revealed only 
   "properties": {
     "token": {
       "type": "string",
-      "minLength": 64,
+      "minLength": 60,
       "maxLength": 64
     },
     "api": {
@@ -6089,6 +7092,231 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `model.embedding.select`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Make the Memory wizard embedding selection effective via the existing validated migration; refuses unsupported models and unavailable engine validation instead of silently retaining a different model.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "model"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "effective": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "model",
+    "effective"
+  ]
+}
+```
+
+### `model.licence.confirm`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persisted audited model licence confirm; authenticated Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string",
+      "enum": [
+        "jinaai/jina-embeddings-v3",
+        "jinaai/jina-embeddings-v5-text-nano",
+        "jinaai/jina-embeddings-v5-text-nano-retrieval",
+        "jinaai/jina-reranker-v2-base-multilingual"
+      ]
+    },
+    "accepted": {
+      "const": true
+    }
+  },
+  "required": [
+    "model",
+    "accepted"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "who": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "who",
+        "at",
+        "licence",
+        "model",
+        "revision",
+        "source"
+      ]
+    }
+  },
+  "required": [
+    "acceptance"
+  ]
+}
+```
+
+### `model.licence.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persisted audited model licence list; authenticated Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "acceptances": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "acceptances"
+  ]
+}
+```
+
+### `model.licence.check`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persisted audited model licence check; authenticated Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "changes": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    }
+  },
+  "required": [
+    "changes"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ok"
+  ]
+}
+```
+
 ### `agent.create`
 
 **Stability:** experimental · since 1.6.0
@@ -6104,6 +7332,14 @@ Create an agent using Config Schema validation; Owner/Admin people only.
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "displayName": {},
+    "skills": {},
     "name": {},
     "persona": {},
     "model": {},
@@ -6124,6 +7360,9 @@ Create an agent using Config Schema validation; Owner/Admin people only.
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "replayed": {
+      "type": "boolean"
+    },
     "agentId": {
       "$ref": "#/$defs/AgentId"
     }
@@ -6149,6 +7388,14 @@ Dry-run the create payload; field errors grouped by wizard step without mutation
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "displayName": {},
+    "skills": {},
     "name": {},
     "persona": {},
     "model": {},
@@ -7388,6 +8635,75 @@ Disables one phase schedule; cron and importance triggers stop, run-now still wo
 }
 ```
 
+### `dreams.diary`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "path",
+    "exists",
+    "bytes",
+    "text",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "path": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "exists": {
+      "type": "boolean"
+    },
+    "bytes": {
+      "type": "integer"
+    },
+    "text": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ### `admin.obsidian.detect`
 
 **Stability:** experimental · since 1.3.0
@@ -7758,13 +9074,93 @@ Stages the consistent, engine-owned part of a backup (plur1bus backup create): t
 }
 ```
 
+### `logs.levels`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Reads or updates the live per-source log-level snapshot (D111). Takes effect immediately; does not persist to config.json (a restart restores core.logLevel). Owner/Admin only (RBAC action logs.query). Empty params return the current snapshot. A provided levels map is merged into the live overrides; unset removes named overrides and restores inheritance. Any trace level needs a future traceUntil at most 24 hours ahead (E_INVALID_PARAMS reason=invalid-level).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "defaultLevel": {
+      "$ref": "#/$defs/LogLevel",
+      "description": "Live global default (core.logLevel in this process). Omitted: unchanged."
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LogLevel"
+      },
+      "maxProperties": 256,
+      "description": "Per-source live overrides to merge. Keys are source keys (`kind` or `kind:id`)."
+    },
+    "unset": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LogSourceKey"
+      },
+      "maxItems": 256,
+      "description": "Source keys whose live override is removed."
+    },
+    "traceUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40,
+      "description": "RFC 3339 UTC expiry for any trace level; null clears it. E_INVALID_PARAMS reason=bad-timestamp when set and malformed."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "defaultLevel",
+    "levels",
+    "traceUntil"
+  ],
+  "properties": {
+    "defaultLevel": {
+      "$ref": "#/$defs/LogLevel"
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LogLevel"
+      },
+      "maxProperties": 256
+    },
+    "traceUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "RFC 3339 UTC; null when no trace expiry is armed."
+    }
+  }
+}
+```
+
 ### `logs.query`
 
 **Stability:** experimental · since 1.5.0
 
 **Served by:** core
 
-Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range).
+Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range). traceId matches record.trace_id exactly; text remains a redacted-record substring.
 
 **params**
 
@@ -7791,6 +9187,11 @@ Reads the protected log files under <home>/logs (rotated copies included) and re
       "minLength": 1,
       "maxLength": 256,
       "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Exact match on the record's trace_id."
     },
     "limit": {
       "type": "integer",
@@ -7835,7 +9236,7 @@ Reads the protected log files under <home>/logs (rotated copies included) and re
 
 **Served by:** core
 
-Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
+Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). traceId matches record.trace_id exactly. A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
 
 **params**
 
@@ -7862,6 +9263,11 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
       "minLength": 1,
       "maxLength": 256,
       "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Exact match on the record's trace_id."
     },
     "limit": {
       "type": "integer",
@@ -8192,7 +9598,7 @@ Starts the engine's scoped-embedding IPC server (engine EmbeddingService.serve):
 
 **Served by:** core
 
-M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model (a pinned local-transformers model) and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk).
+M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk). Every direction is allowed (local or cloud to local or cloud): without provider (or with local-transformers) the target is a pinned local model; any other provider is checked by the same rules as the engine start (model, dimensions and apiKeyEnv required, baseUrl except for openai; E_DENIED reason=privacy-acknowledgment-required without memory.embedding.privacyAck for a non-loopback endpoint, reason=local-only under privacy.localOnly, reason=egress-denied when the egress policy refuses the endpoint). The engine's plan probes a cloud provider with one short text; a cloud plan carries `cloud`: the cards whose text all goes to the provider and the estimated tokens (no cost: the harness has no money dimension).
 
 **params**
 
@@ -8208,6 +9614,28 @@ M2 re-embedding migration, step 1 (per installation, not per agent). Builds the 
       "type": "string",
       "minLength": 1,
       "maxLength": 256
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "Target embedding provider; default local-transformers (a pinned local model)."
+    },
+    "baseUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "OpenAI-compatible endpoint of a remote target (not for local-transformers); openai may leave it out."
+    },
+    "apiKeyEnv": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "description": "Name of the core's environment variable holding the remote target's key; the key itself is never sent."
+    },
+    "acknowledgePrivacy": {
+      "type": "boolean",
+      "description": "The calling person acknowledges now that every card text goes to this remote target (bound to provider and endpoint). Needed when memory.embedding.privacyAck does not already admit the target (e.g. cloud to cloud); the switch writes it as memory.embedding.privacyAck together with the new embedding block."
     },
     "dimensions": {
       "type": "integer",
@@ -10099,6 +11527,55 @@ Returns every installed extension and subscribes this connection to ext.changed.
 }
 ```
 
+### `models.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin model probe through the configured chat adapter and budget. Fixed prompt, no tools, memory or session writes. Ten second deadline. E_NOT_AVAILABLE reasons model-not-configured, model-test-timeout, model-test-failed. Embedding/reranking probes are not supported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "durationMs"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
 ### `models.list`
 
 **Stability:** experimental · since 1.5.0
@@ -10399,7 +11876,6 @@ Usage per period (the current local day and month in the configured time zone) a
   "additionalProperties": false,
   "required": [
     "timeZone",
-    "priceVersion",
     "now",
     "periods",
     "limits"
@@ -10407,10 +11883,6 @@ Usage per period (the current local day and month in the configured time zone) a
   "properties": {
     "timeZone": {
       "type": "string"
-    },
-    "priceVersion": {
-      "type": "string",
-      "description": "The price table in force now"
     },
     "now": {
       "type": "string",
@@ -10454,9 +11926,7 @@ Usage per period (the current local day and month in the configured time zone) a
               "inputTokens",
               "outputTokens",
               "cacheReadTokens",
-              "cacheWriteTokens",
-              "costMicros",
-              "unpricedEvents"
+              "cacheWriteTokens"
             ],
             "properties": {
               "events": {
@@ -10478,16 +11948,6 @@ Usage per period (the current local day and month in the configured time zone) a
               "cacheWriteTokens": {
                 "type": "integer",
                 "minimum": 0
-              },
-              "costMicros": {
-                "type": "integer",
-                "minimum": 0,
-                "description": "Micro-USD, summed over priced events only"
-              },
-              "unpricedEvents": {
-                "type": "integer",
-                "minimum": 0,
-                "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
               }
             }
           },
@@ -10513,9 +11973,7 @@ Usage per period (the current local day and month in the configured time zone) a
                     "inputTokens",
                     "outputTokens",
                     "cacheReadTokens",
-                    "cacheWriteTokens",
-                    "costMicros",
-                    "unpricedEvents"
+                    "cacheWriteTokens"
                   ],
                   "properties": {
                     "events": {
@@ -10537,16 +11995,6 @@ Usage per period (the current local day and month in the configured time zone) a
                     "cacheWriteTokens": {
                       "type": "integer",
                       "minimum": 0
-                    },
-                    "costMicros": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "Micro-USD, summed over priced events only"
-                    },
-                    "unpricedEvents": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
                     }
                   }
                 },
@@ -10561,9 +12009,7 @@ Usage per period (the current local day and month in the configured time zone) a
                       "inputTokens",
                       "outputTokens",
                       "cacheReadTokens",
-                      "cacheWriteTokens",
-                      "costMicros",
-                      "unpricedEvents"
+                      "cacheWriteTokens"
                     ],
                     "properties": {
                       "model": {
@@ -10586,14 +12032,6 @@ Usage per period (the current local day and month in the configured time zone) a
                         "minimum": 0
                       },
                       "cacheWriteTokens": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "costMicros": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "unpricedEvents": {
                         "type": "integer",
                         "minimum": 0
                       }
@@ -10725,7 +12163,7 @@ The outgoing-network policy in force (B4): normalised host allowlist, ports, loo
 
 **Served by:** core
 
-Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Cost bounds are micro-USD, token bounds are input + output tokens.
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.
 
 **params**
 
@@ -10764,7 +12202,6 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
         },
         "metric": {
           "enum": [
-            "cost",
             "tokens"
           ]
         },
@@ -14228,6 +15665,96 @@ Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving t
 }
 ```
 
+### `session.model.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained. reasoning (since the per-chat reasoning choice) sets the chat's reasoning level with the profile; absent keeps the stored choice.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId",
+    "profile"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "confirmed": {
+      "type": "boolean"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "previousProfile",
+    "revision",
+    "applied",
+    "warning"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string"
+    },
+    "previousProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "applied": {
+      "type": "boolean"
+    },
+    "warning": {
+      "const": "cache-rebuild-cost-prefixes-preserved"
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    }
+  }
+}
+```
+
 ### `session.create`
 
 **Stability:** experimental · since 1.5.0
@@ -14923,6 +16450,39 @@ D109 §4: the grants in the approval store, newest first, optionally filtered. O
 }
 ```
 
+### `grant.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+D109 §4: one grant of the calling person. Owner/Admin only (RBAC action grant.read); refused for every agent principal. E_NOT_FOUND for an unknown id or another person's grant. A broken approval chain returns the grant as suspended.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/GrantId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/GrantRecord"
+}
+```
+
 ### `grant.create`
 
 **Stability:** experimental · since 1.5.0
@@ -15245,7 +16805,7 @@ D109 §5: withdraws a pending request (status cancelled); the waiting call recei
 
 **Served by:** core
 
-D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid check approvals.integrity` check, on demand). Read-only. A broken chain is a finding (ok false, brokenAt, reason), never an RPC error; a broken chain suspends every grant after the break. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal.
+D109 §6/§9.7: verifies the HMAC-SHA256 chain of the approval store and additive Ed25519 signatures on decisions (the `1staid check approvals.integrity` check, on demand). Read-only. A broken chain is a finding (ok false, brokenAt, reason), never an RPC error; a broken chain suspends every grant after the break. Unsigned legacy entries remain valid. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal.
 
 **params**
 
@@ -15317,9 +16877,130 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
         "malformed",
         "nonce-reuse",
         "binding-mismatch",
-        "duplicate"
+        "duplicate",
+        "signature-mismatch"
       ],
       "description": "Present only when ok is false."
+    },
+    "signatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unsignedLegacy",
+        "signedOk",
+        "signedBad",
+        "report"
+      ],
+      "properties": {
+        "unsignedLegacy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signedOk": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signedBad": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "report": {
+          "enum": [
+            "unsigned (legacy)",
+            "signed-ok",
+            "signed-bad"
+          ]
+        }
+      },
+      "description": "Additive Ed25519 status. Unsigned legacy entries remain valid."
+    }
+  }
+}
+```
+
+### `approval.audit`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+D109 §9.10: approval-related HMAC-chain entries of the calling person, newest first, redacted (no nonce, no raw payload). Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. limit defaults to 100. This is a view of the existing approval chain, not a second audit log.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entries"
+  ],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seq",
+          "ts",
+          "kind",
+          "refId"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ts": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "refId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "capability": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "person": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "nextCursor": {
+      "type": "string"
     }
   }
 }
@@ -15328,6 +17009,59 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
+
+### `devices.trust.next`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Staged next certificate trust over authenticated current-trust connections; addressed only to paired device owners.
+
+```json
+{
+  "description": "Staged next certificate trust over authenticated current-trust connections; addressed only to paired device owners.",
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "const": "devices.trust.next"
+    },
+    "next": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "cert",
+            "ca"
+          ]
+        },
+        "pin": {
+          "type": "string",
+          "pattern": "^sha256:[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "kind",
+        "pin"
+      ]
+    },
+    "stagedAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "type",
+    "next",
+    "stagedAt"
+  ]
+}
+```
 
 ### `api.account.changed`
 
@@ -16502,13 +18236,13 @@ D109 §5: a request left pending (approved, denied, expired or cancelled). The f
 }
 ```
 
-### `grant.changed`
+### `approval.parked`
 
 **Stability:** experimental · since 1.5.0
 
 **Served by:** core
 
-D109 §4: a grant was created or revoked (use, expiry and suspension are not notified in this version). Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.
+D109 §5: the foreground wait ended and the request stays open until TTL. Opt-in (a subscription must name approval.parked in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.
 
 ```json
 {
@@ -16517,7 +18251,34 @@ D109 §4: a grant was created or revoked (use, expiry and suspension are not not
   "x-server": "core",
   "type": "object",
   "additionalProperties": false,
-  "description": "D109 §4: a grant was created or revoked (use, expiry and suspension are not notified in this version). Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
+  "description": "D109 §5: the foreground wait ended and the request stays open until TTL. Opt-in (a subscription must name approval.parked in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.",
+  "required": [
+    "approval"
+  ],
+  "properties": {
+    "approval": {
+      "$ref": "#/$defs/ApprovalRecord"
+    }
+  }
+}
+```
+
+### `grant.changed`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
   "required": [
     "change",
     "grant"
@@ -18961,9 +20722,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "kind": {
       "enum": [
         "core",
-        "module"
+        "module",
+        "api"
       ],
-      "description": "Experimental (1.3.0). Whether the child is the core or a module; absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
     }
   }
 }
@@ -19612,13 +21374,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "integer",
         "null"
       ]
-    },
-    "costMicros": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "description": "Null until a price table exists (measured in tokens first, ADR-009 B5/Q1)."
     },
     "logPath": {
       "type": [
@@ -20423,7 +22178,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.5.0). A budget limit. Cost bounds are micro-USD; token bounds count input + output tokens.",
+  "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -20453,7 +22208,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "cost",
         "tokens"
       ]
     },
@@ -20511,7 +22265,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "cost",
         "tokens"
       ]
     },
@@ -20744,6 +22497,16 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `LogSourceKey`
+
+```json
+{
+  "type": "string",
+  "pattern": "^(harness|extension|provider|model|cli|channel|host|desktop|os)(:[a-z0-9][a-z0-9._@/-]{0,127})?$",
+  "description": "`<kind>` or `<kind>:<id>` for logs.levels and filters."
+}
+```
+
 ### `LogStream`
 
 ```json
@@ -20938,6 +22701,162 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `ChatReasoningChoice`
+
+```json
+{
+  "description": "A chat's reasoning / thinking intensity on the harness scale (cheapest first), or default: send nothing and let the provider decide. Each attempt maps it onto the model's own levels (nearest supported) and wire parameter.",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "enum": [
+    "default",
+    "off",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh"
+  ]
+}
+```
+
+### `ChatModelOption`
+
+```json
+{
+  "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "displayName",
+    "provider",
+    "model",
+    "local",
+    "selectable",
+    "reasoning"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "displayName": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "provider": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "local": {
+      "type": "boolean"
+    },
+    "selectable": {
+      "type": "boolean"
+    },
+    "disabledReason": {
+      "enum": [
+        "local-only",
+        "unavailable"
+      ]
+    },
+    "reasoning": {
+      "description": "What the primary model offers. kind none: no setting (the model reasons on its own or not at all). source: the provider's own model list (api), the curated table (table) or nothing known (unknown).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "levels",
+        "source"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "effort",
+            "budget",
+            "toggle"
+          ]
+        },
+        "levels": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "enum": [
+              "off",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          }
+        },
+        "default": {
+          "enum": [
+            "off",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        },
+        "source": {
+          "enum": [
+            "api",
+            "table",
+            "unknown"
+          ]
+        },
+        "note": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$"
+        },
+        "budgetTokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "off": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minimal": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "low": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "medium": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "xhigh": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### `SessionRecord`
 
 ```json
@@ -21028,8 +22947,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "additionalProperties": false,
       "required": [
         "inputTokens",
-        "outputTokens",
-        "costMicros"
+        "outputTokens"
       ],
       "properties": {
         "inputTokens": {
@@ -21038,13 +22956,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         },
         "outputTokens": {
           "type": "integer",
-          "minimum": 0
-        },
-        "costMicros": {
-          "type": [
-            "integer",
-            "null"
-          ],
           "minimum": 0
         },
         "pendingCalls": {
@@ -21394,6 +23305,41 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "probeStatus": {
       "type": "string"
+    },
+    "cloud": {
+      "description": "Present for a cloud or self-hosted target: every card text goes to this provider. estimatedTokens is an upper bound from the source size without its vectors (the budget counts tokens; there is no cost estimate).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model",
+        "endpoint",
+        "cards",
+        "estimatedTokens",
+        "sendsText"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimatedTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sendsText": {
+          "const": true
+        }
+      }
     }
   }
 }
@@ -21539,6 +23485,50 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           "type": "null"
         }
       ]
+    },
+    "remote": {
+      "description": "A cloud or self-hosted target: the name of the environment variable holding its key (never the key), the endpoint as configured, and the per-card token estimate the call budget reserves before each batch. A budget refusal pauses the run (phase aborted, error budget-exceeded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiKeyEnv",
+        "tokensPerRow"
+      ],
+      "properties": {
+        "apiKeyEnv": {
+          "type": "string"
+        },
+        "baseUrl": {
+          "type": "string"
+        },
+        "tokensPerRow": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "privacyAck": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "acknowledgedAt",
+            "by"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string"
+            },
+            "acknowledgedAt": {
+              "type": "string"
+            },
+            "by": {
+              "type": "string"
+            },
+            "endpoint": {
+              "type": "string"
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -21833,6 +23823,12 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "new": {
       "type": "boolean",
       "description": "true until the person acknowledges the model via models.acknowledge"
+    },
+    "locked": {
+      "enum": [
+        "local-only"
+      ],
+      "description": "Present when the model may not be used now: local-only means privacy.localOnly is on and the model's provider endpoint is not loopback or listed in privacy.localEndpoints. Locked models are listed, not hidden."
     },
     "kind": {
       "$ref": "#/$defs/ModelKind"
@@ -23263,6 +25259,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "string",
       "maxLength": 2048,
       "description": "The model's own `why`. Unverified; clients label it so."
+    },
+    "diff": {
+      "type": "string",
+      "maxLength": 8192,
+      "description": "A redacted unified-diff or patch the model supplied with the request. Unverified; clients label it so."
     },
     "createdAt": {
       "type": "string"

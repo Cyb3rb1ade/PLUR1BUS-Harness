@@ -197,6 +197,10 @@ export async function assemble({ target, out, deployed, skills = join(ROOT, "ski
       existsSync(skills) ? { name: "skills", dir: skills } : { name: "skills", emptyDir: true },
       existsSync(modules) ? { name: "modules", dir: modules } : { name: "modules", emptyDir: true },
     ];
+    for (const file of ["THIRD_PARTY.md", "THIRD_PARTY-LICENSES.txt"]) {
+      items.push({ name: `licenses/${file}`, data: readFileSync(join(ROOT, file)) });
+    }
+    items.push({ name: "portable-backup.mjs", data: readFileSync(join(ROOT, "scripts/release/portable-backup.mjs")) });
     const digest = await writeTarGz(items, out);
     writeAtomic(`${out}.sha256`, `${digest}  ${basename(out)}\n`);
     const meta = { target, core: { version: pkg.version, contract, rpc }, modules: bundledModules(modules) };

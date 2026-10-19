@@ -44,7 +44,7 @@ All agent runs go through the deterministic `FakeChatProvider` from `packages/co
 | Fan-out | 3 starts per chain | `fanout` |
 | Per pair | 2 starts per `(from, to)` per chain | `pair-limit` |
 | Time | 5 minutes from chain start | `timeout` |
-| Token / cost budget | Optional per-project cap, checked **before** every hop via a budget port | `token-budget` / `cost-budget` |
+| Token budget | Optional per-project cap in tokens, checked **before** every hop via a budget port (no money dimension since 2026-10-19) | `token-budget` |
 | Repeat | Same from/to/question inside 30 s | `repeat` |
 | Project boundary | Both agents must belong to the project unless `allowCrossProject` | `project-boundary` |
 | Inactive target | Directory state must be `active` | `agent-inactive` |
@@ -72,7 +72,7 @@ Each chain gets a W3C `trace_id` (32 hex, not all-zero). `traceparent` is `00-{t
 
 ```
 { spanId, traceId, parentSpanId, agentId, kind: "consult"|"delegate"|"guardrail",
-  startedAt, endedAt, status, inputTokens, outputTokens, costEstimate,
+  startedAt, endedAt, status, inputTokens, outputTokens,
   inputPreview, outputPreview, error, guardrail }
 ```
 
@@ -83,7 +83,7 @@ Previews are truncated and passed through a **redaction port** (default: `logs` 
 | Port | Default in this slice | Follow-up |
 |---|---|---|
 | `AuthorizePort` | `rbac.authorize` | unchanged |
-| `BudgetPort` | unlimited (project `tokenBudget`/`costBudget` still apply) | M2 `budget` service + per-project ledger |
+| `BudgetPort` | unlimited (project `tokenBudget` still applies) | M2 `budget` service + per-project ledger |
 | `ArtifactPort` | `node:sqlite` table | object store / session transcript |
 | `RedactionPort` | `logs.createRedactor({ pii: true })` | shared audit redactor |
 | `EventEmitter` | no-op | core event bus / RPC notifications |
@@ -139,8 +139,8 @@ plur1bus trace show <trace-id>
 
 All support global `--json`. Projects (`#/projects`) provides list/detail,
 membership and agent forms, archive confirmation, and chain cancellation. Traces
-show parent-span relationships, timestamps, tokens, estimated cost/status and
-existing-port-redacted previews. Null costs remain unknown. The composition root
+show parent-span relationships, timestamps, tokens, status and
+existing-port-redacted previews. The composition root
 opens the project store even without a chat provider; actual consult/delegate
 execution then refuses no-provider, and never switches to a synthetic provider.
 Existing composed runner/budget checks still handle configured collaboration.
@@ -150,3 +150,159 @@ association has no authorized mutation port, and this work package excludes new
 session behavior. The existing `/rpc` Web transport still needs the API-layer
 principal binding described in the media surface notes; browser mock tests are
 local UI evidence only.
+
+## D104 hand-off contract (M5 phase 1, 2026-10-15)
+
+Closed schemas live in `packages/core/src/collab/schemas/`: `plur1bus.handoff/1`,
+`plur1bus.return/1` and the receiver's `plur1bus.ack/1`. `prepareHandoff` validates
+both structure and the 2,000-token bound, returning issues to the **sender** for
+at most one repair. The bound uses a UTF-8-byte upper bound for byte-level tokenizers, deliberately stricter
+than an estimate when a model tokenizer is unavailable; it is not billed usage. Large content
+belongs in artifact references. Contracts contain output schema and citation
+requirements, model tier/deadline, scope and forbidden actions, and authority.
+
+`HandoffContext` must come from the authenticated dispatcher, not model arguments.
+`verifyHandoffAuthority` checks approval/grant references against the chain-backed
+stores for person, originating agent, task, session (approval), expiry and
+explicit delegation. A mismatch is an audited refusal, never a repair request.
+This is validation, not a new grant: each receiver tool call must still pass D109
+for action hash/path, capability scope and single use. Approval and grant stores
+remain the only authorities; `decide()` and `begin()` signatures are unchanged.
+
+`handoffTicket` snapshots a validated contract and requires a receiver ack before
+`delegate` or `handoff` work. Blocked/wrong-reply acks do not unlock it. Start is
+single use and checks authority again, including expiry/consumption since ack.
+Consultations do not require an ack. `validateReturn` checks reply binding, size,
+output schema and citations for completed results; `partial` is representable.
+Board card descriptions and comments containing these JSON envelopes render as
+DE/EN cards with an untrusted-data label; all peer strings are escaped text.
+
+Phase 1 exposes these ports; phase 2 must bind them to the sole `delegate_task`
+and normal dispatcher. No existing runner is silently opted into delegation.
+
+## M5 agent tools (phase 2)
+
+`composition/tools.ts` appends the six tools through `collaborationTools`, each
+registered with the existing `agent.delegate` capability and dispatched by D109.
+Live authenticated people and current stored project/agent membership are
+required. `collaboration.fanoutEnabled` defaults to **false** (`live`, advanced);
+explicit owner enablement is required after reviewing the phase-4 evaluation.
+Board reads/posts remain usable independently of fan-out.
+
+`delegate_task` is unique. M6 adapters implement `collab/target.ts`'s
+`DelegationTarget` (`kind`, `accepts`, `ack`, `run`) and enter through
+`CompositionOptions.delegationTargets`; targets do not own engine stores. The
+local adapter and external adapters use the same contract/ticket and library
+guardrails. M6 P2 had no PR at phase-2 start, so there was no PR on which to post
+the port comment. No second worktree implementation is introduced here.
+
+One tool composition is created per turn and retains the library trace, so
+three total calls and two per pair are enforced across successive model calls.
+Nested local targets have no tool view and cannot create a new root delegation.
+The project M2 ledger is checked before each fan-out; provider calls separately
+reserve/settle their actual usage. Local target memory and summaries are empty,
+with no engine recall/capture path. Peer contracts and returns are explicit
+untrusted `tool_result` envelopes. A successful `handoff` stops the sender loop.
+
+Contract-driven calls race abort against the target and retain streamed progress.
+Timeout/abort produces a `plur1bus.return/1` partial body; a supplied card receives
+that body as a comment and the trace span has status `partial`. On a user abort
+the ordinary dispatcher still returns its abort indication promptly; the durable
+card/trace records retain the partial result. Legacy direct library calls retain
+their existing error/abort behavior. Completed delegate reports remain explicitly
+unverified until the phase-4 external gate.
+
+## Replayable delegation sessions (M5 phase 3)
+
+When composed with the existing SessionStore, every consult/delegate creates a
+new `project` session before target execution. Its opaque owner is
+`collab-project:<projectId>`; ordinary private-session APIs cannot claim it as the
+caller's own chat. Span `sessionId` and transcript events bind it to the W3C
+trace/span, sender, receiver, usage, redacted result and D104 contract/ack. Target
+provider calls use the new session id. Partial results are retained too.
+
+`collab.session.replay { traceId, spanId }` checks current project rights and the
+persisted session/project binding on every read. It returns the same stored,
+redacted messages/events without making a model call. Redaction runs before
+persistence and again on read. Project UI renders a delegation tree, duration,
+token counts (no monetary cost) and a keyboard-usable
+transcript link. Session shutdown follows collaboration shutdown so an in-flight
+hop cannot write into a closed transcript store. Optional channel mirroring is
+not enabled or implemented by this phase.
+
+## D98 completion and L10 verifiers (M5 phase 4)
+
+The `coding_complete` agent tool is a D109 `shell.exec` operation and can complete
+only the caller agent's assigned project card. It resolves the checkout through
+`ProjectWorktreePort` (existing configured agent worktree by default; M6 can
+supply the same port). It accepts no path, commands, pass flags or override note.
+Four independently run checks must pass: format, lint, typecheck and tests.
+Node/pnpm, Python, Rust, Go and Java/Gradle conventions are recognized; committed
+`.plur1bus-verifiers.json` fixed argv arrays take precedence. Changing verifier
+manifests/scripts during delegation is refused rather than trusting a new no-op.
+Fallback standards ship in `skills/coding-standards` and
+`skills/documentation-standards`; missing check executables fail closed.
+
+Verifier subprocesses have a bounded lifetime/output and a minimal environment,
+run without a shell in OS isolation, and cannot use the network unless the
+committed project conventions explicitly allow it. macOS uses sandbox-exec;
+Linux requires bubblewrap; unsupported isolation refuses. The tree is hashed
+before and after checks (including untracked files); repository diff/textconv,
+fsmonitor and hooks cannot execute during host-side fingerprinting. Diagnostics
+returned to the model contain output hashes and exit statuses, not raw output.
+Documentation gaps are listed.
+
+At **200 or more changed lines**, `request_review` must produce an independent
+pass tied to that exact worktree hash. The reviewer receives a read-only view of
+the bound checkout, no private recall, and no write/exec tools. Later edits void
+the pass. Completion rechecks project/card assignment and tree after verification.
+The human-only `task.complete` RPC allows a project lead/Owner/Admin to override
+with a bounded nonempty note; the note is audited before the card moves. The
+agent tool cannot submit it. A lying delegate's self-report is never a gate input.
+
+## Fan-out evaluation (2026-10-15)
+
+`pnpm run eval:m5` replays 24 deterministic arithmetic fixtures through the real
+provider/tool/budget composition. Each single/peer case has the same hard project
+budget of 8,192 tokens. Both modes score 24/24; settled fixture usage is 576 vs
+1,728 tokens in total, and 24 vs 72 routed model calls. Full inputs/results are
+in `docs/evals/m5-fanout.json`; `--check` reproduces the artifact. This is a routing
+and equal-budget regression, **not evidence of a live-model quality advantage**.
+Fan-out remains off and still requires the owner's explicit enablement.
+
+## D92 private chat promotion (M5 phase 5)
+
+`chat.promote.preview` accepts an owned direct chat, a destination (new card,
+new project or existing project link) and an optional explicit selection.
+Omitting the selection means **no content**. A summary is written/approved by the
+person; selected message ids must belong to that chat; full transcript copying
+is explicit. System messages are excluded. Oversized content is refused rather
+than silently clipped (64 KiB; full transcript maximum 10,000 messages).
+
+The preview is private, held only in RAM for ten minutes and bound to the person,
+source snapshot, exact destination and content choice. `chat.promote.commit`
+accepts only its id, rechecks source ownership and current destination rights,
+and refuses stale/expired previews. A retry of a completed commit is idempotent.
+The source chat's owner, agent, kind, scope and messages are never changed. Links
+are private metadata; source id/title are not automatically copied to a board.
+Chosen content goes into a new board card. Incognito previews do not create a
+durable private-content copy; copying after explicit confirmation is deliberate.
+Durable model delegation from an incognito chat is refused until an explicit
+promotion, so replay sessions cannot silently persist its context.
+
+The chat menu provides DE/EN destination/content choices, a mandatory preview,
+selection-change invalidation, native modal focus handling and confirmation.
+M3 P1 (#493) is merged as a dependency and remains open upstream. On 2026-10-15
+the owner explicitly authorized appending only the twelve M5 method names in
+`packages/api/src/rpc-route.ts`; other API files are unchanged. Existing
+`RPC_RULES` and read/write/principal classifications are asserted for each
+method in `collab/web-transport.test.ts`, which uses real HTTP and real Core.
+It verifies session/CSRF, Viewer writes, foreign trace/chat denial, malformed
+params, principal spoofing, exact replay and selected-message promotion.
+Task completion preserves object-denial RPC codes through the existing error
+mapper. This closes the local Web exposure gate without asserting a rollout.
+
+Final integration also pins handoff behavior/authority/return constraints across
+sender repair, transfers card assignment on acknowledged ownership handoff, and
+allows one sender-side repair of invalid/oversized returns in the same target
+scope/session/budget pipeline. Peer return bodies remain untrusted data.

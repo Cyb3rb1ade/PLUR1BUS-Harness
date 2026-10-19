@@ -1,3 +1,4 @@
+import { makePng, makeJpeg } from './adapters-fixtures.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readdir, rm, writeFile, readFile } from 'node:fs/promises';
@@ -9,8 +10,8 @@ import type { ImageRequest, ImageResult } from '../src/index.ts';
 
 const code = (c: string) => (e: unknown) => e instanceof MediaError && e.code === c;
 const sha = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
-const PNG = Buffer.from('png-bytes-for-store-tests');
-const JPEG = Buffer.from('jpeg-bytes-for-store-tests');
+const PNG = makePng(); // real magic bytes: put() refuses payloads that are not the declared format
+const JPEG = makeJpeg();
 
 async function withRoot<T>(fn: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), 'media-store-cov-'));
@@ -38,7 +39,7 @@ test('put writes a manifest with hashes, sizes and nulls for absent seed and cos
       { path: '0.png', sha256: sha(PNG), bytes: PNG.length, format: 'png' },
       { path: '1.jpeg', sha256: sha(JPEG), bytes: JPEG.length, format: 'jpeg' },
     ]);
-    assert.deepEqual(manifest.metadata, { adapter: 'fake', model: 'm', durationMs: 1, seed: null, costUsd: null, origin: 'unknown' });
+    assert.deepEqual(manifest.metadata, { adapter: 'fake', model: 'm', durationMs: 1, seed: null, origin: 'unknown' });
     assert.equal(manifest.partial, false);
     assert.deepEqual(manifest.referenceHashes, []);
     assert.equal('maskHash' in manifest, false);
@@ -51,9 +52,9 @@ test('put keeps reported seed, cost, origin and partial, hashes references and m
   await withRoot(async root => {
     const store = new OutputStore(root);
     const req: ImageRequest = { prompt: 'p', n: 2, seed: 9, referenceImages: [{ bytes: PNG, format: 'png' }], mask: { bytes: JPEG, format: 'jpeg' } };
-    const manifest = await store.put('job-2', req, result([{ bytes: PNG, format: 'png' }], { partial: true, metadata: { adapter: 'fake', model: 'm', durationMs: 7, seed: 9, costUsd: 0.02, origin: 'cloud' } }));
+    const manifest = await store.put('job-2', req, result([{ bytes: PNG, format: 'png' }], { partial: true, metadata: { adapter: 'fake', model: 'm', durationMs: 7, seed: 9, origin: 'cloud' } }));
     assert.equal(manifest.partial, true);
-    assert.deepEqual(manifest.metadata, { adapter: 'fake', model: 'm', durationMs: 7, seed: 9, costUsd: 0.02, origin: 'cloud' });
+    assert.deepEqual(manifest.metadata, { adapter: 'fake', model: 'm', durationMs: 7, seed: 9, origin: 'cloud' });
     assert.deepEqual(manifest.referenceHashes, [sha(PNG)]);
     assert.equal(manifest.maskHash, sha(JPEG));
     assert.equal('referenceImages' in manifest.parameters, false);

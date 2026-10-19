@@ -100,8 +100,8 @@ pub fn save(layout: &Layout, g: &Guard) -> Result<(), String> {
 }
 
 /// SemVer precedence of two versions (§11: a pre-release is lower than its release, identifiers compare one by one,
-/// numeric ones numerically), build metadata ignored (§10). `None` unless both are valid SemVer. This is the order the
-/// desktop updater (`semver::Version`) uses, minus the build-metadata tie-break.
+/// numeric ones numerically), build metadata ignored (§10). `None` unless both are valid SemVer. The desktop updater
+/// orders versions the same way (`updates::precedence`).
 pub fn precedence(a: &str, b: &str) -> Option<Ordering> {
     let (mut x, mut y) = (
         semver::Version::parse(a).ok()?,

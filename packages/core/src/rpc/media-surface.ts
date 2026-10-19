@@ -57,6 +57,8 @@ export interface MediaSurfaceDeps {
     agentId: string,
     principal: Principal,
     ctx: CallContext,
+    /** The adapter the call will run on (privacy.localOnly needs to know whether it is local). */
+    adapterId?: string,
   ) => Promise<void>;
   notify: (method: string, params: object, options: NotifyOptions) => void;
 }
@@ -196,18 +198,11 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
           ? {}
           : { call: request.embedMetadata }),
       });
-      await d.policy(operation, request, p.agentId, a, ctx);
+      await d.policy(operation, request, p.agentId, a, ctx, adapter.id);
       if (!d.budget)
         throw new RpcError("E_NOT_AVAILABLE", "budget unavailable");
-      const units = [
-        {
-          kind: request.kind === "video" ? "videoSecond" as const : "image" as const,
-          resolution: request.resolution ?? (request.size
-            ? `${request.size.width}x${request.size.height}`
-            : "default"),
-          quantity: request.kind === "video" ? request.durationSeconds ?? 8 : request.n ?? 1,
-        },
-      ];
+      // The call budget counts tokens and calls only (owner 2026-10-19: no money dimension). Media generation reports no
+      // tokens, so the reservation holds 0 tokens: it admits the call against exhausted hard token limits and records it.
       const admitted = d.budget.checkBeforeCall({
         principal: a.userId,
         agent: p.agentId,
@@ -216,7 +211,6 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
         provider: adapter.id,
         estimatedInputTokens: 0,
         maxOutputTokens: 0,
-        media: units,
       });
       if (admitted.kind === "refuse")
         throw new RpcError("E_DENIED", "media budget exceeded", {
@@ -246,7 +240,6 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
               d.budget!.settle(reservationId, {
                 inputTokens: 0,
                 outputTokens: 0,
-                media: units,
               });
             else if (request.kind !== "video") d.budget!.releaseUnused(reservationId);
             throw e;
@@ -258,7 +251,7 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
         list: () => jobs.list(),
         claim: (id: string) => jobs.claim(id),
         async put(job: Job) {
-          if (job.state === 'succeeded' && job.output) d.budget!.settle(reservationId,{inputTokens:0,outputTokens:0,media:[{...units[0]!,quantity:request.kind === 'video' ? job.output.files.reduce((n,f)=>n+(f.durationSeconds ?? request.durationSeconds ?? 8),0) : job.output.files.length}]});
+          if (job.state === 'succeeded' && job.output) d.budget!.settle(reservationId,{inputTokens:0,outputTokens:0});
           await jobs.put(job);
           if (
             job.state === "running" ||

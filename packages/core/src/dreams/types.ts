@@ -57,7 +57,7 @@ export interface DreamRun {
   trigger: Trigger; scheduledFor: number | null; startedAt: number; finishedAt: number | null;
   /** null while the run is open; a row that stays open after a crash is reconciled to `aborted/crashed` at start. */
   outcome: Outcome | null; reason: string | null; counts: RunCounts;
-  tokensIn: number | null; tokensOut: number | null; costMicros: number | null;
+  tokensIn: number | null; tokensOut: number | null;
   logPath: string | null; error: { message: string; name?: string } | null;
 }
 
@@ -80,12 +80,13 @@ export interface DreamEngine {
 /** The slice of the engine's `JobRun` the scheduler reads. */
 export interface DreamJobRun {
   runId: string; job: string; outcome: "completed" | "skipped" | "incomplete" | "failed" | "abandoned"; reason?: string;
-  cost?: { ms?: number; inputTokens?: number; outputTokens?: number; costMicros?: number };
+  cost?: { ms?: number; inputTokens?: number; outputTokens?: number };
   counts?: Record<string, number>; diary?: { written: boolean; reason?: string };
 }
 
-/** The producer of the candidate shortlist (ADR-009 C1). The pinned engine has none yet, so this port is optional;
- *  while it is absent the candidate guards are inert and a deep run does not require candidates. */
+/** The producer of the candidate shortlist (ADR-009 C1). The pinned engine (1.12.0) has no recall/query stats
+ *  API, so a fake engine in tests drives this port; production wiring maps Engine.memory.list agent-private
+ *  content (and an optional score) without inventing recalls or uniqueQueries. Absent: the candidate guards stay inert. */
 export interface CandidateSource { pull(agentId: string): Promise<CandidateInput[]> | CandidateInput[] }
 
 export interface DreamEvent {
@@ -117,6 +118,8 @@ export const BREAKER_SESSIONS = 3;
 export const STAGGER_WINDOW_S = 1800;
 export const CANDIDATE_TTL_MS = 72 * HOUR;
 export const DAY_MS = 24 * HOUR;
+/** A crashed window older than this is not retried (`clock.now() - scheduledFor > bound`). Exactly 24 h still retries. */
+export const RETRY_MAX_AGE_MS = DAY_MS;
 /** RULING (ADR-009 Q7 proposal): ledger rows 365 days, per-run logs 30 days, the diary forever. */
 export const LEDGER_RETENTION_MS = 365 * DAY_MS;
 export const LOG_RETENTION_MS = 30 * DAY_MS;

@@ -2,7 +2,7 @@ import { DeliveryPanel } from "./delivery.ts";
 // Recurring Tasks Page: jobs.list, jobs.history, jobs.run with confirmation dialog.
 // Notes gap in docs/web-ui.md: creating/editing jobs is not supported by backend schema.
 import { h } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge } from "../../components/card.ts";
 import { Dialog } from "../../components/dialog.ts";
@@ -53,7 +53,7 @@ function RunConfirmDialog({
   const [agentId, setAgentId] = useState("");
   // A confirm that arrives while the agents are still loading waits for them instead of being dropped.
   const loading = useRef<Promise<string[]> | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!needsAgent) return;
     const ctl = new AbortController();
     const done = listAgents(ctl.signal).then(

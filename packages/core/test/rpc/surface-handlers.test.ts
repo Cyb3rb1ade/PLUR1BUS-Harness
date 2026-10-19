@@ -13,7 +13,8 @@ import { createCollab } from "../../src/collab/service.ts";
 import { buildCollabSurface } from "../../src/rpc/collab-surface.ts";
 import { createMediaSurface } from "../../src/rpc/media-surface.ts";
 import { OutputStore, type ImageAdapter } from "../../../media/src/index.ts";
-import { createCallBudget, PriceBook } from "../../src/budget/index.ts";
+import { makePng } from "../../../media/test/adapters-fixtures.ts";
+import { createCallBudget } from "../../src/budget/index.ts";
 const owner: Principal = {
   userId: "local-owner",
   role: "owner",
@@ -227,7 +228,6 @@ test("media surfaces: fake adapter -> durable store -> gallery result, budget/po
   const budget = createCallBudget({
     path: join(home, "budget.sqlite"),
     clock: { now: () => 1000 },
-    prices: new PriceBook([{ version: "fake", effectiveFrom: 0, models: {} }]),
   });
   const ac = new AbortController();
   let invoked = 0;
@@ -237,8 +237,8 @@ test("media surfaces: fake adapter -> durable store -> gallery result, budget/po
     async generate() {
       invoked++;
       return {
-        files: [{ bytes: Buffer.from("synthetic-image"), format: "png" }],
-        metadata: { adapter: "fake", model: "fake", durationMs: 1, costUsd: 0 },
+        files: [{ bytes: makePng(), format: "png" }],
+        metadata: { adapter: "fake", model: "fake", durationMs: 1 },
       };
     },
     async edit(r, c) {
@@ -289,10 +289,7 @@ test("media surfaces: fake adapter -> durable store -> gallery result, budget/po
       id: queued.jobId,
       file: 0,
     })) as { data: string; canShare: boolean };
-    assert.equal(
-      Buffer.from(output.data, "base64").toString(),
-      "synthetic-image",
-    );
+    assert.deepEqual(Buffer.from(output.data, "base64"), makePng());
     assert.equal(output.canShare, false);
     assert.ok(events.some((e) => e.method === "media.job.finished"));
     assert.ok(events.every((e) => e.audience?.[0] === "c"));
@@ -368,18 +365,21 @@ test("media surfaces: fake adapter -> durable store -> gallery result, budget/po
       { error: "E_DENIED" },
     );
     assert.equal(invoked, before);
+    // Media reports no tokens (no money dimension since 2026-10-19): an exhausted global token limit still refuses it.
+    const spent = budget.checkBeforeCall({ principal: "u-other", agent: "other", project: "direct", model: "m", estimatedInputTokens: 1, maxOutputTokens: 0 });
+    if (spent.kind === "allow") budget.settle(spent.reservationId, { inputTokens: 1, outputTokens: 0 });
     budget.setLimit({
       scope: "global",
       id: "",
       period: "day",
-      metric: "cost",
+      metric: "tokens",
       hard: 0,
     });
     await assert.rejects(
       () =>
         call(methods, "media.generate", {
           agentId: "main",
-          request: { prompt: "Unpriced" },
+          request: { prompt: "Exhausted" },
         }),
       { error: "E_DENIED" },
     );
@@ -397,9 +397,6 @@ test("media cancellation is accepted immediately, before the runner installs its
   const budget = createCallBudget({
     path: join(home, "budget.sqlite"),
     clock: { now: Date.now },
-    prices: new PriceBook([
-      { version: "fixture", effectiveFrom: 0, models: {} },
-    ]),
   });
   const adapter: ImageAdapter = {
     id: "fake",

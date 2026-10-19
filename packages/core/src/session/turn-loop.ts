@@ -1,3 +1,4 @@
+import { runWithAgentScope, scopeFor } from "../agents/scope.ts";
 // The submit/event turn loop (ADR-010 L2): `submit` records the user's message and a running turn atomically and returns
 // at once; the turn then runs in the background, every step persisted as an ordered per-session event and relayed to
 // subscribers. recall once before, capture once after (acceptance 4); no memory loop of its own.
@@ -10,6 +11,7 @@ import { catalogWindow, type ReadCatalog } from "./tokens.ts";
 import { estimateTokens } from "./compaction.ts";
 import type { TurnMemory } from "./memory-port.ts";
 import type { ChatProvider, TurnApprover } from "./provider.ts";
+import { isReasoningChoice } from "./chat-models.ts";
 import type { DispatchContext, ToolDispatcher } from "../tools/dispatcher.ts";
 import type { SessionStore } from "./store.ts";
 import { SessionError, type EventRecord, type SessionRecord } from "./types.ts";
@@ -18,6 +20,7 @@ export interface TurnLoopLogger { info(msg: string, f?: Record<string, unknown>)
 
 export interface TurnRunnerDeps {
   catalog?: ReadCatalog;
+  workspace?: (agentId: string) => string;
   store: SessionStore; compactor: Compactor; memory: TurnMemory;
   /** null: no provider is configured (`submit` then fails with `no-provider` before anything is written). */
   provider: () => ChatProvider | null;
@@ -56,7 +59,7 @@ export class TurnRunner {
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);
-    const execute = () => withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.approver, a.turnProfile, a.recurring, a.authenticatedPerson));
+    const execute = () => runWithAgentScope(scopeFor(a.session.agentId, this.#d.workspace?.(a.session.agentId) ?? `agents/${a.session.agentId}/workspace`), () => withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.approver, a.turnProfile, a.recurring, a.authenticatedPerson)));
     const run = a.turnProfile ? voiceTurnContext.run(a.turnProfile, execute) : execute();
     this.#inflight.add(run); void run.finally(() => { this.#inflight.delete(run); this.#cancels.delete(turn.id); });
     return { turnId: turn.id, sessionId: a.session.id, messageId: message.id, done: run };
@@ -95,7 +98,10 @@ export class TurnRunner {
       signal.throwIfAborted();
 
       // 2. context within the L14 bound (a swap is preceded by the `compaction` checkpoint, never for an incognito session).
-      const models = provider.contextModels?.(text) ?? [];
+      const selectedProfile = store.modelProfile(session.id).profile;
+      const storedReasoning = store.modelReasoning(session.id);
+      const reasoning = isReasoningChoice(storedReasoning) && storedReasoning !== "default" ? storedReasoning : undefined;
+      const models = provider.contextModels?.(text, selectedProfile ?? undefined) ?? [];
       const windows = models.map(m => (this.#d.catalog ? catalogWindow(this.#d.catalog, m) : undefined) ?? compactor.cfg.windowTokens);
       const model = models[0];
       if (model) compactor.configureModel(session.id, `${model.provider}/${model.model}`, windows.length ? Math.min(...windows) : undefined);
@@ -104,6 +110,7 @@ export class TurnRunner {
       // 3. the provider stream, persisted event by event.
       let reply = ""; let usage: { inputTokens: number; outputTokens: number; model?: string; measurements?: import("./provider.ts").UsageMeasurement[] } | null = null; let index = 0;
       for await (const chunk of provider.stream({
+        ...(selectedProfile ? { modelProfile: selectedProfile } : {}), ...(reasoning ? { reasoning } : {}),
         sessionId: session.id, turnId, caller, incognito, ...(recurring ? { recurring } : {}), ...((authenticatedPerson ?? recurring?.runAs) ? { authenticatedPerson: authenticatedPerson ?? recurring!.runAs } : {}), ...(turnProfile ? { turnProfile } : {}), ...(approver ? { approver } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
         messages: [...(recurring ? [{ role: "system" as const, text: `Automatically triggered by recurring task ${recurring.jobName} (${recurring.jobId}); runAs=${recurring.runAs}. This is a scheduled task, not a live message.` }] : []), ...view.messages.map((m) => ({ role: m.role, text: m.text }))], signal,
         ...(this.#d.toolCalls ? { tools: this.#d.toolCalls.dispatcher.describe() } : {}),

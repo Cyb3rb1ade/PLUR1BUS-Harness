@@ -14,3 +14,5 @@ pub mod skills;
 pub mod targets;
 
 pub mod containers;
+
+pub mod profile_upgrade;

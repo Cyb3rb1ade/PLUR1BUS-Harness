@@ -29,7 +29,7 @@ export interface GenerationContext {
 export interface ImageResult {
   processingSignal?: AbortSignal;
   files: { bytes: Uint8Array; format: ImageFormat | VideoFormat; stream?: AsyncIterable<Uint8Array> }[];
-  metadata: { adapter: string; model: string; durationMs: number; seed?: number; costUsd?: number; origin?: string; costStatus?: 'known' | 'unknown'; estimatedCostUsd?: number | null };
+  metadata: { adapter: string; model: string; durationMs: number; seed?: number; origin?: string };
   partial?: boolean;
 }
 export interface ImageAdapter {

@@ -1,4 +1,5 @@
 import { channelBehaviour, channelOrigin, permitsEngineMemory } from '../channels/behaviour-context.ts';
+import { requireAgentScope } from "../agents/scope.ts";
 import { deriveUserPrincipal } from '../identity/principals.ts';
 // The turn loop's one door to the engine (acceptance 4: no second memory loop). The loop calls `recall` once before a
 // turn and `capture` once after it; the engine-backed port below makes exactly the engine calls `memory.recall` and
@@ -33,6 +34,7 @@ export interface EnginePortDeps {
 
 export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
   const identity = (caller: CallerIdentity, agentId: string, authenticatedPerson?: string) => {
+    requireAgentScope(agentId);
     const result = callerToPrincipal(caller, agentId, requireAgent(d.agents, agentId));
     const origin = channelOrigin.getStore();
     if (origin) {
@@ -89,6 +91,7 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
       d.logger.info("session capture done", { agentId, sessionId, turnId, captureId: handle.id, stored: r.stored, skipped: r.skipped, reason: r.reason });
     },
     async checkpoint({ agentId, reason }) {
+      requireAgentScope(agentId);
       requireAgent(d.agents, agentId);
       await d.engine.checkpoint(agentId, reason);
     },

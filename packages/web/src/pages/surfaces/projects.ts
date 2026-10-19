@@ -66,10 +66,6 @@ function TraceView({ project }: { project: string }): View {
                     t("projects.tokens"),
                     ": ",
                     span.inputTokens + span.outputTokens,
-                    " · ",
-                    t("projects.cost"),
-                    ": ",
-                    span.costEstimate === null ? "?" : span.costEstimate,
                   ),
                   h(
                     "details",
