@@ -952,6 +952,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
     assert_eq!(&ids[26], "remote.exposure", "{v}");
     assert_eq!(&ids[27], "models.decision", "{v}");
     assert_eq!(&ids[28], "privacy.local-only", "{v}");
+    assert_eq!(&ids[29], "api.supervised", "{v}");
 }
 
 #[test]

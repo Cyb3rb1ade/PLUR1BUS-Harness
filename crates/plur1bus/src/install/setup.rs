@@ -41,10 +41,6 @@ pub const STEP_IDS: [&str; 9] = [
 pub const PROMPTS: &[(&str, &str)] = &[
     ("agents", "Name of your first agent"),
     (
-        "privacy.localOnly",
-        "Use only local models (web tools keep their own egress rules)",
-    ),
-    (
         "embedding.useClass",
         "How will you use PLUR1BUS (general, research or commercial)",
     ),
@@ -890,9 +886,7 @@ pub fn answer_config(
     let mut local_only = "no".to_string();
     if !o.non_interactive {
         for (key, question) in PROMPTS {
-            if (host && *key == "agents")
-                || matches!(*key, "memory.mediaEmbedding" | "privacy.localOnly")
-            {
+            if (host && *key == "agents") || *key == "memory.mediaEmbedding" {
                 continue;
             }
             let (slot, valid): (&mut String, fn(&str) -> bool) = match *key {
@@ -934,38 +928,6 @@ pub fn answer_config(
     })
 }
 
-/// Resolve the Basic privacy question against the current installation; unattended runs never replace it.
-fn local_privacy_choice(o: &SetupOpts, config: &Value, ask: &mut dyn Prompter) -> Option<bool> {
-    if o.non_interactive {
-        return None;
-    }
-    let current = config
-        .pointer("/privacy/localOnly")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    let question = PROMPTS
-        .iter()
-        .find(|(key, _)| *key == "privacy.localOnly")
-        .unwrap()
-        .1;
-    loop {
-        let raw = ask.ask(
-            "privacy.localOnly",
-            question,
-            if current { "yes" } else { "no" },
-        );
-        let answer = match raw.trim().to_ascii_lowercase().as_str() {
-            "yes" | "true" | "1" => true,
-            "no" | "false" | "0" => false,
-            _ => {
-                eprintln!("Answer yes or no");
-                continue;
-            }
-        };
-        return (answer != current).then_some(answer);
-    }
-}
-
 /// The `config.set` changes for `a` against the current `config`: the agent only when it is not registered yet,
 /// the use class when it differs, the licence fields only for a new acceptance (an existing one is never revoked).
 fn config_changes(config: &Value, a: &ConfigAnswers, now: &str) -> Vec<(String, Value)> {
@@ -1005,9 +967,6 @@ fn step_config(
     let answers = answer_config(o, profile, config["embedding"]["useClass"].as_str(), ask)?;
     let now = crate::commands::agent::rfc3339_now();
     let mut changes = config_changes(&config, &answers, &now);
-    if let Some(value) = local_privacy_choice(o, &config, ask) {
-        changes.push(("privacy.localOnly".into(), json!(value)));
-    }
     // Unattended first installation cannot obtain model/revision-specific human consent.
     // Preserve any existing embedding configuration: changing model/dimensions on rerun
     // would require validated re-embedding, and NC execution remains subject to the core licence gate.
@@ -1749,24 +1708,6 @@ mod tests {
     }
 
     #[test]
-    fn local_privacy_is_a_real_basic_question_and_unattended_keeps_the_saved_choice() {
-        let mut p = scripted(vec!["yes"], true);
-        let cfg = json!({"privacy":{"localOnly":false}});
-        assert_eq!(local_privacy_choice(&opts(false), &cfg, &mut p), Some(true));
-        assert_eq!(p.asked[0].0, "privacy.localOnly");
-        let mut p = scripted(vec![], false);
-        assert_eq!(
-            local_privacy_choice(&opts(true), &json!({"privacy":{"localOnly":true}}), &mut p),
-            None
-        );
-        assert!(p.asked.is_empty());
-        assert_eq!(
-            local_privacy_choice(&opts(false), &json!({"privacy":{"localOnly":true}}), &mut p),
-            None
-        );
-    }
-
-    #[test]
     fn decision_selection_is_explicit_configured_and_never_asked_unattended() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().join("h"));
@@ -1813,7 +1754,7 @@ mod tests {
         // The media-search questions are asked by `answer_media`, not here.
         let expected: Vec<(String, String)> = PROMPTS
             .iter()
-            .filter(|(k, _)| !matches!(*k, "memory.mediaEmbedding" | "privacy.localOnly"))
+            .filter(|(k, _)| *k != "memory.mediaEmbedding")
             .map(|(k, q)| (k.to_string(), q.to_string()))
             .collect();
         assert_eq!(p.asked, expected);

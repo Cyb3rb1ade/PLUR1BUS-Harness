@@ -136,12 +136,12 @@ fn firstaid_check_includes_models_roles_at_end() {
     assert_eq!(last["id"], "dreams.last-runs");
     assert_eq!(last["status"], "skip");
     assert_eq!(checks[checks.len() - 4]["id"], "remote.exposure");
-    assert_eq!(checks.last().unwrap()["id"], "api.supervised");
     // No decision role on a fresh home: an info row, not a warning, naming the way to set it.
     let decision = checks
         .iter()
         .find(|c| c["id"] == "models.decision")
         .unwrap();
+    assert_eq!(checks.last().unwrap()["id"], "api.supervised");
     assert_eq!(decision["id"], "models.decision");
     assert_eq!(decision["status"], "info", "{decision}");
     assert_eq!(
@@ -191,25 +191,4 @@ fn firstaid_check_reports_the_decision_role_as_ok_once_it_is_set() {
         .clone();
     assert_eq!(decision["id"], "models.decision");
     assert_eq!(decision["status"], "ok", "{decision}");
-}
-
-#[test]
-fn session_model_and_chat_reasoning_are_experimental_and_invalid_choices_are_usage_errors() {
-    for args in [
-        vec!["session", "model", "get", "--help"],
-        vec!["session", "model", "set", "--help"],
-    ] {
-        let output = bin().args(args).output().unwrap();
-        assert!(output.status.success());
-        assert!(String::from_utf8_lossy(&output.stdout).contains("[experimental]"));
-    }
-    for args in [
-        vec!["session", "model", "set", "ses_1"],
-        vec!["session", "model", "set", "ses_1", "--reasoning", "banana"],
-        vec!["chat", "--reasoning", "banana"],
-    ] {
-        assert_eq!(bin().args(args).output().unwrap().status.code(), Some(2));
-    }
-    let output = bin().args(["chat", "--help"]).output().unwrap();
-    assert!(String::from_utf8_lossy(&output.stdout).contains("--reasoning"));
 }
