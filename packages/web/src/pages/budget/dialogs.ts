@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { t, type Key } from "../../i18n.ts";
-import { buildSetParams, currentConsumption, microsToInput, parseAmount, type Limit, type LimitKey } from "./model.ts";
+import { buildSetParams, currentConsumption, parseAmount, type Limit, type LimitKey } from "./model.ts";
 import type { BudgetMetric, BudgetPeriod, BudgetPeriodName } from "./rpc-types.ts";
 import { amount, fullTitle, isForbidden, limitKey, limitTitle } from "./shared.ts";
 
@@ -28,8 +28,9 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
   const [scope, setScope] = useState<"global" | "agent">(limit?.scope === "agent" ? "agent" : "global");
   const [agent, setAgent] = useState(limit?.agentId ?? "");
   const [period, setPeriod] = useState<BudgetPeriodName>(limit?.period ?? "day");
-  const [metric, setMetric] = useState<BudgetMetric>(limit?.metric ?? "cost");
-  const text = (b: number | null): string => (b === null ? "" : metric === "cost" ? microsToInput(b) : String(b));
+  // Tokens are the only metric (no money dimension since 2026-10-19).
+  const metric: BudgetMetric = "tokens";
+  const text = (b: number | null): string => (b === null ? "" : String(b));
   const [soft, setSoft] = useState(text(limit?.soft ?? null));
   const [hard, setHard] = useState(text(limit?.hard ?? null));
   const [step, setStep] = useState<"form" | "review">("form");
@@ -59,8 +60,8 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
     const errs: Errors = {};
     if (scope === "agent" && agent.trim() === "") errs.agent = t("budget.err.agent");
     else if (agent.trim().length > 128) errs.agent = t("budget.err.agentLength");
-    const s = parseAmount(metric, soft), hd = parseAmount(metric, hard);
-    const invalid = metric === "cost" ? t("budget.err.cost") : t("budget.err.tokens");
+    const s = parseAmount(soft), hd = parseAmount(hard);
+    const invalid = t("budget.err.tokens");
     if (s === "invalid") errs.soft = invalid;
     if (hd === "invalid") errs.hard = invalid;
     if (s !== "invalid" && hd !== "invalid") {
@@ -83,7 +84,7 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
 
   const shown = (b: "soft" | "hard"): string => {
     const v = parsed[b];
-    if (v !== null) return amount(metric, v);
+    if (v !== null) return amount(v);
     return before?.[b] != null ? t("budget.cleared") : t("budget.field.notSet");
   };
 
@@ -108,7 +109,7 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
         h("div", {}, h("dt", {}, t("budget.field.hard")), h("dd", {}, shown("hard")))),
       belowUsed
         ? h("div", { class: "field budget-below-used" },
-          h("p", { class: "form-error", role: "alert" }, t(atUsed ? "budget.warn.atUsed" : "budget.warn.belowUsed", { used: amount(metric, usedAmount) })),
+          h("p", { class: "form-error", role: "alert" }, t(atUsed ? "budget.warn.atUsed" : "budget.warn.belowUsed", { used: amount(usedAmount) })),
           h("label", { class: "budget-below-used-check" },
             h("input", { id: "confirm-below-used", type: "checkbox", checked: confirmedBelow, onChange: (e: Event) => { setConfirmedBelow((e.target as HTMLInputElement).checked); } }),
             h("span", {}, t(atUsed ? "budget.confirm.atUsed" : "budget.confirm.belowUsed"))))
@@ -116,7 +117,7 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
   }
 
   const input = (id: string, label: string, value: string, set: (v: string) => void, err: string | undefined): View =>
-    h(Field, { id, label, error: err }, h("input", { id, type: "text", inputMode: metric === "cost" ? "decimal" : "numeric", value, ...bad(err, id), onInput: (e: Event) => set((e.target as HTMLInputElement).value) }));
+    h(Field, { id, label, error: err }, h("input", { id, type: "text", inputMode: "numeric", value, ...bad(err, id), onInput: (e: Event) => set((e.target as HTMLInputElement).value) }));
   const select = <V extends string>(id: string, label: string, value: V, options: readonly (readonly [V, string])[], set: (v: V) => void): View =>
     h(Field, { id, label }, h("select", { id, value, onChange: (e: Event) => set((e.target as HTMLSelectElement).value as V) }, options.map(([v, text]) => h("option", { key: v, value: v, selected: v === value }, text))));
 
@@ -127,7 +128,7 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
       h("button", { key: "r", type: "button", class: "btn btn-primary", onClick: review }, t("budget.review")),
     ],
   },
-    h("p", { class: "reading" }, edit ? t("budget.form.editHint") : t("budget.form.newHint"), " ", metric === "cost" ? t("budget.form.costHint") : t("budget.form.tokensHint")),
+    h("p", { class: "reading" }, edit ? t("budget.form.editHint") : t("budget.form.newHint"), " ", t("budget.form.tokensHint")),
     errors.none ? h("p", { class: "form-error", role: "alert" }, errors.none) : null,
     edit
       ? h("dl", { class: "facts" },
@@ -139,7 +140,6 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
         select("lm-scope", t("budget.field.scope"), scope, [["global", t("budget.scope.global")], ["agent", t("budget.scope.agent")]], setScope),
         scope === "agent" ? input("lm-agent", t("budget.form.agent"), agent, setAgent, errors.agent) : null,
         select("lm-period", t("budget.field.period"), period, [["day", t("budget.period.day")], ["month", t("budget.period.month")]], setPeriod),
-        select("lm-metric", t("budget.field.metric"), metric, [["cost", t("budget.metric.cost")], ["tokens", t("budget.metric.tokens")]], setMetric),
       ],
     input("lm-soft", t("budget.form.soft"), soft, setSoft, errors.soft),
     input("lm-hard", t("budget.form.hard"), hard, setHard, errors.hard));
@@ -165,5 +165,5 @@ export function RemoveLimitDialog({ limit, onClose, onRemoved }: { limit: Limit;
     h("p", { class: "form-error", role: "alert" }, failure),
     h("p", {}, t("budget.removeConfirm", { title: fullTitle(limit) })),
     h("p", { class: "reading" }, t("budget.removeBody")),
-    h("p", { class: "reading" }, `${limitTitle(limit)}: ${limit.soft === null ? "–" : amount(limit.metric, limit.soft)} / ${limit.hard === null ? "–" : amount(limit.metric, limit.hard)}`));
+    h("p", { class: "reading" }, `${limitTitle(limit)}: ${limit.soft === null ? "–" : amount(limit.soft)} / ${limit.hard === null ? "–" : amount(limit.hard)}`));
 }

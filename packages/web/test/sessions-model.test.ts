@@ -53,7 +53,7 @@ describe("sessions: sort and paging", () => {
     const m = metaOf({ ...rows[0]!, preview: "secret text", messages: [{ text: "x" }] } as unknown as SessionMeta);
     assert.equal(JSON.stringify(m).includes("secret"), false);
     assert.deepEqual(Object.keys(m).sort(), ["agentId", "archivedAt", "createdAt", "id", "kind", "lastTurnAt", "model", "pinned", "title", "turnCount", "updatedAt"]);
-    const o = metaOf({ ...rows[0]!, owner: "u1", usage: { inputTokens: 1, outputTokens: 2, costMicros: null } } as SessionMeta);
-    assert.deepEqual([o.owner, o.usage], ["u1", { inputTokens: 1, outputTokens: 2, costMicros: null }]);
+    const o = metaOf({ ...rows[0]!, owner: "u1", usage: { inputTokens: 1, outputTokens: 2 } } as SessionMeta);
+    assert.deepEqual([o.owner, o.usage], ["u1", { inputTokens: 1, outputTokens: 2 }]);
   });
 });
