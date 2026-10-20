@@ -37,6 +37,9 @@ describe("Help page (docs/user)", opts, () => {
 
   test("deep-linking to a page (#/help/operations) loads that page", async () => {
     await withApp({}, async ({ page }) => {
+      // The handbook page is its own lazy chunk. Hold it back so the table of contents (which is static) is on screen well before
+      // the article: the test must wait for the article itself, not assume it arrives together with the contents.
+      await page.route("**/operations-*.js", async (route) => { await new Promise((r) => setTimeout(r, 600)); await route.continue(); });
       await openRoute(page, "#/help/operations");
       await page.getByRole("heading", { name: "User Handbook", level: 1 }).waitFor();
 
@@ -48,6 +51,8 @@ describe("Help page (docs/user)", opts, () => {
       // Verify page content contains operations text
       const article = page.locator("#help-article");
       await page.waitForFunction(() => location.hash === "#/help/operations");
+      // The article loads after the contents: wait for the loading state to give way to the page, then check its text.
+      await page.locator('#help-article [data-state="loading"]').waitFor({ state: "detached" });
       assert.ok(await article.innerText().then((t) => t.includes("Operations") || t.includes("home")));
     });
   });
