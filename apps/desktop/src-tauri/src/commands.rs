@@ -137,6 +137,13 @@ pub struct ConnectionState(
     std::sync::Arc<std::sync::Mutex<Option<crate::secrets::StoreKind>>>,
 );
 impl ConnectionState {
+    /// State around an already-opened token store; the kind mirror starts empty until a
+    /// credential action publishes it.
+    pub fn new(
+        store: std::sync::Arc<tokio::sync::Mutex<Option<Box<dyn crate::secrets::TokenStore>>>>,
+    ) -> Self {
+        Self(store, Default::default())
+    }
     /// Kind of the credential store as of the last finished action; `None` until one opened it.
     /// Never waits for the owner lock.
     pub fn store_kind(&self) -> Option<crate::secrets::StoreKind> {

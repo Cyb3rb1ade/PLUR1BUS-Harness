@@ -84,7 +84,7 @@ fn main() {
     let report_root = root.clone();
     let app=tauri::Builder::default().plugin(tauri_plugin_autostart::Builder::new().build())
  .manage(plur1bus_desktop::native::NativeState::default()).manage(plur1bus_desktop::spa::SpaState::default())
- .manage(commands::ConnectionState(Arc::new(tokio::sync::Mutex::new(Some(Box::new(MemoryStore::default()))))))
+ .manage(commands::ConnectionState::new(Arc::new(tokio::sync::Mutex::new(Some(Box::new(MemoryStore::default()))))))
  .manage(rc::RuntimeState::for_fixture(ctl).unwrap())
  .invoke_handler(tauri::generate_handler![commands::app_info,commands::settings_get,commands::settings_set,commands::connections_list,commands::connections_rename,commands::connections_remove,commands::pair_code,commands::pair_local,commands::open_connection,commands::autostart_get,commands::autostart_set,commands::quit_request,commands::quit_offer,commands::background_hint,commands::crash_offers,commands::crash_handled,commands::quit_response,commands::shell_info,rc::runtime_detect,rc::runtime_start,rc::bundle_install,rc::harness_start,rc::harness_stop,rc::harness_status,rc::harness_logs_tail])
  .on_page_load(|webview,payload|{if webview.label()=="shell"&&matches!(payload.event(),tauri::webview::PageLoadEvent::Finished){
