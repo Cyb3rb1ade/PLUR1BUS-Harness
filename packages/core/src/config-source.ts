@@ -1,4 +1,5 @@
-import { statSync } from "node:fs";
+import { statSync, watch as watchDirectory } from "node:fs";
+import { basename, dirname } from "node:path";
 import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
 import { restartPlan, type HarnessConfig } from "@plur1bus/config-schema";
 import { watchSupervisorConfig, type ConfigWatch } from "@plur1bus/module-api";
@@ -167,16 +168,24 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
   if (first) follow(first);
   else if (o.supervised) scheduleRetry(); // M1: a supervised core that missed the start window keeps trying
 
+  const refreshFile = () => {
+    if (watch || closed) return;
+    let stamp: string;
+    try { const st = statSync(o.layout.configPath); stamp = `${st.ino}:${st.mtimeMs}:${st.ctimeMs}:${st.size}`; } catch { stamp = "missing"; }
+    if (stamp !== fileStamp) { fileStamp = stamp; readFile(); }
+  };
+  // A standalone/fallback Core also invalidates idle model pickers when an accepted file edit arrives.
+  // Per-admission refresh remains authoritative if the OS watcher is unavailable or coalesces events.
+  let fileWatch: ReturnType<typeof watchDirectory> | undefined;
+  try {
+    fileWatch=watchDirectory(dirname(o.layout.configPath),(_event,file)=>{
+      if(file===null || String(file)===basename(o.layout.configPath))refreshFile();
+    });
+    fileWatch.unref();fileWatch.on("error",err=>log?.warn("configuration file watch unavailable; admission reads remain active",{err}));
+  } catch(err) {log?.warn("configuration file watch unavailable; admission reads remain active",{err});}
+
   return {
-    current: () => {
-      // File fallback has no supervisor pushes. Refresh before admission, including the next tool round.
-      if (!watch && !closed) {
-        let stamp: string;
-        try { const st = statSync(o.layout.configPath); stamp = `${st.ino}:${st.mtimeMs}:${st.ctimeMs}:${st.size}`; } catch { stamp = "missing"; }
-        if (stamp !== fileStamp) { fileStamp = stamp; readFile(); }
-      }
-      return current;
-    },
+    current: () => {refreshFile();return current;},
     get source() { return watch ? "supervisor" as const : "file" as const; },
     revision: () => revision,
     restartPending: () => pending,
@@ -188,6 +197,7 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     },
     async close() {
       closed = true;
+      fileWatch?.close();
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
       detach?.(); detach = null;
       const w = watch; watch = null;

@@ -1105,12 +1105,38 @@ pub enum SessionCmd {
         #[arg(long)]
         include_hidden: bool,
     },
+    /// [experimental] Read or change this session's model and reasoning level
+    Model {
+        #[command(subcommand)]
+        command: SessionModelCmd,
+    },
     /// [experimental] Archive a session (nothing is deleted)
     Archive { id: String },
 }
 
+#[derive(Subcommand, Debug)]
+pub enum SessionModelCmd {
+    /// [experimental] Read the model profile, default and reasoning level
+    Get { session: String },
+    /// [experimental] Preview and confirm a model or reasoning change
+    #[command(group(clap::ArgGroup::new("selection").args(["model", "reasoning"]).required(true).multiple(true)))]
+    Set {
+        session: String,
+        #[arg(long, value_name = "PROFILE")]
+        model: Option<String>,
+        #[arg(long, value_parser = ["default", "off", "minimal", "low", "medium", "high", "xhigh"])]
+        reasoning: Option<String>,
+        /// Confirm the cache and cost warning for scripts
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
 #[derive(clap::Args, Debug)]
 pub struct ChatArgs {
+    /// Reasoning level for this session (default leaves control to the provider)
+    #[arg(long, value_parser = ["default", "off", "minimal", "low", "medium", "high", "xhigh"])]
+    pub reasoning: Option<String>,
     /// Configured model profile for this session; warns and asks before switching
     #[arg(long, value_name = "PROFILE")]
     pub model: Option<String>,

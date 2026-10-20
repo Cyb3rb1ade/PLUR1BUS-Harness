@@ -430,6 +430,7 @@ export function createCore(o: CoreOptions): Core {
     // `agents` are read per use; a `core`-class change waits for the supervisor's restart (restartPending).
     const watchedOrphans = orphans;
     cs.onChange((prev, next, plan) => {
+      if(plan.changed.some(k=>k==="privacy"||k.startsWith("privacy.")||/^agents\.[^.]+\.privacy(?:\.|$)/.test(k)))server?.notify("chat.models.changed",{at:clock(),reason:"privacy"});
       if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);

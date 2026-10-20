@@ -453,6 +453,13 @@ Authenticated own direct-chat get. Identity is derived from the current principa
     "lastEventSeq": {
       "type": "integer",
       "minimum": 0
+    },
+    "modelChanges": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
     }
   }
 }
@@ -15157,6 +15164,76 @@ Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving t
 }
 ```
 
+### `session.model.get`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Read the owned session model profile, effective default, revision and reasoning choice. Incognito stays in RAM. Same transcript authorization as session.get.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "defaultProfile",
+    "revision",
+    "reasoning"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "defaultProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    }
+  }
+}
+```
+
 ### `session.model.set`
 
 **Stability:** experimental · since 1.7.0
@@ -15621,6 +15698,13 @@ Get plus the transcript (the last `limit` messages, default 100) and the last ev
     "lastEventSeq": {
       "type": "integer",
       "minimum": 0
+    },
+    "modelChanges": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
     }
   }
 }
@@ -17586,6 +17670,38 @@ An extension's kind, state, version or overlays changed (install, uninstall, res
       "items": {
         "$ref": "#/$defs/ExtOverlay"
       }
+    }
+  }
+}
+```
+
+### `chat.models.changed`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Payload-free invalidation of chat model options after accepted privacy policy changes. Clients reread their authorized chat.model.get; no configuration, agent ID or credential is broadcast.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "x-server": "core",
+  "description": "Payload-free invalidation of chat model options after accepted privacy policy changes. Clients reread their authorized chat.model.get; no configuration, agent ID or credential is broadcast.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "at",
+    "reason"
+  ],
+  "properties": {
+    "at": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reason": {
+      "const": "privacy"
     }
   }
 }
@@ -22509,7 +22625,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "tool.call",
     "tool.result",
     "turn.completed",
-    "turn.failed"
+    "turn.failed",
+    "session.model.changed"
   ]
 }
 ```

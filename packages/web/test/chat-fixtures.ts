@@ -103,7 +103,7 @@ export class FakeChat {
       const id = (p as { sessionId: string }).sessionId;
       const session = this.sessions.find((s) => s.id === id);
       if (!session) throw rpcError("E_NOT_FOUND", "no such session");
-      return { session, runningTurnId: this.running.get(id) ?? null, messages: this.messages.get(id) ?? [], lastEventSeq: this.log.get(id)?.at(-1)?.seq ?? 0 };
+      return { session, runningTurnId: this.running.get(id) ?? null, messages: this.messages.get(id) ?? [], modelChanges:(this.log.get(id) ?? []).filter(e=>e.type==="session.model.changed"), lastEventSeq: this.log.get(id)?.at(-1)?.seq ?? 0 };
     }, { write: false });
     rpc.handle("session.submit", (p) => {
       const q = p as { sessionId: string; text: string };
@@ -142,6 +142,7 @@ export class FakeChat {
         : levels.reduce((b, l) => Math.abs(order.indexOf(l) - order.indexOf(reasoning)) < Math.abs(order.indexOf(b) - order.indexOf(reasoning)) ? l : b, levels[0]!);
       const next = { profile: q.profile, reasoning, revision: c.revision + 1 };
       this.modelChoice.set(q.sessionId, next);
+      this.emit(q.sessionId,"session.model.changed",{profile:q.profile,model:option.model,displayName:option.displayName,reasoning,effectiveReasoning:effective,revision:next.revision,person:"fixture-person",afterMessageSeq:this.messages.get(q.sessionId)?.at(-1)?.seq ?? 0});
       return { sessionId: q.sessionId, profile: q.profile, previousProfile: c.profile, reasoning, effectiveReasoning: effective, adjusted: effective !== reasoning, revision: next.revision,
         warning: "cache-rebuild-cost-prefixes-preserved", ...(effective !== "default" && order.indexOf(effective) >= order.indexOf("high") ? { costHint: "reasoning-cost-higher" } : {}) };
     });
