@@ -36,7 +36,7 @@ by `hash(agentId, phase) % 1800 s` so many agents do not start together; at most
 | Circuit breaker | 3 LLM sessions per agent per UTC day across rem and deep; the 4th is not started, the run is `aborted`, the breaker stays open to the next UTC midnight | `breaker_sessions`, then `breaker_open` |
 | Minimum corpus | see Triggers | `min_corpus` |
 | Concurrency | 3 phase runs at once; a second run of the same agent and phase is refused | `already_running` |
-| Candidates | dedupe by content hash, 72 h expiry, utility gate (never `recalls = 0`; ≥ 3 recalls, ≥ 3 queries, score ≥ 0.75) with a gate-by-gate decision record. Producer: `packages/core/src/dreams/producer.ts` (`createCandidateSource` / `itemsFromEngineList`), driven by `Engine.memory.list` in production (agent-private cards only, ADR-009 Q5; content + optional score; never invents recalls/uniqueQueries; a truncated listing fails closed). Pinned engine 1.12.0 has no recall/query stats API — KNOWN GAP, see Open points. Test: `packages/core/test/dreams/producer.test.ts` "Producer yields candidates against a fake engine." / "a workspace/user card is not ingested as agent-private" | `no_candidates` |
+| Candidates | dedupe by content hash and 72 h expiry remain. Candidate gates authorize only the explicit promotion step; `consolidate-daily`, `auto-accept-stale` and `gc-run` run with zero candidates too. Real recall counters come from public Engine 1.17.0 `memory.stats` when present: ≥ 3 recalls, ≥ 3 distinct queries, score ≥ 0.75 when a public query result reports one. A `since` listing has no similarity score; `score = null` passes that optional gate while the observed recall/query thresholds still apply. Without counters, a separate fallback shortlist records age ≥ 24 h plus either importance ≥ 0.75 (only if publicly reported) or at least two distinct private source cards with identical normalized content. Search score is never importance; repeated scheduler pulls never count as repeated evidence. Fallback evidence alone cannot authorize promotion. | gate-by-gate candidate decision; no phase-level `no_candidates` skip |
 | No LLM route | the engine's `no_llm_*` skip | `no_llm_route` |
 
 An engine job that fails, comes back `incomplete` or `abandoned`, or a diary the engine says it did not write, is recorded
@@ -205,7 +205,12 @@ Still open (deliberately):
 
 * The retry is not distinguishable from a normal catch-up in the ledger's trigger column (it shares `scheduledFor` with the
   crashed run). A dedicated trigger value would need a schema, wire-format and web-string change.
-* **KNOWN GAP (engine):** pinned engine contract 1.12.0 `Engine.memory.list` yields `MemoryCard` text and an optional
-  topic-search score, not recall counts or unique-query stats. The producer does not fake scoring. Owner question: attach
-  the content-only producer now (deep then skip/`no_candidates`, fail closed) — done on this branch — or wait for an engine
-  stats API before wiring production? The module is driven by a fake engine in tests either way.
+* **Controller pin pending (A1):** the current Engine pin has no public recall-statistics or explicit promotion API. The optional compatibility adapter uses Engine contract **1.17.0** `memory.stats(ids, principal, context)` and `memory.promote({ ids }, principal, context)` when available. Until the Controller pins that contract, maintenance works and candidates remain unpromoted. Tests of the new contract use fixtures; real-Engine promotion acceptance remains open until that pin. No statistics are fabricated.
+
+## Promotion confirmation (A3)
+
+The producer retains the Engine's currently visible agent-private memory id; a ledger content hash cannot reconstruct an id or confer access. It joins `memory.stats` by that id and refuses foreign-agent, duplicate or malformed counter responses. Shared workspace/user cards stay outside this producer. An incomplete listing fails closed for promotion; the independent deep maintenance jobs still run, then the run reports `failed/engine_error` for the candidate read.
+
+After the jobs complete, the scheduler submits eligible source ids to the Engine's explicit promotion operation. The ledger advances to `promoted` only for a matching same-agent `promoted/integrated` receipt. `skipped/already-promoted` is also positive confirmation: A1 found its durable source marker, allowing reconciliation after a crash between the Engine write and the ledger write. Other skips, missing receipts, errors and cancellation leave the candidate shortlisted; the Engine result/reason is kept with its gate decision. Receipts are validated before a single ledger transaction records them.
+
+The host operation uses the existing proved agent/workspace principal and `AgentContext { origin: "system", background: false }`, matching A1's explicit host transaction contract. Here `background: false` describes that authorized transaction; the enclosing sweep may originate from cron. Model calls never receive this context. Engine ACL, lifecycle, source scope and promotion caps remain authoritative.
