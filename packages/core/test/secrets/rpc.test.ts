@@ -50,6 +50,22 @@ describe("secret.* over RPC", () => {
     await assert.rejects(() => client.call("secret.delete", { name: "openai.key" }), failsWith("E_NOT_FOUND"));
   });
 
+  it("description: set, list, get and status carry it; a rotation keeps it, an empty one clears it; bad ones are E_INVALID_PARAMS", async () => {
+    who = { kind: "owner" }; fallback = true;
+    const meta = await client.call<any>("secret.set", { name: "desc.key", value: MARKER, description: "Billing key for the shared OpenAI account" });
+    assert.equal(meta.description, "Billing key for the shared OpenAI account");
+    assert.equal((await client.call<any>("secret.list", {})).secrets.find((s: any) => s.name === "desc.key").description, "Billing key for the shared OpenAI account");
+    assert.equal((await client.call<any>("secret.get", { name: "desc.key" })).secret.description, "Billing key for the shared OpenAI account");
+    assert.equal((await client.call<any>("secret.status", {})).secrets.find((s: any) => s.name === "desc.key").description, "Billing key for the shared OpenAI account");
+    assert.equal((await client.call<any>("secret.set", { name: "desc.key", value: `${MARKER}2` })).description, "Billing key for the shared OpenAI account");
+    assert.equal("description" in (await client.call<any>("secret.set", { name: "desc.key", value: `${MARKER}3`, description: "" })), false);
+    await assert.rejects(() => client.call("secret.set", { name: "desc.key", value: MARKER, description: "x".repeat(201) }), failsWith("E_INVALID_PARAMS"));
+    await assert.rejects(() => client.call("secret.set", { name: "desc.key", value: MARKER, description: 5 }), failsWith("E_INVALID_PARAMS"));
+    await assert.rejects(() => client.call("secret.set", { name: "desc.key", value: MARKER, description: "two\nlines" }), failsWith("E_INVALID_PARAMS", "invalid-description"));
+    await assert.rejects(() => client.call("secret.set", { name: "desc.key", value: MARKER, description: `oops ${MARKER}` }), failsWith("E_INVALID_PARAMS", "invalid-description"));
+    await client.call("secret.delete", { name: "desc.key" });
+  });
+
   it("an agent principal is refused every secret.* method with E_DENIED, and nothing changes", async () => {
     who = { kind: "owner" };
     await client.call("secret.set", { name: "kept", value: MARKER });

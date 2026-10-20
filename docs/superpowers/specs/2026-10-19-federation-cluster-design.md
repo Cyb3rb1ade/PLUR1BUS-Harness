@@ -1,7 +1,8 @@
 # Federation: full protocol control and clusters of PLUR1BUS instances — design
 
-**Status:** Owner decisions of 2026-10-19 incorporated (§15 Q1–Q8 decided, **D114**); new owner questions Q9–Q14
-open (phase 1: specification and plan, no product code) · **Date:** 2026-10-19 · **Owner:** Christian (Cyb3rb1ade) ·
+**Status:** Owner decisions of 2026-10-19 incorporated (§15 Q1–Q8 decided, **D114**; Q9–Q14 decided the same day,
+§15) (phase 1: specification and plan, no product code) · **amended 2026-10-20: D116** (relationship memory and
+confidentiality levels: Q10 refined in §7.3 and §15; hand-over §7.4 follows D116 point 10) · **Date:** 2026-10-19 · **Owner:** Christian (Cyb3rb1ade) ·
 **Track:** F (federation), new; target **Beta 2**, after v0.1.0 (decided) · **Decision record:** D114 in the core
 spec's register ([`2026-09-24-m1b-2a-core-daemon-cli-design.md`](2026-09-24-m1b-2a-core-daemon-cli-design.md) §2) ·
 **Plan:** [`2026-10-19-federation-cluster.md`](../plans/2026-10-19-federation-cluster.md)
@@ -112,7 +113,7 @@ negotiation, and the loan and hand-over of agents. Recorded as **D114** (decided
 | F-R12 | Privacy | Sharing with a peer **is data leaving the machine**: explicit confirmation per share; under `privacy.localOnly` only peers that count as local. | Treating a peer like a web tool (egress only): `privacy.localOnly` exists to stop exactly this kind of outflow to models elsewhere. |
 | F-R13 | Switch | `federation.enabled` **false** by default; nothing listens and no peer can pair until an Owner turns it on. | On by default: new attack surface on every install. |
 | F-R14 | Lending an agent (b2) | **Loan on a mission**: ownership and identity stay with the lender; the agent runs at the borrower on the borrower's models (model-profile mapping, window policy), scoped to one borrower project, with an expiry, a **lease** renewed while both instances are online, recall at any time and return at mission end; no private memories unless selected, never secrets; mission memories flow back to the lender. **Owner request 2026-10-19.** | Running the agent at the borrower without a lease: the lender loses control the moment its instance goes offline. |
-| F-R15 | Handing an agent over (b3) | **Two-sided permanent hand-over**: offer → acceptance → confirmation by both owners; signed hand-over package (the `plur1bus.agent-export/1` bundle shape, definition plus selected memories, never secrets); new agent ID at the receiver with provenance "handed over from"; the giver's original is **archived**, not deleted. **Owner request 2026-10-19.** | Moving the agent ID itself: two instances would claim one identity, and audit on the giver's side would point at an agent it no longer owns. |
+| F-R15 | Handing an agent over (b3) | *Amended 2026-10-20 (D116 point 10): the whole memory tree moves under control, the giver's relationship becomes „Früherer Mensch: <Name>“, levels stay in force (§7.4).* **Two-sided permanent hand-over**: offer → acceptance → confirmation by both owners; signed hand-over package (the `plur1bus.agent-export/1` bundle shape, definition plus selected memories, never secrets); new agent ID at the receiver with provenance "handed over from"; the giver's original is **archived**, not deleted. **Owner request 2026-10-19.** | Moving the agent ID itself: two instances would claim one identity, and audit on the giver's side would point at an agent it no longer owns. |
 
 ## 3. Prerequisites and dependencies
 
@@ -441,6 +442,17 @@ choose review instead of direct import (`federation.loan.memoryReturn: import | 
 files them as memory proposals). At the borrower the mission memories are removed after the confirmed delivery, or
 kept as copies tagged with the mission if the keep option of Q13 applies.
 
+**Relationships and levels (amended 2026-10-20, D116 point 9).** When the lent agent talks to a person at the
+borrower, the relationship *agent × borrower person* is the active one; mission memories are captured with that
+relationship, the mission as context and a confidentiality level (`teilbar`, `vertraulich`, `privat`). They keep
+flowing back **continuously** (Q10 unchanged), but **separated by relationship and level**: every item in a
+`federation/loan.memories.push` batch carries its relationship key and level, and the lender imports them as entries
+of that foreign relationship. In conversations with the home person they follow the D116 rules: `teilbar` with an
+origin label, `vertraulich` usable but never disclosed, `privat` never in the prompt. Home memories in the loan
+package keep their relationship and level; `privat` entries cannot be selected for a loan package. Reports to the
+parent go through the project level (D115 report channel, WP14), not through relationship memories. Details:
+[`2026-10-20-memory-tree-relationships-design.md`](2026-10-20-memory-tree-relationships-design.md) §12.
+
 **The agent at home during the loan.** The lender's agent stays defined at home. Whether it keeps working there in
 parallel, or is locked to "on mission" while the loan runs, is owner question Q11 (recommended: keeps working; the
 mission runs as a separate mission instance with its own memory namespace, and only its memories come back).
@@ -499,6 +511,17 @@ refuses a second import of the same package (replay).
 **Undo.** Whether a hand-over can be reversed within a period, and by whom, is owner question Q12 (recommended: 7 days,
 started by the giver, confirmed by the receiver; the receiver's agent is archived, the giver's original unarchived;
 memories formed at the receiver stay with the receiver unless both agree to send them back).
+
+**Controlled transfer of everything (amended 2026-10-20, D116 point 10).** Owner 2026-10-20: „Alles wird kontrolliert
+an den neuen Owner übergeben.“ This replaces the default "memories to include: none" of step 1: the package contains
+the agent's **whole memory tree** (agent level, relationships, project entries the project allows) with nodes,
+relationships, contexts and confidentiality levels; the giver reviews the manifest per branch and level before the
+confirmation in step 3; secrets stay names only and voice templates never travel. At the receiver the giver's
+relationship with the agent becomes **„Früherer Mensch: <Name>“** (exactly this label, no gendered form); its levels
+stay in force (`teilbar` usable with origin label, `vertraulich` never disclosed, `privat` never in conversations with
+the new person); the new person's "Mein Mensch" and "Wir" start empty. The 7-day undo (Q12) is unchanged. How
+relationships of persons other than the giver move is D116 owner question Q12. Details:
+[`2026-10-20-memory-tree-relationships-design.md`](2026-10-20-memory-tree-relationships-design.md) §13.
 
 **Audit** on both sides: `federation.handover.offered|accepted|confirmed|declined|delivered|done|incomplete`, with
 package hash and counts, never content.
@@ -823,7 +846,7 @@ loan and hand-over modes the owner added the same day and are open.
    lapses. How long may the **lender** be unreachable before a paused mission ends (proposed **24 h**), and how long the
    **borrower** before the lender treats the agent as returned (proposed **15 min**)? Is 30 days the right longest loan
    (`federation.loan.maxDays`)?
-10. **Q10 — When mission memories flow back.** *Status: entschieden 2026-10-19.* Continuously in acknowledged batches; returned mission memories are imported directly (no proposal step). Continuously in acknowledged batches during the mission (recommended:
+10. **Q10 — When mission memories flow back.** *Status: entschieden 2026-10-19.* Continuously in acknowledged batches; returned mission memories are imported directly (no proposal step). *Refined 2026-10-20 (D116 point 9):* mission memories keep flowing back continuously, but separated by relationship and confidentiality level; in conversations with the home person the D116 levels apply (§7.3). Continuously in acknowledged batches during the mission (recommended:
     nothing is lost if the borrower fails, the lender sees progress) or only at the return? And should returned
     mission memories be imported directly (proposed default) or arrive as memory proposals for review?
 11. **Q11 — The lent agent at home.** *Status: entschieden 2026-10-19.* The lender's agent keeps working at home; the mission is a separate instance whose memories come back. Does the lender's agent keep working at home during a loan, with the mission as a

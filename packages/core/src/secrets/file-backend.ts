@@ -2,14 +2,15 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeSync } from "node:fs";
 import path from "node:path";
 import type { SecurePath } from "@plur1bus/module-api";
-import { SecretError, backendFailure, isSecretName, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
+import { SecretError, backendFailure, isSecretName, nextDescription, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
 
 export const FILE_SCHEMA = "plur1bus.secrets-file/1";
 const KEY_BYTES = 32;
 const NONCE_BYTES = 12; // GCM's native 96-bit nonce, fresh random per write of an entry
 const TAG_BYTES = 16;
 
-interface Entry { createdAt: string; updatedAt: string; updatedBy?: string; nonce: string; ct: string; tag: string }
+/** `description` is optional and sits outside the ciphertext (it is metadata, like `updatedBy`); files written before it existed have none and stay readable under the same schema id. */
+interface Entry { createdAt: string; updatedAt: string; updatedBy?: string; description?: string; nonce: string; ct: string; tag: string }
 interface Doc { schema: typeof FILE_SCHEMA; entries: Record<string, Entry> }
 
 export interface FileBackendOptions {
@@ -63,7 +64,7 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
     if (!d || typeof d !== "object" || d.schema !== FILE_SCHEMA || !d.entries || typeof d.entries !== "object" || Array.isArray(d.entries)) throw corrupt("bad-schema");
     for (const [name, e] of Object.entries(d.entries)) {
       const x = e as Partial<Entry>;
-      if (!isSecretName(name) || typeof x?.createdAt !== "string" || typeof x.updatedAt !== "string" || typeof x.nonce !== "string" || typeof x.ct !== "string" || typeof x.tag !== "string") throw corrupt("bad-entry", name);
+      if (!isSecretName(name) || typeof x?.createdAt !== "string" || typeof x.updatedAt !== "string" || typeof x.nonce !== "string" || typeof x.ct !== "string" || typeof x.tag !== "string" || (x.description !== undefined && typeof x.description !== "string")) throw corrupt("bad-entry", name);
     }
     return d as Doc;
   }
@@ -148,7 +149,7 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
         return Buffer.concat([d.update(Buffer.from(e.ct, "base64")), d.final()]).toString("utf8");
       } catch { throw corrupt("authentication-failed", name); }
     }),
-    put: (name, value, now, updatedBy) => serial("writing the encrypted store", () => {
+    put: (name, value, now, updatedBy, description) => serial("writing the encrypted store", () => {
       const doc = readDoc();
       const k = key(doc, true);
       const nonce = rand(NONCE_BYTES);
@@ -157,9 +158,10 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
       const ct = Buffer.concat([c.update(Buffer.from(value, "utf8")), c.final()]);
       const at = now.toISOString();
       const createdAt = (has(doc, name) ? doc.entries[name]?.createdAt : undefined) ?? at;
-      doc.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), nonce: nonce.toString("base64"), ct: ct.toString("base64"), tag: c.getAuthTag().toString("base64") };
+      const kept = nextDescription(has(doc, name) ? doc.entries[name]?.description : undefined, description);
+      doc.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}), nonce: nonce.toString("base64"), ct: ct.toString("base64"), tag: c.getAuthTag().toString("base64") };
       writeDoc(doc);
-      return { name, backend: "file" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}) };
+      return { name, backend: "file" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
     }),
     delete: (name) => serial("deleting from the encrypted store", () => {
       const doc = readDoc();
@@ -169,6 +171,6 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
       return true;
     }),
     list: () => serial("listing the encrypted store", (): SecretMeta[] =>
-      Object.entries(readDoc().entries).map(([name, e]) => ({ name, backend: "file" as const, createdAt: e.createdAt, updatedAt: e.updatedAt, ...(e.updatedBy ? { updatedBy: e.updatedBy } : {}) })).sort((a, b) => a.name.localeCompare(b.name))),
+      Object.entries(readDoc().entries).map(([name, e]) => ({ name, backend: "file" as const, createdAt: e.createdAt, updatedAt: e.updatedAt, ...(e.updatedBy ? { updatedBy: e.updatedBy } : {}), ...(e.description ? { description: e.description } : {}) })).sort((a, b) => a.name.localeCompare(b.name))),
   };
 }
