@@ -1484,6 +1484,9 @@ pub enum SecretCmd {
     Set {
         /// the secret's name: letters, digits and . _ : / @ - (at most 128, first a letter or digit)
         name: String,
+        /// what the secret is for (one line, at most 200 characters, never the value); the agent sees it in `secret_names`. Omitted, a replacement keeps the stored text; an empty text removes it
+        #[arg(long)]
+        description: Option<String>,
         /// refused: a value never goes in an argument (kept only so the refusal does not echo it)
         #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
         rest: Vec<String>,

@@ -9,7 +9,10 @@ M5 path (board, trace, replay, D104, D98, budget admission) is reused by project
 `visibleFrom()` in `packages/core/src/collab/` feeds every object check, the event audience, the memory scope and the D109
 roots; worktree fork/merge extends `ProjectWorktreePort` with a provisioner shared with M6; a new closed schema
 `plur1bus.report/1` carries reports upwards as tainted data.
-**Status.** Plan only. Owner questions spec §16 Q1–Q10 open; WP1 waits for Q1–Q3, WP4 for Q8, WP3 for Q6/Q7.
+**Status.** Plan only. Owner decisions of 2026-10-19 recorded (spec §16 Q1–Q10 decided, **D115**): outside the
+v0.1.0 total but scheduled as the next track directly after the M5 base, before Track F. WP1–WP11 are
+unblocked by the decisions (prerequisites R2–R8 still apply); Q9 (budget defaults) decided the same day.
+Track F WP14 (subproject as share and mission unit) builds on this track.
 **Constraints.** Additive only: new RPC methods with `x-stability: "experimental"`, `x-server: "core"`, `x-since`, closed
 params (AGENTS.md); no new RPC error codes (reuse `E_DENIED`, `E_NOT_FOUND`, `E_CONFLICT`, `E_INVALID_PARAMS`,
 `E_APPROVAL_REQUIRED`); no new dependencies; no engine change (memory scoping goes through the existing memory port and
@@ -33,9 +36,10 @@ version change. Git only with fixed argv, never history rewrite. No CI polling, 
 WP0 decisions ──► WP1 model + inheritance ──► WP2 isolation ──┬──► WP5 hand-off + reports ──► WP6 coordinator ──► WP8 web
                                    │                            ├──► WP3 memory scope (R4)                            │
                                    │                            └──► WP7 budget (R3) ─────────────────────────────────┤
-                                   └──► WP4 worktree fork/merge (R6, Q8) ─────────────────────────────────────────────┤
+                                   └──► WP4 worktree fork/merge/revert (R6) ──► WP4b GitHub root merge (R8) ──────────┤
                                                                                          WP9 CLI ◄────────────────────┤
                                                                        WP11 isolation suite + E2E ◄── all ──► WP10 docs
+                                                       Track F WP14 (share/mission unit) ◄── WP2, WP5, WP7, WP11
 ```
 
 One branch and one **ready** PR per work package (stacked PRs only where a WP needs its predecessor's code; then
@@ -44,14 +48,18 @@ One branch and one **ready** PR per work package (stacked PRs only where a WP ne
 **Preconditions (spec §14):** R1 M5 P1–P5 (met, #510/#514/#515/#516/#520). WP8's live acceptance needs R2 (M3 web
 transport). WP7's live admission needs R3 (M2 budget turn-loop hook). WP3 needs R4 (project pool materialisation); without
 it WP3 ships "stateless subproject runs" with a KNOWN GAP todo test. The security acceptance of WP5/WP6 needs R5 (D109
-taint producer). WP4 needs R6 (provisioner agreed with M6).
+taint producer). WP4 needs R6 (provisioner agreed with M6). WP4b needs R8 (GitHub credential profile and egress to
+`api.github.com`).
 
 ---
 
-## WP0 — Owner decisions and prerequisite check (≈ 0.5 agent days)
+## WP0 — Owner decisions and prerequisite check (≈ 0.5 agent days; decisions done 2026-10-19)
 
 **Content.** Record answers to spec §16 Q1–Q10 in the spec (status lines as in the federation spec), assign the decision
-number, update `docs/milestones.md` placement if Q1 changes it. Check R2–R7 on current `main` and note gaps in the plan.
+number, update `docs/milestones.md` placement if Q1 changes it. Check R2–R8 on current `main` and note gaps in the plan.
+**Done 2026-10-19:** Q1–Q8 and Q10 decided and worked into the spec, **D115** in the core spec's register, milestones
+placement "next track after the M5 base, before Track F"; Q9 reformulated and decided (budget defaults, spec §10.1). **Remaining:** the R2–R8 check at the
+start of WP1.
 **Acceptance.** Spec §16 carries a status per question; this plan's Status line names the WPs that are unblocked.
 
 ## WP1 — Data model, hierarchy and inheritance (≈ 3 agent days)
@@ -60,11 +68,16 @@ number, update `docs/milestones.md` placement if Q1 changes it. Check R2–R7 on
 `store.ts` (parent/root/depth, ancestor and descendant queries, state log), new `collab/hierarchy.ts` (`ancestors()`,
 `descendants()`, `effectiveSettings()`, `narrow()`, depth ceiling), `service.ts` (create-from-card transaction without
 repo and budget parts, lifecycle transitions, archive rules spec §3.3), `errors.ts` (guardrail reasons
-`hierarchy-depth`, `sibling-boundary`; reason strings only).
+`hierarchy-depth`, `sibling-boundary`; reason strings only); root-project settings `childrenMayCreate` (default `true`)
+and `mergeMode` (default `confirm`) in `subproject_settings` with `project.subproject.settings.set` (root lead,
+human-only, spec §5.2, §6.6); coordinator default = project owner of any identity kind (person or agent persona), a
+child's coordinator defaults to its parent's (spec §7.1, Q4).
 **Tests.** `packages/core/test/collab/hierarchy.test.ts`: migration v4→v5 keeps every row, roots backfilled; depth
 ceiling refused with `hierarchy-depth`; property test random parent × override never wider; parent narrowing reaches a
 running child on the next evaluation; `allowCrossProject` forced false in a tree; override that widens refused
-(`E_INVALID_PARAMS`, reason `override-widens`); archive of a parent with a running child refused/confirmed.
+(`E_INVALID_PARAMS`, reason `override-widens`); archive of a parent with a running child refused/confirmed; settings
+only on the root, inherited, not switchable by a child or any agent; a persona-owned project resolves its persona as
+coordinator without assignment.
 **Acceptance.** All existing collab tests unchanged and green; new tests green on real SQLite.
 
 ## WP2 — Isolation in RBAC, scopes, events and object checks (≈ 4 agent days)
@@ -92,17 +105,38 @@ pool with provenance; pass-down item tainted in the child.
 **Fallback without R4.** Subproject runs are stateless (no recall, no capture); KNOWN GAP todo test
 "subproject pool capture" stays executable-pending.
 
-## WP4 — Worktree fork, sandbox and merge back (≈ 4 agent days; R6, Q8)
+## WP4 — Worktree fork, sandbox, merge execution and revert (≈ 5 agent days; R6, Q8 decided)
 
 **Files.** `collab/coding-surface.ts` (`ProjectWorktreeProvisioner` beside `ProjectWorktreePort`, spec §6.5), a single
-git implementation with fixed argv (shared with M6, no second creator), repo binding (`project.repo.bind/unbind`),
-naming (spec §6.2), fork inside the create transaction, D109 roots and deny-list for child runs (spec §6.4), merge
-preview/commit bound to the D98 `treeHash` (spec §6.6), cleanup and branch retention.
+git implementation with fixed argv (shared with M6, no second creator), repo binding (`project.repo.bind/unbind` with
+commit identity and remote), naming (spec §6.2), fork inside the create transaction, D109 roots and deny-list for child
+runs (spec §6.4), merge **executed by the harness** (spec §6.6–§6.7): preview, proposal, confirmation record bound to
+child, parent HEAD and the D98 `treeHash`, `auto` mode on gate green + review passed, merge commit with the trailers
+`P1B-Subproject`, `P1B-Tree`, `P1B-Approved-By`; `project.subproject.merge.revert` as `git revert -m 1` (new commit);
+`subproject_merges` table; cleanup and branch retention.
 **Tests.** Temp git repos: fork from a parent that moved, `baseSha` recorded; conflict preview lists files and refuses
-commit; merge of a tree different from the gated one refused; sandbox refuses sibling and parent paths via `..`, symlink,
-absolute path (through `pathCovered` and the deny-list); cleanup removes worktree, keeps unmerged branch; names with
-unsafe characters never reach argv.
-**Acceptance.** D98 gate unchanged for root projects; external agent adapter receives the child checkout.
+commit (`merge-conflict`); merge of a tree different from the gated one refused (`tree-changed`); moved parent HEAD voids
+the confirmation (`parent-moved`); `confirm` mode: agent commit without confirmation `E_APPROVAL_REQUIRED`, one
+confirmation → exactly one merge commit with trailers; `auto` mode: merges only with gate green and review passed;
+revert → new commit, child back to `completed`, re-merge via revert of the revert; argv recorder shows no `--force`,
+`reset`, `rebase` or `push` in any child path; sandbox refuses sibling and parent paths via `..`, symlink, absolute path
+(through `pathCovered` and the deny-list); cleanup removes worktree, keeps unmerged branch; names with unsafe characters
+never reach argv.
+**Acceptance.** D98 gate unchanged for root projects; external agent adapter receives the child checkout; no person has
+to run a git command for a child → parent merge.
+
+## WP4b — Root → base branch on GitHub (≈ 2 agent days; R8)
+
+**Files.** GitHub client inside the provisioner (REST through egress to `api.github.com` only): fast-forward push of the
+root branch, open or update the pull request into `baseBranch`, merge as merge commit when required checks are green,
+revert pull request; per-repository credential profile in the M2 secret store (fine-grained token or GitHub App
+installation, `contents:write` and `pull_requests:write` for that repository), leased per operation; D109 effect
+`external` for agent coordinators; audit of push, pull-request number, merge and revert.
+**Tests.** Fake GitHub API (local stub server): push refused unless fast-forward; merge only with green required checks,
+else `checks-red`; `confirm` and `auto` modes as in WP4; revert pull request; credential absent from logs, audit, tool
+results and error texts; without a remote or credential the root merges locally.
+**Acceptance.** The owner's flow "propose → click → merged on GitHub" works end to end against the fake API; the real
+repository run is recorded once in the demo worksheet (WP10).
 
 ## WP5 — Hand-off down and report channel up (≈ 3 agent days)
 
@@ -118,37 +152,52 @@ untrusted `tool_result` for an agent coordinator; taint flag set on the coordina
 
 **Files.** `project.coordinator.set`; control operations start/pause/resume/cancel/reprioritise/swap-agent with live
 effect at the next turn boundary (pause/cancel abort in-flight chains through the existing abort path, partial results
-kept); coordinator tools (spec §7.2) in the per-turn composition with D109 effects and defaults; audit events (spec
-§13.4); evaluation flow (spec §9.3).
+kept); coordinator tools (spec §7.2) in the per-turn composition with D109 effects and defaults, including an
+agent-persona owner as default coordinator; grandchild creation by a child's coordinator or lead agent when
+`childrenMayCreate` is on, otherwise through a root-coordinator approval (spec §5.2, Q3); audit events (spec §13.4);
+evaluation flow (spec §9.3).
 **Tests.** Rights matrix spec §7.1 row by row for person, agent coordinator, ancestor lead, child member; agent
-coordinator gets `ask` for start/cancel/budget/merge and `allow` for pause; pause stops new turns and keeps partial output;
-swap-agent moves the child's sessions to the new agent without carrying the old agent's memory; a child agent cannot see
-or call coordinator tools.
+coordinator gets `ask` for start/cancel/budget and `allow` for pause, and merges only with a confirmation or in `auto`
+mode; pause stops new turns and keeps partial output; swap-agent moves the child's sessions to the new agent without
+carrying the old agent's memory; a child agent that is neither the child's coordinator nor its lead agent cannot see or
+call coordinator tools; with `childrenMayCreate` on the child's lead agent creates a grandchild (D109) and the root sees
+it, with it off the creation waits for the root coordinator; a grandchild never gets coordinator tools.
 
-## WP7 — Budget allocation (≈ 2 agent days; R3)
+## WP7 — Budget allocation (≈ 3 agent days; R3; Q9 decided)
 
-**Files.** `project.subproject.budget.set`; allocation as M2 project-scope ceiling + reservation against the parent;
+**Files.** `project.subproject.budget.set` with the dimensions tokens, turns and wall time, each a number or `unlimited`
+(spec §10.1; no USD dimension; turns and wall time enforced by the collab runner); defaults
+tokens unlimited, 150 turns, 36 h from the config key `collab.subprojects.budgetDefaults` (`x-restart: live`,
+`x-tier: advanced`, run `pnpm gen` and `pnpm docs:gen`), overridable per project; allocation as M2
+project-scope ceiling + reservation against the parent;
 ancestor chain in admission (`packages/core/src/budget` call site through the collab `BudgetPort`, no budget-store schema
 change if the existing project scope suffices — otherwise stop and report); pause on exhaustion; release on terminal
 state.
-**Tests.** Allocation sum bound; top-up beyond parent refused (`E_CONFLICT`, `allocation-exceeds-parent`); cut below used
-+ in-flight refused; ancestor limit refuses a child call even when the child has allocation left; unused part released on
-completion; child sees only its own figures.
+**Tests.** Allocation sum bound per dimension; top-up beyond parent refused (`E_CONFLICT`, `allocation-exceeds-parent`);
+cut below used + in-flight refused; ancestor limit refuses a child call even when the child has allocation left; turn and
+wall-time limits pause the child at the next turn boundary; no subproject call, result or UI shows a USD figure;
+unused part released on completion; child sees only its own figures; a child without explicit values gets the defaults
+(tokens unlimited, 150 turns, 36 h) clamped to the parent's remainder; changed installation defaults apply to new
+children; per project all three dimensions can be `unlimited` and the ancestors' limits still refuse; wall time is not
+summed across siblings.
 
 ## WP8 — Web UI (≈ 4 agent days; live acceptance needs R2)
 
 **Files.** `packages/web/src/pages/projects/**`: subproject badge with traffic light and progress on origin cards
 (`board-view.ts`), "Make subproject" in `card-drawer.ts` with preview dialog, drilldown route and breadcrumb (`page.ts`),
-coordinator tab (children table, report feed, question inbox, actions), child "Upwards" panel; DE/EN in
+coordinator tab (children table, report feed, question inbox, actions, merge proposal with a confirm button, revert),
+root settings "children may create subprojects" and "merge: confirm | auto", child "Upwards" panel; DE/EN in
 `i18n/projects.ts` (append only); styles in `styles/projects.css` (no inline styles); report bodies escaped like
 `handoff-card.ts`.
 **Tests.** Mock-server unit tests per component; Chromium DE/EN keyboard flow card → subproject → pause → report →
-merge preview; a child-only member's view contains no sibling name or link (DOM assertion); axe clean.
+merge proposal → confirm → merged → revert; settings toggles visible to root leads only; a child-only member's view
+contains no sibling name or link (DOM assertion); axe clean.
 
 ## WP9 — CLI (≈ 1.5 agent days)
 
 **Files.** `crates/plur1bus/src/commands/project.rs` (or the existing project command module): `project sub …`,
-`project tree`, `project coordinator set`, `project repo bind` (spec §11.5), every leaf `[experimental]`, `--json` raw RPC
+`project tree`, `project coordinator set`, `project repo bind`, `project settings`, `project sub merge --propose|--confirm|
+--revert` (spec §11.5), every leaf `[experimental]`, `--json` raw RPC
 value with `schema` id; regenerate `docs/cli.md` via `pnpm docs:gen` (`cargo` build only where the controller allows it;
 otherwise the CLI WP runs on a machine with disk for cargo).
 **Tests.** clap parse tests; JSON passthrough tests against a fake core; exit codes from `docs/errors.md` mapping.
@@ -158,7 +207,8 @@ otherwise the CLI WP runs on a machine with disk for cargo).
 **Files.** `docs/collaboration.md` (subproject section), `docs/projects-board.md` (subproject link and badge),
 `docs/rbac.md` (hierarchy visibility, new methods in the project table), `docs/rpc.md` (generated), `docs/cli.md`
 (generated), user docs DE/EN (`docs/user/*/`), `docs/demos/` (demo: split a card into two subprojects, observe, merge),
-`docs/milestones.md` status paragraph for M5+.
+`docs/milestones.md` status paragraph for M5+; owner worksheet for one real merge "propose → confirm → merged on GitHub"
+(NOT RUN until executed).
 
 ## WP11 — Isolation suite and end-to-end (≈ 3 agent days)
 
@@ -166,7 +216,8 @@ otherwise the CLI WP runs on a machine with disk for cargo).
 transport test through the real HTTP API (as `collab/web-transport.test.ts`) once R2 is on `main`.
 **Matrix.** Fixture tree root → A (→ A1), B, each with unique markers in card text, comment, trace preview, report,
 artifact, memory entry, worktree file. Probed **from** A's agent, A's child-only member, A's agent coordinator, A1's agent
-(and the federation peer stub once Track F exists) **through** board read/list/search, card get, comments, activity, trace
+and A's grandchild created by A's lead agent (Q3) (the federation peer stub is added by Track F WP14) **through** board
+read/list/search, card get, comments, activity, trace
 get/list/export, replay, events subscription, report list/send addressing, artifact get, memory recall, host file tools,
 consult/delegate to B's agent, hand-off forging with `task.project = B`, budget status, `project.list`, `project.tree.get`,
 WebMCP tool list, CLI `--json`. Expected: no B marker anywhere; lookups `E_NOT_FOUND`; refusals audited. Plus root sees
@@ -179,26 +230,33 @@ all, A sees nothing of root's board except pass-down items.
 
 | WP | Content | Depends on | Effort (ad) |
 |---|---|---|---|
-| WP0 | Owner decisions, prerequisite check | — | 0.5 |
-| WP1 | Data model, hierarchy, inheritance | WP0 (Q1–Q3) | 3 |
+| WP0 | Owner decisions (done 2026-10-19, D115), prerequisite check | — | 0.5 |
+| WP1 | Data model, hierarchy, inheritance, root settings, coordinator default | WP0 | 3.5 |
 | WP2 | Isolation predicate in RBAC/scopes/events/object checks | WP1 | 4 |
-| WP3 | Memory scoping, pass-down, raise-up | WP2; R4; Q6/Q7 | 3 |
-| WP4 | Worktree fork, sandbox, merge back | WP1; R6; Q8 | 4 |
+| WP3 | Memory scoping, pass-down, raise-up | WP2; R4 | 3 |
+| WP4 | Worktree fork, sandbox, merge execution (confirm/auto), revert | WP1; R6 | 5 |
+| WP4b | Root → base branch on GitHub (push, pull request, merge, revert) | WP4; R8 | 2 |
 | WP5 | Hand-off down, `plur1bus.report/1` up, forward | WP2 | 3 |
-| WP6 | Coordinator role, control, agent tools | WP5 | 3 |
-| WP7 | Budget allocation and ancestor admission | WP2; R3; Q9 | 2 |
-| WP8 | Web UI | WP4–WP7; R2 for live | 4 |
+| WP6 | Coordinator role, control, agent tools, grandchildren by children | WP5 | 3.5 |
+| WP7 | Budget dimensions, defaults, allocation and ancestor admission | WP2; R3 | 3 |
+| WP8 | Web UI | WP4–WP7; R2 for live | 4.5 |
 | WP9 | CLI | WP4–WP7 | 1.5 |
 | WP10 | Documentation and demo | WP8, WP9 | 1 |
-| WP11 | Isolation suite and E2E | all | 3 |
-| | **Total** | | **≈ 32 ad (26–40)** |
+| WP11 | Isolation suite and E2E | all | 3.5 |
+| | **Total** | | **≈ 38 ad (30–48)** |
 
-Range: −20 % if R4/R6 are already provided by their owners when work starts; +25 % if the worktree provisioner has to be
-built here from scratch and the events audience hook needs its own change.
+Before the owner decisions of 2026-10-19 the total was ≈ 32 ad (26–40). The increase of ≈ 6 ad: merge execution by the
+harness with confirm/auto modes and revert (WP4 +1), the GitHub root merge (WP4b +2), root settings and the persona
+coordinator default (WP1 +0.5), grandchildren created by children (WP6 +0.5, WP11 +0.5), budget dimensions turns and wall
+time (WP7 +1) and the merge and settings UI (WP8 +0.5).
+
+Range: −20 % if R4/R6/R8 are already provided by their owners when work starts; +25 % if the worktree provisioner has to
+be built here from scratch and the events audience hook needs its own change.
 
 **Gates.**
 - **G1 (after WP2):** isolation predicate reviewed by an independent reviewer; no change to root-project behaviour.
-- **G2 (after WP4):** git operations audited (fixed argv, no rewrite, no push, tree-hash binding).
+- **G2 (after WP4/WP4b):** git and GitHub operations audited (fixed argv, no rewrite, no force push, push only for the
+  root branch, tree-hash and HEAD binding of the confirmation, credential never exposed).
 - **G3 (after WP6):** D109 defaults for agent coordinator tools confirmed by the owner.
 - **G4 (WP11):** full isolation matrix green; owner acceptance of the demo.
 
@@ -210,10 +268,16 @@ built here from scratch and the events audience hook needs its own change.
    swap agents; effects apply at the next turn boundary.
 4. **Siblings see nothing** across the WP11 matrix; sibling lookups answer `E_NOT_FOUND`.
 5. No effective setting, right or budget of a child is wider than its parent's, including after later parent changes.
-6. Merge back happens only through the D98 gate and the coordinator's decision on the exact verified tree.
+6. Merge back happens only through the D98 gate and on the exact verified tree, **executed by PLUR1BUS**: after a person
+   confirms the proposal (default) or, with per-project auto-merge, when gate and review are green; revert is a new
+   commit; no person has to commit or merge by hand, locally or on GitHub.
+9. Children create grandchildren themselves when the root setting allows it (default), within depth 2 and only narrower
+   rights and budget; the coordinator is by default the project owner, person or agent persona.
 7. Allocations never exceed the parent's remaining budget; unused allocation returns on completion.
 8. Reports and returns enter the parent as tainted untrusted data; agent-supplied progress/cost is overwritten by the core.
 
 ## Open points carried from the spec
 
-Spec §16 Q1–Q10; prerequisites R2–R7 (spec §14); the Track F interface (spec §12) is named, not built.
+None of the owner questions (spec §16 Q1–Q10 decided 2026-10-19, D115); prerequisites R2–R8 (spec §14). The
+federation side (spec §12) is built in Track F **WP14** ("Subproject as share and mission unit",
+[`2026-10-19-federation-cluster.md`](2026-10-19-federation-cluster.md)), with this track as its precondition.

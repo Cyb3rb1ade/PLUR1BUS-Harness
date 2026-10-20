@@ -33,7 +33,7 @@ port/planner or fake-only behavior existed, not a working login.
 | Port/API | Purpose |
 |---|---|
 | `login(options)` | Execute OAuth login, persist one complete record, return `{ profileId, method, expiresAt }` |
-| `createOAuthHttp({ egress })` | Form-encoded token/device POST; egress gate, vetted IP, TLS host verification, no redirects, 30 s deadline, 64 KiB response limit |
+| `createOAuthHttp({ egress })` | Form-encoded token/device POST through `egress.request`; egress gate, vetted IP, TLS host verification, no redirects, 30 s deadline, 64 KiB response limit; no socket of its own |
 | `HttpRefresher(http)` | RFC 6749 refresh adapter **behind** `RefreshOwner` |
 | `createAuthSecretStore(existingSecrets)` | Existing secrets API: read/revoke a core lease; audited owner set/delete; no direct backend access |
 | `GoogleAdc({ http, clock, env, readFile, homedir, platform })` | Injectable ambient Google token source for `CredentialsProvider` |
