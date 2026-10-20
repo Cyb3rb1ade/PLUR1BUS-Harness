@@ -54,13 +54,15 @@ describe("chat: model and reasoning", opts, () => {
     });
   });
 
-  test("keyboard only: focus the select, arrow to a level; a stale revision reloads and says so", async () => {
+  test("keyboard only: focus the select, jump to a level with End; a stale revision reloads and says so", async () => {
     await withChat({ route: "#/chat/ses_1", seed }, async ({ page, chat }) => {
       const reasoning = page.getByRole("combobox", { name: "Reasoning" });
       await reasoning.waitFor();
       chat.modelChoice.set("ses_1", { profile: "default", reasoning: "low", revision: 7 }); // changed elsewhere after load
       await reasoning.focus();
-      await page.keyboard.press("ArrowDown");
+      // Not ArrowDown: on macOS Chromium it pops the native menu open instead of changing a closed select (so no change event
+      // and the test timed out on macOS runners), while Home/End change the value without a popup on every platform.
+      await page.keyboard.press("End");
       await page.getByRole("alert").filter({ hasText: "The model choice was changed elsewhere" }).waitFor();
       assert.equal(sets(chat)[0]?.params && (sets(chat)[0]!.params as { expectedRevision: number }).expectedRevision, 0);
       await page.waitForFunction(() => (document.querySelectorAll(".chat-model select")[1] as HTMLSelectElement | undefined)?.value === "low");
