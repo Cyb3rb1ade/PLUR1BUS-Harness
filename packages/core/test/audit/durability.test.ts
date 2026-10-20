@@ -33,6 +33,33 @@ it("flushes torn evidence before truncating it and committing the next record", 
   assert.deepEqual(operations, process.platform === "win32" ? ["file", "truncate", "file", "file"] : ["file", "directory", "truncate", "file", "file", "directory"]);
 });
 
+it("completes short writes for both the record and anchor before reporting success", () => {
+  const dir = tempDir("audit-short-write-"); const chain = createAuditChain({ dir });
+  const original = fs.writeSync;
+  const short = mock.method(fs, "writeSync", (fd: number, data: string | Uint8Array, offset?: number, length?: number) => {
+    const bytes = typeof data === "string" ? Buffer.from(data) : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+    const start = typeof data === "string" ? 0 : offset ?? 0;
+    const remaining = typeof data === "string" ? bytes.length : length ?? bytes.length - start;
+    return original(fd, bytes, start, Math.max(1, Math.floor(remaining / 2)));
+  });
+  syncBuiltinESMExports();
+  try { chain.append({ ...event, target: "Unicode ü 😀" }); }
+  finally { short.mock.restore(); syncBuiltinESMExports(); }
+  assert.deepEqual([chain.verify().ok, chain.verify().records, chain.verify().anchor.status], [true, 1, "match"]);
+});
+
+it("refuses a write with no progress without advancing or replacing the previous anchor", () => {
+  const dir = tempDir("audit-zero-write-"); const chain = createAuditChain({ dir });
+  chain.append(event);
+  const anchor = readFileSync(path.join(dir, ANCHOR_NAME), "utf8");
+  const zero = mock.method(fs, "writeSync", () => 0);
+  syncBuiltinESMExports();
+  try { assert.throws(() => chain.append(event), /write made no progress/); }
+  finally { zero.mock.restore(); syncBuiltinESMExports(); }
+  assert.equal(readFileSync(path.join(dir, ANCHOR_NAME), "utf8"), anchor);
+  assert.deepEqual([chain.verify().ok, chain.verify().records], [true, 1]);
+});
+
 it("reports an anchor behind a complete line after restart as its own finding and preserves evidence", () => {
   const dir = tempDir("audit-crash-behind-");
   const chain = createAuditChain({ dir });

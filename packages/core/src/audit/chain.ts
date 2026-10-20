@@ -63,6 +63,17 @@ function assertRecordable(e: ChainRecord): void {
 
 export const hashLine = (line: string): string => createHash("sha256").update(line, "utf8").digest("hex");
 
+/** A successful write may still be short. The OS lock prevents interleaving across retries. */
+function writeAllSync(fd: number, value: string | Buffer): void {
+  const bytes = typeof value === "string" ? Buffer.from(value, "utf8") : value;
+  let offset = 0;
+  while (offset < bytes.length) {
+    const written = writeSync(fd, bytes, offset, bytes.length - offset);
+    if (written <= 0) throw new Error("audit-chain: write made no progress");
+    offset += written;
+  }
+}
+
 interface Parsed { seq: number; prev: string }
 function parse(line: string): Parsed | null {
   let v: unknown;
@@ -199,7 +210,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
         let tornPath = `${f}.torn-${Date.now()}`;
         for (let n = 1; existsSync(tornPath); n++) tornPath = `${f}.torn-${Date.now()}-${n}`;
         const evidence = openSync(tornPath, "wx", 0o600);
-        try { secure(tornPath); writeSync(evidence, bytes); fsyncSync(evidence); } finally { closeSync(evidence); }
+        try { secure(tornPath); writeAllSync(evidence, bytes); fsyncSync(evidence); } finally { closeSync(evidence); }
         syncDirectory(); // retain evidence durably before truncating the interrupted write
         truncateSync(f, t.tornFrom);
         t = scanTail(f);
@@ -229,7 +240,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
   const writeAnchor = (a: Anchor): void => {
     const tmp = `${anchorPath}.tmp`;
     const fd = openSync(tmp, "w", 0o600);
-    try { writeSync(fd, `${JSON.stringify({ v: 1, seq: a.seq, hash: a.hash })}\n`); fsyncSync(fd); } finally { closeSync(fd); }
+    try { writeAllSync(fd, `${JSON.stringify({ v: 1, seq: a.seq, hash: a.hash })}\n`); fsyncSync(fd); } finally { closeSync(fd); }
     secure(tmp);
     renameSync(tmp, anchorPath); // replaces atomically; the anchor is never half-written
     secured.delete(anchorPath); // a new inode: re-secure
@@ -257,7 +268,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
         const fd = openSync(active, "a", 0o600);
         try {
           secure(active);
-          writeSync(fd, `${line}\n`); // one write on an O_APPEND handle
+          writeAllSync(fd, `${line}\n`); // O_APPEND; the OS lock also covers short-write retries
           fsyncSync(fd);
         } finally { closeSync(fd); }
         writeAnchor({ seq, hash: hashLine(line) });
