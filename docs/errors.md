@@ -122,6 +122,7 @@ not lost: `plur1bus media job <id>` shows it.
 | `release-version-invalid` | A version that is not a semantic version (`major.minor.patch`, optional `-pre-release`) cannot be ordered against the other. |
 | `prerelease-on-stable` | The release is a pre-release and this install follows the stable channel; `--channel beta` follows pre-releases. |
 | `guard-unreadable`, `addons-unreadable`, `state-unreadable` | A file under `<home>/update/` does not parse; it is never treated as empty. |
+| `update-in-progress` | Another `update`, `update --rollback` or `setup` holds `<home>/update/update.lock` (or an interrupted update's process is still alive); nothing was changed, run it again when the other one has finished. `update --plan`, `--check` and `update status` never take the lock. |
 | `addon-incompatible` | A required add-on would be incompatible with the new version; `--force` disables it and updates anyway. |
 | `addon-disable-failed` | (Outcome `rolled-back`.) An add-on could not be disabled after the swap; the update was rolled back. |
 | `bundle-unreadable`, `bundle-invalid`, `archive-unsupported`, `archive-unsafe-entry`, `channel-mismatch` | An offline bundle (`--from`) is missing, lacks `manifest.json`, `manifest.json.minisig` or an artefact, is not a `.tar.zst`/`.zip`, holds an entry that is not a plain file or directory (traversal, absolute name, link, duplicate), or is for another channel. |
