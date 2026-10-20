@@ -1224,9 +1224,19 @@ mod tests {
         // The audited archive itself fits its own count.
         extract_audited(&small, &env._dir.path().join("ok"), &insp.entries).unwrap();
         // A larger archive does not, whatever it is (the 2 GiB default would let it through).
+        // Incompressible bytes: a run of one byte would trip the zip audit's 100:1 ratio check before extraction.
+        let mut x: u64 = 0x9e37_79b9_7f4a_7c15;
+        let noise: String = (0..4096)
+            .map(|_| {
+                x = x
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                char::from(b'!' + ((x >> 33) % 94) as u8)
+            })
+            .collect();
         let big = env.write(
             "big.p1x",
-            &build_package_from(&mcp("1.0.0"), files(&"x".repeat(4096)), Some(&env.key)),
+            &build_package_from(&mcp("1.0.0"), files(&noise), Some(&env.key)),
         );
         let e = extract_audited(&big, &env._dir.path().join("big"), &insp.entries).unwrap_err();
         assert_eq!(reason_of(&e), "download-too-large", "{e}");
