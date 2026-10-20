@@ -39,7 +39,9 @@ export interface AuditChainOptions {
   maxBytes?: number;
   lockTimeoutMs?: number;
 }
+export type ChainRecord = Omit<AuditEvent, "target"> & { target: string | null };
 export interface AuditChain extends AuditSink {
+  append(e: ChainRecord): void;
   /** Verifies every file and the anchor. Never changes a chain file; takes the writer lock so a line in flight is not seen half-written. */
   verify(): VerifyResult;
   /** Moves the active file aside (a no-op, `null`, when it holds no line). */
@@ -48,13 +50,13 @@ export interface AuditChain extends AuditSink {
 }
 
 /** The record must survive `JSON.stringify` unchanged: a NaN/Infinity `at` would become `null`, an `undefined` field would vanish. */
-function assertRecordable(e: AuditEvent): void {
+function assertRecordable(e: ChainRecord): void {
   const o = e as unknown as Record<string, unknown>;
   const actor = o.actor as Record<string, unknown> | null | undefined;
   const plain = (v: unknown): boolean => typeof v === "object" && v !== null && !Array.isArray(v);
   const ok = typeof o.at === "number" && Number.isFinite(o.at) && o.at >= 0
     && plain(actor) && typeof actor?.user === "string" && typeof actor?.host === "string"
-    && typeof o.action === "string" && typeof o.target === "string" && plain(o.detail);
+    && typeof o.action === "string" && (typeof o.target === "string" || o.target === null) && plain(o.detail);
   if (!ok) throw new Error("audit-chain: invalid event; refusing to record it");
 }
 
@@ -148,12 +150,14 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
   const lockPath = path.join(dir, LOCK_NAME);
   const maxBytes = o.maxBytes ?? DEFAULT_MAX_BYTES;
   const lockTimeoutMs = o.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS;
-  const secured = new Set<string>();
+  const secured = new Map<string, string>();
   const secure = (p: string): void => {
-    if (secured.has(p)) return;
+    const st = statSync(p, { bigint: true });
+    const inode = `${st.dev}:${st.ino}`;
+    if (secured.get(p) === inode) return;
     if (process.platform !== "win32") chmodSync(p, 0o600); // an existing file may be looser
     o.securePath?.(p);
-    secured.add(p);
+    secured.set(p, inode);
   };
 
   const rotatedFiles = (): string[] => {
@@ -170,7 +174,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
       sleepSync(5);
       lock = acquireExclusiveLock(lockPath);
     }
-    try { return fn(); } finally { lock.release(); }
+    try { secure(lockPath); return fn(); } finally { lock.release(); }
   };
 
   /** (seq, hash) of the newest line in the chain, from the active file or else the newest rotated one. */
@@ -224,7 +228,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
 
   return {
     dir,
-    append(e: AuditEvent): void {
+    append(e: ChainRecord): void {
       assertRecordable(e);
       withLock(() => {
         let st = tailState();
@@ -234,7 +238,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
         if (a.kind === "absent" && st.seq > 0) throw new Error("audit-chain: anchor is missing; refusing to append");
         if (a.kind === "ok") {
           if (a.anchor.seq > st.seq) throw new Error("audit-chain: chain is shorter than its anchor; refusing to append");
-          if (a.anchor.seq === st.seq && a.anchor.hash !== st.hash) throw new Error("audit-chain: tail does not match the anchor; refusing to append");
+          if (a.anchor.seq !== st.seq || a.anchor.hash !== st.hash) throw new Error("audit-chain: tail does not match the anchor; refusing to append");
         }
         if (existsSync(active) && statSync(active).size >= maxBytes) { rotateLocked(); st = tailState(); }
         const seq = st.seq + 1;
@@ -302,7 +306,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
 }
 
 /** Writes to every sink; all of them are tried, and the first failure is rethrown (an event that one sink could not record is not recorded). */
-export function teeAuditSinks(...sinks: AuditSink[]): AuditSink {
+export function teeAuditSinks(...sinks: { append(e: ChainRecord): void }[]): { append(e: ChainRecord): void } {
   return {
     append(e) {
       let failure: unknown; let failed = false;

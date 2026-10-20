@@ -3,6 +3,8 @@
 //! on Windows). Actions in 2a-H3b-b: `licence.accept-nc`, `setup.complete`, `repair.<step id>`.
 // The writers (setup, repair) land in 2a-H3b-b Tasks 4 and 7; until then only the tests call `append`.
 #![allow(dead_code)]
+#[path = "audit_chain.rs"]
+mod chain;
 use crate::paths::Layout;
 use serde_json::{json, Value};
 use std::fs;
@@ -65,6 +67,7 @@ pub fn append(layout: &Layout, action: &str, target: &str, detail: Value) -> io:
         "target": target,
         "detail": detail,
     });
+    chain::append(&layout.logs(), &line)?;
     let mut f = fs::OpenOptions::new().append(true).read(true).open(&path)?;
     let entry = serde_json::to_string(&line).map_err(io::Error::other)?;
     {
@@ -147,6 +150,22 @@ mod tests {
                 .mode();
             assert_eq!(mode & 0o777, 0o600);
         }
+    }
+
+    #[test]
+    fn cli_events_join_the_chain_and_refuse_tampered_anchors() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        append(&layout, "setup.complete", "test", json!({})).unwrap();
+        let chain = layout.logs().join("audit-chain.jsonl");
+        let text = fs::read_to_string(&chain).expect("Rust audit must join the shared chain");
+        let first: Value = serde_json::from_str(text.trim()).unwrap();
+        assert_eq!(first["seq"], 1);
+        assert_eq!(first["prev"], "0".repeat(64));
+        assert_eq!(first["rec"]["action"], "setup.complete");
+        fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
+        assert!(append(&layout, "repair.test", "test", json!({})).is_err());
+        assert_eq!(fs::read_to_string(chain).unwrap(), text);
     }
 
     fn lines(layout: &Layout) -> Vec<String> {
