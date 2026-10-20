@@ -1,6 +1,7 @@
 import { appendFileSync, closeSync, mkdirSync, openSync } from "node:fs";
 import path from "node:path";
 import type { AuditEvent } from "./service.ts";
+import { redactAuditDetail } from "../audit/redact-detail.ts";
 
 /**
  * Appends to `logs/audit.log` in the line shape `crates/plur1bus/src/audit.rs` writes:
@@ -17,7 +18,7 @@ export function createAuditWriter(o: { file: string; securePath: (p: string) => 
       o.securePath(o.file);
       secured = true;
     }
-    const line = JSON.stringify({ at: o.clock(), actor: e.actor ?? { user: "core", host: "core" }, action: e.action, target: e.target, detail: e.detail });
+    const line = JSON.stringify({ at: o.clock(), actor: e.actor ?? { user: "core", host: "core" }, action: e.action, target: e.target, detail: redactAuditDetail(e.detail) });
     appendFileSync(o.file, line + "\n", { mode: 0o600 });
   };
 }
