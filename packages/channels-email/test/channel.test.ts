@@ -131,6 +131,22 @@ test("requireAuthPass: dmarc=fail is dropped, dmarc=pass passes", async () => {
   }
 });
 
+test("start warns (once, without content) when requireAuthPass is off: From alone identifies the sender; no warning when it is on", async () => {
+  for (const [requireAuthPass, warned] of [[undefined, true], [false, true], [true, false]] as const) {
+    const fx = await makeEmailFixture();
+    const ch = fx.make(false, requireAuthPass === undefined ? {} : { requireAuthPass });
+    try {
+      await ch.start(hostRec().host);
+      const hits = (fx.logs as { level: string; event: string }[]).filter((l) => l.event === "channel.email.auth-not-required");
+      assert.equal(hits.length, warned ? 1 : 0, `requireAuthPass=${String(requireAuthPass)}`);
+      if (warned) assert.equal(hits[0]!.level, "warn");
+    } finally {
+      await ch.stop();
+      await fx.dispose();
+    }
+  }
+});
+
 test("requireAuthPass without authServId drops everything; forged trusted-looking header is ignored", async () => {
   const fx = await makeEmailFixture();
   const h = hostRec();

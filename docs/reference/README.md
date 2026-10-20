@@ -11,3 +11,4 @@ Lookup pages for the harness: error codes, environment variables, paths, config 
 - [todo-inventory.md](todo-inventory.md): TODO, FIXME, XXX and HACK comments in the repo.
 - [glossary.md](glossary.md): project terms with German equivalents and where they are defined.
 - [faq.md](faq.md): short answers on installation, backup, update, logs and troubleshooting, each linked to its source.
+- [user-docs-coverage.md](user-docs-coverage.md): which web routes and CLI commands have a page in `docs/user/{de,en}`, with counts and the open gaps.

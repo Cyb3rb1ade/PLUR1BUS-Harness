@@ -13,7 +13,8 @@ import { FakePort, FakeTimers, tmpRoot } from "./helpers.ts";
 const T = { timeout: 20_000 };
 const BASE_ENV = { PATH: "/usr/bin" };
 
-async function classifyExec(args: unknown, root: string, baseEnv: Record<string, string> = BASE_ENV): Promise<{ targets: string[]; hashExtra: string; access: "write"; flags: { outsideRoots: false; denyListHit: false } }> {
+// Mirrors `classifyExecRun` (composition/tools.ts): `sandboxed` is `tools.sandbox.required !== false`, true by default.
+async function classifyExec(args: unknown, root: string, baseEnv: Record<string, string> = BASE_ENV, sandboxed = true): Promise<{ targets: string[]; hashExtra: string; access: "write"; flags: { outsideRoots: false; denyListHit: false; sandboxed: boolean } }> {
   const raw = args && typeof args === "object" && !Array.isArray(args) ? args as { cwd?: unknown; env?: unknown } : undefined;
   if (typeof raw?.cwd !== "string") throw new Error("cwd must be a string");
   const resolved = await canonicalisePath(raw.cwd, { roots: [{ id: "r", path: root }], access: "read", requireRoot: true, platform: process.platform });
@@ -23,10 +24,10 @@ async function classifyExec(args: unknown, root: string, baseEnv: Record<string,
     requested: raw.env === undefined ? undefined : raw.env as Record<string, string>,
     windows: process.platform === "win32",
   });
-  return { flags: { outsideRoots: false, denyListHit: false }, targets: [resolved.canonical], hashExtra: envFingerprint(env), access: "write" };
+  return { flags: { outsideRoots: false, denyListHit: false, sandboxed }, targets: [resolved.canonical], hashExtra: envFingerprint(env), access: "write" };
 }
 
-async function setup(root: string, port: FakePort, o: { grants?: { list(q: { person: string; agent: string; capability: string }): readonly Grant[]; get(id: string): Grant | undefined }; rig?: Rig } = {}) {
+async function setup(root: string, port: FakePort, o: { grants?: { list(q: { person: string; agent: string; capability: string }): readonly Grant[]; get(id: string): Grant | undefined }; rig?: Rig; sandboxed?: boolean } = {}) {
   const r = o.rig ?? await baseRig();
   const registry = new ToolRegistry();
   const execTimers = new FakeTimers();
@@ -38,7 +39,7 @@ async function setup(root: string, port: FakePort, o: { grants?: { list(q: { per
     effect: "local-write",
     risk: "medium",
     trust: "first-party",
-    classify: (args) => classifyExec(args, root),
+    classify: (args) => classifyExec(args, root, BASE_ENV, o.sandboxed ?? true),
     execute: async (args, ctx) => {
       const spec = createExecTool({
         config: { mode: "ask", roots: [{ id: "r", path: root }], allowlist: [{ program: "git" }] },
@@ -136,6 +137,40 @@ describe("exec.run once-grant replay (D109 §9.3)", () => {
     assert.equal(first.meta.decision, "allow");
     assert.equal(port.spawned.length, 1);
     s.r.service.dispose();
+  });
+
+  it("without a sandbox a task path grant on the cwd does not run the command; the person's acknowledgement does (Q17)", T, async () => {
+    const { root, sub } = tmpRoot();
+    const args = { program: "git", cwd: sub, args: ["status"] };
+    const resolved = await canonicalisePath(sub, { roots: [{ id: "r", path: root }], access: "read", requireRoot: true, platform: process.platform });
+    assert.equal(resolved.ok, true);
+    const grantFor = (acknowledgedUnsandboxed: boolean) => ({
+      capability: "shell.exec", person: "christian", agent: "bernd", scope: "task" as const, taskId: "t1",
+      match: { kind: "path" as const, path: resolved.ok ? resolved.canonical : sub, access: "write" as const, recursive: true },
+      createdBy: "christian", surface: 3 as const, ...(acknowledgedUnsandboxed ? { acknowledgedUnsandboxed: true } : {}),
+    });
+
+    const portA = new FakePort();
+    portA.onSpawn = (p) => p.exit(0);
+    const a = await setup(root, portA, { sandboxed: false });
+    a.r.stores.grants.create(grantFor(false));
+    let settled: Awaited<ReturnType<typeof a.call>> | undefined;
+    const pa = a.call(args).then((res) => { settled = res; return res; });
+    while (a.r.service.list().length === 0 && settled === undefined) await tick();
+    assert.equal(a.r.service.list().length, 1, "the path grant does not stand in for the sandbox: the call asks");
+    assert.equal(portA.spawned.length, 0);
+    a.r.service.dispose();
+    assert.equal((await pa).isError, true);
+
+    const portB = new FakePort();
+    portB.onSpawn = (p) => p.exit(0);
+    const b = await setup(root, portB, { sandboxed: false });
+    b.r.stores.grants.create(grantFor(true));
+    const ok = await b.call(args);
+    assert.equal(ok.isError, false, ok.isError ? ok.error.message : "");
+    assert.equal(ok.meta.decision, "allow");
+    assert.equal(portB.spawned.length, 1);
+    b.r.service.dispose();
   });
 
   it("a once grant bound to one env is refused when PATH (hashExtra) changes", T, async () => {

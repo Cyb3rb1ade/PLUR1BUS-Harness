@@ -73,7 +73,7 @@ export const de: Record<keyof typeof en, string> = {
   "home.links.donate": "Spenden / Fördern",
   "home.section.quickLinks": "Dokumentation & Repositories",
   "home.section.status": "Systemstatus",
-  "home.version": "Version & Build",
+  "home.version": "Version und Build",
   "home.coreStatus": "Core-Status",
   "home.engineReady": "Engine bereit",
   "home.engineDegraded": "Engine beeinträchtigt",
@@ -85,7 +85,7 @@ export const de: Record<keyof typeof en, string> = {
   "home.status.disconnected": "Getrennt",
   "home.status.yes": "Ja",
   "home.status.no": "Nein",
-  "home.status.forbidden": "Der Status ist für Ihre Rolle nicht verfügbar.",
+  "home.status.forbidden": "Der Status ist für deine Rolle nicht verfügbar.",
   "home.status.unknown": "Unbekannt",
 
   "help.title": "Benutzerhandbuch",

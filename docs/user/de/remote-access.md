@@ -1,6 +1,6 @@
 # Remote-Zugriff
 
-Unter **Settings → Devices & Remote** wählst du `local`, `tailnet` oder `network`. Standard ist `tailnet`: Tailscale muss installiert und angemeldet sein. Fehlt es, zeigt Doctor die Ursache; die API öffnet keinen Ersatz-Netzwerklistener. `local` blendet die Pairing-Karte aus.
+Unter **Settings → Devices & Remote** wählst du `local`, `tailnet` oder `network`. Standard ist `tailnet`: Tailscale muss installiert und angemeldet sein. Fehlt es, zeigt Doctor die Ursache; die API öffnet keinen Ersatz-Netzwerklistener. `local` blendet die Pairing-Karte aus. Die englische Version dieser Seite ist [../en/remote-access.md](../en/remote-access.md).
 
 Owner und Admin richten zunächst lokal TOTP oder einen Passkey ein. Für Remote-Anmeldungen ist der zweite Faktor standardmäßig Pflicht. Ein lokal ohne zweiten Faktor erstelltes Cookie reicht dort nicht aus.
 

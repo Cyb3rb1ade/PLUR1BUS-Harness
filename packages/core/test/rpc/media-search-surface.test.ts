@@ -1,3 +1,4 @@
+import { scope as engineScope } from "../media-search/helpers.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
@@ -11,7 +12,7 @@ import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { RpcError } from "../../src/rpc/errors.ts";
 import type { Principal } from "../../src/rbac/types.ts";
 import type { CallContext } from "../../src/rpc/server.ts";
-import type { MediaHit, MediaIndexPort, MediaIndexStatus, MediaSearchRequest } from "../../src/media-search/types.ts";
+import type { MediaHit, MediaIndexPort, MediaIndexStatus, MediaSearchRequest, Scope } from "../../src/media-search/types.ts";
 
 const schema = JSON.parse(readFileSync(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url), "utf8"));
 const OWNER: Principal = { userId: "local-owner", role: "owner", kind: "person" };
@@ -23,12 +24,12 @@ const STATUS: MediaIndexStatus = {
   counts: { indexed: 2, pending: 1, failed: 0, unsupported: 0 }, backfill: { state: "running", done: 2, total: 3 },
 };
 
-function setup(o: { hits?: MediaHit[]; readable?: (p: Principal, id: string) => boolean; editable?: (p: Principal, id: string) => boolean; index?: boolean; mediaCfg?: Record<string, unknown>; searchError?: unknown } = {}) {
+function setup(o: { hits?: MediaHit[]; readable?: (p: Principal, id: string) => boolean; editable?: (p: Principal, id: string) => boolean; index?: boolean; mediaCfg?: Record<string, unknown>; searchError?: unknown; scopes?: Scope[]; scores?: number[]; globalStatus?: boolean } = {}) {
   const calls: string[] = [];
   const searches: MediaSearchRequest[] = [];
   const captions: { id: string; text: string; source: string }[] = [];
   const index = {
-    async search(req: MediaSearchRequest) { searches.push(req); if (o.searchError) throw o.searchError; return o.hits ?? []; },
+    async search(req: MediaSearchRequest) { searches.push(req); if (o.searchError) throw o.searchError; return (o.hits ?? []).map(hit=>({...hit,score:o.scores?.[searches.length-1] ?? hit.score})); },
     async status() { return structuredClone(STATUS); },
     async setCaption(id: string, text: string, source: string) { captions.push({ id, text, source }); },
   } as unknown as MediaIndexPort;
@@ -36,9 +37,10 @@ function setup(o: { hits?: MediaHit[]; readable?: (p: Principal, id: string) => 
   if (o.mediaCfg) cfg.memory.mediaEmbedding = { ...(cfg.memory.mediaEmbedding ?? {}), ...o.mediaCfg };
   const audit = memoryAuditSink();
   const deps: MediaSearchSurfaceDeps = {
+    ...(o.globalStatus === undefined ? {} : {globalStatus:o.globalStatus}),
     index: () => (o.index === false ? null : index), config: () => cfg,
     backfill: { pause: async () => { calls.push("pause"); }, resume: async () => { calls.push("resume"); }, reindex: async () => { calls.push("reindex"); } },
-    scopeOf: (p) => ({ agent: p.kind === "agent" ? p.userId : "main", workspace: "w" }) as never,
+    scopeOf: (p) => o.scopes ?? ({ agent: p.kind === "agent" ? p.userId : "main", workspace: "w" }) as never,
     readable: async (p, id) => (o.readable ? o.readable(p, id) : true),
     editable: async (p, id) => (o.editable ? o.editable(p, id) : true),
     captionOf: async (id) => (id ? `caption of ${id}` : undefined),
@@ -219,4 +221,20 @@ test("owner ACL: a medium is readable/editable through the rights on the agent t
     assert.equal(await acl.readable(OWNER, "nope"), false);
     assert.equal(await acl.readable(OWNER, "../x"), false);
   } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test("human multi-agent search keeps highest scores and rechecks readability", async () => {
+  const scopes = [engineScope("one"), engineScope("two")];
+  const s=setup({scopes,scores:[0.9,0.3],hits:[{mediaId:"same",kind:"image",score:0.9},{mediaId:"denied",kind:"image",score:1}],readable:(_p,id)=>id!=="denied"});
+  const result=await s.as(OWNER).call("media.search",{text:"green"});
+  assert.equal(s.searches.length,2);assert.deepEqual(s.searches.map(q=>q.scope.agentId),["one","two"]);
+  assert.deepEqual(result.hits.map((h:any)=>h.mediaId),["same"]);assert.equal(result.hits[0].score,0.9);
+});
+
+test("global Engine counters are unavailable to member/viewer/operator people", async()=>{
+ const s=setup({globalStatus:true});
+ for(const who of [MEMBER,VIEWER,{userId:"op",role:"operator",kind:"person"} as Principal]){
+  const result=await s.as(who).refusal("media.index.status"); assert.equal(result.error,"E_MEDIA_UNAVAILABLE");
+ }
+ assert.equal((await s.as(OWNER).call("media.index.status")).counts.indexed,2);
 });

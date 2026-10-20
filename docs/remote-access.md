@@ -165,11 +165,18 @@ Call the returned cleanup when the connection ends. The transport must bind the
 challenge to that connection, enforce the stored scopes and stop dispatching work
 when closed. No claimed id or fingerprint authenticates a handshake.
 
-Revocation writes the revoked state atomically before updating memory and invoking
+Revocation writes the revoked state atomically, updates memory and invokes
 every live close callback; one failing callback does not prevent the others.
-A persistence failure reports `E_STORAGE`, leaves the device's previous state and
-connections unchanged, and records `device.revoke.failed`. Retry revocation to
-make the security action effective and durable. An unreadable, malformed or unsafe
+A persistence failure reports `E_STORAGE` and records `device.revoke.failed`, but the
+revocation still takes effect in this process (fail closed): the device's live
+connections are closed and its key is denied at once. The file keeps the previous
+state until a write succeeds, so retry revocation (or any other successful write,
+which carries it) before restarting; a restart before that reads the device as
+authorised again. An unreadable or damaged file is not overwritten by a revoke.
+The store re-reads the file before every pairing, rename, revoke and handshake, so a
+second instance over the same file keeps the other's writes and never undoes a
+revocation, and it denies a key the other instance revoked.
+An unreadable, malformed or unsafe
 store refuses initialization, so no device handshake can be admitted through it;
 only a missing store starts empty. If directory syncing fails after the atomic
 rename, disk durability is uncertain: the store reports `E_STORAGE`, closes all
@@ -216,11 +223,9 @@ PRNG whose seed is in every failure message. A test marked `KNOWN GAP` is a `tod
   2^40 codes offline. At about 13 ms per derivation that is roughly 450 core-years, within the one hour a code lives only with a very
   large budget. The rate limits cap requests, not the offline work; the *Brute force* text above covers redeeming (online) only.
   This follows the recorded owner decision and is unchanged; 10 characters (50 bits) or a heavier Argon2id would move it out of reach.
-- **A failed write on revoke leaves the device authorised** (`hardening-pairing.test.ts`): `DeviceStore.revoke` throws before it blocks
-  the key in memory and before it closes connections, so the device stays connected until a retry works. This section's
-  *Persistent devices* text says the same; `errors.md` (`device-storage`) says the opposite and should be aligned.
-- **Two store instances on one file lose updates**: each writes the whole list, so a stale instance can undo a revoke. The core uses one
-  instance; the rule "one owner per file" is documented.
+- **Revocation across processes is not locked**: instances re-read the file before writing (a revocation always wins), but
+  there is no lock file, so two *processes* writing in the same instant could still lose an update; the core keeps one
+  owner per file.
 - **A retired trust anchor can be staged again** (`hardening-certs.test.ts`): after A to B, A can be staged as `next`; there is no list of
   retired anchors.
 - **An unknown critical extension is imported** (`hardening-certs.test.ts`): RFC 5280 clients must refuse such a certificate, so the

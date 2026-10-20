@@ -680,7 +680,7 @@ mod fixture {
             }))
             .manage(native::NativeState::default())
             .manage(SpaState::default())
-            .manage(commands::ConnectionState(Arc::new(
+            .manage(commands::ConnectionState::new(Arc::new(
                 tokio::sync::Mutex::new(Some(Box::new(MemoryStore::default()))),
             )))
             .on_window_event(native::close)

@@ -438,6 +438,41 @@ pub fn restore_after_rollback(layout: &Layout, names: &[String]) -> Vec<String> 
     failed
 }
 
+/// Disables again what an update re-enabled ([`reenable`]) when that update is rolled back from `from` to `to`: the
+/// version that is back is the one that judged them incompatible. They are recorded as held by the rollback, so a
+/// later update that fits re-enables them, as it would have. Best effort; returns the names that could not be
+/// disabled.
+pub fn redisable_after_rollback(
+    layout: &Layout,
+    names: &[String],
+    from: &str,
+    to: &str,
+) -> Vec<String> {
+    let records = ext::state::read(&ExtPaths::of(layout))
+        .map(|s| s.items)
+        .unwrap_or_default();
+    let mut failed = Vec::new();
+    let mut held = Vec::new();
+    for n in names {
+        if toggle(layout, n, false).is_err() {
+            failed.push(n.clone());
+            continue;
+        }
+        let rec = records.values().find(|r| &r.name == n);
+        held.push(Held {
+            name: n.clone(),
+            kind: rec.map_or_else(|| "addon".to_string(), |r| r.kind.clone()),
+            version: rec.map_or_else(String::new, |r| r.version.clone()),
+            reason: format!("incompatible with {to}"),
+            from: from.into(),
+            to: to.into(),
+            at: super::state::now_ms(),
+        });
+    }
+    let _ = record_disabled(layout, held);
+    failed
+}
+
 /// Re-enables add-ons an earlier update disabled that are compatible again. Returns `(name, error)` for the ones
 /// that refused (they stay recorded; the person can enable them by hand).
 pub fn reenable(layout: &Layout, names: &[String]) -> Vec<(String, String)> {
@@ -628,8 +663,19 @@ mod tests {
             .is_some_and(|e| e["enabled"] == true)
     }
 
+    /// Tests that enable or disable add-ons take the process-wide ext mutation lock (X1-R15), which refuses instead
+    /// of waiting; run in parallel they would see `busy`. They take this lock first, one after the other.
+    static TOGGLES: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn serial() -> std::sync::MutexGuard<'static, ()> {
+        TOGGLES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     #[test]
     fn a_packaged_addon_is_judged_disabled_recorded_and_brought_back() {
+        let _serial = serial();
         let d = tempfile::tempdir().unwrap();
         let l = Layout::new(d.path().join("h"));
         install_skill(&l, "narrow", json!({"harness": "<0.3.0"}));
@@ -689,6 +735,42 @@ mod tests {
         assert!(err.contains("ghost"), "{err}");
         assert!(skill_enabled(&l, "narrow"), "rolled back");
         assert!(load(&l).unwrap().disabled.is_empty());
+    }
+
+    #[test]
+    fn a_rollback_disables_again_what_the_rolled_back_update_re_enabled() {
+        let _serial = serial();
+        let d = tempfile::tempdir().unwrap();
+        let l = Layout::new(d.path().join("h"));
+        install_skill(&l, "narrow", json!({"harness": "<0.3.0"}));
+        install_skill(&l, "wide", json!({"harness": ">=0.1.0"}));
+        // 0.2.0 -> 0.3.0 disabled `narrow`; the update after that re-enabled it.
+        let items = evaluate(&l, &offer(Some(&["1"])), &[], &[]).items;
+        disable_for_update(&l, &items, &["narrow".into()], "0.2.0", "0.3.0").unwrap();
+        assert!(reenable(&l, &["narrow".into()]).is_empty());
+        assert!(skill_enabled(&l, "narrow") && load(&l).unwrap().disabled.is_empty());
+
+        // Rolling that update back (0.4.0 -> 0.3.0) puts it off again and remembers why; `ghost` cannot be.
+        let failed =
+            redisable_after_rollback(&l, &["narrow".into(), "ghost".into()], "0.4.0", "0.3.0");
+        assert_eq!(failed, ["ghost"]);
+        assert!(!skill_enabled(&l, "narrow") && skill_enabled(&l, "wide"));
+        let rec = load(&l).unwrap();
+        assert_eq!(rec.disabled.len(), 1);
+        let held = &rec.disabled[0];
+        assert_eq!(
+            (held.name.as_str(), held.kind.as_str()),
+            ("narrow", "skill")
+        );
+        assert_eq!((held.from.as_str(), held.to.as_str()), ("0.4.0", "0.3.0"));
+        assert!(held.reason.contains("0.3.0"), "{}", held.reason);
+
+        // An update to a version it fits slates it for re-enabling again, as before the detour.
+        let fits = Offer {
+            harness: "0.2.5".into(),
+            ..offer(Some(&["1"]))
+        };
+        assert_eq!(evaluate(&l, &fits, &[], &[]).reenable, ["narrow"]);
     }
 
     #[test]

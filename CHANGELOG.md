@@ -138,6 +138,15 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   and `secret.set` refuses a value of fewer than 8 characters (the redactor ignores shorter ones, so such a secret could never be kept out of a log;
   stored shorter values stay readable, and the core's own stores are not subject to it).
 
+- **A backup restore no longer silently brings forgotten memories back (partly; KNOWN GAP until the engine pin moves).** `state/_tombstones`
+  is not part of a backup and stays as it was, but the restored store rows are the backup's, so a memory forgotten after the backup was
+  active again. `backup restore` now leaves `state/.restore-reapply-tombstones` (written before the first swap, removed by a clean
+  roll-back), and the core re-applies the committed tombstones through the engine's `reapplyCommittedTombstones` at the next start,
+  before the engine is built and the socket listens, removing the marker only after a complete, verified re-apply. The pinned engine has
+  no `lib/tombstone-reapply.js` yet (engine PR #259): until then the marker stays and the core warns on every start. A manifest whose
+  store target or unit is, or lies in, a `_tombstones` directory is refused (`manifest-invalid`), so a crafted archive cannot replace the
+  registry. See `docs/ops/backup-restore.md`.
+
 - **#151:** Fixed non-reproducible container core-layer builds.
 - **#152:** Removed a duplicate RPC schema definition and added duplicate-key detection.
 - **#154:** Fixed security findings from the local HTTP API red-team review.

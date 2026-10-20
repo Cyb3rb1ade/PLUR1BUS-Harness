@@ -1,3 +1,4 @@
+import { bindThinkingModel } from "./thinking.ts";
 import { DEFAULT_LIMITS, DEFAULT_TIMEOUTS, chunks, FORBIDDEN_HEADERS, LOOPBACK, mergeDefined, readText, Run } from "../client.ts";
 import { redactAll, isRecord, protocolError, ProviderError } from "../errors.ts";
 import { SseParser } from "../sse.ts";
@@ -107,7 +108,7 @@ export function createAnthropicAdapter(config: AnthropicConfig): AnthropicAdapte
       try {
         const json = parseJson(await readText(res.body, run, limits.maxBodyBytes));
         for (const frame of messageToEvents(json)) acc.push(frame);
-        return await acc.finish(config.repair, req.tools, run.signal);
+        return bindThinkingModel(await acc.finish(config.repair, req.tools, run.signal),req.model);
       } catch (e) {
         throw run.normalise(e);
       } finally {
@@ -149,7 +150,7 @@ export function createAnthropicAdapter(config: AnthropicConfig): AnthropicAdapte
         const usage = acc.usage;
         // The usage figures are cumulative; one event after `finish` with the final value, so a consumer that sums events does not double count.
         if (usage !== undefined) yield { type: "usage", usage };
-        yield { type: "done", result: await acc.finish(config.repair, req.tools, run.signal) };
+        yield { type: "done", result: bindThinkingModel(await acc.finish(config.repair, req.tools, run.signal),req.model) };
       } catch (e) {
         const err = run.normalise(e);
         if (err.partial === undefined && err.kind !== "auth" && !(err.kind === "invalid_request" && !err.contentFiltered)) err.partial = acc.snapshot();

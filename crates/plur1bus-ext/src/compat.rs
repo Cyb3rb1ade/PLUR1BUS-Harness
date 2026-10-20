@@ -156,6 +156,39 @@ pub fn capability_hash(capabilities: &Value) -> String {
         .collect()
 }
 
+/// The capability block a person's consent is tied to: `m.capabilities`, plus the endpoints the manifest declares
+/// *outside* it. `remote.url` (an MCP server's endpoint) and `provider.baseUrl` become `declared_rights` entries
+/// (`remote:<url>`, `provider:<baseUrl>`), so an upgrade that keeps `capabilities` and only moves the URL (another
+/// path or tenant on the already allowed host) must not keep the old acknowledgment. They are added under
+/// `endpoints` (a name the closed `capabilities` schema never allows, so it cannot collide). A manifest with neither
+/// gets `m.capabilities` back unchanged, so every acknowledgment hash recorded before this existed stays valid.
+pub fn acknowledged_capabilities(m: &P1xManifest) -> Value {
+    let mut endpoints = serde_json::Map::new();
+    for (key, field) in [("remote", "url"), ("provider", "baseUrl")] {
+        if let Some(url) = m
+            .rest
+            .get(key)
+            .and_then(|b| b.get(field))
+            .and_then(Value::as_str)
+        {
+            endpoints.insert(key.to_string(), Value::String(url.to_string()));
+        }
+    }
+    let mut caps = m.capabilities.clone();
+    if !endpoints.is_empty() {
+        if let Some(obj) = caps.as_object_mut() {
+            obj.insert("endpoints".to_string(), Value::Object(endpoints));
+        }
+    }
+    caps
+}
+
+/// [`capability_hash`] of [`acknowledged_capabilities`]: what a person's consent to `m` is tied to. Equal for two
+/// manifests exactly when they ask for the same capabilities *and* the same endpoints.
+pub fn acknowledgment_hash(m: &P1xManifest) -> String {
+    capability_hash(&acknowledged_capabilities(m))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
