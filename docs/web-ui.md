@@ -281,7 +281,7 @@ pnpm lint                                  # typecheck, hygiene, check-i18n (not
 ```
 
 - **Browser suites** (`e2e`, `a11y`, `responsive`, the per-page suites, palette) need Chromium: `PLUR1BUS_CHROMIUM`, Playwright's
-  install or `/opt/pw-browsers/chromium`; nothing is downloaded. Without one they are skipped; `PLUR1BUS_WEB_E2E_REQUIRED=1` turns
+  install or `/opt/pw-browsers/chromium`; nothing is downloaded. Without one they are skipped; `PLUR1BUS_WEB_BROWSER=off` skips them explicitly (the `unit (macos-15)` job sets it because they run in `web-browser (macos-15)`, see `docs/ci.md`); `PLUR1BUS_WEB_E2E_REQUIRED=1` turns
   that into a failure. `UPDATE_SNAPSHOTS=1` rewrites `test/fixtures/responsive.json`.
 - **Coverage.** axe (WCAG 2.1 AA) per page, state and theme; layout checks at 400, 960, 1440 and 2560 px (1024 where a mode changes),
   no horizontal scroll, 200 % text zoom (a 1440 px window becomes a 720 px viewport), keyboard paths, contrast of the tokens.

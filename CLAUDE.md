@@ -30,7 +30,8 @@ Do not wait for these, and do not treat them as blocking. They are slow, flaky o
 red on `main`, and are meant to be fixed on `main` separately:
 
 - `unit (windows-2025)` (slow, often red)
-- `unit (macos-15)` (known failing package: `packages/core`)
+- `unit (macos-15)` (until the browser suites moved out, it timed out inside `packages/web` before `packages/core` ran, so core's macOS state was unknown; `PLUR1BUS_WEB_BROWSER=off` now keeps the browser suites out of it)
+- `web-browser (macos-15, 1/2)` and `web-browser (macos-15, 2/2)` (the macOS browser suites; not gating, unlike the Linux `web-browser` gate)
 - `python-host (windows-11-arm, 3.13, true)` (experimental)
 - the `desktop` workflow (`desktop.yml`)
 

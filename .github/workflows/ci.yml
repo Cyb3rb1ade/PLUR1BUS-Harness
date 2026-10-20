@@ -100,6 +100,11 @@ jobs:
           export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
           pnpm test
         timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
+        env:
+          # macOS finds the system Chrome and would run packages/web's whole browser suite in-line (20+ min, so the step
+          # timed out before core ran). Off here by this explicit switch, never by dropping the Chrome path; the suites
+          # run in `web-browser-macos` below (docs/ci.md). Linux (no Chromium here) and Windows are unchanged.
+          PLUR1BUS_WEB_BROWSER: ${{ runner.os == 'macOS' && 'off' || '' }}
       - name: slowest 20 test files
         if: always()
         run: node scripts/release/timing-summary.mjs test-timings
@@ -292,6 +297,54 @@ jobs:
           path: web-browser-shard-${{ matrix.shard }}.json
           if-no-files-found: error
           retention-days: 7
+  # The macOS half of the browser suite (the `unit (macos-15)` job turns it off with PLUR1BUS_WEB_BROWSER=off). Runs where
+  # the other gated macOS legs run (plan.macos: push to main, schedule, dispatch, label `ci:macos`, platform-sensitive
+  # paths) and is not gating: it is not part of the `web-browser` gate job above, which stays Linux-only. Two shards
+  # (macOS runner minutes are scarce, docs/ci.md); lockfile-matched Chromium like the Linux shards. The served-stack tests
+  # (real-transport, real-accounts, surfaces-e2e) need the Rust CLI and stay with the Linux shards: they skip here with a reason.
+  web-browser-macos:
+    name: web-browser (macos-15, ${{ matrix.shard }}/${{ matrix.total }})
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true' && needs.plan.outputs.macos == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        total: [2]
+        shard: [1, 2]
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      PLUR1BUS_WEB_E2E_REQUIRED: "1"
+      PLUR1BUS_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.total }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gen && pnpm build
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: install lockfile-matched Chromium
+        run: pnpm --filter @plur1bus/web exec playwright install chromium
+      - name: web browser suites on macOS (axe, keyboard, contrast, responsive and zoom), this shard's files
+        run: pnpm --filter @plur1bus/web test
+        timeout-minutes: 45
   web-browser:
     needs: [plan, web-browser-build, web-browser-shard]
     if: always()
