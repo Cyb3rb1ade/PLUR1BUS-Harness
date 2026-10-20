@@ -45,9 +45,8 @@ agents/<agentId>/
   behaviour/          # optional split-out overrides, merged into agent.json
   memory/
     DailyNote_<YYYY-MM-DD_HHMMSS>.md   # timestamped daily notes — light-sleep input (D15, ADR-009)
-    memories.md                        # long-term memory — deep-sleep promotion target (D15, ADR-009)
+    memory/KNOWLEDGE.md                 # canonical curated agent knowledge (A2, ADR-009 amendment 2026-10-20)
     dreaming.md                        # dream diary (D15, ADR-009)
-    knowledgepool.md                   # curated knowledge corpus (D15, ADR-009)
 ```
 
 ```ts

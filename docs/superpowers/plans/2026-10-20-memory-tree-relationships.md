@@ -7,7 +7,7 @@ delivery, maintenance-account roles with break-glass, and the loan/hand-over rul
 "spec §n").
 **Architecture.** The engine owns the tree: node table, per-card tree/relationship/context/level fields, placements for
 shared rows, structured recall with the `privat` filter in the store query, node summaries, KNOWLEDGE.md as root and the
-tree-shaped mirror (engine contract 1.17.0, spec §6.4). The harness resolves the active relationship, places captured
+tree-shaped mirror (engine contract 1.18.0, spec §6.4). The harness resolves the active relationship, places captured
 entries and zooms through one `TreeChooser` port on the decision model role, weights and labels recall items in the
 prompt builder, runs step-up ceremonies and out-of-band delivery, and extends RBAC object checks and the break-glass
 registry to relationship branches.
@@ -16,7 +16,7 @@ registry to relationship branches.
 local speaker-embedding model); WP8 needs P4, P6, P7.
 **Constraints.** Additive only: new RPC methods with `x-stability: "experimental"`, `x-server: "core"`, `x-since`, closed
 params (AGENTS.md); no new RPC error codes; no new dependencies in the harness without the dependency gate (the speaker
-model runs on the existing sherpa-onnx runtime); the engine contract change is additive (1.17.0) and pinned to an exact
+model runs on the existing sherpa-onnx runtime); the engine contract change is additive (1.18.0) and pinned to an exact
 commit; no direct store writes from the harness (D28/T7); secret values never in prompts, tool results, logs, traces or
 the session store. No CI polling, force-push, rebase, amend or stash.
 
@@ -36,7 +36,7 @@ the session store. No CI polling, force-push, rebase, amend or stash.
 
 ```text
 WP0 decisions + P1/P2 check
-  ├──► WP1 engine contract 1.17 ──► WP2 engine summaries + KNOWLEDGE.md root ──► WP3 engine tree mirror
+  ├──► WP1 engine contract 1.18 ──► WP2 engine summaries + KNOWLEDGE.md root ──► WP3 engine tree mirror
   │        │
   │        ├──► WP4 relationship resolution + registry ──► WP5 placement ──► WP6 zoom recall + weighting + prompt
   │        │                                                    │                     │
@@ -63,13 +63,13 @@ if Q1 changes it. Read harness issues #604–#609 and engine issues #254/#255 an
 this plan); check P3–P9 on current `main`.
 **Acceptance.** Every open question has a status; every prerequisite issue is mapped to a WP or marked independent.
 
-## WP1 — Engine contract 1.17.0: tree, relationship, context, level (engine repo; ≈ 6 agent days; P2)
+## WP1 — Engine contract 1.18.0: tree, relationship, context, level (engine repo; ≈ 6 agent days; P2)
 
-**Files (engine).** `types/engine.d.ts` (contract 1.17.0: `MemoryCard` fields, `MemoryOps.tree`, `MemoryOps.place`,
+**Files (engine).** `types/engine.d.ts` (contract 1.18.0: `MemoryCard` fields, `MemoryOps.tree`, `MemoryOps.place`,
 recall request/result additions, `Engine.capabilities.memoryTree`), store migration (node table, card fields with
 scalar indexes, `memory_placements`, `tree_ops`), recall path (prefilter by subtree, structured items, **`privat`
 exclusion for foreign relationships in the query**, own/foreign flag), capture accepting level/relationship/context/
-node, `docs/engine-api.md` section "Tree in 1.17.0".
+node, `docs/engine-api.md` section "Tree in 1.18.0".
 **Tests (engine).** Migration keeps every card; fixed top keys cannot be renamed/moved/deleted; move rewrites node rows
 only (row count assertion); sibling name uniqueness after folding; prefilter returns only subtree hits; a foreign
 `privat` card is never returned by recall, list, show or search (marker test); an invisible node is absent from
@@ -240,7 +240,7 @@ never in a scripted reply; foreign `privat` ids `E_NOT_FOUND`; probe secret nowh
 | WP | Content | Depends on | Effort (ad) |
 |---|---|---|---|
 | WP0 | Owner questions, prerequisite mapping (#604–#609, engine #254/#255) | — | 0.5 |
-| WP1 | **Engine** contract 1.17.0: tree, relationship, context, level, structured recall, in-store `privat` filter | WP0; P2 | 6 |
+| WP1 | **Engine** contract 1.18.0: tree, relationship, context, level, structured recall, in-store `privat` filter | WP0; P2 | 6 |
 | WP2 | **Engine** node summaries (two views), KNOWLEDGE.md as root | WP1 | 3 |
 | WP3 | **Engine** tree-shaped mirror with `_index.md`, per-viewer filter | WP1 | 2.5 |
 | WP4 | Active relationship and registry | WP1; P5 | 3 |
@@ -288,3 +288,7 @@ needs its own runtime work or the channel adapters' deletion support has to be b
 
 Spec §18.2 Q1–Q12 (status offen); prerequisites P1–P9 (spec §16). Phase 2 (not estimated): Obsidian return path with
 conflict detection (spec §6.3).
+
+Version sequencing correction (Owner/Controller, 2026-10-20): Großpaket 3 A1 introduces contract **1.17.0** for recall
+statistics, curated promotion and curation. D116 C1/WP1 therefore uses additive contract **1.18.0**. The controller
+alone updates the Harness Engine pin and lockfile after the relevant Engine merge.

@@ -78,7 +78,7 @@ built:
 |---|---|---|---|
 | T1 | Organising principle | **Tree, not date** (decided, point 1): six fixed top branches **Mein Mensch, Wir, Projekte, Wissen, Agent selbst, Umgebung**; from level 2 the agent creates branches without confirmation; dreaming merges duplicates; people rename, move, merge; date stays an attribute and a time view. | Date folders (today's flat store plus timestamps): recall by "when" is rarely how people ask, and a flat list gives the decision service nothing to choose from. |
 | T2 | Storage | **Database is the source of truth** (decided, point 2): engine store holds a node table and per-card tree, relationship, context and level fields with indexes; Markdown folder tree with `_index.md` per node is a **mirror**; Obsidian return path in phase 2 with conflict detection; node summaries maintained on change; KNOWLEDGE.md becomes the root overview. | Markdown as source: concurrent writers (agent, dreaming, Obsidian) and no transactional move of a subtree. |
-| T3 | Where the tree lives | In the **engine** (contract extension 1.17.0, §6.4): the filter "inside this branch" and the exclusion of `privat` must run in the store query, before results leave the engine; one engine owner per store (D28). | Node table in a harness SQLite: every branch search would ship id lists into LanceDB queries, and the privacy filter would run after the engine already returned content. |
+| T3 | Where the tree lives | In the **engine** (contract extension 1.18.0, §6.4): the filter "inside this branch" and the exclusion of `privat` must run in the store query, before results leave the engine; one engine owner per store (D28). | Node table in a harness SQLite: every branch search would ship id lists into LanceDB queries, and the privacy filter would run after the engine already returned content. |
 | T4 | Recall | **Zoom in** (decided, point 3): per level a `Choice` over the children's names and summaries, then vector search in the branch; low confidence → two branches; still low or deadline → flat search; placement at capture the same way. Runs **concurrently** with the flat search inside the recall budget (§8.1). | Zoom only, sequentially: 2–3 decision calls before the vector search would exceed `core.recall.hardBudgetMs` (600 ms). |
 | T5 | Decision backend | Until Jev exists: the existing **decision model role** (`modelRoles.decision`, JSON, short timeout, fallback) as D105 triage uses it; Jev is store-independent and only receives short lists (decided, point 3). | Waiting for Jev: blocks the track on an unbuilt module. |
 | T6 | Levels of memory | **Agent** (Agent selbst, Wissen, Umgebung), **relationship agent × person** (Mein Mensch, Wir), **project** (Projekte; rights and reports per D115) (decided, point 4). Active relationship = the person the agent is talking to, from the linked channel identity, login or passkey; a profile choice only on shared devices. | One shared "user" level for all agents of a person: the agent would carry another agent's relationship. |
@@ -212,7 +212,7 @@ path.
 
 ### 6.1 Source of truth
 
-The engine store holds (contract 1.17.0 proposal, §6.4):
+The engine store holds (contract 1.18.0 proposal, §6.4):
 
 ```text
 memory_tree_nodes   (agentId, nodeId, parentId, topKey, name, nameFold, relationshipKey?, projectId?,
@@ -263,7 +263,7 @@ tree_ops            (opId, agentId, actor, kind, before, after, at, undoneAt?)  
 - **Phase 2 return path:** rename/move of folders and edits of entry text read back with a three-way comparison against
   the last mirrored hash; conflicts become proposals the person resolves (plan "Phase 2", not estimated here).
 
-### 6.4 Engine contract extension (1.17.0 proposal, engine WP)
+### 6.4 Engine contract extension (1.18.0 proposal, engine WP)
 
 All additive; existing callers unchanged:
 
@@ -643,7 +643,7 @@ own accounts. Backups contain everything and are protected by the backup's own e
 |---|---|---|---|---|
 | P1 | Harness issues [#604](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/issues/604), [#605](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/issues/605), [#606](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/issues/606), [#607](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/issues/607), [#608](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/issues/608), [#609](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/issues/609) | open issues the owner named as prerequisites and repairs for D116; WP0 maps each to the WP it gates | harness | open |
 | P2 | Engine issues [#254](https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory/issues/254), [#255](https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory/issues/255) | repairs before the contract extension (engine WP1) | engine | open |
-| P3 | Engine contract extension 1.17.0 (tree, relationship, context, level fields; tree ops; structured recall; in-store `privat` filter; tree mirror) | everything except roles | engine (plan WP1–WP3) | not started |
+| P3 | Engine contract extension 1.18.0 (tree, relationship, context, level fields; tree ops; structured recall; in-store `privat` filter; tree mirror) | everything except roles | engine (plan WP1–WP3) | not started |
 | P4 | Secret store audit lines in the audit chain | §10.4, §10.5 | M2 secrets | open ([`docs/audit-chain.md`](../../audit-chain.md) line 61) |
 | P5 | M3 identity on `main`: users, N:1 linking, passkeys, per-connection principals, break-glass wiring and notification delivery | §4.2, §10.3, §11 | M3 | partly on `main` (identity store, break-glass registry, passkey bootstrap) |
 | P6 | Channel adapters: sensitive direct send with deletion/TTL | §10.5 | M4 channels | not built (`Channel.send` only) |
@@ -748,3 +748,7 @@ step-up (text fallbacks work without it).
     `teilbar` entries move (as agent knowledge with origin label) and its `vertraulich`/`privat` entries are excluded,
     because the agent promised that person discretion. Alternative: everything moves regardless (as point 10 literally
     reads for the giver's own relationship).
+
+Version sequencing correction (Owner/Controller, 2026-10-20): Großpaket 3 A1 introduces contract **1.17.0** for recall
+statistics, curated promotion and curation. D116 C1/WP1 therefore uses additive contract **1.18.0**. The controller
+alone updates the Harness Engine pin and lockfile after the relevant Engine merge.

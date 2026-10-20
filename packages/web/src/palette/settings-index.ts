@@ -108,6 +108,8 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "memory.mediaEmbedding.caption.perSegment", type: "boolean", tier: "advanced", help: "Whether video and audio get one caption per segment instead of one per medium." },
   { key: "memory.mediaEmbedding.backfill", type: "string", tier: "advanced", help: "Whether existing media are indexed automatically in the background (auto) or only on request (manual)." },
   { key: "engine", type: "object", tier: "advanced", help: "Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5)." },
+  { key: "engine.schicht15", type: "object", tier: "advanced", help: "Curated knowledge promotion settings passed to the Engine." },
+  { key: "engine.schicht15.maxPromotionsPerRun", type: "integer", tier: "advanced", help: "Maximum memories promoted by one knowledge-update run; 0 means unlimited." },
   { key: "engine.baseDbPathOverride", type: "string", tier: "advanced", help: "Testing/advanced only; default <home>/state/lancedb" },
   { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration." },
   { key: "auth.requireSecondFactor", type: "string", tier: "advanced", help: "Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides." },

@@ -60,9 +60,9 @@ describe("OpenClaw importer (Batch 2)", () => {
     assert.ok(alpha);
     assert.equal(alpha.action, "created");
     assert.ok(alpha.files.some((f) => f.targetFile === "SOUL.md" && f.action === "created"));
-    assert.ok(alpha.files.some((f) => f.targetFile === "memories.md" && f.action === "created"));
+    assert.ok(alpha.files.some((f) => f.targetFile === "memory/KNOWLEDGE.md" && f.action === "created"));
     assert.ok(alpha.files.some((f) => f.targetFile === "USER.md" && f.action === "created"));
-    assert.ok(alpha.files.some((f) => f.targetFile === "knowledgepool.md" && f.action === "created"));
+    assert.ok(alpha.files.some((f) => f.targetFile === "memory/KNOWLEDGE.md" && f.action === "created"));
     assert.ok(alpha.files.some((f) => f.targetFile === "dreaming.md" && f.action === "created"));
     assert.ok(alpha.files.some((f) => f.targetFile.startsWith("DailyNote_2026-01-01") && f.action === "created"));
 
@@ -108,14 +108,16 @@ describe("OpenClaw importer (Batch 2)", () => {
     assert.ok(existsSync(join(wsAlpha, "SOUL.md")));
     assert.equal(readFileSync(join(wsAlpha, "SOUL.md"), "utf8"), readFileSync(fx.curatedFiles.soul, "utf8"));
 
-    assert.ok(existsSync(join(wsAlpha, "memories.md")));
-    assert.equal(readFileSync(join(wsAlpha, "memories.md"), "utf8"), readFileSync(fx.curatedFiles.memory, "utf8"));
+    assert.ok(existsSync(join(wsAlpha, "memory", "KNOWLEDGE.md")));
+    assert.ok(readFileSync(join(wsAlpha, "memory", "KNOWLEDGE.md"), "utf8").includes(readFileSync(fx.curatedFiles.memory, "utf8").split("\n").map(line => `> ${line}`).join("\n")));
 
     assert.ok(existsSync(join(wsAlpha, "USER.md")));
     assert.equal(readFileSync(join(wsAlpha, "USER.md"), "utf8"), readFileSync(fx.curatedFiles.user, "utf8"));
 
-    assert.ok(existsSync(join(wsAlpha, "knowledgepool.md")));
-    assert.equal(readFileSync(join(wsAlpha, "knowledgepool.md"), "utf8"), readFileSync(fx.curatedFiles.knowledge, "utf8"));
+    assert.ok(existsSync(join(wsAlpha, "memory", "KNOWLEDGE.md")));
+    assert.ok(readFileSync(join(wsAlpha, "memory", "KNOWLEDGE.md"), "utf8").includes(readFileSync(fx.curatedFiles.knowledge, "utf8").split("\n").map(line => `> ${line}`).join("\n")));
+    assert.equal(existsSync(join(wsAlpha,"memories.md")),false);
+    assert.equal(existsSync(join(wsAlpha,"knowledgepool.md")),false);
 
     assert.ok(existsSync(join(wsAlpha, "dreaming.md")));
     assert.equal(readFileSync(join(wsAlpha, "dreaming.md"), "utf8"), readFileSync(fx.curatedFiles.dreams, "utf8"));
