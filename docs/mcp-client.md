@@ -114,6 +114,24 @@ inside a kill-on-close Job Object through the OS PowerShell interop host; script
 and batch commands are refused. Closing stdin allows graceful exit, then bounded
 termination escalates; descendants are killed even if the direct child exits first.
 The reported Windows process ID identifies the job-owning launcher.
+On Windows a bare command is resolved over `PATH` alone, never over the working
+directory (CreateProcess would try the current directory first, so a planted
+`node.exe` next to the server could win): the launcher receives an absolute path,
+empty and relative `PATH` entries are skipped, and a command that is not found is
+a start failure. A relative path with a separator is refused.
+
+The command allowlist names a program, not its arguments. An allowlisted
+interpreter given inline code (`node -e`/`--eval`/`-p`, `python -c`, `sh -c` and
+`bash -lc`, `perl -e`, `ruby -e`, `php -r`, `pwsh -Command`/`-EncodedCommand`,
+`cmd /c`, `npx -c`, `deno eval`, ...) is refused with `not-allowed` unless the
+exact allowlist entry is also listed in `policy.inlineCodeCommands` (empty by
+default; there is no configuration key for it yet). The table is
+`src/mcp/interpreter-flags.ts`; the scan stops at the script, so
+`python server.py -c cfg` stays a normal launch. Wrappers such as `env`,
+`busybox` or `xargs` are not interpreted and do not belong on the allowlist.
+
+`trust: "operator-vetted"` is accepted only for installation-scoped servers
+(ADR-014 ruling 2); an agent-scoped definition that sets it is `invalid-config`.
 
 ## Features and host APIs
 
