@@ -39,6 +39,7 @@ import { assertEngineContract, bindEngine } from "./engine.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
 import { isLocalEndpoint, localEndpoints, localOnlyFor } from "./privacy/local-only.ts";
 import { localOnlyCheck } from "./privacy/doctor.ts";
+import { emailAuthChecks } from "./channels/email-auth-check.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
@@ -637,7 +638,7 @@ export function createCore(o: CoreOptions): Core {
       });
       permissionNotifier = notifier;
       const board = switchboard = openChannelSwitchboard({
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
@@ -892,7 +893,7 @@ export function createCore(o: CoreOptions): Core {
       // The other caller-taking memory ops (forget, correct, share, state, propose, proposals.*) act as the principal derived from `caller`: bind it to the authenticated person like memory.list/show and session.*.
       Object.assign(rawMethods, memoryCallerAccess({ methods: rawMethods, ownership, resolve: resolvePrincipal }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg())] }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg())] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});

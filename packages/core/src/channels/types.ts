@@ -57,7 +57,8 @@ export type ChannelFactory = (manifest: ChannelManifest) => Channel;
 export interface SenderRef { channel: string; accountId?: string; senderId: string }
 export interface ChatKey { channel: string; chatId: string }
 
-export type IdentityResolution = { linked: true; userId: string } | { linked: false };
+/** `disabled`: the handle is linked, but the person is disabled (admin store): the router drops the message, no turn, no reply. */
+export type IdentityResolution = { linked: true; userId: string; disabled?: boolean } | { linked: false };
 export type PairingResult = { ok: true; userId: string; pairingId: string } | { ok: false };
 
 /** The pairing hook onto the identity layer (ADR-007). Unlinked channel identities stay unlinked (fail closed). */
