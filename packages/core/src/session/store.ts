@@ -150,9 +150,12 @@ export class SessionStore {
     let archivedId: string | undefined;
     const result = this.#tx(() => {
       if (i.chatKey !== undefined) {
-        const active = this.#get("SELECT id FROM sessions WHERE chat_key = ? AND archived_at IS NULL", i.chatKey);
+        const active = this.#get("SELECT id, owner FROM sessions WHERE chat_key = ? AND archived_at IS NULL", i.chatKey);
         if (active) {
-          if (!i.replaceActive) throw new SessionError("conflict", `chat ${i.chatKey} already has an active session`, "active-chat-session");
+          // Replacing is archiving: only the session's own owner may do it (anyone else gets the plain "already active" answer, no oracle
+          // beyond the one the non-replacing path already gives), and never under a running turn (archiveSession refuses that too).
+          if (!i.replaceActive || active.owner !== i.owner) throw new SessionError("conflict", `chat ${i.chatKey} already has an active session`, "active-chat-session");
+          if (this.runningTurn(active.id as string)) throw new SessionError("conflict", `session ${active.id as string} has a running turn`, "turn-in-progress");
           archivedId = active.id as string;
           this.#run("UPDATE sessions SET archived_at = ?, updated_at = ? WHERE id = ?", now, now, active.id as string);
         }
@@ -446,8 +449,8 @@ export class SessionStore {
 
   listMessages(sessionId: string, o: { afterSeq?: number; beforeSeq?: number; limit?: number } = {}): MessageRecord[] {
     const limit = Math.min(Math.max(o.limit ?? 10_000, 1), 100_000);
-    if (o.beforeSeq !== undefined) return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq DESC LIMIT ?", sessionId, o.beforeSeq, o.afterSeq ?? 0, limit).map(toMessage).reverse();
-    return this.#all("SELECT * FROM messages WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, o.afterSeq ?? 0, limit).map(toMessage);
+    // Ascending result, but a cut-off keeps the NEWEST `limit` messages (never the oldest): the readers want the tail of a long session.
+    return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq DESC LIMIT ?", sessionId, o.beforeSeq ?? Number.MAX_SAFE_INTEGER, o.afterSeq ?? 0, limit).map(toMessage).reverse();
   }
 
   tokenCalibration(model: string): number | null { return (this.#get("SELECT factor FROM token_calibration WHERE model=?", model)?.factor as number | undefined) ?? null; }
