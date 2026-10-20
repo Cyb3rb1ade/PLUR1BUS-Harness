@@ -724,6 +724,10 @@ export function createCore(o: CoreOptions): Core {
           void deliverBreakglassNotice(notice, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "notice", connectionId: id, signal: shutdown.signal }, "breakglass.notices", {}), notify: (m,p,options) => server?.notify(m,p,options), stopped: () => shutdown.signal.aborted }).catch(() => { log.debug("break-glass live notice withheld; durable inbox retained"); });
         },
       });
+      // The one break-glass registry: a lapsed grant is unusable at once, and its `break-glass.expired` audit line is written by whoever asks next or, when
+      // nobody does, by this timer (it used to be the API's second registry's). A failing audit sink keeps the grant listed; the next sweep retries.
+      const breakglassSweep = setInterval(() => { if (!shutdown.signal.aborted) try { breakglass.sweep(); } catch { log.debug("break-glass sweep postponed"); } }, 30_000);
+      breakglassSweep.unref(); shutdown.signal.addEventListener("abort", () => clearInterval(breakglassSweep), { once: true });
       const signer = agentExportSigner(secretStore);
       const licenceLedger = modelLicences = new LicenceLedger(path.join(l.state, "model-licences.sqlite"), rbacAudit, clock);
       const reservedAgents = new Map<string, Awaited<ReturnType<typeof eng.open>>>();

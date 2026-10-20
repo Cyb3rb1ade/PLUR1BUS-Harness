@@ -106,6 +106,8 @@ session (UI automation) could in principle click an OS dialog itself; the `ui.co
 
 `createBreakGlass({ audit, notify, clock })` is the stateful side; `authorize` stays pure and receives the grants.
 
+There is exactly one registry per installation: the core's (`core.ts` creates it, `requireNotification: true`). The Harness API holds none: `POST /breakglass`, `GET /breakglass`, `POST /breakglass/revoke` and `GET /me/notices` forward to `breakglass.request|list|revoke|notices` as the caller, so a grant made over REST is the one a core read consults and a grant made over RPC shows over REST (D116: reason, notice and audit chain are not weakened by the second path). The core sweeps lapsed grants every 30 seconds in addition to every list, read and request.
+
 | Rule | Value |
 |---|---|
 | Who may request | `breakglass.request`: Owner, Admin (narrowed by token scopes) |
