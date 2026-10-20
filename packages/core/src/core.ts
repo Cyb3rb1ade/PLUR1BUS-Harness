@@ -25,6 +25,7 @@ import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreSta
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
 import { BACKUP_METHODS } from "./backup-ops.ts";
+import { reapplyTombstonesAfterRestore, type LoadEngineReapply } from "./restore-reapply.ts";
 import { createMigrationDriver, type MigrationDriver } from "./embedding-migrate/driver.ts";
 import { createEnginePort } from "./embedding-migrate/engine-port.ts";
 import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
@@ -175,6 +176,8 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** Test seam: the engine's tombstone re-apply a backup restore's marker asks for (restore-reapply.ts); default: the engine's `lib/tombstone-reapply.js`, when it has one. */
+  tombstoneReapply?: LoadEngineReapply;
   /** Legacy injected provider seam, adapted through composition; absent, configured provider definitions supply the pipeline. */
   chatProvider?: ChatProvider;
   composition?: CompositionOptions;
@@ -482,6 +485,9 @@ export function createCore(o: CoreOptions): Core {
         canMutateConfig: () => cs.source === "supervisor",
       });
       o.inspectHost?.(host);
+      // A backup restore left rows that may hold memories forgotten since: re-apply the committed tombstones before the engine
+      // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
+      await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
       const eng = lifecycleEngine(bindEngine(host, engineConfig, o.testInternals ? engineInternals : undefined), lifecycle); engine = eng;
       assertEngineContract(eng);
