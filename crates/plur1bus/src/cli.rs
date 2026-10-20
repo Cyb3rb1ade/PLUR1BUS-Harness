@@ -693,6 +693,11 @@ pub enum MemoryCmd {
         #[command(subcommand)]
         sub: ProposalsCmd,
     },
+    /// [experimental] Human curation of memory candidates (separate from correction proposals)
+    Curation {
+        #[command(subcommand)]
+        sub: CurationCmd,
+    },
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
 }
@@ -790,6 +795,28 @@ pub enum ProposalsCmd {
         proposal_id: String,
         #[arg(long)]
         note: Option<String>,
+    },
+}
+#[derive(Subcommand, Debug)]
+pub enum CurationCmd {
+    /// [experimental] List the human curation queue
+    List {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Keep a curation record
+    Keep {
+        #[arg(long)]
+        agent: String,
+        id: String,
+    },
+    /// [experimental] Drop a curation record
+    Drop {
+        #[arg(long)]
+        agent: String,
+        id: String,
     },
 }
 #[derive(Subcommand, Debug)]

@@ -1,5 +1,20 @@
 // memory area catalogue (Memories & Dreams page): keys `memory.<topic>.<name>`; de has the same keys and {placeholders} (see ./index.ts).
 export const en = {
+  "memory.curation.status.candidate": "Candidate",
+  "memory.curation.status.conflict": "Conflict",
+  "memory.curation.status.stale": "Needs review",
+  "memory.tab.curation": "Curation",
+  "memory.curation.keep": "Keep",
+  "memory.curation.drop": "Drop",
+  "memory.curation.confirm": "Confirm",
+  "memory.curation.cancel": "Cancel",
+  "memory.curation.confirmKeep": "Keep this record in curated memory?",
+  "memory.curation.confirmDrop": "Drop this record from curated memory?",
+  "memory.curation.distinction": "Review memory candidates here. Shared-memory correction proposals are shown under Memories.",
+  "memory.curation.empty": "No records need curation.",
+  "memory.curation.unavailable": "Curation is not available",
+  "memory.curation.truncated": "More records remain. Resolve entries and refresh to continue.",
+
   "memory.views": "Memory views",
   "memory.tab.memories": "Memories",
   "memory.tab.dreams": "Dreams",
@@ -226,6 +241,21 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "memory.curation.status.candidate": "Kandidat",
+  "memory.curation.status.conflict": "Konflikt",
+  "memory.curation.status.stale": "Prüfung nötig",
+  "memory.tab.curation": "Kuration",
+  "memory.curation.keep": "Behalten",
+  "memory.curation.drop": "Verwerfen",
+  "memory.curation.confirm": "Bestätigen",
+  "memory.curation.cancel": "Abbrechen",
+  "memory.curation.confirmKeep": "Diesen Eintrag im kuratierten Gedächtnis behalten?",
+  "memory.curation.confirmDrop": "Diesen Eintrag aus dem kuratierten Gedächtnis verwerfen?",
+  "memory.curation.distinction": "Hier werden Gedächtniskandidaten geprüft. Änderungsvorschläge zu geteilten Erinnerungen stehen unter Erinnerungen.",
+  "memory.curation.empty": "Keine Einträge warten auf Kuration.",
+  "memory.curation.unavailable": "Kuration ist nicht verfügbar",
+  "memory.curation.truncated": "Weitere Einträge warten. Einträge auflösen und aktualisieren, um fortzufahren.",
+
   "memory.views": "Ansichten des Gedächtnisses",
   "memory.tab.memories": "Erinnerungen",
   "memory.tab.dreams": "Träume",

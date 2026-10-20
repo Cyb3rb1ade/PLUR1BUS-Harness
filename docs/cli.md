@@ -61,6 +61,10 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory proposals list`↴](#plur1bus-memory-proposals-list)
 * [`plur1bus memory proposals accept`↴](#plur1bus-memory-proposals-accept)
 * [`plur1bus memory proposals reject`↴](#plur1bus-memory-proposals-reject)
+* [`plur1bus memory curation`↴](#plur1bus-memory-curation)
+* [`plur1bus memory curation list`↴](#plur1bus-memory-curation-list)
+* [`plur1bus memory curation keep`↴](#plur1bus-memory-curation-keep)
+* [`plur1bus memory curation drop`↴](#plur1bus-memory-curation-drop)
 * [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
 * [`plur1bus session`↴](#plur1bus-session)
 * [`plur1bus session list`↴](#plur1bus-session-list)
@@ -875,6 +879,7 @@ Memory: add and recall through the core
 * `state` — [experimental] Memory subsystem state
 * `propose` — [experimental] Propose a correction to a shared memory
 * `proposals` — [experimental] List, accept or reject shared-memory correction proposals
+* `curation` — [experimental] Human curation of memory candidates (separate from correction proposals)
 * `reembed` — [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
 
 
@@ -1092,6 +1097,65 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 * `--agent <AGENT>`
 * `--note <NOTE>`
+
+
+
+## `plur1bus memory curation`
+
+[experimental] Human curation of memory candidates (separate from correction proposals)
+
+**Usage:** `plur1bus memory curation <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the human curation queue
+* `keep` — [experimental] Keep a curation record
+* `drop` — [experimental] Drop a curation record
+
+
+
+## `plur1bus memory curation list`
+
+[experimental] List the human curation queue
+
+**Usage:** `plur1bus memory curation list [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--limit <LIMIT>`
+
+
+
+## `plur1bus memory curation keep`
+
+[experimental] Keep a curation record
+
+**Usage:** `plur1bus memory curation keep --agent <AGENT> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus memory curation drop`
+
+[experimental] Drop a curation record
+
+**Usage:** `plur1bus memory curation drop --agent <AGENT> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
 
 
 

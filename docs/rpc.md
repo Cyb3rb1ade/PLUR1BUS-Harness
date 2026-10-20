@@ -6396,6 +6396,130 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `memory.curation.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human curation queue (Engine contract 1.17.0). Separate from D31 memory.proposals.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "items",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryCurationRecord"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `memory.curation.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human keep/drop of a visible Neo curation record. Never accepts caller identity in params.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "id",
+    "action"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "action": {
+      "enum": [
+        "keep",
+        "drop"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "id",
+    "status"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "promoted",
+        "demoted"
+      ]
+    }
+  }
+}
+```
+
 ### `memory.proposals.list`
 
 **Stability:** experimental · since 1.1.0
@@ -17795,6 +17919,44 @@ D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a su
 ## Definitions
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
+
+### `MemoryCurationRecord`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "status",
+    "text",
+    "category"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "conflict",
+        "stale"
+      ]
+    },
+    "text": {
+      "type": "string"
+    },
+    "category": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
 
 ### `UserJob`
 

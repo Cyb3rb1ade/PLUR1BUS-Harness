@@ -451,3 +451,20 @@ Remote trust challenge and acknowledgement use the additive human-only `remote.d
 only narrow access. It is forbidden as a WebMCP tool. The handler takes only a model identifier; prompt, output cap, tool
 set, memory and timeout are server-owned. It selects one configured candidate without fallback and admits the request
 through the same budget/router and adapter egress as ordinary model calls. It creates no session or transcript.
+
+### A4: human memory curation
+
+`memory.curation.list` and `memory.curation.resolve` are **humanOnly** and require
+`agent.manage` on the exact requested agent. Owner/Admin may operate the queue;
+a Member needs an explicit `manage` grant for that agent. A grant on a different
+agent is insufficient. Agent principals are denied even when their role is Owner
+or their object grants contain `manage`. Operator/Viewer receive no role-wide
+access. The handler derives Engine identity from the authenticated connection,
+not request text; the closed params reject `caller` and target-human overrides.
+
+The explicit object grant is the current proxy for “own human”, matching the
+private diary boundary. A new active relationship binding is D116 C3 and is not
+introduced here. Engine ACLs additionally filter individual queue records. Keep
+and drop use the Engine's mandatory curation audit. Both RPCs are exposed on the
+human web route and forbidden over WebMCP, including explicit include lists.
+`memory.proposals.*` remains D31 shared-card correction proposals, not curation.
