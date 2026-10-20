@@ -1,6 +1,26 @@
 // settings area catalogue (Settings page, `/settings/<section>`): keys `settings.<topic>`; en and de have the same keys and
 // {placeholders}. The section labels are read by src/settings-sections.ts. The page agent adds its own keys below.
 export const en = {
+  "settings.decision.title": "Decision service",
+  "settings.decision.statusTitle": "Runtime status",
+  "settings.decision.configTitle": "Backend configuration",
+  "settings.decision.backend": "Preferred backend",
+  "settings.decision.access": "Configuration and diagnostics require a signed-in Owner or Admin.",
+  "settings.decision.test": "Run diagnostic",
+  "settings.decision.running": "Running diagnostic…",
+  "settings.decision.testHint": "Runs a fixed even/odd question through the configured backend. A cloud role may consume budget.",
+  "settings.decision.ok": "Diagnostic passed ({ms} ms).",
+  "settings.decision.failed": "Diagnostic failed: {outcome} ({ms} ms).",
+  "settings.decision.refused": "Diagnostic refused or unavailable. Check permissions, privacy, budget and backend readiness.",
+  "settings.decision.status": "Backend: {backend}; installed: {installed}. Requests: {requests}; failures: {failures}; error rate: {errors}%. p50: {p50} ms; p95: {p95} ms.",
+  "settings.decision.unavailable": "Decision status is unavailable.",
+  "settings.decision.evidenceTitle": "Provisional native evidence",
+  "settings.decision.evidence": "Laya spike, Apple M5 Pro CPU, 4 threads: p50 110.0 ms / p95 196.3 ms (180 calls); maxRSS 1,313,056 KiB. Provisional labels, not independently validated: German accuracy 46.67%, Brier 0.64731; English 65.00%, Brier 0.45691. German gate failed: no automatic German selection. Linux, Windows and Kev evidence missing; no calibrated role comparison. Selection does not install a backend.",
+  "settings.decision.refresh": "Refresh status",
+  "settings.decision.target": "Diagnostic agent: {agent}",
+  "settings.decision.noAgents": "Register an agent before running this diagnostic.",
+  "settings.decision.agentsUnavailable": "Registered agents are unavailable; the diagnostic is disabled.",
+
   "settings.privacy.sectionTitle": "Model privacy",
   "settings.privacy.liveNotice": "Privacy changes apply to the next model request. Responses already running may finish. Web tools keep their own egress rules.",
   "settings.privacy.sharedAgents": "Shared memory stays local because these agents require local-only: {agents}. Embedding, reranking and the engine’s model features are shared by all agents.",
@@ -125,6 +145,26 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "settings.decision.title": "Entscheidungsdienst",
+  "settings.decision.statusTitle": "Laufzeitstatus",
+  "settings.decision.configTitle": "Backend-Konfiguration",
+  "settings.decision.backend": "Bevorzugtes Backend",
+  "settings.decision.access": "Konfiguration und Diagnose erfordern eine angemeldete Person mit Owner- oder Admin-Rolle.",
+  "settings.decision.test": "Diagnose ausführen",
+  "settings.decision.running": "Diagnose läuft…",
+  "settings.decision.testHint": "Feste Gerade/Ungerade-Frage über das konfigurierte Backend. Eine Cloud-Rolle kann Budget verbrauchen.",
+  "settings.decision.ok": "Diagnose bestanden ({ms} ms).",
+  "settings.decision.failed": "Diagnose fehlgeschlagen: {outcome} ({ms} ms).",
+  "settings.decision.refused": "Diagnose verweigert oder nicht verfügbar. Rechte, Datenschutz, Budget und Backend-Bereitschaft prüfen.",
+  "settings.decision.status": "Backend: {backend}; installiert: {installed}. Anfragen: {requests}; Fehler: {failures}; Fehlerrate: {errors}%. p50: {p50} ms; p95: {p95} ms.",
+  "settings.decision.unavailable": "Status des Entscheidungsdienstes nicht verfügbar.",
+  "settings.decision.evidenceTitle": "Vorläufige lokale Messwerte",
+  "settings.decision.evidence": "Laya-Spike, Apple M5 Pro CPU, 4 Threads: p50 110,0 ms / p95 196,3 ms (180 Aufrufe); maxRSS 1.313.056 KiB. Vorläufige, nicht unabhängig validierte Labels: Deutsch Accuracy 46,67 %, Brier 0,64731; Englisch 65,00 %, Brier 0,45691. Deutsch-Gate nicht bestanden: keine automatische Deutsch-Auswahl. Nachweise für Linux, Windows und Kev fehlen; kein kalibrierter Vergleich zur role. Auswahl installiert kein Backend.",
+  "settings.decision.refresh": "Status aktualisieren",
+  "settings.decision.target": "Diagnose-Agent: {agent}",
+  "settings.decision.noAgents": "Vor der Diagnose einen Agenten registrieren.",
+  "settings.decision.agentsUnavailable": "Registrierte Agenten nicht verfügbar; die Diagnose ist gesperrt.",
+
   "settings.privacy.sectionTitle": "Modell-Datenschutz",
   "settings.privacy.liveNotice": "Datenschutzänderungen gelten beim nächsten Modellaufruf. Laufende Antworten dürfen zu Ende laufen. Für Web-Tools gelten weiterhin die eigenen Egress-Regeln.",
   "settings.privacy.sharedAgents": "Der gemeinsame Speicher bleibt lokal, weil diese Agenten Nur lokal verlangen: {agents}. Embedding, Reranker und die Modellfunktionen der Engine werden von allen Agenten gemeinsam genutzt.",

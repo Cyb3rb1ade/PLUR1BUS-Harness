@@ -22,7 +22,7 @@ export const META: readonly FieldMeta[] = [
   { key: "embedding.useClass", kind: "enum", def: "general", options: ["general", "research", "commercial"], restart: "core" },
   b("embedding.acceptedNcLicence", false, "core"), { key: "embedding.acceptedNcLicenceAt", kind: "string", restart: "core" },
   { key: "engine.baseDbPathOverride", kind: "string", restart: "core" },
-  o("providers"), o("oauth"), o("decision"), o("modelRoles"), o("modelProfiles"),
+  o("providers"), o("oauth"), { key: "decision.backend", kind: "enum", def: "role", options: ["role", "laya", "kev", "jev", "auto"], restart: "live" }, o("modelRoles"), o("modelProfiles"),
   b("models.scan.enabled", true), n("models.scan.intervalHours", 24, 1, "live", 168),
   { key: "egress.allowHosts", kind: "strings", def: [], restart: "live" },
   { key: "egress.allowPorts", kind: "ints", def: [443], min: 1, max: 65535, restart: "live" },
