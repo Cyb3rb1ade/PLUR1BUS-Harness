@@ -271,6 +271,25 @@ test("local TTS provider: pcm16 at the model rate, resampling, speakers by name,
   } finally { await vendor.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
+test("local TTS provider: a voice name is looked up among the model's own speakers, never on the prototype chain", async () => {
+  const files = testFiles();
+  const vendor = await startFakeVendor({ http: (req, res) => { const d = files[req.url.slice(1)]!; res.writeHead(200, { "content-length": d.length }); res.end(Buffer.from(d)); } });
+  const dir = await mkdtemp(join(tmpdir(), "voice-local-"));
+  try {
+    const engine = new FakeEngine();
+    engine.unsupportedEngines.add("pocket-tts");
+    const voice = new LocalVoice({ config: { catalogOverride: testCatalogOverride(vendor.httpUrl, files), profile: "quality" }, modelsDir: dir, engine });
+    await voice.setLanguage("en", { download: true });
+    assert.equal(voice.current()?.tts.id, "t-kokoro");
+    for (const name of ["toString", "constructor", "hasOwnProperty", "__proto__"]) {
+      await assert.rejects(voice.tts.synthesize("x", { voice: name }), (e) => isVoiceProviderError(e) && e.code === "invalid_request", name);
+    }
+    // legitimate names and numeric ids keep working
+    assert.equal((await voice.tts.synthesize("Hello", { voice: "af_heart" })).data.byteLength, 100 * 5 * 2);
+    assert.equal((await voice.tts.synthesize("Hello", { voice: "7" })).data.byteLength, 100 * 5 * 2);
+  } finally { await vendor.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
 test("the shipped catalog: verified packages are downloadable, the entry without a package (Martin) is not, and says why", async () => {
   const dir = await mkdtemp(join(tmpdir(), "voice-local-"));
   try {
