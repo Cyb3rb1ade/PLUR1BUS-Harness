@@ -16,11 +16,37 @@ const MAX_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_SEQ: u64 = 9_007_199_254_740_991;
 static WRITER: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-fn invalid(message: &str) -> io::Error {
+/// The chain declined to take an append (as opposed to an I/O failure while writing): the anchor is missing or
+/// invalid, the tail does not match the anchor, the file is not a chain, or the lock was not free in time. `reason` is
+/// a short fixed code, never content; `text` is what the error prints.
+#[derive(Debug)]
+pub(crate) struct Refusal {
+    pub(crate) reason: &'static str,
+    text: String,
+}
+impl std::fmt::Display for Refusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.text)
+    }
+}
+impl std::error::Error for Refusal {}
+
+fn invalid(reason: &'static str, message: &str) -> io::Error {
     io::Error::new(
         io::ErrorKind::InvalidData,
-        format!("audit-chain: {message}; refusing to append"),
+        Refusal {
+            reason,
+            text: format!("audit-chain: {message}; refusing to append"),
+        },
     )
+}
+
+/// The refusal code when `e` is the chain declining an append, `None` for any other failure (a storage error is not a
+/// refusal).
+pub(crate) fn refusal_reason(e: &io::Error) -> Option<&'static str> {
+    e.get_ref()
+        .and_then(|inner| inner.downcast_ref::<Refusal>())
+        .map(|r| r.reason)
 }
 pub(crate) fn hash_line(line: &str) -> String {
     format!("{:x}", Sha256::digest(line.as_bytes()))
@@ -33,13 +59,13 @@ fn hex64(v: &Value) -> bool {
     })
 }
 fn parse_line(line: &str) -> io::Result<u64> {
-    let v: Value =
-        serde_json::from_str(line).map_err(|_| invalid("last line is not a chain line"))?;
+    let v: Value = serde_json::from_str(line)
+        .map_err(|_| invalid("tail-malformed", "last line is not a chain line"))?;
     let seq = v["seq"].as_u64().filter(|s| *s > 0 && *s <= MAX_SEQ);
     if !hex64(&v["prev"]) || !v["rec"].is_object() {
-        return Err(invalid("last line is not a chain line"));
+        return Err(invalid("tail-malformed", "last line is not a chain line"));
     }
-    seq.ok_or_else(|| invalid("last line is not a chain line"))
+    seq.ok_or_else(|| invalid("tail-malformed", "last line is not a chain line"))
 }
 fn rotated(dir: &Path) -> io::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
@@ -92,7 +118,7 @@ fn tail(dir: &Path) -> io::Result<(u64, String)> {
             .rposition(|b| *b == b'\n')
             .map_or(0, |i| i + 1);
         let raw = std::str::from_utf8(&bytes[start..end - 1])
-            .map_err(|_| invalid("last line is not UTF-8"))?;
+            .map_err(|_| invalid("tail-malformed", "last line is not UTF-8"))?;
         let line = raw.strip_suffix('\r').unwrap_or(raw);
         return Ok((parse_line(line)?, hash_line(line)));
     }
@@ -102,20 +128,29 @@ fn check_anchor(dir: &Path, seq: u64, hash: &str) -> io::Result<()> {
     let text = match fs::read_to_string(dir.join(ANCHOR)) {
         Ok(t) => t,
         Err(e) if e.kind() == io::ErrorKind::NotFound && seq == 0 => return Ok(()),
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Err(invalid("anchor is missing")),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            return Err(invalid("anchor-missing", "anchor is missing"))
+        }
         Err(e) => return Err(e),
     };
-    let a: Value = serde_json::from_str(&text).map_err(|_| invalid("anchor is invalid"))?;
+    let a: Value =
+        serde_json::from_str(&text).map_err(|_| invalid("anchor-invalid", "anchor is invalid"))?;
     let s = a["seq"].as_u64().filter(|s| *s > 0 && *s <= MAX_SEQ);
     if a["v"] != 1 || !hex64(&a["hash"]) || s.is_none() {
-        return Err(invalid("anchor is invalid"));
+        return Err(invalid("anchor-invalid", "anchor is invalid"));
     }
     let s = s.unwrap();
     if s > seq {
-        return Err(invalid("chain is shorter than its anchor"));
+        return Err(invalid(
+            "chain-shorter-than-anchor",
+            "chain is shorter than its anchor",
+        ));
     }
     if s != seq || a["hash"] != hash {
-        return Err(invalid("tail does not match the anchor"));
+        return Err(invalid(
+            "tail-anchor-mismatch",
+            "tail does not match the anchor",
+        ));
     }
     Ok(())
 }
@@ -136,7 +171,10 @@ impl OsLock {
                 Ok(false) => {
                     return Err(io::Error::new(
                         io::ErrorKind::TimedOut,
-                        "audit-chain: lock timeout",
+                        Refusal {
+                            reason: "lock-timeout",
+                            text: "audit-chain: lock timeout".into(),
+                        },
                     ))
                 }
                 Err(e) => return Err(e),
@@ -206,14 +244,48 @@ impl Drop for OsLock {
 }
 
 pub(crate) fn append(dir: &Path, rec: &Value) -> io::Result<()> {
+    append_batch(dir, std::slice::from_ref(rec))
+}
+
+/// Appends `recs` in order under one lock: the tail and the anchor are checked once, every line is written and
+/// fsynced on its own, and the anchor moves once at the end (or, when a later line fails, to the last line that was
+/// written, so a partial batch never leaves the anchor behind more than the crash window of a single append).
+pub(crate) fn append_batch(dir: &Path, recs: &[Value]) -> io::Result<()> {
+    if recs.is_empty() {
+        return Ok(());
+    }
     fs::create_dir_all(dir)?;
     // fcntl locks belong to the process, so threads also need a mutex.
     let _thread = WRITER.lock().unwrap_or_else(|e| e.into_inner());
     let _lock = OsLock::acquire(dir)?;
-    let (seq, hash) = tail(dir)?;
+    let (mut seq, mut hash) = tail(dir)?;
     check_anchor(dir, seq, &hash)?;
+    let mut wrote = false;
+    let mut outcome = Ok(());
+    for rec in recs {
+        match write_line(dir, seq, &hash, rec) {
+            Ok((next_seq, next_hash)) => {
+                seq = next_seq;
+                hash = next_hash;
+                wrote = true;
+            }
+            Err(e) => {
+                outcome = Err(e);
+                break;
+            }
+        }
+    }
+    if wrote {
+        write_anchor(dir, seq, &hash)?;
+    }
+    outcome
+}
+
+/// Writes the chain line that follows `(seq, prev)`, rotating the active file first when it is full. Returns the new
+/// line's `seq` and hash. The caller holds the lock and moves the anchor.
+fn write_line(dir: &Path, seq: u64, prev: &str, rec: &Value) -> io::Result<(u64, String)> {
     if seq >= MAX_SEQ {
-        return Err(invalid("sequence exhausted"));
+        return Err(invalid("sequence-exhausted", "sequence exhausted"));
     }
     let active = dir.join(ACTIVE);
     if active.metadata().is_ok_and(|m| m.len() >= MAX_BYTES) {
@@ -221,24 +293,25 @@ pub(crate) fn append(dir: &Path, rec: &Value) -> io::Result<()> {
         if let Some(first) = text.lines().next() {
             let target = dir.join(format!("audit-chain.{:010}.jsonl", parse_line(first)?));
             if target.exists() {
-                return Err(invalid("rotation target exists"));
+                return Err(invalid("rotation-target-exists", "rotation target exists"));
             }
             fs::rename(&active, target)?;
         }
     }
     let seq = seq + 1;
-    let line = format!("{{\"seq\":{seq},\"prev\":\"{hash}\",\"rec\":{rec}}}");
+    let line = format!("{{\"seq\":{seq},\"prev\":\"{prev}\",\"rec\":{rec}}}");
     drop(create_private(&active, false)?);
     let mut f = OpenOptions::new().append(true).open(&active)?;
     f.write_all(format!("{line}\n").as_bytes())?;
     f.sync_all()?;
+    Ok((seq, hash_line(&line)))
+}
+
+/// Replaces the anchor atomically with `(seq, hash)`, the newest line's.
+fn write_anchor(dir: &Path, seq: u64, hash: &str) -> io::Result<()> {
     let tmp = dir.join(format!("{ANCHOR}.tmp"));
     let mut a = create_private(&tmp, true)?;
-    writeln!(
-        a,
-        "{}",
-        json!({"v": 1, "seq": seq, "hash": hash_line(&line)})
-    )?;
+    writeln!(a, "{}", json!({"v": 1, "seq": seq, "hash": hash}))?;
     a.sync_all()?;
     drop(a);
     fs::rename(&tmp, dir.join(ANCHOR))?;
@@ -355,6 +428,82 @@ mod tests {
             serde_json::from_str::<Value>(text.lines().last().unwrap()).unwrap()["seq"],
             2
         );
+    }
+
+    /// The pending-journal fallback of the config audit tells a chain that declines (anchor, integrity, lock) from a
+    /// storage failure by this code, so each refusal carries a short fixed reason and nothing else is a refusal.
+    #[test]
+    fn a_refusal_carries_its_reason_and_a_storage_failure_is_none() {
+        for (failure, reason) in [
+            ("missing", "anchor-missing"),
+            ("invalid", "anchor-invalid"),
+            ("short", "chain-shorter-than-anchor"),
+            ("tail", "tail-anchor-mismatch"),
+            ("behind", "tail-anchor-mismatch"),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let rec = json!({"at":1,"actor":{"user":"u","host":"h"},"action":"test","target":"t","detail":{}});
+            append(dir.path(), &rec).unwrap();
+            let first = fs::read(dir.path().join(ACTIVE)).unwrap();
+            let first_anchor = fs::read(dir.path().join(ANCHOR)).unwrap();
+            append(dir.path(), &rec).unwrap();
+            match failure {
+                "missing" => fs::remove_file(dir.path().join(ANCHOR)).unwrap(),
+                "invalid" => fs::write(dir.path().join(ANCHOR), "{}").unwrap(),
+                "short" => fs::write(dir.path().join(ACTIVE), &first).unwrap(),
+                "tail" => {
+                    let bytes = fs::read_to_string(dir.path().join(ACTIVE)).unwrap();
+                    fs::write(
+                        dir.path().join(ACTIVE),
+                        bytes.replace("\"target\":\"t\"", "\"target\":\"changed\""),
+                    )
+                    .unwrap();
+                }
+                "behind" => fs::write(dir.path().join(ANCHOR), &first_anchor).unwrap(),
+                _ => unreachable!(),
+            }
+            let e = append(dir.path(), &rec).unwrap_err();
+            assert_eq!(refusal_reason(&e), Some(reason), "{failure}: {e}");
+            assert!(e.to_string().contains("refusing to append"), "{e}");
+        }
+        // A line that is not a chain line at the tail is an integrity refusal too.
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(ACTIVE), "not a chain line\n").unwrap();
+        let e = append(dir.path(), &json!({"action":"test"})).unwrap_err();
+        assert_eq!(refusal_reason(&e), Some("tail-malformed"), "{e}");
+        // A storage failure (the chain directory cannot be created) is no refusal.
+        let dir = tempfile::tempdir().unwrap();
+        let blocker = dir.path().join("blocker");
+        fs::write(&blocker, "a file").unwrap();
+        let e = append(&blocker.join("logs"), &json!({"action":"test"})).unwrap_err();
+        assert_eq!(refusal_reason(&e), None, "{e}");
+    }
+
+    #[test]
+    fn a_batch_joins_the_chain_in_order_under_one_anchor_update() {
+        let dir = tempfile::tempdir().unwrap();
+        let recs: Vec<Value> = (0..5)
+            .map(|i| json!({"at":i,"actor":{"user":"u","host":"h"},"action":"test","target":format!("t{i}"),"detail":{}}))
+            .collect();
+        append(dir.path(), &recs[0]).unwrap();
+        append_batch(dir.path(), &recs[1..]).unwrap();
+        let text = fs::read_to_string(dir.path().join(ACTIVE)).unwrap();
+        let mut prev = GENESIS.to_string();
+        for (i, raw) in text.lines().enumerate() {
+            let line: Value = serde_json::from_str(raw).unwrap();
+            assert_eq!(line["seq"], i as u64 + 1);
+            assert_eq!(line["prev"], prev.as_str());
+            assert_eq!(line["rec"], recs[i]);
+            prev = hash_line(raw);
+        }
+        assert_eq!(text.lines().count(), 5);
+        let anchor: Value =
+            serde_json::from_str(&fs::read_to_string(dir.path().join(ANCHOR)).unwrap()).unwrap();
+        assert_eq!(anchor["seq"], 5);
+        assert_eq!(anchor["hash"], prev.as_str());
+        // An empty batch writes nothing and checks nothing.
+        append_batch(dir.path(), &[]).unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join(ACTIVE)).unwrap(), text);
     }
 
     // The subprocess branch invokes the actual CLI audit producer, not a replica of

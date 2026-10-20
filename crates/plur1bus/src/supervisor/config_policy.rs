@@ -244,26 +244,46 @@ pub fn prepare(
 }
 
 /// A durable pre-write audit record. Its target revision distinguishes an intended write from a later I/O failure.
-/// Failure refuses the config write; dry runs never append. No credentials or sensitive old/new values are written:
-/// `entries` arrive already redacted by field (`changes`), and every row goes through `crate::audit::append_as`, the one
-/// writer of `audit.log`, so it joins the hash chain with the same line and the central detail redaction applies.
+/// No credentials or sensitive old/new values are written: `entries` arrive already redacted by field (`changes`),
+/// and every row goes through the one writer of `audit.log` (`crate::audit`), so it joins the hash chain with the same
+/// line and the central detail redaction applies. Dry runs never append.
+///
+/// Failure handling (owner decision 20.10.: a person must always be able to save the configuration safely; the chain must
+/// not block it). `config.set` is a user action; the other callers of `audit::append` record machine events and stay
+/// fail-closed.
+/// * `audit.log` cannot be written (I/O, disk full): `Err`, the config write is refused, as it always was.
+/// * Only the chain refuses (anchor missing or invalid, tail does not match the anchor, lock timeout): the rows still go
+///   to `audit.log` (`chain: "refused"`, `chainReason`) and into the pending journal, which joins the chain once it
+///   accepts appends again (`audit::drain_pending`). The result is `Ok(Some(refusal))` and the caller reports the
+///   `audit-chain-unavailable` warning.
 pub fn audit(
     layout: &Layout,
     person: &str,
     entries: &[AuditChange],
     revision: &str,
-) -> io::Result<()> {
+) -> io::Result<Option<crate::audit::ChainRefusal>> {
+    let mut refusal: Option<crate::audit::ChainRefusal> = None;
     for entry in entries {
         let detail = json!({ "personId": person, "oldValue": entry.old, "newValue": entry.new, "targetRevision": revision, "phase": "prepare" });
-        crate::audit::append_as(
+        let row = crate::audit::append_as_degrading(
             layout,
             (person, "supervisor"),
             "audit.config.set",
             &entry.key,
             detail,
         )?;
+        if let Some(row) = row {
+            refusal = Some(match refusal {
+                None => row,
+                Some(first) => crate::audit::ChainRefusal {
+                    reason: first.reason,
+                    queued: first.queued && row.queued,
+                    dropped: first.dropped + row.dropped,
+                },
+            });
+        }
     }
-    Ok(())
+    Ok(refusal)
 }
 
 #[cfg(test)]
@@ -528,23 +548,124 @@ mod tests {
             .any(|l| l["target"] == "security.max" && l["detail"]["newValue"] == 5));
     }
 
-    /// A chain that refuses the append (here: its anchor is gone) refuses the config audit too, so `config.set` stops
-    /// before it writes `config.json`, as it already does when `audit.log` cannot be written. Nothing reaches
-    /// `audit.log` that the chain does not hold.
+    /// Owner decision 20.10. (replaces the earlier "a chain that refuses the append fails the config audit, so `config.set`
+    /// stops"): a person must always be able to save the configuration, so a chain that refuses the rows (here: its
+    /// anchor is gone) no longer blocks it. The rows still reach `audit.log`, flagged `chain: "refused"` with a short
+    /// reason, and wait byte for byte in the pending journal; the chain itself is not touched.
     #[test]
-    fn a_chain_that_refuses_the_append_fails_the_config_audit_and_leaves_audit_log_alone() {
+    fn a_chain_that_refuses_the_append_does_not_block_the_config_audit() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        assert_eq!(
+            audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap(),
+            None
+        );
+        std::fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
+        let log_before = log_lines(&layout);
+        let chain_before = std::fs::read(layout.logs().join("audit-chain.jsonl")).unwrap();
+        let refusal = audit(&layout, "trusted-person", &changed_config_rows(), "rev-2")
+            .unwrap()
+            .expect("the chain refused");
+        assert_eq!(refusal.reason, "anchor-missing");
+        assert!(refusal.queued);
+        assert_eq!(
+            std::fs::read(layout.logs().join("audit-chain.jsonl")).unwrap(),
+            chain_before,
+            "a refusing chain is never written to"
+        );
+        let log = log_lines(&layout);
+        assert_eq!(log.len(), log_before.len() + 4);
+        assert_eq!(&log[..log_before.len()], &log_before[..]);
+        let refused = &log[log_before.len()..];
+        for raw in refused {
+            let line: Value = serde_json::from_str(raw).unwrap();
+            assert_eq!(line["action"], "audit.config.set");
+            assert_eq!(line["actor"]["user"], "trusted-person");
+            assert_eq!(line["detail"]["targetRevision"], "rev-2");
+            assert_eq!(line["chain"], "refused");
+            assert_eq!(line["chainReason"], "anchor-missing");
+            assert!(
+                !raw.contains("old-marker") && !raw.contains("new-marker"),
+                "{raw}"
+            );
+        }
+        let pending =
+            std::fs::read_to_string(layout.logs().join("audit-chain.pending.jsonl")).unwrap();
+        let pending: Vec<String> = pending.lines().map(str::to_string).collect();
+        assert_eq!(pending, refused, "the journal holds the audit.log lines");
+    }
+
+    /// `audit.log` is still the fail-closed part: a row it cannot hold refuses the config write, whether or not the
+    /// chain refuses too, and nothing is queued for it.
+    #[test]
+    fn an_unwritable_audit_log_still_fails_the_config_audit_when_the_chain_refuses_too() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
         audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap();
         std::fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
-        let log_before = std::fs::read(layout.audit_log()).unwrap();
-        let chain_before = std::fs::read(layout.logs().join("audit-chain.jsonl")).unwrap();
+        std::fs::remove_file(layout.audit_log()).unwrap();
+        std::fs::create_dir(layout.audit_log()).unwrap();
         assert!(audit(&layout, "trusted-person", &changed_config_rows(), "rev-2").is_err());
-        assert_eq!(std::fs::read(layout.audit_log()).unwrap(), log_before);
+        assert!(!layout.logs().join("audit-chain.pending.jsonl").exists());
+    }
+
+    /// The repair side: with the anchor back, the next config audit joins the chain and takes the waiting rows along, in
+    /// their original order, and the chain verifies.
+    #[test]
+    fn after_the_anchor_is_restored_the_waiting_config_rows_join_the_chain_in_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap();
+        std::fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
+        audit(&layout, "trusted-person", &changed_config_rows(), "rev-2").unwrap();
+        let waiting: Vec<Value> = log_lines(&layout)[4..8]
+            .iter()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        // What a repair does: the anchor is written again from the chain's newest line.
+        {
+            use sha2::{Digest, Sha256};
+            let text = std::fs::read_to_string(layout.logs().join("audit-chain.jsonl")).unwrap();
+            let last = text.lines().last().unwrap();
+            let seq = serde_json::from_str::<Value>(last).unwrap()["seq"]
+                .as_u64()
+                .unwrap();
+            std::fs::write(
+                layout.logs().join("audit-chain.anchor"),
+                json!({"v": 1, "seq": seq, "hash": format!("{:x}", Sha256::digest(last.as_bytes()))})
+                    .to_string(),
+            )
+            .unwrap();
+        }
         assert_eq!(
-            std::fs::read(layout.logs().join("audit-chain.jsonl")).unwrap(),
-            chain_before
+            audit(&layout, "trusted-person", &changed_config_rows(), "rev-3").unwrap(),
+            None
         );
+        let chain = verified_chain(&layout);
+        let in_rev_2: Vec<&Value> = chain
+            .iter()
+            .map(|(_, rec)| rec)
+            .filter(|rec| rec["detail"]["targetRevision"] == "rev-2")
+            .collect();
+        assert_eq!(in_rev_2.len(), 4);
+        for (rec, original) in in_rev_2.iter().zip(&waiting) {
+            assert_eq!(*rec, original, "original order, time and flag");
+        }
+        assert_eq!(
+            chain
+                .iter()
+                .filter(|(_, rec)| rec["detail"]["targetRevision"] == "rev-3")
+                .count(),
+            4
+        );
+        let drained: Vec<&Value> = chain
+            .iter()
+            .map(|(_, rec)| rec)
+            .filter(|rec| rec["action"] == "audit.chain.pending_drained")
+            .collect();
+        assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0]["detail"]["count"], 4);
+        assert!(!layout.logs().join("audit-chain.pending.jsonl").exists());
     }
 
     #[test]
