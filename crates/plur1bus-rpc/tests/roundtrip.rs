@@ -990,6 +990,15 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AdminReembedAbortParams,
                 types::AdminReembedAbortResult,
             >(name, fixture, &root_schema),
+            "decision.status" => check_pair::<
+                types::DecisionStatusParams,
+                types::DecisionStatusResult,
+            >(name, fixture, &root_schema),
+            "decision.test" => check_pair::<types::DecisionTestParams, types::DecisionTestResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "models.test" => check_pair::<types::ModelsTestParams, types::ModelsTestResult>(
                 name,
                 fixture,

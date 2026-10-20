@@ -1,0 +1,20 @@
+{
+  "params": {},
+  "result": {
+    "backend": "role",
+    "installed": [
+      "role"
+    ],
+    "requests": 2,
+    "failures": 1,
+    "errorRate": 0.5,
+    "p50Ms": 2.5,
+    "p95Ms": 5.5,
+    "backends": {
+      "role": {
+        "requests": 2,
+        "failures": 1
+      }
+    }
+  }
+}

@@ -612,6 +612,14 @@
       "stability": "stable",
       "since": "1.0.0"
     },
+    "decision.status": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "decision.test": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "models.test": {
       "stability": "experimental",
       "since": "1.6.0"

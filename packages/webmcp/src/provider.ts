@@ -63,7 +63,7 @@ const FORBIDDEN_EXACT = new Set([
   "agent.create", "agent.import", "agent.validate", "agent.delete", "agent.archive", "agent.unarchive", "agent.export", "agent.rights.get", "agent.rights.set",
   "pairing.qr", "session.list",
 ]);
-const FORBIDDEN_PREFIX = ["inbox.", "project.column.","supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth.", "grant.", "approval.", "user.", "breakglass.", "device."];
+const FORBIDDEN_PREFIX = ["decision.", "inbox.", "project.column.","supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth.", "grant.", "approval.", "user.", "breakglass.", "device."];
 const FORBIDDEN_SUFFIX = [".auth", ".adopt", ".shutdown"];
 
 export function isForbiddenMethod(method: string): boolean {

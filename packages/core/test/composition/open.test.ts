@@ -60,7 +60,7 @@ describe("composition openTurnComposition", () => {
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
-      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, "models.test"].sort());
+      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, "decision.status", "decision.test", "models.test"].sort());
       for (const m of Object.values(c.surfaceMethods)) assert.equal(typeof m, "function");
     } finally { await c.close(); identity.close(); }
   });

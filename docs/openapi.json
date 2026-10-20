@@ -4143,7 +4143,8 @@
                               "tool.call",
                               "tool.result",
                               "turn.completed",
-                              "turn.failed"
+                              "turn.failed",
+                              "decision.completed"
                             ]
                           },
                           "data": {
