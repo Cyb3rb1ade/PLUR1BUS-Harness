@@ -43,6 +43,21 @@ describe("users: rights of one person", opts, () => {
       assert.equal(await app.page.getByRole("checkbox", { name: "Use right on agent ops" }).isChecked(), false);
     });
   });
+  test("the matrix is first drawn with what the person holds, never empty and then filled in", async () => {
+    await withApp({}, async (app) => {
+      // A click in an empty frame would be overwritten when the loaded rights arrive (an unchecked box that is then ticked by the load).
+      await app.page.evaluate(() => {
+        const frames: boolean[] = [];
+        (window as unknown as { __mainFrames: boolean[] }).__mainFrames = frames;
+        new MutationObserver(() => {
+          const box = document.querySelector<HTMLInputElement>('input[aria-label="Use right on agent main"]');
+          if (box && frames.length === 0) frames.push(box.checked);
+        }).observe(document.body, { subtree: true, childList: true, attributes: true });
+      });
+      await open(app);
+      assert.deepEqual(await app.page.evaluate(() => (window as unknown as { __mainFrames: boolean[] }).__mainFrames), [true]);
+    });
+  });
   test("saving sends the person's id, only the changes, and null for a right taken away", async () => {
     await withApp({}, async (app) => {
       await open(app);

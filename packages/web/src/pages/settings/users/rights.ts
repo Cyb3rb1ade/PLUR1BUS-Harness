@@ -76,7 +76,13 @@ export function RightsPanel({ self }: { self: { id: string; role: string } }): V
   const person = list.find((p) => p.id === picked) ?? list[0];
   const agentList = agents.state.status === "ok" ? agents.state.data : [];
   const held = useLoad((signal) => (person && agentList.length ? loadHeld(person.id, agentList, signal) : Promise.resolve({} as Held)), [person?.id ?? "", agentList.join("\n")]);
-  useEffect(() => { if (held.state.status === "ok") { setBase(held.state.data); setRights(held.state.data); } }, [held.state]);
+  // The editable copy is taken from what was loaded in an effect, i.e. after the render that first shows the loaded data. The matrix
+  // is drawn only once that copy belongs to the answer for this person and this list of agents, so no frame shows empty (or the
+  // previous person's) boxes that a click or a test would then act on before they are replaced.
+  const heldKey = `${person?.id ?? ""}\n${agentList.join("\n")}`;
+  const [synced, setSynced] = useState<{ key: string; data: Held } | null>(null);
+  useEffect(() => { if (held.state.status === "ok") { setBase(held.state.data); setRights(held.state.data); setSynced({ key: heldKey, data: held.state.data }); } }, [held.state]);
+  const ready = held.state.status === "ok" && synced !== null && synced.data === held.state.data && synced.key === heldKey;
 
   const save = async (): Promise<void> => {
     if (!person) return;
@@ -101,8 +107,8 @@ export function RightsPanel({ self }: { self: { id: string; role: string } }): V
   else if (agents.state.status === "fail") body = h(FailureState, { failure: agents.state.failure, onRetry: agents.reload });
   else if (!person) body = h("p", { class: "users-empty" }, t("users.rights.noPeople"));
   else if (agentList.length === 0) body = h("p", { class: "users-empty" }, t("users.rights.none"));
-  else if (held.state.status === "loading") body = h(PageLoading, { label: t("users.rights.loadingHeld") });
   else if (held.state.status === "fail") body = h(FailureState, { failure: held.state.failure, onRetry: held.reload });
+  else if (!ready) body = h(PageLoading, { label: t("users.rights.loadingHeld") });
   else {
     const role = person.role === "operator" ? "operator" : "member";
     body = h("div", null,
