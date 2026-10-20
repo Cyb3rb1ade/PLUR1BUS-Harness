@@ -1,3 +1,4 @@
+import { buildMediaEngineConfig } from "./media-search/engine-host.ts";
 import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
 import { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
@@ -37,7 +38,7 @@ export function buildEngineConfig(cfg: HarnessConfig, l: Layout): Record<string,
   const reranker = rerPlan.kind === "remote" ? rerPlan.block : { ...rer, enabled: true, provider: "local-transformers", local: { model: BGE_RERANKER, cacheDir: l.models, ...plain(rer.local) } };
   const recall = { ...rec, softBudgetMs: cfg.core.recall.softBudgetMs, globalInjectMaxChars: cfg.core.recall.capChars, decisionTrace: { ...plain(rec.decisionTrace), enabled: true } };
   const override = typeof baseDbPathOverride === "string" && baseDbPathOverride.trim() !== "" ? baseDbPathOverride : undefined;
-  return { ...passthrough, baseDbPath: override ?? l.lancedb, autoRecall: false, autoCapture: false, embedding, reranker, recall };
+  return { ...passthrough, baseDbPath: override ?? l.lancedb, autoRecall: false, autoCapture: false, embedding, reranker, recall, media: buildMediaEngineConfig(cfg.memory.mediaEmbedding, l.models) };
 }
 
 /** A shallow copy of a plain object without `__proto__` keys; anything else (string, array, null, number) is `{}`, so
