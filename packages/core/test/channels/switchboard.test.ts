@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createSwitchboard, secretNamesOf, type ApprovalDecisionLike } from "../../src/channels/switchboard.ts";
 import type { ApprovalView } from "../../src/approvals/service.ts";
 import { deriveUserPrincipal } from "../../src/identity/principals.ts";
-import { fakeBinding, flush, makeRig, FakeAdapter, type Rig } from "./switchboard-rig.ts";
+import { fakeBinding, flush, makeRig, FakeAdapter, OWNER, type Rig } from "./switchboard-rig.ts";
 
 const TOKEN = "unit-test-token-0123456789";
 
@@ -401,6 +401,120 @@ test("decision callbacks of a stopped instance are not wired any more", async ()
   await a.decide({ promptId: "prompt-1", chatId: "chat-1", senderId: "sender-1", choiceId: "approve" });
   await flush(5);
   assert.equal(rig.approvals.decisions.length, 0);
+  rig.close();
+});
+
+test("revoking the handle after the prompt went out: a press of that handle decides nothing (the links are read at decision time)", async () => {
+  const { rig, a, humanId } = await pendingApproval();
+  const link = rig.identity.list({}).humans.find((h) => h.id === humanId)!.identities[0]!;
+  rig.identity.unlink({ linkId: link.id }, OWNER);
+  await a.decide({ promptId: "prompt-1", chatId: "chat-1", senderId: "sender-1", choiceId: "approve" });
+  await flush(5);
+  assert.equal(rig.approvals.decisions.length, 0);
+  assert.ok(rig.logs.some((l) => l.msg === "channel.approval.refused" && l.fields?.reason === "approver"));
+  rig.close();
+});
+
+test("revoking one of two handles: the other one can still decide", async () => {
+  const rig = await running();
+  const { humanId } = rig.link("discord", "bot-1", "sender-1");
+  const a = rig.adapter();
+  await a.inbound({ text: "do it" });
+  const second = rig.identity.startPairing({ humanId, channel: "discord" }, { user: humanId, host: "test", kind: "person", role: "member" });
+  const claimed = rig.identity.claim({ code: second.code, identity: { channel: "discord", accountId: "bot-1", userId: "sender-2" } });
+  rig.identity.confirm({ pairingId: claimed.pairingId, approve: true }, { user: humanId, host: "test", kind: "person", role: "member" });
+  const session = rig.store.listSessions({ owner: deriveUserPrincipal(humanId), kind: "channel" }).sessions[0]!;
+  rig.switchboard.approvalEvents.emit("approval.requested", { approval: approvalFor(rig, humanId, session.id), nonce: "nonce-1", foregroundUntil: 1 });
+  await flush(10);
+  assert.deepEqual([...a.prompts[0]!.approverIds].sort(), ["sender-1", "sender-2"]);
+  const first = rig.identity.list({}).humans.find((h) => h.id === humanId)!.identities.find((l) => l.userId === "sender-1")!;
+  rig.identity.unlink({ linkId: first.id }, OWNER);
+  await a.decide({ promptId: "prompt-1", chatId: "chat-1", senderId: "sender-1", choiceId: "approve" });
+  await flush(5);
+  assert.equal(rig.approvals.decisions.length, 0);
+  await a.decide({ promptId: "prompt-1", chatId: "chat-1", senderId: "sender-2", choiceId: "approve" });
+  await flush(5);
+  assert.equal(rig.approvals.decisions.length, 1);
+  assert.equal(rig.approvals.decisions[0]?.person, humanId);
+  rig.close();
+});
+
+// --- disabled people (admin store) ----------------------------------------------------------------------------------------
+
+test("a disabled person's channel message reaches no turn and gets no reply; enabling restores it", async () => {
+  const disabled = new Set<string>();
+  const rig = await running({ switchboard: { personActive: (id) => !disabled.has(id) } });
+  const { humanId } = rig.link("discord", "bot-1", "sender-1");
+  const a = rig.adapter();
+  await a.inbound({ text: "hello", messageId: "m1" });
+  assert.equal(rig.provider.requests.length, 1);
+  assert.deepEqual(a.sent.map((m) => m.text), ["echo:hello"]);
+  disabled.add(humanId);
+  await a.inbound({ text: "again", messageId: "m2" });
+  await a.inbound({ chatId: "room-1", chatKind: "group", addressed: true, text: "in a room", messageId: "m3" });
+  assert.equal(rig.provider.requests.length, 1, "no turn for a disabled person");
+  assert.deepEqual(a.sent.map((m) => m.text), ["echo:hello"], "silence: neither an answer nor a pairing/\"not paired\" reply");
+  assert.ok(rig.logs.some((l) => l.msg === "channel.inbound.dropped" && l.fields?.reason === "person-disabled"));
+  disabled.delete(humanId);
+  await a.inbound({ text: "back", messageId: "m4" });
+  assert.equal(rig.provider.requests.length, 2);
+  assert.deepEqual(a.sent.map((m) => m.text), ["echo:hello", "echo:back"]);
+  rig.close();
+});
+
+test("a person disabled while a prompt is open cannot decide it, and a disabled person's request is not relayed", async () => {
+  const disabled = new Set<string>();
+  const rig = await running({ switchboard: { personActive: (id) => !disabled.has(id) } });
+  const { humanId } = rig.link("discord", "bot-1", "sender-1");
+  const a = rig.adapter();
+  await a.inbound({ text: "do it" });
+  const session = rig.store.listSessions({ owner: deriveUserPrincipal(humanId), kind: "channel" }).sessions[0]!;
+  rig.switchboard.approvalEvents.emit("approval.requested", { approval: approvalFor(rig, humanId, session.id), nonce: "nonce-1", foregroundUntil: 1 });
+  await flush(10);
+  assert.equal(a.prompts.length, 1);
+  disabled.add(humanId);
+  await a.decide({ promptId: "prompt-1", chatId: "chat-1", senderId: "sender-1", choiceId: "approve" });
+  await flush(5);
+  assert.equal(rig.approvals.decisions.length, 0);
+  rig.switchboard.approvalEvents.emit("approval.requested", { approval: approvalFor(rig, humanId, session.id, { id: "req-2" }), nonce: "nonce-2", foregroundUntil: 1 });
+  await flush(10);
+  assert.equal(a.prompts.length, 1, "no second prompt for a disabled person");
+  rig.close();
+});
+
+test("a failing personActive check counts as disabled (fail closed)", async () => {
+  const rig = await running({ switchboard: { personActive: () => { throw new Error("admin store closed"); } } });
+  rig.link("discord", "bot-1", "sender-1");
+  await rig.adapter().inbound({ text: "hello" });
+  assert.equal(rig.provider.requests.length, 0);
+  rig.close();
+});
+
+// --- output() of a chat of unknown kind -------------------------------------------------------------------------------------
+
+test("output() for a chat nobody wrote in yet applies the group limits and reply=never (fail closed), not the direct ones", async () => {
+  const rig = await running();
+  const host = rig.adapter().host!;
+  const long = "x".repeat(20_000);
+  // unknown chat: the shipped group layer (8192 chars) applies, direct would let 20000 through
+  assert.equal(host.output!({ channel: "discord", chatId: "never-seen", kind: "reply", text: long })!.length, 8192);
+  // a reply=never rule that only the group layer carries also holds for an unknown chat
+  rig.config.current().agents.main = { behaviour: { group: { reply: { policy: "never" } } } } as never;
+  assert.equal(host.output!({ channel: "discord", chatId: "never-seen-2", kind: "reply", text: "hi" }), null);
+  // a direct-only `never` holds for an unknown chat too (the stricter of both)
+  rig.config.current().agents.main = { behaviour: { direct: { reply: { policy: "never" } } } } as never;
+  assert.equal(host.output!({ channel: "discord", chatId: "never-seen-3", kind: "reply", text: "hi" }), null);
+  rig.close();
+});
+
+test("output() keeps the direct rules for a chat known to be direct (the legitimate path is unchanged)", async () => {
+  const rig = await running();
+  rig.link("discord", "bot-1", "sender-1");
+  const a = rig.adapter();
+  await a.inbound({ text: "hello" }); // notes chat-1 as direct
+  assert.equal(a.host!.output!({ channel: "discord", chatId: "chat-1", kind: "reply", text: "x".repeat(20_000) })!.length, 20_000);
+  await a.inbound({ chatId: "room-1", chatKind: "group", addressed: true, text: "hi" });
+  assert.equal(a.host!.output!({ channel: "discord", chatId: "room-1", kind: "reply", text: "x".repeat(20_000) })!.length, 8192);
   rig.close();
 });
 

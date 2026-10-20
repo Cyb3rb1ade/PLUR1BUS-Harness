@@ -1,6 +1,6 @@
 # Remote access
 
-In **Settings → Devices & Remote**, choose `local`, `tailnet` or `network`. The default is `tailnet`; Tailscale must be installed and signed in. When unavailable, Doctor reports the reason and the API opens no network fallback. `local` hides the pairing card.
+In **Settings → Devices & Remote**, choose `local`, `tailnet` or `network`. The default is `tailnet`; Tailscale must be installed and signed in. When unavailable, Doctor reports the reason and the API opens no network fallback. `local` hides the pairing card. The German version of this page is [../de/remote-access.md](../de/remote-access.md).
 
 Owner and Admin should first enroll TOTP or a passkey locally. Remote login requires a second factor by default. A local password-only cookie does not satisfy that requirement.
 

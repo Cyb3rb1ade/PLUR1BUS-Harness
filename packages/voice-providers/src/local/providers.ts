@@ -161,8 +161,8 @@ export function createLocalAsr(get: () => AsrLease, onUsage?: (r: UsageReport) =
 
 export function createLocalTts(get: () => TtsLease, onUsage?: (r: UsageReport) => void, maxWords?: number): TtsProvider {
   function speakerOf(model: CatalogModel, voice: string | undefined): number {
-    if (voice === undefined) return model.speakers ? (model.speakers[model.defaultSpeaker ?? ""] ?? 0) : 0;
-    if (model.speakers && voice in model.speakers) return model.speakers[voice]!;
+    if (voice === undefined) return model.speakers && Object.hasOwn(model.speakers, model.defaultSpeaker ?? "") ? model.speakers[model.defaultSpeaker ?? ""]! : 0;
+    if (model.speakers && Object.hasOwn(model.speakers, voice)) return model.speakers[voice]!;
     if (/^\d+$/.test(voice)) return Number(voice);
     throw new VoiceProviderError("invalid_request", `local: unknown voice "${voice}" for ${model.displayName}`, { provider: ID });
   }

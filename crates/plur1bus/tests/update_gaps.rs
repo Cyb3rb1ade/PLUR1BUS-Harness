@@ -1499,3 +1499,128 @@ fn a_signed_release_whose_core_payload_breaks_while_it_is_unpacked_leaves_no_tra
         assert_eq!(left, vec!["core".to_string()], "{what}: {left:?}");
     }
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// `--plan` writes nothing; one run at a time
+
+#[test]
+fn a_plan_settles_no_interrupted_update() {
+    let e = env();
+    let f = Release::new(&e, "0.2.0").feed(&e, "feed", &Key::new());
+    // An update killed right after its health gate: the next real update rolls it forward.
+    let o = online(&e, &f, &[])
+        .env("PLUR1BUS_TEST_UPDATE_KILL_AT", "gated")
+        .output()
+        .unwrap();
+    assert_eq!(o.status.code(), Some(137));
+    let interrupted = fs::read(e.home.join("update/state.json")).unwrap();
+    let before = state_of(&e);
+
+    let (code, p) = run(&mut cmd(
+        &e,
+        Some(&f.pubkey),
+        &["update", "--plan", "--manifest", f.path.to_str().unwrap()],
+    ));
+    assert_eq!(code, 0, "{p}");
+    assert_eq!(p["schema"], "update.plan/1", "{p}");
+    assert_eq!(
+        fs::read(e.home.join("update/state.json")).unwrap(),
+        interrupted,
+        "a plan leaves the interrupted update as it found it"
+    );
+    assert_eq!(state_of(&e), before, "nothing was committed or restored");
+    assert_eq!(installed_version(&e), "0.1.0");
+
+    // The real update settles it as before.
+    let (code, doc) = run(&mut online(&e, &f, &[]));
+    assert_eq!(code, 0, "{doc}");
+    assert_eq!(installed_version(&e), "0.2.0");
+}
+
+#[test]
+fn a_plan_does_not_remember_a_key_list_the_feed_announces() {
+    let e = env();
+    let (old, new) = (Key::new(), Key::new());
+    let f = Release::new(&e, "0.2.0").feed(&e, "feed", &new);
+    let list = key_list("stable", &[(&new, "2999-01-01")]);
+    fs::write(f.dir.join("stable.keys.json"), &list).unwrap();
+    fs::write(f.dir.join("stable.keys.json.minisig"), old.sign(&list)).unwrap();
+    let before = state_of(&e);
+
+    let (code, p) = run(&mut cmd(
+        &e,
+        Some(&old.pk()),
+        &["update", "--plan", "--manifest", f.path.to_str().unwrap()],
+    ));
+    assert_eq!(code, 0, "{p}");
+    assert_eq!(p["schema"], "update.plan/1", "{p}");
+    assert!(
+        !e.home.join("update").exists(),
+        "a plan writes nothing, not even the announced key"
+    );
+    assert_eq!(state_of(&e), before);
+
+    // The apply that follows remembers it.
+    let trusted_old = Feed {
+        pubkey: old.pk(),
+        path: f.path.clone(),
+        dir: f.dir.clone(),
+    };
+    let (code, doc) = run(&mut online(&e, &trusted_old, &[]));
+    assert_eq!(code, 0, "{doc}");
+    assert_eq!(guard(&e)["keys"][0]["publicKey"], new.pk());
+}
+
+#[test]
+fn a_second_update_or_rollback_is_refused_while_one_holds_the_lock() {
+    let e = env();
+    let f = Release::new(&e, "0.2.0").feed(&e, "feed", &Key::new());
+    fs::create_dir_all(e.home.join("update")).unwrap();
+    let held = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(e.home.join("update/update.lock"))
+        .unwrap();
+    held.try_lock().unwrap();
+    let before = state_of(&e);
+
+    let (code, doc) = run(&mut online(&e, &f, &[]));
+    assert_eq!(
+        (code, doc["reason"].as_str()),
+        (2, Some("update-in-progress")),
+        "{doc}"
+    );
+    let (code, doc) = run(&mut cmd(&e, Some(&f.pubkey), &["update", "--rollback"]));
+    assert_eq!(
+        (code, doc["reason"].as_str()),
+        (2, Some("update-in-progress")),
+        "{doc}"
+    );
+    assert_eq!(state_of(&e), before);
+    assert!(
+        !e.home.join("update/staging").exists() && !e.home.join("update/state.json").exists(),
+        "the refused run touched nothing the running one uses"
+    );
+    // Reading is not blocked: a plan, a check and the status answer beside a running update.
+    let manifest = f.path.to_str().unwrap();
+    let (code, _) = run(&mut cmd(
+        &e,
+        Some(&f.pubkey),
+        &["update", "--plan", "--manifest", manifest],
+    ));
+    assert_eq!(code, 0);
+    let (code, _) = run(&mut cmd(&e, None, &["update", "status"]));
+    assert_eq!(code, 0);
+
+    // Released, the same update goes through.
+    drop(held);
+    let (code, doc) = run(&mut online(&e, &f, &[]));
+    assert_eq!(
+        (code, doc["outcome"].as_str()),
+        (0, Some("committed")),
+        "{doc}"
+    );
+    assert_eq!(installed_version(&e), "0.2.0");
+}

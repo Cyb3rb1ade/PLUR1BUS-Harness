@@ -8,7 +8,7 @@
 use super::archive::{hash_file, hex, verify};
 use super::create::{create, testkit, SnapFile};
 use super::redact::PLACEHOLDER;
-use super::restore::{restore, RestoreOpts};
+use super::restore::{restore, RestoreOpts, REAPPLY_MARKER};
 use crate::paths::Layout;
 use flate2::read::GzDecoder;
 use sha2::{Digest, Sha256};
@@ -64,7 +64,7 @@ fn populate(home: &Path) {
 }
 
 /// Every file below `root` with its SHA-256, by relative path, skipping what a restore adds around the data (`backups/`,
-/// `.restore-*`, `state/backup-staging`).
+/// `.restore-*`, `state/backup-staging`, and the re-apply marker, whose body carries the time of the restore).
 fn hashes(root: &Path) -> BTreeMap<String, String> {
     fn go(base: &Path, dir: &Path, out: &mut BTreeMap<String, String>) {
         for e in fs::read_dir(dir).unwrap() {
@@ -78,6 +78,7 @@ fn hashes(root: &Path) -> BTreeMap<String, String> {
             if rel == "backups"
                 || rel.starts_with(".restore-")
                 || rel.starts_with("state/backup-staging")
+                || rel == REAPPLY_MARKER
             {
                 continue;
             }

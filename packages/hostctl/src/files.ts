@@ -24,7 +24,13 @@ export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[
   // Extra namespace operations are limited to non-root entries. Revalidate the parent immediately before mutation.
   const entry = async (input: string) => {
     const c = await canon(input, 'write');
-    if (c.canonical === (await canon(roots.find(r => r.id === c.rootId)!.path, 'read')).canonical) fail('DENIED', 'A configured root itself cannot be moved or trashed.');
+    // Every configured root, not only the one this path resolved under: roots may be nested, and a folder that contains a root takes the root with it.
+    const fold = (p: string) => process.platform === 'win32' ? p.toLowerCase() : p;
+    for (const r of roots) {
+      const rootPath = fold(await canon(r.path, 'read').then(x => x.canonical, () => path.resolve(r.path)));
+      const target = fold(c.canonical);
+      if (rootPath === target || rootPath.startsWith(target.endsWith(path.sep) ? target : target + path.sep)) fail('DENIED', 'A configured root itself, or a folder that contains one, cannot be moved or trashed.');
+    }
     const lexical = path.resolve(cwd!, input);
     if (await lstat(lexical).then(s => s.isSymbolicLink(), () => false)) fail('DENIED', 'Namespace operations do not follow symbolic links.');
     const parent = await canon(path.dirname(c.canonical), 'write');

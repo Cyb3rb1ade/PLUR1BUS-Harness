@@ -143,7 +143,9 @@ describe("privacy.localOnly: media index and captioning (shared, pinned while an
     const noop = async () => { throw new Error("unused"); };
     const engine = { media: { index: noop, search: noop, remove: noop, setCaption: noop, status: noop, backfill: { start: noop, pause: noop, resume: noop, cancel: noop }, attachHost: () => { built++; } } };
     const logger = { debug() {}, info() {}, warn() {}, error() {} };
-    const c = await composeMediaSearch({ home, config: () => cfg, engine, agents: { workspaceOf: () => home }, logger, store: null, budget: null, privacyPinned: () => pinned } as never);
+    // This composition fixture represents the future media-capable Engine with a bound
+    // trusted HostFetch; absent-Fetch refusal has its own real-host regression.
+    const c = await composeMediaSearch({ home, config: () => cfg, engine, hostFetchReady: true, agents: { workspaceOf: () => home }, logger, store: null, budget: null, privacyPinned: () => pinned } as never);
     return { c, built: () => built };
   };
   it("a cloud media embedding provider is not started; the index is disabled with the reason, never switched to another model", async () => {

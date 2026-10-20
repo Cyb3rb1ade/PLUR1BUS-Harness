@@ -1,5 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { canonicalisePath } from "../../src/policy/paths-index.ts";
+import { invalidDenyEntry } from "../../src/policy/paths.ts";
 import { denyEntriesFor, looksLikeSecret, redactSecrets, redactText } from "../../src/host-tools/index.ts";
 import { runHostTool } from "../../src/host-tools/index.ts";
 import { makeCtx } from "./helpers.ts";
@@ -79,3 +84,44 @@ for (const platform of ["darwin", "linux", "win32"] as const) {
     assert.equal(denyHit(p(home, ".codex-not-a-credential-root", "notes.md"), deny), false);
   });
 }
+
+describe("deny-list entries from environment overrides are canonical", () => {
+  const pathsOf = (home: string, env: Record<string, string>, platform: "linux" | "win32") =>
+    denyEntriesFor(home, env, platform).filter((e): e is { path: string } => "path" in e).map((e) => e.path);
+
+  it("a '..' or '.' segment in an override is collapsed, so the entry can match a canonical path", () => {
+    const p = pathsOf("/home/u", { CLAUDE_CONFIG_DIR: "/srv/agents/../claude", CODEX_HOME: "/srv/./codex/x/..", XDG_CONFIG_HOME: "/srv/cfg/../xdg" }, "linux");
+    assert.ok(p.includes("/srv/claude"), p.join("\n"));
+    assert.ok(p.includes("/srv/codex"));
+    assert.ok(p.includes("/srv/codex/auth.json"));
+    assert.ok(p.includes("/srv/xdg/gcloud"));
+    assert.ok(p.every((x) => !x.split("/").some((s) => s === ".." || s === ".")), "no entry keeps a dot segment");
+    const win = pathsOf("C:\\Users\\u", { HERMES_HOME: "C:\\agents\\..\\hermes" }, "win32");
+    assert.ok(win.includes("C:\\hermes"), win.join("\n"));
+    assert.ok(win.includes("C:\\hermes\\auth.json"));
+  });
+
+  it("every entry the list yields is one the path layer accepts, and the collapsed override protects the directory it names", async () => {
+    const base = await realpath(await mkdtemp(join(tmpdir(), "p1b-denyenv-")));
+    try {
+      await mkdir(join(base, "agents"), { recursive: true });
+      await mkdir(join(base, "claude"), { recursive: true });
+      await mkdir(join(base, "root"), { recursive: true });
+      await writeFile(join(base, "claude", "settings.json"), "{}");
+      await writeFile(join(base, "root", "a.txt"), "a");
+      const deny = denyEntriesFor("/nonexistent-home", { CLAUDE_CONFIG_DIR: `${base}/agents/../claude` }, "linux");
+      assert.equal(invalidDenyEntry(deny), null);
+      const roots = [{ id: "ws", path: base }];
+      const hit = await canonicalisePath(join(base, "claude", "settings.json"), { roots, deny, requireRoot: false, home: "/nonexistent-home" });
+      assert.equal(hit.ok, false);
+      if (!hit.ok) assert.equal(hit.reason, "deny-listed");
+      const ok = await canonicalisePath(join(base, "root", "a.txt"), { roots, deny, requireRoot: false, home: "/nonexistent-home" });
+      assert.equal(ok.ok, true);
+    } finally { await rm(base, { recursive: true, force: true }); }
+  });
+
+  it("a relative override stays as it is and is refused downstream (unchanged)", () => {
+    assert.ok(pathsOf("/home/u", { CLAUDE_CONFIG_DIR: "rel/../x" }, "linux").includes("rel/../x"));
+    assert.match(invalidDenyEntry(denyEntriesFor("/home/u", { CLAUDE_CONFIG_DIR: "rel/x" }, "linux")) ?? "", /not absolute/);
+  });
+});

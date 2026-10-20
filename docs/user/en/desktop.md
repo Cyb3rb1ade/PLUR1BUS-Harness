@@ -1,6 +1,6 @@
 # Desktop bundles and migration
 
-Direct installers offer online and offline variants. Offline release bundles include the architecture-matched harness image and default models; CI preview placeholders cannot run the harness or offline inference. Store and Flatpak are online-only. The app asks before installing runtime software and shows its licence notice first.
+Direct installers offer online and offline variants. Offline release bundles include the architecture-matched harness image and default models; CI preview placeholders cannot run the harness or offline inference. Store and Flatpak are online-only. The app asks before installing runtime software and shows its licence notice first. The German version of this page is [../de/desktop.md](../de/desktop.md).
 
 The current real harness image does not yet provide every desktop pairing/session and cold-snapshot contract. A running daemon is not proof that desktop login or store migration works. Do not replace a native or stub installation's data manually. Keep the original installation and a verified M8 backup; production import and real-image rollback remain unavailable until their full gate and interrupted-migration tests pass.
 

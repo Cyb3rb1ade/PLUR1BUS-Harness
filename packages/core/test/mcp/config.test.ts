@@ -61,6 +61,53 @@ describe("mcp server definition", () => {
     assert.equal(code(() => validateDefinition({ ...stdio(), trust: "trusted" }, policy)), "invalid-config");
     assert.equal(validateDefinition({ ...stdio(), trust: "operator-vetted" }, policy).trust, "operator-vetted");
   });
+  // ADR-014 ruling 2 / audit mcp #4: trust belongs to the installation scope. An agent-scoped definition can never carry it,
+  // whatever the allowlist says, and a vetted installation server does not make a same-named agent server vetted.
+  it("operator-vetted is settable only in the installation scope (fail closed for an agent scope)", () => {
+    const agent = { kind: "agent", agentId: "bernd" };
+    assert.equal(code(() => validateDefinition({ ...stdio(), scope: agent, trust: "operator-vetted" }, policy)), "invalid-config");
+    assert.equal(validateDefinition({ ...stdio(), scope: agent, trust: "untrusted" }, policy).trust, "untrusted");
+    assert.equal(validateDefinition({ ...stdio(), scope: agent }, policy).trust, "untrusted");
+    assert.equal(validateDefinition({ ...stdio(), scope: { kind: "installation" }, trust: "operator-vetted" }, policy).trust, "operator-vetted");
+  });
+});
+
+// Audit mcp #2 (note): the allowlist names a program, not its argv. An allowlisted interpreter given inline code is
+// arbitrary code, so those flags need an explicit, per-command approval (`inlineCodeCommands`).
+describe("mcp stdio interpreter flags", () => {
+  const interp = { allowedCommands: ["node", "python3", "sh", "/usr/bin/python3.12", "/opt/tools/server"] };
+  const withArgs = (command: string, args: string[]) => stdio({ command, args });
+  it("refuses inline-code flags on an allowlisted interpreter", () => {
+    const cases: Array<[string, string[]]> = [
+      ["node", ["-e", "process.exit(0)"]], ["node", ["--eval", "1"]], ["node", ["--eval=1"]], ["node", ["-p", "1"]], ["node", ["-pe", "1"]],
+      ["node", ["--no-warnings", "-e", "1"]], ["node", ["-r", "./x.js", "-e", "1"]],
+      ["python3", ["-c", "import os"]], ["python3", ["-Ic", "import os"]], ["python3", ["-cimport os"]], ["python3", ["-u", "-W", "ignore", "-c", "x"]],
+      ["sh", ["-c", "id"]], ["sh", ["-lc", "id"]], ["sh", ["-ec", "id"]], ["sh", ["-o", "pipefail", "-c", "id"]],
+      ["/usr/bin/python3.12", ["-c", "x"]],
+    ];
+    for (const [command, args] of cases) assert.equal(code(() => validateDefinition(withArgs(command, args), interp)), "not-allowed", `${command} ${args.join(" ")}`);
+  });
+  it("does not leak the inline code into the error", () => {
+    try { validateDefinition(withArgs("node", ["-e", "SECRET-CODE-MARKER"]), interp); assert.fail("accepted"); }
+    catch (e) { assert.ok(e instanceof McpClientError); assert.ok(!e.message.includes("SECRET-CODE-MARKER"), e.message); }
+    try { validateDefinition(withArgs("python3", ["-cSECRET-CODE-MARKER"]), interp); assert.fail("accepted"); }
+    catch (e) { assert.ok(e instanceof McpClientError); assert.ok(!e.message.includes("SECRET-CODE-MARKER"), e.message); }
+  });
+  it("keeps a normal script, with its own flags, allowed", () => {
+    for (const [command, args] of [
+      ["node", ["server.js"]], ["node", ["--experimental-strip-types", "--no-warnings=ExperimentalWarning", "server.ts", "--port", "8080"]],
+      ["node", ["server.js", "-e", "prod", "-p", "8080"]], ["node", ["--experimental-strip-types", "server.ts", "-p", "8080"]], ["node", ["--enable-source-maps", "--no-warnings", "server.js", "-e", "x"]], ["node", ["--", "-e"]],
+      ["python3", ["server.py", "-c", "config.yaml"]], ["python3", ["-u", "-W", "ignore", "server.py", "-c", "cfg"]], ["python3", ["-m", "my_server", "-c", "cfg"]],
+      ["sh", ["start.sh", "-c", "cfg"]], ["/opt/tools/server", ["-e", "-c"]],
+    ] as Array<[string, string[]]>) assert.equal(code(() => validateDefinition(withArgs(command, args), interp)), "none", `${command} ${args.join(" ")}`);
+  });
+  it("allows inline code only for a command that is approved by name, not for its siblings", () => {
+    const approved = { allowedCommands: ["node", "python3"], inlineCodeCommands: ["node"] };
+    assert.equal(code(() => validateDefinition(withArgs("node", ["-e", "1"]), approved)), "none");
+    assert.equal(code(() => validateDefinition(withArgs("python3", ["-c", "1"]), approved)), "not-allowed");
+    // An approval does not widen the allowlist.
+    assert.equal(code(() => validateDefinition(withArgs("node", ["-e", "1"]), { allowedCommands: [], inlineCodeCommands: ["node"] })), "not-allowed");
+  });
 });
 
 it("timeouts accept only the declared names, not inherited object keys", async () => {
@@ -68,4 +115,16 @@ it("timeouts accept only the declared names, not inherited object keys", async (
     const raw = JSON.parse(`{"name":"x","transport":{"type":"http","url":"https://example.test/mcp"},"timeouts":{"${key}":100}}`);
     assert.throws(() => validateDefinition(raw, { allowedCommands: [] }), /unknown timeout/, key);
   }
+});
+
+describe("mcp server definition: command resolution and interpreter search paths", () => {
+  it("refuses to let a server definition set PATH, PATHEXT or an interpreter's module search path", () => {
+    for (const k of ["PATH", "Path", "path", "PATHEXT", "pathext", "PYTHONHOME", "PERL5LIB", "RUBYLIB"]) {
+      assert.equal(code(() => validateDefinition(stdio({ env: { [k]: "/tmp/x" } }), policy)), "invalid-config", k);
+    }
+  });
+  it("still accepts ordinary variables, so legitimate servers keep working", () => {
+    const d = validateDefinition(stdio({ env: { MY_PATH_HINT: "/x", PATHS: "y", API_REGION: "eu" } }), policy);
+    assert.deepEqual(d.transport.type === "stdio" ? Object.keys(d.transport.env).sort() : [], ["API_REGION", "MY_PATH_HINT", "PATHS"]);
+  });
 });
