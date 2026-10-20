@@ -663,8 +663,19 @@ mod tests {
             .is_some_and(|e| e["enabled"] == true)
     }
 
+    /// Tests that enable or disable add-ons take the process-wide ext mutation lock (X1-R15), which refuses instead
+    /// of waiting; run in parallel they would see `busy`. They take this lock first, one after the other.
+    static TOGGLES: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn serial() -> std::sync::MutexGuard<'static, ()> {
+        TOGGLES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     #[test]
     fn a_packaged_addon_is_judged_disabled_recorded_and_brought_back() {
+        let _serial = serial();
         let d = tempfile::tempdir().unwrap();
         let l = Layout::new(d.path().join("h"));
         install_skill(&l, "narrow", json!({"harness": "<0.3.0"}));
@@ -728,6 +739,7 @@ mod tests {
 
     #[test]
     fn a_rollback_disables_again_what_the_rolled_back_update_re_enabled() {
+        let _serial = serial();
         let d = tempfile::tempdir().unwrap();
         let l = Layout::new(d.path().join("h"));
         install_skill(&l, "narrow", json!({"harness": "<0.3.0"}));
