@@ -482,7 +482,7 @@ export function createCore(o: CoreOptions): Core {
         }
       };
       const host = createHarnessHost({
-        layout: l, logger, config, engineConfig, agents: executionRegistry, events, clock,
+        layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
         mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
         canMutateConfig: () => cs.source === "supervisor",
@@ -681,7 +681,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
