@@ -116,3 +116,20 @@ ausdrückliche Owner-Freigabe im Chat erforderlich. Die lokale API-Abnahme erset
 Keine neuen SDK-/Produktabhängigkeiten; Engine-Pin und Lockfile unverändert. F5-Routing und
 Providerdateien bleiben unberührt. Diese Phase liefert den sicher begrenzten Clientumfang,
 behauptet aber nicht den Abschluss des blockierten gesamten F4-Spikes. Merge übernimmt der Controller.
+
+## Ausführbare Acceptance-TODOs
+
+`packages/core/test/decision/acceptance.todo.test.ts` ergänzt **2 neue TODO-Tests** auf dem
+unveränderten echten Kev-Preflight: gestarteter lokaler MLX-Server mit Inferenz sowie
+Cold-/Cache-Latenzen/RSS; unabhängig gelabelte, hashgleiche DE/EN-/Rollenmessung mit
+Accuracy-/Brier-Grenzen vor deutscher Zulassung. Der dokumentierte DNS-/Wheel-Blocker
+bleibt offen; `metrics: null`, `inferencePerformed: false` und fehlende Zulassung
+werden nicht in Erfolg umgeschrieben. Bezahlte Jev-Aufrufe sind kein erforderlicher
+Abnahmetest dieses Clientumfangs; die bestehende Loopback-Abnahme bleibt gültig.
+
+Node 24.21, vollständiges `packages/core/test/decision/*.test.ts` mit
+`--experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1`:
+**33 Tests: 31 pass, 2 TODO, 0 fail, 0 skip**. Die zwei Bodies wurden ausgeführt und
+scheiterten erwartungsgemäß an `inferencePerformed: false` beziehungsweise fehlenden
+Messwerten. Bestehende Tests wurden nicht geändert oder zu TODOs gemacht. Native
+Receipts und erfüllte Assertions sind vor Entfernen der TODO-Gründe erforderlich.
