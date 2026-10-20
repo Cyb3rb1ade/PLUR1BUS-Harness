@@ -10,6 +10,7 @@ const n = (key: string, def: number, min: number, restart: "live" | "core", max?
 const o = (key: string): FieldMeta => ({ key, kind: "json", restart: "live" });
 
 export const META: readonly FieldMeta[] = [
+  { key: "core.webHandoffBaseUrl", kind: "string", def: "", restart: "live" },
   { key: "core.logLevel", kind: "enum", def: "info", options: ["debug", "info", "warn", "error"], restart: "live" },
   n("core.recall.softBudgetMs", 400, 50, "core"), n("core.recall.hardBudgetMs", 600, 100, "live"), n("core.recall.capChars", 17000, 1000, "core"),
   n("core.capture.waitMs", 60000, 1000, "live"), n("core.shutdownBudgetMs", 30000, 1000, "live"),
