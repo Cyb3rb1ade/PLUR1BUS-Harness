@@ -57,8 +57,9 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
   const tr = ctl.tr.value;
   const ready = load.status === "ready";
 
-  // Opening a chat puts the cursor in the composer; once, when it has loaded.
-  useEffect(() => { if (ready) box.current?.focus(); }, [ready, ctl]);
+  // Opening a chat puts the cursor in the composer; once, when it has loaded. Layout effect: the composer has the focus in the draw that
+  // shows it, so a key pressed right after it appears is not overridden by a focus() that runs after the paint.
+  useLayoutEffect(() => { if (ready) box.current?.focus(); }, [ready, ctl]);
   // Follow the end of the transcript unless the reader scrolled up.
   useLayoutEffect(() => { const el = logEl.current; if (el && stick.current) el.scrollTop = el.scrollHeight; }, [tr]);
 
