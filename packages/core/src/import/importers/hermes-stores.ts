@@ -17,7 +17,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
-  renameSync,
   rmSync,
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -26,6 +25,7 @@ import type { Layout } from "../../paths.ts";
 import { isDir } from "../readonly.ts";
 import { storeIdempotencyKey, type ImportLedger, type ConflictStrategy } from "../ledger.ts";
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
+import { renameRetry } from "../fs-retry.ts";
 import { readSourceFileSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
@@ -320,26 +320,45 @@ export function abortStoreAdopt(prepared: PreparedStoreAdopt | undefined): void 
   }
 }
 
-/** Swaps a verified staged copy into state/lancedb (apply mode, after snapshot + ledger exist). */
+/**
+ * Swaps a verified staged copy into state/lancedb (apply mode, after snapshot + ledger exist). When a store is replaced
+ * that is two renames (live store aside, staged copy in). If either fails the live store is put back at once and the
+ * error is rethrown with no ledger entry: nothing was taken over. Should even the put-back fail (the process dies or the
+ * lock persists), the live store stays in `replacedBackupDir/lancedb` with state/lancedb missing and rollback restores it
+ * from there (rollback.ts). `opts.rename` is a test seam; the default retries transient Windows locks (fs-retry.ts).
+ */
 export function commitStoreAdopt(
   prepared: PreparedStoreAdopt,
-  opts: { l: Layout; ledger?: ImportLedger | undefined; replacedBackupDir?: string | undefined; extraDetails?: Record<string, unknown> | undefined },
+  opts: {
+    l: Layout; ledger?: ImportLedger | undefined; replacedBackupDir?: string | undefined; extraDetails?: Record<string, unknown> | undefined;
+    rename?: ((from: string, to: string) => void) | undefined;
+  },
 ): StoreAdoptReport {
   const { l, ledger, replacedBackupDir, extraDetails } = opts;
+  const rename = opts.rename ?? ((from: string, to: string) => renameRetry(from, to));
   const stagingDir = prepared.stagingDir;
   if (!stagingDir) return prepared.report;
   const targetStore = l.lancedb;
   const replacing = existsSync(targetStore);
+  let bkp: string | undefined;
   if (replacing) {
     if (!replacedBackupDir) {
       throw new ImportError("E_STORE_INCOMPATIBLE", "store-backup-unavailable", "cannot replace a store without a backup location");
     }
     mkdirSync(replacedBackupDir, { recursive: true, mode: 0o700 });
-    const bkp = join(replacedBackupDir, "lancedb");
+    bkp = join(replacedBackupDir, "lancedb");
     rmSync(bkp, { recursive: true, force: true });
-    renameSync(targetStore, bkp);
   }
-  renameSync(stagingDir, targetStore);
+  let movedAside = false;
+  try {
+    if (bkp) { rename(targetStore, bkp); movedAside = true; }
+    rename(stagingDir, targetStore);
+  } catch (err) {
+    if (movedAside && bkp) {
+      try { rename(bkp, targetStore); } catch { /* the store stays in replaced/lancedb; rollback restores it */ }
+    }
+    throw err;
+  }
   prepared.stagingDir = undefined;
 
   ledger?.record({
