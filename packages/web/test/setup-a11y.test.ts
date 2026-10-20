@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { expectAxeClean } from "./axe.ts";
 import { browserSkip, setup, teardown, withApp, type App } from "./harness.ts";
-import { next, open, seed, skip, stepHeading } from "./setup-fixtures.ts";
+import { next, open, seed, skip, stepHeading, toSwitchboard } from "./setup-fixtures.ts";
 
 before(setup);
 after(teardown);
@@ -101,6 +101,32 @@ describe("setup wizard: a11y", opts, () => {
       await page.keyboard.press("Escape");
       await page.getByRole("dialog").waitFor({ state: "detached" });
       assert.equal(await page.evaluate(() => document.activeElement?.id), "setup-embedding-jina-v5-nano");
+    });
+  });
+
+  test("a new step is only visible once its heading has the focus (no later focus steal from a key press in between)", async () => {
+    await withApp({}, async (app) => {
+      seed(app.server.rpc); await open(app);
+      const { page } = app;
+      // Records, in a mutation callback (a microtask right after the draw that shows the heading), whether the heading is already focused.
+      await page.evaluate(() => {
+        const seen: { title: string; focused: boolean }[] = [];
+        (window as unknown as { __steps: typeof seen }).__steps = seen;
+        const look = (): void => {
+          const h = document.getElementById("setup-h");
+          const title = h?.firstChild?.textContent ?? "";
+          if (h && title !== "" && seen[seen.length - 1]?.title !== title) seen.push({ title, focused: document.activeElement === h });
+        };
+        new MutationObserver(look).observe(document.body, { childList: true, subtree: true, characterData: true });
+        look();
+      });
+      await toSwitchboard(app);
+      await skip(page);
+      await stepHeading(page, /Memory/).waitFor();
+      const seen = await page.evaluate(() => (window as unknown as { __steps: { title: string; focused: boolean }[] }).__steps);
+      assert.deepEqual(seen.map((s) => s.title), ["Your account", "Name & persona", "Main model", "Decision model", "Switchboard", "Memory"]);
+      // The first step is drawn on load and keeps the page's own focus; every step reached by a button gets its heading focused in the same draw.
+      assert.deepEqual(seen.slice(1).filter((s) => !s.focused).map((s) => s.title), []);
     });
   });
 
