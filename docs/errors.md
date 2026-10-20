@@ -170,6 +170,18 @@ The central RBAC gate additionally returns `E_UNAUTHORIZED` for a missing
 principal and `E_DENIED` for forbidden role/kind/token scope, using the existing
 RBAC reasons. Repeating a completed revocation is idempotent.
 
+## Audit chain repair (`plur1bus audit reanchor`)
+
+Existing `E_*` codes with these additive `reason` values; there are no new top-level error codes. See [audit-chain.md](audit-chain.md#recovery).
+
+| Reason | Error | Exit | Meaning |
+|---|---|---|---|
+| `nothing-to-repair` | `E_NOT_AVAILABLE` | 2 | Writers accept the chain and its anchor (or there is no `logs/` directory); also the one state a writer heals itself, an anchor one complete line behind. Nothing was changed. |
+| `reason-empty` | `E_INVALID_PARAMS` | 2 | `--reason` is empty after trimming (it is required unless `--dry-run`). |
+| `not-owner` | `E_UNAUTHORIZED` | 1 | `logs/` does not belong to the calling OS user or is writable by group or others. Nothing was changed. |
+| `audit-chain-locked` | `E_LOCKED` | 3 | Another process holds the chain lock for longer than 5 seconds (a running core that is writing). Try again. |
+| `audit-reanchor-failed` | `E_STORAGE` | 1 | A file could not be renamed or written. The old files are put back under their names. |
+
 ## CLI-Exit-Codes
 
 Which exit code a command ends with, collected from every exit site in `crates/plur1bus/src` by

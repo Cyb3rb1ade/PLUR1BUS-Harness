@@ -2,7 +2,7 @@
 // leaves a correctly chained line one past the anchor. The states below are built directly on disk (no process is killed).
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createAuditChain, hashLine, ACTIVE_NAME, ANCHOR_NAME, ANCHOR_ADVANCED_ACTION, type AuditChain } from "../../src/audit/chain.ts";
 import type { AuditEvent } from "../../src/rbac/audit.ts";
@@ -19,8 +19,7 @@ function crashedAfterLine(n: number, o: { maxBytes?: number } = {}): { dir: stri
   const chain = createAuditChain({ dir, ...o });
   for (let i = 0; i < n; i++) chain.append(ev(i));
   const all = [...readdirSync(dir).filter((f) => /^audit-chain\.\d{10}\.jsonl$/.test(f)).sort(), ACTIVE_NAME].flatMap((f) => lines(dir, f));
-  if (n === 1) rmSync(path.join(dir, ANCHOR_NAME)); // the very first write: the anchor never existed
-  else setAnchor(dir, n - 1, hashLine(all[n - 2] as string));
+  setAnchor(dir, n - 1, hashLine(all[n - 2] as string));
   return { dir, chain };
 }
 
@@ -47,12 +46,12 @@ describe("audit chain: crash between the fsynced line and the anchor", () => {
   });
 
   it("the event that was being appended when the previous process died is not lost or doubled", () => {
-    const { dir, chain } = crashedAfterLine(1);
-    chain.append(ev(1));
-    assert.deepEqual(lines(dir).map((l) => JSON.parse(l).rec.target), ["t0", ANCHOR_NAME, "t1"]);
-    assert.equal(JSON.parse(lines(dir)[1] as string).rec.detail.fromSeq, 0);
+    const { dir, chain } = crashedAfterLine(2);
     chain.append(ev(2));
-    assert.equal(chain.verify().records, 4);
+    assert.deepEqual(lines(dir).map((l) => JSON.parse(l).rec.target), ["t0", "t1", ANCHOR_NAME, "t2"]);
+    assert.equal(JSON.parse(lines(dir)[2] as string).rec.detail.fromSeq, 1);
+    chain.append(ev(3));
+    assert.equal(chain.verify().records, 5);
   });
 
   it("also heals when the line that missed the anchor is the first line of a fresh file after a rotation", () => {
@@ -133,12 +132,16 @@ describe("audit chain: what is not healed stays a refusal", () => {
     refused(dir, chain, /shorter than its anchor/);
   });
 
-  it("an absent anchor with more than the first line in the chain is not the first-write crash", () => {
-    const { dir, chain } = crashedAfterLine(2);
-    rmSync(path.join(dir, ANCHOR_NAME));
-    const before = lines(dir);
-    assert.throws(() => chain.append(ev(9)), /anchor is missing/);
-    assert.deepEqual(lines(dir), before);
+  it("a missing anchor is never healed, not even for a chain of one line (the very first write); audit reanchor is the way out", () => {
+    for (const n of [1, 2]) {
+      const dir = tempDir("audit-crash-missing-"); const chain = createAuditChain({ dir });
+      for (let i = 0; i < n; i++) chain.append(ev(i));
+      rmSync(path.join(dir, ANCHOR_NAME));
+      const before = lines(dir);
+      assert.throws(() => chain.append(ev(9)), /anchor is missing/);
+      assert.deepEqual(lines(dir), before);
+      assert.equal(existsSync(path.join(dir, ANCHOR_NAME)), false);
+    }
   });
 
   it("the anchored line was altered while the anchor trails (the tail still chains to the anchor's hash, but that line no longer hashes to it)", () => {

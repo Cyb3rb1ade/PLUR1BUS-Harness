@@ -191,17 +191,15 @@ interface Tail { seq: number; hash: string; prev: string }
 /**
  * What a writer does about the anchor. Only one disagreement is healed: the newest line is exactly one line past the anchor and
  * chains to the anchor's hash, i.e. the line is complete and correctly linked and only the anchor write after it was lost
- * (a crash or SIGKILL between the fsync of the line and the rename of the anchor). An absent anchor counts as "seq 0, genesis
- * hash", so the same holds for a crash during the very first write. Every other disagreement is a refusal. `append` additionally
- * checks that the line before the newest one really hashes to the anchor's hash (`lineBeforeTailHashes`).
+ * (a crash or SIGKILL between the fsync of the line and the rename of the anchor). A missing anchor is never healed, not even
+ * for a one-line chain: an existing test pins that deleting the anchor is a refusal, and a crash during the very first write
+ * of an installation is left to `plur1bus audit reanchor`. Every other disagreement is a refusal as well. `append`
+ * additionally checks that the line before the newest one really hashes to the anchor's hash (`lineBeforeTailHashes`).
  */
 type Verdict = { kind: "agree" } | { kind: "advance" } | { kind: "refuse"; why: string };
 function judge(st: Tail, a: AnchorRead): Verdict {
   if (a.kind === "invalid") return { kind: "refuse", why: "anchor is invalid" };
-  if (a.kind === "absent") {
-    if (st.seq === 0) return { kind: "agree" };
-    return st.seq === 1 && st.prev === GENESIS_HASH ? { kind: "advance" } : { kind: "refuse", why: "anchor is missing" };
-  }
+  if (a.kind === "absent") return st.seq === 0 ? { kind: "agree" } : { kind: "refuse", why: "anchor is missing" };
   if (a.anchor.seq > st.seq) return { kind: "refuse", why: "chain is shorter than its anchor" };
   if (a.anchor.seq === st.seq && a.anchor.hash === st.hash) return { kind: "agree" };
   if (st.seq === a.anchor.seq + 1 && st.prev === a.anchor.hash) return { kind: "advance" };
@@ -385,8 +383,8 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
         const verdict = judge(st, readAnchor(anchorPath));
         if (verdict.kind === "refuse") throw new Error(`audit-chain: ${verdict.why}; refusing to append`);
         if (verdict.kind === "advance") {
-          // The extra line chains to the anchor's hash; the line the anchor pinned must still be that line (the genesis case has none).
-          if (st.seq > 1 && !lineBeforeTailHashes(st.prev)) throw new Error("audit-chain: tail does not match the anchor; refusing to append");
+          // The extra line chains to the anchor's hash; the line the anchor pinned must still be that line.
+          if (!lineBeforeTailHashes(st.prev)) throw new Error("audit-chain: tail does not match the anchor; refusing to append");
           // RULING: the one recoverable crash state (see `judge`). The anchor is pulled up to the line it missed, and that is
           // recorded in the chain itself, ahead of the event being appended, so the recovery is visible to every later verify.
           const from = st.seq - 1;

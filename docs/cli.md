@@ -163,6 +163,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus audit`↴](#plur1bus-audit)
 * [`plur1bus audit verify`↴](#plur1bus-audit-verify)
+* [`plur1bus audit reanchor`↴](#plur1bus-audit-reanchor)
 * [`plur1bus logs`↴](#plur1bus-logs)
 * [`plur1bus logs query`↴](#plur1bus-logs-query)
 * [`plur1bus logs tail`↴](#plur1bus-logs-tail)
@@ -319,7 +320,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
-* `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
+* `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
 * `logs` — [experimental] Diagnostic logs: query and tail through the core
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `device` — [experimental] Paired devices: list, revoke and rename (F44)
@@ -2592,13 +2593,14 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 ## `plur1bus audit`
 
-[experimental] Audit trail: verify the hash-chained audit file (B5)
+[experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
 
 **Usage:** `plur1bus audit <COMMAND>`
 
 ###### **Subcommands:**
 
 * `verify` — [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
+* `reanchor` — [experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
 
 
 
@@ -2606,9 +2608,24 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
 
-Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
+Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result also names the era boundary and checks the set-aside chain up to its first deviation.
 
 **Usage:** `plur1bus audit verify`
+
+
+
+## `plur1bus audit reanchor`
+
+[experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
+
+Writers refuse to append when the anchor is missing or invalid, when the chain is shorter than the anchor, when its end does not match the anchor, or when its last line is not a chain line. This command repairs that state under the same lock the writers use, also while the core is stopped: the chain files and the anchor are renamed to `<name>.pre-reanchor-<ms>` (never deleted), and a new chain begins with an `audit.chain.reanchored` event that records the old anchor, the old end, your reason (secrets redacted), the actor and the set-aside files. It refuses with "nothing to repair" when writers accept the chain. Run it as the user that owns the home. `--dry-run` shows the finding and changes nothing.
+
+**Usage:** `plur1bus audit reanchor [OPTIONS]`
+
+###### **Options:**
+
+* `--reason <TEXT>` — Why the chain is repaired; recorded in the first event of the new chain (secrets are redacted)
+* `--dry-run` — Show what is wrong and what would be set aside; change nothing
 
 
 

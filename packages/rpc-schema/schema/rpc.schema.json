@@ -7164,12 +7164,12 @@
             "lastSeq": { "type": "integer", "minimum": 0 },
             "lastHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
             "intact": { "type": "boolean", "description": "No deviation anywhere in the set and its own anchor matches (or trails by one write)." },
-            "firstBreak": { "type": ["object", "null"], "additionalProperties": false, "required": ["code", "file", "line", "seq"], "properties": {
+            "firstBreak": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["code", "file", "line", "seq"], "properties": {
               "code": { "enum": ["line-malformed", "hash-mismatch", "seq-gap", "prefix-missing", "file-name-mismatch", "torn-tail"] },
               "file": { "type": "string" },
               "line": { "type": ["integer", "null"], "minimum": 1 },
               "seq": { "type": ["integer", "null"], "minimum": 1 }
-            } },
+            } }], "description": "The first deviation, or null when the set was read to its end." },
             "anchor": { "type": "object", "additionalProperties": false, "required": ["status", "seq"], "properties": {
               "status": { "enum": ["match", "behind", "absent", "invalid", "ahead", "mismatch"] },
               "seq": { "type": ["integer", "null"], "minimum": 1 }

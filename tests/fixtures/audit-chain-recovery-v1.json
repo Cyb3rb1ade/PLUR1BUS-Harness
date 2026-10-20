@@ -3,16 +3,14 @@
   "note": "Writer verdicts for chain/anchor states; shared by packages/core/test/audit/shared-recovery.test.ts and crates/plur1bus/src/audit_chain.rs. The base lines are those of audit-chain-v1.json.",
   "cases": [
     {
-      "name": "crash-during-the-very-first-write",
+      "name": "one-line-chain-anchor-missing-is-not-healed",
       "lines": [
         "{\"seq\":1,\"prev\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"rec\":{\"at\":1001,\"actor\":{\"user\":\"test\",\"host\":\"fixture\"},\"action\":\"fixture.event\",\"target\":\"secret:key\",\"detail\":{\"i\":1,\"text\":\"line\\nnext\\r\\nend\"}}}"
       ],
       "anchor": null,
       "expect": {
-        "outcome": "appended",
-        "advanced": true,
-        "fromSeq": 0,
-        "toSeq": 1
+        "outcome": "refused",
+        "message": "anchor is missing"
       }
     },
     {
