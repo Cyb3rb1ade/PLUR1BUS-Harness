@@ -52,13 +52,15 @@ export interface ToolCompositionOptions {
   /** document.render (D100) over a headless Chromium. Absent, the tool is not offered. */
   documents?: { browser: ReviewBrowser };
 }
-async function classifyExecRun(args: unknown, o: { roots: readonly PathRoot[]; deny: readonly DenyEntry[]; exec?: Partial<ExecConfig> }): Promise<ToolClassification> {
+async function classifyExecRun(args: unknown, o: { roots: readonly PathRoot[]; deny: readonly DenyEntry[]; exec?: Partial<ExecConfig>; sandboxed: boolean }): Promise<ToolClassification> {
   const raw = args && typeof args === 'object' && !Array.isArray(args) ? args as { cwd?: unknown; env?: unknown } : undefined;
   if (typeof raw?.cwd !== 'string') throw new Error('cwd must be a string');
   const resolved = await canonicalisePath(raw.cwd, { roots: o.roots, deny: o.deny, access: 'read', requireRoot: false, platform: process.platform });
   if (!resolved.ok) throw new Error(`cwd refused: ${resolved.reason}`);
   const env = buildEnv({ allow: o.exec?.envAllow ?? DEFAULT_ENV_ALLOW, base: process.env, requested: raw.env === undefined ? undefined : raw.env as Record<string, string>, windows: process.platform === 'win32' });
-  return { flags: { outsideRoots: resolved.rootId === null, denyListHit: false }, targets: [resolved.canonical], hashExtra: envFingerprint(env), access: 'write' };
+  // `sandboxed`: the process port confines every launch unless the owner turned `tools.sandbox.required` off (audited); a path grant
+  // on the cwd then needs the person's explicit "not sandboxed" acknowledgement (D109 Q17, `decide`).
+  return { flags: { outsideRoots: resolved.rootId === null, denyListHit: false, sandboxed: o.sandboxed, ...(resolved.systemTree ? { systemTree: true } : {}) }, targets: [resolved.canonical], hashExtra: envFingerprint(env), access: 'write' };
 }
 
 function unwrap(value: unknown): unknown {
@@ -88,7 +90,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     const access = tool.effect === 'read' ? 'read' : 'write';
     const resolved = await canonicalisePath(raw, { roots: o.roots, deny, access, requireRoot: false, ...(o.roots[0] ? { cwd: o.roots[0].path } : {}) });
     if (!resolved.ok) return { flags: { outsideRoots: true, denyListHit: true }, targets: [raw], access };
-    return { flags: { outsideRoots: resolved.rootId === null, denyListHit: false }, targets: [resolved.canonical], access };
+    return { flags: { outsideRoots: resolved.rootId === null, denyListHit: false, ...(resolved.systemTree ? { systemTree: true } : {}) }, targets: [resolved.canonical], access };
   }, execute: async (args, ctx) => unwrap(await run(args, ctx)) });
   }
   const sandboxOptions = { home: o.home, roots: o.roots, deny, audit: o.audit, principal: req.principal!, ...(o.sandbox ? { sandbox: o.sandbox } : {}) };
@@ -99,9 +101,9 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   }
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
-  registry.register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', classify: args => classifyExecRun(args, { roots: o.roots, deny, ...(o.exec ? { exec: o.exec } : {}) }), execute: async (args, ctx) => {
+  registry.register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', classify: args => classifyExecRun(args, { roots: o.roots, deny, sandboxed: o.sandbox?.required !== false, ...(o.exec ? { exec: o.exec } : {}) }), execute: async (args, ctx) => {
     if (ctx.classified) {
-      const live = await classifyExecRun(args, { roots: o.roots, deny, ...(o.exec ? { exec: o.exec } : {}) });
+      const live = await classifyExecRun(args, { roots: o.roots, deny, sandboxed: o.sandbox?.required !== false, ...(o.exec ? { exec: o.exec } : {}) });
       if (ctx.classified.targets?.[0] !== live.targets?.[0] || ctx.classified.hashExtra !== live.hashExtra) {
         throw new Error('exec.run cwd/env no longer matches the classified call');
       }

@@ -57,6 +57,11 @@ export interface CanonicalPath {
   hardLinked: boolean;
   /** True when deny-list `name` entries were in force: `openVerified` then also refuses a read of a file that gained a hard link. */
   nameGuarded: boolean;
+  /**
+   * The real target is a home, drive root, `/`, `/Users`, `C:\Users` or lies in a system tree (spec §3, `isSystemTreePath`).
+   * Feed it into the call's `systemTree` flag: grants there are T3 and at most `task`.
+   */
+  systemTree: boolean;
   access: Access;
 }
 
@@ -194,7 +199,7 @@ export function matchDeny(p: string, deny: readonly DenyEntry[]): DenyEntry | nu
 const ABSOLUTE_SPELLING = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/u;
 
 /**
- * RULING: a deny entry that can never match (an empty or relative path, a name with a separator, a wrong shape) is a rule the
+ * RULING: a deny entry that can never match (an empty or relative path, a path with a `.` or `..` segment, a name with a separator, a wrong shape) is a rule the
  * author believes protects something and does not, so it is refused up front instead of being skipped. Returns a description
  * of the first bad entry, else null.
  */
@@ -213,6 +218,8 @@ export function invalidDenyEntry(deny: unknown): string | null {
     } else {
       const q = rec.path;
       if (typeof q !== "string" || q.includes("\0") || !ABSOLUTE_SPELLING.test(q)) return `${at} has a path that is not absolute`;
+      // A canonical target never holds a `.` or `..` segment, so such an entry never matches: it protects nothing while it looks like it does.
+      if (q.split(/[\\/]+/u).some((seg) => seg === ".." || seg === ".")) return `${at} has a path with a '.' or '..' segment (it can never match a canonical path)`;
     }
   }
   return null;
@@ -293,7 +300,7 @@ async function resolveReal(abs: string, windows: boolean, platform: NodeJS.Platf
 
 interface ResolvedRoot { id: string; real: string }
 
-async function resolveRoots(roots: readonly PathRoot[], o: { windows: boolean; platform: NodeJS.Platform; allowUnc: boolean; home: string }): Promise<ResolvedRoot[] | PathRefusal> {
+async function resolveRoots(roots: readonly PathRoot[], o: { windows: boolean; platform: NodeJS.Platform; allowUnc: boolean; home: string }): Promise<{ roots: ResolvedRoot[]; homeReal: string | null } | PathRefusal> {
   const out: ResolvedRoot[] = [];
   // `os.homedir()` may be a link; roots are compared by real path, so the home is compared by its real path as well.
   let homeReal: string | null = null;
@@ -312,7 +319,7 @@ async function resolveRoots(roots: readonly PathRoot[], o: { windows: boolean; p
     if (isForbiddenRoot(res.real, o.windows, o.home) || (homeReal !== null && isForbiddenRoot(res.real, o.windows, homeReal))) return refuse("bad-root", `root ${JSON.stringify(r.id)} is a home, drive or system tree`);
     out.push({ id: r.id, real: res.real });
   }
-  return out;
+  return { roots: out, homeReal };
 }
 
 // macOS spells /etc, /var/db and /var/root through /private; the check runs on the real path, so those are listed too.
@@ -333,6 +340,59 @@ export function isForbiddenRoot(real: string, windows: boolean, home: string): b
     if (a === b || (f !== "/Users" && f !== "/home" && f !== "C:\\Users" && a.startsWith(b + sep))) return true;
   }
   return false;
+}
+
+/** Spec §3 container directories: never roots themselves, but a path below one (another person's directory) is not a system tree. */
+const POSIX_HOMES_PARENT = ["/Users", "/home"];
+const WIN_HOMES_PARENT = ["C:\\Users"];
+
+export interface SystemTreeOptions {
+  /** Windows spelling (separators `\` and `/`, drive letters, case-insensitive). Defaults to `process.platform === "win32"`. */
+  windows?: boolean;
+  /** The home directory and, when it is a link, its real path. Defaults to `os.homedir()`. */
+  homes?: readonly string[];
+}
+
+/** Case-, NFC- and separator-folded segments, for a comparison that can only match more (a stricter classification). */
+function foldSegments(p: string, windows: boolean): string[] {
+  return p.split(windows ? /[\\/]+/u : /\/+/u).filter((x) => x !== "").map(foldForDeny);
+}
+const startsWithSegs = (a: readonly string[], prefix: readonly string[]): boolean => prefix.length <= a.length && prefix.every((s, i) => s === a[i]);
+const sameSegs = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && startsWithSegs(a, b);
+
+function homeSegments(o: SystemTreeOptions, windows: boolean): string[][] {
+  return (o.homes ?? [osHomedir()]).filter((h) => typeof h === "string" && h !== "").map((h) => foldSegments(h, windows)).filter((h) => h.length > 0);
+}
+
+/**
+ * Spec §3: is `p` (a canonical, absolute path) a home directory, a drive root, `/`, `/Users`, `/home`, `C:\Users`, or a system tree
+ * (`/etc`, `/usr`, `C:\Windows`, `C:\Program Files`, ... and everything below them)? Such a path is never a root, and a grant on it is
+ * T3 and at most `task`. Compared case- and NFC-folded: it can only classify more as a system tree, never less.
+ */
+export function isSystemTreePath(p: string, o: SystemTreeOptions = {}): boolean {
+  const windows = o.windows ?? process.platform === "win32";
+  const segs = foldSegments(p, windows);
+  if (segs.length === 0) return true; // `/`, or nothing readable: fail closed
+  const unc = windows && p.startsWith("\\\\");
+  if (windows && (unc || /^[A-Za-z]:/u.test(p)) && segs.length <= (unc ? 2 : 1)) return true; // `C:\`, a UNC share root
+  if (homeSegments(o, windows).some((h) => sameSegs(h, segs))) return true;
+  if ((windows ? WIN_HOMES_PARENT : POSIX_HOMES_PARENT).some((f) => sameSegs(foldSegments(f, windows), segs))) return true;
+  return (windows ? WIN_SYSTEM : POSIX_SYSTEM).some((f) => startsWithSegs(segs, foldSegments(f, windows)));
+}
+
+/**
+ * A path grant `{ path, recursive }` reaches a system tree when its path is one (`isSystemTreePath`), when it contains a home
+ * directory (a grant on the directory that holds the home), or, when recursive, when it contains a system tree or the
+ * container of the homes (`/private` contains `/private/etc`; `/` is caught by `isSystemTreePath`). Those grants are T3 and
+ * at most `task`.
+ */
+export function grantReachesSystemTree(grantPath: string, recursive: boolean, o: SystemTreeOptions = {}): boolean {
+  if (isSystemTreePath(grantPath, o)) return true;
+  const windows = o.windows ?? process.platform === "win32";
+  const g = foldSegments(grantPath, windows);
+  if (homeSegments(o, windows).some((h) => startsWithSegs(h, g))) return true;
+  if (!recursive) return false;
+  return [...(windows ? WIN_HOMES_PARENT : POSIX_HOMES_PARENT), ...(windows ? WIN_SYSTEM : POSIX_SYSTEM)].some((f) => startsWithSegs(foldSegments(f, windows), g));
 }
 
 const DENY_SCAN_CAP = 20_000;
@@ -441,8 +501,9 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
   const syn = checkSyntax(input, { platform, windowsRules: windows, allowUnc });
   if (isRefusal(syn)) return syn;
 
-  const roots = await resolveRoots(o.roots, { windows, platform, allowUnc, home });
-  if (isRefusal(roots)) return roots;
+  const resolvedRoots = await resolveRoots(o.roots, { windows, platform, allowUnc, home });
+  if (isRefusal(resolvedRoots)) return resolvedRoots;
+  const { roots, homeReal } = resolvedRoots;
 
   let abs: string;
   if (syn.absolute) {
@@ -496,7 +557,7 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
   }
   if (rootId === null && requireRoot) return refuse("outside-root", "the real target is outside every root");
 
-  return { ok: true, canonical: res.real, rootId, exists: res.exists, identity: res.identity, parentIdentity: res.parentIdentity, hardLinked: res.hardLinked, nameGuarded: nameEntries.length > 0, access };
+  return { ok: true, canonical: res.real, rootId, exists: res.exists, identity: res.identity, parentIdentity: res.parentIdentity, hardLinked: res.hardLinked, nameGuarded: nameEntries.length > 0, systemTree: isSystemTreePath(res.real, { windows, homes: homeReal === null ? [home] : [home, homeReal] }), access };
 }
 
 /**
