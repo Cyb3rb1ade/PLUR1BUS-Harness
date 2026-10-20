@@ -15,13 +15,12 @@ import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errors, fromCoreError } from "./errors.ts";
 import type { PasswordLogin } from "./login.ts";
 import type { LoginChallenges } from "./challenge.ts";
-import type { NoticeInbox } from "./notices.ts";
 import type { PublicToken, TokenService } from "./tokens.ts";
 import type { TotpService } from "./totp.ts";
 import type { UserDirectory } from "./ports.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import type { RateClass } from "./rate-limit.ts";
-import { BreakGlassError, authorize, type BreakGlass, type RbacPrincipal } from "./rbac-bridge.ts";
+import { LOCAL_OWNER, authorize, type RbacPrincipal } from "./rbac-bridge.ts";
 import type { Principal, Session, SessionStore } from "./session.ts";
 
 export const API_VERSION = "1.0.0";
@@ -76,7 +75,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
   Principal: obj({ kind: { enum: ["owner", "user"] }, id: { type: "string" }, role: { enum: ROLE_NAMES } }),
   SessionChallenge: obj({ schema: schemaId("session.challenge/1"), mfa: { enum: ["totp", "webauthn"] }, challenge: { type: "string", description: "One-time, valid for 5 minutes, dies after 5 wrong codes." }, expiresAt: iso }),
   BreakGlassGrant: obj({ id: { type: "string" }, targetUserId: { type: "string" }, reason: { type: "string" }, issuedAt: iso, expiresAt: iso }),
-  Notice: obj({ kind: { const: "break-glass.granted" }, grantId: { type: "string" }, holderUserId: { type: "string" }, reason: { type: "string" }, at: iso, expiresAt: iso }),
+  Notice: obj({ kind: { const: "break-glass.granted" }, grantId: { type: "string" }, holderUserId: { type: "string" }, reason: { type: "string" }, expiresAt: iso }),
   Token: obj({ id: { type: "string" }, prefix: { type: "string" }, name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, createdAt: iso, expiresAt: iso, lastUsedAt: iso, revokedAt: iso }, ["id", "prefix", "name", "scopes", "createdAt", "expiresAt"]),
   Activity: obj({ state: { type: "string" }, since: { type: "integer" }, phase: { enum: ["light", "rem", "deep"] }, job: { type: "string" } }, ["state", "since"]),
 };
@@ -209,11 +208,11 @@ export const ROUTES: readonly RouteSpec[] = [
       ttlMinutes: { type: "integer", minimum: 1, maximum: 60, description: "Default 15." },
     }, ["targetUserId", "reason"]),
     successStatus: 201,
-    success: { description: "The grant exists only after its audit entry was written; the affected user is told (inbox, plus the delivery hook). It ends by itself.", schema: obj({ schema: schemaId("breakglass.grant/1"), grant: ref("BreakGlassGrant") }) },
-    extra: { 404: { description: "No such user (`reason`: `target`).", schema: ref("Error") }, 503: { description: "The audit log could not record the grant, so there is none (`reason`: `audit-unavailable`).", schema: ref("Error") } },
+    success: { description: "Forwarded to the core's `breakglass.request`, the one registry: the grant exists only after its audit entry was written and the affected user has a durable notice (inbox, plus the live notice). It ends by itself.", schema: obj({ schema: schemaId("breakglass.grant/1"), grant: ref("BreakGlassGrant") }) },
+    extra: { 404: { description: "No such user (`reason`: `target`).", schema: ref("Error") }, 503: { description: "The core could not audit the grant (`reason`: `audit-unavailable`) or could not store the notice (`reason`: `notice-unavailable`), so there is none.", schema: ref("Error") } },
   },
   {
-    id: "breakglass.list", method: "GET", path: `${API_PREFIX}/breakglass`, tag: "breakglass", summary: "The caller's own live break-glass grants",
+    id: "breakglass.list", method: "GET", path: `${API_PREFIX}/breakglass`, tag: "breakglass", summary: "The caller's own live break-glass grants (the core's registry, whichever way they were made)",
     auth: "session", authz: { action: "breakglass.request", resource: "user" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
     successStatus: 200, success: { description: "Lapsed grants are gone (and audited once).", schema: obj({ schema: schemaId("breakglass.list/1"), grants: { type: "array", items: ref("BreakGlassGrant") } }) },
   },
@@ -227,7 +226,7 @@ export const ROUTES: readonly RouteSpec[] = [
   {
     id: "notices.list", method: "GET", path: `${API_PREFIX}/me/notices`, tag: "status", summary: "Things the caller should know: break-glass grants over their own cards",
     auth: "session", authz: { action: "my.read", resource: "self" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
-    successStatus: 200, success: { description: "Newest first. Push delivery to channels is a follow-up; this is the pull side.", schema: obj({ schema: schemaId("notices.list/1"), notices: { type: "array", items: ref("Notice") } }) },
+    successStatus: 200, success: { description: "The core's durable break-glass notices for the caller, newest first, whichever way the grant was made. The core records no issue time, so a notice carries none. Push delivery to channels is the core's (`breakglass.notice`); this is the pull side.", schema: obj({ schema: schemaId("notices.list/1"), notices: { type: "array", items: ref("Notice") } }) },
   },
 ];
 // `Health` is the 200 schema of `health`, referenced by its 503.
@@ -265,8 +264,6 @@ export interface HandlerDeps {
   totp?: TotpService | undefined;
   challenges?: LoginChallenges | undefined;
   limiter?: RateLimiter | undefined;
-  breakGlass?: BreakGlass | undefined;
-  notices?: NoticeInbox | undefined;
   audit: AuditEmitter;
 }
 
@@ -313,21 +310,34 @@ function codeBody(b: unknown): string {
 }
 const noAccount = () => new ApiError(409, "E_CONFLICT", "the owner-token login has no account to protect", { reason: "no-account" });
 
-const BG_STATUS: Record<string, { status: number; error: "E_DENIED" | "E_INVALID_PARAMS" | "E_NOT_FOUND" | "E_NOT_AVAILABLE"; reason: string }> = {
-  "not-permitted": { status: 403, error: "E_DENIED", reason: "role-denied" },
-  "invalid-target": { status: 400, error: "E_INVALID_PARAMS", reason: "target" },
-  "self-target": { status: 400, error: "E_INVALID_PARAMS", reason: "self-target" },
-  "reason-required": { status: 400, error: "E_INVALID_PARAMS", reason: "reason" },
-  "ttl-invalid": { status: 400, error: "E_INVALID_PARAMS", reason: "ttl" },
-  "audit-failed": { status: 503, error: "E_NOT_AVAILABLE", reason: "audit-unavailable" },
-  "unknown-grant": { status: 404, error: "E_NOT_FOUND", reason: "grant" },
-};
-/** The registry's failures as API errors with fixed messages: its own text (and a chain's lock error under it) is not forwarded. */
-function breakGlassError(e: unknown): never {
-  if (e instanceof BreakGlassError) { const m = BG_STATUS[e.code] ?? { status: 400, error: "E_INVALID_PARAMS" as const, reason: "request" }; throw new ApiError(m.status, m.error, `break-glass refused (${m.reason})`, { reason: m.reason }); }
-  throw e;
+/** What the core's break-glass RPC refuses with, as the REST reasons the route has always answered with. The core's own text
+ *  (and a chain's lock error under it) is not forwarded. */
+const BG_INVALID_REASON: Record<string, string> = { "invalid-target": "target", "self-target": "self-target", "reason-required": "reason", "ttl-invalid": "ttl" };
+function breakGlassError(e: unknown, op: "request" | "list" | "revoke" | "notices"): ApiError {
+  const x = e as { error?: unknown; reason?: unknown } | null;
+  const reason = typeof x?.reason === "string" ? x.reason : "";
+  const refused = (status: number, error: "E_DENIED" | "E_INVALID_PARAMS" | "E_NOT_FOUND" | "E_NOT_AVAILABLE", why: string) => new ApiError(status, error, `break-glass refused (${why})`, { reason: why });
+  switch (x?.error) {
+    case "E_DENIED": return refused(403, "E_DENIED", "role-denied");
+    case "E_INVALID_PARAMS": return refused(400, "E_INVALID_PARAMS", BG_INVALID_REASON[reason] ?? "request");
+    case "E_NOT_FOUND": return refused(404, "E_NOT_FOUND", op === "revoke" ? "grant" : "target");
+    // The core would not act unrecorded or unannounced: no grant exists.
+    case "E_STORAGE": if (reason === "audit-failed") return refused(503, "E_NOT_AVAILABLE", "audit-unavailable"); break;
+    case "E_NOT_AVAILABLE": if (reason === "notification-failed") return refused(503, "E_NOT_AVAILABLE", "notice-unavailable"); break;
+  }
+  return fromCoreError(e);
 }
-const grantJson = (g: { id: string; targetUserId: string; reason: string; issuedAt: number; expiresAt: number }) => ({ id: g.id, targetUserId: g.targetUserId, reason: g.reason, issuedAt: iso8601(g.issuedAt), expiresAt: iso8601(g.expiresAt) });
+const coreMalformed = () => new ApiError(502, "E_CORE_UNAVAILABLE", "the core failed to answer", { reason: "core-error" });
+/** The installation owner is `owner` in the API and `local-owner` in the core. */
+const toCoreUser = (id: string): string => (id === "owner" ? LOCAL_OWNER.userId : id);
+const fromCoreUser = (id: string): string => (id === LOCAL_OWNER.userId ? "owner" : id);
+const isText = (v: unknown, max: number): v is string => typeof v === "string" && v.length <= max && !/[\u0000-\u001f\u007f]/.test(v);
+/** A grant as the core sends it (times in ms), checked for type before it is shown: what the core sends is not forwarded as it is. */
+function grantJson(g: unknown): { id: string; targetUserId: string; reason: string; issuedAt: string; expiresAt: string } {
+  const x = g as { id?: unknown; targetUserId?: unknown; reason?: unknown; issuedAt?: unknown; expiresAt?: unknown } | null;
+  if (!x || typeof x !== "object" || typeof x.id !== "string" || typeof x.targetUserId !== "string" || typeof x.reason !== "string" || !Number.isSafeInteger(x.issuedAt) || !Number.isSafeInteger(x.expiresAt)) throw coreMalformed();
+  return { id: x.id, targetUserId: fromCoreUser(x.targetUserId), reason: x.reason, issuedAt: iso8601(x.issuedAt as number), expiresAt: iso8601(x.expiresAt as number) };
+}
 
 /** A token as the API shows it: times as ISO strings, nothing secret. */
 function tokenJson(t: PublicToken): Record<string, unknown> {
@@ -439,37 +449,52 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
       d.audit.emit("auth.totp.disabled", i.principal.id, `user:${i.principal.id}`, { ip: i.ip });
       return { body: { schema: "totp.disable/1", enabled: false } };
     },
+    // Break-glass has ONE registry, the core's (audit, durable notice and the memory read that honours a grant all live there). The
+    // routes only check the shape of the request, then forward it as the caller; nothing is granted, audited or announced here.
     "breakglass.request": async (i) => {
-      if (!i.rbac || !d.breakGlass || !d.users) throw errors.unauthenticated();
+      if (!i.rbac) throw errors.unauthenticated();
       const b = i.body as Record<string, unknown> | null;
       if (!b || typeof b !== "object" || Array.isArray(b) || Object.keys(b).some((k) => !["targetUserId", "reason", "ttlMinutes"].includes(k))) throw errors.badRequest("body", "body must be {\"targetUserId\": string, \"reason\": string, \"ttlMinutes\"?: integer}");
       if (typeof b.targetUserId !== "string" || b.targetUserId === "") throw errors.badRequest("target", "a target user is required");
-      if (typeof b.reason !== "string") throw errors.badRequest("reason", "a reason of 10 to 500 characters is required");
-      let ttlMs: number | undefined;
+      if (!isText(b.targetUserId, 128)) throw errors.badRequest("target", "that is not a user id");
+      // Shape only; how many characters a reason needs, and how long a window may be, is the core's configuration (breakglass.*).
+      if (typeof b.reason !== "string" || b.reason.trim() === "" || !isText(b.reason, 10_000)) throw errors.badRequest("reason", "a reason of 10 to 500 characters is required");
+      let windowMinutes: number | undefined;
       if (b.ttlMinutes !== undefined) {
         if (typeof b.ttlMinutes !== "number" || !Number.isInteger(b.ttlMinutes) || b.ttlMinutes < 1 || b.ttlMinutes > 60) throw errors.badRequest("ttl", "ttlMinutes must be an integer between 1 and 60");
-        ttlMs = b.ttlMinutes * 60_000;
+        windowMinutes = b.ttlMinutes;
       }
-      if (b.targetUserId !== i.rbac.userId && b.targetUserId !== "owner" && !(await d.users.findById(b.targetUserId))) throw new ApiError(404, "E_NOT_FOUND", "no such user", { reason: "target" });
       try {
-        const g = d.breakGlass.request(i.rbac, { targetUserId: b.targetUserId, reason: b.reason, ...(ttlMs !== undefined ? { ttlMs } : {}) });
+        const g = await d.core.call<unknown>("breakglass.request", { targetUserId: toCoreUser(b.targetUserId), reason: b.reason, ...(windowMinutes !== undefined ? { windowMinutes } : {}) });
         return { status: 201, body: { schema: "breakglass.grant/1", grant: grantJson(g) } };
-      } catch (e) { return breakGlassError(e); }
+      } catch (e) { throw breakGlassError(e, "request"); }
     },
-    "breakglass.list": (i) => {
-      if (!i.rbac || !d.breakGlass) throw errors.unauthenticated();
-      return { body: { schema: "breakglass.list/1", grants: d.breakGlass.active(i.rbac.userId).map(grantJson) } };
+    "breakglass.list": async (i) => {
+      if (!i.rbac) throw errors.unauthenticated();
+      try {
+        const r = await d.core.call<{ grants?: unknown }>("breakglass.list", {});
+        if (!r || typeof r !== "object" || !Array.isArray(r.grants)) throw coreMalformed();
+        return { body: { schema: "breakglass.list/1", grants: r.grants.map(grantJson) } };
+      } catch (e) { throw breakGlassError(e, "list"); }
     },
-    "breakglass.revoke": (i) => {
-      if (!i.rbac || !d.breakGlass) throw errors.unauthenticated();
+    "breakglass.revoke": async (i) => {
+      if (!i.rbac) throw errors.unauthenticated();
       const b = i.body as { grantId?: unknown } | null;
-      if (!b || typeof b !== "object" || Array.isArray(b) || typeof b.grantId !== "string" || b.grantId === "" || Object.keys(b).length !== 1) throw errors.badRequest("body", "body must be {\"grantId\": string}");
-      try { d.breakGlass.revoke(i.rbac, b.grantId); } catch (e) { return breakGlassError(e); }
+      if (!b || typeof b !== "object" || Array.isArray(b) || typeof b.grantId !== "string" || b.grantId === "" || !isText(b.grantId, 128) || Object.keys(b).length !== 1) throw errors.badRequest("body", "body must be {\"grantId\": string}");
+      try { await d.core.call("breakglass.revoke", { grantId: b.grantId }); } catch (e) { throw breakGlassError(e, "revoke"); }
       return { body: { schema: "breakglass.revoke/1", revoked: true } };
     },
-    "notices.list": (i) => {
-      if (!i.rbac || !d.notices) throw errors.unauthenticated();
-      return { body: { schema: "notices.list/1", notices: d.notices.list(i.rbac.userId).map((n) => ({ kind: n.kind, grantId: n.grantId, holderUserId: n.holderUserId, reason: n.reason, at: iso8601(n.at), expiresAt: iso8601(n.expiresAt) })) } };
+    "notices.list": async (i) => {
+      if (!i.rbac) throw errors.unauthenticated();
+      try {
+        const r = await d.core.call<{ notices?: unknown }>("breakglass.notices", {});
+        if (!r || typeof r !== "object" || !Array.isArray(r.notices)) throw coreMalformed();
+        return { body: { schema: "notices.list/1", notices: r.notices.map((n: unknown) => {
+          const x = n as { grantId?: unknown; holderUserId?: unknown; reason?: unknown; expiresAt?: unknown } | null;
+          if (!x || typeof x !== "object" || typeof x.grantId !== "string" || typeof x.holderUserId !== "string" || typeof x.reason !== "string" || !Number.isSafeInteger(x.expiresAt)) throw coreMalformed();
+          return { kind: "break-glass.granted", grantId: x.grantId, holderUserId: fromCoreUser(x.holderUserId), reason: x.reason, expiresAt: iso8601(x.expiresAt as number) };
+        }) } };
+      } catch (e) { throw breakGlassError(e, "notices"); }
     },
     "session.delete": (i) => {
       d.sessions.destroy(i.sessionId);

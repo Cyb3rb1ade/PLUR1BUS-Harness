@@ -19,6 +19,8 @@ export interface CoreHostDeps {
   config: ConfigPort;
   secrets: SecretStore;
   identity: () => IdentityService | null;
+  /** False for a disabled person (the admin store is the authority); see `SwitchboardOptions.personActive`. */
+  personActive?: (humanId: string) => boolean;
   sessions: () => SessionService | null;
   agents: AgentRegistry;
   permissions: () => PermissionRuntime | null;
@@ -59,6 +61,7 @@ export function openChannelSwitchboard(d: CoreHostDeps): Switchboard {
     config: d.config,
     secrets: channelSecrets(d.secrets),
     identity: d.identity,
+    ...(d.personActive ? { personActive: d.personActive } : {}),
     turns: () => {
       const s = d.sessions();
       return s ? { store: s.store, runner: s.runner, agentId: () => agentIdOf(d.agents) } : null;

@@ -56,8 +56,21 @@ export interface RerankAdapter {
 /** Secrets are resolved through this injected function only; an adapter never reads process.env. */
 export type GetSecret = (name: string) => string | undefined | Promise<string | undefined>;
 
+/**
+ * privacy.localOnly, injected by the integration (the adapters never read the harness configuration). Both functions are
+ * read on every decision, so a switch turned on later still stops an adapter that was built while it was off.
+ * Fail-closed: a `localOnly` that throws or does not answer `false` counts as on.
+ */
+export interface LocalOnlyPolicy {
+  localOnly: () => boolean;
+  /** Exact origins (scheme://host[:port]) of self-hosted servers outside loopback that count as local. */
+  localEndpoints?: () => readonly string[];
+}
+
 export interface AdapterDeps {
   getSecret: GetSecret;
+  /** Absent: no local-only rule (the caller enforces it elsewhere). Present and on: only loopback or listed endpoints are used. */
+  policy?: LocalOnlyPolicy;
   /** Defaults to global fetch. Tests inject a fixture fetch. */
   fetch?: typeof fetch;
   /** Defaults to a timer that honours the abort signal. */

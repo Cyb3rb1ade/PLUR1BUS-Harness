@@ -8,7 +8,7 @@ import { createVoiceProviders, voiceEgressHosts, loadSdkClient } from '../../../
 import { createVoiceRuntime } from '../voice/runtime.ts';
 import { createVoiceV2 } from '../voice/v2.ts';
 import { voiceFetch, voiceSockets, pollyRequestHandler } from '../voice/transport.ts';
-import { voiceBudget } from '../voice/budget.ts';
+import { voiceBudget, voiceUsagePath } from '../voice/budget.ts';
 import { createAuthSecretStore } from '../auth/secret-store.ts';
 import { decide } from '../policy/index.ts';
 import type { CompositionDeps } from './index.ts';
@@ -21,7 +21,7 @@ export function composeVoice(d: CompositionDeps, openai: OpenAIRuntime, budget: 
   const { onVoice, ...options } = d.options ?? {};
   const native = createVoiceRuntime({ ...d, options }, openai, budget);
   const secrets = createAuthSecretStore(d.secrets);
-  const ledger = budget ? voiceBudget({ path: join(d.home, 'state', 'voice-providers-usage.sqlite'), budget, clock: d.clock, dailySeconds: d.config().auth?.openai?.voiceDailySeconds ?? 3600, billingProvider: 'voice' }) : null;
+  const ledger = budget ? voiceBudget({ path: voiceUsagePath(d.home), budget, clock: d.clock, dailySeconds: d.config().auth?.openai?.voiceDailySeconds ?? 3600, billingProvider: 'voice' }) : null;
   const v2 = createVoiceV2({ config: () => voiceRuntimeConfig(d.config()), local: (config, usage) => new LocalVoice({ usage, config: config ?? {}, modelsDir: join(d.home, 'models', 'voice'), catalog: voiceV3Catalog(d.config().voice.local.catalogOverride, d.config().voice.v3.profiles) }), modelsDir: join(d.home, 'models', 'voice'), signal: d.signal, clock: d.clock, sessions,
     budget: ledger?.port ?? { reserve: async () => false, record: async () => false, release: async () => {} },
     registry: (config, usage) => createVoiceProviders(config, { getSecret: ref => secrets.get(ref), fetch: voiceFetch(d.egress), wsFactory: voiceSockets(d.egress), usage, now: d.clock,
