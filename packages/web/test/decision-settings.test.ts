@@ -38,7 +38,7 @@ for (const role of ['member', 'viewer', 'operator', 'agent', 'unknown']) test(`$
   });
 });
 test('German gate failure and refused diagnostic are explicit; Admin controls and axe', async () => {
-  await withApp({ locale: 'de-DE', server: { role: 'admin' } }, async app => {
+  await withApp({ width: 400, locale: 'de-DE', server: { role: 'admin' } }, async app => {
     install(app); app.server.rpc.handle('decision.test', () => { throw rpcError('E_DENIED', 'denied'); });
     await openRoute(app.page, '#/settings/decision', 'de');
     await app.page.locator('#decision-test').click();
