@@ -95,7 +95,7 @@ export interface CompositionDeps {
   /** Per-chat model choice (D112 catalog): reasoning per model before the wire fit, catalog facts and provider endpoints. */
   chatModels?: Pick<ChatModelSources, 'catalog' | 'endpoint'> & { reasoning(provider: string, model: string): ReasoningDescriptor };
 }
-export interface TurnComposition { budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
+export interface TurnComposition { /** The turn call budget (L8), shared with the re-embedding run; null when its store could not be opened. */ budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
 /** secret_names backend: the agent's configured secret references, with presence from the store's metadata (never a value). */
 export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>): SecretNamesPort {
   return {
@@ -103,9 +103,9 @@ export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>):
       const cfg = d.config(), agent = Object.hasOwn(cfg.agents, agentId) ? cfg.agents[agentId] : undefined;
       if (!agent) return [];
       const refs = agentSecretRefs(cfg, agent);
-      let held: Set<string> | undefined;
-      try { const status = await d.secrets.status({ kind: 'core' }); if (status.secrets) held = new Set(status.secrets.map(s => s.name)); } catch { /* presence stays unknown; the names are still true */ }
-      return refs.map(r => ({ name: r.name, scope: r.scope, ...(held ? { present: held.has(r.name) } : {}) }));
+      let held: Map<string, string | undefined> | undefined;
+      try { const status = await d.secrets.status({ kind: 'core' }); if (status.secrets) held = new Map(status.secrets.map(s => [s.name, s.description])); } catch { /* presence stays unknown; the names are still true */ }
+      return refs.map(r => { const description = held?.get(r.name); return { name: r.name, scope: r.scope, ...(held ? { present: held.has(r.name) } : {}), ...(description ? { description } : {}) }; });
     },
   };
 }

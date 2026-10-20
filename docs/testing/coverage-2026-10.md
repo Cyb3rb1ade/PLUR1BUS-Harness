@@ -102,6 +102,8 @@ Jeder Bug steht als Test mit dem **korrekten** Erwartungswert im Testfile, marki
 
 ### a2a-push-preaborted-unhandled-error
 
+**Behoben (18.10.):** `createEgressPushTransport` sendet über `egress.request`; ein bereits abgebrochenes Signal lehnt mit `aborted` ab und sendet nichts. Der Test ist ohne `skip` aktiv. Die folgenden Angaben beschreiben den früheren Stand von `a2a/push.ts`.
+
 - **Datei/Zeile:** `packages/core/src/a2a/push.ts:77`
 - **Erwartung:** Ein bereits abgebrochenes `AbortSignal` lehnt den Push mit `aborted` ab und sendet nichts.
 - **Ist:** `req.destroy()` ohne `error`-Listener erzeugt ein unbehandeltes `error`-Ereignis (`socket hang up`), das den Prozess beendet.

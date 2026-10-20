@@ -1,4 +1,4 @@
-import { SecretError, backendFailure, isSecretName, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
+import { SecretError, backendFailure, isSecretName, nextDescription, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
 
 /** The slice of `@napi-rs/keyring` used here. */
 export interface KeyringEntry { getPassword(): string | null; setPassword(password: string): void; deletePassword?(): boolean; deleteCredential?(): boolean }
@@ -19,7 +19,7 @@ export const defaultKeyringLoader: KeyringLoader = async () => {
   return mod as KeyringModule;
 };
 
-interface Index { schema: typeof INDEX_SCHEMA; entries: Record<string, { createdAt: string; updatedAt: string; updatedBy?: string }> }
+interface Index { schema: typeof INDEX_SCHEMA; entries: Record<string, { createdAt: string; updatedAt: string; updatedBy?: string; description?: string }> }
 
 /**
  * OS keychain backend (macOS Keychain, Windows Credential Manager, libsecret). The keyring cannot enumerate, so the
@@ -56,7 +56,7 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
     let d: Partial<Index> | null;
     try { d = JSON.parse(raw) as Partial<Index>; } catch { throw new SecretError("corrupt", "keyring index is corrupt (unreadable-index); refusing to continue"); }
     if (!d || d.schema !== INDEX_SCHEMA || !d.entries || typeof d.entries !== "object" || Array.isArray(d.entries)) throw new SecretError("corrupt", "keyring index is corrupt (bad-schema); refusing to continue");
-    for (const [n, m] of Object.entries(d.entries)) if (!isSecretName(n) || typeof m?.createdAt !== "string" || typeof m.updatedAt !== "string") throw new SecretError("corrupt", "keyring index is corrupt (bad-entry); refusing to continue");
+    for (const [n, m] of Object.entries(d.entries)) if (!isSecretName(n) || typeof m?.createdAt !== "string" || typeof m.updatedAt !== "string" || (m.description !== undefined && typeof m.description !== "string")) throw new SecretError("corrupt", "keyring index is corrupt (bad-entry); refusing to continue");
     return d as Index;
   }
   const writeIndex = (i: Index) => guarded("writing the keyring index", async () => (await entry(INDEX_ACCOUNT)).setPassword(JSON.stringify(i)));
@@ -69,14 +69,15 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
       }
     },
     get: (name) => serial(() => guarded("reading from the keyring", async () => (await entry(name)).getPassword())),
-    put: (name, value, now, updatedBy) => serial(async () => {
+    put: (name, value, now, updatedBy, description) => serial(async () => {
       const idx = await readIndex();
       await guarded("writing to the keyring", async () => (await entry(name)).setPassword(value));
       const at = now.toISOString();
       const createdAt = (Object.hasOwn(idx.entries, name) ? idx.entries[name]?.createdAt : undefined) ?? at;
-      idx.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}) };
+      const kept = nextDescription(Object.hasOwn(idx.entries, name) ? idx.entries[name]?.description : undefined, description);
+      idx.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
       await writeIndex(idx);
-      return { name, backend: "keyring" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}) };
+      return { name, backend: "keyring" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
     }),
     delete: (name) => serial(async () => {
       const idx = await readIndex();

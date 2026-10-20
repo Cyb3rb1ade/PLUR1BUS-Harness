@@ -1,7 +1,6 @@
-import * as http from "node:http";
-import * as https from "node:https";
 import { inspect } from "node:util";
 import type { Egress } from "../egress/service.ts";
+import { WebFailure } from "../tools/web/failure.ts";
 import { tokenUrl, validateProfile, type AuthProfile } from "./profile.ts";
 import { RefreshRejected, type Refresher, type RefreshResult } from "./refresh.ts";
 
@@ -14,58 +13,49 @@ export class OAuthHttpError extends Error {
   constructor(code: string, retryable = false) { super("OAuth endpoint request failed."); this.name = "OAuthHttpError"; this.code = code; this.retryable = retryable; }
 }
 
-/** Egress currently exposes a GET client. For token POSTs use its checked/pinned address, original TLS name,
- *  bounded body and whole-request deadline. Never follow redirects carrying credentials. */
-export function createOAuthHttp(o: { egress: Pick<Egress, "decide">; timeoutMs?: number; maxBytes?: number }): OAuthHttp {
+/** What the egress client's refusals and failures mean to an OAuth caller. Codes only: no text of the failure survives. */
+function oauthFailure(e: unknown): OAuthHttpError {
+  if (e instanceof OAuthHttpError) return e;
+  if (e instanceof WebFailure) {
+    // A URL the client refuses (malformed, embedded credentials, a scheme it does not speak) was an egress refusal before too.
+    if (e.code === "egress-denied" || e.code === "private-address" || e.code === "not-found" || e.code === "invalid-url") return new OAuthHttpError("egress_denied");
+    if (e.code === "too-large" || e.code === "unsupported-type") return new OAuthHttpError("invalid_response");
+  }
+  return new OAuthHttpError("transient", true);
+}
+
+/** The token POST goes through `egress.request` (the POST-capable variant): the gate and the SSRF check judge every hop,
+ *  the connect is pinned to the vetted address under the original TLS name, the request and response are capped, one
+ *  deadline covers the whole call, and a redirect is never followed (a 3xx is refused, so the form and its credentials
+ *  never reach another host). This file opens no socket of its own. */
+export function createOAuthHttp(o: { egress: Pick<Egress, "request">; timeoutMs?: number; maxBytes?: number }): OAuthHttp {
   return {
     async post(raw, form, signal) {
       try {
-        const timeoutMs = o.timeoutMs ?? 30_000;
+        const timeoutMs = o.timeoutMs ?? 30_000, maxBytes = o.maxBytes ?? 64 * 1024;
         const deadline = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(signal ? [signal] : [])]);
-        const decision = await Promise.race([o.egress.decide(raw), new Promise<never>((_, reject) => {
-          if (deadline.aborted) reject(new OAuthHttpError("transient", true));
-          else deadline.addEventListener("abort", () => reject(new OAuthHttpError("transient", true)), { once: true });
-        })]);
-        if (!decision.allowed) throw new OAuthHttpError("egress_denied");
-        deadline.throwIfAborted();
-        const url = new URL(raw);
-        if (url.username || url.password || !["https:", "http:"].includes(url.protocol)) throw new OAuthHttpError("invalid_request");
-        const body = new URLSearchParams(form).toString();
-        return await new Promise<Record<string, unknown>>((resolve, reject) => {
-          const request = (url.protocol === "https:" ? https : http).request(url, {
-            method: "POST", agent: false, signal: deadline,
-            lookup: (_hostname, options, cb) => {
-              if (typeof options === "object" && options.all) cb(null, [{ address: decision.address, family: decision.family }]);
-              else cb(null, decision.address, decision.family);
-            },
-            headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json", "content-length": Buffer.byteLength(body), "user-agent": "PLUR1BUS-auth" },
-          }, response => {
-            const chunks: Buffer[] = []; let size = 0;
-            response.on("data", chunk => {
-              size += chunk.length;
-              if (size > (o.maxBytes ?? 64 * 1024)) { response.destroy(); request.destroy(); reject(new OAuthHttpError("invalid_response")); }
-              else chunks.push(Buffer.from(chunk));
-            });
-            response.on("error", () => reject(new OAuthHttpError("transient", true)));
-            response.on("end", () => {
-              try {
-                const status = response.statusCode ?? 0;
-                if (status >= 500 || status === 429 || status === 408) throw new OAuthHttpError("transient", true);
-                if (status >= 300 && status < 400) throw new OAuthHttpError("redirect_refused");
-                const json: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-                if (!json || typeof json !== "object" || Array.isArray(json)) throw new OAuthHttpError("invalid_response");
-                const data = json as Record<string, unknown>;
-                if (data.error !== undefined || status < 200 || status >= 300) throw new OAuthHttpError(typeof data.error === "string" && WIRE_ERRORS.has(data.error) ? data.error : "endpoint_rejected");
-                Object.defineProperty(data, "toJSON", { value: () => ({ response: "[redacted]" }) });
-                Object.defineProperty(data, inspect.custom, { value: () => ({ response: "[redacted]" }) });
-                resolve(data);
-              } catch (e) { reject(e instanceof OAuthHttpError ? e : new OAuthHttpError("invalid_response")); }
-            });
-          });
-          request.on("error", () => reject(new OAuthHttpError("transient", true)));
-          request.end(body);
-        });
-      } catch (e) { throw e instanceof OAuthHttpError ? e : new OAuthHttpError("transient", true); }
+        const response = await Promise.race([
+          o.egress.request(raw, {
+            userAgent: "PLUR1BUS-auth", accept: "application/json", method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams(form).toString(), maxBytes, errorBodyBytes: maxBytes, timeoutMs, signal: deadline,
+          }),
+          new Promise<never>((_, reject) => {
+            if (deadline.aborted) reject(new OAuthHttpError("transient", true));
+            else deadline.addEventListener("abort", () => reject(new OAuthHttpError("transient", true)), { once: true });
+          }),
+        ]);
+        const status = response.status;
+        if (status >= 500 || status === 429 || status === 408) throw new OAuthHttpError("transient", true);
+        if (status >= 300 && status < 400) throw new OAuthHttpError("redirect_refused");
+        let json: unknown;
+        try { json = JSON.parse(response.body.toString("utf8")); } catch { throw new OAuthHttpError("invalid_response"); }
+        if (!json || typeof json !== "object" || Array.isArray(json)) throw new OAuthHttpError("invalid_response");
+        const data = json as Record<string, unknown>;
+        if (data.error !== undefined || status < 200 || status >= 300) throw new OAuthHttpError(typeof data.error === "string" && WIRE_ERRORS.has(data.error) ? data.error : "endpoint_rejected");
+        Object.defineProperty(data, "toJSON", { value: () => ({ response: "[redacted]" }) });
+        Object.defineProperty(data, inspect.custom, { value: () => ({ response: "[redacted]" }) });
+        return data;
+      } catch (e) { throw oauthFailure(e); }
     },
   };
 }
