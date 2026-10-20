@@ -98,3 +98,15 @@ test('catalog preparation and cache verification reject parent and final symlink
     await assert.rejects(prepareLaya({directory:cache,manifest,hostFetch:async()=>new Response(data)}),/symlink/);
   }finally{await rm(base,{recursive:true,force:true});}
 });
+
+import { summarizeLatencyPhases } from '../spikes/decision-laya-lib.mjs';
+test('process-first inference is separated from warm calls without discarding either sample set',()=>{
+  const rows=[900,10,20,30];
+  const phases=summarizeLatencyPhases(rows);
+  assert.deepEqual(phases,{firstInferenceMs:900,warmLatency:{n:3,p50:20,p95:30}});
+  assert.deepEqual(rows,[900,10,20,30]);
+  assert.deepEqual(summarizeLatencyPhases([12]),{firstInferenceMs:12,warmLatency:{n:0,p50:null,p95:null}});
+  assert.deepEqual(summarizeLatencyPhases([]),{firstInferenceMs:null,warmLatency:{n:0,p50:null,p95:null}});
+  assert.throws(()=>summarizeLatencyPhases([1,NaN]),/latency/);
+  assert.throws(()=>summarizeLatencyPhases([-1]),/latency/);
+});

@@ -36,17 +36,43 @@ test('KNOWN GAP: production Laya service or module has public backend, bounded a
   assert.equal(proof.publicBackendPort, true); assert.equal(proof.deadlineAbortVerified, true);
   assert.equal(proof.roleFallbackVerified, true);
 });
-test('KNOWN GAP: Linux x64 and Windows x64 have actual hash-matched native latency/RSS receipts', { todo: gates.blockers.native }, () => {
-  for (const [key, platform] of [['linux-x64', 'linux'], ['win32-x64', 'win32']]) {
+for (const [key, platform] of [['linux-x64', 'linux'], ['win32-x64', 'win32']]) {
+  test(`${key}: actual hash-matched native latency, cold/warm phases and RSS receipt`, { todo: gates.measuredNativeReceipts[key] ? false : gates.blockers.native }, () => {
     const proof = receipt(gates.measuredNativeReceipts[key]);
     assert.equal(proof.schema, 'plur1bus.decision-spike/1'); assert.equal(proof.platform, platform); assert.equal(proof.arch, 'x64');
-    assert.equal(proof.manifest.revision, manifest.revision); assert.equal(proof.fixtureSha256, hash);
-    assert.ok(proof.rows.length >= 120); assert.ok(proof.latency.n >= 120);
+    assert.deepEqual(proof.manifest, manifest); assert.equal(proof.fixtureSha256, hash);
+    assert.equal(proof.rows.length, fixture.cases.length * 2); assert.equal(proof.latency.n, proof.rows.length);
+    assert.ok(proof.rows.every(row => !row.error));
+    const expected = fixture.cases.flatMap(row => ['de','en'].map(locale => `${row.id}:${locale}`)).sort();
+    assert.deepEqual(proof.rows.map(row => `${row.id}:${row.locale}`).sort(), expected);
     assert.ok(Number.isFinite(proof.latency.p50) && proof.latency.p50 > 0);
     assert.ok(Number.isFinite(proof.latency.p95) && proof.latency.p95 >= proof.latency.p50);
+    assert.ok(Number.isFinite(proof.loadMs) && proof.loadMs > 0);
+    assert.ok(Number.isFinite(proof.firstInferenceMs) && proof.firstInferenceMs > 0);
+    assert.equal(proof.warmLatency.n, proof.latency.n - 1);
+    assert.ok(proof.warmLatency.p50 > 0 && proof.warmLatency.p95 >= proof.warmLatency.p50);
+    assert.equal(proof.fileCacheState, 'uncontrolled');
     assert.ok(Number.isFinite(proof.maxRssKiB) && proof.maxRssKiB > 0);
-  }
-});
+    for (const locale of ['de','en']) {
+      const rows = proof.rows.filter(row => row.coreGate && row.locale === locale);
+      assert.equal(rows.length, 60); evaluate(rows);
+    }
+    assert.equal(proof.automaticGermanEligibility, false, 'native timing alone never grants German admission');
+    if (platform === 'win32') {
+      const environment = receipt(gates.nativeEnvironmentReceipts?.[key]);
+      assert.equal(environment.schema, 'plur1bus.laya-native-environment/1');
+      assert.equal(environment.virtualMachine, true); assert.equal(environment.bareMetalAcceptance, false);
+      assert.equal(environment.runtime.node, proof.node); assert.equal(environment.runtime.arch, 'x64');
+      assert.equal(environment.runtime.versions['onnxruntime-node'], '1.30.0');
+      assert.equal(environment.runtime.versions['@huggingface/transformers'], '4.3.1');
+      assert.equal(environment.defenderConfiguration, 'unchanged');
+      assert.ok(environment.system.TotalPhysicalMemory > 0 && environment.system.NumberOfLogicalProcessors > 0);
+      for (const file of ['decision-laya.mjs','decision-laya-lib.mjs','decision-laya-paths.mjs','decision-laya-manifest.json','decision-eval-cases.json']) {
+        assert.equal(environment.sourceSha256[file], createHash('sha256').update(readFileSync(new URL(`scripts/spikes/${file}`, root))).digest('hex'));
+      }
+    }
+  });
+}
 test('KNOWN GAP: independent labels cover the exact paired fixture hash before calibration admission', { todo: gates.blockers.labels }, () => { labels(); });
 test('KNOWN GAP: role comparison uses independently reviewed identical German/English cases', { todo: gates.blockers.roleComparisonReceipt }, () => {
   const proof = receipt(gates.roleComparisonReceipt); labels();
@@ -61,5 +87,25 @@ test('KNOWN GAP: role comparison uses independently reviewed identical German/En
     const metrics = evaluate(rows);
     assert.deepEqual(proof.metrics[locale], metrics, 'stored role metrics must recompute from the identical paired rows');
     assert.ok(Number.isFinite(metrics.accuracy)); assert.ok(Number.isFinite(metrics.brier));
+  }
+});
+
+test('Windows thread receipts preserve every paired case and independently recomputed cold/warm summaries',()=>{
+  const reports=[read('docs/evidence/decision/laya-windows-x64-threads1.json'),read('docs/evidence/decision/laya-windows-x64-threads2.json')];
+  const mac=read('docs/evidence/decision/laya-macos-arm64-process-phases.json');
+  const quantile=(values,p)=>[...values].sort((a,b)=>a-b)[Math.ceil(values.length*p)-1];
+  const picks=report=>report.rows.map(row=>`${row.id}:${row.locale}:${Object.entries(row.probabilities).sort((a,b)=>b[1]-a[1])[0][0]}`);
+  for(const [index,report] of reports.entries()){
+    assert.equal(report.threads,index+1);assert.equal(report.platform,'win32');assert.equal(report.arch,'x64');
+    assert.equal(report.fixtureSha256,hash);assert.deepEqual(report.manifest,manifest);
+    assert.equal(report.rows.length,180);assert.ok(report.rows.every(row=>!row.error));
+    const times=report.rows.map(row=>row.elapsedMs),warm=times.slice(1);
+    assert.equal(report.firstInferenceMs,times[0]);assert.equal(report.warmLatency.n,179);
+    for(const [field,p] of [['p50',.5],['p95',.95]]){
+      assert.equal(report.latency[field],quantile(times,p));
+      assert.equal(report.warmLatency[field],quantile(warm,p));
+    }
+    assert.deepEqual(picks(report),picks(mac));
+    for(const locale of ['de','en'])assert.equal(evaluate(report.rows.filter(row=>row.coreGate&&row.locale===locale)).accuracy,locale==='de'?28/60:39/60);
   }
 });

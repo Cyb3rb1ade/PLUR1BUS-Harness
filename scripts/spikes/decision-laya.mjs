@@ -6,9 +6,9 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { cpus, platform, arch, release } from 'node:os';
+import { cpus, platform, arch, release, totalmem, freemem } from 'node:os';
 import { artifactPath } from './decision-laya-paths.mjs';
-import { softmax, temperatureFor, buildInputs, evaluate, germanGate, percentile, validateCases } from './decision-laya-lib.mjs';
+import { softmax, temperatureFor, buildInputs, evaluate, germanGate, percentile, validateCases, summarizeLatencyPhases } from './decision-laya-lib.mjs';
 
 export async function verifyArtifacts(directory,manifest) {
   for(const file of manifest.files){
@@ -62,6 +62,7 @@ async function main(){
   const fixture=JSON.parse(await readFile(new URL('./decision-eval-cases.json',import.meta.url),'utf8'));
   validateCases(fixture.cases);
   const threads=Number(options.threads??1);if(!Number.isSafeInteger(threads)||threads<1||threads>16)throw Error('invalid threads');
+  const freeMemoryBeforeBytes=freemem();
   const started=performance.now();const model=await loadLaya({directory:options['model-dir'],runtimePackage:options['runtime-package'],manifest,threads});
   const loadMs=performance.now()-started,rows=[],latencies=[];
   try{
@@ -78,7 +79,7 @@ async function main(){
     const five=fixture.cases.slice(0,5).map(row=>({primitive:row.primitive,question:row.question.en,state:row.state.en,options:row.options.map(o=>({id:o.id,description:o.description.en}))}));
     const fiveMs=[];for(let i=0;i<10;i++){const before=performance.now();await model.run(five);fiveMs.push(performance.now()-before);}
     const gate=germanGate({de,en,paired:complete?60:0,verified:true});
-    const report={schema:'plur1bus.decision-spike/1',at:new Date().toISOString(),node:process.version,platform:platform(),arch:arch(),os:release(),cpu:cpus()[0]?.model,threads,manifest,fixtureSha256:createHash('sha256').update(await readFile(new URL('./decision-eval-cases.json',import.meta.url))).digest('hex'),labelSource:fixture.labelSource,loadMs,firstInferenceMs:latencies[0],latency:{n:latencies.length,p50:percentile(latencies,.5),p95:percentile(latencies,.95)},fiveQuestionBatch:{n:10,p50:percentile(fiveMs,.5),p95:percentile(fiveMs,.95)},maxRssKiB:process.resourceUsage().maxRSS,germanGate:gate,automaticGermanEligibility:false,eligibilityReason:'Requires independent label validation, role comparison and native Linux/Windows evidence',perUseCase,rows};
+    const report={schema:'plur1bus.decision-spike/1',at:new Date().toISOString(),node:process.version,platform:platform(),arch:arch(),os:release(),cpu:cpus()[0]?.model,logicalCpus:cpus().length,totalMemoryBytes:totalmem(),freeMemoryBeforeBytes,freeMemoryAfterBytes:freemem(),fileCacheState:'uncontrolled',threads,manifest,fixtureSha256:createHash('sha256').update(await readFile(new URL('./decision-eval-cases.json',import.meta.url))).digest('hex'),labelSource:fixture.labelSource,loadMs,...summarizeLatencyPhases(latencies),latency:{n:latencies.length,p50:percentile(latencies,.5),p95:percentile(latencies,.95)},fiveQuestionBatch:{n:10,p50:percentile(fiveMs,.5),p95:percentile(fiveMs,.95)},maxRssKiB:process.resourceUsage().maxRSS,germanGate:gate,automaticGermanEligibility:false,eligibilityReason:'Requires independent label validation, role comparison and native Linux/Windows evidence',perUseCase,rows};
     await writeFile(options.out,JSON.stringify(report,null,2)+'\n');
     console.log(JSON.stringify({...report,rows:undefined,manifest:undefined,perUseCase:undefined},null,2));
   }finally{await model.close();}

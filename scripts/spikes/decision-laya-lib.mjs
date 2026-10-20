@@ -54,3 +54,11 @@ export function validateCases(cases) {
     for(const locale of ['de','en'])for(const value of [row.state?.[locale],row.question?.[locale],...row.options.map(o=>o.description?.[locale])])if(typeof value!=='string'||!value.trim())throw Error('missing translation');
   }
 }
+
+/** A fresh process is not proof of a cold OS file cache. Keep the first call separate. */
+export function summarizeLatencyPhases(latencies) {
+  if (!Array.isArray(latencies) || latencies.some(ms => !Number.isFinite(ms) || ms < 0)) throw Error('invalid latency');
+  const warm = latencies.slice(1);
+  return { firstInferenceMs: latencies[0] ?? null,
+    warmLatency: { n: warm.length, p50: percentile(warm, .5), p95: percentile(warm, .95) } };
+}
