@@ -177,3 +177,17 @@ test('supervisor skill snapshot enforces effective agents and fails closed after
     fail = true; await live.syncExtensions(); assert.equal(live.view('A', [], {}, 'A').skills.length, 0); assert.equal(live.status().sourceError, true);
   } finally { live.close(); }
 });
+
+test('decision skill hook controls only the dynamic suffix after catalogue shortlisting', async()=>{
+  const {home,live}=setup();skill(home);
+  let pick=false;const prompts:import('../../src/prompt/types.ts').RenderedPrompt[]=[];
+  const wire=scriptedAdapter([{text:'done'}]);
+  const f=turnFixture(wire.adapter,{capabilities:live,onPrompt:p=>prompts.push(p),selectSkills:async(_req,candidates)=>pick?candidates.map(c=>c.id):[]},home);
+  try{
+    const req=turnRequest({messages:[{role:'user',text:'Create quarterly report'}]});
+    await collect(f.provider,req);assert.ok(!JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
+    pick=true;await collect(f.provider,req);assert.ok(JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
+    assert.deepEqual(prompts[0]!.prefixHashes,prompts[1]!.prefixHashes);
+    assert.ok(prompts[1]!.segments.some(s=>s.zone==='volatile'&&s.text.includes('approved reporting workflow')));
+  }finally{f.close();live.close();}
+});

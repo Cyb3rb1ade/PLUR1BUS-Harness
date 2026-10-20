@@ -77,6 +77,8 @@ export interface TurnProviderOptions {
   onDecision?: (decision: MessageDecision) => void;
   capabilities?: LiveCapabilityIndex;
   skillsForAgent?: (agent: string) => SkillSelection;
+  /** Final D69 choice over current admitted/shortlisted catalogue metadata, never instructions. */
+  selectSkills?: (request: ChatRequest, candidates: readonly { id:string; name:string; description:string }[], signal: AbortSignal) => Promise<readonly string[]>;
   registry: ToolRegistry; budget: CallBudget; profiles: ProfileTable;
   profile?: string; profileForClass?: (modelClass: string) => string | undefined;
   family?: Readonly<Record<string, ProviderFamily>>;
@@ -250,7 +252,10 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       if (!decision.tasks.length) categories['general.chat'] = 1;
       const hits = index.route(req.messages.filter(m => m.role === 'user').at(-1)?.text ?? '', categories, req.turnProfile?.localRealtime.enabled && req.turnProfile.localRealtime.toolSchemas === 'reduced' ? 4 : o.topK ?? 12, Math.min(1, ...decision.tasks.map(t => t.confidence))).items;
       const pinned = view?.skills.filter(s => o.skillsForAgent?.(req.agentId)?.pinned?.includes(s.entry.name)).map(s => ({ entry: s.entry, score: 1, reasons: ['pinned'] })) ?? [];
-      const skills = [...new Map([...pinned, ...hits.filter(h => h.entry.kind === 'skill' && h.score > 0)].map(h => [h.entry.id, h])).values()].slice(0, 3);
+      const candidates = [...new Map([...pinned, ...hits.filter(h => h.entry.kind === 'skill' && h.score > 0)].map(h => [h.entry.id, h])).values()];
+      const picked = o.selectSkills ? new Set(await o.selectSkills(req,candidates.map(h=>({id:h.entry.id,name:h.entry.name,description:h.entry.description})),signal)) : undefined;
+      const blocked = new Set(o.skillsForAgent?.(req.agentId)?.blocked ?? []);
+      const skills = candidates.filter(h=>!blocked.has(h.entry.name)&&(!picked||picked.has(h.entry.id))).slice(0,3);
       skillText = skills.map(h => { const skill = view?.skills.find(s => s.entry.id === h.entry.id); return skill ? JSON.stringify({ skill: skill.entry.name, instructions: skill.text }) : ''; }).filter(Boolean).join('\n');
       for (const hit of hits) o.capabilities?.registry.record(hit.entry.id, req.agentId, 'offered');
       const tools = hits.filter(h => h.entry.kind !== 'skill').map(h => described(h.entry.name)).filter((t): t is NonNullable<typeof t> => !!t);

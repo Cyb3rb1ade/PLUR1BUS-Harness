@@ -4144,7 +4144,9 @@
                               "tool.result",
                               "turn.completed",
                               "turn.failed",
-                              "decision.completed"
+                              "decision.completed",
+                              "compaction.prune",
+                              "skills.selected"
                             ]
                           },
                           "data": {

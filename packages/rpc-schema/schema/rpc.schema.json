@@ -10391,7 +10391,7 @@
       "required": ["id", "seq", "role", "text", "createdAt"],
       "properties": { "id": { "type": "string" }, "seq": { "type": "integer" }, "turnId": { "type": ["string", "null"] }, "role": { "enum": ["system", "user", "assistant", "tool"] }, "text": { "type": "string" }, "createdAt": { "type": "integer" } }
     },
-    "SessionEventType": { "enum": ["turn.started", "delta", "tool.call", "tool.result", "turn.completed", "turn.failed", "decision.completed"] },
+    "SessionEventType": { "enum": ["turn.started", "delta", "tool.call", "tool.result", "turn.completed", "turn.failed", "decision.completed", "compaction.prune", "skills.selected"] },
     "SessionEvent": {
       "description": "One event of a session's ordered stream. seq is per session, starts at 1 and has no gaps; data's shape depends on type.",
       "x-stability": "experimental", "x-since": "1.5.0",
