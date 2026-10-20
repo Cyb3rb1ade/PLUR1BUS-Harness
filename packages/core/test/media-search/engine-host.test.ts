@@ -14,14 +14,16 @@ test('runtime host supplies Engine 1.19 codec capabilities before construction, 
  const l=layout(tempDir('h2-host-'));const reg=createAgentRegistry(cfg,l);reg.scaffold('main');
  const logger=createLogger({file:l.logFile('core'),level:'info',role:'core'});
  try {
- const config=buildEngineConfig(cfg,l) as any;
+ // Explicit future-contract schema fake: the actual pinned schema is separately regression-tested.
+ const mediaSchema={properties:{media:{type:'object'}}};
+ const config=buildEngineConfig(cfg,l,mediaSchema) as any;
  assert.equal(config.media.provider,'local-transformers');assert.equal(config.media.segmentMs,7000);
  assert.equal(config.media.cacheDir,l.models);
  cfg.memory.mediaEmbedding.dimensions=2;
- assert.equal((buildEngineConfig(cfg,l) as any).media.enabled,false);
+ assert.equal((buildEngineConfig(cfg,l,mediaSchema) as any).media.enabled,false);
  cfg.memory.mediaEmbedding.dimensions=768;
  const host=createHarnessHost({layout:l,logger,config:cfg,engineConfig:config,agents:reg,events:()=>{}});
- assert.equal(config.media.enabled,false,'no media model may activate without a bound HostFetch');
+ assert.equal(Object.hasOwn(config,'media'),false,'no media model/config may reach Engine without a bound HostFetch');
  assert.equal(typeof host.capabilities!.mediaBudget,'function');
  assert.equal(host.capabilities!.mediaSourceRoot,join(l.home,'media'));
  assert.equal(await (host.capabilities!.mediaBudget as ()=>Promise<boolean>)(),true);

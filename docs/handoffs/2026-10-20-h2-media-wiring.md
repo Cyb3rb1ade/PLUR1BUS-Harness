@@ -88,12 +88,25 @@ pnpm test
   failures and privacy races, global-count privacy and multi-agent seed queries.
 - `pnpm typecheck`, hygiene and `git diff --check` pass. These are compile/import
   checks, not native media inference acceptance.
-- The full workspace run is recorded below after completion. One unrelated
-  failure was observed in untouched `packages/web/test/chat-model-picker.test.ts`
-  (`keyboard only: focus the select, arrow to a level; a stale revision reloads
-  and says so`): timeout waiting for the stale-model-choice alert. A single
-  isolated file rerun reproduces the same failure. No Web source or that test
-  was changed. No broad rerun or test weakening was performed.
+- The original full workspace run failed and was deliberately interrupted
+  (exit 143) after identifying a genuine H2 startup regression: pinned Engine
+  1.16 rejects an unknown `media` property even with `enabled:false`. It is not
+  evidence for the final source. The additional untouched Web test
+  `chat-model-picker.test.ts` (`keyboard only: focus the select, arrow to a
+  level; a stale revision reloads and says so`) timed out waiting for the stale
+  alert and reproduced in one isolated file rerun; no Web test/source was changed.
+- The compatibility correction reads the installed Engine's **public JSON
+  config schema** before projecting owned media options. An older schema gets
+  no `media` key, including no raw `engine.media` override. A future schema fake
+  retains all mapping/dimension assertions. Without Host Fetch the host removes
+  the projected key entirely. Owned Harness configuration is preserved.
+- New actual-installed-schema regression was observed red, then green. New
+  compatibility plus future-host tests: 3/3 green, independently reviewed.
+  Actual Core/API full suite after the fix: **812 tests, 799 pass, 0 failures,
+  6 inherited skips, 7 inherited TODOs**. Media/discovery subset: **337 tests,
+  332 pass, 0 failures, 1 inherited live skip, 4 TODOs** (3 acceptance receipts
+  added above, 1 inherited). The failure justified a post-fix Core rerun; final
+  totals are recorded below, with no fresh broad Web run.
 - No CI polling; external CI state is unverified.
 
 ## Known gaps / acceptance todos
@@ -137,3 +150,26 @@ actual 1.16 contract or missing production receipts, as intended; no import/conf
 failure was masked. Existing passing/failing/TODO tests are unchanged. Supply genuine
 receipts and satisfy the assertions before removing TODO reasons. No new native inference,
 Engine pin, lockfile, budget binding or dependency is claimed by these tests.
+
+## Final post-regression verification
+
+The complete post-fix Core run finished in 340.3 s: **9,656 tests, 9,598 pass,
+10 fail, 20 inherited skips, 28 TODOs** (25 inherited + the 3 new executable
+acceptance gaps). Nine failures are the same `import/fs-atomic` (3) and
+`import/rollback-ledger` (6) failures reproduced on unchanged main in the G4/F4
+work; the owning import sources/tests remain untouched. The tenth failure was
+`privacy/enforcement.test.ts`'s future-media Engine fake: it omitted the newly
+required trusted `hostFetchReady` construction input. The fixture now supplies
+that input; the cloud refusal, zero-start and local-engine assertions are all
+unchanged. This adjustment was independently reviewed. Product code did not
+change after the full Core run.
+
+The final privacy + all-media + installed-schema suite after that fixture-only
+correction: **153 tests, 149 pass, 0 fail, 0 skip, 4 TODOs** (3 acceptance gaps,
+1 inherited media-port gap). No full Core rerun or whole-workspace green result
+is claimed. The earlier stopped workspace run (exit 143), untouched reproducible
+Web timeout, and the complete Core failure counts remain disclosed. API full
+suite is 799/812 pass with 0 failures, 6 inherited skips and 7 inherited TODOs.
+Final TypeScript, build, hygiene, source-quality, doclinks and diff checks pass.
+No pin/lockfile/dependency changes or paid calls. This correction uses the public
+installed Engine schema; it does not bypass Engine validation or transport policy.

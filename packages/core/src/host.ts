@@ -41,8 +41,7 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
   // #602 owns the Fetch implementation. Until it is actually bound, even a future media-capable Engine
   // must not fall back to global fetch for model downloads.
   if (typeof host.fetch !== "function") {
-    const media = o.engineConfig.media;
-    if (media && typeof media === "object" && !Array.isArray(media)) o.engineConfig.media = { ...media, enabled: false };
+    delete o.engineConfig.media;
   }
   return host;
 }

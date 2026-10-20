@@ -1,3 +1,4 @@
+import installedEngineSchema from '@cyb3rb1ade/plur1bus-memory/engine/config/engine-config.schema.json' with { type: 'json' };
 import { buildMediaEngineConfig } from "./media-search/engine-host.ts";
 import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
 import { DatabaseSync } from "node:sqlite";
@@ -20,10 +21,10 @@ const BGE_RERANKER = "woxpas-ai/bge-reranker-v2-m3-onnx";
  * Harness-owned keys always win; everything else in config.engine passes through.
  * Engine PR E5 (host-neutral engine-config.schema.json) will let this file shrink.
  */
-export function buildEngineConfig(cfg: HarnessConfig, l: Layout): Record<string, unknown> {
+export function buildEngineConfig(cfg: HarnessConfig, l: Layout, engineSchema: unknown = installedEngineSchema): Record<string, unknown> {
   assertSharedEnginePrivacy(cfg);
   const user = plain(cfg.engine);
-  const { baseDbPathOverride, baseDbPath: _b, autoRecall: _r, autoCapture: _c, ...passthrough } = user;
+  const { baseDbPathOverride, baseDbPath: _b, autoRecall: _r, autoCapture: _c, media: _media, ...passthrough } = user;
   const emb = plain(passthrough.embedding), rer = plain(passthrough.reranker), rec = plain(passthrough.recall);
   // Owner decision 2026-10-18: cloud and OpenAI-compatible providers are allowed for both roles; refused only for
   // missing details, a key in the config, a missing privacy acknowledgment or a provider the engine has no adapter for.
@@ -38,7 +39,12 @@ export function buildEngineConfig(cfg: HarnessConfig, l: Layout): Record<string,
   const reranker = rerPlan.kind === "remote" ? rerPlan.block : { ...rer, enabled: true, provider: "local-transformers", local: { model: BGE_RERANKER, cacheDir: l.models, ...plain(rer.local) } };
   const recall = { ...rec, softBudgetMs: cfg.core.recall.softBudgetMs, globalInjectMaxChars: cfg.core.recall.capChars, decisionTrace: { ...plain(rec.decisionTrace), enabled: true } };
   const override = typeof baseDbPathOverride === "string" && baseDbPathOverride.trim() !== "" ? baseDbPathOverride : undefined;
-  return { ...passthrough, baseDbPath: override ?? l.lancedb, autoRecall: false, autoCapture: false, embedding, reranker, recall, media: buildMediaEngineConfig(cfg.memory.mediaEmbedding, l.models) };
+  const mediaSchema = plain(plain(engineSchema).properties).media;
+  const supportsMedia = mediaSchema !== null && typeof mediaSchema === 'object' && !Array.isArray(mediaSchema);
+  return { ...passthrough, baseDbPath: override ?? l.lancedb, autoRecall: false, autoCapture: false, embedding, reranker, recall,
+    // Engine 1.16 rejects even a disabled unknown media key. The installed public schema,
+    // not a presumed version or a raw engine.* override, decides whether projection is legal.
+    ...(supportsMedia ? { media: buildMediaEngineConfig(cfg.memory.mediaEmbedding, l.models) } : {}) };
 }
 
 /** A shallow copy of a plain object without `__proto__` keys; anything else (string, array, null, number) is `{}`, so
