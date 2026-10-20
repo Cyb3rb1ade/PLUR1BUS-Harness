@@ -52,9 +52,11 @@ write that crashed before the anchor moved) is not a finding.
 
 ## Writers
 
-The core tees its RBAC sink and the identity audit writer into the chain. A writer **fails closed**: it refuses to
+The core tees its RBAC sink, identity audit writer and sanitized secret-store records into the chain. Secret records keep their nullable target; no secret value is added to either audit file.
+
+The Rust CLI writes directly, including while the core is stopped (setup, repair, backup, uninstall and extensions). It uses the same line envelope, SHA-256 bytes, anchor and 8 MiB rotation names. The core holds a SQLite `BEGIN EXCLUSIVE` OS lock on `audit-chain.lock`; Rust holds the corresponding pending/reserved/shared byte range (`0x40000000`, 512 bytes), using `fcntl` on Unix and `LockFileEx` on Windows. A Rust process mutex also serializes its own threads because POSIX record locks belong to a process. No SQLite database contents are changed by Rust. The kernel releases either lock when its process exits. Direct writes keep offline operations independent of RPC authentication and core availability. A writer **fails closed**: it refuses to
 append when the anchor is missing or invalid, when the chain is shorter than the anchor, or when the tail does not
-match the anchor, so tampering is never papered over by new lines. The recovery is manual: move the chain files and
+match the anchor (including an anchor behind the tail), so tampering is never papered over by new lines. The recovery is manual: move the chain files and
 the anchor aside (keep them as evidence) and start a new chain.
 
 ## What it does not protect
@@ -62,16 +64,15 @@ the anchor aside (keep them as evidence) and start a new chain.
 - Someone who can write both the chain and the anchor can rewrite the whole chain consistently. Pin `lastHash` and
   `lastSeq` from `audit.verify` somewhere the host cannot write (another machine, a ticket) to cover that.
 - A last line changed in the one-write window before the anchor moves is not caught until the next append.
-- The Rust CLI's own audit lines and the secret store's are not in the chain yet.
+- Historical audit.log records written before D1 are not backfilled into the chain.
+- `audit.log` and the chain are separate files, so a storage failure can leave an event in only one copy. The secret-store operation reports failure. Rust callers keep their existing error handling; some update/uninstall paths treat audit errors as best effort.
 
 ## Testabdeckung und bekannte Lücken
 
 - **The chain** (append, `audit.verify`, rotation, torn tail, anchor) is written and tested in `packages/core` (`test/audit/`). The Rust
-  CLI never writes it and only calls `audit.verify`, so its behaviour is not tested from Rust (`crates/plur1bus/tests/audit_cli.rs` covers
-  what the CLI does on its own).
+  CLI also writes the chain directly. Shared UTF-8/hash/CRLF/null-target vectors live in `tests/fixtures/audit-chain-v1.json`. A Rust test runs three Rust and three TypeScript child processes against one home, verifies all 180 records through the TypeScript verifier, then changes a line and checks the finding. This runs on the test host; local macOS execution is not native Windows/Linux evidence.
 - **The two Rust appenders** that sit next to it, `logs/audit.log` (`crates/plur1bus/src/audit.rs`) and the offline memory journal
   (`src/journal.rs`), are tested for append-only writes (no earlier byte is rewritten), one physical line per entry whatever the content,
   eight concurrent writers without interleaved lines, private permissions, and a last line left torn by a crash: the next entry now starts
   a line of its own instead of being glued to the fragment.
-- **Known gaps:** The Rust CLI's own audit lines are not in the chain (see above). Neither `audit.log` nor the journal rotates, so "the
-  chain continues across a rotation" can only be tested where the chain is.
+- **Known gaps:** `detail` is redacted by the TypeScript chain writer and the rbac and identity `audit.log` writers only. The Rust CLI's chain and `audit.log` lines and the secret-store `audit.log` copy write `detail` as given (the secret store keeps an allow-list of primitive keys; the Rust callers are not checked by this change). Neither `audit.log` nor the journal rotates. Both chain writers use the same rotation contract.

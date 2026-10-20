@@ -98,15 +98,16 @@ describe("audit chain", () => {
     assert.deepEqual(codes(t.chain), ["anchor-invalid"]);
   });
 
-  it("an anchor one line behind (crash between append and anchor update) is fine", () => {
+  it("an anchor behind the tail cannot be papered over by another append", () => {
     const t = fresh(); fill(t.chain, 2);
     const anchorFile = path.join(t.dir, ANCHOR_NAME);
     const behind = JSON.stringify({ v: 1, seq: 1, hash: hashLine(t.read()[0] as string) });
     writeFileSync(anchorFile, behind);
     const v = t.chain.verify();
     assert.deepEqual([v.ok, v.anchor.status], [true, "behind"]);
-    t.chain.append(ev(2)); // the writer carries on and moves the anchor forward
-    assert.deepEqual([t.chain.verify().ok, t.chain.verify().anchor.status], [true, "match"]);
+    assert.throws(() => t.chain.append(ev(2)), /tail does not match the anchor/);
+    assert.equal(t.read().length, 2);
+    assert.equal(readFileSync(anchorFile, "utf8"), behind);
   });
 
   it("the writer refuses to append to a chain its anchor says was cut (fail closed)", () => {
@@ -206,7 +207,7 @@ describe("audit chain", () => {
 
   it("files are private on POSIX and findings never carry record content", () => {
     const t = fresh(); fill(t.chain, 2);
-    if (process.platform !== "win32") for (const n of [ACTIVE_NAME, ANCHOR_NAME]) assert.equal(statSync(path.join(t.dir, n)).mode & 0o777, 0o600);
+    if (process.platform !== "win32") for (const n of [ACTIVE_NAME, ANCHOR_NAME, "audit-chain.lock"]) assert.equal(statSync(path.join(t.dir, n)).mode & 0o777, 0o600);
     const l = t.read(); l[0] = (l[0] as string).replace("t0", "SECRET-TARGET"); t.write(l);
     assert.ok(!JSON.stringify(t.chain.verify()).includes("SECRET-TARGET"));
   });
