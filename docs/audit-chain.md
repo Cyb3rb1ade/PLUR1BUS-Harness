@@ -71,4 +71,9 @@ the anchor aside (keep them as evidence) and start a new chain.
   (`src/journal.rs`), are tested for append-only writes (no earlier byte is rewritten), one physical line per entry whatever the content,
   eight concurrent writers without interleaved lines, private permissions, and a last line left torn by a crash: the next entry now starts
   a line of its own instead of being glued to the fragment.
-- **Known gaps:** `detail` is written as given: secrets inside it are not redacted by the chain (not yet enforced; redaction belongs to the event producers in rbac and identity). Neither `audit.log` nor the journal rotates. Both chain writers use the same rotation contract.
+- **Detail redaction at the two remaining writers:** the Rust `audit::append` (`crates/plur1bus/src/audit.rs`, `audit_redact.rs`) and the
+  secret store's `createFileAuditSink` (`packages/core/src/secrets/audit.ts`) run `detail` through the D111 §4 redactor once, before the
+  record goes to the chain and to `audit.log`, so both copies hold the same redacted line and the hash is taken over it. The Rust side reads
+  its patterns from `packages/log-schema/schema/redaction.json` (no list of its own) and is tested against the canaries in `fixtures/vectors.json`;
+  the secret store also masks the values it holds. The chain's own `append` (Rust and TypeScript) still writes the record it is given.
+- **Known gaps:** the chain itself writes `detail` as given and does not redact (redaction belongs to the event producers; see the bullet above for the two it was missing in). Neither `audit.log` nor the journal rotates. Both chain writers use the same rotation contract.
