@@ -993,8 +993,10 @@ pub enum BackupCmd {
     ///
     /// The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite
     /// backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are
-    /// copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and
-    /// `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+    /// copied. The archive is private to the user. The secret store is never read: API keys stay in the OS keyring and
+    /// `run/` (tokens) is never archived, and a webhook secret kept in `config.json` is replaced by a placeholder. The API
+    /// account database (`state/api/accounts.db`) is archived with its password hashes and TOTP seeds. Checksums detect
+    /// corruption; the archive is not signed or encrypted.
     Create {
         /// where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
         #[arg(long)]

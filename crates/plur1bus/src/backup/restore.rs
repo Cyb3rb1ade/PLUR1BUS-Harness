@@ -6,7 +6,7 @@
 //! backup) and the staged tree takes its place. A failure at any step puts the units already swapped back, so the old
 //! state stays as it was. The core must be stopped (R5); the units are the allow-list of `manifest.rs` and nothing else.
 use super::archive::{verify, visit};
-use super::create::{backups_dir, Cleanup};
+use super::create::{ensure_backups_dir, Cleanup};
 use super::manifest::{is_sqlite_name, Kind, Manifest, SQLITE_SIDECARS};
 use super::{now_ms, short_id, utc_stamp, BackupError};
 use crate::paths::Layout;
@@ -172,6 +172,19 @@ struct Done {
     placed: bool,
 }
 
+/// `create_dir_all`, with every directory it creates private to the user (0700 on unix, whatever the umask; Windows inherits
+/// the home's ACL). The pre-restore tree holds the replaced live state: `config.json`, the API accounts database.
+fn create_private_dirs(dir: &Path) -> io::Result<()> {
+    let mut b = fs::DirBuilder::new();
+    b.recursive(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        b.mode(0o700);
+    }
+    b.create(dir)
+}
+
 fn move_aside(home: &Path, pre: &Path, target: &str) -> io::Result<Option<PathBuf>> {
     let from = live(home, target);
     if !exists(&from) {
@@ -179,7 +192,7 @@ fn move_aside(home: &Path, pre: &Path, target: &str) -> io::Result<Option<PathBu
     }
     let to = live(pre, target);
     if let Some(p) = to.parent() {
-        fs::create_dir_all(p)?;
+        create_private_dirs(p)?;
     }
     fs::rename(&from, &to)?;
     Ok(Some(to))
@@ -289,10 +302,14 @@ pub fn restore(
 
     let id = format!("{}-{}", utc_stamp(now_ms()), short_id());
     let staging = home.join(format!(".restore-{id}"));
-    let pre = backups_dir(layout).join(format!("pre-restore-{id}"));
-    fs::create_dir_all(&staging)?;
+    // `backups/` holds the replaced state below: private, like `create` makes it (it may not exist yet, or have been made
+    // under the umask by an older restore).
+    let pre = ensure_backups_dir(layout)?.join(format!("pre-restore-{id}"));
+    create_private_dirs(&staging)?;
     let mut cleanup = Cleanup(staging.clone());
     extract(archive, &staging, opts)?;
+    // A webhook secret `create` redacted gets a fresh value here, never the placeholder the archive carries.
+    super::redact::refill_staged_config(&staging)?;
 
     let mut done = Vec::new();
     if let Err(e) = swap(home, &staging, &pre, &manifest, opts, &mut done) {
@@ -404,6 +421,54 @@ mod tests {
                 assert_eq!(fs::read_to_string(st.join(n)).unwrap(), c, "{at}: {n}");
             }
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn backups_and_the_pre_restore_tree_are_private_to_the_user() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let (out, dst) = archive_of_a_fresh_home(d.path());
+        let mode = |p: &Path| fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        // A `backups/` that an older restore (or the user) left open is tightened, not trusted.
+        let backups = dst.home.join("backups");
+        fs::create_dir_all(&backups).unwrap();
+        fs::set_permissions(&backups, fs::Permissions::from_mode(0o755)).unwrap();
+        let report = restore(
+            &dst,
+            &out,
+            &RestoreOpts {
+                dry_run: false,
+                fail_at: None,
+            },
+        )
+        .unwrap();
+        let pre = PathBuf::from(report.pre_restore.expect("the replaced state is kept"));
+        assert_eq!(mode(&backups), 0o700, "backups/");
+        assert_eq!(mode(&pre), 0o700, "{}", pre.display());
+        // Every directory the restore made below it (the replaced state includes config.json and the account database).
+        fn dirs(p: &Path, out: &mut Vec<PathBuf>) {
+            for e in fs::read_dir(p).unwrap() {
+                let e = e.unwrap();
+                if e.file_type().unwrap().is_dir() {
+                    out.push(e.path());
+                    dirs(&e.path(), out);
+                }
+            }
+        }
+        let mut below = Vec::new();
+        dirs(&pre, &mut below);
+        assert!(!below.is_empty(), "the replaced database sits in pre/state");
+        for p in below {
+            assert_eq!(mode(&p), 0o700, "{}", p.display());
+        }
+        // And nothing else of the restore is left behind readable: the staging tree is gone.
+        assert!(!fs::read_dir(&dst.home).unwrap().any(|e| {
+            e.unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".restore-")
+        }));
     }
 
     #[test]

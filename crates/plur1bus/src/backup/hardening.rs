@@ -5,8 +5,9 @@
 //! Not tested, and why: a restore that runs out of disk space. Restore extracts with plain file writes and has no writer seam
 //! to inject a full disk into; the failure steps `PLUR1BUS_TEST_BACKUP_FAIL_AT` (`extract`, `swap:<i>`, `swap-after:<i>`) are
 //! what proves the rollback, in `tests/backup.rs`.
-use super::archive::{hex, verify};
-use super::create::{create, testkit};
+use super::archive::{hash_file, hex, verify};
+use super::create::{create, testkit, SnapFile};
+use super::redact::PLACEHOLDER;
 use super::restore::{restore, RestoreOpts};
 use crate::paths::Layout;
 use flate2::read::GzDecoder;
@@ -494,12 +495,19 @@ fn nothing_from_run_logs_the_secret_store_runtime_or_models_is_in_the_archive_in
 
 #[test]
 fn the_search_forms_find_a_marker_that_is_there() {
-    // A positive control for the test above: the same search must find the config marker, plain, and a hex and a base64 copy.
+    // A positive control for the tests above: the same search must find a marker that IS in the bytes, plain, and a hex and a
+    // base64 copy. (It used to use the webhook marker in the archive itself, which was the leak; the archive no longer has it,
+    // so the plain copy is appended here like the other two.)
     let d = tempfile::tempdir().unwrap();
     let archive = home_with_secrets(d.path());
     let (names, bytes) = everything_in(&archive);
-    assert_eq!(found_forms(&names, &bytes, CONFIG_MARKER), ["plain"]);
+    assert!(
+        found_forms(&names, &bytes, CONFIG_MARKER).is_empty(),
+        "the archive must not carry the webhook marker"
+    );
     let mut more = bytes.clone();
+    more.extend(CONFIG_MARKER.as_bytes());
+    assert_eq!(found_forms(&names, &more, CONFIG_MARKER), ["plain"]);
     more.extend(hex(b"redact-probe-hex-copy").as_bytes());
     more.extend(base64(b"redact-probe-b64-copy").as_bytes());
     assert!(found_forms(&names, &more, "redact-probe-hex-copy").contains(&"hex"));
@@ -515,13 +523,11 @@ fn the_search_forms_find_a_marker_that_is_there() {
     );
 }
 
-/// SICHERHEIT. The manifest says "no secrets are part of this archive: API keys and tokens stay in the OS keyring", and `run/`, the
-/// encrypted fallback file and `logs/` are indeed never archived. `config.json` is archived as it is, and
-/// `channels.telegram.webhook.secret` is a secret VALUE that lives there (the config schema describes it as the secret token the
-/// webhook header carries). Whoever opens the archive reads it in clear. Excluding or masking a config key changes what a backup
-/// contains and what a restore brings back, so it is not changed here.
+/// SICHERHEIT. The manifest says no secret-store values are part of the archive, and `run/`, the encrypted fallback file and
+/// `logs/` are indeed never archived. `config.json` is copied, and `channels.telegram.webhook.secret` is a secret VALUE that
+/// lives there (the config schema describes it as the secret token the webhook header carries): `create` replaces it by a
+/// placeholder in its staged copy (`redact.rs`), so whoever opens the archive does not read it.
 #[test]
-#[ignore = "KNOWN GAP (SICHERHEIT): config.json is archived verbatim, so channels.telegram.webhook.secret is in the backup in clear although the manifest says no secrets are included"]
 fn a_secret_value_kept_in_config_json_is_not_in_the_archive() {
     let d = tempfile::tempdir().unwrap();
     let archive = home_with_secrets(d.path());
@@ -531,4 +537,196 @@ fn a_secret_value_kept_in_config_json_is_not_in_the_archive() {
         forms.is_empty(),
         "the webhook secret is in the archive as {forms:?}"
     );
+}
+
+/// The archived `config.json` entry itself.
+fn archived_config(archive: &Path) -> String {
+    let gz = GzDecoder::new(fs::File::open(archive).unwrap());
+    for e in tar::Archive::new(gz).entries().unwrap() {
+        let mut e = e.unwrap();
+        if e.path().unwrap().to_string_lossy() == "data/config.json" {
+            let mut text = String::new();
+            e.read_to_string(&mut text).unwrap();
+            return text;
+        }
+    }
+    panic!("no data/config.json in the archive");
+}
+
+#[test]
+fn the_webhook_secret_is_replaced_in_the_archive_and_left_alone_in_the_live_config() {
+    let d = tempfile::tempdir().unwrap();
+    let archive = home_with_secrets(d.path());
+    let archived: serde_json::Value = serde_json::from_str(&archived_config(&archive)).unwrap();
+    assert_eq!(
+        archived["channels"]["telegram"]["webhook"]["secret"], PLACEHOLDER,
+        "the value is replaced, not dropped: the rest of the config keeps its shape"
+    );
+    assert_eq!(archived["schemaVersion"], 1);
+    // The live file is the owner's and is never rewritten.
+    let live = fs::read_to_string(d.path().join("a/config.json")).unwrap();
+    assert!(live.contains(CONFIG_MARKER), "{live}");
+    // The manifest describes the redacted bytes (verify checks every digest).
+    verify(&archive).unwrap();
+}
+
+#[test]
+fn a_config_without_a_secret_value_is_archived_byte_for_byte() {
+    let d = tempfile::tempdir().unwrap();
+    let (_, archive) = backup_of_populated_home(d.path());
+    assert_eq!(archived_config(&archive), "{\"schemaVersion\":1}\n");
+}
+
+#[test]
+fn a_config_that_is_not_json_makes_create_fail_closed_and_writes_no_archive() {
+    let d = tempfile::tempdir().unwrap();
+    let layout = Layout::new(d.path().join("a"));
+    fs::create_dir_all(&layout.home).unwrap();
+    populate(&layout.home);
+    put(&layout.home, "config.json", CONFIG_MARKER.as_bytes());
+    let snap = testkit::staged(&layout, b"database bytes", false);
+    let out = d.path().join("never.tar.gz");
+    let e = match create(&layout, &out, &snap) {
+        Err(e) => e,
+        Ok(_) => panic!("an unreadable config must not be archived unchecked"),
+    };
+    assert_eq!(e.reason, "config-unreadable");
+    assert!(!e.detail.contains(CONFIG_MARKER), "{}", e.detail);
+    assert!(!out.exists());
+}
+
+#[test]
+fn a_restore_gives_the_webhook_a_fresh_valid_secret_instead_of_the_placeholder() {
+    let d = tempfile::tempdir().unwrap();
+    let archive = home_with_secrets(d.path());
+    let mut secrets = Vec::new();
+    for name in ["fresh-1", "fresh-2"] {
+        let b = Layout::new(d.path().join(name));
+        fs::create_dir_all(&b.home).unwrap();
+        restore(&b, &archive, &opts()).expect("restore");
+        let text = fs::read_to_string(b.home.join("config.json")).unwrap();
+        assert!(
+            !text.contains(CONFIG_MARKER) && !text.contains(PLACEHOLDER),
+            "{text}"
+        );
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let secret = v["channels"]["telegram"]["webhook"]["secret"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        // Matches the schema's pattern for the property (^[A-Za-z0-9_-]{1,256}$).
+        assert!(
+            secret.len() == 64 && secret.bytes().all(|c| c.is_ascii_hexdigit()),
+            "{secret}"
+        );
+        assert_eq!(v["schemaVersion"], 1);
+        secrets.push(secret);
+    }
+    assert_ne!(secrets[0], secrets[1], "each restore draws its own secret");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// the account database
+// ---------------------------------------------------------------------------------------------------------------------
+
+/// `state/api/accounts.db` is staged by the core like every database under `state/`, and docs/portable-backup.md restores the API
+/// accounts from it. It holds password hashes and TOTP seeds, so the manifest must not claim there are no secrets in the archive.
+/// (OWNER QUESTION: whether the seeds should stay in the ordinary archive at all; until that is decided this pins what is true.)
+#[test]
+fn the_account_database_is_archived_and_the_manifest_says_what_is_in_it() {
+    let d = tempfile::tempdir().unwrap();
+    let layout = Layout::new(d.path().join("a"));
+    fs::create_dir_all(&layout.home).unwrap();
+    populate(&layout.home);
+    let mut snap = testkit::staged(&layout, b"database bytes", false);
+    let db = snap.dir.join("sqlite/api/accounts.db");
+    fs::create_dir_all(db.parent().unwrap()).unwrap();
+    fs::write(&db, b"accounts bytes").unwrap();
+    let (sha256, bytes) = hash_file(&db).unwrap();
+    snap.files.push(SnapFile {
+        path: "sqlite/api/accounts.db".into(),
+        bytes,
+        sha256,
+    });
+    let out = d.path().join("accounts.tar.gz");
+    create(&layout, &out, &snap).expect("create");
+    let m = verify(&out).unwrap();
+    assert!(
+        m.units.iter().any(|u| u.target == "state/api/accounts.db"),
+        "{:?}",
+        m.units.iter().map(|u| &u.target).collect::<Vec<_>>()
+    );
+    assert!(!m.secrets.included, "the secret store itself is not in it");
+    for phrase in [
+        "state/api/accounts.db",
+        "password hashes",
+        "TOTP seeds",
+        "neither signed nor encrypted",
+        "run/ is never archived",
+        "encrypted fallback file is not included",
+    ] {
+        assert!(
+            m.secrets.note.contains(phrase),
+            "the note does not say {phrase:?}: {}",
+            m.secrets.note
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// permission bits
+// ---------------------------------------------------------------------------------------------------------------------
+
+#[cfg(unix)]
+#[test]
+fn an_executable_skill_script_stays_executable_through_backup_and_restore() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = tempfile::tempdir().unwrap();
+    let layout = Layout::new(d.path().join("a"));
+    fs::create_dir_all(&layout.home).unwrap();
+    populate(&layout.home);
+    put(
+        &layout.home,
+        "skills/triage/scripts/run.sh",
+        b"#!/bin/sh\necho ok\n",
+    );
+    put(&layout.home, "skills/triage/notes.md", b"notes\n");
+    put(&layout.home, "skills/triage/open.txt", b"open\n");
+    for (rel, mode) in [
+        ("skills/triage/scripts/run.sh", 0o755),
+        ("skills/triage/notes.md", 0o644),
+        ("skills/triage/open.txt", 0o666),
+    ] {
+        fs::set_permissions(layout.home.join(rel), fs::Permissions::from_mode(mode)).unwrap();
+    }
+    let snap = testkit::staged(&layout, b"database bytes", false);
+    let out = d.path().join("m.tar.gz");
+    create(&layout, &out, &snap).expect("create");
+    // The manifest records the bits the SOURCE had, not those of a private staging copy.
+    let m = verify(&out).unwrap();
+    let recorded = |p: &str| {
+        m.files
+            .iter()
+            .find(|f| f.path == p)
+            .unwrap_or_else(|| panic!("{p} is not in the manifest"))
+            .mode
+    };
+    assert_eq!(recorded("skills/triage/scripts/run.sh"), Some(0o755));
+    assert_eq!(recorded("skills/triage/notes.md"), Some(0o644));
+    assert_eq!(recorded("skills/triage/open.txt"), Some(0o666));
+    // A restore keeps the owner's bits and never widens: the script runs for its owner, nothing is group or world accessible.
+    let fresh = Layout::new(d.path().join("fresh"));
+    fs::create_dir_all(&fresh.home).unwrap();
+    restore(&fresh, &out, &opts()).expect("restore");
+    let got = |rel: &str| {
+        fs::metadata(fresh.home.join(rel))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777
+    };
+    assert_eq!(got("skills/triage/scripts/run.sh"), 0o700);
+    assert_eq!(got("skills/triage/notes.md"), 0o600);
+    assert_eq!(got("skills/triage/open.txt"), 0o600);
+    assert_eq!(got("skills/triage/SKILL.md"), 0o600);
 }
