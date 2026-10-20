@@ -14,6 +14,7 @@ it('defaults to the existing role backend without requiring a new backend instal
   assert.equal(result.ok, true);
   if (result.ok) assert.deepEqual(result.config.decision, {
     backend: 'role', timeoutMs: 200, classProfiles: {},
+    systemOne: { jev: { enabled: false, model: 'jev-1.13.0' }, kev: { enabled: false } },
     budgets: { triage: 200, routing: 200, pruning: 100, skills: 100, placement: 200, zoom: 150, compaction: 200 },
     confidence: { triage: 0, routing: .7, pruning: .7, skills: .7, placement: .7, zoom: .35, compaction: .7 },
   });
@@ -40,5 +41,21 @@ it('applies backend, budget and confidence changes live in advanced settings', (
   for (const path of ['decision.backend', 'decision.timeoutMs', 'decision.budgets.zoom', 'decision.confidence.pruning', 'decision.classProfiles.small']) {
     assert.equal(restartClassOf(path), 'live', path);
     assert.equal(tierOf(path), 'advanced', path);
+  }
+});
+it('System One defaults disabled and requires explicit Kev model and literal loopback endpoint', () => {
+  const systems = defaults().decision.systemOne;
+  assert.deepEqual(systems, { jev: { enabled: false, model: 'jev-1.13.0' }, kev: { enabled: false } });
+  for (const systemOne of [
+    { jev: { enabled: true, model: 'jev-1.13.0', secretRef: 'typesafe' } },
+    { kev: { enabled: true, model: 'kev-1.0', endpoint: 'http://127.0.0.1:8008/v1/systemone' } },
+  ]) assert.equal(validate(config({ systemOne })).ok, true);
+  for (const systemOne of [
+    { jev: { apiKey: 'forbidden' } }, { jev: { model: 'jev-latest' } }, { jev: { endpoint: 'https://evil.test' } },
+    { kev: { enabled: true } }, { kev: { enabled: true, model: 'kev', endpoint: 'http://localhost:8008/v1/systemone' } },
+    { kev: { endpoint: 'https://external.test/v1/systemone' } }, { kev: { secretRef: 'forbidden' } },
+  ]) assert.equal(validate(config({ systemOne })).ok, false, JSON.stringify(systemOne));
+  for (const path of ['decision.systemOne.jev.enabled', 'decision.systemOne.jev.model', 'decision.systemOne.jev.secretRef', 'decision.systemOne.kev.enabled', 'decision.systemOne.kev.model', 'decision.systemOne.kev.endpoint']) {
+    assert.equal(restartClassOf(path), 'live', path); assert.equal(tierOf(path), 'advanced', path);
   }
 });
