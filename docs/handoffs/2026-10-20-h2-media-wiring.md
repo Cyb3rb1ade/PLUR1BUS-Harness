@@ -118,5 +118,22 @@ These are explicit contract/dependency limits, not fake production providers.
 
 Future test todos: `media-harness-native` (after pin/Fetch),
 `media-unit-budget-binding` (actual #603 reservations/deliveries/Secret leases),
-`media-agent-encoder-contract` (after scoped Engine API additions). These are
-acceptance targets, not newly skipped executable tests.
+`media-agent-encoder-contract` (after scoped Engine API additions). These targets are additionally tracked by the executed acceptance TODO assertions below.
+
+## Executed acceptance TODOs
+
+`packages/core/test/media-search/acceptance.todo.test.ts` adds **3 new TODO tests**:
+actual pinned Engine media API/Host Fetch before construction, production image/video-second
+reservations plus Secret leases, and real Harness image/audio indexing, scoped image query
+and caption-memory recall. `docs/evidence/media/harness-acceptance-gates.json` records
+the actual dependency pin and required Engine H1 contract; missing receipts are `null`.
+The contract comparison parses numeric version components; a fake adapter or Engine-only
+measurement does not satisfy the receipt assertions. Cloud encoding remains refused.
+
+Node 24.21, acceptance TODO + existing `engine-host.test.ts`/`engine-adapter.test.ts`, with
+`--experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1`:
+**7 tests: 4 pass, 3 TODO, 0 fail, 0 skip**. TODO bodies executed and failed at the
+actual 1.16 contract or missing production receipts, as intended; no import/configuration
+failure was masked. Existing passing/failing/TODO tests are unchanged. Supply genuine
+receipts and satisfy the assertions before removing TODO reasons. No new native inference,
+Engine pin, lockfile, budget binding or dependency is claimed by these tests.
