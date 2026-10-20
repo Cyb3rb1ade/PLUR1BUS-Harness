@@ -1,0 +1,75 @@
+import { it, mock } from "node:test";
+import assert from "node:assert/strict";
+import fs, { readFileSync, writeFileSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+import path from "node:path";
+import { createAuditChain, ACTIVE_NAME, ANCHOR_NAME, hashLine } from "../../src/audit/chain.ts";
+import { tempDir } from "../helpers/temp-dir.ts";
+
+const event = { at: 1, actor: { user: "u", host: "h" }, action: "test", target: "t", detail: {} };
+it("syncs both record and anchor files plus the directory before releasing the writer lock on POSIX", () => {
+  const dir = tempDir("audit-durable-");
+  const synced: string[] = [];
+  const original = fs.fsyncSync;
+  const spy = mock.method(fs, "fsyncSync", (fd: number) => { synced.push(fs.fstatSync(fd).isDirectory() ? "directory" : "file"); original(fd); });
+  syncBuiltinESMExports();
+  try { createAuditChain({ dir }).append(event); }
+  finally { spy.mock.restore(); syncBuiltinESMExports(); }
+  assert.deepEqual(synced, process.platform === "win32" ? ["file", "file"] : ["file", "file", "directory"]);
+  assert.equal(createAuditChain({ dir }).verify().ok, true);
+});
+
+it("flushes torn evidence before truncating it and committing the next record", () => {
+  const dir = tempDir("audit-torn-durable-"); const chain = createAuditChain({ dir });
+  chain.append(event);
+  fs.appendFileSync(path.join(dir, ACTIVE_NAME), "torn evidence");
+  const operations: string[] = [];
+  const originalSync = fs.fsyncSync; const originalTruncate = fs.truncateSync;
+  const syncing = mock.method(fs, "fsyncSync", (fd: number) => { operations.push(fs.fstatSync(fd).isDirectory() ? "directory" : "file"); originalSync(fd); });
+  const truncating = mock.method(fs, "truncateSync", (file: fs.PathLike, length?: number) => { operations.push("truncate"); originalTruncate(file, length); });
+  syncBuiltinESMExports();
+  try { chain.append(event); }
+  finally { syncing.mock.restore(); truncating.mock.restore(); syncBuiltinESMExports(); }
+  assert.deepEqual(operations, process.platform === "win32" ? ["file", "truncate", "file", "file"] : ["file", "directory", "truncate", "file", "file", "directory"]);
+});
+
+it("reports an anchor behind a complete line after restart as its own finding and preserves evidence", () => {
+  const dir = tempDir("audit-crash-behind-");
+  const chain = createAuditChain({ dir });
+  chain.append(event);
+  const saved = readFileSync(path.join(dir, ANCHOR_NAME), "utf8");
+  chain.append({ ...event, at: 2 });
+  writeFileSync(path.join(dir, ANCHOR_NAME), saved);
+  const reopened = createAuditChain({ dir });
+  const result = reopened.verify();
+  assert.equal(result.ok, false);
+  assert.equal(result.anchor.status, "behind");
+  assert.deepEqual(result.findings.map(f => f.code), ["anchor-behind"]);
+  assert.throws(() => reopened.append(event), /tail does not match the anchor/);
+  assert.equal(readFileSync(path.join(dir, ANCHOR_NAME), "utf8"), saved);
+});
+
+it("checks an external pin at an older rotated sequence and detects a consistent complete rewrite", () => {
+  const dir = tempDir("audit-pin-");
+  const chain = createAuditChain({ dir });
+  chain.append(event);
+  const old = chain.verify();
+  chain.rotate(); chain.append({ ...event, at: 2 });
+  assert.equal(chain.verify({ seq: 1, hash: old.lastHash! }).ok, true);
+  assert.deepEqual(chain.verify({ seq: 99, hash: old.lastHash! }).findings.map(f => f.code), ["pin-missing"]);
+  const rotated = path.join(dir, "audit-chain.0000000001.jsonl");
+  const first = JSON.parse(readFileSync(rotated, "utf8")); first.rec.target = "rewritten";
+  const firstLine = JSON.stringify(first); writeFileSync(rotated, firstLine + "\n");
+  const active = path.join(dir, ACTIVE_NAME);
+  const second = JSON.parse(readFileSync(active, "utf8")); second.prev = hashLine(firstLine);
+  const secondLine = JSON.stringify(second); writeFileSync(active, secondLine + "\n");
+  writeFileSync(path.join(dir, ANCHOR_NAME), JSON.stringify({ v: 1, seq: 2, hash: hashLine(secondLine) }));
+  assert.equal(chain.verify().ok, true); // A consistent rewrite cannot be detected without external evidence.
+  const pinned = chain.verify({ seq: 1, hash: old.lastHash! });
+  assert.equal(pinned.ok, false);
+  assert.deepEqual(pinned.findings.map(f => [f.code, f.seq]), [["pin-mismatch", 1]]);
+});
+
+it("KNOWN GAP: native Windows directory-entry durability requires a host capability beyond portable Node fsync", { todo: true }, () => {
+  assert.fail("file contents are fsynced, but portable Node does not guarantee directory-entry flush on Windows");
+});

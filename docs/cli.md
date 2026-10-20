@@ -2554,7 +2554,11 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
 
-**Usage:** `plur1bus audit verify`
+**Usage:** `plur1bus audit verify [OPTIONS]`
+
+###### **Options:**
+
+* `--pin <SEQ:HASH>` — Check an externally recorded sequence/hash pair, including older rotated files (no external transmission)
 
 
 

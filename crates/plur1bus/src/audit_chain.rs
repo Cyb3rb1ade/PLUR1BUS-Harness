@@ -79,6 +79,7 @@ fn tail(dir: &Path) -> io::Result<(u64, String)> {
             let mut f = create_private(&evidence, false)?;
             f.write_all(&bytes[end..])?;
             f.sync_all()?;
+            sync_directory(dir)?;
             OpenOptions::new()
                 .write(true)
                 .open(&p)?
@@ -205,6 +206,16 @@ impl Drop for OsLock {
     }
 }
 
+/// POSIX directory fsync makes creation/rename durable before the writer unlocks.
+/// Windows directory-entry durability needs a native host capability (D2 known gap).
+fn sync_directory(dir: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    File::open(dir)?.sync_all()?;
+    #[cfg(windows)]
+    let _ = dir;
+    Ok(())
+}
+
 pub(crate) fn append(dir: &Path, rec: &Value) -> io::Result<()> {
     fs::create_dir_all(dir)?;
     // fcntl locks belong to the process, so threads also need a mutex.
@@ -224,6 +235,7 @@ pub(crate) fn append(dir: &Path, rec: &Value) -> io::Result<()> {
                 return Err(invalid("rotation target exists"));
             }
             fs::rename(&active, target)?;
+            sync_directory(dir)?;
         }
     }
     let seq = seq + 1;
@@ -242,6 +254,7 @@ pub(crate) fn append(dir: &Path, rec: &Value) -> io::Result<()> {
     a.sync_all()?;
     drop(a);
     fs::rename(&tmp, dir.join(ANCHOR))?;
+    sync_directory(dir)?;
     Ok(())
 }
 

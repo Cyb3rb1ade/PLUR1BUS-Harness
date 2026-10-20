@@ -42,9 +42,10 @@ when anything is wrong).
 | `truncated` | the chain is shorter than the anchor (lines cut off at the end, or files removed) |
 | `anchor-mismatch` | the line at the anchor's `seq` has a different hash (the newest line was changed) |
 | `anchor-missing`, `anchor-invalid` | the anchor was removed or damaged |
+| `anchor-behind` | the tail has a complete line beyond the anchor: interrupted append/anchor persistence or tampering; manual investigation required |
+| `pin-missing`, `pin-mismatch` | the externally supplied sequence is absent or its line has a different hash |
 
-Findings carry file name, line and `seq`, never record content. `anchor.status` `behind` (the anchor trails by one
-write that crashed before the anchor moved) is not a finding.
+Findings carry file name, line and `seq`, never record content. `anchor.status` `behind` is an explicit `anchor-behind` finding and makes `ok` false, including after reopening the chain. Core startup logs the findings without record content and leaves verification available for diagnosis. The verifier never advances an anchor to hide the disagreement.
 
 ## Writers
 
@@ -55,11 +56,19 @@ append when the anchor is missing or invalid, when the chain is shorter than the
 match the anchor (including an anchor behind the tail), so tampering is never papered over by new lines. The recovery is manual: move the chain files and
 the anchor aside (keep them as evidence) and start a new chain.
 
+## Durability and an external pin (D2)
+
+The writer keeps the OS lock through the line fsync, temporary-anchor fsync, atomic anchor replacement and POSIX directory fsync. Rotation also fsyncs the directory. Torn-tail evidence is flushed before truncating the interrupted bytes. These steps do not make two files a single atomic filesystem transaction: a process interrupted between them can still leave a discrepancy, which verification reports explicitly instead of silently accepting it.
+
+**Windows known gap:** file contents are flushed, but portable Node does not provide a guaranteed directory-entry flush. A native host capability is still needed for equivalent power-loss durability on Windows. The same limit is explicit in the Rust writer; neither writer claims this gap is closed. See the todo-test in `test/audit/durability.test.ts`.
+
+Record `lastSeq` and `lastHash` from `plur1bus audit verify --json` somewhere the host cannot change. Later supply that pair as `plur1bus audit verify --pin <seq>:<hash>` (lowercase SHA-256, positive safe integer sequence). The pin may refer to any retained sequence, including a rotated file; later appended events do not invalidate it. A missing or mismatching pinned line makes verification fail even when a complete rewrite has an internally consistent anchor. RPC callers pass `{ "pin": { "seq": 42, "hash": "<64 lowercase hex characters>" } }` to `audit.verify`. Existing Owner/Admin authorization applies. No pin is transmitted outside the host automatically.
+
 ## What it does not protect
 
 - Someone who can write both the chain and the anchor can rewrite the whole chain consistently. Pin `lastHash` and
   `lastSeq` from `audit.verify` somewhere the host cannot write (another machine, a ticket) to cover that.
-- A last line changed in the one-write window before the anchor moves is not caught until the next append.
+- A host-local anchor alone cannot prove which half of an interrupted append is authoritative. An anchor behind the tail is reported and new writes are refused; recovery remains manual.
 - Historical audit.log records written before D1 are not backfilled into the chain.
 - `audit.log` and the chain are separate files, so a storage failure can leave an event in only one copy. The secret-store operation reports failure. Rust callers keep their existing error handling; some update/uninstall paths treat audit errors as best effort.
 

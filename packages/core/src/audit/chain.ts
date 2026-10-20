@@ -5,7 +5,7 @@
 // Files in `dir`: audit-chain.jsonl (active), audit-chain.<firstSeq:10>.jsonl (rotated), audit-chain.anchor,
 // audit-chain.lock. See docs/audit-chain.md.
 import { createHash } from "node:crypto";
-import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, truncateSync, writeFileSync, writeSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, truncateSync, writeSync } from "node:fs";
 import path from "node:path";
 import { acquireExclusiveLock } from "@plur1bus/module-api";
 import type { AuditEvent, AuditSink } from "../rbac/audit.ts";
@@ -23,7 +23,7 @@ const DEFAULT_LOCK_TIMEOUT_MS = 5000;
 
 export type FindingCode =
   | "line-malformed" | "hash-mismatch" | "seq-gap" | "prefix-missing" | "file-name-mismatch" | "torn-tail"
-  | "anchor-missing" | "anchor-invalid" | "anchor-mismatch" | "truncated";
+  | "anchor-missing" | "anchor-invalid" | "anchor-mismatch" | "anchor-behind" | "truncated" | "pin-missing" | "pin-mismatch";
 export interface Finding { code: FindingCode; file: string; line: number | null; seq: number | null }
 export type AnchorStatus = "match" | "behind" | "absent" | "invalid" | "ahead" | "mismatch";
 export interface VerifyResult {
@@ -39,11 +39,12 @@ export interface AuditChainOptions {
   maxBytes?: number;
   lockTimeoutMs?: number;
 }
+export interface AuditPin { seq: number; hash: string }
 export type ChainRecord = Omit<AuditEvent, "target"> & { target: string | null };
 export interface AuditChain extends AuditSink {
   append(e: ChainRecord): void;
   /** Verifies every file and the anchor. Never changes a chain file; takes the writer lock so a line in flight is not seen half-written. */
-  verify(): VerifyResult;
+  verify(pin?: AuditPin): VerifyResult;
   /** Moves the active file aside (a no-op, `null`, when it holds no line). */
   rotate(): string | null;
   readonly dir: string;
@@ -132,7 +133,7 @@ function firstLine(file: string): string | null {
 
 function sleepSync(ms: number): void { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
 
-interface Anchor { seq: number; hash: string }
+type Anchor = AuditPin;
 type AnchorRead = { kind: "absent" } | { kind: "invalid" } | { kind: "ok"; anchor: Anchor };
 function readAnchor(file: string): AnchorRead {
   if (!existsSync(file)) return { kind: "absent" };
@@ -158,6 +159,13 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
     if (process.platform !== "win32") chmodSync(p, 0o600); // an existing file may be looser
     o.securePath?.(p);
     secured.set(p, inode);
+  };
+
+  const syncDirectory = (): void => {
+    // Portable Node cannot flush directory entries on Windows; see the explicit D2 known gap.
+    if (process.platform === "win32") return;
+    const fd = openSync(dir, "r");
+    try { fsyncSync(fd); } finally { closeSync(fd); }
   };
 
   const rotatedFiles = (): string[] => {
@@ -190,8 +198,9 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
         // Never overwrite earlier evidence: two crashes within one millisecond get distinct names.
         let tornPath = `${f}.torn-${Date.now()}`;
         for (let n = 1; existsSync(tornPath); n++) tornPath = `${f}.torn-${Date.now()}-${n}`;
-        writeFileSync(tornPath, bytes, { mode: 0o600, flag: "wx" });
-        secure(tornPath);
+        const evidence = openSync(tornPath, "wx", 0o600);
+        try { secure(tornPath); writeSync(evidence, bytes); fsyncSync(evidence); } finally { closeSync(evidence); }
+        syncDirectory(); // retain evidence durably before truncating the interrupted write
         truncateSync(f, t.tornFrom);
         t = scanTail(f);
       }
@@ -213,6 +222,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
     if (existsSync(target)) throw new Error("audit-chain: rotation target exists");
     renameSync(active, target);
     secured.delete(active); // the next active file is a new inode: re-secure it
+    syncDirectory();
     return name;
   };
 
@@ -224,6 +234,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
     renameSync(tmp, anchorPath); // replaces atomically; the anchor is never half-written
     secured.delete(anchorPath); // a new inode: re-secure
     secure(anchorPath);
+    syncDirectory(); // active-file creation and anchor replacement are durable before unlocking
   };
 
   return {
@@ -253,7 +264,8 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
       });
     },
     rotate(): string | null { return withLock(rotateLocked); },
-    verify(): VerifyResult {
+    verify(pin?: AuditPin): VerifyResult {
+      if (pin && (!Number.isSafeInteger(pin.seq) || pin.seq < 1 || !HEX64.test(pin.hash))) throw new Error("audit-chain: invalid pin");
       return withLock(() => {
         const findings: Finding[] = [];
         let total = 0;
@@ -261,6 +273,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
         const files = [...rotatedFiles(), ...(existsSync(active) ? [ACTIVE_NAME] : [])];
         const a = readAnchor(anchorPath);
         let records = 0; let lastSeq = 0; let prevHash = GENESIS_HASH; let anchorHash: string | null = null;
+        let pinned: { hash: string; file: string; line: number } | null = null;
         let started = false; let known = true; // `known`: lastSeq/prevHash still mean something after a malformed line
         for (const name of files) {
           const { lines, torn } = readLines(path.join(dir, name));
@@ -279,6 +292,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
             }
             started = true; known = true; lastSeq = p.seq; prevHash = hashLine(line); records++;
             if (a.kind === "ok" && p.seq === a.anchor.seq) anchorHash = prevHash;
+            if (pin && p.seq === pin.seq) pinned = { hash: prevHash, file: name, line: n };
           });
           if (rotatedSeq !== undefined && firstSeqInFile !== null && firstSeqInFile !== Number(rotatedSeq)) add({ code: "file-name-mismatch", file: name, line: 1, seq: firstSeqInFile });
           if (torn !== null) add({ code: "torn-tail", file: name, line: lines.length + 1, seq: null });
@@ -298,6 +312,12 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
           add({ code: "anchor-mismatch", file: ANCHOR_NAME, line: null, seq: a.anchor.seq });
         } else {
           anchor = { status: a.anchor.seq === lastSeq ? "match" : "behind", seq: a.anchor.seq };
+          if (a.anchor.seq < lastSeq) add({ code: "anchor-behind", file: ANCHOR_NAME, line: null, seq: a.anchor.seq });
+        }
+        if (pin) {
+          const at = pinned as { hash: string; file: string; line: number } | null;
+          if (!at) add({ code: "pin-missing", file: ACTIVE_NAME, line: null, seq: pin.seq });
+          else if (at.hash !== pin.hash) add({ code: "pin-mismatch", file: at.file, line: at.line, seq: pin.seq });
         }
         return { ok: total === 0, records, files: files.length, lastSeq, lastHash: records > 0 ? prevHash : null, anchor, findings, findingsTotal: total };
       });

@@ -1130,6 +1130,33 @@ pub struct ChatArgs {
     pub message: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub struct AuditPin {
+    pub seq: u64,
+    pub hash: String,
+}
+
+fn parse_audit_pin(text: &str) -> Result<AuditPin, String> {
+    const ERROR: &str =
+        "expected positive safe sequence and 64 lowercase hexadecimal hash (SEQ:HASH)";
+    let (sequence, hash) = text.split_once(':').ok_or(ERROR)?;
+    let seq: u64 = sequence.parse().map_err(|_| ERROR)?;
+    if !sequence.bytes().all(|c| c.is_ascii_digit())
+        || seq == 0
+        || seq > 9_007_199_254_740_991
+        || hash.len() != 64
+        || !hash
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
+        return Err(ERROR.into());
+    }
+    Ok(AuditPin {
+        seq,
+        hash: hash.into(),
+    })
+}
+
 #[derive(Subcommand, Debug)]
 pub enum AuditCmd {
     /// [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
@@ -1137,7 +1164,11 @@ pub enum AuditCmd {
     /// Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must
     /// be gapless across rotated files, and the anchor file must match the newest line. Asks the core
     /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
-    Verify,
+    Verify {
+        /// Check an externally recorded sequence/hash pair, including older rotated files (no external transmission)
+        #[arg(long, value_name = "SEQ:HASH", value_parser = parse_audit_pin)]
+        pin: Option<AuditPin>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

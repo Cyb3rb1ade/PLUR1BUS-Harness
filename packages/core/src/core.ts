@@ -597,6 +597,8 @@ export function createCore(o: CoreOptions): Core {
       // B5: the hash-chained audit file (logs/audit-chain*.jsonl). The core's own writers tee into it besides audit.log.
       auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p) });
       const chain = auditChain;
+      const startupAudit = chain.verify();
+      if (!startupAudit.ok) log.error("audit chain integrity findings at startup", { findings: startupAudit.findings, findingsTotal: startupAudit.findingsTotal });
       const identityLog = createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock });
       identity = createIdentityService({
         dbPath: path.join(l.state, "identity.sqlite"), clock,

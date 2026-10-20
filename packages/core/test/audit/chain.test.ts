@@ -104,7 +104,8 @@ describe("audit chain", () => {
     const behind = JSON.stringify({ v: 1, seq: 1, hash: hashLine(t.read()[0] as string) });
     writeFileSync(anchorFile, behind);
     const v = t.chain.verify();
-    assert.deepEqual([v.ok, v.anchor.status], [true, "behind"]);
+    assert.deepEqual([v.ok, v.anchor.status], [false, "behind"]);
+    assert.deepEqual(v.findings.map(f => f.code), ["anchor-behind"]);
     assert.throws(() => t.chain.append(ev(2)), /tail does not match the anchor/);
     assert.equal(t.read().length, 2);
     assert.equal(readFileSync(anchorFile, "utf8"), behind);
