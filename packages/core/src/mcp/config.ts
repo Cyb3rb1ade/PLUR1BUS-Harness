@@ -1,6 +1,7 @@
 import { isAbsolute } from "node:path";
 import { isSecretName } from "../secrets/types.ts";
 import { McpClientError } from "./errors.ts";
+import { inlineCodeFlag } from "./interpreter-flags.ts";
 import { DEFAULT_TIMEOUTS, type McpPolicy, type McpScope, type McpServerDefinition, type McpTimeouts, type McpTransportConfig, type McpTrust } from "./types.ts";
 
 const NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/;
@@ -42,7 +43,7 @@ export function isLoopbackHost(hostname: string): boolean {
   return h === "localhost" || h === "::1" || /^127(\.\d{1,3}){3}$/.test(h);
 }
 
-function validateTransport(raw: unknown, name: string, policy: Pick<McpPolicy, "allowedCommands">): McpTransportConfig {
+function validateTransport(raw: unknown, name: string, policy: Pick<McpPolicy, "allowedCommands" | "inlineCodeCommands">): McpTransportConfig {
   const t = raw as Record<string, unknown> | null;
   if (t === null || typeof t !== "object") return invalid(name, "transport is required");
   if (t.type === "stdio") {
@@ -60,6 +61,11 @@ function validateTransport(raw: unknown, name: string, policy: Pick<McpPolicy, "
       if (typeof a !== "string" || a.includes("\u0000") || a.length > MAX_ARG_LENGTH) invalid(name, "transport.args entries must be strings without NUL, at most 4096 characters");
       return a as string;
     });
+    // ADR-014 §7: the allowlist names a program, not its argv. Inline code on an interpreter needs its own approval.
+    const inline = inlineCodeFlag(command, args);
+    if (inline !== null && !(policy.inlineCodeCommands ?? []).includes(command)) {
+      throw new McpClientError("not-allowed", `argument ${inline} runs inline code; ${command} needs an explicit inline-code approval`, { server: name });
+    }
     const envRaw = (t.env ?? {}) as Record<string, unknown>;
     if (typeof envRaw !== "object" || envRaw === null || Array.isArray(envRaw)) return invalid(name, "transport.env must be an object");
     const env: Record<string, string> = {};
@@ -111,11 +117,15 @@ function validateTimeouts(raw: unknown, name: string): McpTimeouts {
   return out;
 }
 
-export function validateDefinition(raw: unknown, policy: Pick<McpPolicy, "allowedCommands">): McpServerDefinition {
+export function validateDefinition(raw: unknown, policy: Pick<McpPolicy, "allowedCommands" | "inlineCodeCommands">): McpServerDefinition {
   if (raw === null || typeof raw !== "object") return invalid(null, "a server definition must be an object");
   const r = raw as Record<string, unknown>;
   const name = typeof r.name === "string" && NAME.test(r.name) ? r.name : invalid(null, "name must match [a-z0-9][a-z0-9_-]{0,63}");
   const trust: McpTrust = r.trust === undefined ? "untrusted" : r.trust === "operator-vetted" || r.trust === "untrusted" ? r.trust : invalid(name, "trust must be \"untrusted\" or \"operator-vetted\"");
+  const scope = validateScope(r.scope, name);
+  // ADR-014 ruling 2: `operator-vetted` is settable only in installation-level configuration. Trust belongs to the scope it
+  // was granted in, so an agent-scoped definition never carries it (fail closed).
+  if (trust === "operator-vetted" && scope.kind !== "installation") invalid(name, "trust \"operator-vetted\" is settable only in the installation scope");
   let reconnect: McpServerDefinition["reconnect"];
   if (r.reconnect !== undefined) {
     const p = r.reconnect as Record<string, unknown>;
@@ -126,5 +136,5 @@ export function validateDefinition(raw: unknown, policy: Pick<McpPolicy, "allowe
     reconnect = { maxAttempts: Number(p.maxAttempts), initialDelayMs: Number(p.initialDelayMs), maxDelayMs: Number(p.maxDelayMs) };
   }
   if (r.authSecret !== undefined && !isSecretName(r.authSecret)) invalid(name, "authSecret must be a secret name");
-  return { ...(reconnect ? { reconnect } : {}), ...(typeof r.authSecret === "string" ? { authSecret: r.authSecret } : {}), name, scope: validateScope(r.scope, name), transport: validateTransport(r.transport, name, policy), trust, timeouts: validateTimeouts(r.timeouts, name) };
+  return { ...(reconnect ? { reconnect } : {}), ...(typeof r.authSecret === "string" ? { authSecret: r.authSecret } : {}), name, scope, transport: validateTransport(r.transport, name, policy), trust, timeouts: validateTimeouts(r.timeouts, name) };
 }
