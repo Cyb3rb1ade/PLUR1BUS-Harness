@@ -54,15 +54,34 @@ fn now_ms() -> u64 {
 /// Appends one audit line. The line is written with a single `write_all` on an `O_APPEND` handle, so a crash never
 /// leaves a partial line in the middle of the file, and it is fsynced before this returns.
 pub fn append(layout: &Layout, action: &str, target: &str, detail: Value) -> io::Result<()> {
+    let caller = crate::identity::caller();
+    append_as(
+        layout,
+        (caller.user_id.as_str(), caller.account_id.as_str()),
+        action,
+        target,
+        detail,
+    )
+}
+
+/// `append` for a writer that knows better who acted than the OS user of this process: the supervisor records a
+/// config change under the authenticated person (`actor` = `(user, host)`). It is the one implementation behind
+/// `append`: the same `audit.log`, the same chain line, the same single write; only `actor` differs.
+pub fn append_as(
+    layout: &Layout,
+    actor: (&str, &str),
+    action: &str,
+    target: &str,
+    detail: Value,
+) -> io::Result<()> {
     let path = layout.audit_log();
     fs::create_dir_all(layout.logs())?;
     // Create (or re-restrict) the file privately first; the append handle below cannot also carry WRITE_DAC on
     // Windows without losing append semantics.
     drop(create_private(&path, false)?);
-    let caller = crate::identity::caller();
     let line = json!({
         "at": now_ms(),
-        "actor": { "user": caller.user_id, "host": caller.account_id },
+        "actor": { "user": actor.0, "host": actor.1 },
         "action": action,
         "target": target,
         "detail": detail,

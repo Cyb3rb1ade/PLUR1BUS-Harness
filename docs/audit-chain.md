@@ -50,6 +50,8 @@ write that crashed before the anchor moved) is not a finding.
 
 The core tees its RBAC sink, identity audit writer and sanitized secret-store records into the chain. Secret records keep their nullable target; no secret value is added to either audit file.
 
+The supervisor's `config.set` writes its `audit.config.set` rows (one per changed `x-audit` key, before `config.json` is replaced) through the same Rust writer (`audit::append_as`, `actor` = the authenticated person), so each row is a chain line and the identical `audit.log` line; the field-based `[REDACTED]` of sensitive config values is applied before the append. A refused chain append fails the config set, as a failed `audit.log` write always did.
+
 The Rust CLI writes directly, including while the core is stopped (setup, repair, backup, uninstall and extensions). It uses the same line envelope, SHA-256 bytes, anchor and 8 MiB rotation names. The core holds a SQLite `BEGIN EXCLUSIVE` OS lock on `audit-chain.lock`; Rust holds the corresponding pending/reserved/shared byte range (`0x40000000`, 512 bytes), using `fcntl` on Unix and `LockFileEx` on Windows. A Rust process mutex also serializes its own threads because POSIX record locks belong to a process. No SQLite database contents are changed by Rust. The kernel releases either lock when its process exits. Direct writes keep offline operations independent of RPC authentication and core availability. A writer **fails closed**: it refuses to
 append when the anchor is missing or invalid, when the chain is shorter than the anchor, or when the tail does not
 match the anchor (including an anchor behind the tail), so tampering is never papered over by new lines. The recovery is manual: move the chain files and
