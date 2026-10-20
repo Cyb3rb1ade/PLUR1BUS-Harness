@@ -83,6 +83,37 @@ describe("Help page (docs/user)", opts, () => {
     });
   });
 
+  test("the other-language link of a page opens that page, for different and for equal slugs, and links back", async () => {
+    await withApp({}, async ({ page }) => {
+      for (const [from, toHref, deHeading, enHeading] of [
+        ["recurring-tasks", "#/help/de/wiederkehrende-aufgaben", "Wiederkehrende Aufgaben", "Recurring tasks"],
+        ["breakglass", "#/help/de/breakglass", "Break-Glass-Zugriff", "Break-glass access"],
+      ] as const) {
+        if (from === "recurring-tasks") await openRoute(page, `#/help/${from}`);
+        else await page.evaluate((h) => { location.hash = h; }, `#/help/${from}`);
+        const article = page.locator("#help-article");
+        await article.locator("h2").filter({ hasText: enHeading }).waitFor();
+        await article.locator(`a[href="${toHref}"]`).click();
+        await article.locator("h2").filter({ hasText: deHeading }).waitFor();
+        // The German page keeps its own table of contents and links back to the English one.
+        await page.locator(`.help-toc-link.active[href="${toHref}"]`).waitFor();
+        await article.locator(`a[href="#/help/${from}"]`).click();
+        await article.locator("h2").filter({ hasText: enHeading }).waitFor();
+      }
+    });
+  });
+
+  test("a German page opened from the English UI keeps its anchors and bare links in German", async () => {
+    await withApp({}, async ({ page }) => {
+      await openRoute(page, "#/help/de/quickstart");
+      const article = page.locator("#help-article");
+      await article.locator("h2").first().waitFor();
+      const bare = await article.locator('a[href^="#/help/"]').evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""));
+      assert.ok(bare.length > 0);
+      for (const href of bare) assert.ok(href.startsWith("#/help/de/") || href === "#/help/quickstart", href);
+    });
+  });
+
   for (const scheme of ["light", "dark"] as const) {
     test(`no serious or critical axe violations on handbook pages with links and code blocks (${scheme})`, async () => {
       for (const route of ["#/help", "#/help/quickstart", "#/help/operations"]) {
