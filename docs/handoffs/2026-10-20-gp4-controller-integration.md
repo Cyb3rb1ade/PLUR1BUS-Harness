@@ -55,8 +55,11 @@ Getrennte grüne Branch-Tests belegen noch keine konfliktfrei vereinigte Laufzei
 
 F3: Laya-DE-Kandidatenlabels erreichen 46,67 % gegenüber EN 65 %; die Labels sind
 agentenerstellte Spike-Kandidaten, keine unabhängig bestätigte Goldmenge. Das
-Deutsch-Gate ist nicht bestanden. Linux x64, Windows x64, Rollenvergleich,
-unabhängige Labels und Produktions-/Katalogintegration bleiben offen.
+Deutsch-Gate ist nicht bestanden. Windows-x64-NAS-Messungen sind inzwischen in #626 geliefert (Node 24.21,
+1/2 Threads, je 180 Fälle; 2 Threads warm p50/p95 524/822 ms). Linux x64
+wartet noch auf SSH-Einrichtung. Rollenvergleich, unabhängige Labels und
+Produktions-/Katalogintegration bleiben offen. Die VM-Werte sind keine
+Bare-Metal-Abnahme; OS-Dateicache wurde nicht geleert, Defender blieb unverändert.
 
 F4: Jev wurde ausschließlich an Loopback geprüft. Nur der feste synthetische
 Owner/Admin-Test wird als cloud-geeignet zertifiziert. Natürliche Aufgaben,
