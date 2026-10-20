@@ -635,7 +635,7 @@ export function createCore(o: CoreOptions): Core {
       });
       permissionNotifier = notifier;
       const board = switchboard = openChannelSwitchboard({
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
