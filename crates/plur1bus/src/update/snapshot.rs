@@ -71,11 +71,15 @@ pub fn create(layout: &Layout, target_bin: &Path) -> Result<Meta, String> {
     Ok(meta)
 }
 
+fn read_meta(dir: &Path) -> Result<Meta, String> {
+    let raw = fs::read(dir.join(META)).map_err(|e| format!("snapshot has no {META}: {e}"))?;
+    serde_json::from_slice(&raw).map_err(|e| format!("snapshot.json: {e}"))
+}
+
 /// Reads `snapshot.json` and checks every file against its hash. `Err` means the snapshot must not be restored.
 pub fn verify(layout: &Layout) -> Result<Meta, String> {
     let dir = state::snapshot_dir(layout);
-    let raw = fs::read(dir.join(META)).map_err(|e| format!("snapshot has no {META}: {e}"))?;
-    let meta: Meta = serde_json::from_slice(&raw).map_err(|e| format!("snapshot.json: {e}"))?;
+    let meta = read_meta(&dir)?;
     let check = |name: &str, want: &str| -> Result<(), String> {
         let got = sha256_file(&dir.join(name)).map_err(|e| format!("snapshot {name}: {e}"))?;
         if got == want {
@@ -94,20 +98,28 @@ pub fn verify(layout: &Layout) -> Result<Meta, String> {
     Ok(meta)
 }
 
-/// Moves `runtime/core` into the snapshot (the swap's first half) and records it.
+/// Moves `runtime/core` into the snapshot (the swap's first half) and records it. The record comes first: a core
+/// that moved while `snapshot.json` still said otherwise (a write that failed, a process that died in between) would
+/// be left out of a rollback, which then reported success with no core in place. If the move itself fails, the record
+/// is taken back.
 pub fn core_in(layout: &Layout) -> Result<(), String> {
     let dir = state::snapshot_dir(layout);
     let core = layout.runtime().join("core");
     let held = dir.join("core");
+    let mut meta = read_meta(&dir)?;
     state::remove_dir(&held);
-    if core.exists() {
-        fs::rename(&core, &held).map_err(|e| io_err(&core, e))?;
+    if !core.exists() {
+        meta.core_moved = false;
+        return write_meta(&dir, &meta);
     }
-    let mut meta: Meta =
-        serde_json::from_slice(&fs::read(dir.join(META)).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-    meta.core_moved = held.exists();
-    write_meta(&dir, &meta)
+    meta.core_moved = true;
+    write_meta(&dir, &meta)?;
+    if let Err(e) = fs::rename(&core, &held) {
+        meta.core_moved = false;
+        let _ = write_meta(&dir, &meta);
+        return Err(io_err(&core, e));
+    }
+    Ok(())
 }
 
 /// Replaces `dest` with the file `new` (same directory). A running executable cannot be overwritten on Windows but
@@ -167,10 +179,18 @@ pub fn restore(layout: &Layout, target_bin: &Path, meta: &Meta) -> Result<(), St
         layout.install_manifest(),
     )?;
     let held = dir.join("core");
-    if meta.core_moved && held.exists() {
-        let core = layout.runtime().join("core");
+    let core = layout.runtime().join("core");
+    // `held` exists only because `core_in` moved the tree there, whatever `snapshot.json` managed to record.
+    if held.exists() {
         state::remove_dir(&core);
         fs::rename(&held, &core).map_err(|e| io_err(&core, e))?;
+    } else if meta.core_moved && !core.exists() {
+        // Recorded as moved, but neither the held tree nor a restored one is there: report it, never "rolled back".
+        return Err(format!(
+            "the previous core tree is missing: neither {} nor {} exists",
+            held.display(),
+            core.display()
+        ));
     }
     Ok(())
 }
@@ -229,6 +249,55 @@ mod tests {
         fs::write(layout.config_path(), "created by the new version").unwrap();
         restore(&layout, &bin, &verify(&layout).unwrap()).unwrap();
         assert!(!layout.config_path().exists());
+    }
+
+    #[test]
+    fn a_record_that_cannot_be_written_leaves_the_core_where_it_is() {
+        let (_d, layout, bin) = home();
+        create(&layout, &bin).unwrap();
+        // A directory where the temporary record goes: `snapshot.json` cannot be written.
+        fs::create_dir(state::snapshot_dir(&layout).join(format!("{META}.tmp"))).unwrap();
+        assert!(core_in(&layout).is_err());
+        assert_eq!(
+            fs::read(layout.runtime().join("core/core.js")).unwrap(),
+            b"old core",
+            "the tree must not move when the move cannot be recorded"
+        );
+        assert!(!state::snapshot_dir(&layout).join("core").exists());
+    }
+
+    #[test]
+    fn a_core_that_moved_before_the_record_said_so_is_still_restored() {
+        let (_d, layout, bin) = home();
+        let meta = create(&layout, &bin).unwrap();
+        assert!(!meta.core_moved);
+        // The old order's crash window: the tree moved, `snapshot.json` still says it did not.
+        fs::rename(
+            layout.runtime().join("core"),
+            state::snapshot_dir(&layout).join("core"),
+        )
+        .unwrap();
+        restore(&layout, &bin, &verify(&layout).unwrap()).unwrap();
+        assert_eq!(
+            fs::read(layout.runtime().join("core/core.js")).unwrap(),
+            b"old core"
+        );
+    }
+
+    #[test]
+    fn a_rollback_without_the_recorded_core_is_an_error_not_a_success() {
+        let (_d, layout, bin) = home();
+        create(&layout, &bin).unwrap();
+        core_in(&layout).unwrap();
+        fs::remove_dir_all(state::snapshot_dir(&layout).join("core")).unwrap();
+        let err = restore(&layout, &bin, &verify(&layout).unwrap()).unwrap_err();
+        assert!(err.contains("core tree is missing"), "{err}");
+        // With nothing recorded as moved there is nothing to miss.
+        let (_d, layout, bin) = home();
+        fs::remove_dir_all(layout.runtime().join("core")).unwrap();
+        create(&layout, &bin).unwrap();
+        core_in(&layout).unwrap();
+        restore(&layout, &bin, &verify(&layout).unwrap()).unwrap();
     }
 
     #[test]
