@@ -27,7 +27,10 @@ F3-Spikewerte: Apple M5 Pro CPU, macOS arm64, vier Threads, 180 Einzelaufrufe, p
 p95 **196,3 ms**, maxRSS **1.313.056 KiB**. Deutsch Accuracy **46,67 %**, Brier **0,64731**;
 Englisch **65,00 %**, **0,45691** (je 60 Kernfälle). Labels sind nicht unabhängig validiert.
 Das **Deutsch-Gate ist nicht bestanden**, automatische Deutsch-Auswahl bleibt gesperrt.
-Linux-/Windows-/Kev-Nachweise und ein kalibrierter role-Vergleich fehlen. Gleichzeitige lokale
+Windows 11 x64 auf der NAS-VM ist inzwischen gemessen: mit 2 Threads warm p50/p95
+**524/822 ms** (179 Aufrufe), Laden **11.752 ms**, erster Aufruf **638 ms**;
+VM-Diagnose, keine Bare-Metal-Abnahme. OS-Dateicache wurde nicht geleert, Defender
+blieb unverändert. Linux-/Kev-Nachweise und ein kalibrierter role-Vergleich fehlen. Gleichzeitige lokale
 Last beeinflusste die Messung; diese Zahlen sind keine Latenzgarantie oder Runtime-Freigabe.
 Quelle: [F3-Handoff mit Rohdaten und Reproduktion](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/f42fe3950c3edce876933752524f61cdc958a3be/docs/handoffs/2026-10-20-f3-laya.md), [F3-PR #626](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/626).
 

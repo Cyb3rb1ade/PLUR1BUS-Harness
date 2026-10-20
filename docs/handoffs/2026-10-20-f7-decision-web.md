@@ -20,7 +20,8 @@ Tests rufen ausschließlich feste Mock-Antworten ab. Keine Cloud-/bezahlten Test
 F3-Messungen stammen aus [#626](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/626),
 Commit `f42fe3950c3edce876933752524f61cdc958a3be`, Handoff und JSON-Receipts dort.
 Die Oberfläche benennt vorläufige, nicht validierte Labels, nicht bestandenes Deutsch-Gate,
-fehlende Linux-/Windows-/Kev-Nachweise und fehlenden kalibrierten role-Vergleich ausdrücklich.
+Windows-x64-NAS-Nachmessung (2 Threads warm p50/p95 524/822 ms; VM-Diagnose) sowie
+weiterhin fehlende Linux-/Kev-Nachweise und fehlenden kalibrierten role-Vergleich ausdrücklich.
 Sie aktiviert keinen nativen Backend-Installer oder automatische Deutsch-Auswahl.
 
 TreeChooser: store-freier Adapter zum selben F2 DecisionClient; vertrauenswürdiger Context-Provider,
@@ -61,3 +62,14 @@ F7 liefert UI und vorbereiteten Port. C3/C4-Sichtbarkeitsenumeration, TreeStore 
 sind weiterhin ausstehend. Echte native Decision-Backend-Installation/Plattformabnahme ist F3,
 kein UI- oder Fake-Test ersetzt sie. F4-Optionen werden nicht dupliziert. Controller integriert
 den echten Stack; F7 allein auf main ist nicht lauffähig.
+
+
+## Nachtrag: Windows-NAS-Evidenz aus F3
+
+Nach der tatsächlichen Messung in #626 behaupten beide Sprachfassungen nicht
+mehr, der Windows-Nachweis fehle. Angezeigt werden 2 Threads, 179 Warmaufrufe,
+p50/p95 524/822 ms und der VM-Vorbehalt. Das Deutsch-Gate bleibt gesperrt;
+Linux, Kev, unabhängige Labels und Rollenvergleich bleiben offen. Der deutsche
+400-px-Browsertest wurde zuerst mit dem neuen Windows-Nachweis rot beobachtet,
+danach mit den korrigierten Sprachstrings grün; die bisherigen Rechte-, Diagnose-,
+CAS-, Abbruch- und axe-Assertions bleiben erhalten. Kein RPC-/Schema-/Backendwechsel.

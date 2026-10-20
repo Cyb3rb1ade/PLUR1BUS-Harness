@@ -18,6 +18,7 @@ test('decision settings show metrics and provisional native evidence; revision s
     await app.page.locator('#decision-test').waitFor();
     await app.page.locator('#decision-status').filter({ hasText: 'p95: 18 ms' }).waitFor();
     assert.match(await app.page.locator('#decision-evidence').innerText(), /46.67.*65.00/);
+    assert.match(await app.page.locator('#decision-evidence').innerText(), /Windows.*524\/822/);
     await app.page.locator('#decision-test').click(); await app.page.getByText('Diagnostic passed (5 ms).').waitFor();
     assert.deepEqual(app.server.rpc.calls.filter(c => c.method === 'decision.test').map(c => c.params), [{ agentId: 'main' }]);
     await app.page.locator('#cfg-decision-backend').selectOption('auto');
@@ -44,7 +45,8 @@ test('German gate failure and refused diagnostic are explicit; Admin controls an
     await app.page.locator('#decision-test').click();
     await app.page.getByRole('alert').filter({ hasText: 'Diagnose verweigert oder nicht verfügbar' }).waitFor();
     assert.match(await app.page.locator('#decision-evidence').innerText(), /Deutsch-Gate nicht bestanden/);
-    assert.match(await app.page.locator('#decision-evidence').innerText(), /Linux.*Windows.*Kev/);
+    assert.match(await app.page.locator('#decision-evidence').innerText(), /Windows.*524.*822/);
+    assert.match(await app.page.locator('#decision-evidence').innerText(), /Linux.*Kev/);
     await expectAxeClean(app.page, 'decision settings');
   });
 });
