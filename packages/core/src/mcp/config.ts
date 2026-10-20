@@ -14,8 +14,10 @@ const MIN_MS = 50;
 const MAX_MS = 3_600_000;
 
 // RULING: loader- and interpreter-injection variables are refused in a server definition (fail closed): they turn
-// "run this allowlisted command" into "run this command with attacker-chosen code".
-const FORBIDDEN_ENV = /^(LD_.*|DYLD_.*|NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|PYTHONSTARTUP|PYTHONPATH|PERL5OPT|RUBYOPT|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS)$/i;
+// "run this allowlisted command" into "run this command with attacker-chosen code". PATH and PATHEXT belong here too:
+// the allowlist names a program, and the child's PATH decides which file that name resolves to (audit mcp #2).
+// PYTHONHOME, PERL5LIB and RUBYLIB are the module search paths of the interpreters whose siblings are already refused.
+const FORBIDDEN_ENV = /^(LD_.*|DYLD_.*|NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|PATH|PATHEXT|PYTHONSTARTUP|PYTHONPATH|PYTHONHOME|PERL5OPT|PERL5LIB|RUBYOPT|RUBYLIB|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS)$/i;
 
 const invalid = (name: string | null, msg: string): never => { throw new McpClientError("invalid-config", msg, { server: name }); };
 

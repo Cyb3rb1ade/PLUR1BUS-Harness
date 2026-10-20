@@ -65,8 +65,10 @@ registry.register({
 For stdio use `{ type: "stdio", command, args: [...], cwd: "/absolute/workdir",
 env: { ... }, fromHost: ["EXPLICIT_VARIABLE"] }`. No shell parses the argument
 array. Commands must be allowlisted; loader/interpreter injection environment
-variables are refused. Only the OS/SDK minimal environment allowlist and declared
-variables reach the child. `fromHost` reads the supplied host environment, and all
+variables are refused, and so are `PATH` and `PATHEXT` (any letter case): the allowlist
+names a program, and the child's `PATH` decides which file that name resolves to, so
+the child always gets the harness's own `PATH`. Only the OS/SDK minimal environment
+allowlist and declared variables reach the child. `fromHost` reads the supplied host environment, and all
 copied values are treated as secret. Tokens belong in `authSecret` or an auth port,
 not URLs. HTTP static headers remain available for existing callers.
 
@@ -120,9 +122,16 @@ The reported Windows process ID identifies the job-owning launcher.
 `McpConnection` and `McpRegistry` expose tools, resources, resource templates,
 resource reads/subscriptions, prompt lists and prompt retrieval. Lists follow
 pagination with page/item limits and reject repeated cursors. Tool success results
-are validated against `outputSchema`; `isError` remains a normal result. Modern
+are validated against `outputSchema`; `isError` remains a normal result. The schema
+compiled for that check has `pattern` and `patternProperties` removed (a server-chosen
+regular expression such as `^(a+)+$` would otherwise run on the core thread and freeze
+it); every other keyword is enforced, and the descriptor returned to callers is unchanged. Modern
 structured content can be any JSON value. Tool results keep the D19 provenance
-envelope; resource/prompt content and descriptors are redacted data as well.
+envelope. `readResource` and `getPrompt` results carry the same `provenance` and
+`server` fields (set by the registry, after the server's own fields, so a server cannot
+spoof them), and `aggregate` entries carry `provenance` too; a prompt's `messages[].role`
+is the server's claim and is data, to be ingested only as a `tool_result`, never as user,
+assistant or system text. Resource/prompt content and descriptors are redacted as well.
 
 `aggregate(caller)` fetches visible servers concurrently, returning tools with
 collision-free `server::localTool` names (server names cannot contain `:`; a tool list with control-character names is refused), resources tagged with their server, and

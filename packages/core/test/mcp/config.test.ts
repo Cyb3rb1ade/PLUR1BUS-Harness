@@ -69,3 +69,15 @@ it("timeouts accept only the declared names, not inherited object keys", async (
     assert.throws(() => validateDefinition(raw, { allowedCommands: [] }), /unknown timeout/, key);
   }
 });
+
+describe("mcp server definition: command resolution and interpreter search paths", () => {
+  it("refuses to let a server definition set PATH, PATHEXT or an interpreter's module search path", () => {
+    for (const k of ["PATH", "Path", "path", "PATHEXT", "pathext", "PYTHONHOME", "PERL5LIB", "RUBYLIB"]) {
+      assert.equal(code(() => validateDefinition(stdio({ env: { [k]: "/tmp/x" } }), policy)), "invalid-config", k);
+    }
+  });
+  it("still accepts ordinary variables, so legitimate servers keep working", () => {
+    const d = validateDefinition(stdio({ env: { MY_PATH_HINT: "/x", PATHS: "y", API_REGION: "eu" } }), policy);
+    assert.deepEqual(d.transport.type === "stdio" ? Object.keys(d.transport.env).sort() : [], ["API_REGION", "MY_PATH_HINT", "PATHS"]);
+  });
+});
