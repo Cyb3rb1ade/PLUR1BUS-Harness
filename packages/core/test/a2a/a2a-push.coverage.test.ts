@@ -4,7 +4,9 @@ import { EventEmitter } from "node:events";
 import http, { createServer, type IncomingMessage, type Server } from "node:http";
 import https from "node:https";
 import type { AddressInfo } from "node:net";
-import type { DryRun, Egress } from "../../src/egress/service.ts";
+import { createEgress, type DryRun, type Egress } from "../../src/egress/service.ts";
+import { WebFailure } from "../../src/tools/web/failure.ts";
+import { stubResolver } from "../tools/web/helpers.ts";
 import {
   assignPushId, createEgressPushTransport, parsePushConfig, PushDispatcher, PushError, toTaskPush,
   type PushPostResult, type PushTransport,
@@ -323,6 +325,10 @@ async function listen(handler: (req: IncomingMessage, body: string, res: http.Se
 }
 const fakeEgress = (decide: (url: string) => Promise<DryRun>): Egress => ({ decide, request: async () => { throw new Error("unused"); }, status: () => { throw new Error("unused"); } });
 
+/** The real egress service, allowing only this loopback port: the transport is tested against the one guarded client it now uses. */
+const loopbackEgress = (port: number): Egress => createEgress({ config: () => ({ allowHosts: ["127.0.0.1"], allowPorts: [port], allowLoopback: true }) });
+const refusedWith = (code: string) => (e: unknown): boolean => e instanceof WebFailure && e.code === code;
+
 describe("createEgressPushTransport", () => {
   it("decide delegates to egress.decide", async () => {
     const seen: string[] = [];
@@ -333,7 +339,7 @@ describe("createEgressPushTransport", () => {
   it("posts body, method and headers to a loopback server and reports status", async () => {
     let got: { method?: string; url?: string; headers: IncomingMessage["headers"]; body: string } | undefined;
     const { port } = await listen((req, body, res) => { got = { ...(req.method !== undefined ? { method: req.method } : {}), ...(req.url !== undefined ? { url: req.url } : {}), headers: req.headers, body }; res.statusCode = 204; res.end(); });
-    const t = createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
+    const t = createEgressPushTransport(loopbackEgress(port));
     const r = await t.post({ url: `http://127.0.0.1:${port}/hook?a=1`, headers: { "content-type": "application/json", "x-a2a-notification-token": "z" }, body: '{"é":1}' });
     assert.deepEqual(r, { status: 204 });
     assert.equal(got!.method, "POST"); assert.equal(got!.url, "/hook?a=1"); assert.equal(got!.body, '{"é":1}');
@@ -344,17 +350,15 @@ describe("createEgressPushTransport", () => {
   it("returns Location and does not follow redirects", async () => {
     let hits = 0;
     const { port } = await listen((_req, _b, res) => { hits++; res.statusCode = 302; res.setHeader("location", "http://elsewhere.test/x"); res.end(); });
-    const t = createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
+    const t = createEgressPushTransport(loopbackEgress(port));
     const r = await t.post({ url: `http://127.0.0.1:${port}/`, headers: {}, body: "{}" });
     assert.deepEqual(r, { status: 302, location: "http://elsewhere.test/x" });
     assert.equal(hits, 1);
   });
-  it("pins the connection to the given address regardless of the URL host", async () => {
-    let host: string | undefined;
-    const { port } = await listen((req, _b, res) => { host = req.headers.host; res.statusCode = 200; res.end(); });
-    const t = createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
-    const r = await t.post({ url: `http://pinned.invalid:${port}/`, address: "127.0.0.1", family: 4, headers: {}, body: "{}" });
-    assert.equal(r.status, 200); assert.equal(host, `pinned.invalid:${port}`);
+  it("a large answer from the receiver does not turn an accepted delivery into a failure", async () => {
+    const { port } = await listen((_req, _b, res) => { res.statusCode = 200; res.end("y".repeat(200_000)); });
+    const t = createEgressPushTransport(loopbackEgress(port));
+    assert.deepEqual(await t.post({ url: `http://127.0.0.1:${port}/`, headers: {}, body: "{}" }), { status: 200 });
   });
   it("rejects with PushError(invalid) for an unparsable URL", async () => {
     const t = createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
@@ -365,18 +369,18 @@ describe("createEgressPushTransport", () => {
     await new Promise<void>((r) => s.listen(0, "127.0.0.1", () => r()));
     const port = (s.address() as AddressInfo).port;
     await new Promise<void>((r) => s.close(() => r())); servers.pop();
-    const t = createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
-    await assert.rejects(t.post({ url: `http://127.0.0.1:${port}/`, headers: {}, body: "{}" }), (e: NodeJS.ErrnoException) => e.code === "ECONNREFUSED");
+    const t = createEgressPushTransport(loopbackEgress(port));
+    await assert.rejects(t.post({ url: `http://127.0.0.1:${port}/`, headers: {}, body: "{}" }), (e: unknown) => refusedWith("network-error")(e) && /ECONNREFUSED/.test((e as Error).message));
   });
   it("https against a plain-http peer fails the handshake (secure branch)", async () => {
     const { port } = await listen((_r, _b, res) => { res.end(); });
-    const t = createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
-    await assert.rejects(t.post({ url: `https://localhost:${port}/`, address: "127.0.0.1", headers: {}, body: "{}" }));
+    const t = createEgressPushTransport(createEgress({ config: () => ({ allowHosts: ["localhost"], allowPorts: [port], allowLoopback: true }) }));
+    await assert.rejects(t.post({ url: `https://localhost:${port}/`, headers: {}, body: "{}" }), (e: unknown) => e instanceof WebFailure);
   });
-  it("a pre-aborted signal rejects with 'aborted' and sends nothing", { skip: "BUG: pre-aborted Signal -> req.destroy() ohne error-Listener = uncaught 'socket hang up' - siehe docs/testing/coverage-2026-10.md#a2a-push-preaborted-unhandled-error" }, async () => {
+  it("a pre-aborted signal rejects with 'aborted' and sends nothing", async () => {
     let hits = 0;
     const { port } = await listen((_r, _b, res) => { hits++; res.end(); });
-    const t = createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
+    const t = createEgressPushTransport(loopbackEgress(port));
     const ac = new AbortController(); ac.abort();
     await assert.rejects(t.post({ url: `http://127.0.0.1:${port}/`, headers: {}, body: "{}", signal: ac.signal }), /aborted/);
     assert.equal(hits, 0);
@@ -384,7 +388,7 @@ describe("createEgressPushTransport", () => {
   it("aborting while the server hangs rejects with 'aborted'", async () => {
     let arrived!: () => void; const got = new Promise<void>((r) => { arrived = r; });
     const { port } = await listen(() => { arrived(); /* never answer */ });
-    const t = createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
+    const t = createEgressPushTransport(loopbackEgress(port));
     const ac = new AbortController();
     const p = t.post({ url: `http://127.0.0.1:${port}/`, headers: {}, body: "{}", signal: ac.signal });
     await got; ac.abort();
@@ -392,79 +396,83 @@ describe("createEgressPushTransport", () => {
   });
   it("a signal that never fires is detached on close", async () => {
     const { port } = await listen((_r, _b, res) => { res.statusCode = 200; res.end(); });
-    const t = createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
+    const t = createEgressPushTransport(loopbackEgress(port));
     const ac = new AbortController();
     const r = await t.post({ url: `http://127.0.0.1:${port}/`, headers: {}, body: "{}", signal: ac.signal });
     assert.equal(r.status, 200);
   });
 
-  describe("request options (http.request / https.request stubbed)", () => {
-    interface Captured { opts: Record<string, any>; secure: boolean }
-    function stub(t: import("node:test").TestContext, res: { statusCode?: number; headers?: Record<string, unknown> } = { statusCode: 200, headers: {} }): Captured[] {
-      const captured: Captured[] = [];
-      const make = (secure: boolean) => (opts: Record<string, any>, cb: (r: unknown) => void) => {
-        captured.push({ opts, secure });
-        const req = new EventEmitter() as EventEmitter & { end(b: string): void; destroy(): void };
-        req.end = () => { queueMicrotask(() => cb({ ...res, resume() {} })); };
+  describe("the egress rules apply to the push POST (real egress service)", () => {
+    it("a host that egress.allowHosts does not list is refused and nothing is sent", async () => {
+      let hits = 0;
+      const { port } = await listen((_r, _b, res) => { hits++; res.end(); });
+      const t = createEgressPushTransport(createEgress({ config: () => ({ allowHosts: [], allowPorts: [port], allowLoopback: true }) }));
+      await assert.rejects(t.post({ url: `http://127.0.0.1:${port}/`, headers: {}, body: "{}" }), refusedWith("egress-denied"));
+      assert.equal(hits, 0);
+    });
+    it("a public name that resolves to a private address is refused (SSRF), whatever the dispatcher was told before", async () => {
+      const t = createEgressPushTransport(createEgress({ config: () => ({ allowHosts: ["hook.test"], allowPorts: [443], allowLoopback: false }), resolver: stubResolver({ "hook.test": ["10.0.0.7"] }) }));
+      await assert.rejects(t.post({ url: "https://hook.test/x", address: "93.184.216.34", family: 4, headers: {}, body: "{}" }), refusedWith("private-address"));
+    });
+    it("plain http to a public name is refused; the caller cannot set Host, Content-Length or Cookie", async () => {
+      const t = createEgressPushTransport(createEgress({ config: () => ({ allowHosts: ["hook.test"], allowPorts: [80, 443], allowLoopback: false }), resolver: stubResolver({ "hook.test": ["93.184.216.34"] }) }));
+      await assert.rejects(t.post({ url: "http://hook.test/x", headers: {}, body: "{}" }), refusedWith("egress-denied"));
+      for (const name of ["host", "content-length", "cookie"]) await assert.rejects(t.post({ url: "https://hook.test/x", headers: { [name]: "x" }, body: "{}" }), refusedWith("invalid-url"));
+    });
+    it("a redirect with the notification token is returned, not followed: the other host sees nothing", async () => {
+      let other = 0;
+      const target = await listen((_r, _b, res) => { other++; res.end(); });
+      const { port } = await listen((_r, _b, res) => { res.statusCode = 307; res.setHeader("location", `http://127.0.0.1:${target.port}/stolen`); res.end(); });
+      const e = createEgress({ config: () => ({ allowHosts: ["127.0.0.1"], allowPorts: [port, target.port], allowLoopback: true }) });
+      const r = await createEgressPushTransport(e).post({ url: `http://127.0.0.1:${port}/`, headers: { "x-a2a-notification-token": "tok", authorization: "Bearer tok" }, body: "{}" });
+      assert.equal(r.status, 307); assert.equal(other, 0);
+    });
+    it("connects to the address the egress service vetted, under the original TLS name, and ignores the one passed in", async (t) => {
+      const seen: { opts: Record<string, any> }[] = [];
+      t.mock.method(https, "request", ((opts: Record<string, any>, cb: (r: unknown) => void) => {
+        seen.push({ opts });
+        const req = new EventEmitter() as EventEmitter & { end(b?: unknown): void; destroy(): void };
+        req.end = () => { queueMicrotask(() => cb({ statusCode: 204, headers: {}, destroy() {} })); };
         req.destroy = () => {};
         return req;
-      };
-      t.mock.method(http, "request", make(false) as never);
-      t.mock.method(https, "request", make(true) as never);
-      return captured;
-    }
-    const tr = () => createEgressPushTransport(fakeEgress(async (u) => allowed(u)));
-    it("default ports: 80 for http, 443 for https; servername only for https", async (t) => {
-      const c = stub(t);
-      await tr().post({ url: "http://h.test/p", headers: {}, body: "x" });
-      await tr().post({ url: "https://h.test/p", headers: {}, body: "x" });
-      assert.equal(c[0]!.opts.port, 80); assert.equal(c[0]!.opts.servername, undefined); assert.equal(c[0]!.secure, false);
-      assert.equal(c[1]!.opts.port, 443); assert.equal(c[1]!.opts.servername, "h.test"); assert.equal(c[1]!.secure, true);
+      }) as never);
+      const tr = createEgressPushTransport(createEgress({ config: () => ({ allowHosts: ["hook.test"], allowPorts: [443], allowLoopback: false }), resolver: stubResolver({ "hook.test": ["93.184.216.34"] }) }));
+      const r = await tr.post({ url: "https://hook.test/p?q=1", address: "10.9.9.9", family: 4, headers: { "content-type": "application/json" }, body: "{}" });
+      assert.deepEqual(r, { status: 204 });
+      const o = seen[0]!.opts;
+      assert.equal(o.host, "hook.test"); assert.equal(o.servername, "hook.test"); assert.equal(o.port, 443); assert.equal(o.path, "/p?q=1"); assert.equal(o.method, "POST");
+      const answers: unknown[][] = [];
+      o.lookup("hook.test", { all: true }, (...a: unknown[]) => { answers.push(a); });
+      o.lookup("hook.test", {}, (...a: unknown[]) => { answers.push(a); });
+      assert.deepEqual(answers, [[null, [{ address: "93.184.216.34", family: 4 }]], [null, "93.184.216.34", 4]]);
     });
-    it("explicit port is used and Host keeps it; caller headers override defaults", async (t) => {
-      const c = stub(t);
-      await tr().post({ url: "http://h.test:8123/a/b?x=1", headers: { host: "override" }, body: "héllo" });
-      assert.equal(c[0]!.opts.port, 8123); assert.equal(c[0]!.opts.path, "/a/b?x=1");
-      assert.equal(c[0]!.opts.headers.host, "override");
-      assert.equal(c[0]!.opts.headers["content-length"], Buffer.byteLength("héllo"));
-      assert.equal(c[0]!.opts.host, "h.test");
-      assert.equal(c[0]!.opts.lookup, undefined);
+  });
+
+  describe("mapping of egress.request (fake egress)", () => {
+    const withResponse = (res: { status: number; headers: Record<string, unknown> }): { egress: Egress; calls: { url: string; options: Record<string, any> }[] } => {
+      const calls: { url: string; options: Record<string, any> }[] = [];
+      const egress: Egress = { decide: async (u) => allowed(u), request: async (url, options) => { calls.push({ url, options }); return { url, status: res.status, headers: res.headers as never, body: Buffer.alloc(0), redirects: [] }; }, status: () => { throw new Error("unused"); } };
+      return { egress, calls };
+    };
+    it("sends a POST with the headers, the body, the caller's signal, and asks for status and headers only", async () => {
+      const { egress, calls } = withResponse({ status: 200, headers: {} });
+      const ac = new AbortController();
+      await createEgressPushTransport(egress).post({ url: "https://h.test/p", headers: { "content-type": "application/json", authorization: "Bearer t" }, body: "héllo", signal: ac.signal });
+      assert.equal(calls.length, 1); assert.equal(calls[0]!.url, "https://h.test/p");
+      assert.equal(calls[0]!.options.method, "POST"); assert.equal(calls[0]!.options.body, "héllo");
+      assert.deepEqual(calls[0]!.options.headers, { "content-type": "application/json", authorization: "Bearer t" });
+      assert.equal(calls[0]!.options.discardBody, true); assert.equal(calls[0]!.options.signal, ac.signal);
     });
-    it("strips IPv6 brackets from the hostname", async (t) => {
-      const c = stub(t);
-      await tr().post({ url: "http://[::1]:9/", headers: {}, body: "" });
-      assert.equal(c[0]!.opts.host, "::1"); assert.equal(c[0]!.opts.headers.host, "[::1]:9");
+    it("a missing Location, a non-string one and an empty one are left out", async () => {
+      for (const headers of [{}, { location: ["a", "b"] }, { location: "" }]) {
+        const { egress } = withResponse({ status: 302, headers });
+        assert.deepEqual(await createEgressPushTransport(egress).post({ url: "https://h.test/", headers: {}, body: "" }), { status: 302 });
+      }
     });
-    it("with a pinned address, host is the address and lookup answers it (single and all)", async (t) => {
-      const c = stub(t);
-      await tr().post({ url: "http://h.test/", address: "10.1.2.3", family: 4, headers: {}, body: "" });
-      await tr().post({ url: "http://h.test/", address: "fe80::1", headers: {}, body: "" });
-      await tr().post({ url: "http://h.test/", address: "1.2.3.4", headers: {}, body: "" });
-      assert.equal(c[0]!.opts.host, "10.1.2.3");
-      const results: unknown[][] = [];
-      const cb = (...a: unknown[]): void => { results.push(a); };
-      c[0]!.opts.lookup("h.test", {}, cb);
-      c[0]!.opts.lookup("h.test", undefined, cb);
-      c[0]!.opts.lookup("h.test", { all: true }, cb);
-      c[0]!.opts.lookup("h.test", { all: false }, cb);
-      assert.deepEqual(results, [
-        [null, "10.1.2.3", 4], [null, "10.1.2.3", 4], [null, [{ address: "10.1.2.3", family: 4 }]], [null, "10.1.2.3", 4],
-      ]);
-      const six: unknown[][] = [];
-      c[1]!.opts.lookup("h.test", { all: true }, (...a: unknown[]) => { six.push(a); });
-      c[1]!.opts.lookup("h.test", {}, (...a: unknown[]) => { six.push(a); });
-      assert.deepEqual(six, [[null, [{ address: "fe80::1", family: 6 }]], [null, "fe80::1", 6]]);
-      const four: unknown[][] = [];
-      c[2]!.opts.lookup("h.test", {}, (...a: unknown[]) => { four.push(a); });
-      assert.deepEqual(four, [[null, "1.2.3.4", 4]]);
-    });
-    it("a missing status code is reported as 0; a non-string Location is dropped", async (t) => {
-      stub(t, { headers: { location: ["a", "b"] } });
-      assert.deepEqual(await tr().post({ url: "http://h.test/", headers: {}, body: "" }), { status: 0 });
-    });
-    it("an empty Location string is dropped", async (t) => {
-      stub(t, { statusCode: 302, headers: { location: "" } });
-      assert.deepEqual(await tr().post({ url: "http://h.test/", headers: {}, body: "" }), { status: 302 });
+    it("an error that is not the dispatcher's abort is passed on unchanged", async () => {
+      const boom = new WebFailure("network-error", "request failed (ECONNRESET)");
+      const egress: Egress = { decide: async (u) => allowed(u), request: async () => { throw boom; }, status: () => { throw new Error("unused"); } };
+      await assert.rejects(createEgressPushTransport(egress).post({ url: "https://h.test/", headers: {}, body: "" }), (e: unknown) => e === boom);
     });
   });
 });

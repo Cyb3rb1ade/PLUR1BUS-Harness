@@ -7,10 +7,10 @@ import type { SecretPrincipal } from "./types.ts";
 export type SecretMethod = "secret.status" | "secret.list" | "secret.set" | "secret.get" | "secret.delete";
 
 const MAP: Record<SecretErrorCode, RpcError["error"]> = {
-  denied: "E_DENIED", "not-found": "E_NOT_FOUND", "invalid-name": "E_INVALID_PARAMS", "invalid-value": "E_INVALID_PARAMS", "invalid-ttl": "E_INVALID_PARAMS",
+  denied: "E_DENIED", "not-found": "E_NOT_FOUND", "invalid-name": "E_INVALID_PARAMS", "invalid-value": "E_INVALID_PARAMS", "invalid-description": "E_INVALID_PARAMS", "invalid-ttl": "E_INVALID_PARAMS",
   "no-backend": "E_NOT_AVAILABLE", "backend-unavailable": "E_NOT_AVAILABLE", corrupt: "E_STORAGE", storage: "E_STORAGE", "audit-unavailable": "E_STORAGE", "lease-invalid": "E_INVALID_PARAMS",
 };
-const FIELD: Partial<Record<SecretErrorCode, string>> = { "invalid-name": "name", "invalid-value": "value" };
+const FIELD: Partial<Record<SecretErrorCode, string>> = { "invalid-name": "name", "invalid-value": "value", "invalid-description": "description" };
 
 /** SecretError → RpcError. The message is the store's fixed text (names and codes only); nothing else is forwarded. */
 export function toRpcError(e: unknown): unknown {
@@ -34,7 +34,7 @@ export function buildSecretMethods(d: SecretMethodDeps): Record<SecretMethod, Ha
   return {
     "secret.status": wrap("secret.status", (p) => d.store.status(p)),
     "secret.list": wrap("secret.list", async (p) => ({ secrets: await d.store.list(p) })),
-    "secret.set": wrap("secret.set", (p, a: { name: string; value: string }) => d.store.set(p, a.name, a.value)),
+    "secret.set": wrap("secret.set", (p, a: { name: string; value: string; description?: string }) => d.store.set(p, a.name, a.value, a.description)),
     "secret.get": wrap("secret.get", async (p, a: { name: string; reveal?: boolean }) => {
       if (a.reveal === true) { const r = await d.store.reveal(p, a.name); return { secret: r.meta, value: r.value }; }
       return { secret: await d.store.meta(p, a.name) };
