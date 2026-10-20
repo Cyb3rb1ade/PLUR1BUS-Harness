@@ -81,6 +81,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Privacy and \"Local only\" mode"
   },
   {
+    "slug": "project-commands",
+    "title": "Project commands"
+  },
+  {
     "slug": "projects",
     "title": "Projects & Board"
   },
@@ -107,6 +111,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "secrets",
     "title": "Managing secrets"
+  },
+  {
+    "slug": "voice-commands",
+    "title": "Voice commands"
   },
   {
     "slug": "voice",
@@ -136,6 +144,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "os-confirmation": return import("./en/os-confirmation.ts").then(m => m.doc);
     case "passkeys": return import("./en/passkeys.ts").then(m => m.doc);
     case "privacy": return import("./en/privacy.ts").then(m => m.doc);
+    case "project-commands": return import("./en/project-commands.ts").then(m => m.doc);
     case "projects": return import("./en/projects.ts").then(m => m.doc);
     case "providers": return import("./en/providers.ts").then(m => m.doc);
     case "quickstart": return import("./en/quickstart.ts").then(m => m.doc);
@@ -143,6 +152,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "reembed": return import("./en/reembed.ts").then(m => m.doc);
     case "remote-access": return import("./en/remote-access.ts").then(m => m.doc);
     case "secrets": return import("./en/secrets.ts").then(m => m.doc);
+    case "voice-commands": return import("./en/voice-commands.ts").then(m => m.doc);
     case "voice": return import("./en/voice.ts").then(m => m.doc);
     default: return null;
   }

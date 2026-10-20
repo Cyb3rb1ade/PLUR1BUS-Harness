@@ -81,6 +81,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Posteingang"
   },
   {
+    "slug": "projekt-befehle",
+    "title": "Projekt-Befehle"
+  },
+  {
     "slug": "projekte",
     "title": "Projekte & Board"
   },
@@ -103,6 +107,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "secrets",
     "title": "Secrets verwalten"
+  },
+  {
+    "slug": "sprach-befehle",
+    "title": "Sprach-Befehle"
   },
   {
     "slug": "sprachfunktionen",
@@ -136,12 +144,14 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "operations": return import("./de/operations.ts").then(m => m.doc);
     case "passkeys": return import("./de/passkeys.ts").then(m => m.doc);
     case "posteingang": return import("./de/posteingang.ts").then(m => m.doc);
+    case "projekt-befehle": return import("./de/projekt-befehle.ts").then(m => m.doc);
     case "projekte": return import("./de/projekte.ts").then(m => m.doc);
     case "providers": return import("./de/providers.ts").then(m => m.doc);
     case "quickstart": return import("./de/quickstart.ts").then(m => m.doc);
     case "reembed": return import("./de/reembed.ts").then(m => m.doc);
     case "remote-access": return import("./de/remote-access.ts").then(m => m.doc);
     case "secrets": return import("./de/secrets.ts").then(m => m.doc);
+    case "sprach-befehle": return import("./de/sprach-befehle.ts").then(m => m.doc);
     case "sprachfunktionen": return import("./de/sprachfunktionen.ts").then(m => m.doc);
     case "wiederkehrende-aufgaben": return import("./de/wiederkehrende-aufgaben.ts").then(m => m.doc);
     default: return null;
