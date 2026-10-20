@@ -162,6 +162,12 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
         super::refuse_in_container(out, "update");
         // `--plan` reads and prints, like `--check`: it settles no interrupted update, takes no lock (it may run beside
         // an update that is in flight) and records no announced key list (`persist` is off).
+        if !args.plan && !matches!(install::manifest::read(layout), Ok(Some(_))) {
+            // Nothing installed: nothing to lock or settle. `load_feed` refuses with `not-installed` before anything is
+            // written (not even `update/` for the lock); should a `setup` finish in between, it returns and the run
+            // goes on under the lock like any other.
+            let _ = load_feed(out, layout, &args, false);
+        }
         let _lock = (!args.plan).then(|| super::update_apply::lock_or_fail(out, layout));
         if !args.plan {
             super::update_apply::recover_locked(layout);
