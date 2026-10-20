@@ -814,6 +814,72 @@
             "localOnly": {"description": "Only local models for this agent; overrides privacy.localOnly in both directions. The shared memory engine and media index stay local while the installation or any agent is local-only.", "type": "boolean", "x-restart": "live", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true}
           }},
           "persona": {"description": "Inline persona text for a new agent (also scaffolded into SOUL.md).", "type": "string", "maxLength": 4000, "x-restart": "live", "x-tier": "basic"},
+          "modelPolicy": {
+            "description": "Per-agent model routing. Omitted preserves existing D105 routing; fixed uses the agent model; auto selects among ordered named profiles once per session unless perTurn is explicitly enabled. Explicit session model selection wins.",
+            "type": "object",
+            "additionalProperties": false,
+            "x-restart": "live",
+            "x-tier": "advanced",
+            "properties": {
+              "mode": {
+                "description": "Fixed agent model or decision-service tier selection.",
+                "enum": [
+                  "fixed",
+                  "auto"
+                ],
+                "default": "fixed",
+                "x-restart": "live",
+                "x-tier": "advanced"
+              },
+              "tiers": {
+                "description": "Ordered allowed provider-profile names for auto selection and subsequent failover. Earlier tiers are never revisited after selecting a later tier.",
+                "type": "array",
+                "default": [],
+                "uniqueItems": true,
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S"
+                },
+                "x-restart": "live",
+                "x-tier": "advanced"
+              },
+              "perTurn": {
+                "description": "Opt in to selecting again each turn. False keeps the served model stable across a session.",
+                "type": "boolean",
+                "default": false,
+                "x-restart": "live",
+                "x-tier": "advanced"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "mode": {
+                      "const": "auto"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "tiers"
+                  ],
+                  "properties": {
+                    "tiers": {
+                      "type": "array",
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            ]
+          },
           "model": {"description": "Named model profile selected for this agent.", "type": "string", "minLength": 1, "maxLength": 128, "x-restart": "live", "x-tier": "basic"},
           "channels": {"description": "Channel names selected for this agent. Does not enable installation channels.", "type": "array", "uniqueItems": true, "maxItems": 32, "items": {"type": "string", "minLength": 1, "maxLength": 32}, "x-restart": "live", "x-tier": "basic"},
           "createdAt": { "description": "Timestamp when the agent was created, in date-time format.", "type": "string", "format": "date-time" },

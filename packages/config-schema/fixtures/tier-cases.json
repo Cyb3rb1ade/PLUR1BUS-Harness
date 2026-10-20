@@ -2121,6 +2121,72 @@
                 "x-restart": "live",
                 "x-tier": "basic"
               },
+              "modelPolicy": {
+                "description": "Per-agent model routing. Omitted preserves existing D105 routing; fixed uses the agent model; auto selects among ordered named profiles once per session unless perTurn is explicitly enabled. Explicit session model selection wins.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "properties": {
+                  "mode": {
+                    "description": "Fixed agent model or decision-service tier selection.",
+                    "enum": [
+                      "fixed",
+                      "auto"
+                    ],
+                    "default": "fixed",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "tiers": {
+                    "description": "Ordered allowed provider-profile names for auto selection and subsequent failover. Earlier tiers are never revisited after selecting a later tier.",
+                    "type": "array",
+                    "default": [],
+                    "uniqueItems": true,
+                    "maxItems": 16,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "\\S"
+                    },
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "perTurn": {
+                    "description": "Opt in to selecting again each turn. False keeps the served model stable across a session.",
+                    "type": "boolean",
+                    "default": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "mode": {
+                          "const": "auto"
+                        }
+                      },
+                      "required": [
+                        "mode"
+                      ]
+                    },
+                    "then": {
+                      "required": [
+                        "tiers"
+                      ],
+                      "properties": {
+                        "tiers": {
+                          "type": "array",
+                          "minItems": 1
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
               "model": {
                 "description": "Named model profile selected for this agent.",
                 "type": "string",
