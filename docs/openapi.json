@@ -10262,7 +10262,7 @@
         },
         "responses": {
           "201": {
-            "description": "The grant exists only after its audit entry was written; the affected user is told (inbox, plus the delivery hook). It ends by itself.",
+            "description": "Forwarded to the core's `breakglass.request`, the one registry: the grant exists only after its audit entry was written and the affected user has a durable notice (inbox, plus the live notice). It ends by itself.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10365,7 +10365,7 @@
             }
           },
           "503": {
-            "description": "The audit log could not record the grant, so there is none (`reason`: `audit-unavailable`).",
+            "description": "The core could not audit the grant (`reason`: `audit-unavailable`) or could not store the notice (`reason`: `notice-unavailable`), so there is none.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10396,7 +10396,7 @@
         "tags": [
           "breakglass"
         ],
-        "summary": "The caller's own live break-glass grants",
+        "summary": "The caller's own live break-glass grants (the core's registry, whichever way they were made)",
         "security": [
           {
             "cookieAuth": []
@@ -10675,7 +10675,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Newest first. Push delivery to channels is a follow-up; this is the pull side.",
+            "description": "The core's durable break-glass notices for the caller, newest first, whichever way the grant was made. The core records no issue time, so a notice carries none. Push delivery to channels is the core's (`breakglass.notice`); this is the pull side.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10938,7 +10938,6 @@
           "grantId",
           "holderUserId",
           "reason",
-          "at",
           "expiresAt"
         ],
         "properties": {
@@ -10953,10 +10952,6 @@
           },
           "reason": {
             "type": "string"
-          },
-          "at": {
-            "type": "string",
-            "format": "date-time"
           },
           "expiresAt": {
             "type": "string",
