@@ -495,9 +495,13 @@ mod tests {
         let secret = row(&chain, "security.secret.value");
         assert_eq!(secret["detail"]["oldValue"], "[REDACTED]");
         assert_eq!(secret["detail"]["newValue"], "[REDACTED]");
+        // A credential-named field: masked here by field name, and the central key rule may re-mask the mask with its own
+        // tag (`[REDACTED:key]`), so only the marker's prefix is fixed.
         let login = row(&chain, "login");
-        assert_eq!(login["detail"]["oldValue"]["api_key"], "[REDACTED]");
-        assert_eq!(login["detail"]["newValue"]["api_key"], "[REDACTED]");
+        for side in ["oldValue", "newValue"] {
+            let masked = login["detail"][side]["api_key"].as_str().unwrap();
+            assert!(masked.starts_with("[REDACTED"), "{masked}");
+        }
     }
 
     #[test]
