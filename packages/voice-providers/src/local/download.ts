@@ -46,7 +46,8 @@ const DEFAULT_MAX_ENTRIES = 20_000;
 const EXTRACT_FACTOR = 4;
 
 const exec = promisify(execFile);
-async function tarBinary(): Promise<string> {
+/** The tar that extracts model archives; exported so tests build archives with the very same binary. */
+export async function tarBinary(): Promise<string> {
   if (process.platform !== "win32") return "tar";
   // Git-for-Windows puts a GNU tar earlier in PATH that reads "C:\\x" as host:path; the system bsdtar does not.
   const sys = join(process.env["SystemRoot"] ?? "C:\\Windows", "System32", "tar.exe");
