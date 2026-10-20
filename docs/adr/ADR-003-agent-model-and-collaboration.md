@@ -46,7 +46,7 @@ agents/<agentId>/
   memory/
     DailyNote_<YYYY-MM-DD_HHMMSS>.md   # timestamped daily notes — light-sleep input (D15, ADR-009)
     memories.md                        # long-term memory — deep-sleep promotion target (D15, ADR-009)
-    dreaming.md                        # dream diary (D15, ADR-009)
+    DREAMS.md                          # engine-owned dream diary (A5, ADR-009 amendment 2026-10-20)
     knowledgepool.md                   # curated knowledge corpus (D15, ADR-009)
 ```
 

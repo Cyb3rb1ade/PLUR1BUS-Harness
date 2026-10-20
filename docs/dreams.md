@@ -59,7 +59,7 @@ plur1bus dreams log --agent A [--phase P]     the phase ledger; --run ID shows o
 plur1bus dreams schedule get --agent A
 plur1bus dreams schedule set <phase> --agent A [--cron "…"] [--timezone Z] [--enabled true|false]
 plur1bus dreams enable|disable <phase> --agent A
-plur1bus dreams diary --agent A               private diary (`dreaming.md`); owner or agent.manage; `--json`
+plur1bus dreams diary --agent A               private diary (`DREAMS.md`); owner or agent.manage; `--json`
 ```
 
 `dreams run <job>` with an engine job name (for example `gc-run`) and `dreams log --job` keep working as before. The RPC
@@ -172,7 +172,7 @@ input. Inner whitespace is **not** collapsed: `"a  b"`, `"a\nb"` and `"a b"` are
   (`reason: "dreams-unavailable"`, plus `detail` when a cause is known). `dreams.schedule.set` validates before writing and
   maps a bad cron or timezone to `E_INVALID_PARAMS` with `detail: "cron"` or `"timezone"`; the row stays unchanged.
   `dreams.log` with an unknown `runId` is `E_NOT_FOUND`. A failing engine job is an answered run (`failed`), not an RPC
-  error. `dryRun` writes no ledger row and calls no engine job. `dreams.diary` reads `dreaming.md` (capped at 262 144 bytes,
+  error. `dryRun` writes no ledger row and calls no engine job. `dreams.diary` reads `DREAMS.md` (capped at 262 144 bytes,
   redacted); unlimited diary retention is unchanged. Tests: `methods.test.ts` (all `describe` blocks).
 * Doctor (`1staid check` id `dreams.last-runs`, append-only after `models.roles`): last run per phase and agent, error
   state, missed windows (`enabled && nextRunAt <= now`). Injectable clock (`Env.now`). Test: `doctor_reports_a_missed_window`
@@ -209,3 +209,14 @@ Still open (deliberately):
   topic-search score, not recall counts or unique-query stats. The producer does not fake scoring. Owner question: attach
   the content-only producer now (deep then skip/`no_candidates`, fail closed) — done on this branch — or wait for an engine
   stats API before wiring production? The module is driven by a fake engine in tests either way.
+
+## Diary path and web reader (A5, 2026-10-20)
+
+The engine owns `<agent workspace>/DREAMS.md`. The scheduler status and `dreams.diary` read that same file; the older
+D15 `dreaming.md` mapping is superseded for this runtime path. On the Memories → Dreams tab, **Read diary** loads the
+redacted RPC text on demand. The reader preserves line breaks and displays content as text, with explicit missing,
+empty, forbidden, unavailable and truncated states. Existing diary authorization and redaction remain enforced by the
+core; the browser receives no filesystem access.
+
+The integration regression runs the real pinned engine with a flat embedder and a stub LLM, generates a light dream
+through capture, then reads the actual engine-written diary through `dreams.diary`. No live provider is called.

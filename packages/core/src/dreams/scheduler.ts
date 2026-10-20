@@ -563,7 +563,7 @@ export class DreamScheduler {
     return { agents, counters: this.counters, schemaVersion: this.#o.store.schemaVersion };
   }
 
-  /** The private diary of one agent (D15 `dreaming.md`). Cap matches per-run logs (262 144 bytes). Retention is unlimited. */
+  /** The private diary of one agent (engine-owned `DREAMS.md`). Cap matches per-run logs (262 144 bytes). Retention is unlimited. */
   readDiary(agentId: string): { path: string | null; exists: boolean; bytes: number; text: string; truncated: boolean } {
     const dp = this.#o.diaryPath?.(agentId) ?? null;
     if (!dp) return { path: null, exists: false, bytes: 0, text: "", truncated: false };

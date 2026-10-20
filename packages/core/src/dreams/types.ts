@@ -112,7 +112,7 @@ export const PHASE_DEFAULTS: Record<Phase, PhaseDefaults> = {
   deep: { cron: "0 4 * * *", minCorpus: 3, importanceThreshold: 450, minGapMs: 12 * HOUR, jobs: ["consolidate-daily", "auto-accept-stale", "gc-run"], primary: "consolidate-daily" },
 };
 
-export const DIARY_FILE = "dreaming.md"; // D15 harness-host name (the pinned engine still writes DREAMS.md: TODO(engine) rename for harness hosts)
+export const DIARY_FILE = "DREAMS.md"; // Canonical diary filename written by the engine (A5).
 export const MAX_CONCURRENT_RUNS = 3;
 export const BREAKER_SESSIONS = 3;
 export const STAGGER_WINDOW_S = 1800;

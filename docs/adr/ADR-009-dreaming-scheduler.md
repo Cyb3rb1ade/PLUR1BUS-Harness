@@ -322,3 +322,11 @@ Owner decision of 2026-10-07, answering the open question of the module catalogu
 
 * **Why not a module.** A module can crash while the core keeps running; dreaming and every scheduled task would then stop silently, which is exactly the "failure without durable evidence" this ADR exists to prevent. Jobs call `engine.jobs.run()` in-process, with the ledger row written before every step and the budget checked before each LLM call; as a module every step would need IPC and crash-recovery rules of its own. The triggers (a task done, a quota reset) and catch-up time are core events anyway.
 * **Extensibility: job kinds, not schedulers.** Modules contribute **job kinds** through the module API (proposed call `jobs.register`; the name is not final). They never schedule on their own: the core plans, ledgers, enforces budgets and runs the breakers for every job, whatever its origin. `dreaming` is one such job kind, not a process of its own.
+
+## Amendment A5 (2026-10-20): read the engine-owned diary
+
+The Großpaket 3 A5 decision supersedes the D15 diary filename mapping: the runtime diary is
+`<agent workspace>/DREAMS.md`, the file the engine actually writes. `dreams.status` and `dreams.diary` now agree on that
+path; the Web Dreams tab can load its redacted content on demand. The older D15 statements and owner quotations above
+record the historical decision. No second diary writer or migration is introduced by A5. Point 8 remains open for the
+other curated files and the later D116 work; this amendment completes only its diary-read path.
