@@ -175,7 +175,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => hostctl.close());
     const audit = createPolicyAudit({ sink: d.audit, clock: { now: d.clock }, ...(d.secrets.redaction ? { redactor: d.secrets.redaction.redactor() } : {}) });
     const execOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'exec', version: '0.1.0' }, now: d.clock });
-    disposers.push(d.secrets.redaction?.subscribe(value => execOutput.registerSecret(value)) ?? (() => {}), () => execOutput.close());
+    disposers.push(d.secrets.redaction?.subscribe((value, info) => execOutput.registerSecret(value, info)) ?? (() => {}), () => execOutput.close());
     const grants: GrantSource = { maxGrantDays: () => d.config().approvals?.maxGrantDays ?? 90, list: q => d.permissions.current()?.grants.list(q) ?? [], get: id => d.permissions.current()?.grants.get(id) };
     const mcp = isolated('turn MCP', () => createMcpRegistry({ logger: d.logger, secrets: d.secrets, egress: d.egress, policy: { allowedCommands: ((cfg.providers.mcp as { allowedCommands?: string[] } | undefined)?.allowedCommands ?? []) } }));
     const servers: string[] = [];

@@ -1,6 +1,6 @@
 import { RpcError } from "../rpc/errors.ts";
 import type { Handler } from "../rpc/server.ts";
-import { SecretError, type SecretErrorCode } from "./types.ts";
+import { MIN_ENTERED_VALUE_CHARS, SecretError, type SecretErrorCode } from "./types.ts";
 import type { SecretStore } from "./store.ts";
 import type { SecretPrincipal } from "./types.ts";
 
@@ -22,7 +22,8 @@ export function toRpcError(e: unknown): unknown {
 export interface SecretMethodDeps {
   store: SecretStore;
   /** Derives who is calling from the connection. A client can never name its own principal. Fail closed: a connection
-   *  for which this answers anything but `owner` is refused every `secret.*` method. */
+   *  for which this answers anything but `owner` is refused every `secret.*` method. An `owner` for a connection carries
+   *  the connection's `surface` (T0-T3): `secret.set`, `secret.get` with `reveal` and `secret.delete` need `MIN_SECRET_SURFACE`. */
   principalOf: (ctx: Parameters<Handler>[1], method: SecretMethod, params: unknown) => SecretPrincipal | Promise<SecretPrincipal>;
 }
 
@@ -34,7 +35,7 @@ export function buildSecretMethods(d: SecretMethodDeps): Record<SecretMethod, Ha
   return {
     "secret.status": wrap("secret.status", (p) => d.store.status(p)),
     "secret.list": wrap("secret.list", async (p) => ({ secrets: await d.store.list(p) })),
-    "secret.set": wrap("secret.set", (p, a: { name: string; value: string; description?: string }) => d.store.set(p, a.name, a.value, a.description)),
+    "secret.set": wrap("secret.set", (p, a: { name: string; value: string; description?: string }) => d.store.set(p, a.name, a.value, a.description, { minValueChars: MIN_ENTERED_VALUE_CHARS })),
     "secret.get": wrap("secret.get", async (p, a: { name: string; reveal?: boolean }) => {
       if (a.reveal === true) { const r = await d.store.reveal(p, a.name); return { secret: r.meta, value: r.value }; }
       return { secret: await d.store.meta(p, a.name) };

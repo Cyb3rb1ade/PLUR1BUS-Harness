@@ -22,7 +22,11 @@ export function cap(text: string, bytes: number): string {
 }
 export function createWriter(o: WriterOptions) {
   const now = o.now ?? Date.now; const sink = createSink({ ...o, now });
-  const secrets = new Set<string>(); let redactor = createRedactor({ pii: o.redactPii ?? false, secrets });
+  // `transient`: the newest 256 registered values (a value registered again moves to the end). `pinned`: values the secret store says
+  // are the current value of a stored secret; they are never displaced by the bound above (audit secrets #3).
+  const secrets = new Set<string>(); const pinned = new Set<string>();
+  const masked = (): Set<string> => new Set([...pinned, ...secrets]);
+  let redactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
   let closed = false; let flushing = false; let lastPrune = now();
   const pending: string[] = []; let lost = 0; let retryAt = 0; const repeats = new Map<string, Repeat>(); const buckets = new Map<string, Bucket>();
   const policy = new LevelPolicy({ now, expired: key => emit("log.level.expired", { source_key: key, from: "trace", to: "debug" }, {}, true) });
@@ -147,10 +151,11 @@ export function createWriter(o: WriterOptions) {
       queue(`${line}\n`);
       autoFlush(level !== "info" && level !== "debug"); // a failing sink is not a redaction failure; the record stays queued
     },
-    registerSecret(value: string) {
-      secrets.delete(value); secrets.add(value);
+    registerSecret(value: string, opts?: { pinned?: boolean }) {
+      if (opts?.pinned === true) { secrets.delete(value); pinned.add(value); }
+      else { pinned.delete(value); secrets.delete(value); secrets.add(value); }
       if (secrets.size > 256) secrets.delete(secrets.values().next().value!);
-      redactor = createRedactor({ pii: o.redactPii ?? false, secrets });
+      redactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
     },
     currentLevels(): LevelSettings {
       return { defaultLevel: levelSettings.defaultLevel ?? "info", levels: { ...levelSettings.levels }, ...(levelSettings.traceUntil !== undefined ? { traceUntil: levelSettings.traceUntil } : {}) };
@@ -166,7 +171,7 @@ export function createWriter(o: WriterOptions) {
       levelSettings = { ...settings, levels: { ...settings.levels } };
     },
     setRotation: sink.setRotation,
-    close() { if (closed) return; if (timer) clearInterval(timer); tick(true); flush(); closed = true; secrets.clear(); },
+    close() { if (closed) return; if (timer) clearInterval(timer); tick(true); flush(); closed = true; secrets.clear(); pinned.clear(); },
   };
 }
 export type LogWriter = ReturnType<typeof createWriter>;

@@ -227,6 +227,20 @@ What shipped for action items 5, 6 and 8 (`docs/superpowers/plans/2026-10-06-m2-
   one, so an older copy cannot come back when the first backend goes away; delete clears both, and also clears the file backend when the fallback is
   switched off or the file is not the backend in use, so a deleted secret cannot reappear when the flag is turned back on. A failure to clean the other
   backend is logged (names only) and does not fail the call. Names such as `constructor` or `toString` are ordinary names in both backends (own-property checks).
+- **Amended 2026-10-20 (audit findings, branch `fix/secrets-surface-fallback`).** (a) *Newest copy wins.* With both backends enabled a name can
+  exist in both (the keyring was away while it was rotated or deleted): every read takes the newer `updatedAt` (a tie goes to the keyring), a delete
+  while the file is the backend in use leaves a tombstone in `store.json` (`tombstones`, name to ISO time, additive under the same schema id, at most
+  512, the oldest first) and a keyring copy not newer than it counts as deleted. The next owner read (`secret.list`, `secret.status`) settles the two:
+  a newer file value moves into the keyring (keeping its time), a deleted name is purged from the keyring, a stale file copy is dropped and
+  the tombstone is forgotten; each step is audited as `secret.set` or `secret.delete` by `core` with the reason `keyring-sync`. Writes, deletes and this sync
+  run one at a time. A `secret.delete` of a name only the unreachable keyring holds is `not-found`, because the file backend cannot see it. (b) *Surface.* The RPC
+  layer hands the store the connection's trust level (`rbac/connection-surface.ts`); `secret.set`, `secret.get` with `reveal` and `secret.delete` need
+  `MIN_SECRET_SURFACE` (T1, the token-authenticated local connection where the CLI and the web UI arrive), anything below is `denied` and audited.
+  This does not separate the CLI from an agent that runs as the owning OS user and reads `run/core.token`: both are T1. Raising the constant to 2 needs
+  a CLI that can be attested (an OS confirmation per call, or a TTY attestation the core verifies); that is an owner decision. (c) *Redaction.* The value a
+  stored name holds now is pinned (registry and subscribing log writers) and never displaced; retired and name-less values are bounded at 256. (d) *Descriptions*
+  are checked against every stored value and every value the process has seen, and `secret.status` masks a registered value in a stored description. (e) *Values.*
+  `secret.set` refuses fewer than 8 characters (the redactor's own minimum); the keyring backend undoes its value write when the index write fails.
 - **Q3 ruling (B19, owner decision still open).** The file's key is a machine-bound key file (`state/secrets/store.key`, 32
   random bytes, created once, 0600 or user-and-SYSTEM ACL), as `decisions-for-owner.md` B19 recommends. The passphrase mode B19
   keeps "available for higher-assurance installs" is not built. The fallback is off by default until the owner decides. The
