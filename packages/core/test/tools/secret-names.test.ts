@@ -98,12 +98,30 @@ describe("secret_names", () => {
     assert.deepEqual(agentRequiredSecrets(cfg, cfg.agents.a1), ["openai.key", "telegram.bot"]);
   });
 
-  // KNOWN GAP: the store has no per-secret description and no per-agent lease right (an `agent` principal is refused every
-  // store call); scope is therefore derived from the agent's configuration. A description needs a store/schema change.
-  it("every listed secret carries an owner-written description", { todo: "KNOWN GAP: SecretMeta has no description field; adding one changes the secret file format and the secret.* wire schema" }, async () => {
-    const { dispatcher, ctx } = await rig();
+  it("a stored secret's owner-written description is listed with it; one without a description, or not stored, has no such key", async () => {
+    const { dispatcher, ctx, store, audit } = await rig();
+    await store.set(owner, "openai.key", VALUE, "Billing key for the shared OpenAI account");
     const r = await dispatcher.call({ id: "d", name: SECRET_NAMES_TOOL, args: {} }, ctx("a1"));
-    assert.ok(!r.isError);
-    for (const entry of (r.value as { secrets: { description?: string }[] }).secrets) assert.equal(typeof entry.description, "string");
+    assert.ok(!r.isError, JSON.stringify(r));
+    assert.deepEqual(r.value, { secrets: [
+      { name: "openai.key", scope: ["provider:openai"], present: true, description: "Billing key for the shared OpenAI account" },
+      { name: "telegram.bot", scope: ["channel:telegram"], present: false },
+    ] });
+    // A description of an unreferenced secret stays invisible, and the value still never travels.
+    await store.set(owner, "unrelated.secret", `${VALUE}-other`, "Unrelated description");
+    const again = await dispatcher.call({ id: "e", name: SECRET_NAMES_TOOL, args: {} }, ctx("a1"));
+    assert.ok(!JSON.stringify([again, audit.events]).includes("Unrelated description"));
+    assert.ok(!JSON.stringify(again).includes(VALUE));
+  });
+
+  it("the description is the owner's text, not the secret's: a rotation keeps it and clearing it removes the key", async () => {
+    const { dispatcher, ctx, store } = await rig();
+    await store.set(owner, "openai.key", VALUE, "Billing key");
+    await store.set(owner, "openai.key", `${VALUE}-2`);
+    const kept = await dispatcher.call({ id: "k", name: SECRET_NAMES_TOOL, args: {} }, ctx("a2"));
+    assert.deepEqual(kept.isError ? null : kept.value, { secrets: [{ name: "openai.key", scope: ["provider:openai"], present: true, description: "Billing key" }] });
+    await store.set(owner, "openai.key", `${VALUE}-3`, "");
+    const cleared = await dispatcher.call({ id: "c", name: SECRET_NAMES_TOOL, args: {} }, ctx("a2"));
+    assert.deepEqual(cleared.isError ? null : cleared.value, { secrets: [{ name: "openai.key", scope: ["provider:openai"], present: true }] });
   });
 });

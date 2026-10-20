@@ -2708,12 +2708,16 @@ Values are read from stdin, never from arguments, and are printed only by `get -
 
 One trailing newline is removed. Replacing a secret revokes the leases on the old value.
 
-**Usage:** `plur1bus secret set <NAME>`
+**Usage:** `plur1bus secret set [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
 * `<NAME>` — the secret's name: letters, digits and . _ : / @ - (at most 128, first a letter or digit)
 * `<REST>` — refused: a value never goes in an argument (kept only so the refusal does not echo it)
+
+###### **Options:**
+
+* `--description <DESCRIPTION>` — what the secret is for (one line, at most 200 characters, never the value); the agent sees it in `secret_names`. Omitted, a replacement keeps the stored text; an empty text removes it
 
 
 

@@ -8,6 +8,14 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **A description per secret (`secret.set`, `secret set --description`, Settings > Secrets).** An optional one-line note (at most
+  200 characters, never the value) saying what a secret is for. `secret.list`, `secret.get` and `secret.status` return it, and
+  the agent's `secret_names` tool lists it next to a stored secret. A replacement without one keeps the stored text, an empty one
+  removes it. Files and keyring indexes written before the field existed read unchanged (same schema ids).
+- **A2A push and the OAuth token POST send through `egress.request`.** Both files open no socket any more (a static test guards
+  it): pinning, request and response caps, the deadline and the no-redirect rule for a request with a body live in the egress
+  service. New `discardBody` option for calls that need status and headers only. The caller can no longer set `Host`,
+  `Content-Length` or `Cookie` on a push POST, and a compressed token answer is now decoded.
 - **Engine pin 98dfe2f0 (contract 1.16.0): duplicate cards are linked in the engine.** `@cyb3rb1ade/plur1bus-memory` is
   pinned to the merge of plugin PR #253 (it also carries 1.13.0 to 1.15.0); `CORE_CONTRACT` is 1.16.0, the floor stays 1.8.0.
   The OpenClaw and Hermes card importers attach a card that duplicates an existing memory to it through `memory.link` when the
