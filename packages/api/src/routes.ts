@@ -265,6 +265,8 @@ export interface HandlerDeps {
   totp?: TotpService | undefined;
   challenges?: LoginChallenges | undefined;
   limiter?: RateLimiter | undefined;
+  /** All clients reach the API from one address (tailnet mode): login attempts are then also bucketed per account name. */
+  sharedAddress?: boolean | undefined;
   breakGlass?: BreakGlass | undefined;
   notices?: NoticeInbox | undefined;
   audit: AuditEmitter;
@@ -349,6 +351,12 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
       const b = loginBody(i.body);
       if (!b) throw errors.badRequest("body", "body must be {\"token\": string} or {\"username\": string, \"password\": string}");
       let principal: Principal; let authVersion = 0;
+      if (d.sharedAddress && d.limiter) {
+        // The address bucket is only an upper bound here; five wrong passwords for one name stop that name, not every client.
+        const key = `login:${b.kind === "token" ? "owner-token" : nameHandle(b.username)}`;
+        const v = d.limiter.take("auth", key);
+        if (!v.ok) { d.audit.emit("auth.rate-limited", "anonymous", key, { class: "auth", route: "session.create", ip: i.ip }); throw errors.rateLimited(v.retryAfterSec); }
+      }
       if (b.kind === "token") {
         if (!d.verifyOwner(b.token)) {
           d.log.warn("login refused");

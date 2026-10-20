@@ -4054,7 +4054,7 @@
         },
         "x-stability": "experimental",
         "x-since": "1.0.0",
-        "x-rate-class": "write",
+        "x-rate-class": "expensive",
         "x-csrf": true,
         "x-authz": "chat:write"
       }

@@ -38,6 +38,8 @@ export interface StartOptions {
   users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"]; webRoot?: string;
   /** Break-glass writes here instead of the shared sink; `noAudit` configures no sink at all. */
   breakGlassAudit?: AuditSink; auditSink?: AuditSink; notifyBreakGlass?: ApiServerOptions["notifyBreakGlass"]; noAudit?: boolean;
+  /** Tailnet mode (every client arrives from 127.0.0.1) and the global cap on model-backed work. */
+  remote?: ApiServerOptions["remote"]; requireSecondFactor?: ApiServerOptions["requireSecondFactor"]; expensiveConcurrency?: number;
 }
 
 export async function start(o: StartOptions = {}): Promise<Harness> {
@@ -50,6 +52,7 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
     ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),
     ...(o.breakGlassAudit ? { breakGlassAudit: o.breakGlassAudit } : {}), ...(o.notifyBreakGlass ? { notifyBreakGlass: o.notifyBreakGlass } : {}),
+    ...(o.remote ? { remote: o.remote } : {}), ...(o.requireSecondFactor ? { requireSecondFactor: o.requireSecondFactor } : {}), ...(o.expensiveConcurrency ? { expensiveConcurrency: o.expensiveConcurrency } : {}),
   });
   const { url, port } = await api.listen();
   return { api, url, port, clock, core, logs, audit, users, close: () => api.close() };
