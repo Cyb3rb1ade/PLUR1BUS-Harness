@@ -6,33 +6,43 @@
 //! extracted (`p1x.json`, `p1x.json.minisig`, `payload/…`) plus `record.json` (id, version, kind, package SHA-256,
 //! trust, declared rights, the `files` map). The directory appears whole or not at all:
 //!
-//! 1. [`plur1bus_ext::verify::inspect_file_kinds`] audits the package (zip structure, traversal, symlinks, size, count
-//!    and ratio caps from the caller's `Policy`, signature, manifest, per-kind rules, every file's SHA-256).
-//! 2. The package is extracted with the one verified extractor into `packages/.staging/<name>-<nonce>/`.
+//! 0. The package is read **once**: copied into a private spool (`packages/.staging/.spool-<nonce>/`, at most the
+//!    policy's package size) while the caller's file may still change. Everything below works on that copy.
+//! 1. [`plur1bus_ext::verify::inspect_file_kinds`] audits the spool copy (zip structure, traversal, symlinks, size,
+//!    count and ratio caps from the caller's `Policy`, signature, manifest, per-kind rules, every file's SHA-256).
+//!    `extensions.allowUnsigned: false` then admits only packages signed by a trusted key, as for X1.
+//! 2. The spool copy is hashed again against the audited SHA-256 and extracted with the one verified extractor into
+//!    `packages/.staging/<name>-<nonce>/`, capped at the audited uncompressed size.
 //! 3. [`super::stage::check_tree`] checks the extracted tree against `files` again (no symlink or special file, the
-//!    file set, sizes and hashes), so what lies on disk is what was audited.
+//!    file set, sizes and hashes), and [`super::stage::check_root_files`] the two root files against the audited
+//!    manifest and signature bytes, so what lies on disk is what was audited.
 //! 4. `record.json` is written into the staging directory.
 //! 5. A replaced package's directory moves aside, the staging directory is renamed to `packages/<name>/`, the old one
 //!    is removed. A failure at any step puts everything back (`packages/` ends as it was).
 //!
-//! A killed process leaves only `.staging/` entries (and, between the two renames of a replace, the old package
-//! under its aside name); [`PackageStore::recover`] finishes or removes them. Seam `PLUR1BUS_TEST_EXT_FAIL_AT` with
-//! the points `extract`, `verify`, `record`, `swap`, `commit` and `uninstall.trash` (`kill:<point>` leaves what a
-//! killed process would).
+//! A killed process leaves only `.staging/` entries, the spool among them (and, between the two renames of a replace,
+//! the old package under its aside name); [`PackageStore::recover`] finishes or removes them. Seam
+//! `PLUR1BUS_TEST_EXT_FAIL_AT` with the points `extract`, `verify`, `record`, `swap`, `commit` and `uninstall.trash`
+//! (`kill:<point>` leaves what a killed process would).
 use super::commit::{fail_at, killed, reset_kill};
-use super::stage::check_tree;
+use super::record::check_unsigned_policy;
+use super::stage::{check_root_files, check_tree};
 use super::state::{
     remove_dir_all_retrying, remove_empty_dir_retrying, rename_retrying, write_private_atomic,
 };
 use super::{now_iso, ExtError};
 use crate::install::archive;
+use crate::paths::Layout;
+use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::{valid_name, Kind, P1xManifest};
-use plur1bus_ext::refusal::reason;
+use plur1bus_ext::refusal::{reason, Refusal};
 use plur1bus_ext::rights::{declared_rights, Right};
 use plur1bus_ext::trust::Tier;
-use plur1bus_ext::verify::{inspect_file_kinds, Policy, X2_KINDS};
+use plur1bus_ext::verify::{inspect_file_kinds, Inspection, Policy, X2_KINDS};
+use plur1bus_ext::zipaudit::Entry;
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 const RECORD: &str = "record.json";
@@ -67,6 +77,12 @@ type StageHook = Box<dyn Fn(&Path)>;
 
 pub struct PackageStore {
     root: PathBuf,
+    /// Where `config.json` lives (`extensions.allowUnsigned`, read at every install); `None` for a store made with
+    /// [`PackageStore::at`], which has no configuration and applies no policy of its own.
+    layout: Option<Layout>,
+    /// Test seam: runs on the spool copy after the audit (it gets the spool path), before it is hashed again.
+    #[cfg(test)]
+    after_inspect: Option<StageHook>,
     /// Test seam: runs on the extracted staging tree before it is checked.
     #[cfg(test)]
     after_extract: Option<StageHook>,
@@ -131,13 +147,18 @@ impl Txn {
 }
 
 impl PackageStore {
-    pub fn of(layout: &crate::paths::Layout) -> Self {
-        Self::at(layout.extensions().join("packages"))
+    pub fn of(layout: &Layout) -> Self {
+        let mut store = Self::at(layout.extensions().join("packages"));
+        store.layout = Some(layout.clone());
+        store
     }
 
     pub fn at(root: PathBuf) -> Self {
         PackageStore {
             root,
+            layout: None,
+            #[cfg(test)]
+            after_inspect: None,
             #[cfg(test)]
             after_extract: None,
             #[cfg(test)]
@@ -241,7 +262,10 @@ impl PackageStore {
         opts: &InstallOpts,
     ) -> Result<Installed, ExtError> {
         self.reset_kill();
-        let insp = inspect_file_kinds(pkg, policy, &X2_KINDS)?;
+        // The package is read once. What is audited, hashed and extracted below is this private copy, so a file that
+        // changes behind the caller's path after the audit is never what gets installed.
+        let mut spool = self.spool(pkg, policy.limits.package_bytes)?;
+        let insp = inspect_file_kinds(&spool.file, policy, &X2_KINDS)?;
         let m = &insp.manifest;
         if !matches!(m.kind, Kind::McpServer | Kind::Provider) {
             return Err(ExtError::new(
@@ -253,6 +277,17 @@ impl PackageStore {
                 ),
             ));
         }
+        // `extensions.allowUnsigned: false` is a policy, not an acknowledgment: it refuses before one is asked for.
+        let allow_unsigned = match &self.layout {
+            Some(layout) => super::inspect::allow_unsigned_policy(layout)?,
+            None => true,
+        };
+        check_unsigned_policy(
+            allow_unsigned,
+            tier_name(insp.trust.tier),
+            &m.id,
+            &m.version,
+        )?;
         // RULING: the same acknowledgments as X1 (unsigned, unknown signer, downgrade); none is implied.
         match insp.trust.tier {
             Tier::Unsigned if !opts.allow_unsigned => {
@@ -298,18 +333,11 @@ impl PackageStore {
         }
 
         let mut tx = Txn::default();
-        match self.run(
-            pkg,
-            &insp.sha256,
-            &insp.trust,
-            m,
-            &dir,
-            prev.is_some(),
-            &mut tx,
-        ) {
+        match self.run(&spool.file, &insp, &dir, prev.is_some(), &mut tx) {
             Ok(()) => Ok(installed(m, false, prev.is_some())),
             Err(mut e) => {
                 if self.killed() {
+                    spool.keep = true;
                     return Err(e); // a killed process undoes nothing; `recover` does
                 }
                 let failed = tx.rollback();
@@ -326,47 +354,101 @@ impl PackageStore {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// Copies the package at `pkg` into a private spool under `.staging/`: the file is opened once, its size checked
+    /// against `cap` (the policy's package size) before and while it is copied, and what is copied is all anyone reads
+    /// from then on. The returned guard removes the spool (and the emptied `.staging/` and `packages/`) when dropped.
+    fn spool(&self, pkg: &Path, cap: u64) -> Result<Spool, ExtError> {
+        let refuse: fn(Refusal) -> ExtError = ExtError::from;
+        let mut src = std::fs::File::open(pkg).map_err(|e| refuse(Refusal::io(&e)))?;
+        let meta = src.metadata().map_err(|e| refuse(Refusal::io(&e)))?;
+        if !meta.is_file() {
+            return Err(refuse(Refusal::invalid(
+                reason::PACKAGE_INVALID,
+                format!("{} is not a regular file", pkg.display()),
+            )));
+        }
+        if meta.len() > cap {
+            return Err(too_large(meta.len(), cap));
+        }
+        let staging = self.staging();
+        std::fs::create_dir_all(&staging).map_err(|e| io_err("cannot create", &staging, &e))?;
+        let dir = staging.join(format!(".spool-{}", nonce()));
+        let spool = Spool {
+            file: dir.join("package.p1x"),
+            dir,
+            staging,
+            root: self.root.clone(),
+            keep: false,
+        };
+        std::fs::create_dir(&spool.dir).map_err(|e| io_err("cannot create", &spool.dir, &e))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&spool.dir, std::fs::Permissions::from_mode(0o700))
+                .map_err(|e| io_err("cannot restrict", &spool.dir, &e))?;
+        }
+        let mut out = crate::audit::create_private(&spool.file, true)
+            .map_err(|e| io_err("cannot create", &spool.file, &e))?;
+        // A file that grows while it is read still stops at the cap.
+        let n = io::copy(&mut (&mut src).take(cap.saturating_add(1)), &mut out)
+            .map_err(|e| io_err("cannot write", &spool.file, &e))?;
+        if n > cap {
+            return Err(too_large(n, cap));
+        }
+        out.sync_all()
+            .map_err(|e| io_err("cannot write", &spool.file, &e))?;
+        Ok(spool)
+    }
+
     fn run(
         &self,
-        pkg: &Path,
-        sha256: &str,
-        trust: &plur1bus_ext::trust::Trust,
-        m: &P1xManifest,
+        spool: &Path,
+        insp: &Inspection,
         dir: &Path,
         replacing: bool,
         tx: &mut Txn,
     ) -> Result<(), ExtError> {
+        let m = &insp.manifest;
+        #[cfg(test)]
+        if let Some(hook) = &self.after_inspect {
+            hook(spool);
+        }
+        // The audit saw exactly these bytes; only these bytes are extracted.
+        let actual = archive::sha256_file(spool).map_err(|e| io_err("cannot read", spool, &e))?;
+        if actual != insp.sha256 {
+            return Err(ExtError::from(Refusal::invalid(
+                reason::DIGEST,
+                format!(
+                    "the package changed after the audit: sha256 {actual}, the audit saw {}",
+                    insp.sha256
+                ),
+            )));
+        }
         let staging_root = self.staging();
         std::fs::create_dir_all(&staging_root)
             .map_err(|e| io_err("cannot create", &staging_root, &e))?;
         let tag = nonce();
         let stage = staging_root.join(format!("{}-{tag}", m.name));
         tx.staging = Some(stage.clone());
-        archive::extract(pkg, &stage, 0).map_err(|e| {
-            let code = if e.reason() == "io" {
-                "E_INTERNAL"
-            } else {
-                "E_INVALID_PARAMS"
-            };
-            ExtError::new(code, e.reason(), e.to_string())
-        })?;
+        extract_audited(spool, &stage, &insp.entries)?;
         self.step("extract")?;
         #[cfg(test)]
         if let Some(hook) = &self.after_extract {
             hook(&stage);
         }
         check_tree(&stage, m)?;
+        check_root_files(&stage, &insp.manifest_raw, insp.signature_raw.as_deref())?;
         self.step("verify")?;
 
         let record = json!({
             "schema": "ext-package/1",
             "id": m.id, "name": m.name, "version": m.version, "kind": kind_str(m.kind),
-            "packageSha256": sha256,
-            "trust": { "tier": trust.tier, "keyId": trust.key_id, "label": trust.key_label },
+            "packageSha256": insp.sha256,
+            "trust": { "tier": insp.trust.tier, "keyId": insp.trust.key_id, "label": insp.trust.key_label },
             "installedAt": now_iso(),
             "rights": declared_rights(m),
-            "capabilities": m.capabilities,
+            // What an acknowledgment is tied to: the capabilities and the endpoint URL (`compat::acknowledgment_hash`).
+            "capabilities": acknowledged_capabilities(m),
             "files": m.files,
         });
         let mut text = serde_json::to_string_pretty(&record).unwrap_or_default();
@@ -454,6 +536,64 @@ impl PackageStore {
         let _ = remove_empty_dir_retrying(&self.staging());
         let _ = remove_empty_dir_retrying(&self.root);
     }
+}
+
+/// The private copy of the package the install works on, removed with its emptied parents when dropped (unless a kill is
+/// being imitated: `recover` removes what a killed process leaves).
+struct Spool {
+    /// `.staging/.spool-<nonce>/package.p1x`
+    file: PathBuf,
+    dir: PathBuf,
+    staging: PathBuf,
+    root: PathBuf,
+    keep: bool,
+}
+
+impl Drop for Spool {
+    fn drop(&mut self) {
+        if self.keep {
+            return;
+        }
+        let _ = remove_dir_all_retrying(&self.dir);
+        let _ = remove_empty_dir_retrying(&self.staging);
+        let _ = remove_empty_dir_retrying(&self.root);
+    }
+}
+
+fn too_large(size: u64, limit: u64) -> ExtError {
+    ExtError::from(Refusal::invalid(
+        reason::TOO_LARGE,
+        format!("the package is at least {size} bytes; the limit is {limit}"),
+    ))
+}
+
+/// A trust tier in the spelling `check_unsigned_policy` and the state records use.
+fn tier_name(t: Tier) -> &'static str {
+    match t {
+        Tier::Release => "release",
+        Tier::FirstParty => "first-party",
+        Tier::UnknownSigner => "unknown-signer",
+        Tier::Unsigned => "unsigned",
+        Tier::Imported => "imported",
+        Tier::Dev => "dev",
+    }
+}
+
+/// Extracts the audited package into `into`, refusing to write more than the audit counted: the cap is the sum of the
+/// audited entries' uncompressed sizes, not the extractor's 2 GiB default, so an archive that is not the one that was
+/// audited cannot fill the disk.
+fn extract_audited(pkg: &Path, into: &Path, audited: &[Entry]) -> Result<(), ExtError> {
+    let cap = audited
+        .iter()
+        .fold(0u64, |sum, e| sum.saturating_add(e.uncompressed));
+    archive::extract_capped(pkg, into, 0, cap).map_err(|e| {
+        let code = if e.reason() == "io" {
+            "E_INTERNAL"
+        } else {
+            "E_INVALID_PARAMS"
+        };
+        ExtError::new(code, e.reason(), e.to_string())
+    })
 }
 
 fn approval(reason: &'static str, why: &str) -> ExtError {
@@ -964,5 +1104,226 @@ mod tests {
         std::fs::create_dir_all(sd.join("crm-old-zzz")).unwrap();
         st.recover().unwrap();
         env.assert_clean(&["crm"]);
+    }
+    /// A manifest like `mcp` whose endpoint is somewhere else; everything else (payload, files) is the same.
+    fn evil_mcp() -> Value {
+        let mut t = mcp("1.0.0");
+        t["remote"] = json!({ "url": "https://mcp.example.org/evil", "auth": "none" });
+        t
+    }
+
+    #[test]
+    fn a_package_swapped_behind_the_path_after_the_audit_is_not_what_gets_installed() {
+        let env = Env::new();
+        let mut st = store(env.root.clone());
+        let good = env.signed(&mcp("1.0.0"), "r1");
+        let good_manifest = {
+            let mut z = zip::ZipArchive::new(std::fs::File::open(&good).unwrap()).unwrap();
+            let mut b = Vec::new();
+            std::io::Read::read_to_end(&mut z.by_name("p1x.json").unwrap(), &mut b).unwrap();
+            b
+        };
+        // Same payload and a valid signature of its own, but another manifest: `check_tree` alone cannot tell.
+        let other = env.write(
+            "evil.p1x",
+            &build_package_from(&evil_mcp(), files("r1"), Some(&env.key)),
+        );
+        let (src, swap) = (good.clone(), other.clone());
+        st.after_inspect = Some(Box::new(move |_spool| {
+            std::fs::copy(&swap, &src).unwrap();
+        }));
+        env.install(&st, &good, &InstallOpts::default()).unwrap();
+        assert_eq!(
+            std::fs::read(env.root.join("crm/p1x.json")).unwrap(),
+            good_manifest,
+            "the installed manifest is the audited one"
+        );
+        let rec = st.record("crm").unwrap().unwrap();
+        let rights: Vec<&str> = rec["rights"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["id"].as_str().unwrap())
+            .collect();
+        assert!(
+            rights.contains(&"remote:https://mcp.example.org/v1"),
+            "{rights:?}"
+        );
+        env.assert_clean(&["crm"]);
+    }
+
+    #[test]
+    fn a_spool_copy_that_changes_after_the_audit_is_refused() {
+        let env = Env::new();
+        let mut st = store(env.root.clone());
+        let other = env.write(
+            "evil.p1x",
+            &build_package_from(&evil_mcp(), files("r1"), Some(&env.key)),
+        );
+        st.after_inspect = Some(Box::new(move |spool| {
+            std::fs::copy(&other, spool).unwrap();
+        }));
+        let e = env
+            .install(
+                &st,
+                &env.signed(&mcp("1.0.0"), "r1"),
+                &InstallOpts::default(),
+            )
+            .unwrap_err();
+        assert_eq!(reason_of(&e), "digest-mismatch", "{e}");
+        assert!(!env.root.exists(), "nothing is left, the spool included");
+    }
+
+    #[test]
+    fn the_root_files_must_be_the_audited_bytes() {
+        // (what, signed package, what the staged tree is changed into, the refusal)
+        let cases = [
+            ("p1x.json rewritten", true, 0, "digest-mismatch"),
+            ("signature rewritten", true, 1, "digest-mismatch"),
+            ("signature removed", true, 2, "package-invalid"),
+            (
+                "signature added to an unsigned package",
+                false,
+                3,
+                "package-invalid",
+            ),
+        ];
+        for (what, signed, edit, want) in cases {
+            let env = Env::new();
+            let mut st = store(env.root.clone());
+            st.after_extract = Some(Box::new(move |stage| match edit {
+                0 => std::fs::write(stage.join("p1x.json"), b"{}").unwrap(),
+                1 | 3 => std::fs::write(stage.join("p1x.json.minisig"), b"x").unwrap(),
+                _ => std::fs::remove_file(stage.join("p1x.json.minisig")).unwrap(),
+            }));
+            let pkg = if signed {
+                env.signed(&mcp("1.0.0"), "r1")
+            } else {
+                env.write(
+                    "u.p1x",
+                    &build_package_from(&mcp("1.0.0"), files("r1"), None),
+                )
+            };
+            let opts = InstallOpts {
+                allow_unsigned: true,
+                ..Default::default()
+            };
+            let e = env.install(&st, &pkg, &opts).unwrap_err();
+            assert_eq!(reason_of(&e), want, "{what}: {e}");
+            assert!(!env.root.exists(), "{what} left {}", env.root.display());
+        }
+    }
+
+    #[test]
+    fn extraction_never_writes_more_than_the_audit_counted() {
+        let env = Env::new();
+        let h = host();
+        let small = env.signed(&mcp("1.0.0"), "r1");
+        let insp =
+            inspect_file_kinds(&small, &env.policy_with(&h, Limits::default()), &X2_KINDS).unwrap();
+        // The audited archive itself fits its own count.
+        extract_audited(&small, &env._dir.path().join("ok"), &insp.entries).unwrap();
+        // A larger archive does not, whatever it is (the 2 GiB default would let it through).
+        let big = env.write(
+            "big.p1x",
+            &build_package_from(&mcp("1.0.0"), files(&"x".repeat(4096)), Some(&env.key)),
+        );
+        let e = extract_audited(&big, &env._dir.path().join("big"), &insp.entries).unwrap_err();
+        assert_eq!(reason_of(&e), "download-too-large", "{e}");
+        assert!(!env._dir.path().join("big").exists());
+    }
+
+    /// A store of the real kind (`PackageStore::of`) over a home whose `config.json` says `allowUnsigned`.
+    fn store_with_policy(env: &Env, allow_unsigned: Option<bool>) -> PackageStore {
+        let home = env._dir.path();
+        if let Some(a) = allow_unsigned {
+            std::fs::write(
+                home.join("config.json"),
+                json!({ "extensions": { "allowUnsigned": a } }).to_string(),
+            )
+            .unwrap();
+        }
+        let mut s = PackageStore::of(&Layout::new(home.to_path_buf()));
+        assert_eq!(s.root, env.root);
+        s.isolated = true;
+        s
+    }
+
+    #[test]
+    fn allow_unsigned_false_admits_only_packages_signed_by_a_trusted_key() {
+        let env = Env::new();
+        let st = store_with_policy(&env, Some(false));
+        let everything = InstallOpts {
+            allow_unsigned: true,
+            allow_unknown_signer: true,
+            allow_downgrade: true,
+        };
+        let unsigned = env.write("u.p1x", &build_package_from(&provider(), files("x"), None));
+        let stranger = test_key("stranger");
+        let unknown = env.write(
+            "k.p1x",
+            &build_package_from(&provider(), files("x"), Some(&stranger)),
+        );
+        for (what, pkg) in [("unsigned", &unsigned), ("unknown signer", &unknown)] {
+            // Not even the person's own acknowledgment overrides the policy.
+            let e = env.install(&st, pkg, &everything).unwrap_err();
+            assert_eq!(
+                (e.code, reason_of(&e)),
+                ("E_DENIED", "policy-unsigned-disallowed"),
+                "{what}: {e}"
+            );
+            assert!(!env.root.exists(), "{what} left {}", env.root.display());
+        }
+        // The legitimate case keeps working: a package signed by a trusted key.
+        env.install(
+            &st,
+            &env.signed(&mcp("1.0.0"), "r1"),
+            &InstallOpts::default(),
+        )
+        .unwrap();
+        assert_eq!(st.names().unwrap(), ["crm"]);
+    }
+
+    #[test]
+    fn allow_unsigned_true_or_unset_leaves_the_acknowledgment_flow_as_it_was() {
+        for setting in [None, Some(true)] {
+            let env = Env::new();
+            let st = store_with_policy(&env, setting);
+            let pkg = env.write("u.p1x", &build_package_from(&provider(), files("x"), None));
+            let e = env.install(&st, &pkg, &InstallOpts::default()).unwrap_err();
+            assert_eq!(
+                (e.code, reason_of(&e)),
+                ("E_APPROVAL_REQUIRED", "acknowledge-unsigned"),
+                "{setting:?}"
+            );
+            let opts = InstallOpts {
+                allow_unsigned: true,
+                ..Default::default()
+            };
+            env.install(&st, &pkg, &opts).unwrap();
+        }
+    }
+
+    #[test]
+    fn the_record_keeps_the_endpoint_inside_the_capabilities_the_consent_is_tied_to() {
+        let env = Env::new();
+        let st = store(env.root.clone());
+        env.install(
+            &st,
+            &env.signed(&mcp("1.0.0"), "r1"),
+            &InstallOpts::default(),
+        )
+        .unwrap();
+        let first = st.record("crm").unwrap().unwrap()["capabilities"].clone();
+        assert_eq!(first["endpoints"]["remote"], "https://mcp.example.org/v1");
+        let mut moved = mcp("2.0.0");
+        moved["remote"] = json!({ "url": "https://mcp.example.org/other-tenant", "auth": "none" });
+        env.install(&st, &env.signed(&moved, "r2"), &InstallOpts::default())
+            .unwrap();
+        let second = st.record("crm").unwrap().unwrap()["capabilities"].clone();
+        assert_ne!(
+            plur1bus_ext::compat::capability_hash(&first),
+            plur1bus_ext::compat::capability_hash(&second)
+        );
     }
 }
