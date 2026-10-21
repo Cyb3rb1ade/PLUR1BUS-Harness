@@ -1,5 +1,5 @@
 import { atomicWrite } from './atomic.ts';
-import { textMatcher } from './search.ts';
+import { matchMany } from './search.ts';
 import { constants } from 'node:fs';
 import { mkdir, rename, realpath, lstat } from 'node:fs/promises';
 import path from 'node:path';
@@ -78,17 +78,15 @@ export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[
       }
       case 'list': return walk(input, integer(a.depth, 0, 16), integer(a.limit, config.search.maxResults, 1000), signal);
       case 'search': {
-        const matcher = await textMatcher();
         const query = string(a, 'query'); if (!query) fail('INVALID_ARGUMENT', 'Use a nonempty literal query.');
         const listing = scan(input, integer(a.depth, 8, 16), 1000, signal); const matches: { path: string }[] = []; let truncated = false, full = false;
         const limit = integer(a.limit, config.search.maxResults, config.search.maxResults);
         const take = (hit: string) => { if (matches.length >= limit) { truncated = true; full = true; } else matches.push({ path: hit }); };
-        // Content mode reads each file through the verified path, then asks the matcher about a batch at a time: one ripgrep start per batch, not per file.
+        // Content mode reads each file through the verified path and tests a batch of the loaded texts at a time, in this process (no child process).
         let batch: { path: string; text: string }[] = [], batchBytes = 0;
         const flush = async () => {
           const pending = batch; batch = []; batchBytes = 0; if (pending.length === 0) return;
-          let hits: boolean[];
-          try { hits = await matcher.matchMany(pending.map(p => p.text), query, signal); } catch { signal.throwIfAborted(); hits = pending.map(p => p.text.includes(query)); }
+          const hits = await matchMany(pending.map(p => p.text), query, signal);
           for (let i = 0; i < pending.length && !full; i++) if (hits[i]) take(pending[i]!.path);
         };
         for await (const item of listing.entries) {
@@ -104,7 +102,7 @@ export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[
         }
         if (!full) await flush();
         if (!full) truncated = listing.state.truncated;
-        return { matches, truncated, backend: matcher.backend };
+        return { matches, truncated, backend: 'bounded-js' };
       }
       case 'mkdir': { const c = await entry(input); signal.throwIfAborted(); await mkdir(c.canonical, { mode: 0o700 }); await canon(c.canonical, 'read'); return { created: true }; }
       case 'copy': case 'move': {
