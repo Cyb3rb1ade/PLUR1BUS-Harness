@@ -1,7 +1,7 @@
 import { passkeyLogin } from "../passkeys.ts";
 import { h } from "preact";
 import type { View } from "../view.ts";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { PreferenceControls } from "../components/controls.ts";
 import { t } from "../i18n.ts";
 import { icon } from "../icons.ts";
@@ -27,7 +27,9 @@ export function LoginPage(): View {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Err | null>(null);
   const tokenRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { tokenRef.current?.focus(); }, []);
+  // Layout effect: the field has the focus in the draw that shows the form. A passive effect runs after the paint, when the form is
+  // already operable, and its late focus() would pull the focus back from a key or click that came first.
+  useLayoutEffect(() => { tokenRef.current?.focus(); }, []);
 
   const onSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();

@@ -451,15 +451,28 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
       }
     }
 
-    // If config.json did not exist in snapshot but exists now and this run created it
+    // If config.json did not exist in snapshot but exists now, this run created it. Like any created file it is only
+    // removed while it still has the content the import wrote (the ledger's hash); one the user edited since, or one
+    // without a recorded hash, is kept (§5.5), unless --force.
     if (!manifest.configExisted && existsSync(l.configPath)) {
-      changes.push({ path: "config.json", change: "remove" });
+      const expectedSha = createdFiles.get("config.json");
+      let currentSha = "";
+      try {
+        currentSha = sha256File(l.configPath);
+      } catch {
+        // unreadable
+      }
+      const isUserModified = Boolean(!expectedSha || !currentSha || currentSha !== expectedSha);
+      changes.push({ path: "config.json", change: isUserModified && !opts.force ? "kept-modified" : "remove" });
     }
 
     // Handle store adoption rollback
     let storeUndoStatus: "restored" | "removed" | "not-reverted" | undefined = undefined;
     const replacedStoreBackup = join(runDir, "replaced", "lancedb");
-    if (storeAction === "replace") {
+    // A store swap that died between its two renames (hermes-stores commitStoreAdopt) leaves no ledger entry: the live
+    // store sits in replaced/lancedb and state/lancedb is missing. Nothing else holds that store, so it is put back.
+    const orphanedStoreBackup = storeAction === null && existsSync(replacedStoreBackup) && !existsSync(l.lancedb);
+    if (storeAction === "replace" || orphanedStoreBackup) {
       if (existsSync(replacedStoreBackup)) {
         changes.push({ path: "state/lancedb", change: "restore" });
         storeUndoStatus = "restored";
@@ -547,7 +560,7 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
     mkdirSync(backupDir, { recursive: true, mode: 0o700 });
 
     // Handle store restore or removal before/during files loop
-    if (storeAction === "replace" && existsSync(replacedStoreBackup)) {
+    if ((storeAction === "replace" || orphanedStoreBackup) && existsSync(replacedStoreBackup)) {
       if (existsSync(l.lancedb)) {
         const storeBkp = join(backupDir, "state", "lancedb");
         mkdirSync(dirname(storeBkp), { recursive: true, mode: 0o700 });
@@ -605,15 +618,6 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
         const snapContent = readFileSync(snapFilePath);
         writeAtomicSync(targetPath, snapContent, 0o600);
       }
-    }
-
-    // If config did not exist before apply, back it up and ensure it is removed
-    if (!manifest.configExisted && existsSync(l.configPath)) {
-      try {
-        const bkp = join(backupDir, "config.json");
-        writeAtomicSync(bkp, readFileSync(l.configPath), 0o600);
-      } catch {}
-      unlinkSync(l.configPath);
     }
 
     // Clean up created agent directories if empty

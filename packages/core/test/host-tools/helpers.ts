@@ -93,6 +93,8 @@ export class FakeExec implements HostExec {
 export class MemoryFs implements HostFs {
   files: Map<string, string>;
   dirs: Set<string>;
+  /** Optional POSIX permission bits per file; a file without an entry reports none. */
+  modes = new Map<string, number>();
   constructor(init: Record<string, string | readonly string[] | true> = {}) {
     this.files = new Map();
     this.dirs = new Set();
@@ -139,9 +141,12 @@ export class MemoryFs implements HostFs {
     if (names.size === 0 && !this.dirs.has(n)) throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
     return [...names].sort();
   }
-  async stat(p: string): Promise<{ isFile: boolean; isDirectory: boolean; size: number }> {
+  async stat(p: string): Promise<{ isFile: boolean; isDirectory: boolean; size: number; mode?: number }> {
     const n = p.replace(/\\/g, "/");
-    if (this.files.has(n)) return { isFile: true, isDirectory: false, size: this.files.get(n)!.length };
+    if (this.files.has(n)) {
+      const mode = this.modes.get(n);
+      return { isFile: true, isDirectory: false, size: this.files.get(n)!.length, ...(mode !== undefined ? { mode } : {}) };
+    }
     if (this.dirs.has(n)) return { isFile: false, isDirectory: true, size: 0 };
     throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
   }

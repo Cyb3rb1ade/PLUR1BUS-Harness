@@ -1,10 +1,9 @@
 // The SDK owns MCP; this transport owns bounded framing and the lifetime of spawned code.
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { PassThrough, type Readable, type Writable } from "node:stream";
-import { DEFAULT_INHERITED_ENV_VARS } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { JSONRPCMessageSchema, type JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import type { McpTransportConfig } from "./types.ts";
-import { buildChildEnv } from "./env.ts";
+import { stdioSpawnEnv } from "./env.ts";
 import { windowsJobCommand, windowsLauncherEnv } from "./windows-job.ts";
 
 type Pipes = { input: Writable; output: Readable; stderr?: Readable };
@@ -39,12 +38,7 @@ export class BoundedStdioTransport {
     if ("input" in this.source) this.pipes = this.source;
     else {
       const t = this.source;
-      const env: Record<string, string> = {};
-      for (const key of DEFAULT_INHERITED_ENV_VARS) {
-        const value = this.host[key] ?? process.env[key];
-        if (value !== undefined && !value.startsWith("()")) env[key] = value;
-      }
-      Object.assign(env, buildChildEnv(t, this.host).env);
+      const env = stdioSpawnEnv(t, this.host);
       const launch = process.platform === "win32" ? windowsJobCommand(t.command, t.args, this.host, Object.keys(env)) : { command: t.command, args: t.args };
       const spawnEnv = process.platform === "win32" ? windowsLauncherEnv(env) : env;
       this.child = spawn(launch.command, launch.args, { env: spawnEnv, cwd: t.cwd, shell: false, windowsHide: true, detached: process.platform !== "win32", stdio: "pipe" });

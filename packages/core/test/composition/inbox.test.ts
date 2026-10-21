@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { openInbox, lateInboxPort, type InboxCompositionOptions } from "../../src/composition/inbox.ts";
 import type { InboxChange, InboxKind, InboxNotice, InboxService } from "../../src/inbox/index.ts";
 import type { BreakGlassNotice } from "../../src/rbac/break-glass.ts";
-import { gap, useTempDirs } from "./helpers.ts";
+import { useTempDirs } from "./helpers.ts";
 
 const tmp = useTempDirs("p1b-inbox-comp-");
 const notice = (n: number, over: Partial<BreakGlassNotice> = {}): BreakGlassNotice => ({ kind: "granted", userId: `user-${n}`, grantId: `grant-${n}`, holderUserId: `holder-${n}`, reason: "redact-probe-alpha", expiresAt: 1_000 + n, ...over });
@@ -85,8 +85,7 @@ describe("composition/inbox openInbox", () => {
     try { assert.deepEqual(logs[0]![1], { error: "plain string" }); } finally { inbox.close(); }
   });
 
-  const migrationGap = gap("openInbox", "gueltige Altmeldungen hinter einer ungueltigen werden trotzdem kopiert (docs/inbox.md: notices that are not in the inbox yet are copied over)", "die Migration bricht an der ersten ungueltigen Meldung ab und jede spaetere Meldung bleibt bei jedem Start unkopiert");
-  it(migrationGap, () => {
+  it("a malformed legacy notice is skipped and the valid notices behind it are still copied (docs/inbox.md: notices that are not in the inbox yet are copied over)", () => {
     const dir = tmp.make();
     const legacy = [notice(1), notice(2, { grantId: "" }), notice(3)];
     const { inbox } = open(dir, { legacyNotices: () => legacy });

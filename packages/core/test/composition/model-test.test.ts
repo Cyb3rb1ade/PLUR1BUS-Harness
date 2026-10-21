@@ -32,7 +32,35 @@ test('provider error text never leaves the probe boundary', async () => {
   const s = scriptedAdapter([{ text: 'unused' }]);
   await assert.rejects(() => testModel('p/m', { p: [{ provider: 'p', model: 'm', adapter: s.adapter }] }, () => ({ id: 'fake', async *stream() { throw new Error('private-provider-response'); } }), TURN_PRINCIPAL, 'a1', new AbortController().signal), (e: unknown) => e instanceof RpcError && e.reason === 'model-test-failed' && !e.message.includes('private-provider-response'));
 });
-test.todo('KNOWN GAP: after #570 merges, role choices and probes enforce the canonical local-only policy');
+test('privacy.localOnly: probing a cloud model is refused with E_DENIED local-only before a provider exists or a request leaves', async () => {
+  const s = scriptedAdapter([{ text: 'OK' }]);
+  const profiles = { default: [{ provider: 'cloudvendor', model: 'big', adapter: s.adapter }] };
+  let created = 0;
+  await assert.rejects(() => testModel('cloudvendor/big', profiles, () => { created++; throw new Error('must not run'); }, TURN_PRINCIPAL, 'a1', new AbortController().signal, { localOnly: () => true, isLocalProvider: () => false }),
+    (e: unknown) => e instanceof RpcError && e.error === 'E_DENIED' && e.reason === 'local-only');
+  assert.equal(created, 0);
+  assert.equal(s.requests.length, 0);
+});
+test('privacy.localOnly: the switch is asked for the probing agent, and a local model is still probed', async () => {
+  const s = scriptedAdapter([{ text: 'OK' }]);
+  const profiles = { default: [{ provider: 'ollama', model: 'm', adapter: s.adapter }] };
+  const asked: string[] = [];
+  let fixture: ReturnType<typeof turnFixture> | undefined;
+  try {
+    const result = await testModel('ollama/m', profiles, selected => { fixture = turnFixture(s.adapter, { profiles: selected, profile: 'probe', maxRounds: 1 }, tmp.make()); return fixture.provider; }, TURN_PRINCIPAL, 'a1', new AbortController().signal,
+      { localOnly: (agent) => { asked.push(agent); return true; }, isLocalProvider: (p) => p === 'ollama' });
+    assert.equal(result.ok, true);
+    assert.equal(s.requests.length, 1);
+    assert.deepEqual(asked, ['a1']);
+  } finally { fixture?.close(); }
+  // switch off: a cloud model is probed as before
+  const cloud = scriptedAdapter([{ text: 'OK' }]); let f2: ReturnType<typeof turnFixture> | undefined;
+  try {
+    const r = await testModel('cloudvendor/big', { default: [{ provider: 'cloudvendor', model: 'big', adapter: cloud.adapter }] }, selected => { f2 = turnFixture(cloud.adapter, { profiles: selected, profile: 'probe', maxRounds: 1 }, tmp.make()); return f2.provider; }, TURN_PRINCIPAL, 'a1', new AbortController().signal, { localOnly: () => false, isLocalProvider: () => false });
+    assert.equal(r.ok, true);
+  } finally { f2?.close(); }
+});
+test.todo('KNOWN GAP: engine embedding/reranker role probes require the Phase D host ports');
 test('probe RPC is human-only, scope-limited and absent from WebMCP', async () => {
   const { guardMethods, LOCAL_OWNER } = await import('../../src/rbac/guard.ts');
   const { isForbiddenMethod } = await import('../../../webmcp/src/provider.ts');

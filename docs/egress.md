@@ -126,10 +126,10 @@ remains mandatory, with `fallbackProvider: "disabled"`: a failed call never sile
 `privacy.localOnly` (Settings > Privacy, installation-wide, with `agents.<id>.privacy.localOnly` as a per-agent override in
 both directions) decides **which model providers** may be used: only loopback (`localhost`, `127.0.0.0/8`, `::1`) or an
 exact origin listed in `privacy.localEndpoints` (a self-hosted Ollama or vLLM server in the home network; a LAN address
-is never local by itself). It is enforced where a provider is chosen: chat and role models (also compaction summaries),
+is never local by itself). It is enforced where a provider is chosen: chat and role models (also compaction summaries), the model probe `models.test` (a cloud model is refused before a provider is built, no request is sent),
 model discovery (cloud models are listed with `locked: "local-only"`, not hidden), voice (local tier only, no cloud adapter
-is built), media generation, the media index and captioning, and the memory engine (embedding, reranker, engine LLM
-features). The memory engine and the media index are shared by all agents, so they stay local while the installation or
+is built), media generation, the media index and captioning, the memory engine (embedding, reranker, engine LLM
+features) and the embedding adapters package (`deps.policy`, see docs/embedding-adapters.md). The memory engine and the media index are shared by all agents, so they stay local while the installation or
 **any** agent is local-only. A refused provider fails with `E_DENIED`, `reason: local-only`, and a hint to the switch;
 it is never replaced by another model. Egress still applies on top: a local endpoint must also be reachable under
 `egress.*` (loopback needs `allowLoopback`).

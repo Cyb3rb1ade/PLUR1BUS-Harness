@@ -29,6 +29,7 @@ export function parseSessionEvent(e: SseEvent): SessionEvent | null {
 
 export class ChatController {
   readonly sessionId: string;
+  readonly modelOptionsVersion = signal(0);
   readonly tr = signal<Transcript>(EMPTY_TRANSCRIPT);
   readonly load = signal<LoadState>({ status: "loading" });
   readonly live = signal<EventsStatus>("connecting");
@@ -87,6 +88,9 @@ export class ChatController {
   }
 
   #onEvent(e: SseEvent): void {
+    let method=e.event;try{method=(JSON.parse(e.data) as {method?:string}).method ?? method;}catch{ /* named SSE event */ }
+    if(method==="chat.models.changed"){this.modelOptionsVersion.value++;return;}
+
     const ev = parseSessionEvent(e);
     if (ev === null || ev.sessionId !== this.sessionId) return;
     const before = this.tr.value;
