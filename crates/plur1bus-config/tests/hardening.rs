@@ -9,7 +9,7 @@
 //! the clock.
 use plur1bus_config::{
     defaults, load, parse, parse_unvalidated, read, read_for_lookup, read_unvalidated, serialize,
-    set, validate, write_atomic, ConfigError, SCHEMA_JSON,
+    set, set_many, validate, write_atomic, ConfigError, SCHEMA_JSON,
 };
 use serde_json::{json, Map, Value};
 use std::collections::BTreeSet;
@@ -416,6 +416,13 @@ fn integer_and_number_bounds_hold_on_both_sides_of_every_limit() {
                     candidate["breakglass"]["reasonMaxChars"] = json!(10000)
                 }
                 "breakglass.reasonMaxChars" => candidate["breakglass"]["reasonMinChars"] = json!(1),
+                // The soft budget may not exceed the hard one: keep the sibling out of the way of the probed bound.
+                "core.recall.softBudgetMs" => {
+                    candidate["core"]["recall"]["hardBudgetMs"] = json!(3_600_000)
+                }
+                "core.recall.hardBudgetMs" => {
+                    candidate["core"]["recall"]["softBudgetMs"] = json!(50)
+                }
                 _ => {}
             }
             validate(&candidate)
@@ -1123,6 +1130,67 @@ fn a_document_that_is_not_an_object_is_refused_by_every_validating_path() {
         assert!(read_unvalidated(&p).is_ok(), "{text}");
         assert_eq!(fs::read_to_string(&p).unwrap(), text);
     }
+}
+
+#[test]
+fn a_soft_recall_budget_above_the_hard_one_is_refused_everywhere_a_config_is_validated() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    let want = "/core/recall softBudgetMs must not exceed hardBudgetMs";
+    let refused = |errs: Vec<String>| errs.iter().any(|e| e == want);
+    // A file that sets one side is checked against the other side's schema default (soft 400, hard 600); `700.0` is the
+    // whole number 700, as for the core.
+    for text in [
+        r#"{"schemaVersion":1,"core":{"recall":{"softBudgetMs":700}}}"#,
+        r#"{"schemaVersion":1,"core":{"recall":{"softBudgetMs":700.0}}}"#,
+        r#"{"schemaVersion":1,"core":{"recall":{"hardBudgetMs":300}}}"#,
+        r#"{"schemaVersion":1,"core":{"recall":{"softBudgetMs":601,"hardBudgetMs":600}}}"#,
+    ] {
+        match parse(text) {
+            Err(ConfigError::Invalid(errs)) => assert!(refused(errs.clone()), "{text}: {errs:?}"),
+            other => panic!("{text}: {other:?}"),
+        }
+        fs::write(&path, text).unwrap();
+        for r in [read(&path), load(&path).map(|l| l.config)] {
+            match r {
+                Err(ConfigError::Invalid(errs)) => assert!(refused(errs), "{text}"),
+                other => panic!("{text}: {other:?}"),
+            }
+        }
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            text,
+            "a refused file is not rewritten"
+        );
+    }
+    // At or below the hard budget is fine, on every path.
+    for text in [
+        r#"{"schemaVersion":1,"core":{"recall":{"softBudgetMs":600,"hardBudgetMs":600}}}"#,
+        r#"{"schemaVersion":1,"core":{"recall":{"softBudgetMs":500}}}"#,
+        r#"{"schemaVersion":1,"core":{"recall":{"hardBudgetMs":400}}}"#,
+    ] {
+        assert!(parse(text).is_ok(), "{text}");
+    }
+    // `set` validates the whole result: one key alone cannot cross the other, both together can move.
+    let c = defaults();
+    match set(&c, "core.recall.softBudgetMs", json!(700)) {
+        Err(ConfigError::Invalid(errs)) => assert!(refused(errs)),
+        other => panic!("{other:?}"),
+    }
+    match set(&c, "core.recall.hardBudgetMs", json!(300)) {
+        Err(ConfigError::Invalid(errs)) => assert!(refused(errs)),
+        other => panic!("{other:?}"),
+    }
+    let plan = set_many(
+        &c,
+        &[
+            ("core.recall.softBudgetMs".to_string(), json!(900)),
+            ("core.recall.hardBudgetMs".to_string(), json!(1000)),
+        ],
+    )
+    .unwrap();
+    assert_eq!(plan.after["core"]["recall"]["softBudgetMs"], 900);
+    assert!(validate(&plan.after).is_ok());
 }
 
 #[test]

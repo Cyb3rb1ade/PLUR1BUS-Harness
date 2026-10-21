@@ -247,6 +247,30 @@ fn date_time_format_matches_the_typescript_validator() {
 }
 
 #[test]
+fn the_recall_budget_rule_matches_the_typescript_validator() {
+    let cases: Value = serde_json::from_str(
+        &fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../packages/config-schema/fixtures/cross-field-cases.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let cases = cases.as_array().unwrap();
+    assert!(cases.len() >= 10);
+    for c in cases {
+        let name = c["name"].as_str().unwrap();
+        let valid = c["valid"].as_bool().unwrap();
+        // The cases are minimal files; `parse` fills the schema defaults first, as the core's validation does.
+        assert_eq!(
+            plur1bus_config::parse(&c["config"].to_string()).is_ok(),
+            valid,
+            "{name}"
+        );
+    }
+}
+
+#[test]
 fn set_rejects_a_created_at_that_is_not_a_date_time() {
     match set(
         &defaults(),

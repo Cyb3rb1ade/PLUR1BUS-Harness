@@ -75,8 +75,32 @@ describe("config-load hardening (c10)", () => {
   });
 });
 
+describe("config cross-field rules", () => {
+  // The same rule lives in crates/plur1bus-config (validate); the two must agree or core and supervisor disagree about one file.
+  const recall = (soft: number, hard: number) => { const c: any = defaults(); c.core.recall.softBudgetMs = soft; c.core.recall.hardBudgetMs = hard; return c; };
+
+  it("core.recall.softBudgetMs above hardBudgetMs is refused, at or below it is accepted", () => {
+    for (const [soft, hard] of [[601, 600], [5000, 100], [1_000_000, 999_999]] as const) {
+      const r = validateConfig(recall(soft, hard));
+      assert.equal(r.ok, false, `${soft} > ${hard}`);
+      assert.ok(!r.ok && r.errors.some(e => e === "/core/recall softBudgetMs must not exceed hardBudgetMs"), JSON.stringify(r));
+    }
+    for (const [soft, hard] of [[600, 600], [400, 600], [50, 100], [50, 50_000]] as const) assert.equal(validateConfig(recall(soft, hard)).ok, true, `${soft} <= ${hard}`);
+  });
+
+  it("the rule holds for a config file, with either value taken from the schema default", () => {
+    for (const patch of [{ softBudgetMs: 700 }, { hardBudgetMs: 300 }]) { // default soft 400 / hard 600
+      const p = file();
+      writeFileSync(p, JSON.stringify({ schemaVersion: 1, core: { recall: patch } }));
+      for (const load of [loadConfig, readConfigFile]) assert.throws(() => load(p), (e: any) => e instanceof ConfigInvalid && e.errors.some((s: string) => s.includes("softBudgetMs must not exceed hardBudgetMs")));
+    }
+    const ok = file();
+    writeFileSync(ok, JSON.stringify({ schemaVersion: 1, core: { recall: { softBudgetMs: 500, hardBudgetMs: 800 } } }));
+    assert.equal(loadConfig(ok).config.core.recall.hardBudgetMs, 800);
+  });
+});
+
 describe("config validation gaps (KNOWN GAP)", () => {
-  it.todo("KNOWN GAP: core.recall.softBudgetMs above hardBudgetMs is accepted (needs the same cross-field rule in crates/plur1bus-config, else core and supervisor disagree)");
   it.todo("KNOWN GAP: numbers without maximum (logs.keep, core.recall.capChars, session.compaction.*Tokens, media dimensions) and arrays/strings without maxItems/maxLength (auth.openai.federated.args, skills.pinned) need schema bounds");
   it.todo("KNOWN GAP: engine.baseDbPathOverride has no minLength/absolute-path constraint in the schema (engine-config.ts only ignores blank values)");
 });
