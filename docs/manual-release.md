@@ -6,6 +6,8 @@ HB18). The workflow never runs on a push. D78's `release.yml` calls it (`workflo
 checklist, before D78 automates it. Every value named here lives in GitHub settings or on the owner's machine, never
 in this repository.
 
+Desktop releases exclude v1-compatible updater artifacts because the plugin's `zip` feature is disabled: publish raw Windows/Linux v2 artifacts and macOS `.app.tar.gz`; `apps/desktop/scripts/render-feed.mjs` rejects Windows/Linux `.zip` and `.tar.gz` URLs.
+
 ## 1. One-time setup (owner)
 
 - [ ] **Release signing keys.** On the owner's machine (not in CI, not in this repository), generate one minisign key

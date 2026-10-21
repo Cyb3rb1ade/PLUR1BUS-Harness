@@ -6,6 +6,11 @@ export function renderFeed(metadata,bundle,latest) {
  const updater=JSON.parse(latest.toString());
  const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
  if(updater.version!==metadata.version||typeof updater.notes!=='string'||!updater.platforms)throw new Error('Tauri static manifest version/notes/platforms required');
+ for(const [target,asset] of Object.entries(updater.platforms)) {
+  if(!/^(windows|linux)-/.test(target))continue;
+  const path=decodeURIComponent(new URL(asset.url).pathname);
+  if(/\.(zip|tar\.gz)$/i.test(path))throw new Error('legacy-updater-artifact');
+ }
  if(!['stable','beta','dev'].includes(metadata.channel)||!['major','minor','patch'].includes(metadata.kind)||typeof metadata.security!=='boolean'||!metadata.notes?.de||!metadata.notes?.en||!metadata.minFromVersion||!/^\d{4}-\d{2}-\d{2}$/.test(metadata.date))throw new Error('Release metadata missing');
  if(metadata.kind==='major'&&(!metadata.migrationNote?.de||!metadata.migrationNote?.en))throw new Error('Major migration notes required');
  const model=JSON.parse(bundle.toString());if(model.version!==metadata.version)throw new Error('Bundle product version mismatch');

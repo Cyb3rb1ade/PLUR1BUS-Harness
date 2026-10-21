@@ -7,7 +7,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 ```
 pnpm-lock.yaml: d10615da861ad74f6f028f9ca5cb557e371f6ec580ed6c5da801008f5a9cf6aa
 Cargo.lock: 55c75aa0da38eb758ee800935f72bfdbdff1207f52253218f79fd21c430384d2
-apps/desktop/Cargo.lock: c9c40cc56aed1966179dc1d0df5e6c3ec21c557535d1cc5568ee607e0ba7ff63
+apps/desktop/Cargo.lock: d6abb38db3d9a6fab2d33bf8c0f2ab167da9556a1d57c579312524278e7d2a75
 ```
 
 | Ecosystem | Dependency | Version | Licence | Attribution |
@@ -29,7 +29,6 @@ apps/desktop/Cargo.lock: c9c40cc56aed1966179dc1d0df5e6c3ec21c557535d1cc5568ee607
 | cargo | anstyle | 1.0.14 | MIT OR Apache-2.0 |  |
 | cargo | anyhow | 1.0.104 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | apple-native-keyring-store | 1.0.2 | MIT OR Apache-2.0 | Daniel Brotsky <dev@brotsky.com> |
-| cargo | arbitrary | 1.5.0 | MIT OR Apache-2.0 | The Rust-Fuzz Project Developers, Nick Fitzgerald <fitzgen@gmail.com>, Manish Goregaokar <manishsmail@gmail.com>, Simonas Kazlauskas <arbitrary@kazlauskas.me>, Brian L. Troutwine <brian@troutwine.us>, Corey Farwell <coreyf@rwell.org> |
 | cargo | argon2 | 0.5.3 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | argon2 | 0.6.0 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | asn1-rs-derive | 0.6.0 | MIT OR Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
@@ -154,7 +153,6 @@ apps/desktop/Cargo.lock: c9c40cc56aed1966179dc1d0df5e6c3ec21c557535d1cc5568ee607
 | cargo | der-parser | 10.0.0 | MIT OR Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
 | cargo | der | 0.8.2 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | deranged | 0.5.8 | MIT OR Apache-2.0 | Jacob Pratt <jacob@jhpratt.dev> |
-| cargo | derive_arbitrary | 1.5.0 | MIT OR Apache-2.0 | The Rust-Fuzz Project Developers, Nick Fitzgerald <fitzgen@gmail.com>, Manish Goregaokar <manishsmail@gmail.com>, Andre Bogus <bogusandre@gmail.com>, Corey Farwell <coreyf@rwell.org> |
 | cargo | derive_more-impl | 2.1.1 | MIT | Jelte Fennema <github-tech@jeltef.nl> |
 | cargo | derive_more | 2.1.1 | MIT | Jelte Fennema <github-tech@jeltef.nl> |
 | cargo | des | 0.9.0 | MIT OR Apache-2.0 | RustCrypto Developers |
@@ -759,7 +757,6 @@ apps/desktop/Cargo.lock: c9c40cc56aed1966179dc1d0df5e6c3ec21c557535d1cc5568ee607
 | cargo | windows-native-keyring-store | 1.1.0 | MIT OR Apache-2.0 | Daniel Brotsky <dev@brotsky.com> |
 | cargo | windows-numerics | 0.3.1 | MIT OR Apache-2.0 |  |
 | cargo | windows-registry | 0.5.3 | MIT OR Apache-2.0 | Microsoft |
-| cargo | windows-registry | 0.6.1 | MIT OR Apache-2.0 |  |
 | cargo | windows-result | 0.3.4 | MIT OR Apache-2.0 | Microsoft |
 | cargo | windows-result | 0.4.1 | MIT OR Apache-2.0 |  |
 | cargo | windows-strings | 0.4.2 | MIT OR Apache-2.0 | Microsoft |
@@ -829,7 +826,6 @@ apps/desktop/Cargo.lock: c9c40cc56aed1966179dc1d0df5e6c3ec21c557535d1cc5568ee607
 | cargo | zerotrie | 0.2.5 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | zerovec-derive | 0.11.6 | Unicode-3.0 | Manish Goregaokar <manishsmail@gmail.com> |
 | cargo | zerovec | 0.11.8 | Unicode-3.0 | The ICU4X Project Developers |
-| cargo | zip | 4.6.1 | MIT | Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com> |
 | cargo | zip | 9.0.5 | MIT | Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com> |
 | cargo | zlib-rs | 0.6.8 | Zlib |  |
 | cargo | zmij | 1.0.23 | MIT | David Tolnay <dtolnay@gmail.com> |
