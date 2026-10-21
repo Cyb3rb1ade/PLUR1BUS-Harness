@@ -12,20 +12,29 @@ concurrency:
 permissions:
   contents: read
 jobs:
-  # PR: Linux + Windows legs always, macOS only `unit`; push to main, schedule and workflow_dispatch run everything.
-  # Decides which macOS legs run (policy and path list: docs/ci.md, scripts/ci/macos-plan.mjs). One cheap ubuntu job.
-  plan:
+  # Conservative impact selection; main/nightly/manual runs keep the full matrix.
+  changes:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
     outputs:
+      rust: ${{ steps.plan.outputs.rust }}
+      ts-core: ${{ steps.plan.outputs.ts-core }}
+      web: ${{ steps.plan.outputs.web }}
+      python: ${{ steps.plan.outputs.python }}
+      docs-only: ${{ steps.plan.outputs.docs-only }}
+      workflows: ${{ steps.plan.outputs.workflows }}
+      engine-pin: ${{ steps.plan.outputs.engine-pin }}
+      documents: ${{ steps.plan.outputs.documents }}
       proceed: ${{ steps.plan.outputs.proceed }}
       macos: ${{ steps.plan.outputs.macos }}
       python_matrix: ${{ steps.plan.outputs.python_matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0 }
       - id: plan
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -34,10 +43,10 @@ jobs:
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: node --test scripts/ci/macos-plan.test.mjs && node scripts/ci/macos-plan.mjs
+        run: node --test scripts/ci/*.test.mjs && node scripts/ci/changes.mjs
   unit:
-    needs: plan
-    if: needs.plan.outputs.proceed == 'true'
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -95,6 +104,7 @@ jobs:
       - name: reasoning metadata schema and coverage hints
         run: node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/check-reasoning-metadata.mjs
       - name: unit tests with file timings
+        if: needs.changes.outputs.ts-core == 'true'
         shell: bash
         run: |
           export TEST_TIMING_DIR="$GITHUB_WORKSPACE/test-timings"
@@ -103,10 +113,10 @@ jobs:
           pnpm test
         timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
       - name: slowest 20 test files
-        if: always()
+        if: always() && needs.changes.outputs.ts-core == 'true'
         run: node scripts/release/timing-summary.mjs test-timings
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
+        if: always() && needs.changes.outputs.ts-core == 'true'
         with:
           name: test-timings-${{ matrix.os }}
           path: test-timings/
@@ -126,18 +136,20 @@ jobs:
       - if: runner.os == 'Windows'
         run: node --experimental-strip-types --test --test-timeout=120000 tests/system/install-scripts.test.ts
         timeout-minutes: 5
-      - run: cargo fmt --all -- --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace --no-fail-fast
+      - if: needs.changes.outputs.rust == 'true'
+        run: cargo fmt --all -- --check
+      - if: needs.changes.outputs.rust == 'true'
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - if: needs.changes.outputs.rust == 'true'
+        run: cargo test --workspace --no-fail-fast
         timeout-minutes: 20
-      - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm docs:check
   system:
-    needs: [plan, unit]
-    if: needs.plan.outputs.proceed == 'true'
+    needs: [changes, unit]
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true')
     strategy:
       matrix:
         os: [ubuntu-24.04, macos-15]
-        exclude: ${{ fromJSON(needs.plan.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}
+        exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
@@ -196,8 +208,8 @@ jobs:
   # job keeps the check name the merge gate uses: it fails unless plan, build and every shard succeeded, and its shard
   # check proves from the manifests the shards wrote that every test file ran exactly once.
   web-browser-build:
-    needs: plan
-    if: needs.plan.outputs.proceed == 'true'
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -224,7 +236,7 @@ jobs:
         with: { toolchain: "1.95" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - name: build Core and CLI for served-stack browser acceptance
-        run: pnpm gen && pnpm build && cargo build -p plur1bus
+        run: pnpm gen && pnpm build && pnpm typecheck && cargo build -p plur1bus
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-browser-cli
@@ -233,8 +245,8 @@ jobs:
           retention-days: 1
   web-browser-shard:
     name: web-browser shard ${{ matrix.shard }}/${{ matrix.total }}
-    needs: [plan, web-browser-build]
-    if: needs.plan.outputs.proceed == 'true'
+    needs: [changes, web-browser-build]
+    if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.web == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -295,31 +307,31 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   web-browser:
-    needs: [plan, web-browser-build, web-browser-shard]
-    if: always()
+    needs: [changes, web-browser-build, web-browser-shard]
+    if: always() && needs.changes.outputs.proceed == 'true' && needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: needs.plan.outputs.proceed == 'true'
+        if: needs.changes.outputs.proceed == 'true'
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: needs.plan.outputs.proceed == 'true'
+        if: needs.changes.outputs.proceed == 'true'
         with: { node-version: 24.21.0 }
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: needs.plan.outputs.proceed == 'true'
+        if: needs.changes.outputs.proceed == 'true'
         with:
           pattern: web-browser-shard-manifest-*
           path: web-browser-manifests
       - name: every web test file ran in exactly one shard
-        if: needs.plan.outputs.proceed == 'true'
+        if: needs.changes.outputs.proceed == 'true'
         run: |
           node --test scripts/ci/test-shards.test.mjs
           node scripts/ci/test-shards.mjs verify --cwd=packages/web --dir=web-browser-manifests
       - name: plan, build and every shard succeeded
         if: always()
         env:
-          PLAN: ${{ needs.plan.result }}
-          PROCEED: ${{ needs.plan.outputs.proceed }}
+          PLAN: ${{ needs.changes.result }}
+          PROCEED: ${{ needs.changes.outputs.proceed }}
           BUILD: ${{ needs.web-browser-build.result }}
           SHARDS: ${{ needs.web-browser-shard.result }}
         run: |
@@ -335,13 +347,13 @@ jobs:
   # Ruling C5: Linux needs a user manager (lingering); if enabling it fails, the job keeps the unit-file tests
   # (tests/service.rs) and the real test runs on the owner's Ubuntu VM instead.
   service:
-    needs: [plan, unit]
-    if: needs.plan.outputs.proceed == 'true'
+    needs: [changes, unit]
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true')
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
-        exclude: ${{ fromJSON(needs.plan.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}
+        exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -378,12 +390,12 @@ jobs:
   # flat-embedder core built from this commit (no model download). windows-2025 is the gate for Task 3 (ruling F20):
   # the six NamedPipeTest real-pipe tests must run there, not skip. windows-11-arm is informational.
   python-host:
-    needs: plan
-    if: needs.plan.outputs.proceed == 'true'
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true' || needs.changes.outputs.python == 'true')
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.plan.outputs.python_matrix) }}
+        include: ${{ fromJSON(needs.changes.outputs.python_matrix) }}
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.informational == true }}
     timeout-minutes: 45
@@ -454,8 +466,8 @@ jobs:
           "$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests/e2e -t hosts/hermes
         env: { PLUR1BUS_LIVE_REQUIRED: "1", PLUR1BUS_CI_RECALL_HARD_MS: "3000" } # H3-R26: shared runners are not reference hardware
   wsl:
-    needs: plan
-    if: needs.plan.outputs.proceed == 'true'
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true' || needs.changes.outputs.python == 'true')
     # Cross-platform migration WSL discovery and tar snapshot job (spec §B.7, gap G5/G6, decision C8).
     # Required blocking job for M7 acceptance; runs on windows-2025.
     runs-on: windows-2025
@@ -600,6 +612,8 @@ jobs:
           fi
 
   release-scripts:
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true' || needs.changes.outputs.workflows == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -615,6 +629,8 @@ jobs:
         run: '"$(go env GOPATH)/bin/actionlint" -shellcheck= -config-file scripts/release/actionlint.yaml .github/workflows/*.yml'
 
   sandbox:
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true')
     name: sandbox (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -635,6 +651,8 @@ jobs:
 
   # Independent advisory job. Existing jobs/gates are intentionally untouched.
   perf-startup:
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true')
     name: startup (${{ matrix.target }})
     strategy:
       fail-fast: false
@@ -711,6 +729,8 @@ jobs:
           if-no-files-found: warn
 
   perf-budgets:
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true')
     name: budget catalogue (${{ matrix.os }}, advisory)
     strategy:
       fail-fast: false
@@ -767,8 +787,8 @@ jobs:
   # at most 0.1 % differing pixels per page (see docs/documents.md). References live in packages/documents/golden/. Every run
   # uploads its renders as artifact `golden-renders`; new references are adopted from there with `golden.ts update --from`.
   documents-golden:
-    needs: plan
-    if: needs.plan.outputs.proceed == 'true'
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.documents == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -814,3 +834,58 @@ jobs:
           path: ${{ runner.temp }}/golden-renders
           if-no-files-found: warn
           retention-days: 14
+
+  docs-hygiene:
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with: { toolchain: "1.95", components: "clippy, rustfmt" }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      # The lockfile records the engine's git repo as git@github.com:..., and runners have no SSH key:
+      # fetch it over HTTPS instead, with the read token when the engine repo is private. Runs in every
+      # job that installs; never echoes the rewritten URL.
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile
+      - run: node packages/config-schema/src/gen-defaults.mjs --check
+      - run: pnpm gen && pnpm build
+      - name: hygiene and documentation checks
+        run: |
+          node scripts/lint-hygiene.mjs
+          node scripts/release/check-source-quality.mjs
+          node scripts/check-i18n.mjs
+          node --test scripts/lint-hygiene.test.mjs scripts/check-doc-links.test.mjs scripts/check-docs-commands.test.mjs scripts/bundle-user-docs.test.mjs
+          pnpm docs:check
+
+  ci-gate:
+    needs: [changes, docs-hygiene, unit, system, service, python-host, wsl, web-browser-build, web-browser-shard, web-browser, release-scripts, sandbox, perf-startup, perf-budgets, documents-golden]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0 }
+      - name: explicit selections and dependency outcomes
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci/gate.mjs

@@ -1,9 +1,63 @@
-# CI: macOS runner policy
+# CI: affected suites and runner policy
+
+
+## PR impact selection (GP5 P2)
+
+`ci.yml` starts a `changes` job. It reads the PR's actual Git merge-base diff with `--no-renames -z`, so both sides of
+moves and non-ASCII paths count. It compares the private Engine dependency value separately. Missing history or an
+invalid manifest fails the plan; unknown paths and empty diffs select the full suite. No GitHub write permission is used.
+
+| PR paths | Selected checks |
+| --- | --- |
+| Only `docs/**`, standard root documents or package/module README/CHANGELOG files | Documentation and hygiene |
+| `packages/web/**` | Documentation/hygiene, TypeScript check, served-stack browser build, all four shards and exact-partition verification |
+| `crates/**`, `Cargo.toml`, Rust toolchain | Rust fmt/clippy/tests in the existing three-OS unit matrix, runtime integrations and documentation/hygiene |
+| Other `packages/**` or `tests/**` | TypeScript unit checks, runtime integrations and documentation/hygiene |
+| Shared RPC/config/log schemas or module API | Rust, TypeScript, browser, Python and documentation/hygiene |
+| `hosts/**` or `clients/python/**` | Python/Hermes, WSL and documentation/hygiene |
+| `packages/documents/**` | TypeScript/runtime checks plus golden rendering |
+| Engine pin, any Cargo lock, pnpm lock, workflow or unknown path | Full suite |
+
+The category outputs are `rust`, `ts-core`, `web`, `python`, `docs-only`, `workflows`, `engine-pin` and `documents`.
+The existing macOS label/path policy still selects the platform legs *within* each affected suite; it cannot turn a
+failed classifier into a successful skip. Main pushes, scheduled nightly and manual CI runs select all suites.
+`merge_group` classification also selects all suites; its trigger is added in P6.
+
+The existing combined `unit` job keeps setup/build and checks only the selected language's tests: TypeScript changes
+omit Rust fmt/clippy/unit tests, Rust changes omit the TypeScript unit suite. Served-stack browser acceptance still
+builds the current CLI on Ubuntu. Runtime/sandbox/service/Python/WSL and startup/budget jobs remain conservative for
+Rust or TypeScript runtime changes. They do not run for documentation or isolated web changes. Markdown under source templates, skill packages and test fixtures follows its owning suite; a `.md` suffix alone is not a documentation change. No test is removed,
+relaxed or converted to a skip. Independent `desktop.yml`, `container.yml`, `hermes-host.yml` and release workflows
+retain their existing path rules. Their checks are not folded into this workflow's gate.
+
+### Required check and failures
+
+`ci-gate` runs with `always()` after every job in `ci.yml`. It requires `changes` to succeed and all category outputs to
+be literal `true` or `false`. Every selected job must report `success`; `failure`, `cancelled`, `skipped`, an absent result
+or an unknown job fail the gate. An omitted job may be `skipped` or may have succeeded, but never failed or cancelled.
+The existing deliberate no-op for labels other than `ci:macos` remains a successful classification with explicit skips.
+
+`gate.test.mjs` exercises result combinations, and `workflow-contract.test.mjs` evaluates the actual job-level boolean
+conditions against the skip policy and proves every declared job is a gate dependency. Matrix failures remain failures;
+the existing informational Python Windows ARM leg is unchanged. Performance jobs still run their existing diagnostic
+commands and known-gap behavior; no numerical budget is promoted from advisory to a hard assertion.
+
+**Owner action after merge:** configure the `ci-gate` check from the `ci` workflow as the sole required check for this
+workflow, replacing individual matrix names. This PR does not change branch protection or repository rules. Controller
+merging and the current watcher remain unchanged; merge-queue setup belongs to P6.
+
+Local checks: `node --test scripts/ci/*.test.mjs` and
+`actionlint -shellcheck= -config-file scripts/release/actionlint.yaml .github/workflows/*.yml`.
+
+## macOS runner policy
 
 GitHub allows about five concurrent macOS jobs per account, and every PR push used to start four to six. Linux and
 Windows legs are unchanged; the macOS legs beyond the unit tests are now gated.
 
 ## Which macOS legs run
+
+For `ci.yml`, the impact filter above is applied first: a documentation-only PR does not run a unit matrix.
+The table below describes platform selection inside an affected suite.
 
 | Event | `unit (macos-15)` | `system`, `service`, `python-host`, `real-hermes`, `desktop` (macOS legs) |
 | --- | --- | --- |
@@ -45,7 +99,7 @@ branch, so it starts working once this is merged.
 
 Add the `ci:macos` label to a PR to get the full macOS matrix before merging (for example when a change is
 platform-sensitive in a way the path list misses). A required status check on a gated job name (`system (macos-15)` and
-so on) would stay pending on a PR that skips it; `main` has no branch protection at the time of writing.
+so on) would stay pending on a PR that skips it; configure the aggregate `ci-gate` instead of individual matrix names. This change does not inspect or modify current protection settings.
 
 ## Job map and failure semantics
 
