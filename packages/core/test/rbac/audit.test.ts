@@ -34,6 +34,19 @@ describe("audit sinks", () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it("the JSONL sink redacts secrets inside `detail` (D111 redactor) and leaves ordinary values alone", () => {
+    const dir = mkdtempSync(join(tmpdir(), "p1b-audit-"));
+    try {
+      const path = join(dir, "audit.log");
+      const gho = ["gh", "o_", "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"].join(""); const pass = ["hunter", "2-but-longer"].join("");
+      createJsonlAuditSink(path).append(ev("break-glass.granted", { detail: { reason: "ops", n: 2, password: pass, note: `token ${gho}` } }));
+      const text = readFileSync(path, "utf8");
+      assert.ok(!text.includes(gho) && !text.includes(pass), text);
+      const detail = (JSON.parse(text) as { detail: Record<string, unknown> }).detail;
+      assert.deepEqual(detail, { reason: "ops", n: 2, password: "[REDACTED:key]", note: "token [REDACTED:pattern]" });
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it("re-restricts an existing, too-open file and keeps its content", { skip: process.platform === "win32" }, () => {
     const dir = mkdtempSync(join(tmpdir(), "p1b-audit-"));
     try {

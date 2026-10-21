@@ -27,3 +27,13 @@ Existing stricter permissions remain: writing requires the existing `agent.manag
 Recurring Tasks has create/edit/delete dialogs, three upcoming runs in the selected timezone, and a task-history dialog. The typed web client is verified against the existing mock; authenticated `/rpc` and `/events` delivery remains a separate transport package.
 
 The CLI adds `plur1bus jobs list` (defaults to user tasks) and `plur1bus jobs create --name NAME --agent ID --prompt TEXT --cron '0 9 * * *' --timezone Europe/Berlin [--disabled]`. Their JSON schemas are `jobs.list/1` and `jobs.create/1`.
+
+## System jobs: overlapping runs
+
+System jobs (`kind: system`: `models.scan`, `approvals.integrity`, `capabilities.recheck`) run only inside the core and are started by their own timer, at start, by `jobs.run` and by the CLI. Every job lists `singleton: true`; how that is enforced depends on the job:
+
+- **Registry lock (`exclusive`).** `approvals.integrity` and `capabilities.recheck` set `exclusive: true` in their spec. While one run is in flight, a further run of the same job is not started: it is recorded as `outcome: skipped`, `reason: already_running`, `runningRunId` = the run that holds the lock (one ledger row, like every skip; no `job-failed` notice). The lock is released when the run ends, also when it fails or throws. It is per job name, so different jobs always run side by side.
+- **Handler-side lock.** `models.scan` does not set `exclusive`: it is enforced per provider by the discovery service, so scans of different providers (and `jobs.run models.scan { provider }` next to the scheduler) stay parallel, and a second scan of one provider answers `already_running` per provider.
+- **Process-wide, no lock file.** The lock lives in memory. One core per home is already guaranteed by `state/core.lock` (a second core exits with `E_LOCKED`), and system jobs do not run in any other process, so a file lock would add nothing.
+
+Invalid `args` are rejected before the lock is looked at, so an invalid request is never recorded as a skip. A new system job that must not overlap sets `exclusive: true` (`SystemJobSpec` in `packages/core/src/system-jobs/index.ts`); one that needs a finer granularity enforces it itself and leaves it unset.

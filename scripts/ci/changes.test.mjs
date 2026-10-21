@@ -6,15 +6,15 @@ const selected = files => Object.entries(classify({ event: 'pull_request', files
   .filter(([, value]) => value).map(([name]) => name).sort();
 const full = ['documents', 'engine-pin', 'python', 'rust', 'ts-core', 'web', 'workflows'];
 for (const [name, files, expected] of [
-  ['documentation', ['docs/user/de/audit.md', 'README.md'], ['docs-only']],
+  ['documentation', ['docs/ci.md', 'README.md'], ['docs-only']],
   ['web only', ['packages/web/src/app.tsx'], ['web']],
-  ['Rust only', ['crates/plur1bus/src/main.rs'], ['rust']],
-  ['Cargo manifest', ['Cargo.toml'], ['rust']],
+  ['Rust only (web-browser-build compiles the CLI)', ['crates/plur1bus/src/main.rs'], ['rust', 'web']],
+  ['Cargo manifest', ['Cargo.toml'], ['rust', 'web']],
   ['Cargo lock', ['Cargo.lock'], full.filter(x => x !== 'engine-pin' && x !== 'workflows')],
-  ['toolchain', ['rust-toolchain.toml'], ['rust']],
-  ['core', ['packages/core/src/core.ts'], ['ts-core']],
+  ['toolchain', ['rust-toolchain.toml'], ['rust', 'web']],
+  ['core (the served stack runs the built Core)', ['packages/core/src/core.ts'], ['ts-core', 'web']],
   ['Python', ['hosts/hermes/tests/x.py', 'clients/python/client.py'], ['python']],
-  ['document rendering', ['packages/documents/src/render.ts'], ['documents', 'ts-core']],
+  ['document rendering', ['packages/documents/src/render.ts'], ['documents', 'ts-core', 'web']],
   ['RPC schema', ['packages/rpc-schema/schema/rpc.schema.json'], ['python', 'rust', 'ts-core', 'web']],
   ['config schema', ['packages/config-schema/src/index.ts'], ['python', 'rust', 'ts-core', 'web']],
   ['log schema', ['packages/log-schema/schema/catalogue.json'], ['python', 'rust', 'ts-core', 'web']],
@@ -22,8 +22,26 @@ for (const [name, files, expected] of [
   ['Core shard timing profile', ['.github/ci/core-test-timings.json'], full.filter(x => x !== 'engine-pin' && x !== 'workflows')],
   ['JS lock', ['pnpm-lock.yaml'], full.filter(x => x !== 'engine-pin' && x !== 'workflows')],
   ['unknown', ['future/new-runtime.bin'], full.filter(x => x !== 'engine-pin' && x !== 'workflows')],
-  ['mixed docs and Rust', ['docs/a.md', 'crates/x/src/lib.rs'], ['rust']],
-  ['rename out of crates (both sides)', ['docs/moved.md', 'crates/x/src/lib.rs'], ['rust']],
+  ['mixed docs and Rust', ['docs/a.md', 'crates/x/src/lib.rs'], ['rust', 'web']],
+  ['rename out of crates (both sides)', ['docs/moved.md', 'crates/x/src/lib.rs'], ['rust', 'web']],
+  ['other package', ['packages/channels-telegram/src/index.ts'], ['ts-core', 'web']],
+  ['package README stays documentation', ['packages/core/README.md'], ['docs-only']],
+  ['system tests do not need the browser', ['tests/system/backup.test.ts'], ['ts-core']],
+  ['generated RPC reference', ['docs/rpc.md'], ['rust', 'ts-core']],
+  ['generated CLI reference', ['docs/cli.md', 'docs/a.md'], ['rust', 'ts-core']],
+  ['error table', ['docs/errors.md'], ['rust', 'ts-core']],
+  ['OpenAPI document', ['docs/openapi.json'], ['rust', 'ts-core']],
+  ['API surface', ['docs/api-surface.md'], ['rust', 'ts-core']],
+  ['other documents stay documentation', ['docs/ci.md', 'docs/adr/ADR-012-process-model-and-languages.md', 'docs/import.md', 'docs/superpowers/plans/x.md'], ['docs-only']],
+  ['operations guide (skill_freshness)', ['docs/operations.md'], ['rust']],
+  ['RBAC matrix document', ['docs/rbac.md'], ['ts-core']],
+  ['channel documents', ['docs/channels/signal.md'], ['ts-core']],
+  ['adapter documents', ['docs/embedding-adapters.md', 'docs/media-adapters.md'], ['ts-core']],
+  ['Zabbix template', ['docs/ops/zabbix/plur1bus-template.yaml'], ['ts-core']],
+  ['user documentation (web help test)', ['docs/user/de/audit.md'], ['web']],
+  ['user docs with a plain document', ['docs/user/en/audit.md', 'docs/ci.md'], ['web']],
+  ['bundled skill', ['skills/plur1bus-ops/SKILL.md'], ['rust', 'ts-core']],
+  ['bundled skill playbook with a code change', ['skills/plur1bus-ops/playbooks/repair.md', 'packages/web/src/app.tsx'], ['rust', 'ts-core', 'web']],
 ]) test(`affected suites: ${name}`, () => assert.deepEqual(selected(files), [...expected].sort()));
 
 test('an Engine pin change triggers every suite without claiming a workflow change', () => {
@@ -76,11 +94,11 @@ test('the CLI uses the real merge-base diff and detects a private Engine pin cha
 
 test('runtime Markdown and Markdown test fixtures retain their owning suites', () => {
   for (const file of ['packages/core/src/agent-templates/SOUL.md', 'packages/core/test/fixtures/web-fetch/goldens/markdown-source-file.md']) {
-    assert.deepEqual(selected([file]), ['ts-core']);
-    assert.deepEqual(selected(['docs/a.md', file]), ['ts-core']);
+    assert.deepEqual(selected([file]), ['ts-core', 'web']);
+    assert.deepEqual(selected(['docs/a.md', file]), ['ts-core', 'web']);
   }
-  assert.deepEqual(selected(['crates/plur1bus-ext/tests/fixtures/skill-hash/SKILL.md']), ['rust', 'ts-core']);
-  assert.deepEqual(selected(['skills/plur1bus/SKILL.md']), ['documents', 'python', 'rust', 'ts-core', 'web']);
+  assert.deepEqual(selected(['crates/plur1bus-ext/tests/fixtures/skill-hash/SKILL.md']), ['rust', 'ts-core', 'web']);
+  assert.deepEqual(selected(['skills/plur1bus/SKILL.md']), ['rust', 'ts-core']);
 });
 
 // These are concrete TypeScript readers, not Rust-only implementation inputs.
@@ -88,7 +106,7 @@ test('shared Rust fixtures and Rust source parity inputs select both language su
   for (const file of ['crates/plur1bus-ext/tests/fixtures/skill-hash/expected.json',
     'crates/plur1bus/tests/fixtures/fake-api.mjs', 'crates/future/fixtures/nested/vector.json',
     'crates/plur1bus/src/backup/restore.rs']) {
-    assert.deepEqual(selected([file]), ['rust', 'ts-core'], file);
-    assert.deepEqual(selected(['docs/a.md', file]), ['rust', 'ts-core'], file);
+    assert.deepEqual(selected([file]), ['rust', 'ts-core', 'web'], file);
+    assert.deepEqual(selected(['docs/a.md', file]), ['rust', 'ts-core', 'web'], file);
   }
 });
