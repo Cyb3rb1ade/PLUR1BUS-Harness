@@ -868,6 +868,10 @@ pub(crate) fn reanchor(
 }
 
 #[cfg(test)]
+#[path = "../tests/common/prerequisites.rs"]
+mod test_prerequisites;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::process::{Command, Stdio};
@@ -1071,9 +1075,10 @@ mod tests {
             }
             return;
         }
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        super::test_prerequisites::require("audit", &root);
         let dir = tempfile::tempdir().unwrap();
         let logs = dir.path().join("logs");
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let node = std::env::var_os("PLUR1BUS_NODE").unwrap_or_else(|| "node".into());
         let mut children = Vec::new();
         for i in 0..3 {
@@ -1569,11 +1574,12 @@ mod tests {
     // Mixed-language check: what Rust leaves behind is read by the TypeScript verifier as one new chain plus a set-aside era.
     #[test]
     fn the_typescript_verifier_reads_a_rust_reanchor_as_an_era_boundary() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        super::test_prerequisites::require("audit", &root);
         let dir = refused_chain("tail-mismatch");
         let logs = dir.path();
         let done = reanchor(logs, "mixed test", false).unwrap();
         append(logs, &rec(9)).unwrap();
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let node = std::env::var_os("PLUR1BUS_NODE").unwrap_or_else(|| "node".into());
         let output = Command::new(&node).current_dir(&root)
             .args(["--experimental-strip-types", "--conditions=source", "--no-warnings=ExperimentalWarning", "--input-type=module", "-e", "import {createAuditChain} from './packages/core/src/audit/chain.ts'; console.log(JSON.stringify(createAuditChain({dir:process.argv[1]}).verify()))"])

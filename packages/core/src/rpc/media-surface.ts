@@ -10,9 +10,11 @@ import {
   type ImageAdapter,
   type ImageRequest,
   type Job,
+  requestedUnits,
+  deliveredUnits,
 } from "../../../media/src/index.ts";
 import { atomicJson, safeId } from "../../../media/src/files.ts";
-import type { CallBudget } from "../budget/index.ts";
+import { mediaCallUnits, type CallBudget } from "../budget/index.ts";
 import { authorize } from "../rbac/authorize.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
 import type { Principal } from "../rbac/types.ts";
@@ -201,8 +203,8 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
       await d.policy(operation, request, p.agentId, a, ctx, adapter.id);
       if (!d.budget)
         throw new RpcError("E_NOT_AVAILABLE", "budget unavailable");
-      // The call budget counts tokens and calls only (owner 2026-10-19: no money dimension). Media generation reports no
-      // tokens, so the reservation holds 0 tokens: it admits the call against exhausted hard token limits and records it.
+      // Media is budgeted in its own units (owner 2026-10-19): the reservation holds the requested images (`n`) or video
+      // seconds and no tokens; an image or video-second hard limit refuses here, before the provider is called.
       const admitted = d.budget.checkBeforeCall({
         principal: a.userId,
         agent: p.agentId,
@@ -211,6 +213,7 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
         provider: adapter.id,
         estimatedInputTokens: 0,
         maxOutputTokens: 0,
+        ...mediaCallUnits(requestedUnits(request)),
       });
       if (admitted.kind === "refuse")
         throw new RpcError("E_DENIED", "media budget exceeded", {
@@ -251,7 +254,8 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
         list: () => jobs.list(),
         claim: (id: string) => jobs.claim(id),
         async put(job: Job) {
-          if (job.state === 'succeeded' && job.output) d.budget!.settle(reservationId,{inputTokens:0,outputTokens:0});
+          // Settled at what was delivered (fewer images or shorter video than requested free the rest of the reservation).
+          if (job.state === 'succeeded' && job.output) d.budget!.settle(reservationId,{inputTokens:0,outputTokens:0,...mediaCallUnits(deliveredUnits(job.request, job.output))});
           await jobs.put(job);
           if (
             job.state === "running" ||

@@ -5,6 +5,8 @@
 //! `tests/fixtures/fake-core.mjs` (the real built core where `memory recall` must work). Every run has no terminal on
 //! stdin, so `--yes` is what confirms.
 mod common;
+#[path = "common/prerequisites.rs"]
+mod prerequisites;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -522,6 +524,7 @@ fn repair_never_touches_state() {
 /// the check found a stale sibling.
 #[test]
 fn repair_never_removes_a_live_endpoint() {
+    prerequisites::require("core", &Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."));
     let e = Env::new();
     e.install_service();
     let core_js = Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -23,6 +23,10 @@ All are private to the user (0600, Windows ACL via the host's `securePath`).
 {"seq":4,"prev":"<sha256 of the previous line>","rec":{"at":…,"actor":{"user":"…","host":"…"},"action":"…","target":"…","detail":{…}}}
 ```
 
+`detail` is passed through the D111 redactor (`logs/redact.ts`, the data in `packages/log-schema/schema/redaction.json`) before the line is
+built, so a secret-keyed value or a credential shape inside it is written as `[REDACTED:…]`; the `audit.log` writers in rbac and identity do
+the same. Plain numbers, booleans, names and hex digests are unchanged.
+
 The hash covers the line's UTF-8 bytes without its terminator, so a CRLF copy of the file verifies the same. The
 first line has `prev` = 64 zeros and `seq` 1. After rotation the first line of the new file chains to the last hash
 of the old one and `seq` carries on.
@@ -181,4 +185,9 @@ are drained. A reporting gap while the chain is refused is the price of never bl
   (`src/journal.rs`), are tested for append-only writes (no earlier byte is rewritten), one physical line per entry whatever the content,
   eight concurrent writers without interleaved lines, private permissions, and a last line left torn by a crash: the next entry now starts
   a line of its own instead of being glued to the fragment.
-- **Known gaps:** `detail` is written as given: secrets inside it are not redacted by the chain (not yet enforced; redaction belongs to the event producers in rbac and identity). Neither `audit.log` nor the journal rotates. Both chain writers use the same rotation contract.
+- **Detail redaction at the two remaining writers:** the Rust writer behind `audit::append`, `append_as` and `append_as_degrading` (`crates/plur1bus/src/audit.rs`, `audit_redact.rs`; the redaction sits in the shared `append_inner`, so the supervisor's `audit.config.set` rows and the pending journal are covered) and the
+  secret store's `createFileAuditSink` (`packages/core/src/secrets/audit.ts`) run `detail` through the D111 §4 redactor once, before the
+  record goes to the chain and to `audit.log`, so both copies hold the same redacted line and the hash is taken over it. The Rust side reads
+  its patterns from `packages/log-schema/schema/redaction.json` (no list of its own) and is tested against the canaries in `fixtures/vectors.json`;
+  the secret store also masks the values it holds. The Rust chain's own `append` writes the record it is given; the TypeScript chain writer redacts again (idempotent, `audit/redact-detail.ts`).
+- **Known gaps:** none for `detail` redaction at the writers listed above. Neither `audit.log` nor the journal rotates. Both chain writers use the same rotation contract.

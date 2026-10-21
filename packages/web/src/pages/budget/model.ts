@@ -1,6 +1,9 @@
 // Pure logic of the Usage & Quota page, no DOM and no i18n: tolerant parsing of budget.status, limit state at the boundaries,
-// token amount parsing and the params of budget.set. Tokens are the only metric (no money dimension since 2026-10-19).
+// amount parsing and the params of budget.set. Metrics are tokens, images and video seconds (no money dimension since 2026-10-19).
 import type { BudgetMetric, BudgetPeriod, BudgetPeriodName, BudgetSetParams, UsageTotals } from "./rpc-types.ts";
+
+export const METRICS: readonly BudgetMetric[] = ["tokens", "images", "videoSeconds"];
+const isMetric = (v: unknown): v is BudgetMetric => typeof v === "string" && (METRICS as readonly string[]).includes(v);
 
 export type Limit = {
   scope: string; agentId?: string; period: BudgetPeriodName; metric: BudgetMetric; soft: number | null; hard: number | null; used: number; state: "ok" | "soft" | "hard" | undefined;
@@ -14,7 +17,7 @@ const bound = (v: unknown): number | null => (typeof v === "number" && Number.is
 
 function totals(v: unknown): UsageTotals {
   const o = rec(v);
-  return { events: nat(o.events), inputTokens: nat(o.inputTokens), outputTokens: nat(o.outputTokens), cacheReadTokens: nat(o.cacheReadTokens), cacheWriteTokens: nat(o.cacheWriteTokens) };
+  return { events: nat(o.events), inputTokens: nat(o.inputTokens), outputTokens: nat(o.outputTokens), cacheReadTokens: nat(o.cacheReadTokens), cacheWriteTokens: nat(o.cacheWriteTokens), images: nat(o.images), videoSeconds: nat(o.videoSeconds) };
 }
 
 export function normalizeStatus(raw: unknown): Status {
@@ -24,7 +27,7 @@ export function normalizeStatus(raw: unknown): Status {
     const r = rec(l);
     const scope = str(r.scope), agentId = str(r.agentId);
     const period = r.period === "day" || r.period === "month" ? r.period : null;
-    const metric = r.metric === "tokens" ? r.metric : null; // a limit in another metric (none exists any more) is not shown
+    const metric = isMetric(r.metric) ? r.metric : null; // a limit in another metric (a legacy cost limit) is not shown
     if (!scope || !period || !metric || (scope === "agent" && !agentId)) continue;
     limits.push({ scope, ...(agentId ? { agentId } : {}), period, metric, soft: bound(r.soft), hard: bound(r.hard), used: nat(r.used), state: r.state === "ok" || r.state === "soft" || r.state === "hard" ? r.state : undefined });
   }
@@ -86,17 +89,20 @@ export function buildSetParams(key: LimitKey, next: { soft: number | null; hard:
   return { limit };
 }
 
+/** What a period's totals count in a metric. */
+export const usedIn = (u: UsageTotals, metric: BudgetMetric): number => (metric === "images" ? u.images : metric === "videoSeconds" ? u.videoSeconds : u.inputTokens + u.outputTokens);
+
 /** Computes the current consumption for a given limit key from existing limits or periods. */
 export function currentConsumption(periods: readonly BudgetPeriod[], limits: readonly Limit[], key: LimitKey): number {
   const existing = limits.find((l) => l.scope === key.scope && (key.scope === "agent" ? l.agentId === key.agentId : true) && l.period === key.period && l.metric === key.metric);
   if (existing && existing.used > 0) return existing.used;
   const p = periods.find((x) => x.period === key.period);
   if (!p) return 0;
-  if (key.scope === "global") return p.total.inputTokens + p.total.outputTokens;
+  if (key.scope === "global") return usedIn(p.total, key.metric);
   if (key.scope === "agent" && key.agentId) {
     const a = p.agents.find((x) => x.agentId === key.agentId);
     if (!a) return 0;
-    return a.total.inputTokens + a.total.outputTokens;
+    return usedIn(a.total, key.metric);
   }
   return 0;
 }
