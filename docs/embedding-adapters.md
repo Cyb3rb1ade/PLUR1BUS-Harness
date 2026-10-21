@@ -57,7 +57,7 @@ smoke (below) is how a row becomes "live-verified".
 | `tei` | `POST /embed` | none (use prefixes) | 32 / 512 | root-array response, `truncate:false` | documented |
 | `mtplx` | `POST {baseURL}/v1/embeddings` (daemon, default `http://127.0.0.1:8000`) | none (an `instruction` field exists server-side, unused) | 32 / 8192 | OpenAI shape; `dimensions` sent, the server truncates (Matryoshka) and answers 400 above the native width; embedding models are opt-in on the daemon (`--embedding-model`), otherwise 404 | source-verified (`mtplx/server/openai.py`), not live |
 
-Limits are conservative defaults, not provider maxima; every one is overridable (`maxBatch`, `maxInputTokens`, `maxBatchTokens`).
+Limits are conservative defaults, not provider maxima; every one is overridable (`maxBatch`, `maxInputTokens`, `maxBatchTokens`). A resolved `maxBatchTokens` below the resolved `maxInputTokens` (explicit or inherited from the provider default) is refused as a `ConfigError` on `embedding.maxBatchTokens`, so an input that passes the per-input check always fits a batch budget.
 Token counts are an estimate (`ceil(ascii/4 + other/1.5)`); an input over `maxInputTokens` fails with `too_large` before any request.
 Models that need a client-side prefix (e5 style) use `queryPrefix` / `passagePrefix`; both are part of the identity.
 

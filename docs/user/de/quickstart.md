@@ -95,8 +95,10 @@ state, propose, proposals).
 ## 5. Backup und Wiederherstellung
 
 `plur1bus backup` (experimentell) schreibt ein konsistentes Archiv der Installation mit Prüfsummen. `create` braucht
-einen laufenden Core; das Archiv enthält nie Geheimnisse (API-Schlüssel bleiben im Schlüsselbund des Betriebssystems,
-`run/` wird nie archiviert) und ist weder signiert noch verschlüsselt:
+einen laufenden Core; der Secret-Store wird nie gelesen (API-Schlüssel bleiben im Schlüsselbund des Betriebssystems,
+`run/` wird nie archiviert, ein in `config.json` stehendes Webhook-Secret wird durch einen Platzhalter ersetzt), aber die
+API-Kontendatenbank `state/api/accounts.db` wird mit Passwort-Hashes und TOTP-Seeds archiviert, und das Archiv ist weder
+signiert noch verschlüsselt; bewahre es daher geschützt auf:
 
 ```sh
 plur1bus backup create --dry-run          # zeigen, was archiviert würde, nichts schreiben

@@ -2,6 +2,7 @@
 // `logs/audit.log`: `{ at, actor: { user, host }, action, target, detail }`, append-only, private to the user.
 import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, writeSync } from "node:fs";
 import { dirname } from "node:path";
+import { redactAuditDetail } from "../audit/redact-detail.ts";
 
 export interface AuditEvent {
   at: number;
@@ -29,7 +30,7 @@ export interface JsonlAuditOptions {
 export function createJsonlAuditSink(path: string, o: JsonlAuditOptions = {}): AuditSink {
   return {
     append(e) {
-      const line = `${JSON.stringify({ at: e.at, actor: e.actor, action: e.action, target: e.target, detail: e.detail })}\n`;
+      const line = `${JSON.stringify({ at: e.at, actor: e.actor, action: e.action, target: e.target, detail: redactAuditDetail(e.detail) })}\n`;
       mkdirSync(dirname(path), { recursive: true });
       const fd = openSync(path, "a", 0o600);
       try {
