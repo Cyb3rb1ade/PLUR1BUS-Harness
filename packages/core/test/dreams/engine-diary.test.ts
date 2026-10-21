@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { DreamsDiaryResult } from "@plur1bus/rpc-schema";
 import { defaults } from "@plur1bus/config-schema";
 import { createCore } from "../../src/core.ts";
 import { layout } from "../../src/paths.ts";
@@ -29,9 +30,10 @@ test("dreams.diary returns the real engine's DREAMS.md after a capture-generated
   const purposes: string[] = [];
   const core = createCore({ home, testInternals: flatTestInternals(), inspectHost: (host) => {
     host.runtime = { llm: { async complete(params) {
-      purposes.push(params.purpose ?? "");
-      const text = params.purpose === "dream-narrative" ? narrative
-        : params.purpose === "conversation-insights" ? '["Weekly planning moves to Thursday mornings."]' : "[]";
+      const purpose = params !== null && typeof params === "object" && "purpose" in params && typeof params.purpose === "string" ? params.purpose : "";
+      purposes.push(purpose);
+      const text = purpose === "dream-narrative" ? narrative
+        : purpose === "conversation-insights" ? '["Weekly planning moves to Thursday mornings."]' : "[]";
       return { text, provider: "fixture", model: "fixture", usage: {} };
     } } };
   } });
@@ -54,7 +56,7 @@ test("dreams.diary returns the real engine's DREAMS.md after a capture-generated
     assert.ok(existsSync(diaryPath), `engine diary missing; LLM purposes: ${purposes.join(",")}`);
     const output = readFileSync(diaryPath, "utf8");
     assert.ok(output.includes(narrative), "the genuine engine output contains the stub's narrative");
-    const diary = await client.call<any>("dreams.diary", { agentId: "bernd" });
+    const diary = await client.call<DreamsDiaryResult>("dreams.diary", { agentId: "bernd" });
     assert.equal(diary.exists, true);
     assert.equal(diary.path, diaryPath);
     assert.equal(diary.text, output);

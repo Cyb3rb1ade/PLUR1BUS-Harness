@@ -8128,7 +8128,7 @@ Disables one phase schedule; cron and importance triggers stop, run-now still wo
 
 **Served by:** core
 
-The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
+The private engine-owned dreaming diary (DREAMS.md at the agent workspace root; A5 amendment to D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
 
 **params**
 

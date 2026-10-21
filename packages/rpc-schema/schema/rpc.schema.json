@@ -7007,7 +7007,7 @@
       },
       "dreams.diary": {
         "x-stability": "experimental", "x-since": "1.6.0", "x-server": "core",
-        "description": "The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.",
+        "description": "The private engine-owned dreaming diary (DREAMS.md at the agent workspace root; A5 amendment to D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": {
           "type": "object", "additionalProperties": false, "required": ["agentId", "path", "exists", "bytes", "text", "truncated"],

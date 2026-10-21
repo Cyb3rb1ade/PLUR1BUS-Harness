@@ -24,7 +24,7 @@ for (const lang of ["en", "de"] as const) {
       assert.equal(await content.locator("img").count(), 0);
       await app.page.getByText(lang === "de" ? "Das Tagebuch ist gekürzt." : "The diary is truncated.", { exact: true }).waitFor();
       assert.deepEqual(app.server.rpc.calls.find((c) => c.method === "dreams.diary")?.params, { agentId: "main" });
-      await expectAxeClean(app.page);
+      await expectAxeClean(app.page, `Dream diary (${lang})`);
       assert.equal(app.problems.length, 0, app.problems.join("\n"));
     });
   });
