@@ -223,9 +223,21 @@ answer as an unreachable core. `agents.list` takes an object with an `agents` ar
 `agentId`; any other answer is a 502 with `reason: core-error`, and the core cannot override the `schema` id. The core's own text is
 never forwarded.
 
-An `/rpc` call that the core refuses with a code of the closed `ErrorCode` enum keeps that code, the status comes from one
-total table (`statusOfCode`, `src/errors.ts`; `hardening-openapi.test.ts` fails for any code without its own status, so
-none falls back to a bare 500) and the text is a fixed one per code:
+The REST routes that pass a core refusal on (`agents.list`, `chats.*`, the desktop-attach routes, `remote.*`, the
+`remote.pairing.*` and `remote.trust.*` routes, and the break-glass routes for every refusal they do not map themselves) turn a
+refusal with a code of the closed `ErrorCode` enum into an `ApiError` (`fromCoreError`, `src/errors.ts`). The code is kept, the
+status comes from one total table (`statusOfCode`; `hardening-openapi.test.ts` fails for any code without its own status and
+for any status entry that is not in the enum, so none falls back to a bare 500) and the text is a fixed one per code. No route
+returns the ten codes `E_AGENT_EXISTS`, `E_AGENT_RIGHTS`, `E_AGENT_SECRETS_MISSING`, `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`,
+`E_INVITE_INVALID`, `E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE` and `E_VOICE_UNAVAILABLE` yet; the table and its tests
+fix the status they will get once one does.
+
+`POST /rpc` does not use this table. `rpcFailure` (`src/rpc-route.ts`) answers every application error with HTTP 200 and a
+JSON-RPC `error` object: the code is `error.data.error` (and `error.data.reason`), the JSON-RPC number is -32602 for
+`E_INVALID_PARAMS` and -32000 otherwise unless the core named one, and the message comes from a small fixed table. Only the
+layers in front of the route (session, CSRF, rate limit, body size) use HTTP statuses.
+
+The status table of the REST routes:
 
 | Status | Codes |
 |---|---|

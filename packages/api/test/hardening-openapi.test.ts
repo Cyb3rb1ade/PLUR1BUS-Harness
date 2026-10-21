@@ -15,7 +15,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { ERROR_CODES, type ErrorCode } from "@plur1bus/rpc-schema";
-import { fromCoreError, statusOfCode } from "../src/errors.ts";
+import { STATUS_OF_CODE, fromCoreError, statusOfCode } from "../src/errors.ts";
 import { buildOpenApi } from "../src/openapi.ts";
 import { ROUTES, type RouteSpec } from "../src/routes.ts";
 import { totpCodeAt } from "../src/totp.ts";
@@ -74,6 +74,14 @@ test("the generator's --check passes on this tree: docs/openapi.json and docs/ap
 test("the Error schema's code list is the closed ErrorCode enum it says it is", () => {
   const listed = (doc.components.schemas.Error as any).properties.error.enum as string[];
   assert.deepEqual([...listed].sort(), [...ERROR_CODES].sort(), `missing: ${ERROR_CODES.filter((c) => !listed.includes(c)).join(", ")}`);
+});
+
+test("the status table and the closed ErrorCode enum list exactly the same codes (no missing and no stale key)", () => {
+  // `Record<ErrorCode, number>` checks nothing because `ErrorCode` is `string`; the enum itself (`ERROR_CODES`, from the schema) is the source of truth.
+  const keys = Object.keys(STATUS_OF_CODE);
+  assert.deepEqual(ERROR_CODES.filter((c) => !keys.includes(c)), [], "codes of the enum without an entry in STATUS_OF_CODE");
+  assert.deepEqual(keys.filter((k) => !(ERROR_CODES as readonly string[]).includes(k)), [], "keys of STATUS_OF_CODE that are not in the enum");
+  assert.equal(new Set(ERROR_CODES).size, ERROR_CODES.length, "ERROR_CODES has no duplicates");
 });
 
 test("every closed error code has its own HTTP status, none falls back to a bare 500", () => {

@@ -3,11 +3,11 @@ import { ERROR_CODES, type ErrorCode } from "@plur1bus/rpc-schema";
 /** The HTTP status each member of the closed `ErrorCode` enum answers with when nothing more specific is known. The
  *  enum is closed (ADR-016 §2), so conditions without a code of their own (a missing CSRF token, a rate limit, an
  *  oversized body) use the nearest code and a `reason`, never a new code. The table is total: `ErrorCode` is a plain
- *  `string` (`ERROR_CODES` is `readonly string[]`), so the type check cannot catch a missing entry; instead
- *  `hardening-openapi.test.ts` fails for any code in the enum without its own status, so none can fall back to a bare
- *  500. Only `E_INTERNAL` and
+ *  `string` (`ERROR_CODES` is `readonly string[]`), so the type check cannot catch a missing or a stale entry; instead
+ *  `hardening-openapi.test.ts` compares the keys of this table with `ERROR_CODES` and fails for a code without its own
+ *  status and for a key that is not in the enum, so none can fall back to a bare 500. Only `E_INTERNAL` and
  *  `E_STORAGE` are the server's own fault; a refusal that the caller can fix is a 4xx. */
-const STATUS_OF_CODE: Record<ErrorCode, number> = {
+export const STATUS_OF_CODE: Record<ErrorCode, number> = {
   E_UNAUTHORIZED: 401, E_DENIED: 403, E_NOT_FOUND: 404, E_AGENT_UNKNOWN: 404, E_MODULE_UNKNOWN: 404,
   E_INVALID_PARAMS: 400, E_CONFIG_INVALID: 400, E_CONFLICT: 409, E_LOCKED: 423, E_APPROVAL_REQUIRED: 403,
   E_CORE_UNAVAILABLE: 503, E_NOT_AVAILABLE: 503, E_RPC_VERSION: 502, E_STORAGE: 500, E_INTERNAL: 500,
