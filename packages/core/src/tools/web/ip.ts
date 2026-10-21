@@ -22,6 +22,18 @@ export interface Cidr {
   prefix: number;
 }
 
+/**
+ * The IANA special-purpose registry snapshot the tables below follow (desktop transport choice, spec §4.1). The id is
+ * the first field of the shared vector file `test/fixtures/net/ip-classification-vectors.json` and equals
+ * `CLASSIFIER_ID` of the Rust crate `plur1bus-desktop-net`. Moving to a newer snapshot is one reviewed change of the
+ * tables, this constant, the vector file and the Rust crate; the parity tests fail otherwise. No runtime download.
+ */
+export const IANA_SPECIAL_REGISTRY = {
+  id: "iana-special-2025-10-09",
+  ipv4: { url: "https://www.iana.org/assignments/iana-ipv4-special-registry/", updated: "2025-10-09" },
+  ipv6: { url: "https://www.iana.org/assignments/iana-ipv6-special-registry/", updated: "2025-10-09" },
+} as const;
+
 function parseV4Part(s: string): number | null {
   if (/^0[xX][0-9a-fA-F]+$/.test(s)) return Number.parseInt(s.slice(2), 16);
   if (/^0[0-7]*$/.test(s)) return s.length === 1 ? 0 : Number.parseInt(s, 8);
@@ -117,10 +129,15 @@ export function canonical(a: ParsedAddress): ParsedAddress {
   return a.family === 6 && isV4Mapped(a.bytes) ? { family: 4, bytes: a.bytes.slice(12) } : a;
 }
 
+/** Every registered range with the CIDR literal it was registered under, in registration (= evaluation) order. */
+const registered: Array<{ readonly cidr: string; readonly reason: string }> = [];
 const v4Ranges: Array<[Cidr, string]> = [];
 const addV4 = (cidr: string, reason: string): void => {
   const c = parseCidr(cidr);
-  if (c) v4Ranges.push([c, reason]);
+  if (c) {
+    v4Ranges.push([c, reason]);
+    registered.push({ cidr, reason });
+  }
 };
 addV4("0.0.0.0/8", "unspecified");
 addV4("10.0.0.0/8", "private");
@@ -142,7 +159,10 @@ addV4("240.0.0.0/4", "reserved");
 const v6Ranges: Array<[Cidr, string]> = [];
 const addV6 = (cidr: string, reason: string): void => {
   const c = parseCidr(cidr);
-  if (c) v6Ranges.push([c, reason]);
+  if (c) {
+    v6Ranges.push([c, reason]);
+    registered.push({ cidr, reason });
+  }
 };
 addV6("::/128", "unspecified");
 addV6("::1/128", "loopback");
@@ -203,4 +223,91 @@ export function classifyAddress(input: ParsedAddress): Verdict {
   // Only global unicast 2000::/3 is public; everything else is unassigned or special.
   if ((b[0]! & 0xe0) !== 0x20) return { public: false, reason: "reserved" };
   return { public: true };
+}
+
+/**
+ * The registered ranges (IPv4 first, then IPv6) with the CIDR literals they were registered under, in the order
+ * `classifyAddress` evaluates them. Beside the table, `classifyAddress` treats 255.255.255.255 (limited broadcast) as
+ * `reserved` (it is inside 240.0.0.0/4 anyway), judges IPv4-mapped, NAT64 (64:ff9b::/96) and 6to4 (2002::/16) addresses
+ * by the IPv4 address they carry, and calls everything outside 2000::/3 `reserved`. The shared vector file pins all of it.
+ */
+export function classificationTable(): ReadonlyArray<{ readonly cidr: string; readonly reason: string }> {
+  return registered;
+}
+
+// ---- cidrContainsPublic (spec §4.5) -------------------------------------------------------------------------------
+
+interface Span {
+  readonly base: bigint; // masked: the host bits are zero
+  readonly prefix: number;
+}
+interface Family {
+  readonly width: number;
+  /** Ranges in which every address is non-public. */
+  readonly closed: readonly Span[];
+  /** Ranges whose verdict is the verdict of the IPv4 address carried in the 32 bits that follow the prefix. */
+  readonly embedded: readonly Span[];
+}
+
+const bigOf = (bytes: Uint8Array): bigint => bytes.reduce((n, b) => (n << 8n) | BigInt(b), 0n);
+const maskTo = (n: bigint, width: number, prefix: number): bigint => {
+  const host = BigInt(width - prefix);
+  return (n >> host) << host;
+};
+const spanFrom = (c: Cidr, width: number): Span => ({ base: maskTo(bigOf(c.bytes), width, c.prefix), prefix: c.prefix });
+const spanOf = (cidr: string, width: number): Span => spanFrom(parseCidr(cidr)!, width);
+const covers = (outer: Span, inner: Span, width: number): boolean =>
+  outer.prefix <= inner.prefix && maskTo(inner.base, width, outer.prefix) === outer.base;
+
+const FAMILY_V4: Family = {
+  width: 32,
+  closed: [...v4Ranges.map(([c]) => spanFrom(c, 32)), spanOf("255.255.255.255/32", 32)],
+  embedded: [],
+};
+const FAMILY_V6: Family = {
+  width: 128,
+  closed: [
+    ...v6Ranges.map(([c]) => spanFrom(c, 128)),
+    // Outside 2000::/3 nothing is public: 2000::/3 is 001 followed by anything, its complement is 000, 01 and 1.
+    spanOf("::/3", 128),
+    spanOf("4000::/2", 128),
+    spanOf("8000::/1", 128),
+  ],
+  embedded: [spanOf("::ffff:0:0/96", 128), spanOf("64:ff9b::/96", 128), spanOf("2002::/16", 128)],
+};
+
+function firstPublic(f: Family, v4: Family, base: bigint, prefix: number): bigint | null {
+  const range: Span = { base: maskTo(base, f.width, prefix), prefix };
+  // Inside an embedded-IPv4 block: the answer is the IPv4 answer for the carried range, put back in place.
+  for (const e of f.embedded) {
+    if (!covers(e, range, f.width)) continue;
+    const shift = BigInt(f.width - e.prefix - 32);
+    const carriedPrefix = Math.min(32, prefix - e.prefix);
+    const carried = maskTo((range.base >> shift) & 0xffffffffn, 32, carriedPrefix);
+    const found = firstPublic(v4, v4, carried, carriedPrefix);
+    return found === null ? null : (range.base & ~(0xffffffffn << shift)) | (found << shift);
+  }
+  const holdsEmbedded = f.embedded.some((e) => covers(range, e, f.width));
+  if (!holdsEmbedded && f.closed.some((c) => covers(c, range, f.width))) return null; // wholly inside a non-public block
+  if (!holdsEmbedded && !f.closed.some((c) => covers(range, c, f.width))) return range.base; // touches no block at all
+  // Otherwise the range holds some block(s) and some more: the lowest public address is in the lower half or the upper.
+  if (prefix >= f.width) return null; // unreachable: a single address is inside a block or touches none
+  const lower = firstPublic(f, v4, range.base, prefix + 1);
+  if (lower !== null) return lower;
+  return firstPublic(f, v4, range.base | (1n << BigInt(f.width - prefix - 1)), prefix + 1);
+}
+
+/**
+ * The lowest public address of the range, or null when it has none (spec §4.5). The range's host bits are ignored
+ * (`172.16.0.0/11` is `172.0.0.0/11`). The result has the family of the range; for a range inside an IPv4-mapped,
+ * NAT64 or 6to4 block it is the IPv6 address that carries the lowest public IPv4 address (`64:ff9b::/96` gives
+ * `64:ff9b::100:0`, `::/0` gives `::ffff:100:0`). Bounded: the range halves at most 128 times.
+ */
+export function cidrContainsPublic(c: Cidr): ParsedAddress | null {
+  const f = c.family === 4 ? FAMILY_V4 : FAMILY_V6;
+  const found = firstPublic(f, FAMILY_V4, bigOf(c.bytes), c.prefix);
+  if (found === null) return null;
+  const bytes = new Uint8Array(f.width / 8);
+  for (let i = bytes.length - 1, n = found; i >= 0; i--, n >>= 8n) bytes[i] = Number(n & 0xffn);
+  return { family: c.family, bytes };
 }
