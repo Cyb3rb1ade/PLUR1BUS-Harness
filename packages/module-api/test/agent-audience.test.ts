@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,11 +10,12 @@ import { createRpcServer } from "../src/rpc-server.ts";
 import { apiPrincipal } from "../src/api-principal.ts";
 import { createLogger } from "../src/logger.ts";
 import { authorize } from "../../core/src/rbac/authorize.ts";
+import { rpcAddress, selfServer } from "./helpers/endpoint.ts";
 
 // Real delegated sockets exercise subscription admission and delivery separately.
 test("agent audiences use current RBAC, preserve local owner, deny missing hooks, and retain order", async t => {
   const dir = await mkdtemp(join(tmpdir(), "p1b-agent-audience-"));
-  const address = process.platform === "win32" ? `\\\\.\\pipe\\p1b-${randomUUID()}` : join(dir, "rpc.sock");
+  const address = rpcAddress(dir);
   const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
   const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" });
   let rights = true; let fail = false;
@@ -31,9 +32,9 @@ test("agent audiences use current RBAC, preserve local owner, deny missing hooks
   const clients: CoreClient[] = [];
   t.after(async () => { await Promise.all(clients.map(c => c.close())); await server.close(); await logger.close(); await rm(dir, { recursive: true, force: true }); });
   for (const [userId, role] of [["denied", "viewer"], ["permitted", "member"], ["admin", "admin"], ["owner", "owner"]] as const) {
-    clients.push(await connect({ address, token, api: { clientId: "harness-api", token: apiToken, principal: { userId, role, kind: "person" } } }));
+    clients.push(await connect({ address, token, ...selfServer, api: { clientId: "harness-api", token: apiToken, principal: { userId, role, kind: "person" } } }));
   }
-  clients.push(await connect({ address, token }));
+  clients.push(await connect({ address, token, ...selfServer }));
   const seen: number[][] = clients.map(() => []);
   clients.forEach((c, i) => c.onNotification((_m, p) => seen[i]!.push((p as { totalMs: number }).totalMs)));
   await assert.rejects(clients[0]!.call("events.subscribe", { agentId: "bernd" }), (e: any) => e.error === "E_DENIED");
@@ -51,13 +52,15 @@ test("agent audiences use current RBAC, preserve local owner, deny missing hooks
 
 test("delegated agent subscriptions and audiences fail closed without an agent-visibility hook", async t => {
   const dir = await mkdtemp(join(tmpdir(), "p1b-no-agent-hook-"));
-  const address = process.platform === "win32" ? `\\\\.\\pipe\\p1b-${randomUUID()}` : join(dir, "rpc.sock");
+  const address = rpcAddress(dir);
   const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
   const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" });
   const server = createRpcServer({ address, token, apiToken, logger, methods: {}, hello: () => ({ rpc: "1.6.0", pid: process.pid, instanceId: "test" }), apiPersonOfConnection: async (_id, p) => p.userId });
   await server.listen();
-  const client = await connect({ address, token, api: { clientId: "harness-api", token: apiToken, principal: { userId: "viewer", role: "viewer", kind: "person" } } });
-  t.after(async () => { await client.close(); await server.close(); await logger.close(); await rm(dir, { recursive: true, force: true }); });
+  // Cleanup first: a refused connect must not leave the listening server holding the test process open.
+  let client!: CoreClient;
+  t.after(async () => { await client?.close(); await server.close(); await logger.close(); await rm(dir, { recursive: true, force: true }); });
+  client = await connect({ address, token, ...selfServer, api: { clientId: "harness-api", token: apiToken, principal: { userId: "viewer", role: "viewer", kind: "person" } } });
   await assert.rejects(client.call("events.subscribe", { agentId: "bernd" }), (e: any) => e.error === "E_DENIED");
   await client.call("events.subscribe", {});
   const seen: string[] = []; client.onNotification(m => seen.push(m));
@@ -67,14 +70,16 @@ test("delegated agent subscriptions and audiences fail closed without an agent-v
 
 test("an event storm behind an unresolved identity lookup disconnects at the bounded queue", async t => {
   const dir = await mkdtemp(join(tmpdir(), "p1b-event-queue-"));
-  const address = process.platform === "win32" ? `\\\\.\\pipe\\p1b-${randomUUID()}` : join(dir, "rpc.sock");
+  const address = rpcAddress(dir);
   const token = randomBytes(32).toString("hex");
   const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" });
   let release!: (person: string) => void;
   const identity = new Promise<string>(resolve => { release = resolve; });
   const server = createRpcServer({ address, token, logger, methods: {}, hello: () => ({ rpc: "1.6.0", pid: process.pid, instanceId: "test" }), personOfConnection: () => identity });
-  await server.listen(); const client = await connect({ address, token });
-  t.after(async () => { release("person"); await client.close(); await server.close(); await logger.close(); await rm(dir, { recursive: true, force: true }); });
+  await server.listen();
+  let client!: CoreClient;
+  t.after(async () => { release("person"); await client?.close(); await server.close(); await logger.close(); await rm(dir, { recursive: true, force: true }); });
+  client = await connect({ address, token, ...selfServer });
   await client.call("events.subscribe", {});
   const closed = new Promise<void>(resolve => client.onClose(resolve));
   const { MAX_PENDING_NOTIFICATIONS } = await import("../src/rpc-server.ts");

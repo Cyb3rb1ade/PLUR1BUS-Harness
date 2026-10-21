@@ -126,7 +126,8 @@ export class OutputStore {
         const describe = async (name: string) => {
           const digest = createHash('sha256'); let bytes = 0;
           for await (const chunk of createReadStream(join(stage,name))) { bytes += chunk.length; digest.update(chunk); if (bytes > (this.options.maxVideoBytes ?? 512*1024*1024)) throw new MediaError('too_large'); }
-          const handle = await open(join(stage,name),'r'); try { await handle.sync(); } finally { await handle.close(); }
+          // 'r+', not 'r': FlushFileBuffers needs write access, so fsync on a read-only handle fails with EPERM on Windows.
+          const handle = await open(join(stage,name),'r+'); try { await handle.sync(); } finally { await handle.close(); }
           return {path:name,bytes,sha256:digest.digest('hex')};
         };
         const stored = await describe(path), poster = await describe(posterPath);
