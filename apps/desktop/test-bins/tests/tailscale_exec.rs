@@ -3,9 +3,10 @@
 //! test copies the fake into its own temporary directory with its own `fake-tailscale.scenario`, so the scenario never
 //! travels through the environment the exec clears. `exec_status` is a debug-only test surface, so this file is too.
 #![cfg(debug_assertions)]
+#[cfg(unix)]
+use plur1bus_desktop::transport::exec_candidate;
 use plur1bus_desktop::transport::{
-    exec_candidate, exec_status, CliTailscale, ExecOutcome, TailscaleSource, TailscaleStatus,
-    UnavailableWhy,
+    exec_status, CliTailscale, ExecOutcome, TailscaleSource, TailscaleStatus, UnavailableWhy,
 };
 use std::path::PathBuf;
 use std::sync::Mutex;
