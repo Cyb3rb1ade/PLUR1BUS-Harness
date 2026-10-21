@@ -1,6 +1,6 @@
 # Lokale Host-Tools und Sandbox-Status
 
-Host-Tools laufen lokal unter der Berechtigungsprüfung des Harness. `exec.run` und Host-Unterprozesse benötigen standardmäßig eine OS-Sandbox. Fehlt die Isolation, wird der Aufruf verweigert; eine Freigabe allein ersetzt sie nicht.
+Host-Tools laufen lokal unter der Berechtigungsprüfung des Harness. `exec.run` und Host-Unterprozesse benötigen standardmäßig eine OS-Sandbox. Fehlt die Isolation, wird der Aufruf verweigert; eine Freigabe allein ersetzt sie nicht. Die englische Version dieser Seite ist [../en/host-tools.md](../en/host-tools.md).
 
 Doctor zeigt Backend und Schutzstärke. macOS verwendet das veraltete `sandbox-exec` (Seatbelt); die aktuelle Policy verbietet Forks und überwacht den Speicher stichprobenartig. Unter Linux wird bubblewrap benötigt; schreibbare Policies bleiben bis zur dynamischen Credential-Sperre gesperrt. Unter Windows fehlt die Restricted-Token-/Job-Object-Implementierung; sandboxpflichtige Prozesse bleiben dort nicht verfügbar. Das Paket ist ein Draft und bietet noch keine vollständige Plattformabnahme.
 

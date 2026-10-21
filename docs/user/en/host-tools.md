@@ -1,6 +1,6 @@
 # Local host tools and sandbox status
 
-Host tools run locally under the harness permission policy. `exec.run` and host subprocesses require an OS sandbox by default. Missing isolation refuses the call; an approval alone cannot substitute for isolation.
+Host tools run locally under the harness permission policy. `exec.run` and host subprocesses require an OS sandbox by default. Missing isolation refuses the call; an approval alone cannot substitute for isolation. The German version of this page is [../de/host-tools.md](../de/host-tools.md).
 
 Doctor reports the backend and its strength. macOS uses deprecated `sandbox-exec` (Seatbelt); current policy denies forking and uses a sampled memory watchdog. Linux requires bubblewrap; writable policies currently refuse execution pending credential-name enforcement. Windows restricted-token/Job Object support is not implemented, so sandbox-required processes remain unavailable. These are Draft capabilities, not complete cross-platform support.
 
