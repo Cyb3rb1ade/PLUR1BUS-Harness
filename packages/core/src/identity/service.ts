@@ -264,6 +264,8 @@ export function createIdentityService(o: IdentityOptions) {
         if (activeLink(i)) { run("UPDATE pairings SET state = 'declined', resolved_at = ? WHERE id = ?", t, id); return { state: "declined", refuse: conflict(i) }; }
         requireHuman(r.human_id);
         const link = insertLink(r.human_id as string, i, "pairing_code", actor.user);
+        // A confirmed claim was a legitimate pairing, not an attempt: it frees its place in the person's claim limit (a declined one stays counted).
+        limiter.release(`claim:${digest(r.human_id as string)}`, SOURCE_LIMIT, Number(r.claimed_at));
         run("UPDATE pairings SET state = 'confirmed', resolved_at = ?, link_id = ? WHERE id = ?", t, link.id, id);
         return { state: "confirmed", link };
       });
