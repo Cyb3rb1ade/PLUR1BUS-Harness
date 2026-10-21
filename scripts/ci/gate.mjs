@@ -4,28 +4,25 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const KEYS = ['proceed', 'rust', 'ts-core', 'web', 'python', 'documents', 'workflows', 'engine-pin', 'docs-only'];
+
+// The reliable set, and only it: the gate `needs` exactly these jobs (workflow-contract.test.mjs proves it). Each aggregates
+// its own matrix or shards (`web-browser` fails unless the build and every shard succeeded). A job outside this set is
+// never in the gate's `needs`: the gate would wait for it, and a slow, flaky or experimental leg (windows/macos unit,
+// python-host windows-11-arm, startup/budget advisories, ...) must neither delay nor fail the merge decision.
 export function selections(o) {
   const enabled = o.proceed === 'true';
   const runtime = o.rust === 'true' || o['ts-core'] === 'true';
   return {
     'docs-hygiene': enabled,
-    unit: enabled && runtime,
-    system: enabled && runtime,
-    service: enabled && runtime,
-    'python-host': enabled && (runtime || o.python === 'true'),
+    unit: enabled && runtime, // ubuntu-24.04 only; the macos/windows legs are the ungated `unit-os`
     wsl: enabled && (runtime || o.python === 'true'),
-    'web-browser-build': enabled && o.web === 'true',
-    'web-browser-shard': enabled && o.web === 'true',
     'web-browser': enabled && o.web === 'true',
-    'release-scripts': enabled && (runtime || o.workflows === 'true'),
-    sandbox: enabled && runtime,
-    'perf-startup': enabled && runtime,
-    'perf-budgets': enabled && runtime,
-    'documents-golden': enabled && o.documents === 'true',
   };
 }
 
-const ADVISORY = new Set(['perf-startup', 'perf-budgets']);
+// Jobs of ci.yml that run but are deliberately not part of the gate (see docs/ci.md, "Required check and failures").
+export const UNGATED = ['unit-os', 'system', 'service', 'python-host', 'web-browser-build', 'web-browser-shard',
+  'release-scripts', 'sandbox', 'perf-startup', 'perf-budgets', 'documents-golden'];
 
 export function evaluateGate(needs) {
   if (needs?.changes?.result !== 'success') return ['changes must succeed'];
@@ -37,7 +34,7 @@ export function evaluateGate(needs) {
   for (const job of Object.keys(needs)) if (job !== 'changes' && !(job in selected)) errors.push(`unrecognized job: ${job}`);
   for (const [job, required] of Object.entries(selected)) {
     const result = needs[job]?.result;
-    const accepted = ADVISORY.has(job) ? ['success', 'failure', 'skipped'] : required ? ['success'] : ['success', 'skipped'];
+    const accepted = required ? ['success'] : ['success', 'skipped'];
     if (!accepted.includes(result)) {
       errors.push(`${job}: ${result ?? 'missing'} (required=${required})`);
     }
@@ -50,6 +47,6 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
     const errors = evaluateGate(JSON.parse(process.env.NEEDS ?? 'null'));
     for (const error of errors) console.error(error);
     if (errors.length) process.exitCode = 1;
-    else console.log('ci-gate: required checks succeeded; advisory outcomes are complete');
+    else console.log('ci-gate: every selected required check succeeded');
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

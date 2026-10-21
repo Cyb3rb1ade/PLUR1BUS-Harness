@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateGate, selections } from './gate.mjs';
+import { evaluateGate, selections, UNGATED } from './gate.mjs';
 
 const flags = (extra = {}) => ({ proceed: 'true', rust: 'false', 'ts-core': 'false', web: 'false', python: 'false',
   documents: 'false', workflows: 'false', 'engine-pin': 'false', 'docs-only': 'true', ...extra });
@@ -18,8 +18,9 @@ test('docs-only runs only docs/hygiene and deliberately omits every expensive jo
 test('the full matrix requires complete success from every required job', () => {
   const outputs = flags({ rust: 'true', 'ts-core': 'true', web: 'true', python: 'true', documents: 'true', workflows: 'true', 'docs-only': 'false' });
   assert(Object.values(selections(outputs)).every(Boolean));
+  assert.deepEqual(Object.keys(selections(outputs)).sort(), ['docs-hygiene', 'unit', 'web-browser', 'wsl']);
   assert.deepEqual(evaluateGate(needs(outputs)), []);
-  for (const job of Object.keys(selections(outputs)).filter(job => !['perf-startup', 'perf-budgets'].includes(job))) for (const result of ['failure', 'cancelled', 'skipped', '', undefined]) {
+  for (const job of Object.keys(selections(outputs))) for (const result of ['failure', 'cancelled', 'skipped', '', undefined]) {
     const input = needs(outputs);
     input[job] = result === undefined ? undefined : { result };
     assert(evaluateGate(input).length > 0, `${job}:${result}`);
@@ -27,7 +28,7 @@ test('the full matrix requires complete success from every required job', () => 
 });
 
 test('required-check failure or cancellation is rejected even for an omitted job', () => {
-  for (const job of Object.keys(selections(flags())).filter(job => !['perf-startup', 'perf-budgets'].includes(job))) for (const result of ['failure', 'cancelled']) {
+  for (const job of Object.keys(selections(flags()))) for (const result of ['failure', 'cancelled']) {
     assert(evaluateGate(needs(flags(), { [job]: result })).length > 0, `${job}:${result}`);
   }
 });
@@ -47,9 +48,16 @@ test('a non-macOS label no-op needs successful changes plus deliberate skips', (
   assert(evaluateGate(needs(outputs, { unit: 'cancelled' })).length > 0);
 });
 
-test('web-only requires browser build, all shards, manifest gate and hygiene, no Rust unit matrix', () => {
+test('web-only requires the web-browser aggregate and hygiene, no Rust unit leg', () => {
   assert.deepEqual(Object.entries(selections(flags({ web: 'true', 'docs-only': 'false' }))).filter(([, v]) => v).map(([k]) => k).sort(),
-    ['docs-hygiene', 'web-browser', 'web-browser-build', 'web-browser-shard']);
+    ['docs-hygiene', 'web-browser']);
+});
+
+test('runtime changes require unit (ubuntu), wsl and hygiene; Python alone requires wsl', () => {
+  assert.deepEqual(Object.entries(selections(flags({ rust: 'true', 'docs-only': 'false' }))).filter(([, v]) => v).map(([k]) => k).sort(),
+    ['docs-hygiene', 'unit', 'wsl']);
+  assert.deepEqual(Object.entries(selections(flags({ python: 'true', 'docs-only': 'false' }))).filter(([, v]) => v).map(([k]) => k).sort(),
+    ['docs-hygiene', 'wsl']);
 });
 
 test('an added job cannot silently bypass the gate', () => {
@@ -58,15 +66,7 @@ test('an added job cannot silently bypass the gate', () => {
   assert(evaluateGate(input).some(error => error.includes('new-check')));
 });
 
-test('performance diagnostics accept completed advisory outcomes, but require a terminal result', () => {
-  for (const runtime of ['true', 'false']) for (const job of ['perf-startup', 'perf-budgets']) {
-    const outputs = flags({ 'ts-core': runtime });
-    for (const result of ['success', 'failure', 'skipped', 'cancelled', '', undefined, 'unknown']) {
-      const input = needs(outputs);
-      if (result === undefined) delete input[job];
-      else input[job] = { result };
-      const errors = evaluateGate(input);
-      assert.equal(errors.length === 0, ['success', 'failure', 'skipped'].includes(result), `${runtime}:${job}:${result}`);
-    }
-  }
+test('slow, flaky and advisory jobs are not part of the gate: they are not in the selection', () => {
+  for (const job of UNGATED) assert(!(job in selections(flags({ rust: 'true', 'ts-core': 'true', web: 'true', python: 'true' }))), job);
+  for (const job of ['unit-os', 'python-host', 'perf-startup', 'perf-budgets']) assert(UNGATED.includes(job), job);
 });
