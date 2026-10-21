@@ -470,8 +470,9 @@ The tailnet status lists every device, user and address of the tailnet. It is pa
 used for one match, cached ≤ 10 s, never logged, never persisted, never put into a diagnostics bundle, never sent to the
 webview. The webview receives only the state code, the matched peer's label (first `DNSName` label) and its online
 flag, and for `tailscale-short-name` that peer's own DNS name as the `suggestion`. For a name match the report's
-`addresses` are the matched peer's tailnet IPs (at most eight, §9.5), the target's own addresses as a DNS answer would
-be. Nothing of other peers, users or tailnets. Logs record the check's category and codes, never resolved addresses or peer data. No telemetry.
+`addresses` are the matched peer's (or this device's, §5.2 step 4) tailnet IPs (at most eight, §9.5), the target's
+own addresses as a DNS answer would be. Nothing of other peers, users or tailnets. Logs record the check's category
+and codes, never resolved addresses or peer data. No telemetry.
 
 ### 9.5 Tauri and IPC
 
