@@ -408,8 +408,39 @@ pub(super) fn status(out: &Out, layout: &Layout) -> ! {
     std::process::exit(0)
 }
 
+/// The update lock for a command that changes the installation (`update`, `update --rollback`). Another run holding
+/// it, or a lock that cannot be made, ends the command before anything was changed.
+pub(crate) fn lock_or_fail(out: &Out, layout: &Layout) -> std::fs::File {
+    update::lock(layout).unwrap_or_else(|e| match e {
+        update::LockError::Busy => refuse(
+            out,
+            "update-in-progress",
+            "another update, rollback or setup is running (nothing was changed)",
+        ),
+        update::LockError::Io(m) => refuse(out, "io", &m),
+    })
+}
+
 /// `daemon start`'s hook: settles an update whose process died, before the daemon is started. Never fails the start.
+/// When another update, rollback or setup holds the lock the state is theirs to settle (the daemon start that such a
+/// run makes itself comes through here): this does nothing then.
 pub(crate) fn recover_at_start(layout: &Layout) {
+    if crate::container::container_mode() || !state::state_path(layout).exists() {
+        return;
+    }
+    let _lock = match update::lock(layout) {
+        Ok(l) => l,
+        Err(update::LockError::Busy) => return,
+        Err(update::LockError::Io(m)) => {
+            eprintln!("plur1bus: could not settle an interrupted update: {m}");
+            return;
+        }
+    };
+    recover_locked(layout);
+}
+
+/// The recovery itself, for a caller that holds the update lock. Never fails the caller.
+pub(crate) fn recover_locked(layout: &Layout) {
     if crate::container::container_mode() || !state::state_path(layout).exists() {
         return;
     }

@@ -17,6 +17,16 @@ describe("audit chain hardening (c02)", () => {
     assert.equal(c.verify().ok, true);
   });
 
+  it("reapplies permissions when another writer rotated the active inode", () => {
+    const dir = tempDir("audit-chain-external-rotation-"); const seen: string[] = [];
+    const first = createAuditChain({ dir, securePath: p => seen.push(path.basename(p)) });
+    first.append(ev(0));
+    createAuditChain({ dir }).rotate();
+    first.append(ev(1));
+    assert.equal(seen.filter(n => n === ACTIVE_NAME).length, 2);
+    assert.equal(first.verify().ok, true);
+  });
+
   it("two torn tails set aside in the same millisecond are both kept as evidence", () => {
     const dir = tempDir("audit-chain-hard-"); const c = createAuditChain({ dir });
     const active = path.join(dir, ACTIVE_NAME);

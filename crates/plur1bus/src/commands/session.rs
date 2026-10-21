@@ -2,7 +2,7 @@
 //! RPC surface (M1b-2c). Like the memory-ops commands these never journal: a core that cannot be reached fails fast.
 //! The owner of a session is derived by the core from `identity::caller()`; nothing here names an owner or a memory flag
 //! beyond the session's own `--no-memory` attribute at creation.
-use crate::cli::{ChatArgs, SessionCmd};
+use crate::cli::{ChatArgs, SessionCmd, SessionModelCmd};
 use crate::commands::memory::require_agent;
 use crate::commands::memory_ops::{connect_core, require_supports};
 use crate::identity;
@@ -198,6 +198,51 @@ pub fn run(out: &Out, layout: &Layout, cmd: SessionCmd) {
                 s
             });
         }
+        SessionCmd::Model { command } => match command {
+            SessionModelCmd::Get { session } => {
+                let value = call(
+                    out,
+                    &mut c,
+                    "session.model.get",
+                    json!({"caller":&caller,"sessionId":session}),
+                );
+                out.ok("session.model.get/1", &value, || {
+                    format!(
+                        "{}  model={}  reasoning={}",
+                        value["sessionId"].as_str().unwrap_or("?"),
+                        value["profile"]
+                            .as_str()
+                            .or(value["defaultProfile"].as_str())
+                            .unwrap_or("default"),
+                        value["reasoning"].as_str().unwrap_or("default")
+                    )
+                });
+            }
+            SessionModelCmd::Set {
+                session,
+                model,
+                reasoning,
+                yes,
+            } => {
+                let value = change_model(
+                    out,
+                    &mut c,
+                    &caller,
+                    &session,
+                    model.as_deref(),
+                    reasoning.as_deref(),
+                    yes,
+                );
+                out.ok("session.model.set/1", &value, || {
+                    format!(
+                        "{}  model={}  reasoning={}",
+                        session,
+                        value["profile"].as_str().unwrap_or("?"),
+                        value["reasoning"].as_str().unwrap_or("default")
+                    )
+                });
+            }
+        },
         SessionCmd::Archive { id } => {
             let v = call(
                 out,
@@ -237,6 +282,73 @@ pub(crate) fn pick_agent(out: &Out, config: &Value, agent: Option<String>) -> St
     }
 }
 
+fn change_model(
+    out: &Out,
+    c: &mut Client,
+    caller: &crate::identity::CallerIdentity,
+    session: &str,
+    model: Option<&str>,
+    reasoning: Option<&str>,
+    yes: bool,
+) -> Value {
+    if model.is_none() && reasoning.is_none() {
+        out.fail(
+            "E_INVALID_PARAMS",
+            "--model or --reasoning is required",
+            json!({}),
+        );
+    }
+    let mut params = json!({"caller":caller,"sessionId":session});
+    let base_revision = if let Some(profile) = model {
+        params["profile"] = json!(profile);
+        None
+    } else {
+        let current = call(
+            out,
+            c,
+            "session.model.get",
+            json!({"caller":caller,"sessionId":session}),
+        );
+        let profile = current["profile"]
+            .as_str()
+            .or(current["defaultProfile"].as_str())
+            .unwrap_or_else(|| {
+                out.fail(
+                    "E_NOT_AVAILABLE",
+                    "no current model profile; choose --model explicitly",
+                    json!({"reason":"model-profile-unavailable"}),
+                )
+            });
+        params["profile"] = json!(profile);
+        Some(current["revision"].clone())
+    };
+    if let Some(level) = reasoning {
+        params["reasoning"] = json!(level);
+    }
+    let preview = call(out, c, "session.model.set", params.clone());
+    if base_revision
+        .as_ref()
+        .is_some_and(|revision| revision != &preview["revision"])
+    {
+        out.fail(
+            "E_CONFLICT",
+            "model profile changed while reading; retry the command",
+            json!({"reason":"stale-model-preview"}),
+        );
+    }
+    let german = std::env::var("LANG").unwrap_or_default().starts_with("de");
+    let warning = if german {
+        "Modell oder Reasoning wechseln? Der Cache wird neu aufgebaut; neue Cache-Schreibkosten und andere Modellkosten können entstehen. Die Präfixe pro Modell bleiben erhalten."
+    } else {
+        "Switch model or reasoning? The cache will rebuild; new cache writes and different model costs may apply. Per-model prefixes are preserved."
+    };
+    eprintln!("{warning}");
+    crate::commands::module::confirm(out, warning, yes);
+    params["confirmed"] = json!(true);
+    params["expectedRevision"] = preview["revision"].clone();
+    call(out, c, "session.model.set", params)
+}
+
 pub fn chat(out: &Out, layout: &Layout, args: ChatArgs) {
     let config = cfg::read_for_lookup(&layout.config_path(), &[])
         .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
@@ -265,27 +377,15 @@ pub fn chat(out: &Out, layout: &Layout, args: ChatArgs) {
             (v["session"]["id"].as_str().unwrap_or("").to_string(), agent)
         }
     };
-    if let Some(profile) = args.model {
-        let preview = call(
+    if args.model.is_some() || args.reasoning.is_some() {
+        change_model(
             out,
             &mut c,
-            "session.model.set",
-            json!({ "caller": &caller, "sessionId": &session_id, "profile": &profile }),
-        );
-        let german = std::env::var("LANG").unwrap_or_default().starts_with("de");
-        let warning = if german {
-            "Modell wechseln? Der Cache wird neu aufgebaut; neue Cache-Schreibkosten und andere Modellkosten können entstehen. Die Präfixe pro Modell bleiben erhalten."
-        } else {
-            "Switch model? The cache will rebuild; new cache writes and different model costs may apply. Per-model prefixes are preserved."
-        };
-        // Even --yes callers see the warning; raw JSON remains solely the RPC result on stdout.
-        eprintln!("{warning}");
-        crate::commands::module::confirm(out, warning, args.yes);
-        call(
-            out,
-            &mut c,
-            "session.model.set",
-            json!({ "caller": &caller, "sessionId": &session_id, "profile": &profile, "confirmed": true, "expectedRevision": preview["revision"] }),
+            &caller,
+            &session_id,
+            args.model.as_deref(),
+            args.reasoning.as_deref(),
+            args.yes,
         );
     }
     let mut turn = |text: &str| {

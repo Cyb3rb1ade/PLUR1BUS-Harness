@@ -268,7 +268,7 @@ test("the challenge table is bounded (1024 live) and old challenges leave it, so
   } finally { f.clean(); }
 });
 
-test("KNOWN GAP: a failed revocation write leaves the device connected and authorised in memory (docs/errors.md promises it is denied at once)", { todo: "KNOWN GAP: revoke() throws before updating memory or closing connections when the write fails; docs/errors.md says the opposite; see SICHERHEIT in the PR" }, () => {
+test("a failed revocation write still closes the device's connections and denies its key at once (docs/errors.md: denied at once)", () => {
   const f = fixture();
   try {
     const d = f.store.recordPairing(meta); let fail = false; const s = new DeviceStore({ ...f.options, securePath: () => { if (fail) throw new Error("disk full"); } });
@@ -279,12 +279,63 @@ test("KNOWN GAP: a failed revocation write leaves the device connected and autho
   } finally { f.clean(); }
 });
 
-test("KNOWN GAP: two store instances over one file overwrite each other (a stale instance can undo a revocation); the documented rule is one owner per file", { todo: "KNOWN GAP: persist() writes the whole in-memory list, so a second instance undoes the first one's revocation; core uses one instance (device-surface.ts); see SICHERHEIT in the PR" }, () => {
+test("a stale second store instance over the same file cannot undo a revocation: it reloads before it writes", () => {
   const f = fixture();
   try {
     const d = f.store.recordPairing(meta); const stale = new DeviceStore(f.options);
     f.store.revoke(d.id, "alice");
     stale.rename(d.id, "renamed by a stale instance", "bob");
     assert.equal(new DeviceStore(f.options).get(d.id).revoked, true, "the revocation survived another instance's write");
+  } finally { f.clean(); }
+});
+
+test("a second store instance sees a revocation made by the first: its next handshake is denied and its live connection closes", () => {
+  const f = fixture();
+  try {
+    const d = f.store.recordPairing(meta); const other = new DeviceStore(f.options);
+    let closed = false; connectAs(other, publicKey, keys.privateKey, () => { closed = true; });
+    f.store.revoke(d.id, "alice");
+    assert.throws(() => connectAs(other, publicKey, keys.privateKey), { code: "denied" }, "the stale instance does not admit the revoked key");
+    assert.equal(closed, true, "and it closed the connection it had");
+    assert.equal(other.get(d.id).revoked, true);
+  } finally { f.clean(); }
+});
+
+test("two instances over one file keep each other's legitimate writes (pairing, rename) while a revocation always wins", () => {
+  const f = fixture();
+  try {
+    const a = f.store.recordPairing(meta); const second = new DeviceStore(f.options);
+    const otherKey = generateKeyPairSync("ed25519"); const b = f.store.recordPairing({ ...meta, name: "Tablet", publicKey: spki(otherKey.publicKey) });
+    second.rename(a.id, "Renamed", "bob");
+    const thirdKey = generateKeyPairSync("ed25519"); const c = second.recordPairing({ ...meta, name: "Laptop", publicKey: spki(thirdKey.publicKey) });
+    const fresh = new DeviceStore(f.options);
+    assert.deepEqual(fresh.list().map((d) => d.name).sort(), ["Laptop", "Renamed", "Tablet"], "nothing paired or renamed by either instance was lost");
+    assert.equal(fresh.get(b.id).revoked, false); assert.equal(fresh.get(c.id).revoked, false);
+    assert.doesNotThrow(() => connectAs(second, publicKey, keys.privateKey)(), "a device that was not revoked still connects through the other instance");
+  } finally { f.clean(); }
+});
+
+test("a revoke whose write failed is carried by the next successful write and is never undone by a reload", () => {
+  const f = fixture();
+  try {
+    const d = f.store.recordPairing(meta); let fail = false;
+    const s = new DeviceStore({ ...f.options, securePath: () => { if (fail) throw new Error("disk full"); } });
+    fail = true; assert.throws(() => s.revoke(d.id, "alice"), { code: "storage" });
+    fail = false;
+    const otherKey = generateKeyPairSync("ed25519"); s.recordPairing({ ...meta, name: "Tablet", publicKey: spki(otherKey.publicKey) });
+    assert.equal(new DeviceStore(f.options).get(d.id).revoked, true, "the unflushed revocation reached the disk with the next write");
+  } finally { f.clean(); }
+});
+
+test("an unreadable file during a revoke does not stop it taking effect in this process; a handshake over such a file is refused", () => {
+  const f = fixture();
+  try {
+    const d = f.store.recordPairing(meta); let closed = false; connectAs(f.store, publicKey, keys.privateKey, () => { closed = true; });
+    const good = readFileSync(f.file); writeFileSync(f.file, "{ not json");
+    assert.throws(() => connectAs(f.store, publicKey, keys.privateKey), { code: "storage" }, "a damaged file is refused, not read as empty");
+    assert.throws(() => f.store.revoke(d.id, "alice"));
+    assert.equal(closed, true, "the revocation closed the connection although the file could not be read");
+    writeFileSync(f.file, good);
+    assert.throws(() => connectAs(f.store, publicKey, keys.privateKey), { code: "denied" });
   } finally { f.clean(); }
 });

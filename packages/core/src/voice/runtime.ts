@@ -1,12 +1,11 @@
 import { decide } from '../policy/index.ts';
 import { createHash } from 'node:crypto';
 import { RealtimeService } from './realtime.ts';
-import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { VoiceBroker } from './broker.ts';
 import { LiveService, type LiveClient } from './live.ts';
 import { socketConnect, type JsonSocket, type SocketConnect } from './socket.ts';
-import { voiceBudget } from './budget.ts';
+import { voiceBudget, voiceUsagePath } from './budget.ts';
 import { Sensitive, OpenAIError, bounded, call, object, text } from '../openai-auth/ports.ts';
 import { endpoint } from '../openai-auth/profiles.ts';
 import { FederatedCredential } from '../openai-auth/federated.ts';
@@ -21,7 +20,7 @@ export function createVoiceRuntime(d: CompositionDeps, openai: OpenAIRuntime, bu
   const config = d.config().auth?.openai, store = createAuthSecretStore(d.secrets), sockets = new Map<string, { socket: JsonSocket; client?: LiveClient; closing: boolean; finish?: (event: { eventId: string; usage: import('./ports.ts').VoiceUsage }) => void }>();
   const controllers = new Map<string, AbortController>();
   const connect = test?.connect ?? socketConnect(d.egress); let delegate: ChatProvider | null = null;
-  const ledger = budget ? voiceBudget({ path: join(d.home, 'state', 'voice-usage.sqlite'), budget, clock: d.clock, dailySeconds: config?.voiceDailySeconds ?? 3600 }) : null;
+  const ledger = budget ? voiceBudget({ path: voiceUsagePath(d.home), budget, clock: d.clock, dailySeconds: config?.voiceDailySeconds ?? 3600 }) : null;
   // Parent profile must be selected in trusted config, never supplied by the media client.
   const parentConfig = () => d.config().providers.openaiVoice as { kind?: string; region?: string; billing_path?: string; secretRef?: string; federated?: import('../openai-auth/federated.ts').FederatedSource } | undefined;
   let federation: FederatedCredential | undefined;
@@ -33,6 +32,14 @@ export function createVoiceRuntime(d: CompositionDeps, openai: OpenAIRuntime, bu
   };
   const usage = (raw: unknown): VoiceEvent | undefined => {
     const e = object(raw), type = String(e.type);
+    // Realtime (WebRTC sideband) bills tokens: response.done carries the per-response delta usage.
+    if (type === 'response.done') {
+      const u = e.response && typeof e.response === 'object' ? (e.response as Record<string, unknown>).usage : undefined;
+      if (!u || typeof u !== 'object') return undefined;
+      const t = u as Record<string, unknown>, n = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0;
+      const responseId = e.response && typeof (e.response as Record<string, unknown>).id === 'string' ? (e.response as Record<string, string>).id : undefined;
+      return { type, eventId: typeof e.event_id === 'string' ? e.event_id : responseId ?? randomUUID(), inputTokens: n(t.input_tokens), outputTokens: n(t.output_tokens) };
+    }
     if (type !== 'session.usage.updated' && type !== 'session.closed') return undefined;
     const u = object(e.usage ?? {});
     return { type, eventId: typeof e.event_id === 'string' ? e.event_id : randomUUID(), seconds: typeof u.duration_seconds === 'number' ? u.duration_seconds : typeof u.seconds === 'number' ? u.seconds : 0 };
@@ -90,7 +97,14 @@ export function createVoiceRuntime(d: CompositionDeps, openai: OpenAIRuntime, bu
         return result;
       }
       // Broker WebRTC sessions also need provider hangup. Primary WS closure ends WS sessions.
-      if (!item) await call(openai.http, { method: 'POST', url: endpoint(parent.region) + (provider === 'openai:gpt-live' ? '/live/sessions/' : '/realtime/calls/') + encodeURIComponent(id) + '/hangup', authorization: await lease(parent), json: {} });
+      // 404/410: the provider no longer has the session (expired, already hung up). Report it as 'session-unknown' so the broker treats the
+      // session as ended instead of retrying a hangup that can never succeed.
+      if (!item) {
+        let gone = false;
+        const http = { request: async (req: Parameters<typeof openai.http.request>[0]) => { const res = await openai.http.request(req); if (res.status === 404 || res.status === 410) gone = true; return res; } };
+        try { await call(http, { method: 'POST', url: endpoint(parent.region) + (provider === 'openai:gpt-live' ? '/live/sessions/' : '/realtime/calls/') + encodeURIComponent(id) + '/hangup', authorization: await lease(parent), json: {} }); }
+        catch (e) { throw gone ? new OpenAIError('session-unknown') : e; }
+      }
     } }, audit: openai.audit, notice: async r => { d.logger.warn('voice.session.notice', { agent: r.agent, message: r.written }); }, capacity: config?.voiceCapacity ?? 1 });
   const live = new LiveService({ broker, clock: d.clock, ttlSeconds: config?.liveHandleTtlSeconds ?? 60, audit: openai.audit, relay: { async connect(id, client) {
     const item = sockets.get(id); if (!item) throw new OpenAIError('transport-unavailable'); item.client = client;

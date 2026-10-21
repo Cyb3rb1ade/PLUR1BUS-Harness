@@ -7,8 +7,8 @@ import type { Session, SessionStore } from "./session.ts";
 import { ApiError, errors } from "./errors.ts";
 
 export const AGENT_WEB_EVENTS = new Set(["recall.completed", "recall.degraded", "recall.block-clipped", "recall.block-dropped", "job.run", "dream.completed", "acl.denied", "agent.activity"]);
-export const WEB_EVENT_NAMES = new Set([...AGENT_WEB_EVENTS, "devices.trust.next", "core.state", "inbox.changed", "approval.requested", "approval.resolved", "grant.changed", "session.event", "project.card.changed", "project.column.changed", "voice.realtime.state", "voice.realtime.transcript", "voice.download.progress"]);
-export const GLOBAL_WEB_EVENTS = new Set(["core.state"]);
+export const WEB_EVENT_NAMES = new Set([...AGENT_WEB_EVENTS, "devices.trust.next", "core.state", "chat.models.changed", "inbox.changed", "approval.requested", "approval.resolved", "grant.changed", "session.event", "project.card.changed", "project.column.changed", "voice.realtime.state", "voice.realtime.transcript", "voice.download.progress"]);
+export const GLOBAL_WEB_EVENTS = new Set(["core.state", "chat.models.changed"]);
 export function webEventAllowed(method: string, principal: ApiPrincipal, delivery: { audience: readonly AudienceTarget[] | null; connectionId: string }): boolean {
   if (!WEB_EVENT_NAMES.has(method)) return false;
   if (delivery.audience === null) return GLOBAL_WEB_EVENTS.has(method);

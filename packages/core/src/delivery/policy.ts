@@ -16,5 +16,6 @@ export function deliveryAllowed(config: HarnessConfig, i: ChannelIdentity): bool
         catch {
             return false;
         } });
-    return list.includes(i.userId);
+    // Telegram allowlists may hold numeric ids; compare as strings so a number does not block its destination.
+    return list.some(v => (typeof v === 'string' || typeof v === 'number') && String(v) === String(i.userId));
 }

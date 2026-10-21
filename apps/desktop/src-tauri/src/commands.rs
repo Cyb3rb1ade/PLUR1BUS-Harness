@@ -128,10 +128,28 @@ pub fn settings_set(
 }
 
 // One owner serializes all connection/token mutations; listing never initializes tokens.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ConnectionState(
     pub std::sync::Arc<tokio::sync::Mutex<Option<Box<dyn crate::secrets::TokenStore>>>>,
+    // Mirror of the opened token store's kind, published when a credential action
+    // ends. Listing reads it without the owner lock, which a credential action may
+    // hold for network and keychain I/O (startup resume, pairing, prompts).
+    std::sync::Arc<std::sync::Mutex<Option<crate::secrets::StoreKind>>>,
 );
+impl ConnectionState {
+    /// State around an already-opened token store; the kind mirror starts empty until a
+    /// credential action publishes it.
+    pub fn new(
+        store: std::sync::Arc<tokio::sync::Mutex<Option<Box<dyn crate::secrets::TokenStore>>>>,
+    ) -> Self {
+        Self(store, Default::default())
+    }
+    /// Kind of the credential store as of the last finished action; `None` until one opened it.
+    /// Never waits for the owner lock.
+    pub fn store_kind(&self) -> Option<crate::secrets::StoreKind> {
+        *self.1.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
 /// Keep the mutation lock across the complete action while running synchronous
 /// credential APIs (including interactive prompts) outside async runtime workers.
 pub(crate) async fn credential_action<T: Send + 'static>(
@@ -145,9 +163,14 @@ pub(crate) async fn credential_action<T: Send + 'static>(
 ) -> Result<T, String> {
     let mut guard = state.0.clone().lock_owned().await;
     let runtime = tokio::runtime::Handle::current();
-    tokio::task::spawn_blocking(move || action(&mut guard, runtime))
-        .await
-        .map_err(|_| "keychain-error".to_owned())?
+    let kind = state.1.clone();
+    tokio::task::spawn_blocking(move || {
+        let result = action(&mut guard, runtime);
+        *kind.lock().unwrap_or_else(|e| e.into_inner()) = guard.as_ref().map(|t| t.kind());
+        result
+    })
+    .await
+    .map_err(|_| "keychain-error".to_owned())?
 }
 fn connection_store(window: &WebviewWindow) -> Result<crate::connections::Store, String> {
     app_connection_store(window.app_handle())
@@ -208,12 +231,12 @@ pub async fn connections_list(
     state: tauri::State<'_, ConnectionState>,
 ) -> Result<ConnectionList, String> {
     check(&window, "connections_list")?;
-    let tokens = state.0.lock().await;
+    // Listing never acquires credentials and never waits for the credential owner.
     let store = connection_store(&window)?;
     Ok(ConnectionList {
         connections: store.load().map_err(|_| "storage")?,
         active: store.active().map_err(|_| "storage")?,
-        token_store: tokens.as_ref().map(|t| t.kind()),
+        token_store: state.store_kind(),
     })
 }
 #[tauri::command]
@@ -498,6 +521,69 @@ mod worker_tests {
         };
         let (result, ()) = tokio::join!(first, second);
         result.unwrap();
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn store_kind_does_not_wait_for_a_running_credential_action() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        let state = super::ConnectionState::default();
+        assert_eq!(state.store_kind(), None);
+        let release = Arc::new(AtomicBool::new(false));
+        let started = Arc::new(AtomicBool::new(false));
+        let (hold, seen) = (release.clone(), started.clone());
+        let running = super::credential_action(&state, move |tokens, _| {
+            *tokens = Some(Box::new(crate::secrets::MemoryStore::default()));
+            seen.store(true, Ordering::SeqCst);
+            while !hold.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            Ok(())
+        });
+        let probe = async {
+            while !started.load(Ordering::SeqCst) {
+                tokio::task::yield_now().await;
+            }
+            // The owner lock is held across the (simulated) network/keychain wait,
+            // yet listing the connections must answer immediately.
+            assert_eq!(state.store_kind(), None);
+            release.store(true, Ordering::SeqCst);
+        };
+        let (result, ()) = tokio::join!(running, probe);
+        result.unwrap();
+        assert_eq!(
+            state.store_kind(),
+            Some(crate::secrets::StoreKind::MemoryOnly)
+        );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn store_kind_follows_the_owner_state_after_each_action() {
+        let state = super::ConnectionState::default();
+        super::credential_action(&state, |_, _| Ok(()))
+            .await
+            .unwrap();
+        assert_eq!(state.store_kind(), None);
+        super::credential_action(&state, |tokens, _| {
+            *tokens = Some(Box::new(crate::secrets::MemoryStore::default()));
+            Ok(())
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            state.store_kind(),
+            Some(crate::secrets::StoreKind::MemoryOnly)
+        );
+        // A failing action still publishes what the owner now holds.
+        let failed: Result<(), String> =
+            super::credential_action(&state, |_, _| Err("keychain-error".into())).await;
+        assert!(failed.is_err());
+        assert_eq!(
+            state.store_kind(),
+            Some(crate::secrets::StoreKind::MemoryOnly)
+        );
     }
 }
 

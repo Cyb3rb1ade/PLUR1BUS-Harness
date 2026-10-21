@@ -22,6 +22,19 @@ test("a linked sender's message is submitted to the chat's session and answered"
   assert.deepEqual(t.sent, [{ chatId: "c1", text: "echo:hi" }]);
 });
 
+test("a linked but disabled person is dropped silently: no session, no turn, no reply, no pairing", async () => {
+  const t = setup();
+  t.identity.link("lb", "alice", "u1");
+  const resolve = t.identity.resolve.bind(t.identity);
+  t.identity.resolve = async (s) => { const r = await resolve(s); return r.linked ? { ...r, disabled: true } : r; };
+  await t.router.handle(t.msg({ text: "hi" }), t.send);
+  await t.router.handle(t.msg({ text: "ABCD2345", messageId: "m2" }), t.send);
+  assert.equal(t.sessions.all.length, 0);
+  assert.equal(t.sessions.submits.length, 0);
+  assert.equal(t.sent.length, 0);
+  assert.equal(t.identity.claims.length, 0);
+});
+
 test("unknown sender: rejected, no session created, content never submitted", async () => {
   const t = setup();
   await t.router.handle(t.msg({ text: "secret plan" }), t.send);

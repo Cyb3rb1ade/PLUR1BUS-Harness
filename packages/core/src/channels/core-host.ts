@@ -16,11 +16,12 @@ import type { ChannelLogger } from "./types.ts";
 
 export interface CoreHostDeps {
   command?: import("./router.ts").RouterDeps["command"];
-  personActive?: (person: string) => boolean;
   layout: Layout;
   config: ConfigPort;
   secrets: SecretStore;
   identity: () => IdentityService | null;
+  /** False for a disabled person (the admin store is the authority); see `SwitchboardOptions.personActive`. */
+  personActive?: (humanId: string) => boolean;
   sessions: () => SessionService | null;
   agents: AgentRegistry;
   permissions: () => PermissionRuntime | null;
@@ -60,9 +61,9 @@ export function openChannelSwitchboard(d: CoreHostDeps): Switchboard {
   return createSwitchboard({
     config: d.config,
     ...(d.command ? { command: d.command } : {}),
-    ...(d.personActive ? { personActive: d.personActive } : {}),
     secrets: channelSecrets(d.secrets),
     identity: d.identity,
+    ...(d.personActive ? { personActive: d.personActive } : {}),
     turns: () => {
       const s = d.sessions();
       return s ? { store: s.store, runner: s.runner, agentId: () => agentIdOf(d.agents) } : null;

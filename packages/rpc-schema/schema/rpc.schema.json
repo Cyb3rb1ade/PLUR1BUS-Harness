@@ -1924,66 +1924,73 @@
         }
       },
       "chat.get": {
-        "x-stability": "experimental",
-        "x-since": "1.6.0",
-        "x-server": "core",
-        "description": "Authenticated own direct-chat get. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
-        "params": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 500
-            },
-            "beforeSeq": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "sessionId"
-          ]
-        },
-        "result": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "session",
-            "runningTurnId",
-            "messages",
-            "lastEventSeq"
-          ],
-          "properties": {
-            "session": {
-              "$ref": "#/$defs/SessionRecord"
-            },
-            "runningTurnId": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "messages": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/SessionMessage"
-              }
-            },
-            "lastEventSeq": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "x-server": "core",
+  "description": "Authenticated own direct-chat get. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+  "params": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 500
+      },
+      "beforeSeq": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "sessionId"
+    ]
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "session",
+      "runningTurnId",
+      "messages",
+      "lastEventSeq"
+    ],
+    "properties": {
+      "session": {
+        "$ref": "#/$defs/SessionRecord"
+      },
+      "runningTurnId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/SessionMessage"
         }
       },
+      "lastEventSeq": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "modelChanges": {
+        "type": "array",
+        "maxItems": 2000,
+        "items": {
+          "$ref": "#/$defs/SessionEvent"
+        }
+      }
+    }
+  }
+},
       "chat.events": {
         "x-stability": "experimental",
         "x-since": "1.6.0",
@@ -7144,7 +7151,7 @@
       },
       "audit.verify": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. An unreadable log directory is E_STORAGE.",
+        "description": "B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE.",
         "params": { "type": "object", "additionalProperties": false, "properties": {} },
         "result": { "type": "object", "additionalProperties": false, "required": ["ok", "records", "files", "lastSeq", "lastHash", "anchor", "findings", "findingsTotal"], "properties": {
           "ok": { "type": "boolean" },
@@ -7162,7 +7169,33 @@
             "line": { "type": ["integer", "null"], "minimum": 1 },
             "seq": { "type": ["integer", "null"], "minimum": 1 }
           } } },
-          "findingsTotal": { "type": "integer", "minimum": 0, "description": "All findings; findings carries the first 50." }
+          "findingsTotal": { "type": "integer", "minimum": 0, "description": "All findings; findings carries the first 50." },
+          "reanchors": { "type": "array", "description": "Era boundaries in the current chain: each audit.chain.reanchored event, written by `plur1bus audit reanchor` as the first line of a new chain. A note, never a finding; it does not make ok false. Absent from cores older than this field.", "items": { "type": "object", "additionalProperties": false, "required": ["seq", "file", "line", "at", "suffix"], "properties": {
+            "seq": { "type": "integer", "minimum": 1 },
+            "file": { "type": "string" },
+            "line": { "type": "integer", "minimum": 1 },
+            "at": { "type": ["number", "null"], "description": "The event's timestamp (ms since the epoch)." },
+            "suffix": { "type": ["string", "null"], "pattern": "^pre-reanchor-[0-9]{1,16}$", "description": "The suffix of the set-aside files the event names; null when it names none or not a valid one." }
+          } } },
+          "previousChains": { "type": "array", "description": "Chains a reanchor set aside as audit-chain*.pre-reanchor-<ms>, oldest first, each read only up to its first deviation. A deviation there is usually the reason for the reanchor and does not make ok false. Absent from cores older than this field.", "items": { "type": "object", "additionalProperties": false, "required": ["suffix", "announced", "files", "records", "lastSeq", "lastHash", "intact", "firstBreak", "anchor"], "properties": {
+            "suffix": { "type": "string", "pattern": "^pre-reanchor-[0-9]{1,16}$" },
+            "announced": { "type": "boolean", "description": "False when no reanchor event in the current chain names this suffix." },
+            "files": { "type": "integer", "minimum": 0 },
+            "records": { "type": "integer", "minimum": 0, "description": "Lines read before the first deviation." },
+            "lastSeq": { "type": "integer", "minimum": 0 },
+            "lastHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+            "intact": { "type": "boolean", "description": "No deviation anywhere in the set and its own anchor matches (or trails by one write)." },
+            "firstBreak": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["code", "file", "line", "seq"], "properties": {
+              "code": { "enum": ["line-malformed", "hash-mismatch", "seq-gap", "prefix-missing", "file-name-mismatch", "torn-tail"] },
+              "file": { "type": "string" },
+              "line": { "type": ["integer", "null"], "minimum": 1 },
+              "seq": { "type": ["integer", "null"], "minimum": 1 }
+            } }], "description": "The first deviation, or null when the set was read to its end." },
+            "anchor": { "type": "object", "additionalProperties": false, "required": ["status", "seq"], "properties": {
+              "status": { "enum": ["match", "behind", "absent", "invalid", "ahead", "mismatch"] },
+              "seq": { "type": ["integer", "null"], "minimum": 1 }
+            } }
+          } } }
         } }
       },
       "admin.embedding.probe": {
@@ -9473,84 +9506,142 @@
         "params": {"type": "object", "additionalProperties": false, "required": ["caller", "linkId"], "properties": {"caller": { "$ref": "#/$defs/CallerIdentity" }, "linkId": { "type": "string", "minLength": 1 }}},
         "result": { "$ref": "#/$defs/IdentityLink" }
       },
-      "session.model.set": {
-        "x-stability": "experimental",
-        "x-since": "1.7.0",
-        "x-server": "core",
-        "description": "Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained. reasoning (since the per-chat reasoning choice) sets the chat's reasoning level with the profile; absent keeps the stored choice.",
-        "params": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "caller",
-            "sessionId",
-            "profile"
-          ],
-          "properties": {
-            "caller": {
-              "$ref": "#/$defs/CallerIdentity"
-            },
-            "sessionId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "profile": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            },
-            "confirmed": {
-              "type": "boolean"
-            },
-            "expectedRevision": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "reasoning": {
-              "$ref": "#/$defs/ChatReasoningChoice"
-            }
-          }
-        },
-        "result": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "sessionId",
-            "profile",
-            "previousProfile",
-            "revision",
-            "applied",
-            "warning"
-          ],
-          "properties": {
-            "sessionId": {
-              "type": "string"
-            },
-            "profile": {
-              "type": "string"
-            },
-            "previousProfile": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "applied": {
-              "type": "boolean"
-            },
-            "warning": {
-              "const": "cache-rebuild-cost-prefixes-preserved"
-            },
-            "reasoning": {
-              "$ref": "#/$defs/ChatReasoningChoice"
-            }
-          }
-        }
+      "session.model.get": {
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "x-server": "core",
+  "description": "Read the owned session model profile, effective default, revision and reasoning choice. Incognito stays in RAM. Same transcript authorization as session.get.",
+  "params": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "caller",
+      "sessionId"
+    ],
+    "properties": {
+      "caller": {
+        "$ref": "#/$defs/CallerIdentity"
       },
+      "sessionId": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "sessionId",
+      "profile",
+      "defaultProfile",
+      "revision",
+      "reasoning"
+    ],
+    "properties": {
+      "sessionId": {
+        "type": "string"
+      },
+      "profile": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "defaultProfile": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "reasoning": {
+        "$ref": "#/$defs/ChatReasoningChoice"
+      }
+    }
+  }
+},
+      "session.model.set": {
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "x-server": "core",
+  "description": "Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained. reasoning (since the per-chat reasoning choice) sets the chat's reasoning level with the profile; absent keeps the stored choice.",
+  "params": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "caller",
+      "sessionId",
+      "profile"
+    ],
+    "properties": {
+      "caller": {
+        "$ref": "#/$defs/CallerIdentity"
+      },
+      "sessionId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "profile": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "confirmed": {
+        "type": "boolean"
+      },
+      "expectedRevision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "reasoning": {
+        "$ref": "#/$defs/ChatReasoningChoice"
+      }
+    }
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "sessionId",
+      "profile",
+      "previousProfile",
+      "revision",
+      "applied",
+      "warning"
+    ],
+    "properties": {
+      "sessionId": {
+        "type": "string"
+      },
+      "profile": {
+        "type": "string"
+      },
+      "previousProfile": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "applied": {
+        "type": "boolean"
+      },
+      "warning": {
+        "const": "cache-rebuild-cost-prefixes-preserved"
+      },
+      "reasoning": {
+        "$ref": "#/$defs/ChatReasoningChoice"
+      }
+    }
+  }
+},
       "session.create": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Opens a session for the caller (the owner is derived from the caller identity). Only direct and channel sessions are created here; card/project/acp sessions belong to their modules. A channel session needs chatKey and, per D21, at most one is active per chat: a second create is E_CONFLICT unless replaceActive archives the first (/new).",
@@ -9758,63 +9849,70 @@
         }
       },
       "session.resume": {
-        "x-stability": "experimental",
-        "x-since": "1.5.0",
-        "x-server": "core",
-        "description": "Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.",
-        "params": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "sessionId",
-            "caller"
-          ],
-          "properties": {
-            "caller": {
-              "$ref": "#/$defs/CallerIdentity"
-            },
-            "sessionId": {
-              "$ref": "#/$defs/SessionId"
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1000
-            }
-          }
-        },
-        "result": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "session",
-            "runningTurnId",
-            "messages",
-            "lastEventSeq"
-          ],
-          "properties": {
-            "session": {
-              "$ref": "#/$defs/SessionRecord"
-            },
-            "runningTurnId": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "messages": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/SessionMessage"
-              }
-            },
-            "lastEventSeq": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "description": "Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.",
+  "params": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "sessionId",
+      "caller"
+    ],
+    "properties": {
+      "caller": {
+        "$ref": "#/$defs/CallerIdentity"
+      },
+      "sessionId": {
+        "$ref": "#/$defs/SessionId"
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      }
+    }
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "session",
+      "runningTurnId",
+      "messages",
+      "lastEventSeq"
+    ],
+    "properties": {
+      "session": {
+        "$ref": "#/$defs/SessionRecord"
+      },
+      "runningTurnId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/SessionMessage"
         }
       },
+      "lastEventSeq": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "modelChanges": {
+        "type": "array",
+        "maxItems": 2000,
+        "items": {
+          "$ref": "#/$defs/SessionEvent"
+        }
+      }
+    }
+  }
+},
       "session.archive": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Archives a session (archive-first deletion: nothing is removed; there is no delete over RPC). Idempotent. A session with a running turn is E_CONFLICT.",
@@ -10267,7 +10365,17 @@
       "required": ["id", "seq", "role", "text", "createdAt"],
       "properties": { "id": { "type": "string" }, "seq": { "type": "integer" }, "turnId": { "type": ["string", "null"] }, "role": { "enum": ["system", "user", "assistant", "tool"] }, "text": { "type": "string" }, "createdAt": { "type": "integer" } }
     },
-    "SessionEventType": { "enum": ["turn.started", "delta", "tool.call", "tool.result", "turn.completed", "turn.failed"] },
+    "SessionEventType": {
+  "enum": [
+    "turn.started",
+    "delta",
+    "tool.call",
+    "tool.result",
+    "turn.completed",
+    "turn.failed",
+    "session.model.changed"
+  ]
+},
     "SessionEvent": {
       "description": "One event of a session's ordered stream. seq is per session, starts at 1 and has no gaps; data's shape depends on type.",
       "x-stability": "experimental", "x-since": "1.5.0",
@@ -11186,6 +11294,27 @@
           "overlays": { "type": "array", "items": { "$ref": "#/$defs/ExtOverlay" } }
         }
       },
+      "chat.models.changed": {
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "x-server": "core",
+  "description": "Payload-free invalidation of chat model options after accepted privacy policy changes. Clients reread their authorized chat.model.get; no configuration, agent ID or credential is broadcast.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "at",
+    "reason"
+  ],
+  "properties": {
+    "at": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reason": {
+      "const": "privacy"
+    }
+  }
+},
       "models.changed": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Emitted when a scan alters available models in the catalog (D112).",

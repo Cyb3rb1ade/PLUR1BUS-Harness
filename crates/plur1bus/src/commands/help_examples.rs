@@ -56,6 +56,13 @@ const CURATED: &[(&str, &[&str])] = &[
             "plur1bus update --rollback",
         ],
     ),
+    (
+        "audit reanchor",
+        &[
+            "plur1bus audit reanchor --dry-run",
+            "plur1bus audit reanchor --reason \"anchor lost in a disk failure\"",
+        ],
+    ),
 ];
 
 /// Whether `cmd`'s help already shows an example.

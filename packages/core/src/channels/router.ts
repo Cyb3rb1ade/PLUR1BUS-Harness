@@ -29,7 +29,6 @@ export interface RouterDeps {
   /** Applied to every error text before it is logged (the host masks secret values here). */
   redact?: (text: string) => string;
   command?: (msg: InboundMessage, person: string, send: Send) => Promise<boolean>;
-  personActive?: (person: string) => boolean;
   behaviour?: (msg: InboundMessage) => ResolvedBehaviour;
 }
 export type Send = (msg: OutboundMessage) => Promise<void>;
@@ -97,6 +96,8 @@ export class ChannelRouter {
     try {
       const r = await this.#d.identity.resolve(sender);
       if (!r.linked) return await this.#unknown(msg, sender, send);
+      // A disabled person is neither a stranger (no pairing, no "not paired" reply) nor a user: nothing reaches a session.
+      if (r.disabled === true) { this.#d.log.warn("channel.inbound.dropped", { channel: msg.channel, reason: "person-disabled" }); return; }
       userId = r.userId;
     } catch (e) {
       // Fail closed: if we cannot tell who this is, they are nobody.
@@ -104,7 +105,6 @@ export class ChannelRouter {
       return;
     }
 
-    if (this.#d.personActive && !this.#d.personActive(userId)) return;
     const { profile } = this.#d.behaviour?.(msg) ?? resolveBehaviour({}, msg);
     if (!permitsMessage(profile, { ...msg, addressed: msg.chatKind === "direct" || msg.addressed === true })) {
       this.#d.log.warn("channel.inbound.dropped", { channel: msg.channel, reason: "behaviour" }); return;

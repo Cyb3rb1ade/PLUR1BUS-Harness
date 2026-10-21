@@ -321,7 +321,35 @@ fn find_pem(s: &str) -> Vec<Range<usize>> {
         found.push(start..end);
         from = end;
     }
+    orphan_pem_ends(s, &mut found);
     found
+}
+
+/// A bundle keeps the tail of a log, which can begin inside a key block: the `BEGIN` line is gone and only the body
+/// and the `END` line are left. Everything from the end of the previous match (or the start of the text) up to such
+/// an `END` line goes.
+fn orphan_pem_ends(s: &str, found: &mut Vec<Range<usize>>) {
+    let mut boundary = 0;
+    let mut from = 0;
+    let mut orphans: Vec<Range<usize>> = Vec::new();
+    while let Some(i) = s[from..].find("-----END ") {
+        let start = from + i;
+        let header_end = s[start + 9..]
+            .find("-----")
+            .map(|p| start + 9 + p + 5)
+            .unwrap_or(s.len());
+        from = header_end.max(start + 9);
+        if !s[start..header_end].contains("PRIVATE KEY") {
+            continue;
+        }
+        if let Some(r) = found.iter().find(|r| r.start <= start && start < r.end) {
+            boundary = r.end;
+            continue;
+        }
+        orphans.push(boundary..header_end);
+        boundary = header_end;
+    }
+    found.extend(orphans);
 }
 
 fn is_run(b: u8) -> bool {
@@ -332,7 +360,11 @@ fn all_of(run: &str, f: impl Fn(u8) -> bool) -> bool {
     run.bytes().all(f)
 }
 
-/// A vendor key shape: `sk-…` (also `sk-ant-…`, `sk-proj-…`), `ek_…`, `ghp_…`, `github_pat_…`, `xox[abpr]-…`.
+/// GitHub token prefixes: personal access (`ghp_`), OAuth (`gho_`), user-to-server (`ghu_`), server-to-server (`ghs_`)
+/// and refresh (`ghr_`) tokens.
+const GITHUB_PREFIXES: [&str; 5] = ["ghp_", "gho_", "ghu_", "ghs_", "ghr_"];
+
+/// A vendor key shape: `sk-…` (also `sk-ant-…`, `sk-proj-…`), `ek_…`, `gh[pousr]_…`, `github_pat_…`, `xox[abpr]-…`.
 fn vendor_key(run: &str) -> bool {
     let rest_len = |prefix: &str| run.len().saturating_sub(prefix.len());
     if run.starts_with("sk-") {
@@ -341,8 +373,8 @@ fn vendor_key(run: &str) -> bool {
     if run.starts_with("ek_") {
         return rest_len("ek_") >= 16;
     }
-    if run.starts_with("ghp_") {
-        return rest_len("ghp_") >= 20;
+    if let Some(prefix) = GITHUB_PREFIXES.iter().find(|p| run.starts_with(**p)) {
+        return rest_len(prefix) >= 20;
     }
     if run.starts_with("github_pat_") {
         return rest_len("github_pat_") >= 20;
@@ -437,6 +469,67 @@ fn find_patterns(s: &str) -> Vec<Range<usize>> {
 
 // ---- rule 4: URLs -----------------------------------------------------------------------------------------------
 
+/// Credentials that live in the path of a chat platform's URL, as ranges inside `path` (the part after the host, before
+/// any `?` or `#`):
+/// - Telegram Bot API: `/bot<id>:<token>/<method>` (also `/file/bot<id>:<token>/…`), the token after the colon;
+/// - Discord: `/webhooks/<id>/<token>` and `/interactions/<id>/<token>` (the id is a snowflake, 17+ digits), the token;
+/// - Slack incoming webhook: `/services/T…/B…/<secret>`, the secret;
+/// - Microsoft Teams connector: `/webhook/`, `/webhookb2/` or `/webhookb3/` followed by `<guid>@<guid>/…`, all of it.
+///
+/// A segment that is already a `[REDACTED:…]` marker is left alone, so the rule is idempotent.
+fn path_secrets(path: &str) -> Vec<Range<usize>> {
+    let mut segs: Vec<(usize, &str)> = Vec::new();
+    let mut at = 0;
+    for seg in path.split('/') {
+        segs.push((at, seg));
+        at += seg.len() + 1;
+    }
+    let all_digits = |x: &str| !x.is_empty() && x.bytes().all(|c| c.is_ascii_digit());
+    let id_like = |x: &str, lead: u8| {
+        x.len() >= 9
+            && x.as_bytes()[0] == lead
+            && x.bytes()
+                .all(|c| c.is_ascii_digit() || c.is_ascii_uppercase())
+    };
+    let open = |x: &str| !x.is_empty() && !x.starts_with(MARK);
+    let mut found = Vec::new();
+    for (i, &(off, seg)) in segs.iter().enumerate() {
+        if let Some((id, token)) = seg.strip_prefix("bot").and_then(|r| r.split_once(':')) {
+            if all_digits(id) && open(token) {
+                found.push(off + 3 + id.len() + 1..off + seg.len());
+                continue;
+            }
+        }
+        if i >= 2
+            && segs[i - 1].1.len() >= 17
+            && all_digits(segs[i - 1].1)
+            && matches!(segs[i - 2].1, "webhooks" | "interactions")
+            && open(seg)
+        {
+            found.push(off..off + seg.len());
+            continue;
+        }
+        if i >= 3
+            && segs[i - 3].1 == "services"
+            && id_like(segs[i - 2].1, b'T')
+            && id_like(segs[i - 1].1, b'B')
+            && open(seg)
+        {
+            found.push(off..off + seg.len());
+            continue;
+        }
+        if i >= 1
+            && matches!(segs[i - 1].1, "webhook" | "webhookb2" | "webhookb3")
+            && seg.contains('@')
+            && open(seg)
+        {
+            found.push(off..path.len());
+            break;
+        }
+    }
+    found
+}
+
 fn find_url_parts(s: &str) -> Vec<Range<usize>> {
     let b = s.as_bytes();
     let mut found = Vec::new();
@@ -460,6 +553,10 @@ fn find_url_parts(s: &str) -> Vec<Range<usize>> {
             if !url[..pos].starts_with(MARK) && pos > 0 {
                 found.push(auth_start..auth_start + pos);
             }
+        }
+        let path_end = url.find(['?', '#']).unwrap_or(url.len());
+        for r in path_secrets(&url[auth_end..path_end]) {
+            found.push(auth_start + auth_end + r.start..auth_start + auth_end + r.end);
         }
         let frag_at = url.find('#');
         if let Some(f) = frag_at {
@@ -696,5 +793,113 @@ mod tests {
         let r = none();
         assert_eq!(r.scan("password=hunter2hunter2"), vec![RULE_KEY]);
         assert_eq!(r.scan("go to https://a.b/?x=1"), vec![RULE_URL]);
+    }
+
+    #[test]
+    fn every_github_token_prefix_is_replaced_and_short_values_stay() {
+        let r = none();
+        for prefix in GITHUB_PREFIXES {
+            let k = format!("{prefix}0123456789abcdefghijklmnopqrstuvwxyz");
+            assert_gone(&r, &format!("value {k} end"), &k);
+            assert_gone(&r, &format!("GITHUB_TOKEN={k}"), &k);
+        }
+        assert_eq!(
+            r.redact("ref gho_short and ghs_x"),
+            "ref gho_short and ghs_x"
+        );
+    }
+
+    #[test]
+    fn chat_platform_url_paths_lose_their_credentials() {
+        let r = none();
+        for (url, canary) in [
+            (
+                "https://api.telegram.org/bot123456789:AAFixtureValue_abcdefghij/getMe",
+                "AAFixtureValue_abcdefghij",
+            ),
+            (
+                "https://api.telegram.org/file/bot123456789:AAFixtureValue_abcdefghij/photos/a.jpg",
+                "AAFixtureValue_abcdefghij",
+            ),
+            (
+                "https://discord.com/api/webhooks/123456789012345678/abcDEF-123_xyz/github",
+                "abcDEF-123_xyz",
+            ),
+            (
+                "https://discord.com/api/v10/interactions/123456789012345678/abcDEF-123_xyz/callback",
+                "abcDEF-123_xyz",
+            ),
+            (
+                "https://hooks.slack.com/services/T0123ABCD/B0123ABCD/abcDEF123xyz456uvw7",
+                "abcDEF123xyz456uvw7",
+            ),
+            (
+                "https://example.webhook.office.com/webhookb2/11111111-2222-3333-4444-555555555555@66666666-7777-8888-9999-000000000000/IncomingWebhook/0123456789abcdef0123456789abcdef/11111111-2222-3333-4444-555555555555",
+                "0123456789abcdef0123456789abcdef",
+            ),
+            (
+                "https://outlook.office.com/webhook/11111111-2222-3333-4444-555555555555@66666666-7777-8888-9999-000000000000/IncomingWebhook/0123456789abcdef0123456789abcdef/x",
+                "11111111-2222-3333-4444-555555555555@",
+            ),
+        ] {
+            assert_gone(&r, &format!("POST {url} failed"), canary);
+        }
+        let out = r
+            .redact("GET https://api.telegram.org/bot123456789:AAFixtureValue_abcdefghij/getMe ok");
+        assert!(
+            out.contains("/bot123456789:[REDACTED:url]/getMe ok"),
+            "{out}"
+        );
+        // a query value is still handled by its own step
+        let out = r
+            .redact("https://discord.com/api/webhooks/123456789012345678/abcDEF-123_xyz?wait=true");
+        assert!(
+            out.contains("/webhooks/123456789012345678/[REDACTED:url]?wait=[REDACTED:url]"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn ordinary_paths_that_look_a_little_like_platform_urls_stay() {
+        let r = none();
+        for url in [
+            "https://example.com/webhook/receive",
+            "https://example.com/webhooks/list/all",
+            "https://example.com/webhooks/42/events",
+            "https://example.com/bottle:12/x",
+            "https://example.com/bot/status",
+            "https://example.com/services/T1/B2/c3",
+            "https://example.com/services/alpha/beta/gamma",
+        ] {
+            let text = format!("see {url} done");
+            assert_eq!(r.redact(&text), text);
+        }
+    }
+
+    #[test]
+    fn a_log_tail_that_starts_inside_a_pem_block_loses_the_body() {
+        let r = none();
+        let tail = format!(
+            "hkiG9w0BAQEFAASC\nMIIEvQIBADANBgkq\n-----END {k}-----\nlater line stays\n",
+            k = PRIVATE
+        );
+        let out = r.redact(&tail);
+        assert!(!out.contains("hkiG9w") && !out.contains("MIIEvQ"), "{out}");
+        assert!(out.ends_with("\nlater line stays\n"), "{out}");
+        assert_eq!(r.redact(&out), out);
+        assert!(r.scan(&out).is_empty());
+        // a complete block before it is not merged with the orphan, and text between them is kept
+        let two = format!(
+            "-----BEGIN {k}-----\nAAAA\n-----END {k}-----\nkept\nBBBB\n-----END {k}-----\nend",
+            k = PRIVATE
+        );
+        let out = r.redact(&two);
+        assert!(!out.contains("AAAA") && !out.contains("BBBB"), "{out}");
+        assert!(out.ends_with("\nend"), "{out}");
+        // an END line of something else, and an unterminated block, behave as before
+        let cert = "x\n-----END CERTIFICATE-----\ny";
+        assert_eq!(r.redact(cert), cert);
+        let open = format!("a\n-----BEGIN {k}-----\nCCCC\nmore", k = PRIVATE);
+        assert_eq!(r.redact(&open), "a\n[REDACTED:pattern]");
     }
 }
