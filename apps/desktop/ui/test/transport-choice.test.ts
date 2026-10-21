@@ -276,3 +276,31 @@ test("a remote connection is added and opened with each path", async () => {
     });
   }
 });
+
+test("without the fresh report the confirm panel never claims a changed address unless the code says so", async () => {
+  await withShell(async page => {
+    await page.addInitScript(rows => { (window as any).__fixtureBoot = { rows }; }, [remote("pub", "https://public.harness.test")]);
+    await page.reload();
+    await page.getByRole("button", { name: "View connections" }).click();
+    await page.getByRole("heading", { name: "Remote desk" }).waitFor();
+    const changed = "The address of public.harness.test has changed";
+    // Pending re-check: the first-time text, addresses not known yet.
+    await page.evaluate(() => (window as any).testShell.hold("check"));
+    await page.getByRole("button", { name: "Open", exact: true }).click();
+    const panel = page.getByRole("alert", { name: "Public address" });
+    await panel.getByText("public.harness.test points to an address on the public internet (…).", { exact: false }).waitFor();
+    assert.equal(await page.getByText(changed, { exact: false }).count(), 0);
+    await page.evaluate(() => (window as any).testShell.release("check"));
+    await page.getByText("public.harness.test points to an address on the public internet (9.9.9.9).", { exact: false }).waitFor();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    // Failed re-check: still the first-time text.
+    await page.evaluate(() => (window as any).testShell.setTransportCheckError("network"));
+    await page.getByRole("button", { name: "Open", exact: true }).click();
+    await page.getByText("public.harness.test points to an address on the public internet (…).", { exact: false }).waitFor();
+    assert.equal(await page.getByText(changed, { exact: false }).count(), 0);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    // An explicit `target-changed-public` from a stopped reconnect says so, even when the re-check fails.
+    await page.evaluate(() => (window as any).testShell.fireAttention("pub", "target-changed-public"));
+    await page.getByText("The address of public.harness.test has changed and is now public. Confirm this before the app connects.").waitFor();
+  });
+});

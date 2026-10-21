@@ -22,26 +22,27 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
     // Transport choice §7.1/§7.3: the last open's report per connection (its notices and chips), and connections
     // whose open or reconnect needs the explicit confirmation, with the fresh report that explains why.
     const reports: Record<string, TransportReport> = {};
-    const confirm: Record<string, { report: TransportReport | null; attempt: number }> = {};
+    const confirm: Record<string, { report: TransportReport | null; attempt: number; code: string }> = {};
     let confirmBusy = false, attempts = 0;
     const announcedConfirm = new Set<string>();
     function viewOf(row: Connection): TransportView | undefined { return row.kind === "remote" ? data.transports?.[row.id] : undefined; }
-    async function needConfirm(row: Connection) {
+    /** `code` is why: `transport-confirm-needed` (an open) or the reconnect's `transport-attention` code. */
+    async function needConfirm(row: Connection, code = "transport-confirm-needed") {
         const attempt = ++attempts;
-        confirm[row.id] = { report: null, attempt };
+        confirm[row.id] = { report: null, attempt, code };
         paint();
         const view = viewOf(row);
         if (!transport.transportCheck || !view) return;
         try {
             const report = await transport.transportCheck({ kind: "connection", id: row.id }, view.transport, "remote");
-            if (confirm[row.id]?.attempt === attempt) confirm[row.id] = { report, attempt };
+            if (confirm[row.id]?.attempt === attempt) confirm[row.id] = { report, attempt, code };
         }
         catch { /* The banner still offers the confirmation; Rust re-checks on every open. */ }
         paint();
     }
     void transport.transportAttention?.(event => {
         const row = data.connections.find(c => c.id === event.id);
-        if (row) void needConfirm(row);
+        if (row) void needConfirm(row, event.code);
     });
     function paired(result: Paired) { mode = "list"; repair = undefined; selected = result.connection.id; error = null; void refresh(); paint(); }
     function fail(e: unknown) { opened = false; error = e; void refresh(); paint(); }
@@ -230,8 +231,14 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         announcedConfirm.add(key);
         panel.setAttribute("aria-labelledby", title.id);
         panel.append(title);
+        // Without the fresh report (pending or failed) only an explicit `target-changed-public` says "changed";
+        // otherwise the first-time text, its addresses not known yet.
+        const host = originHost(row.origin);
         const lines = report ? publicLines(report, "remote") : [];
-        for (const line of lines.length ? lines : [{ key: "transport.public.changed" as const, values: { host: originHost(row.origin) } }]) panel.append(element("p", undefined, t(line.key, line.values)));
+        const fallback = confirm[row.id]?.code === "target-changed-public"
+            ? { key: "transport.public.changed" as const, values: { host } }
+            : { key: "transport.public.remote" as const, values: { host, addresses: "…" } };
+        for (const line of lines.length ? lines : [fallback]) panel.append(element("p", undefined, t(line.key, line.values)));
         if (view?.storeReadOnly) panel.append(element("p", "transport-session", t("transport.public.session")));
         const actions = element("div", "connection-actions");
         const go = button(t("transport.confirm-connect"), async () => {
@@ -246,7 +253,7 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
                 error = null;
                 confirmBusy = false;
                 await refresh();
-            } catch (e) { confirmBusy = false; if (e === "transport-confirm-needed") { void needConfirm(row); return; } fail(e); }
+            } catch (e) { confirmBusy = false; if (e === "transport-confirm-needed") { void needConfirm(row, confirm[row.id]?.code); return; } fail(e); }
         }, "primary");
         go.disabled = confirmBusy;
         go.dataset.focusKey = "transport-confirm";
