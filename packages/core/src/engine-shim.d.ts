@@ -18,6 +18,14 @@ declare module "@cyb3rb1ade/plur1bus-memory/lib/snapshot/store-snapshot.js" {
     Promise<{ id: string; dir: string; bytes: number; files: number; pruned: string[]; warnings: string[] }>;
   export function verifySnapshot(o: { dir: string }): Promise<unknown>;
 }
+// Engine PR #259 (not in the pinned engine yet; restore-reapply.ts feature-detects it): re-applies the committed tombstones of
+// the registry next to the store to rows that came back from a snapshot or backup.
+declare module "@cyb3rb1ade/plur1bus-memory/lib/tombstone-reapply.js" {
+  export function reapplyCommittedTombstones(o: { baseDbPath: string; apply?: boolean }): Promise<{
+    applied: unknown[]; alreadyTombstoned: unknown[]; notFound: unknown[]; errors: unknown[]; registryErrors: unknown[]; activeAfterReapply: unknown[];
+  }>;
+  export function reapplyFailed(report: { errors: unknown[]; registryErrors: unknown[]; activeAfterReapply: unknown[] }): boolean;
+}
 declare module "@cyb3rb1ade/plur1bus-memory/lib/reembedding/fingerprint.js" {
   export function embeddingFingerprintId(fingerprint: Record<string, unknown>): string;
   export function compareEmbeddingFingerprints(left: Record<string, unknown>, right: Record<string, unknown>): { equal: boolean; requiresMigration: boolean; leftId: string; rightId: string };

@@ -2,6 +2,7 @@ import { closeSync, fsyncSync, mkdirSync, openSync, writeSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import path from "node:path";
 import type { SecurePath } from "@plur1bus/module-api";
+import { createAuditChain, teeAuditSinks, type ChainRecord } from "../audit/chain.ts";
 import { SecretError, type SecretPrincipal } from "./types.ts";
 
 export type AuditAction =
@@ -35,16 +36,16 @@ const actorOf = (p: SecretPrincipal) => ({
  *  `O_APPEND` write per line, fsynced, private to the user. */
 export function createFileAuditSink(o: { file: string; secure: SecurePath; clock?: () => number }): AuditSink {
   const clock = o.clock ?? Date.now;
+  const legacy = { append(rec: ChainRecord) {
+    mkdirSync(path.dirname(o.file), { recursive: true, mode: 0o700 });
+    const fd = openSync(o.file, "a", 0o600);
+    try { o.secure(o.file); writeSync(fd, `${JSON.stringify(rec)}\n`); fsyncSync(fd); } finally { closeSync(fd); }
+  } };
+  const sink = teeAuditSinks(createAuditChain({ dir: path.dirname(o.file), securePath: p => { o.secure(p); } }), legacy);
   return {
     record(e) {
       try {
-        mkdirSync(path.dirname(o.file), { recursive: true, mode: 0o700 });
-        const fd = openSync(o.file, "a", 0o600);
-        try {
-          o.secure(o.file);
-          writeSync(fd, `${JSON.stringify({ at: clock(), actor: actorOf(e.principal), action: e.action, target: e.target, detail: sanitizeDetail(e.detail) })}\n`);
-          fsyncSync(fd);
-        } finally { closeSync(fd); }
+        sink.append({ at: clock(), actor: actorOf(e.principal), action: e.action, target: e.target, detail: sanitizeDetail(e.detail) });
       } catch { throw new SecretError("audit-unavailable", "the audit log cannot be written; no secret was released or changed"); }
     },
   };

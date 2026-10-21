@@ -1,6 +1,6 @@
 import { h, type ComponentChildren } from "preact";
 import { getApi } from "../../api/shared.ts";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { t, type Key } from "../../i18n.ts";
@@ -41,7 +41,8 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
   const [busy, setBusy] = useState(false);
   const first = useRef(true);
   // After the step changes the focused button is gone: put focus on the dialog heading so keyboard and screen-reader users land in the new step.
-  useEffect(() => {
+  // Layout effect: the heading takes the focus in the draw that shows the step (a passive effect would run after the paint).
+  useLayoutEffect(() => {
     if (first.current) { first.current = false; return; }
     const heading = document.querySelector<HTMLElement>("dialog[open] .dialog-head h2");
     if (heading) { heading.tabIndex = -1; heading.focus(); }

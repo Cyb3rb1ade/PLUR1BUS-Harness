@@ -49,8 +49,10 @@ pub const PROMPTS: &[(&str, &str)] = &[
         "memory.mediaEmbedding",
         "Memory & media search: embedding models for text and media",
     ),
-    // Asked separately against the current configuration, preserving the installed value on reruns.
-    ("privacy.localOnly", "Use only local models (true or false)"),
+    (
+        "privacy.localOnly",
+        "Only local models, so no model call leaves this machine (yes or no)",
+    ),
 ];
 
 // No NC-licence question (ADR-006 amendment 2026-10-08): the default embedding model (EmbeddingGemma 2, Apache-2.0)
@@ -262,6 +264,30 @@ pub fn run_steps(
     o: &SetupOpts,
     ask: &mut dyn Prompter,
 ) -> Vec<StepResult> {
+    // One installer at a time, and none beside an `update`: they stage into the same runtime, and a second one would
+    // clear what the first is about to move. Held until the steps are done. A lock that cannot be made at all (a home
+    // that cannot be created) is the `state-root` step's to report, in its own words.
+    let _lock = match crate::update::lock(layout) {
+        Ok(l) => Some(l),
+        Err(crate::update::LockError::Busy) => {
+            return STEP_IDS
+                .into_iter()
+                .enumerate()
+                .map(|(i, id)| match i {
+                    0 => StepResult::failed(
+                        id,
+                        StepError::new(
+                            "io",
+                            "another setup, update or rollback is running on this home",
+                        )
+                        .hint("wait for it to finish, then run `plur1bus setup` again"),
+                    ),
+                    _ => StepResult::skipped(id, "after-failure", json!({})),
+                })
+                .collect();
+        }
+        Err(crate::update::LockError::Io(_)) => None,
+    };
     let (prev, prev_error) = match manifest::read(layout) {
         Ok(m) => (m, None),
         Err(e) => (None, Some(e)),
@@ -841,6 +867,13 @@ pub struct ConfigAnswers {
     pub agent: Option<String>,
     pub use_class: String,
     pub accept_nc: bool,
+    /// `privacy.localOnly` answered "yes". Setup only ever switches it on; "no" leaves the configuration as it is
+    /// (a re-run never relaxes an installation that is local-only; `config set privacy.localOnly false` does).
+    pub local_only: bool,
+}
+
+fn valid_yes_no(a: &str) -> bool {
+    matches!(a.to_ascii_lowercase().as_str(), "yes" | "y" | "no" | "n")
 }
 
 fn valid_agent_id(id: &str) -> bool {
@@ -874,16 +907,16 @@ pub fn answer_config(
             .unwrap_or(DEFAULT_USE_CLASS)
             .to_string()
     });
+    let mut local_only = "no".to_string();
     if !o.non_interactive {
         for (key, question) in PROMPTS {
-            if (host && *key == "agents")
-                || matches!(*key, "memory.mediaEmbedding" | "privacy.localOnly")
-            {
+            if (host && *key == "agents") || *key == "memory.mediaEmbedding" {
                 continue;
             }
             let (slot, valid): (&mut String, fn(&str) -> bool) = match *key {
                 "agents" => (&mut agent, valid_agent_id),
                 "embedding.useClass" => (&mut use_class, |v| USE_CLASSES.contains(&v)),
+                "privacy.localOnly" => (&mut local_only, valid_yes_no),
                 other => unreachable!("no answer slot for {other}"),
             };
             let default = slot.clone();
@@ -910,10 +943,12 @@ pub fn answer_config(
         ));
     }
     let accept_nc = use_class != "commercial" && o.accept_nc;
+    let local_only = matches!(local_only.to_ascii_lowercase().as_str(), "yes" | "y");
     Ok(ConfigAnswers {
         agent,
         use_class,
         accept_nc,
+        local_only,
     })
 }
 
@@ -935,33 +970,10 @@ fn config_changes(config: &Value, a: &ConfigAnswers, now: &str) -> Vec<(String, 
         changes.push(("embedding.acceptedNcLicence".to_string(), json!(true)));
         changes.push(("embedding.acceptedNcLicenceAt".to_string(), json!(now)));
     }
+    if a.local_only && config["privacy"]["localOnly"] != json!(true) {
+        changes.push(("privacy.localOnly".to_string(), json!(true)));
+    }
     changes
-}
-
-/// The basic privacy question preserves existing policy and is never assigned by unattended setup.
-fn answer_privacy(non_interactive: bool, config: &Value, ask: &mut dyn Prompter) -> Option<bool> {
-    if non_interactive {
-        return None;
-    }
-    let current = config["privacy"]["localOnly"].as_bool().unwrap_or(false);
-    let question = PROMPTS
-        .iter()
-        .find(|(key, _)| *key == "privacy.localOnly")
-        .unwrap()
-        .1;
-    loop {
-        let answer = ask.ask(
-            "privacy.localOnly",
-            question,
-            if current { "true" } else { "false" },
-        );
-        match answer.as_str() {
-            "true" if !current => return Some(true),
-            "false" if current => return Some(false),
-            "true" | "false" => return None,
-            _ => eprintln!("Answer true or false"),
-        }
-    }
 }
 
 fn step_config(
@@ -979,9 +991,6 @@ fn step_config(
     let answers = answer_config(o, profile, config["embedding"]["useClass"].as_str(), ask)?;
     let now = crate::commands::agent::rfc3339_now();
     let mut changes = config_changes(&config, &answers, &now);
-    if let Some(local_only) = answer_privacy(o.non_interactive, &config, ask) {
-        changes.push(("privacy.localOnly".to_string(), json!(local_only)));
-    }
     // Unattended first installation cannot obtain model/revision-specific human consent.
     // Preserve any existing embedding configuration: changing model/dimensions on rerun
     // would require validated re-embedding, and NC execution remains subject to the core licence gate.
@@ -1723,32 +1732,6 @@ mod tests {
     }
 
     #[test]
-    fn basic_privacy_question_preserves_policy_and_requires_an_interactive_choice() {
-        let mut ask = scripted(vec!["true"], false);
-        assert_eq!(answer_privacy(false, &json!({}), &mut ask), Some(true));
-        assert_eq!(ask.asked[0].0, "privacy.localOnly");
-        let mut preserved = scripted(vec![], false);
-        assert_eq!(
-            answer_privacy(
-                false,
-                &json!({"privacy":{"localOnly":true}}),
-                &mut preserved
-            ),
-            None
-        );
-        let mut unattended = scripted(vec!["false"], false);
-        assert_eq!(
-            answer_privacy(
-                true,
-                &json!({"privacy":{"localOnly":true}}),
-                &mut unattended
-            ),
-            None
-        );
-        assert!(unattended.asked.is_empty());
-    }
-
-    #[test]
     fn decision_selection_is_explicit_configured_and_never_asked_unattended() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().join("h"));
@@ -1795,7 +1778,7 @@ mod tests {
         // The media-search questions are asked by `answer_media`, not here.
         let expected: Vec<(String, String)> = PROMPTS
             .iter()
-            .filter(|(k, _)| !matches!(*k, "memory.mediaEmbedding" | "privacy.localOnly"))
+            .filter(|(k, _)| *k != "memory.mediaEmbedding")
             .map(|(k, q)| (k.to_string(), q.to_string()))
             .collect();
         assert_eq!(p.asked, expected);
@@ -1806,6 +1789,7 @@ mod tests {
                 agent: Some("bernd".into()),
                 use_class: "commercial".into(),
                 accept_nc: false,
+                local_only: false
             }
         );
     }
@@ -1814,11 +1798,7 @@ mod tests {
     fn no_nc_question_is_asked_for_the_permissive_defaults_and_invalid_answers_are_asked_again() {
         let mut p = scripted(vec!["Not An Id", "anna", "sometimes", "research"], true);
         let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
-        assert_eq!(
-            p.asked.len(),
-            4,
-            "agent (twice), use class (twice); the privacy question is asked by answer_privacy"
-        );
+        assert_eq!(p.asked.len(), 5);
         assert!(
             p.confirms.is_empty(),
             "EmbeddingGemma 2 is Apache-2.0: no licence question for the default (ADR-006 amendment 2026-10-08)"
@@ -1884,29 +1864,25 @@ mod tests {
     }
 
     #[test]
-    fn local_only_answers_are_asked_again_on_nonsense_and_unattended_setup_never_relaxes_them() {
-        // Former yes/no `answer_config` variant, moved onto the `answer_privacy` semantics (true/false, preserving).
-        let mut p = scripted(vec!["maybe", "true"], false);
-        assert_eq!(answer_privacy(false, &json!({}), &mut p), Some(true));
-        assert_eq!(p.asked.len(), 2, "an invalid answer is asked again");
-        // Interactive setup can switch it off again, but only by an explicit choice.
-        let local = json!({ "privacy": { "localOnly": true } });
-        let mut off = scripted(vec!["false"], false);
-        assert_eq!(answer_privacy(false, &local, &mut off), Some(false));
-        // Unattended setup never asks and never changes it, whatever the configuration says.
-        for config in [json!({}), local.clone()] {
-            let mut u = scripted(vec!["false", "true"], false);
-            assert_eq!(answer_privacy(true, &config, &mut u), None);
-            assert!(u.asked.is_empty());
-        }
-        // `answer_config` no longer asks the question and produces no privacy change.
-        let mut p = scripted(vec!["anna", "general"], true);
+    fn local_only_is_switched_on_by_yes_asked_again_on_nonsense_and_never_switched_off() {
+        let mut p = scripted(vec!["anna", "general", "maybe", "Yes"], true);
         let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
-        assert!(p.asked.iter().all(|(k, _)| k != "privacy.localOnly"));
+        assert_eq!(p.asked.len(), 4, "an invalid yes/no answer is asked again");
+        assert!(a.local_only);
         let keys = |c: Vec<(String, Value)>| c.into_iter().map(|(k, _)| k).collect::<Vec<_>>();
         assert!(
-            !keys(config_changes(&Value::Null, &a, "x")).contains(&"privacy.localOnly".to_string())
+            keys(config_changes(&Value::Null, &a, "x")).contains(&"privacy.localOnly".to_string())
         );
+        let local = json!({ "agents": { "anna": {} }, "embedding": { "useClass": "general" }, "privacy": { "localOnly": true } });
+        assert!(config_changes(&local, &a, "x").is_empty());
+        // The default ("no") and --non-interactive leave an installation that is local-only as it is.
+        let mut p = scripted(vec!["anna", "general"], true);
+        let no = answer_config(&opts(false), "full", None, &mut p).unwrap();
+        assert!(!no.local_only);
+        assert!(config_changes(&local, &no, "x").is_empty());
+        let unattended =
+            answer_config(&opts(true), "full", None, &mut scripted(vec![], true)).unwrap();
+        assert!(!unattended.local_only);
     }
 
     #[test]
@@ -1915,6 +1891,7 @@ mod tests {
             agent: Some("main".into()),
             use_class: "general".into(),
             accept_nc: true,
+            local_only: false,
         };
         let keys = |c: Vec<(String, Value)>| c.into_iter().map(|(k, _)| k).collect::<Vec<_>>();
         assert_eq!(
@@ -2014,7 +1991,7 @@ mod tests {
         let mut p = scripted(vec!["commercial"], true);
         let a = answer_config(&opts(false), "host", None, &mut p).unwrap();
         let asked: Vec<&str> = p.asked.iter().map(|(k, _)| k.as_str()).collect();
-        assert_eq!(asked, ["embedding.useClass"]);
+        assert_eq!(asked, ["embedding.useClass", "privacy.localOnly"]);
         assert_eq!((a.agent, a.use_class.as_str()), (None, "commercial"));
         let mut o = opts(true);
         o.agent = Some("hermes-default".into());

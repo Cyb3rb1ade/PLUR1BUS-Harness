@@ -65,6 +65,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus session`↴](#plur1bus-session)
 * [`plur1bus session list`↴](#plur1bus-session-list)
 * [`plur1bus session show`↴](#plur1bus-session-show)
+* [`plur1bus session model`↴](#plur1bus-session-model)
+* [`plur1bus session model get`↴](#plur1bus-session-model-get)
+* [`plur1bus session model set`↴](#plur1bus-session-model-set)
 * [`plur1bus session archive`↴](#plur1bus-session-archive)
 * [`plur1bus chat`↴](#plur1bus-chat)
 * [`plur1bus acp`↴](#plur1bus-acp)
@@ -160,6 +163,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus audit`↴](#plur1bus-audit)
 * [`plur1bus audit verify`↴](#plur1bus-audit-verify)
+* [`plur1bus audit reanchor`↴](#plur1bus-audit-reanchor)
 * [`plur1bus logs`↴](#plur1bus-logs)
 * [`plur1bus logs query`↴](#plur1bus-logs-query)
 * [`plur1bus logs tail`↴](#plur1bus-logs-tail)
@@ -317,7 +321,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
-* `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
+* `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
 * `logs` — [experimental] Diagnostic logs: query and tail through the core
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `device` — [experimental] Paired devices: list, revoke and rename (F44)
@@ -1133,6 +1137,7 @@ Chat sessions: list, show, archive
 
 * `list` — [experimental] List your chat sessions (pinned first, then by last turn)
 * `show` — [experimental] Show one session and its last messages
+* `model` — [experimental] Read or change this session's model and reasoning level
 * `archive` — [experimental] Archive a session (nothing is deleted)
 
 
@@ -1180,6 +1185,52 @@ Chat sessions: list, show, archive
 
 
 
+## `plur1bus session model`
+
+[experimental] Read or change this session's model and reasoning level
+
+**Usage:** `plur1bus session model <COMMAND>`
+
+###### **Subcommands:**
+
+* `get` — [experimental] Read the model profile, default and reasoning level
+* `set` — [experimental] Preview and confirm a model or reasoning change
+
+
+
+## `plur1bus session model get`
+
+[experimental] Read the model profile, default and reasoning level
+
+**Usage:** `plur1bus session model get <SESSION>`
+
+###### **Arguments:**
+
+* `<SESSION>`
+
+
+
+## `plur1bus session model set`
+
+[experimental] Preview and confirm a model or reasoning change
+
+**Usage:** `plur1bus session model set [OPTIONS] <--model <PROFILE>|--reasoning <REASONING>> <SESSION>`
+
+###### **Arguments:**
+
+* `<SESSION>`
+
+###### **Options:**
+
+* `--model <PROFILE>`
+* `--reasoning <REASONING>`
+
+  Possible values: `default`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`
+
+* `--yes` — Confirm the cache and cost warning for scripts
+
+
+
 ## `plur1bus session archive`
 
 [experimental] Archive a session (nothing is deleted)
@@ -1203,6 +1254,10 @@ Chat sessions: list, show, archive
 * `<MESSAGE>` — One message to send; without it, lines are read from stdin until EOF
 
 ###### **Options:**
+
+* `--reasoning <REASONING>` — Reasoning level for this session (default leaves control to the provider)
+
+  Possible values: `default`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`
 
 * `--model <PROFILE>` — Configured model profile for this session; warns and asks before switching
 * `--yes` — Confirm the model switch for scripts (including --json)
@@ -2539,13 +2594,14 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 ## `plur1bus audit`
 
-[experimental] Audit trail: verify the hash-chained audit file (B5)
+[experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
 
 **Usage:** `plur1bus audit <COMMAND>`
 
 ###### **Subcommands:**
 
 * `verify` — [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
+* `reanchor` — [experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
 
 
 
@@ -2553,9 +2609,24 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
 
-Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
+Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result also names the era boundary and checks the set-aside chain up to its first deviation.
 
 **Usage:** `plur1bus audit verify`
+
+
+
+## `plur1bus audit reanchor`
+
+[experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
+
+Writers refuse to append when the anchor is missing or invalid, when the chain is shorter than the anchor, when its end does not match the anchor, or when its last line is not a chain line. This command repairs that state under the same lock the writers use, also while the core is stopped: the chain files and the anchor are renamed to `<name>.pre-reanchor-<ms>` (never deleted), and a new chain begins with an `audit.chain.reanchored` event that records the old anchor, the old end, your reason (secrets redacted), the actor and the set-aside files. It refuses with "nothing to repair" when writers accept the chain. Run it as the user that owns the home. `--dry-run` shows the finding and changes nothing.
+
+**Usage:** `plur1bus audit reanchor [OPTIONS]`
+
+###### **Options:**
+
+* `--reason <TEXT>` — Why the chain is repaired; recorded in the first event of the new chain (secrets are redacted)
+* `--dry-run` — Show what is wrong and what would be set aside; change nothing
 
 
 

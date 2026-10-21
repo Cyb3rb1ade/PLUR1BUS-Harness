@@ -106,9 +106,11 @@ session (UI automation) could in principle click an OS dialog itself; the `ui.co
 
 `createBreakGlass({ audit, notify, clock })` is the stateful side; `authorize` stays pure and receives the grants.
 
+There is exactly one registry per installation: the core's (`core.ts` creates it, `requireNotification: true`). The Harness API holds none: `POST /breakglass`, `GET /breakglass`, `POST /breakglass/revoke` and `GET /me/notices` forward to `breakglass.request|list|revoke|notices` as the caller, so a grant made over REST is the one a core read consults and a grant made over RPC shows over REST (D116: reason, notice and audit chain are not weakened by the second path). The core sweeps lapsed grants every 30 seconds in addition to every list, read and request.
+
 | Rule | Value |
 |---|---|
-| Who may request | `breakglass.request`: Owner, Admin (narrowed by token scopes) |
+| Who may request | `breakglass.request`: Owner, Admin (narrowed by token scopes); people only, the library also refuses a principal whose kind is not `person` (request and revoke) |
 | Reason | mandatory, 10–500 characters after trimming |
 | Lifetime | integer ms, default 15 min, 1 min ≤ ttl ≤ 60 min (a violation is an error, not a clamp) |
 | Scope | one holder, one target user, **read only** |
@@ -127,6 +129,8 @@ through untouched. A refusal is `E_DENIED` with the reason code, a missing or fa
 (`no-principal`, `resolver-failed`), and both are audited (`rbac.denied`, `rbac.unauthenticated`; allowed calls are not).
 `createCore({ rbac: { resolve, audit } })` sets the resolver; the default maps the token-authenticated local connection to
 the installation owner (RULING R8), so today's behaviour is unchanged until the M3 Harness API supplies sessions.
+
+Caller-taking memory ops (`memory.forget`, `correct`, `share`, `state`, `propose`, `proposals.list|accept|reject`) additionally bind `params.caller` to the authenticated person (`E_DENIED`, reason `caller-not-linked`), as `memory.list|show` and `session.*` do; the installation owner keeps its OS caller.
 
 Secured now: `memory.forget` (→ `memory.forget` on the agent), `agent.status` (→ `agent.read`), `jobs.run`,
 `models.setOverride` and `models.removeManual` (→ `models.write`), `logs.query`, `logs.tail` and `logs.levels` (→ `logs.query`, Owner/Admin only, D4/D111), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
@@ -296,7 +300,7 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `agent.delete` | `admin.agent.delete` | Owner, Admin; archived, typed display name and actor-bound export offer required; engine erasure currently unavailable |
 | `agent.rights.get`, `agent.rights.set` | `admin.agent.rights` | Owner, Admin |
 | `user.list`, `user.invite.list` | `admin.users.read` | Owner, Admin |
-| `user.role.set`, `user.invite.create`, `user.invite.revoke` | `admin.users.write` | Owner, Admin; ownership changes Owner only, last Owner protected |
+| `user.role.set`, `user.invite.create`, `user.invite.revoke` | `admin.users.write` | Owner, Admin; ownership changes Owner only, last Owner protected; `user.role.set` and invitations never create a second Owner (ADR-007: exactly one; no ownership transfer operation exists yet) |
 | `user.invite.redeem` | none (no principal yet) | Any connection that passed the core handshake; the one-time token is the credential, failures are rate-limited and uniform ([invites.md](invites.md)) |
 | `breakglass.request`, `breakglass.revoke` | `admin.breakglass.write` | Owner, Admin; library also enforces request/revoke rules |
 | `breakglass.list` | `admin.breakglass.read` | Owner, Admin; holder's grants only |

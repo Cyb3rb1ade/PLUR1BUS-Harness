@@ -36,3 +36,29 @@ test('non-finite or negative usage fails closed instead of throwing a raw databa
     assert.equal(await l.port.record({ ...who, reservation: 'r1', eventId: 'ok', usage: usage({ seconds: 10 }) }), true);
   } finally { await l.done(); }
 });
+
+test('two ledgers on the voice-usage database share one daily ceiling (runtime + provider pipeline)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'voice-ledger-')); const path = join(dir, 'v.sqlite');
+  const budget = { checkBeforeCall: () => ({ kind: 'allow', reservationId: 't' }), releaseUnused() {}, settle: () => ({ overages: [] }) } as unknown as CallBudget;
+  const make = (billingProvider: string) => voiceBudget({ path, budget, clock: () => 86400000 * 3 + 1000, dailySeconds: 100, billingProvider });
+  const runtime = make('openai-voice'), providers = make('voice');
+  try {
+    assert.equal(await runtime.port.reserve({ ...who, reservation: 'r1' }), true);
+    assert.equal(await runtime.port.record({ ...who, reservation: 'r1', eventId: 'e1', usage: usage({ seconds: 60 }) }), true);
+    assert.equal(await providers.port.reserve({ ...who, reservation: 'p1' }), true);
+    assert.equal(await providers.port.record({ ...who, reservation: 'p1', eventId: 'e1', usage: usage({ seconds: 60 }) }), false, '60 + 60 reaches the 100 s ceiling');
+    assert.equal(await runtime.port.reserve({ ...who, reservation: 'r2' }), false);
+    assert.equal(await providers.port.reserve({ ...who, reservation: 'p2' }), false);
+    assert.equal(await providers.port.reserve({ agent: 'other', user: 'other', reservation: 'p3' }), true, 'other agent/person keep their own ceiling');
+  } finally { runtime.close(); providers.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('the runtime and the composition use the same voice-usage database path', async () => {
+  const { voiceUsagePath } = await import('../../src/voice/budget.ts');
+  assert.equal(voiceUsagePath('/h'), join('/h', 'state', 'voice-usage.sqlite'));
+  const { readFile } = await import('node:fs/promises');
+  for (const f of ['../../src/voice/runtime.ts', '../../src/composition/voice.ts']) {
+    const src = await readFile(new URL(f, import.meta.url), 'utf8');
+    assert.match(src, /path: voiceUsagePath\(d\.home\)/, f); assert.doesNotMatch(src, /usage\.sqlite/, f);
+  }
+});

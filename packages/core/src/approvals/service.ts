@@ -400,7 +400,8 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
         return { res, grantIds };
       });
     } catch (e) {
-      if (e instanceof GrantError) return refuse("scope-unavailable");
+      // The store is the last line: a path grant that reaches a home or system tree (§3) answers surface-too-low below T3, ceiling-exceeded above `task`.
+      if (e instanceof GrantError) return refuse(e.code === "surface-too-low" ? "surface-untrusted" : "scope-unavailable");
       if (e instanceof ApprovalChainError) { integrityFailure(e); failAll("the approval store failed its integrity check"); }
       throw e;
     }

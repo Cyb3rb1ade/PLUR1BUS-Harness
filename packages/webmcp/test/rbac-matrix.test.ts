@@ -190,6 +190,9 @@ describe("C. person-only methods turn agents away", () => {
   it("the per-chat model switch is people-only in RBAC and never a WebMCP tool; reading the choice stays a read", async () => {
     assert.equal(RPC_RULES["chat.model.set"]?.humanOnly, true);
     assert.equal(RPC_RULES["chat.model.set"]?.action, "chat:write");
+    assert.equal(RPC_RULES["session.model.get"]?.action, "admin.sessions.transcript");
+    assert.equal(isForbiddenMethod("session.model.get"), true);
+    assert.equal(isForbiddenMethod("task.complete"), true, "Controller M5 completion remains person-only across WebMCP");
     assert.equal(RPC_RULES["chat.model.get"]?.action, "chat:read");
     assert.ok(isForbiddenMethod("chat.model.set") && isForbiddenMethod("session.model.set"));
     assert.equal(isForbiddenMethod("chat.model.get"), false);
