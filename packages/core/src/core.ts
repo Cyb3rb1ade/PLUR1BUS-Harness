@@ -746,6 +746,8 @@ export function createCore(o: CoreOptions): Core {
         setRight: (id, userId, right) => people.setRight(id, userId, right),
         clearRights: id => { for (const { userId } of people.rights(id)) people.setRight(id, userId, null); },
         ready: id => { lifecycle.set(id,{ paused:false }); },
+        isDeleted: id => lifecycle.state(id).deleted,
+        setDeleted: (id, deleted) => { lifecycle.set(id, deleted ? { deleted: true, archived: true } : { deleted: false, archived: false, paused: false }); },
         reserve: async id => { lifecycle.set(id,{ paused:true }); const store = await eng.open(id); reservedAgents.set(id, store); },
         release: async id => { const store = reservedAgents.get(id); if (store) { await store.close(); reservedAgents.delete(id); } },
         removeConfig: async (id, expected) => {
