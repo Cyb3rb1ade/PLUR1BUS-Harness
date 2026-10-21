@@ -175,3 +175,117 @@ fn actual_native_image_decoder_uses_template_only_after_colour_failure() {
     assert!(decode_tray_image(b"injected invalid image", None).is_err());
     assert!(decode_tray_image(b"invalid", Some(b"invalid fallback")).is_err());
 }
+
+/// Transport choice spec §7.3: the header names the active remote connection's path, a Tailscale notice is appended
+/// and turns the badge to *Attention*, and bundled/local connections show no path.
+#[test]
+fn header_names_the_path_and_a_tailscale_notice_needs_attention() {
+    use plur1bus_desktop::transport::{Category, Hint, Severity, Transport, TransportReport};
+    let ready = TrayState {
+        harness: HarnessState::Ready,
+        ..Default::default()
+    };
+    for (path, de, en) in [
+        (
+            PathLabel::Tailscale,
+            "PLUR1BUS — NAS · Tailscale — Läuft",
+            "PLUR1BUS — NAS · Tailscale — Running",
+        ),
+        (
+            PathLabel::Direct,
+            "PLUR1BUS — NAS · direkt — Läuft",
+            "PLUR1BUS — NAS · direct — Running",
+        ),
+        (
+            PathLabel::DirectPublic,
+            "PLUR1BUS — NAS · direkt, öffentlich — Läuft",
+            "PLUR1BUS — NAS · direct, public — Running",
+        ),
+    ] {
+        let view = TrayState {
+            path: Some(path),
+            ..ready.clone()
+        };
+        assert_eq!(Language::De.status(&view, "NAS"), de);
+        assert_eq!(Language::En.status(&view, "NAS"), en);
+        assert_eq!(view.badge(), Badge::Running);
+    }
+    // Bundled and local: no path.
+    assert_eq!(
+        Language::De.status(&ready, "Dieser Mac"),
+        "PLUR1BUS — Dieser Mac — Läuft"
+    );
+    for id in ["path-direct", "path-public", "tailscale-attention"] {
+        assert_ne!(Language::De.text(id), Language::En.text(id));
+    }
+    assert_eq!(Language::De.text("path-tailscale"), "Tailscale");
+
+    let report = |category, hints: Vec<Hint>| TransportReport {
+        category: Some(category),
+        addresses: vec![],
+        hints,
+        tailscale: None,
+        needs_public_ack: category == Category::Public,
+        classifier: "iana-special-2025-10-09",
+    };
+    let notice = |code| Hint::new(code, Severity::Notice, Default::default());
+    let mut view = ready.clone();
+    view.set_transport(Some((
+        Transport::Tailscale,
+        &report(Category::Tailnet, vec![notice("tailscale-stopped")]),
+    )));
+    assert_eq!(view.path, Some(PathLabel::Tailscale));
+    assert!(view.tailscale_notice && view.transport_attention);
+    assert_eq!(view.badge(), Badge::Attention);
+    assert_eq!(
+        Language::De.status(&view, "NAS"),
+        "PLUR1BUS — NAS · Tailscale — Läuft — Tailscale getrennt"
+    );
+    assert_eq!(
+        Language::En.status(&view, "NAS"),
+        "PLUR1BUS — NAS · Tailscale — Running — Tailscale disconnected"
+    );
+    // An info (ok, self) is no notice.
+    view.set_transport(Some((
+        Transport::Tailscale,
+        &report(
+            Category::Tailnet,
+            vec![Hint::new(
+                "tailscale-ok",
+                Severity::Info,
+                Default::default(),
+            )],
+        ),
+    )));
+    assert!(!view.tailscale_notice && !view.transport_attention);
+    assert_eq!(view.badge(), Badge::Running);
+    // A confirmed public direct target.
+    view.set_transport(Some((
+        Transport::Direct,
+        &report(
+            Category::Public,
+            vec![Hint::new(
+                "target-public",
+                Severity::Warning,
+                Default::default(),
+            )],
+        ),
+    )));
+    assert_eq!(view.path, Some(PathLabel::DirectPublic));
+    assert_eq!(view.badge(), Badge::Running);
+    // A reconnect stopped for a confirmation: attention, the path is public, no Tailscale text.
+    let mut stopped = ready.clone();
+    stopped.set_transport(Some((
+        Transport::Direct,
+        &report(Category::Private, vec![]),
+    )));
+    stopped.set_confirm_needed(Transport::Direct);
+    assert_eq!(stopped.badge(), Badge::Attention);
+    assert_eq!(
+        Language::De.status(&stopped, "NAS"),
+        "PLUR1BUS — NAS · direkt, öffentlich — Läuft"
+    );
+    stopped.set_transport(None);
+    assert_eq!(stopped.path, None);
+    assert_eq!(stopped.badge(), Badge::Running);
+}

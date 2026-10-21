@@ -1,6 +1,7 @@
 //! What of the tailnet status leaves Rust (transport choice spec §9.4; package T3): the serialized report carries the
 //! state code, the matched peer's label and its online flag, and nothing else of the status. The transport module
-//! writes no log lines at all, so no log output can carry status data either.
+//! prints nothing itself; its one line per check goes through the injected log sink and carries purpose, category and
+//! codes only (captured and checked against this fixture in `transport_open.rs`, package T4).
 use futures_util::future::BoxFuture;
 use plur1bus_desktop::transport::{
     check_target, parse_status, CheckDeps, HostInput, ProbeOutcome, Prober, Purpose, ResolveError,

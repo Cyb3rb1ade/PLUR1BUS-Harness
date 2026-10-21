@@ -1798,7 +1798,7 @@ fn main() {
                             if let Some(current) = app.get_webview_window("spa") {
                                 capture_browser_process(&current, &browser_owners_for_run);
                             }
-                            if spa::open_spa(&app, &mut conn, tokens.as_ref(), store.as_ref())
+                            if spa::open_spa(&app, &mut conn, tokens.as_ref(), store.as_ref(), None)
                                 .await
                                 .is_err()
                             {
@@ -1873,6 +1873,7 @@ fn main() {
                     &mut conn,
                     start_tokens.as_ref(),
                     start_store.as_ref(),
+                    None,
                 )).await;
                 match open {
                     Ok(Ok(())) => progress("fixture-open-spa-complete"),

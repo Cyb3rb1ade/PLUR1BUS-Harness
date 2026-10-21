@@ -113,6 +113,7 @@ pub fn run() {
         .manage(spa::SpaState::default())
         .manage(host_commands::HostState::default())
         .manage(update_commands::UpdateState::default())
+        .manage(commands::transports())
         .on_window_event(native::close)
         .setup(|app| {
             if crate::desktop_integration::refresh_on_launch().is_err() { eprintln!("DESKTOP_INTEGRATION_REFRESH_FAILED"); }
@@ -202,6 +203,8 @@ pub fn run() {
             commands::pair_code,
             commands::pair_local,
             commands::open_connection,
+            commands::transport_check,
+            commands::connection_transport_set,
             integration_commands::desktop_integration_get,
             integration_commands::desktop_integration_set,
             commands::autostart_get,

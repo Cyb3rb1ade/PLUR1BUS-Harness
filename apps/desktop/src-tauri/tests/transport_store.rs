@@ -486,3 +486,26 @@ fn readers_never_move_aside_a_sidecar_a_writer_just_stored() {
         assert_eq!(corrupt_copies(dir.path()).len(), 1, "round {round}");
     }
 }
+
+/// Package T4: a sidecar that cannot be read is `Failed` (the shell then holds a confirmation for the session only);
+/// a newer one is `ReadOnlyNewer`; a missing or current one can be written.
+#[test]
+fn an_unreadable_sidecar_is_failed_mode() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = row(Kind::Remote, "https://harness.corp.example");
+    seed(dir.path(), std::slice::from_ref(&a));
+    let store = TransportStore::open(dir.path());
+    assert_eq!(store.mode(), StoreMode::ReadWrite);
+    fs::create_dir(dir.path().join(SIDECAR)).unwrap();
+    assert_eq!(store.mode(), StoreMode::Failed);
+    assert_eq!(
+        store.set(a.id, TransportEntry::new(Transport::Direct)),
+        Err(TransportStoreError::Io)
+    );
+    assert_eq!(store.effective(&a), TransportEntry::new(Transport::Direct));
+    assert_eq!(serde_json::to_value(StoreMode::Failed).unwrap(), "failed");
+    assert_eq!(
+        serde_json::to_value(StoreMode::ReadOnlyNewer).unwrap(),
+        "read-only-newer"
+    );
+}

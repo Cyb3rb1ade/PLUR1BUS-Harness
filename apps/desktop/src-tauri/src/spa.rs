@@ -241,6 +241,15 @@ impl SpaState {
             probe(stage, hresult);
         }
     }
+    /// The checked addresses the active SPA carrier for `origin` is pinned to (transport choice spec §9.2).
+    pub fn active_pin(&self, origin: &Origin) -> Option<crate::transport::ConnectPin> {
+        self.current
+            .lock()
+            .unwrap()
+            .as_ref()
+            .filter(|a| a.proxy.origin() == origin)
+            .and_then(|a| a.proxy.pin())
+    }
     /// Origin of the active SPA carrier, in every build profile.
     pub fn active_origin(&self) -> Option<Origin> {
         self.current
@@ -338,16 +347,19 @@ pub fn retire(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 /// Open the actual SPA only after an authenticated fresh ticket and prepared trust policy.
+/// `connect` is the open's checked addresses (transport choice spec §9.2) for every request of this SPA session:
+/// the ticket, the proxy's HTTP and WebSocket traffic and later ticket retries.
 pub async fn open_spa(
     app: &tauri::AppHandle,
     conn: &mut Connection,
     tokens: &dyn TokenStore,
     store: &Store,
+    connect: Option<&crate::transport::ConnectPin>,
 ) -> Result<(), String> {
-    let ticket = crate::pair::session_ticket(conn, tokens, store)
+    let ticket = crate::pair::session_ticket_pinned(conn, tokens, store, connect)
         .await
         .map_err(|e| e.public_message())?;
-    let client = HarnessClient::from_connection(conn)
+    let client = HarnessClient::from_connection_pinned(conn, connect.cloned())
         .await
         .map_err(|e| crate::pair::PairError::Client(e).public_message())?;
     let proxy = SpaProxy::new(conn, client).await.map_err(|_| "network")?;
@@ -553,6 +565,7 @@ fn schedule_retry(app: &tauri::AppHandle, origin: &Origin, manual: bool) {
     let origin = origin.clone();
     tauri::async_runtime::spawn(async move {
         let state = app.state::<SpaState>();
+        let connect = state.active_pin(&origin);
         let url = state
             .retry_navigation(&origin, manual, |connection| async {
                 let store = crate::commands::app_connection_store(&app);
@@ -563,10 +576,11 @@ fn schedule_retry(app: &tauri::AppHandle, origin: &Origin, manual: bool) {
                             let tokens = tokens.as_ref().ok_or("pairing-needed")?;
                             let mut connection = connection;
                             runtime
-                                .block_on(crate::pair::session_ticket(
+                                .block_on(crate::pair::session_ticket_pinned(
                                     &mut connection,
                                     tokens.as_ref(),
                                     &store,
+                                    connect.as_ref(),
                                 ))
                                 .map_err(|e| e.public_message())
                         },

@@ -100,6 +100,7 @@ pub fn retire_connection(app: &tauri::AppHandle, id: uuid::Uuid) {
                 }
                 let mut view = state.view.lock().unwrap();
                 view.harness = crate::tray::HarnessState::Unpaired;
+                view.set_transport(None);
                 update_tray(&gui, &view);
                 drop(view);
                 navigate_shell(&gui, "#/connections");
@@ -206,12 +207,18 @@ pub fn close(window: &tauri::Window, event: &tauri::WindowEvent) {
         eprintln!("{}", code.code());
     }
 }
-/// Called after successful SPA selection, while the credential mutation owner is still held.
+/// Called after successful SPA selection, while the credential mutation owner is still held. `checked` is a remote
+/// connection's open check and its path (transport choice spec §7.3); every reconnect of a remote connection runs the
+/// check again and reconnects over its addresses (spec §9.2).
 pub fn start_events(
     app: &tauri::AppHandle,
     connection: Connection,
     client: HarnessClient,
     token: SecretString,
+    checked: Option<&(
+        crate::transport::TransportReport,
+        crate::transport::Transport,
+    )>,
 ) {
     let Some(state) = app.try_state::<NativeState>() else {
         return;
@@ -221,6 +228,15 @@ pub fn start_events(
         host.cards.lock().unwrap().clear();
     }
     *state.connection.lock().unwrap() = Some(connection.clone());
+    state
+        .view
+        .lock()
+        .unwrap()
+        .set_transport(checked.map(|(report, transport)| (*transport, report)));
+    let earlier_private =
+        std::sync::Arc::new(AtomicBool::new(checked.is_some_and(|(report, _)| {
+            report.category != Some(crate::transport::Category::Public)
+        })));
     crate::host_commands::start_bridge(
         app,
         connection.clone(),
@@ -238,11 +254,11 @@ pub fn start_events(
         let mut row = connection;
         loop {
             tokio::select! {
-                _ = stream.run_async(&transport, &row.installation_id, &token, stop.clone(), |update| {
+                _ = stream.run_checked(&transport, &row.installation_id, &token, stop.clone(), |update| {
                     let handle = handle.clone();
                     async move { enqueue_update(&handle, generation, update).await; }
-                }) => break,
-                refreshed = next_trust_transport(&handle, generation, &row, &transport, &token) => {
+                }, || recheck_events(&handle, generation, &row, &transport, &earlier_private)) => break,
+                refreshed = next_trust_transport(&handle, generation, &row, &transport, &token, &earlier_private) => {
                     match refreshed {
                         Some((next_row, next_transport)) => { row = next_row; transport = next_transport; },
                         None => break,
@@ -253,6 +269,115 @@ pub fn start_events(
     });
     state.events.install(generation, task);
 }
+/// The fresh check before a reconnect of the status or trust stream (transport choice spec §9.2). Rows without a
+/// transport reconnect as before; a remote row reconnects only over the addresses of a fresh check, waits another
+/// backoff when nothing resolves, and stops (attention in the tray, `transport-attention` to the shell) when the
+/// target needs a confirmation.
+async fn recheck_events(
+    app: &tauri::AppHandle,
+    generation: u64,
+    row: &Connection,
+    client: &HarnessClient,
+    earlier_private: &AtomicBool,
+) -> crate::events::Reconnect {
+    use crate::events::Reconnect;
+    use crate::transport::Recheck;
+    if row.kind != crate::connections::Kind::Remote {
+        return Reconnect::Same;
+    }
+    let (Some(transports), Ok(dir)) = (
+        app.try_state::<crate::transport::Transports>(),
+        crate::commands::app_config_dir(app),
+    ) else {
+        return Reconnect::Skip;
+    };
+    let store = crate::transport::TransportStore::open(&dir);
+    let transport = store.effective(row).transport;
+    match transports
+        .recheck(&store, row, earlier_private.load(Ordering::SeqCst))
+        .await
+    {
+        Recheck::Pinned(checked) => {
+            earlier_private.store(
+                checked.report.category != Some(crate::transport::Category::Public),
+                Ordering::SeqCst,
+            );
+            let report = checked.report.clone();
+            publish_view(app, generation, move |view| {
+                view.set_transport(Some((transport, &report)));
+            });
+            Reconnect::Use(Box::new(client.clone().with_pin(checked.pin)))
+        }
+        Recheck::Attention(code) => {
+            let id = row.id;
+            let handle = app.clone();
+            publish_view(app, generation, move |view| {
+                view.set_confirm_needed(transport);
+                let _ = handle.emit_to(
+                    tauri::EventTarget::webview_window("shell"),
+                    "transport-attention",
+                    serde_json::json!({ "id": id, "code": code }),
+                );
+            });
+            Reconnect::Stop
+        }
+        Recheck::Retry => Reconnect::Skip,
+    }
+}
+
+/// Changes the tray view of the current event generation and shows it (header, badge, shell).
+fn publish_view(
+    app: &tauri::AppHandle,
+    generation: u64,
+    change: impl FnOnce(&mut TrayState) + Send + 'static,
+) {
+    let handle = app.clone();
+    if app
+        .run_on_main_thread(move || {
+            let state = handle.state::<NativeState>();
+            state.events.with_current(generation, || {
+                let mut view = state.view.lock().unwrap();
+                change(&mut view);
+                let value = view.clone();
+                drop(view);
+                update_tray(&handle, &value);
+                let _ = handle.emit_to(
+                    tauri::EventTarget::webview_window("shell"),
+                    "desktop-tray-state",
+                    value,
+                );
+            });
+        })
+        .is_err()
+    {
+        eprintln!("TRANSPORT_UI_DISPATCH_FAILED");
+    }
+}
+
+/// The backoff and the fresh check before the trust stream reconnects; `None` stops it.
+async fn before_trust_reconnect(
+    app: &tauri::AppHandle,
+    generation: u64,
+    row: &Connection,
+    client: &HarnessClient,
+    earlier_private: &AtomicBool,
+    retry: &mut EventStream,
+) -> Option<HarnessClient> {
+    use crate::events::Reconnect;
+    loop {
+        tokio::time::sleep(retry.next_delay(rand::random::<f64>())).await;
+        if app.state::<NativeState>().events.generation() != generation {
+            return None;
+        }
+        match recheck_events(app, generation, row, client, earlier_private).await {
+            Reconnect::Same => return Some(client.clone()),
+            Reconnect::Use(next) => return Some(*next),
+            Reconnect::Skip => continue,
+            Reconnect::Stop => return None,
+        }
+    }
+}
+
 /// Wait for a trust announcement without holding the credential owner. Only the short
 /// authenticated pull/persist/ack transaction serializes with repair/removal/selection.
 async fn next_trust_transport(
@@ -261,8 +386,10 @@ async fn next_trust_transport(
     row: &Connection,
     client: &HarnessClient,
     token: &SecretString,
+    earlier_private: &AtomicBool,
 ) -> Option<(Connection, HarnessClient)> {
     let mut retry = EventStream::default();
+    let mut client = client.clone();
     loop {
         if let Err(error) = client.trust_event(&row.installation_id, token).await {
             let failure = match error {
@@ -326,7 +453,9 @@ async fn next_trust_transport(
                 return None;
             }
             eprintln!("TRUST_EVENT_RETRY");
-            tokio::time::sleep(retry.next_delay(rand::random::<f64>())).await;
+            client =
+                before_trust_reconnect(app, generation, row, &client, earlier_private, &mut retry)
+                    .await?;
             continue;
         }
         let owner = app
@@ -334,10 +463,11 @@ async fn next_trust_transport(
             .inner()
             .clone();
         let handle = app.clone();
-        let client = client.clone();
+        let transaction = client.clone();
         let token = SecretString::new(token.expose().to_owned());
         let id = row.id;
         let result = crate::commands::credential_action(&owner, move |tokens, runtime| {
+            let client = transaction;
             let state = handle.state::<NativeState>();
             if state.events.generation() != generation {
                 return Ok(None);
@@ -408,8 +538,12 @@ async fn next_trust_transport(
             if !changed {
                 return Ok(None);
             }
+            // The same checked addresses as the client the announcement came over (spec §9.2).
             let prepared = runtime
-                .block_on(HarnessClient::from_connection(&current))
+                .block_on(HarnessClient::from_connection_pinned(
+                    &current,
+                    client.pin().cloned(),
+                ))
                 .map_err(|_| "TRUST_TRANSPORT_FAILED")?;
             state
                 .events
@@ -433,7 +567,8 @@ async fn next_trust_transport(
         if app.state::<NativeState>().events.generation() != generation {
             return None;
         }
-        tokio::time::sleep(retry.next_delay(rand::random::<f64>())).await;
+        client = before_trust_reconnect(app, generation, row, &client, earlier_private, &mut retry)
+            .await?;
     }
 }
 

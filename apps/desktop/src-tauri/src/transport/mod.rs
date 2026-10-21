@@ -12,6 +12,7 @@ mod host;
 mod probe;
 mod report;
 mod resolve;
+mod session;
 mod store;
 mod tailscale;
 
@@ -20,6 +21,7 @@ pub use plur1bus_desktop_net::Category;
 pub use probe::{ProbeOutcome, Prober, TcpProber, PROBE_ADDRESSES, PROBE_TIMEOUT};
 pub use report::{Hint, Severity, TransportReport};
 pub use resolve::{OsResolver, ResolveError, Resolver, LOOKUP_TIMEOUT, MAX_ADDRESSES};
+pub use session::{LogSink, Recheck, TransportView, Transports};
 pub use store::{StoreMode, TransportEntry, TransportStore, TransportStoreError};
 pub use tailscale::{
     candidates, cgnat_candidate, match_target, parse_status, usable, CliTailscale, PeerMatch,

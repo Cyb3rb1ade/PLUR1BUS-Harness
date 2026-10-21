@@ -49,6 +49,25 @@ pub struct UpdateModelState {
     pub available: bool,
     pub held: bool,
 }
+/// The path of the active remote connection in the tray header (transport choice spec §7.3).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PathLabel {
+    Tailscale,
+    Direct,
+    DirectPublic,
+}
+impl PathLabel {
+    /// „Über Tailscale“ is always the Tailscale path; a direct path is public when the open's check found a public
+    /// target.
+    pub fn of(transport: crate::transport::Transport, public: bool) -> Self {
+        match (transport, public) {
+            (crate::transport::Transport::Tailscale, _) => Self::Tailscale,
+            (crate::transport::Transport::Direct, true) => Self::DirectPublic,
+            (crate::transport::Transport::Direct, false) => Self::Direct,
+        }
+    }
+}
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrayState {
@@ -57,6 +76,13 @@ pub struct TrayState {
     pub secrets_locked: bool,
     pub update_available: bool,
     pub held: bool,
+    /// The active remote connection's path; `None` for bundled and local connections or none.
+    pub path: Option<PathLabel>,
+    /// The active connection's path needs the person: a Tailscale notice, or a reconnect stopped because the target
+    /// needs a confirmation. The badge shows *Attention*.
+    pub transport_attention: bool,
+    /// The attention is a Tailscale notice (the header says „Tailscale getrennt“).
+    pub tailscale_notice: bool,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Badge {
@@ -66,7 +92,44 @@ pub enum Badge {
     Update,
 }
 impl TrayState {
+    /// The active connection's path after a check (transport choice spec §7.3): its label, and whether a Tailscale
+    /// notice needs attention. `None` (bundled, local, no connection) clears both.
+    pub fn set_transport(
+        &mut self,
+        checked: Option<(
+            crate::transport::Transport,
+            &crate::transport::TransportReport,
+        )>,
+    ) {
+        match checked {
+            Some((transport, report)) => {
+                self.path = Some(PathLabel::of(
+                    transport,
+                    report.category == Some(crate::transport::Category::Public),
+                ));
+                self.tailscale_notice = report.hints.iter().any(|h| {
+                    h.code.starts_with("tailscale-")
+                        && h.severity == crate::transport::Severity::Notice
+                });
+                self.transport_attention = self.tailscale_notice;
+            }
+            None => {
+                self.path = None;
+                self.tailscale_notice = false;
+                self.transport_attention = false;
+            }
+        }
+    }
+    /// A reconnect stopped because the target needs a confirmation (spec §9.2): the path is public now.
+    pub fn set_confirm_needed(&mut self, transport: crate::transport::Transport) {
+        self.path = Some(PathLabel::of(transport, true));
+        self.tailscale_notice = false;
+        self.transport_attention = true;
+    }
     pub fn badge(&self) -> Badge {
+        if self.transport_attention || self.tailscale_notice {
+            return Badge::Attention;
+        }
         match self.harness {
             HarnessState::Starting | HarnessState::Updating => Badge::Busy,
             HarnessState::Ready if self.secrets_locked => Badge::Attention,
@@ -114,6 +177,7 @@ pub fn combine(
         secrets_locked: controller.secrets_locked,
         update_available: update.available,
         held: update.held,
+        ..TrayState::default()
     }
 }
 
@@ -149,6 +213,14 @@ impl Language {
             (Self::De, "settings") => "Einstellungen…",
             (Self::De, "quit") => "PLUR1BUS beenden",
             (Self::De, "no-connection") => "Keine Verbindung",
+            (Self::De, "path-tailscale") => "Tailscale",
+            (Self::De, "path-direct") => "direkt",
+            (Self::De, "path-public") => "direkt, öffentlich",
+            (Self::De, "tailscale-attention") => "Tailscale getrennt",
+            (_, "path-tailscale") => "Tailscale",
+            (_, "path-direct") => "direct",
+            (_, "path-public") => "direct, public",
+            (_, "tailscale-attention") => "Tailscale disconnected",
             (_, "open") => "Open PLUR1BUS",
             (_, "start-harness") => "Start harness",
             (_, "stop-harness") => "Stop harness",
@@ -190,8 +262,21 @@ impl Language {
             (_, true) => " — Secrets store locked",
             (_, false) => "",
         };
+        // Transport choice spec §7.3: `PLUR1BUS — {connection} · {path} — {state}`, the path omitted for bundled and
+        // local connections, and a Tailscale notice appended.
+        let path = match view.path {
+            Some(PathLabel::Tailscale) => format!(" · {}", self.text("path-tailscale")),
+            Some(PathLabel::Direct) => format!(" · {}", self.text("path-direct")),
+            Some(PathLabel::DirectPublic) => format!(" · {}", self.text("path-public")),
+            None => String::new(),
+        };
+        let tailscale = if view.tailscale_notice {
+            format!(" — {}", self.text("tailscale-attention"))
+        } else {
+            String::new()
+        };
         format!(
-            "PLUR1BUS — {connection} — {}{runtime}{locked}",
+            "PLUR1BUS — {connection}{path} — {}{runtime}{locked}{tailscale}",
             self.harness(view.harness)
         )
     }

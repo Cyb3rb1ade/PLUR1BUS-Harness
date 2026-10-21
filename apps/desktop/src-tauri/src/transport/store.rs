@@ -25,11 +25,14 @@ const VERSION: u64 = 1;
 static WRITE_OWNER: Mutex<()> = Mutex::new(());
 
 /// Whether the store may write. A sidecar from a newer app version (`version` above 1) is left alone: derived
-/// defaults apply and every write is refused (spec §3.2).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// defaults apply and every write is refused (spec §3.2). A sidecar that cannot be read (not a regular file, an I/O
+/// error, a corrupt file that could not be moved aside) is `Failed`: defaults apply and writes fail.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum StoreMode {
     ReadWrite,
     ReadOnlyNewer,
+    Failed,
 }
 
 /// One connection's entry. Unknown fields are kept on write, so a newer build's additions survive.
@@ -161,7 +164,8 @@ impl TransportStore {
     pub fn mode(&self) -> StoreMode {
         match self.read_settled() {
             Loaded::Newer => StoreMode::ReadOnlyNewer,
-            _ => StoreMode::ReadWrite,
+            Loaded::Failed => StoreMode::Failed,
+            Loaded::Missing | Loaded::Current(_) | Loaded::Corrupt(_) => StoreMode::ReadWrite,
         }
     }
 

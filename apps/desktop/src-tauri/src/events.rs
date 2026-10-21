@@ -33,6 +33,17 @@ pub struct EventUpdate {
     pub connected: bool,
     pub failure: Option<SessionFailure>,
 }
+/// What the status stream does before a reconnect (transport choice spec §9.2).
+pub enum Reconnect {
+    /// Reconnect with the same client (connections without a transport check).
+    Same,
+    /// Reconnect with this client, pinned to the addresses of a fresh check.
+    Use(Box<HarnessClient>),
+    /// Nothing to connect to now (the check found no address): wait another backoff.
+    Skip,
+    /// Stop: the target needs a confirmation the app never gives on its own.
+    Stop,
+}
 #[derive(Default)]
 pub struct EventStream {
     approval_sink: Option<ApprovalSink>,
@@ -190,18 +201,81 @@ impl EventStream {
         client: &HarnessClient,
         installation: &str,
         token: &SecretString,
-        mut stop: watch::Receiver<bool>,
-        mut emit: impl FnMut(EventUpdate) -> E,
-        mut jitter: impl FnMut() -> f64,
-        mut wait: F,
+        stop: watch::Receiver<bool>,
+        emit: impl FnMut(EventUpdate) -> E,
+        jitter: impl FnMut() -> f64,
+        wait: F,
     ) where
         F: FnMut(Duration) -> Fut,
         Fut: Future<Output = ()>,
         E: Future<Output = ()>,
     {
+        self.run_checked_with_timing(
+            client,
+            installation,
+            token,
+            stop,
+            emit,
+            jitter,
+            wait,
+            || std::future::ready(Reconnect::Same),
+        )
+        .await;
+    }
+    /// [`Self::run_async`] that asks `reconnect` before every reconnect (transport choice spec §9.2: every reconnect
+    /// runs the full check again and connects over its addresses).
+    pub async fn run_checked<E, R, RF>(
+        &mut self,
+        client: &HarnessClient,
+        installation: &str,
+        token: &SecretString,
+        stop: watch::Receiver<bool>,
+        emit: impl FnMut(EventUpdate) -> E,
+        reconnect: R,
+    ) where
+        E: Future<Output = ()>,
+        R: FnMut() -> RF,
+        RF: Future<Output = Reconnect>,
+    {
+        self.run_checked_with_timing(
+            client,
+            installation,
+            token,
+            stop,
+            emit,
+            rand::random::<f64>,
+            |delay| async move {
+                tokio::time::sleep(delay).await;
+            },
+            reconnect,
+        )
+        .await;
+    }
+    #[allow(clippy::too_many_arguments)]
+    /// The reconnect loop with its timing and reconnect seams. After a failed stream it publishes `Down`, waits the
+    /// backoff and asks `reconnect`: [`Reconnect::Same`] and [`Reconnect::Use`] reconnect, [`Reconnect::Skip`] waits
+    /// another backoff, [`Reconnect::Stop`] ends the loop.
+    pub async fn run_checked_with_timing<F, Fut, E, R, RF>(
+        &mut self,
+        client: &HarnessClient,
+        installation: &str,
+        token: &SecretString,
+        mut stop: watch::Receiver<bool>,
+        mut emit: impl FnMut(EventUpdate) -> E,
+        mut jitter: impl FnMut() -> f64,
+        mut wait: F,
+        mut reconnect: R,
+    ) where
+        F: FnMut(Duration) -> Fut,
+        Fut: Future<Output = ()>,
+        E: Future<Output = ()>,
+        R: FnMut() -> RF,
+        RF: Future<Output = Reconnect>,
+    {
+        let mut current = client.clone();
         while !*stop.borrow() {
             let result = self
-                .consume(client, installation, token, &mut stop, &mut emit)
+                .consume(&current, installation, token, &mut stop, &mut emit)
                 .await;
             if *stop.borrow() || stop.has_changed().is_err() {
                 return;
@@ -243,8 +317,28 @@ impl EventStream {
             {
                 return;
             }
-            let delay = self.next_delay(jitter());
-            tokio::select! { _ = wait(delay) => {}, _ = stop.changed() => {} }
+            loop {
+                let delay = self.next_delay(jitter());
+                tokio::select! { _ = wait(delay) => {}, _ = stop.changed() => {} }
+                if *stop.borrow() {
+                    return;
+                }
+                let next = tokio::select! {
+                    biased;
+                    next = reconnect() => next,
+                    _ = stop.changed() => return,
+                };
+                match next {
+                    Reconnect::Same => break,
+                    Reconnect::Use(client) => {
+                        current = *client;
+                        break;
+                    }
+                    Reconnect::Skip if stop.has_changed().is_err() => return,
+                    Reconnect::Skip => continue,
+                    Reconnect::Stop => return,
+                }
+            }
         }
     }
     async fn consume<E: Future<Output = ()>>(

@@ -282,7 +282,13 @@ async fn operate(
                                 .block_on(crate::client::HarnessClient::from_connection(&conn))
                             {
                                 runtime.block_on(async {
-                                    crate::native::start_events(&app, conn.clone(), client, token);
+                                    crate::native::start_events(
+                                        &app,
+                                        conn.clone(),
+                                        client,
+                                        token,
+                                        None,
+                                    );
                                 });
                             }
                         } else if should_mutate {
@@ -316,7 +322,7 @@ async fn operate(
                         .block_on(crate::client::HarnessClient::from_connection(&conn))
                         .map_err(|_| "meta")?;
                     runtime.block_on(async {
-                        crate::native::start_events(&app, conn.clone(), client, token);
+                        crate::native::start_events(&app, conn.clone(), client, token, None);
                     });
                 } else {
                     runtime.block_on(async {

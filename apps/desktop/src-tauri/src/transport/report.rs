@@ -59,12 +59,17 @@ pub struct TransportReport {
 fn category_name<S: Serializer>(c: &Option<Category>, s: S) -> Result<S::Ok, S::Error> {
     match c {
         None => s.serialize_none(),
-        Some(c) => s.serialize_str(match c {
-            Category::Loopback => "loopback",
-            Category::Tailnet => "tailnet",
-            Category::Private => "private",
-            Category::Special => "special",
-            Category::Public => "public",
-        }),
+        Some(c) => s.serialize_str(wire_name(*c)),
+    }
+}
+
+/// The wire name of a category (spec §3.1).
+pub(crate) fn wire_name(c: Category) -> &'static str {
+    match c {
+        Category::Loopback => "loopback",
+        Category::Tailnet => "tailnet",
+        Category::Private => "private",
+        Category::Special => "special",
+        Category::Public => "public",
     }
 }
