@@ -86,9 +86,13 @@ export function noticeLines(report: TransportReport): Line[] {
   return lines;
 }
 
-/** Whether a report carries a Tailscale notice (the „Tailscale getrennt“ chip, spec §7.3). */
+/** The hint codes of an actual Tailscale disconnect (spec §7.3; the tray's `TAILSCALE_DISCONNECTED`). */
+export const tailscaleDisconnected: readonly string[] = ["tailscale-daemon-down", "tailscale-stopped", "tailscale-needs-login", "tailscale-peer-offline"];
+
+/** Whether a report says Tailscale is disconnected (the „Tailscale getrennt“ chip, spec §7.3); other notices, such as
+ * an unprobed subnet route, are not. */
 export function tailscaleNotice(report: TransportReport | null | undefined): boolean {
-  return !!report?.hints.some(hint => hint.code.startsWith("tailscale-") && hint.severity === "notice");
+  return !!report?.hints.some(hint => tailscaleDisconnected.includes(hint.code));
 }
 
 /** The text of a refusal or command error, `null` for a code that is not a transport code. */

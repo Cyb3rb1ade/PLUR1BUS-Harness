@@ -58,7 +58,7 @@ test("the public banner picks the purpose text, the mixed note and the changed t
   assert.deepEqual(noticeLines(mixed), []);
 });
 
-test("refusals and target notices have texts; Tailscale notices drive the chip", () => {
+test("refusals and target notices have texts; Tailscale disconnects drive the chip", () => {
   assert.equal(translate("en", errorLine("host-invalid", "x")!.key), "This is neither a valid host name nor an IP address.");
   assert.equal(translate("de", errorLine("host-ipv4-noncanonical", "x")!.key), "Schreibe die IPv4-Adresse in der Form a.b.c.d.");
   const unresolved = errorLine("target-unresolved", "nas.corp")!;
@@ -67,8 +67,10 @@ test("refusals and target notices have texts; Tailscale notices drive the chip",
   assert.equal(translate("en", none.key, none.values), "0.0.0.0 is not a destination address.");
   assert.equal(errorLine("network", "x"), null);
   assert.equal(translate("en", hintLines(hint("target-special", { address: "192.0.2.1" }))![0]!.key, { address: "192.0.2.1" }), "192.0.2.1 is a special-purpose address (for example for documentation or testing) and is not reachable on the internet.");
-  assert.equal(tailscaleNotice(report([hint("tailscale-stopped")])), true);
+  for (const code of ["tailscale-daemon-down", "tailscale-stopped", "tailscale-needs-login", "tailscale-peer-offline"]) assert.equal(tailscaleNotice(report([hint(code)])), true, code);
   assert.equal(tailscaleNotice(report([hint("tailscale-ok", {}, "info")])), false);
+  // Notices that are no disconnect (an unprobed subnet route, an unknown peer, an unreachable path) get no „getrennt“ chip.
+  for (const code of ["tailscale-subnet-route", "tailscale-peer-unknown", "tailscale-unreachable", "tailscale-not-installed"]) assert.equal(tailscaleNotice(report([hint(code, { peer: "router" })])), false, code);
   assert.equal(tailscaleNotice(null), false);
   assert.equal(originHost("https://[fd7a:115c:a1e0::65]:8443"), "fd7a:115c:a1e0::65");
 });

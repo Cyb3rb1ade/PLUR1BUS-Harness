@@ -259,6 +259,44 @@ fn header_names_the_path_and_a_tailscale_notice_needs_attention() {
     )));
     assert!(!view.tailscale_notice && !view.transport_attention);
     assert_eq!(view.badge(), Badge::Running);
+    // Every disconnect state reads „Tailscale getrennt“.
+    for code in plur1bus_desktop::tray::TAILSCALE_DISCONNECTED {
+        let mut each = ready.clone();
+        each.set_transport(Some((
+            Transport::Tailscale,
+            &report(Category::Tailnet, vec![notice(code)]),
+        )));
+        assert!(each.tailscale_notice && each.transport_attention, "{code}");
+        assert!(
+            Language::En
+                .status(&each, "NAS")
+                .ends_with(" — Tailscale disconnected"),
+            "{code}"
+        );
+    }
+    // Notices that are no disconnect (an unprobed subnet route, an unknown peer, an unreachable path) do not say
+    // „getrennt“ and need no attention.
+    for code in [
+        "tailscale-subnet-route",
+        "tailscale-peer-unknown",
+        "tailscale-unreachable",
+        "tailscale-not-installed",
+    ] {
+        view.set_transport(Some((
+            Transport::Tailscale,
+            &report(Category::Tailnet, vec![notice(code)]),
+        )));
+        assert!(
+            !view.tailscale_notice && !view.transport_attention,
+            "{code}"
+        );
+        assert_eq!(view.badge(), Badge::Running, "{code}");
+        assert_eq!(
+            Language::De.status(&view, "NAS"),
+            "PLUR1BUS — NAS · Tailscale — Läuft",
+            "{code}"
+        );
+    }
     // A confirmed public direct target.
     view.set_transport(Some((
         Transport::Direct,

@@ -84,6 +84,14 @@ pub struct TrayState {
     /// The attention is a Tailscale notice (the header says „Tailscale getrennt“).
     pub tailscale_notice: bool,
 }
+/// The hint codes of an actual Tailscale disconnect (transport choice spec §7.3): the daemon is down, Tailscale is
+/// stopped or needs a login, or the matched peer is offline. Only these read „Tailscale getrennt“.
+pub const TAILSCALE_DISCONNECTED: [&str; 4] = [
+    "tailscale-daemon-down",
+    "tailscale-stopped",
+    "tailscale-needs-login",
+    "tailscale-peer-offline",
+];
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Badge {
     Running,
@@ -92,8 +100,10 @@ pub enum Badge {
     Update,
 }
 impl TrayState {
-    /// The active connection's path after a check (transport choice spec §7.3): its label, and whether a Tailscale
-    /// notice needs attention. `None` (bundled, local, no connection) clears both.
+    /// The active connection's path after a check (transport choice spec §7.3): its label, and whether Tailscale is
+    /// disconnected for it ([`TAILSCALE_DISCONNECTED`]: „Tailscale getrennt“ and the attention badge). Other Tailscale
+    /// notices, such as an unprobed subnet route, are no disconnect and set neither. `None` (bundled, local, no
+    /// connection) clears both.
     pub fn set_transport(
         &mut self,
         checked: Option<(
@@ -107,10 +117,10 @@ impl TrayState {
                     transport,
                     report.category == Some(crate::transport::Category::Public),
                 ));
-                self.tailscale_notice = report.hints.iter().any(|h| {
-                    h.code.starts_with("tailscale-")
-                        && h.severity == crate::transport::Severity::Notice
-                });
+                self.tailscale_notice = report
+                    .hints
+                    .iter()
+                    .any(|h| TAILSCALE_DISCONNECTED.contains(&h.code));
                 self.transport_attention = self.tailscale_notice;
             }
             None => {
