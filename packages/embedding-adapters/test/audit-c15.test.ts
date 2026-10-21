@@ -1,5 +1,6 @@
 // Audit round C (agent c15): regression tests for defects found in the shared pipeline.
 import { test } from "node:test";
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { createEmbeddingAdapter, createRerankAdapter } from "../src/registry.ts";
 import { resolveEmbeddingSettings, ConfigError } from "../src/config.ts";
@@ -153,4 +154,11 @@ test("privacy.localOnly: a switch that throws or answers anything but false is o
   assert.throws(() => createEmbeddingAdapter({ provider: "tei", model: "m", dimensions: 2, baseURL: "https://nas.lan:8443" }, broken), ConfigError);
 });
 test.todo("KNOWN GAP: an input over maxBatchTokens but within maxInputTokens is sent alone (documented, pinned by an existing test); config does not reject maxBatchTokens < maxInputTokens");
-test.todo("KNOWN GAP: docs/embedding-adapters.md says zero vectors are rejected 'when normalising'; the code now rejects them always (docs are outside this package)");
+test("a zero vector is a bad response with normalisation on as well, and the docs say so (always, not 'when normalising')", async () => {
+  const { deps } = kit({ status: 200, json: [[0, 0], [0, 5]] });
+  const a = createEmbeddingAdapter({ ...embedCfg, normalize: true }, deps);
+  await assert.rejects(a.embed(["a", "b"], { inputType: "document" }), (e: unknown) => e instanceof AdapterError && e.kind === "bad_response" && e.message.includes("zero vector"));
+  const docs = await readFile(new URL("../../../docs/embedding-adapters.md", import.meta.url), "utf8");
+  assert.match(docs, /zero vectors always rejected as `bad_response`/);
+  assert.doesNotMatch(docs, /when normali[sz]ing/i);
+});
