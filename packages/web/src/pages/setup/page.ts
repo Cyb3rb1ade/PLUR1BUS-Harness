@@ -4,7 +4,7 @@ import { cloudFunctions, privacyChanges } from "./privacy.ts";
 // Progress and the non-secret answers are kept in localStorage under one key (model.ts); the owner token is never stored.
 import { getApi } from "../../api/shared.ts";
 import { h } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Page } from "../../components/page.ts";
 import { t, type Key } from "../../i18n.ts";
@@ -80,7 +80,9 @@ export function SetupPage({ item }: PageProps): View {
   }); setErrors({}); setFail(""); };
 
   useLayoutEffect(() => { save(st); }, [st]);
-  useEffect(() => { if (moved.current) heading.current?.focus(); }, [index, summary]);
+  // Layout effect, not a passive one: the heading takes the focus in the same draw that shows the new step. A passive effect runs
+  // after the paint, so the step was visible and operable first and the late focus() then took the focus away from a key already pressed.
+  useLayoutEffect(() => { if (moved.current) heading.current?.focus(); }, [index, summary]);
 
   const go = (i: number, status?: Status): void => {
     moved.current = true; setErrors({}); setFail("");

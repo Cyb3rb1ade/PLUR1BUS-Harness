@@ -1,3 +1,4 @@
+import { DEFAULT_INHERITED_ENV_VARS } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { isSensitiveName } from "./redact.ts";
 import type { McpTransportConfig } from "./types.ts";
 
@@ -27,4 +28,22 @@ export function buildChildEnv(t: Extract<McpTransportConfig, { type: "stdio" }>,
     secrets.push(v); // RULING: everything copied from the harness's own environment is treated as secret
   }
   return { env, names: Object.keys(env).sort(), secrets, missing };
+}
+
+/** Variables that decide which file a command name resolves to. Never taken from a server definition, whatever the letter case. */
+const RESOLUTION_ENV = /^(path|pathext)$/i;
+
+/**
+ * The environment a stdio server is spawned with: the SDK's minimal inherited set, then the variables the definition
+ * declares, except those that steer command resolution. The allowlist names a program, so PATH is always the harness's
+ * own (audit mcp #2); config.ts refuses such a declaration up front and this keeps the rule for any other caller.
+ */
+export function stdioSpawnEnv(t: Extract<McpTransportConfig, { type: "stdio" }>, host: NodeJS.ProcessEnv): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const key of DEFAULT_INHERITED_ENV_VARS) {
+    const value = host[key] ?? process.env[key];
+    if (value !== undefined && !value.startsWith("()")) env[key] = value;
+  }
+  for (const [k, v] of Object.entries(buildChildEnv(t, host).env)) if (!RESOLUTION_ENV.test(k)) env[k] = v;
+  return env;
 }

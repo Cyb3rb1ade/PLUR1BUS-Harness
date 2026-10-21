@@ -65,6 +65,28 @@ describe("composition openTurnComposition", () => {
     } finally { await c.close(); identity.close(); }
   });
 
+  it("privacy.localOnly: the models.test probe of a cloud model is refused (E_DENIED local-only) and never builds a probe provider; switched off it probes", async () => {
+    const { guardMethods, LOCAL_OWNER } = await import("../../src/rbac/guard.ts");
+    for (const localOnly of [true, false]) {
+      let probes = 0; let streamed = 0;
+      const providers = { profiles: { default: [{ provider: "cloudvendor", model: "big", adapter: { async *stream() { /* unused */ } } }] } };
+      const createTurnProvider = (o: { profile?: string }) => ({ id: "fixture", telemetry: {} as never, async *stream() { if (o.profile === "probe") { streamed++; yield { type: "delta", text: "OK" }; } } }) as never;
+      const wrapped = (o: { profile?: string }) => { if (o.profile === "probe") probes++; return createTurnProvider(o); };
+      const { composition: c, identity } = await open({ options: { providers, createTurnProvider: wrapped as never } }, () => {}, (cfg) => { cfg.privacy.localOnly = localOnly; });
+      try {
+        const methods = guardMethods({ "models.test": c.surfaceMethods["models.test"]! }, { now: Date.now, resolve: () => LOCAL_OWNER });
+        const call = () => methods["models.test"]!({ model: "cloudvendor/big" }, { signal: new AbortController().signal } as never);
+        if (localOnly) {
+          await assert.rejects(call, (e: unknown) => (e as { error?: string; reason?: string }).error === "E_DENIED" && (e as { reason?: string }).reason === "local-only");
+          assert.equal(probes, 0); assert.equal(streamed, 0);
+        } else {
+          assert.equal(((await call()) as { ok: boolean }).ok, true);
+          assert.equal(streamed, 1);
+        }
+      } finally { await c.close(); identity.close(); }
+    }
+  });
+
   it("composeVoice: the voice runtime exposes the v2/v3 entry points and is handed to the onVoice hook exactly once", async () => {
     const seen: unknown[] = [];
     const { composition: c, identity } = await open({ options: { providers: { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() { /* unused */ } } }] } }, onVoice: (v) => seen.push(v) } });

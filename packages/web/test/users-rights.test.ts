@@ -30,7 +30,36 @@ async function open(app: App): Promise<void> {
   await app.page.getByRole("heading", { name: "Users & roles", level: 2 }).waitFor();
   await app.page.getByRole("checkbox", { name: "Simple mode" }).uncheck();
   await app.page.getByRole("checkbox", { name: "Use right on agent research" }).waitFor();
+  // The matrix is only drawn once the person's rights are loaded; wait for that state (Anna holds Manage on research) before a test acts on it.
+  await app.page.waitForFunction(() => (document.querySelector('[aria-label="Manage right on agent research"]') as HTMLInputElement | null)?.checked === true);
 }
+/** Records the checked state of every matrix checkbox in a mutation callback (a microtask right after each draw), so a draw that
+ *  shows a right as not held, even for one frame, is seen. Installed before the page loads; `switchPerson` starts a new window. */
+async function watchMatrix(app: App): Promise<void> {
+  await app.context.addInitScript(() => {
+    const seen: Record<string, boolean[]> = {};
+    (window as unknown as { __seen: typeof seen }).__seen = seen;
+    const look = (): void => {
+      for (const box of Array.from(document.querySelectorAll<HTMLInputElement>('.users-matrix input[type="checkbox"]'))) {
+        const log = (seen[box.getAttribute("aria-label") ?? ""] ??= []);
+        if (log[log.length - 1] !== box.checked) log.push(box.checked);
+      }
+    };
+    // `checked` is a property, so a change of it raises no mutation: every frame is sampled as well as every DOM change.
+    new MutationObserver(look).observe(document, { childList: true, subtree: true });
+    const frame = (): void => { look(); requestAnimationFrame(frame); };
+    requestAnimationFrame(frame);
+  });
+  await app.page.goto(app.baseUrl + "/");
+}
+const seen = (app: App, label: string): Promise<boolean[]> => app.page.evaluate((l) => (window as unknown as { __seen: Record<string, boolean[]> }).__seen[l] ?? [], label);
+/** Picks the person and starts a new log in the same task, so no frame samples the old person's matrix into the new window. */
+const switchPerson = (app: App, id: string): Promise<void> => app.page.evaluate((v) => {
+  const w = window as unknown as { __seen: Record<string, unknown> };
+  for (const k of Object.keys(w.__seen)) delete w.__seen[k];
+  const select = document.getElementById("users-rights-person") as HTMLSelectElement;
+  select.value = v; select.dispatchEvent(new Event("change", { bubbles: true }));
+}, id);
 const sets = (app: App): unknown[] => app.server.rpc.calls.filter((c) => c.method === "agent.rights.set").map((c) => c.params);
 
 describe("users: rights of one person", opts, () => {
@@ -41,6 +70,33 @@ describe("users: rights of one person", opts, () => {
       assert.equal(await app.page.getByRole("checkbox", { name: "Use right on agent main" }).isChecked(), true);
       assert.equal(await app.page.getByRole("checkbox", { name: "Manage right on agent research" }).isChecked(), true);
       assert.equal(await app.page.getByRole("checkbox", { name: "Use right on agent ops" }).isChecked(), false);
+    });
+  });
+  test("the matrix is drawn only with what the person holds: never as an empty matrix first, not even for one draw", async () => {
+    await withApp({}, async (app) => {
+      await watchMatrix(app);
+      await open(app);
+      const research = app.page.getByRole("checkbox", { name: "Manage right on agent research" });
+      await research.waitFor();
+      await app.page.waitForFunction(() => (document.querySelector('[aria-label="Use right on agent main"]') as HTMLInputElement | null)?.checked === true);
+      assert.deepEqual(await seen(app, "Use right on agent main"), [true]);
+      assert.deepEqual(await seen(app, "Manage right on agent research"), [true]);
+      assert.deepEqual(await seen(app, "Use right on agent ops"), [false]);
+    });
+  });
+  test("switching the person never draws the previous person's rights for the new one", async () => {
+    await withApp({}, async (app) => {
+      await watchMatrix(app);
+      await open(app);
+      await app.page.getByRole("checkbox", { name: "Manage right on agent research" }).waitFor();
+      await switchPerson(app, "u-olaf");
+      const research = app.page.getByRole("checkbox", { name: "Use right on agent research" });
+      await research.waitFor();
+      assert.equal(await app.page.getByRole("columnheader", { name: "Manage" }).count(), 0);
+      assert.equal(await research.isChecked(), false);
+      assert.deepEqual(await seen(app, "Use right on agent research"), [false]);
+      assert.deepEqual(await seen(app, "Use right on agent main"), [true]);
+      assert.deepEqual(sets(app), []);
     });
   });
   test("saving sends the person's id, only the changes, and null for a right taken away", async () => {
@@ -60,7 +116,6 @@ describe("users: rights of one person", opts, () => {
       await app.page.getByRole("checkbox", { name: "Use right on agent main" }).waitFor();
       assert.equal(await app.page.getByRole("columnheader", { name: "Manage" }).count(), 0);
       const research = app.page.getByRole("checkbox", { name: "Use right on agent research" });
-      for (let i = 0; i < 50 && await research.isChecked(); i++) await new Promise((r) => setTimeout(r, 100)); // the previous person's matrix is replaced when the new rights arrive
       assert.equal(await research.isChecked(), false);
       assert.deepEqual(sets(app), []);
     });

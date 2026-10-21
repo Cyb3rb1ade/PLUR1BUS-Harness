@@ -10,11 +10,11 @@ import { SecretBearerAuthProvider, type McpAuthProvider } from "./auth.ts";
 import type { Egress } from "../egress/index.ts";
 import type { SecretStore } from "../secrets/index.ts";
 import { McpClientError } from "./errors.ts";
-import { wrapToolResult } from "./provenance.ts";
+import { makeProvenance, wrapToolResult } from "./provenance.ts";
 import { createRedactor, isSensitiveName, type Redactor } from "./redact.ts";
 import { SchemaCache } from "./schema-cache.ts";
 import {
-  DEFAULT_IDLE_MS, DEFAULT_MAX_RESULT_BYTES, type McpCaller, type McpLogger, type McpPolicy, type McpServerDefinition, type McpServerStatus, type McpToolDescriptor, type McpToolResult,
+  DEFAULT_IDLE_MS, DEFAULT_MAX_RESULT_BYTES, type McpCaller, type McpLogger, type McpPolicy, type McpPromptResult, type McpProvenance, type McpResourceReadResult, type McpServerDefinition, type McpServerStatus, type McpToolDescriptor, type McpToolResult,
 } from "./types.ts";
 
 export interface RegistryOptions {
@@ -79,7 +79,7 @@ export class McpRegistry {
     this.logger = o.logger;
     this.hostEnv = o.hostEnv ?? process.env;
     // RULING: the command allowlist defaults to empty, so no stdio server can start until it is configured.
-    this.policy = { allowedCommands: o.policy?.allowedCommands ?? [], idleTimeoutMs: o.policy?.idleTimeoutMs ?? DEFAULT_IDLE_MS, maxResultBytes: o.policy?.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES };
+    this.policy = { allowedCommands: o.policy?.allowedCommands ?? [], inlineCodeCommands: o.policy?.inlineCodeCommands ?? [], idleTimeoutMs: o.policy?.idleTimeoutMs ?? DEFAULT_IDLE_MS, maxResultBytes: o.policy?.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES };
   }
 
   /** Validates and registers a server. Starts nothing (ADR-014 §2). */
@@ -152,14 +152,14 @@ export class McpRegistry {
   async listResourceTemplates(name: string, caller: McpCaller, signal?: AbortSignal): Promise<McpResourceTemplate[]> {
     const e = this.resolve(name, caller.agentId); return await this.use(e, signal, async c => this.safeData(e, await c.listResourceTemplates(signal)));
   }
-  async readResource(name: string, uri: string, caller: McpCaller, signal?: AbortSignal) {
-    const e = this.resolve(name, caller.agentId); return await this.use(e, signal, async c => this.safeData(e, await c.readResource(uri, signal)));
+  async readResource(name: string, uri: string, caller: McpCaller, signal?: AbortSignal): Promise<McpResourceReadResult> {
+    const e = this.resolve(name, caller.agentId); return await this.use(e, signal, async c => this.enveloped(e, caller, await c.readResource(uri, signal)));
   }
   async listPrompts(name: string, caller: McpCaller, signal?: AbortSignal): Promise<McpPrompt[]> {
     const e = this.resolve(name, caller.agentId); return await this.use(e, signal, async c => this.safeData(e, await c.listPrompts(signal)));
   }
-  async getPrompt(name: string, prompt: string, args: Record<string, string>, caller: McpCaller, signal?: AbortSignal) {
-    const e = this.resolve(name, caller.agentId); return await this.use(e, signal, async c => this.safeData(e, await c.getPrompt(prompt, args, signal)));
+  async getPrompt(name: string, prompt: string, args: Record<string, string>, caller: McpCaller, signal?: AbortSignal): Promise<McpPromptResult> {
+    const e = this.resolve(name, caller.agentId); return await this.use(e, signal, async c => this.enveloped(e, caller, await c.getPrompt(prompt, args, signal)));
   }
   async subscribeResource(name: string, uri: string, caller: McpCaller, signal?: AbortSignal): Promise<void> {
     const e = this.resolve(name, caller.agentId); await this.use(e, signal, c => c.subscribeResource(uri, signal));
@@ -173,9 +173,9 @@ export class McpRegistry {
   /** Scope visibility applies before connecting. A failed server does not hide healthy servers. */
   async aggregate(caller: McpCaller, signal?: AbortSignal) {
     const servers = [...this.entries.values()].filter(e => visibleTo(e, caller.agentId)).sort((a, b) => a.def.name.localeCompare(b.def.name));
-    const tools: Array<McpToolDescriptor & { server: string; localName: string }> = [];
-    const resources: Array<McpResource & { server: string }> = [];
-    const prompts: Array<McpPrompt & { server: string; localName: string }> = [];
+    const tools: Array<McpToolDescriptor & { server: string; localName: string; provenance: McpProvenance }> = [];
+    const resources: Array<McpResource & { server: string; provenance: McpProvenance }> = [];
+    const prompts: Array<McpPrompt & { server: string; localName: string; provenance: McpProvenance }> = [];
     const errors: Array<{ server: string; feature: string; code: string }> = [];
     await Promise.all(servers.map(async e => {
       const features = await Promise.allSettled([
@@ -183,13 +183,21 @@ export class McpRegistry {
         this.listResources(e.def.name, caller, signal), this.listPrompts(e.def.name, caller, signal),
       ]);
       const [t, r, p] = features;
-      if (t?.status === "fulfilled") tools.push(...t.value.map(tool => ({ ...tool, server: e.def.name, localName: tool.name, name: `${e.def.name}::${tool.name}` })));
-      if (r?.status === "fulfilled") resources.push(...r.value.map(resource => ({ ...resource, server: e.def.name })));
-      if (p?.status === "fulfilled") prompts.push(...p.value.map(prompt => ({ ...prompt, server: e.def.name, localName: prompt.name, name: `${e.def.name}::${prompt.name}` })));
+      // `provenance` and `server` come after the spread: a server's own extra fields cannot overwrite the harness's origin.
+      const provenance = () => makeProvenance(e.def.name, caller, e.def.trust, []);
+      if (t?.status === "fulfilled") tools.push(...t.value.map(tool => ({ ...tool, server: e.def.name, localName: tool.name, name: `${e.def.name}::${tool.name}`, provenance: provenance() })));
+      if (r?.status === "fulfilled") resources.push(...r.value.map(resource => ({ ...resource, server: e.def.name, provenance: provenance() })));
+      if (p?.status === "fulfilled") prompts.push(...p.value.map(prompt => ({ ...prompt, server: e.def.name, localName: prompt.name, name: `${e.def.name}::${prompt.name}`, provenance: provenance() })));
       features.forEach((result, index) => { if (result.status === "rejected") errors.push({ server: e.def.name, feature: ["tools", "resources", "prompts"][index]!, code: result.reason instanceof McpClientError ? result.reason.code : "protocol" }); });
     }));
     tools.sort((a, b) => a.name.localeCompare(b.name)); resources.sort((a, b) => a.server.localeCompare(b.server) || a.uri.localeCompare(b.uri)); prompts.sort((a, b) => a.name.localeCompare(b.name));
     return { tools, resources, prompts, errors };
+  }
+  /** Redacted server data inside the D19 envelope. `provenance` and `server` are set last so server fields cannot spoof them. */
+  private enveloped<T extends object>(e: Entry, caller: McpCaller, value: T): T & { provenance: McpProvenance; server: string } {
+    const data = this.safeData(e, value);
+    const redacted = JSON.stringify(data) !== JSON.stringify(value);
+    return { ...data, provenance: makeProvenance(e.def.name, caller, e.def.trust, redacted ? ["redact"] : []), server: e.def.name };
   }
   private safeData<T>(e: Entry, value: T): T {
     const raw = JSON.stringify(value);
