@@ -2,8 +2,10 @@ import { ERROR_CODES, type ErrorCode } from "@plur1bus/rpc-schema";
 
 /** The HTTP status each member of the closed `ErrorCode` enum answers with when nothing more specific is known. The
  *  enum is closed (ADR-016 §2), so conditions without a code of their own (a missing CSRF token, a rate limit, an
- *  oversized body) use the nearest code and a `reason`, never a new code. The table is total: a new code in the enum
- *  fails the type check here until it has a status, so none can fall back to a bare 500. Only `E_INTERNAL` and
+ *  oversized body) use the nearest code and a `reason`, never a new code. The table is total: `ErrorCode` is a plain
+ *  `string` (`ERROR_CODES` is `readonly string[]`), so the type check cannot catch a missing entry; instead
+ *  `hardening-openapi.test.ts` fails for any code in the enum without its own status, so none can fall back to a bare
+ *  500. Only `E_INTERNAL` and
  *  `E_STORAGE` are the server's own fault; a refusal that the caller can fix is a 4xx. */
 const STATUS_OF_CODE: Record<ErrorCode, number> = {
   E_UNAUTHORIZED: 401, E_DENIED: 403, E_NOT_FOUND: 404, E_AGENT_UNKNOWN: 404, E_MODULE_UNKNOWN: 404,

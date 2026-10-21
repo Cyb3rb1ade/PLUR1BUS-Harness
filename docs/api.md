@@ -224,8 +224,8 @@ answer as an unreachable core. `agents.list` takes an object with an `agents` ar
 never forwarded.
 
 An `/rpc` call that the core refuses with a code of the closed `ErrorCode` enum keeps that code, the status comes from one
-total table (`statusOfCode`, `src/errors.ts`; the type check fails for a new code without a status, and
-`hardening-openapi.test.ts` fails for any code that would fall back to a bare 500) and the text is a fixed one per code:
+total table (`statusOfCode`, `src/errors.ts`; `hardening-openapi.test.ts` fails for any code without its own status, so
+none falls back to a bare 500) and the text is a fixed one per code:
 
 | Status | Codes |
 |---|---|
