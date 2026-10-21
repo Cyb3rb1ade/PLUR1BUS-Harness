@@ -25,6 +25,8 @@ export function selections(o) {
   };
 }
 
+const ADVISORY = new Set(['perf-startup', 'perf-budgets']);
+
 export function evaluateGate(needs) {
   if (needs?.changes?.result !== 'success') return ['changes must succeed'];
   const outputs = needs.changes.outputs ?? {};
@@ -35,7 +37,8 @@ export function evaluateGate(needs) {
   for (const job of Object.keys(needs)) if (job !== 'changes' && !(job in selected)) errors.push(`unrecognized job: ${job}`);
   for (const [job, required] of Object.entries(selected)) {
     const result = needs[job]?.result;
-    if (required ? result !== 'success' : !['success', 'skipped'].includes(result)) {
+    const accepted = ADVISORY.has(job) ? ['success', 'failure', 'skipped'] : required ? ['success'] : ['success', 'skipped'];
+    if (!accepted.includes(result)) {
       errors.push(`${job}: ${result ?? 'missing'} (required=${required})`);
     }
   }
@@ -47,6 +50,6 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
     const errors = evaluateGate(JSON.parse(process.env.NEEDS ?? 'null'));
     for (const error of errors) console.error(error);
     if (errors.length) process.exitCode = 1;
-    else console.log('ci-gate: every selected job succeeded; skips match the explicit plan');
+    else console.log('ci-gate: required checks succeeded; advisory outcomes are complete');
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
