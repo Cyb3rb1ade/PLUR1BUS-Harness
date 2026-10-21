@@ -124,6 +124,9 @@ test("store load failures refuse initialization rather than admitting handshakes
     f.store.recordPairing(device);
     assert.throws(() => new DeviceStore({ ...f.options, securePath: () => { throw new Error("ACL refused"); } }), { code: "storage" });
     assert.throws(() => new DeviceStore({ ...f.options, file: join(f.file, "devices.json") }), { code: "storage" });
+    // Windows answers ENOENT, not ENOTDIR, below a regular file; the store must still refuse, however deep the path goes.
+    assert.throws(() => new DeviceStore({ ...f.options, file: join(f.file, "a", "b", "devices.json") }), { code: "storage" });
+    assert.deepEqual(new DeviceStore({ ...f.options, file: join(f.file + ".d", "a", "devices.json") }).list(), [], "a directory that does not exist yet is an empty store");
     for (const content of ["{", "null", '{"version":1,"devices":{}}']) {
       writeFileSync(f.file, content);
       assert.throws(() => new DeviceStore(f.options), { code: "storage" });

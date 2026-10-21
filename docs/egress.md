@@ -89,7 +89,7 @@ calls its provider's default endpoint, which cannot be judged here and is logged
 both directions) decides **which model providers** may be used: only loopback (`localhost`, `127.0.0.0/8`, `::1`) or an
 exact origin listed in `privacy.localEndpoints` (a self-hosted Ollama or vLLM server in the home network; a LAN address
 is never local by itself). It is enforced where a provider is chosen: chat and role models (also compaction summaries), the model probe `models.test` (a cloud model is refused before a provider is built, no request is sent),
-model discovery (cloud models are listed with `locked: "local-only"`, not hidden), voice (local tier only, no cloud adapter
+model discovery (cloud models are listed with `locked: "local-only"`, not hidden, and their catalogs are not scanned: no request, no credential lookup; local endpoints keep being scanned), voice (local tier only, no cloud adapter
 is built), media generation, the media index and captioning, the memory engine (embedding, reranker, engine LLM
 features) and the embedding adapters package (`deps.policy`, see docs/embedding-adapters.md). The memory engine and the media index are shared by all agents, so they stay local while the installation or
 **any** agent is local-only. A refused provider fails with `E_DENIED`, `reason: local-only`, and a hint to the switch;

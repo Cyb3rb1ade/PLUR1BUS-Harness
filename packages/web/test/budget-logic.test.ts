@@ -1,7 +1,7 @@
 // Pure logic of the Usage & Quota page: tolerant parsing, limit state at the boundaries, amounts, set-params.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { buildSetParams, groupLimits, limitView, normalizeStatus, parseAmount } from "../src/pages/budget/model.ts";
+import { buildSetParams, currentConsumption, groupLimits, limitView, normalizeStatus, parseAmount } from "../src/pages/budget/model.ts";
 
 const lim = (o: Record<string, unknown> = {}): Record<string, unknown> => ({ scope: "global", period: "day", metric: "tokens", soft: 5_000_000, hard: 10_000_000, used: 0, state: "ok", ...o });
 
@@ -47,7 +47,20 @@ describe("normalizeStatus and groups", () => {
   test("periods keep agents and models", () => {
     const u = { events: 2, inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 };
     const s = normalizeStatus({ timeZone: "UTC", now: "2026-10-07T00:00:00Z", periods: [{ period: "day", key: "2026-10-07", total: { ...u, costMicros: 1500 }, agents: [{ agentId: "main", total: u, models: [{ model: "m", ...u }] }] }], limits: [] });
-    assert.equal(s.periods[0]!.agents[0]!.models[0]!.model, "m"); assert.deepEqual(s.periods[0]!.total, u); // a stray money field is dropped
+    assert.equal(s.periods[0]!.agents[0]!.models[0]!.model, "m"); assert.deepEqual(s.periods[0]!.total, { ...u, images: 0, videoSeconds: 0 }); // a stray money field is dropped, missing media units read as 0
+  });
+  test("image and video-second limits are shown beside tokens, in a stable metric order; their use comes from the period totals", () => {
+    const s = normalizeStatus({
+      periods: [{ period: "day", key: "2026-10-19", total: { events: 3, inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0, images: 2, videoSeconds: 8 }, agents: [{ agentId: "main", total: { events: 1, inputTokens: 0, outputTokens: 0, images: 2 }, models: [] }] }],
+      limits: [lim({ metric: "videoSeconds", hard: 60 }), lim({ metric: "images", hard: 2 }), lim({ metric: "frames" }), lim()],
+    });
+    assert.deepEqual(groupLimits(s.limits).global.map((l) => l.metric), ["images", "tokens", "videoSeconds"]);
+    assert.equal(s.periods[0]!.total.images, 2); assert.equal(s.periods[0]!.agents[0]!.total.videoSeconds, 0);
+    const none = s.limits.filter(() => false);
+    assert.equal(currentConsumption(s.periods, none, { scope: "global", period: "day", metric: "images" }), 2);
+    assert.equal(currentConsumption(s.periods, none, { scope: "global", period: "day", metric: "videoSeconds" }), 8);
+    assert.equal(currentConsumption(s.periods, none, { scope: "global", period: "day", metric: "tokens" }), 15);
+    assert.equal(currentConsumption(s.periods, none, { scope: "agent", agentId: "main", period: "day", metric: "images" }), 2);
   });
 });
 
@@ -68,6 +81,9 @@ describe("buildSetParams", () => {
   test("editing: an emptied bound that was set is cleared with null, an untouched empty one stays out", () => {
     assert.deepEqual(buildSetParams(key, { soft: null, hard: 100 }, { soft: 5, hard: 50 }), { limit: { ...key, soft: null, hard: 100 } });
     assert.deepEqual(buildSetParams(key, { soft: 7, hard: null }, { soft: null, hard: null }), { limit: { ...key, soft: 7 } });
+  });
+  test("an image limit is sent with its metric", () => {
+    assert.deepEqual(buildSetParams({ scope: "global", period: "day", metric: "images" }, { soft: null, hard: 2 }, null), { limit: { scope: "global", period: "day", metric: "images", hard: 2 } });
   });
   test("global limits carry no agentId; remove clears both", () => {
     assert.deepEqual(buildSetParams({ scope: "global", period: "month", metric: "tokens" }, { soft: null, hard: null }, { soft: 1, hard: 2 }), { limit: { scope: "global", period: "month", metric: "tokens", soft: null, hard: null } });

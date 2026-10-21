@@ -117,12 +117,16 @@ pub struct FileEntry {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Secrets {
-    /// Always `false`: a manifest that says otherwise is refused (R4).
+    /// Always `false`: a manifest that says otherwise is refused (R4). It means the secret store (keyring, encrypted fallback
+    /// file, `run/`) is not in the archive; `note` says which credential material is.
     pub included: bool,
     pub note: String,
 }
 
-pub const SECRETS_NOTE: &str = "no secrets are part of this archive: API keys and tokens stay in the OS keyring, run/ is never archived, and the encrypted fallback file is not included";
+/// What the manifest says about secrets. It must say what the archive holds: the secret store is never read, but the API account
+/// database `state/api/accounts.db` is part of the archive (docs/portable-backup.md: the API accounts are restored from it) and
+/// it holds password hashes, TOTP seeds and token hashes. Keep both phrases the tests look for.
+pub const SECRETS_NOTE: &str = "no secret-store values are part of this archive: API keys and tokens stay in the OS keyring, run/ is never archived, and the encrypted fallback file is not included; a webhook secret in config.json is replaced by a placeholder; the API account database (state/api/accounts.db, when present) is archived with its password hashes, TOTP seeds and token hashes, and the archive is neither signed nor encrypted";
 
 /// A home-relative path that is the same on every OS and cannot climb out: non-empty `/`-separated segments, none of them
 /// `.`/`..`, no backslash, colon or NUL (a drive or stream on Windows), not absolute.

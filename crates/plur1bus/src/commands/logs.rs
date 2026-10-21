@@ -222,16 +222,37 @@ pub fn request(cmd: &LogsCmd) -> Result<(&'static str, Value), String> {
     Ok((method, p))
 }
 
+/// Text from a log record is untrusted: a decoded `\n` would print as a second, forged-looking
+/// entry and an ESC sequence would be run by the terminal. Control characters (C0, DEL, C1) and the
+/// Unicode line/paragraph separators are shown as visible escapes, so one record is always one line.
+fn clean(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() || c == '\u{2028}' || c == '\u{2029}' => {
+                out.push_str(&format!("\\u{{{:x}}}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 fn line(rec: &Value) -> String {
-    let ts = rec["ts"].as_str().unwrap_or("-");
-    let level = rec["level"].as_str().unwrap_or("-");
-    let component = rec["component"].as_str().unwrap_or("-");
+    let ts = clean(rec["ts"].as_str().unwrap_or("-"));
+    let level = clean(rec["level"].as_str().unwrap_or("-"));
+    let component = clean(rec["component"].as_str().unwrap_or("-"));
     let inner = &rec["record"];
-    let event = inner["event"]
-        .as_str()
-        .or_else(|| inner["action"].as_str())
-        .unwrap_or("-");
-    let msg = inner["msg"].as_str().unwrap_or("");
+    let event = clean(
+        inner["event"]
+            .as_str()
+            .or_else(|| inner["action"].as_str())
+            .unwrap_or("-"),
+    );
+    let msg = clean(inner["msg"].as_str().unwrap_or(""));
     if msg.is_empty() {
         format!("{ts} {level:<5} {component}  {event}")
     } else {
@@ -407,6 +428,60 @@ mod tests {
         assert_eq!(
             render(&page),
             "2026-10-07T00:00:00.000Z info  core  core.process.started  core started"
+        );
+    }
+
+    fn one_record(component: &str, event: &str, msg: &str) -> Value {
+        json!({
+            "records": [{
+                "ts": "2026-10-07T00:00:00.000Z",
+                "level": "info",
+                "component": component,
+                "stream": "diagnostic",
+                "record": { "event": event, "msg": msg }
+            }]
+        })
+    }
+
+    #[test]
+    fn render_keeps_a_newline_in_msg_on_one_line_so_it_cannot_forge_an_entry() {
+        let forged = "boom\n2026-10-07T00:00:01.000Z info  core  core.process.ready  all good";
+        let text = render(&one_record("core", "core.process.failed", forged));
+        assert_eq!(text.lines().count(), 1, "{text:?}");
+        assert!(text
+            .ends_with("boom\\n2026-10-07T00:00:01.000Z info  core  core.process.ready  all good"));
+    }
+
+    #[test]
+    fn render_escapes_terminal_control_sequences_in_every_field() {
+        let text = render(&one_record(
+            "co\u{1b}[2Jre",
+            "x\ry",
+            "a\u{1b}]0;title\u{7}b\tc\u{85}d\u{7f}e\u{2028}f",
+        ));
+        assert_eq!(text.lines().count(), 1, "{text:?}");
+        assert!(
+            !text.chars().any(|c| c.is_control() || c == '\u{2028}'),
+            "{text:?}"
+        );
+        assert!(text.contains("co\\u{1b}[2Jre"), "{text}");
+        assert!(text.contains("x\\ry"), "{text}");
+        assert!(
+            text.ends_with("a\\u{1b}]0;title\\u{7}b\\tc\\u{85}d\\u{7f}e\\u{2028}f"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn render_leaves_ordinary_text_and_non_ascii_alone() {
+        let text = render(&one_record(
+            "core",
+            "core.process.started",
+            "Größe: 5 – ok ✓",
+        ));
+        assert!(
+            text.ends_with("core.process.started  Größe: 5 – ok ✓"),
+            "{text}"
         );
     }
 

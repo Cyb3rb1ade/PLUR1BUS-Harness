@@ -6,13 +6,16 @@ import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, link, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { downloadModel, isInstalled, tarExtract } from "../src/local/download.ts";
+import { downloadModel, isInstalled, tarBinary, tarExtract } from "../src/local/download.ts";
 import type { CatalogModel } from "../src/local/catalog.ts";
 import { isVoiceProviderError } from "../src/errors.ts";
 import { startFakeVendor } from "./helpers/fake-vendor.ts";
 import { modelBytes, sha256 } from "./helpers/fake-engine.ts";
 
-const haveTar = spawnSync("tar", ["--version"]).status === 0;
+// The same binary the extractor uses: on Windows that is System32's bsdtar, because the GNU tar that Git for Windows puts
+// first in PATH reads "C:\\x" as host:path and cannot create or read the archives these tests use.
+const TAR = await tarBinary();
+const haveTar = spawnSync(TAR, ["--version"]).status === 0;
 const win = process.platform === "win32";
 const tarOpts = { skip: haveTar ? false : "system tar is not available" };
 const linkOpts = { skip: !haveTar ? "system tar is not available" : win ? "symlinks and hardlinks need privileges on win32" : false };
@@ -21,7 +24,7 @@ async function tmp(prefix = "voice-x-"): Promise<string> { return mkdtemp(join(t
 
 /** Build a .tar.bz2 from `args` (paths relative to cwd unless -P is used). */
 function buildArchive(out: string, cwd: string, members: string[], extra: string[] = []): void {
-  const r = spawnSync("tar", ["-cjf", out, ...extra, ...members], { cwd });
+  const r = spawnSync(TAR, ["-cjf", out, ...extra, ...members], { cwd });
   assert.equal(r.status, 0, `tar create failed: ${r.stderr}`);
 }
 
