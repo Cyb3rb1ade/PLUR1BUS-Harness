@@ -11,7 +11,7 @@ import type { BreakGlass } from "../rbac/break-glass.ts";
 import { BreakGlassError } from "../rbac/break-glass.ts";
 import type { AdminStore } from "../identity/admin-store.ts";
 import type { IdentityService, Actor } from "../identity/service.ts";
-import { IdentityError } from "../identity/service.ts";
+import { IdentityError, isChannelName } from "../identity/service.ts";
 import type { AgentLifecycle } from "../agents/lifecycle.ts";
 import type { SessionStore } from "../session/store.ts";
 import { mapSessionError, toWireSession } from "../session/methods.ts";
@@ -147,6 +147,8 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
     }),
     "user.invite.create": bind("admin.users.write", (p, a) => {
       const displayName = text(p, "displayName"), channel = text(p, "channel", 32), role = preset(p.role);
+      // Checked before the person is created: the pairing below refuses a malformed channel name, and by then the person would already exist without pairing or role.
+      if (!isChannelName(channel)) throw new RpcError("E_INVALID_PARAMS", "invalid channel");
       // Invitations never create another Owner (ADR-007: exactly one). An ownership transfer operation does not exist yet.
       if (role === "owner") throw new RpcError("E_DENIED", "an invitation cannot grant ownership");
       if (p.ttlMinutes !== undefined && p.expiresInMinutes !== undefined) throw new RpcError("E_INVALID_PARAMS", "give either ttlMinutes or expiresInMinutes");

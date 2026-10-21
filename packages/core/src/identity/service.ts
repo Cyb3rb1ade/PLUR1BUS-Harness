@@ -51,6 +51,8 @@ function text(v: unknown, field: string, max = MAX_FIELD): string {
   if (typeof v !== "string" || v.length === 0 || v.length > max || CONTROL.test(v)) throw bad(field, `${field} must be a non-empty string of at most ${max} characters without control characters`);
   return v;
 }
+/** Whether `v` is a channel name the service accepts: callers that create state before pairing check it first, so a refusal leaves nothing behind. */
+export const isChannelName = (v: unknown): v is string => typeof v === "string" && CHANNEL.test(v);
 function channelOf(v: unknown, field = "channel"): string {
   if (typeof v !== "string" || !CHANNEL.test(v)) throw bad(field, `${field} must match ${CHANNEL}`);
   return v;
