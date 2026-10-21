@@ -241,6 +241,20 @@ async fn a_failed_open_is_shown_on_the_connection() {
         SwitchOutcome::Failed(lan.id, "pairing-needed".into())
     );
     assert_eq!(outcome.route(), Some("#/connections"));
+    // A row that is still there but changed between the gate and the contact (`invalid` from `connect_checked`), or a
+    // bundled repair without a shell window: a failure the list shows, not a silent drop.
+    let changed = switch(
+        &f.transports,
+        &f.store,
+        &f.tstore(),
+        lan.id,
+        |_row: Connection, _checked: Option<(CheckedTarget, Transport)>| async {
+            Err::<(), _>("invalid".to_owned())
+        },
+    )
+    .await;
+    assert_eq!(changed, SwitchOutcome::Failed(lan.id, "invalid".into()));
+    assert_eq!(changed.route(), Some("#/connections"));
     // An invalid origin from the gate is a failure too, not a silent switch.
     assert_eq!(
         SwitchOutcome::of::<()>(lan.id, Err("host-invalid".into())),
@@ -290,25 +304,30 @@ fn switch_rows_load_the_stored_paths() {
     assert_eq!(f.probes.0.load(Ordering::SeqCst), 0);
 }
 
-/// No handler accepts ids from webviews: the switch and *Start/Stop harness* are native menu events, not IPC
-/// commands; the tray modules declare no command and the allow-list names none for them.
+/// No handler accepts ids from webviews: the switch and *Start/Stop harness* are native menu events, never IPC
+/// commands. The app's command manifest (`APP_COMMANDS`, the generated ACL) and the shell's allow-list name no tray
+/// operation, so no window can invoke one; menu ids are honoured only when the last menu offered them
+/// (`tray_state.rs`).
 #[test]
-fn the_tray_switch_is_no_ipc_command() {
-    use plur1bus_desktop::commands::SHELL_COMMANDS;
-    for source in [
-        include_str!("../src/tray.rs"),
-        include_str!("../src/native.rs"),
-    ] {
-        assert!(!source.contains("tauri::command"));
+fn no_window_can_invoke_a_tray_action() {
+    use plur1bus_desktop::commands::{allowed_command, APP_COMMANDS, SHELL_COMMANDS};
+    let tray_like = |c: &str| ["tray", "switch", "menu"].iter().any(|w| c.contains(w));
+    assert!(
+        !APP_COMMANDS.iter().any(|c| tray_like(c)),
+        "{APP_COMMANDS:?}"
+    );
+    assert!(!SHELL_COMMANDS.iter().any(|c| tray_like(c)));
+    for window in ["shell", "approvals", "spa"] {
+        for command in [
+            "tray_switch",
+            "switch_connection",
+            "tray_menu_event",
+            "harness_from_tray",
+            "connect_checked",
+        ] {
+            assert!(!allowed_command(window, command), "{window}: {command}");
+        }
     }
-    assert!(!SHELL_COMMANDS
-        .iter()
-        .any(|c| c.contains("tray") || c.contains("switch")));
-    // The open path is shared: the command and the tray both go through `open_gated` and `connect_checked`.
-    let commands = include_str!("../src/commands.rs");
-    let native = include_str!("../src/native.rs");
-    assert!(commands.contains(".open_gated("));
-    assert!(commands.contains("connect_checked(connect_app, owner, listed, checked)"));
-    assert!(native.contains("crate::tray::switch("));
-    assert!(native.contains("crate::commands::connect_checked(connect, owner, row, checked)"));
+    // The tray's harness controls are the controller path of these two shell commands, not commands of their own.
+    assert!(SHELL_COMMANDS.contains(&"harness_start") && SHELL_COMMANDS.contains(&"harness_stop"));
 }

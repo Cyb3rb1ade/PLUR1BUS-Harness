@@ -222,6 +222,7 @@ impl Language {
             (Self::De, "more") => "Weitere Verbindungen…",
             (Self::De, "reason-not-bundled") => "wechsle zur gebündelten Verbindung",
             (Self::De, "reason-runtime-down") => "Runtime nicht erreichbar",
+            (Self::De, "reason-not-installed") => "nicht installiert",
             (Self::De, "reason-busy") => "Vorgang läuft",
             (Self::De, "reason-running") => "läuft bereits",
             (Self::De, "reason-stopped") => "läuft nicht",
@@ -230,6 +231,7 @@ impl Language {
             (_, "more") => "More connections…",
             (_, "reason-not-bundled") => "switch to the bundled connection",
             (_, "reason-runtime-down") => "runtime not reachable",
+            (_, "reason-not-installed") => "not installed",
             (_, "reason-busy") => "operation in progress",
             (_, "reason-running") => "already running",
             (_, "reason-stopped") => "not running",
@@ -383,6 +385,8 @@ pub enum ControlReason {
     NotBundled,
     /// The container runtime is not reachable, or its state is not known yet.
     RuntimeDown,
+    /// The bundled harness is not installed.
+    NotInstalled,
     /// A start, stop, upgrade or rollback is running.
     Busy,
     Running,
@@ -393,6 +397,7 @@ impl ControlReason {
         match self {
             Self::NotBundled => "not-bundled",
             Self::RuntimeDown => "runtime-down",
+            Self::NotInstalled => "not-installed",
             Self::Busy => "busy",
             Self::Running => "running",
             Self::Stopped => "stopped",
@@ -435,9 +440,8 @@ impl HarnessControls {
             return both(ControlReason::Busy);
         }
         match controller {
-            None | Some(HarnessStatus::RuntimeDown | HarnessStatus::NotInstalled) => {
-                both(ControlReason::RuntimeDown)
-            }
+            None | Some(HarnessStatus::RuntimeDown) => both(ControlReason::RuntimeDown),
+            Some(HarnessStatus::NotInstalled) => both(ControlReason::NotInstalled),
             Some(HarnessStatus::Starting) => Self {
                 start: Control::Disabled(ControlReason::Busy),
                 stop: Control::Enabled,
@@ -510,7 +514,7 @@ pub enum SwitchOutcome {
     /// The open path's gate refused with `transport-confirm-needed` before any harness contact: the shell shows the
     /// connection's confirm dialog.
     ConfirmNeeded(uuid::Uuid),
-    /// The connection is gone (`invalid`): nothing to do but rebuild the menu.
+    /// The connection is no longer in `connections.json`: nothing to do but rebuild the menu.
     Ignored,
     /// The open failed with this code: the shell shows it on the connection.
     Failed(uuid::Uuid, String),
@@ -522,7 +526,6 @@ impl SwitchOutcome {
             Err(code) if code == crate::transport::TransportError::ConfirmNeeded.code() => {
                 Self::ConfirmNeeded(id)
             }
-            Err(code) if code == "invalid" => Self::Ignored,
             Err(code) => Self::Failed(id, code),
         }
     }
@@ -552,10 +555,17 @@ where
     ) -> Fut,
     Fut: std::future::Future<Output = Result<T, String>>,
 {
-    SwitchOutcome::of(
-        id,
-        transports.open_gated(connections, store, id, connect).await,
-    )
+    let result = transports.open_gated(connections, store, id, connect).await;
+    // Removed: the row is really gone. Any other `invalid` (the row changed between gate and contact, no shell window
+    // for a bundled repair) is a failure the list shows, as *Open* does.
+    if matches!(&result, Err(code) if code == "invalid")
+        && connections
+            .load()
+            .is_ok_and(|rows| rows.iter().all(|row| row.id != id))
+    {
+        return SwitchOutcome::Ignored;
+    }
+    SwitchOutcome::of(id, result)
 }
 
 /// Gathers rebuild requests: each request takes a ticket, and only the latest ticket rebuilds after the debounce.
@@ -586,9 +596,17 @@ impl Language {
         active: Option<uuid::Uuid>,
         active_path: Option<PathLabel>,
     ) -> SwitchMenu {
-        let entries = rows
-            .iter()
-            .take(SWITCH_LIMIT)
+        // The open connection is always listed: past the limit, it takes the last place.
+        let mut shown: Vec<&SwitchRow> = rows.iter().take(SWITCH_LIMIT).collect();
+        if let Some(open) =
+            active.and_then(|id| rows.iter().skip(SWITCH_LIMIT).find(|r| r.id == id))
+        {
+            if let Some(last) = shown.last_mut() {
+                *last = open;
+            }
+        }
+        let entries = shown
+            .into_iter()
             .map(|row| {
                 let checked = active == Some(row.id);
                 let path = if checked {

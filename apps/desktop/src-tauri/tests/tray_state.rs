@@ -346,6 +346,59 @@ fn switch_submenu_lists_at_most_twenty_connections_then_more() {
     assert_eq!(Language::En.text("more"), "More connections…");
 }
 
+/// The open connection is always listed and offered: past the 20th row it takes the 20th place (the list order is kept
+/// otherwise, *More…* still follows); within the first 20 nothing moves.
+#[test]
+fn the_open_connection_is_always_listed_and_offered() {
+    let all = rows(25);
+    for language in [Language::De, Language::En] {
+        for past in [20, 21, 24] {
+            let open = all[past].id;
+            let menu = language.switch_menu(&all, Some(open), None);
+            assert_eq!(menu.entries.len(), SWITCH_LIMIT);
+            let mut expected: Vec<uuid::Uuid> = all.iter().take(19).map(|r| r.id).collect();
+            expected.push(open);
+            assert_eq!(menu.offered(), expected);
+            assert_eq!(menu.entries[19].text, format!("Rechner {past}"));
+            assert!(menu.entries[19].checked);
+            assert_eq!(menu.entries.iter().filter(|e| e.checked).count(), 1);
+            assert_eq!(menu.more, Some(language.text("more")));
+            assert_eq!(
+                TrayAction::parse(&format!("connection:{open}"), &menu.offered()),
+                Some(TrayAction::Switch(open))
+            );
+            // The 20th row it displaced is reached through *More…*.
+            assert_eq!(
+                TrayAction::parse(&format!("connection:{}", all[19].id), &menu.offered()),
+                None
+            );
+        }
+        for within in [0, 10, 19] {
+            let menu = language.switch_menu(&all, Some(all[within].id), None);
+            assert_eq!(
+                menu.offered(),
+                all.iter().take(20).map(|r| r.id).collect::<Vec<_>>()
+            );
+            let checked: Vec<usize> = menu
+                .entries
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| e.checked)
+                .map(|(i, _)| i)
+                .collect();
+            assert_eq!(checked, [within]);
+        }
+        // Exactly 20 rows: nothing to replace, no *More…*.
+        let twenty = rows(20);
+        let menu = language.switch_menu(&twenty, Some(twenty[19].id), None);
+        assert_eq!(
+            menu.offered(),
+            twenty.iter().map(|r| r.id).collect::<Vec<_>>()
+        );
+        assert_eq!(menu.more, None);
+    }
+}
+
 /// Transport choice spec §7.3: each entry reads `{name} ({path})`, bundled and local rows only the name; the active
 /// connection is checked and shows the path of its last check.
 #[test]
@@ -426,9 +479,13 @@ fn harness_controls_follow_the_active_bundled_connection_and_the_runtime() {
     let bundled = Some(Kind::Bundled);
     let of = |status: Option<&Ctl>, busy| HarnessControls::of(bundled.as_ref(), status, busy);
     // Runtime down, not installed, or no status yet.
-    for status in [None, Some(&Ctl::RuntimeDown), Some(&Ctl::NotInstalled)] {
+    for status in [None, Some(&Ctl::RuntimeDown)] {
         assert_eq!(of(status, false), disabled(ControlReason::RuntimeDown));
     }
+    assert_eq!(
+        of(Some(&Ctl::NotInstalled), false),
+        disabled(ControlReason::NotInstalled)
+    );
     // An operation is running.
     assert_eq!(of(Some(&ready), true), disabled(ControlReason::Busy));
     assert_eq!(of(Some(&stopped), true), disabled(ControlReason::Busy));
@@ -476,6 +533,11 @@ fn harness_controls_follow_the_active_bundled_connection_and_the_runtime() {
             ControlReason::RuntimeDown,
             "Harness starten — Runtime nicht erreichbar",
             "Start harness — runtime not reachable",
+        ),
+        (
+            ControlReason::NotInstalled,
+            "Harness starten — nicht installiert",
+            "Start harness — not installed",
         ),
         (
             ControlReason::Busy,

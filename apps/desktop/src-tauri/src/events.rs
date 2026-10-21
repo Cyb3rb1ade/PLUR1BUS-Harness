@@ -46,6 +46,9 @@ pub enum Reconnect {
 }
 /// The shell event a reconnect stopped for a confirmation raises (transport choice spec §9.2).
 pub const TRANSPORT_ATTENTION: &str = "transport-attention";
+/// The shell event after a tray switch that opened or failed (desktop spec §6.3): `{ id, error }`; the connection list
+/// refreshes, and a failure shows on the connection.
+pub const TRAY_SWITCH: &str = "desktop-tray-switch";
 
 /// What a reconnect's transport check means for the tray and the shell.
 #[derive(Clone, Debug, PartialEq, Eq)]

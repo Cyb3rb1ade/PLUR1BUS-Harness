@@ -832,7 +832,11 @@ pub(crate) fn connections_changed(app: &tauri::AppHandle) {
         if !handle.state::<NativeState>().rebuild.is_latest(ticket) {
             return;
         }
-        let rows = load_switch_rows(&handle);
+        let reader = handle.clone();
+        let rows = tauri::async_runtime::spawn_blocking(move || load_switch_rows(&reader))
+            .await
+            .ok()
+            .flatten();
         let gui = handle.clone();
         if handle
             .run_on_main_thread(move || {
@@ -883,9 +887,6 @@ fn on_menu_event(app: &tauri::AppHandle, id: &str) {
         None => {}
     }
 }
-/// The shell event after a tray switch that opened or failed: the connection list refreshes and shows a failure on
-/// the connection.
-pub const TRAY_SWITCH: &str = "desktop-tray-switch";
 /// A switch from the tray (desktop spec §6.3) takes the open path of *Open* in the connection list, T4's gate first:
 /// a connection that needs a confirmation opens the shell on its confirm dialog, without any harness contact.
 fn switch_from_tray(app: &tauri::AppHandle, id: uuid::Uuid) {
@@ -894,6 +895,7 @@ fn switch_from_tray(app: &tauri::AppHandle, id: uuid::Uuid) {
     let view = state.view.lock().unwrap().clone();
     update_tray(app, &view);
     if state.switching.swap(true, Ordering::SeqCst) {
+        eprintln!("TRAY_SWITCH_BUSY");
         return;
     }
     let handle = app.clone();
@@ -930,9 +932,10 @@ fn switch_from_tray(app: &tauri::AppHandle, id: uuid::Uuid) {
             .run_on_main_thread(move || {
                 let route = outcome.route();
                 let (event, payload) = match &outcome {
-                    SwitchOutcome::Opened => {
-                        (TRAY_SWITCH, serde_json::json!({ "id": id, "error": null }))
-                    }
+                    SwitchOutcome::Opened => (
+                        crate::events::TRAY_SWITCH,
+                        serde_json::json!({ "id": id, "error": null }),
+                    ),
                     SwitchOutcome::ConfirmNeeded(id) => (
                         crate::events::TRANSPORT_ATTENTION,
                         serde_json::json!({
@@ -942,7 +945,10 @@ fn switch_from_tray(app: &tauri::AppHandle, id: uuid::Uuid) {
                     ),
                     SwitchOutcome::Failed(id, code) => {
                         eprintln!("TRAY_SWITCH_FAILED code={code}");
-                        (TRAY_SWITCH, serde_json::json!({ "id": id, "error": code }))
+                        (
+                            crate::events::TRAY_SWITCH,
+                            serde_json::json!({ "id": id, "error": code }),
+                        )
                     }
                     SwitchOutcome::Ignored => {
                         eprintln!("TRAY_SWITCH_IGNORED");
@@ -975,6 +981,7 @@ fn harness_from_tray(app: &tauri::AppHandle, op: crate::tray::HarnessOp) {
     }
     let state = app.state::<NativeState>();
     if state.harness_busy.swap(true, Ordering::SeqCst) {
+        eprintln!("TRAY_HARNESS_BUSY");
         return;
     }
     let view = state.view.lock().unwrap().clone();
