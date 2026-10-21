@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { withShell } from "./browser-harness.ts";
 import { TIMEOUT, isTimeout, withDeadline } from "../src/models/deadline.ts";
-import { DEADLINES, withDeadlines, type DesktopTransport } from "../src/ipc.ts";
+import { DEADLINES, INTERACTIVE_DEADLINE_MS, withDeadlines, type DesktopTransport } from "../src/ipc.ts";
 import { pairingFailure } from "../src/models/pairing-model.ts";
 
 const never = <T>() => new Promise<T>(() => {});
@@ -28,6 +28,31 @@ test("withDeadlines bounds exactly the three calls that can hang and leaves ever
   assert.equal(bounded.settingsGet, base.settingsGet);
   const { harnessLogsTail: _absent, ...withoutLogs } = base;
   assert.equal(withDeadlines(withoutLogs as DesktopTransport, DEADLINES).harnessLogsTail, undefined, "an absent call stays absent");
+});
+
+test("a call that waits for a person (pair_code: OS credential prompt, network) gets 120 s; non-interactive calls keep short deadlines", () => {
+  assert.equal(INTERACTIVE_DEADLINE_MS, 120_000);
+  assert.equal(DEADLINES.pairCode, 120_000);
+  assert.ok(DEADLINES.connectionsList <= 30_000 && DEADLINES.harnessLogsTail <= 30_000, "non-interactive invokes stay short");
+  assert.ok(DEADLINES.pairCode > DEADLINES.connectionsList && DEADLINES.pairCode > DEADLINES.harnessLogsTail);
+});
+
+test("a pair_code that is still waiting after the old 45 s deadline is not timed out", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let answer: (value: string) => void = () => {};
+  const base = { pairCode: () => new Promise<string>(resolve => { answer = resolve; }) } as unknown as DesktopTransport;
+  const pending = withDeadlines(base).pairCode({ name: "n", origin: "https://harness.test", code: "ABCD-2345", repairId: null }) as unknown as Promise<string>;
+  let settled = false;
+  pending.then(() => { settled = true; }, () => { settled = true; });
+  t.mock.timers.tick(45_001);
+  await Promise.resolve();
+  assert.equal(settled, false, "the person is still answering the prompt");
+  answer("paired");
+  assert.equal(await pending, "paired");
+  const late = withDeadlines(base).pairCode({ name: "n", origin: "https://harness.test", code: "ABCD-2345", repairId: null }) as unknown as Promise<string>;
+  const rejected = assert.rejects(late, isTimeout);
+  t.mock.timers.tick(120_000);
+  await rejected;
 });
 
 test("a timeout is a pairing failure of its own that can be retried", () => {

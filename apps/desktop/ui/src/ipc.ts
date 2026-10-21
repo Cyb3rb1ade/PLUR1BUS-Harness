@@ -128,10 +128,15 @@ export const nativeTransport: DesktopTransport = {
   settingsSet: settings => invoke("settings_set", { request: { settings } }),
 };
 
-/** How long the UI waits for the calls that otherwise leave a view loading until the native side answers. pair_code
- * may need several network steps of up to 15 s each natively; the others are local or one runtime call. */
+/** How long the UI waits for the calls that otherwise leave a view loading until the native side answers.
+ * Calls that wait for a person get `INTERACTIVE_DEADLINE_MS`: `pair_code` opens the OS credential store (a keychain
+ * unlock or consent prompt can be on screen) and needs several network steps of up to 15 s each, so a short deadline
+ * would report a timeout while the person is still answering the prompt (owner decision on #716). The others are
+ * non-interactive and keep short deadlines: `connections_list` never acquires credentials, `harness_logs_tail` is one
+ * runtime call. */
+export const INTERACTIVE_DEADLINE_MS = 120_000;
 export type Deadlines = { connectionsList: number; pairCode: number; harnessLogsTail: number };
-export const DEADLINES: Deadlines = { connectionsList: 20_000, pairCode: 45_000, harnessLogsTail: 30_000 };
+export const DEADLINES: Deadlines = { connectionsList: 20_000, pairCode: INTERACTIVE_DEADLINE_MS, harnessLogsTail: 30_000 };
 export function withDeadlines(base: DesktopTransport, limits: Deadlines = DEADLINES): DesktopTransport {
   const logs = base.harnessLogsTail;
   return {
