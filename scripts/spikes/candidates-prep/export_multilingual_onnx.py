@@ -74,6 +74,7 @@ emb_dims = list(emb.dims)
 m.graph.initializer.remove(emb)
 onnx.save_model(m, final, save_as_external_data=True, all_tensors_to_one_file=True, location=data_name, size_threshold=1024)
 m2 = onnx.load(final, load_external_data=False)
+del m2.graph.value_info[:]  # shape annotations recorded with the 16-row stub embedding are stale for the real table
 dpath = os.path.join(dst, data_name)
 size = os.path.getsize(dpath); off = (size + 4095) // 4096 * 4096
 ET = TensorProto()
@@ -89,7 +90,7 @@ with open(dpath, 'r+b') as out, safe_open(os.path.join(src, 'model.safetensors')
         chunk = sl[r:min(r + step, real_vocab)].to(torch.float32).contiguous().numpy()
         out.write(chunk.tobytes())
 onnx.save_model(m2, final)  # small proto only, external refs kept
-os.remove(tmp)
+if os.path.exists(tmp): os.remove(tmp)  # the directory sweep above already removed it with current torch
 for fn in os.listdir(dst):
     if fn != 'model.onnx' and fn != data_name and fn.startswith('stub'): os.remove(os.path.join(dst, fn))
 for fn in ('config.json', 'rl_agent_config.json'): shutil.copy(os.path.join(src, fn), dst)

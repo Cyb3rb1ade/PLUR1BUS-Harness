@@ -1,65 +1,2711 @@
 {
   "schema": "plur1bus.decision-candidates-comparison/1",
   "at": "2026-10-21",
+  "pr": 626,
+  "branch": "codex/gp4-f3-laya-spike",
   "hostRole": "owner-nas-vm",
-  "status": "not-measurable-without-swapping",
-  "summary": "On the owner's Ubuntu NAS VM (3.4 GiB RAM, about 2.0 GiB MemAvailable at idle with the desktop session running) candidate A could not be measured without swapping. The only run (A, original runner, 1 thread) swapped out 921 MiB and in 572 MiB and is discarded. Candidates B, C and D could not be built because files.pythonhosted.org is blackholed by the local DNS (resolves to 0.0.0.0) on the Mac and on the VM, so the Python export toolchain (torch, onnx, laya==0.4.12) cannot be installed; the DNS block was not circumvented.",
+  "status": "measured-int8-numerically-broken-on-this-cpu",
+  "summary": "Owner NAS Ubuntu VM (Haswell-class Xeon, AVX2 without VNNI), candidates A, B, C and D measured on the same 60 core cases as the cloud receipts (threads 1, 2, 4, 8; swap-free, quiet-machine runs only). A and B reproduce the cloud picks exactly (A 28/60 de, 39/60 en; B 31/60, 39/60). The ORT dynamic-int8 files C and D produce near-uniform probabilities on this CPU (accuracy 25-33 %, Brier about 0.688, 38 % / 31 % agreement with B / A): the int8 recipe is numerically unusable here and int8 gives no latency advantage over fp32 B on this CPU either. A follow-up int8 variant with reduce_range=True (Cr) works (50.0 / 58.3 %, 77 % agreement with B) but is not faster than B. A, B, C and Cr fail the preliminary German gate; D formally passes it (gap 1.7 points, equal Brier) only because it is at chance level in both languages, which is not a pass.",
+  "honesty": [
+    "Labels in decision-eval-cases.json are agent-authored proposals, not independently validated; accuracy is only a relative signal between candidates (60 core cases per language: one case = 1.67 percentage points).",
+    "The machine is the owner NAS VM (a KVM guest, not the physical NAS and not reference hardware). The guest changed in the middle of the session: runs marked cfg1 had 16 vCPUs and 3387 MiB RAM (swap 3.9 GiB active), after a VM restart by the owner (about 18:37-18:41 CEST, journal of the previous boot ends without a shutdown record) runs marked cfg2 had 64 vCPUs and 7393 MiB RAM. The CPU model and flags are the same; repeat runs of B, C and D at 2 threads on cfg2 agree with cfg1 within run-to-run spread.",
+    "B, C and D were built by us on the Mac (arm64) with the scripts in scripts/spikes/candidates-prep; the data file of B is byte-identical to the one built in the cloud sandbox, the graph files differ (torch dynamo export on macOS vs Linux, and the export script now drops stale shape annotations); picks of B are identical to the cloud and the Mac run (180 of 180).",
+    "File cache was not controlled for the first runs (C-t1..t8, D-t2..t8); from B-t1 attempt 4 on, the cached pages of the other candidates model files were evicted with posix_fadvise(DONTNEED) before each run to reduce page-cache pressure on the 3.4 GiB guest. Each run is a fresh process; first inference is reported separately; warm statistics are over the remaining 179 calls.",
+    "Temperatures are the shipped ones (multilingual: all 1.0, uncalibrated). Nothing was refitted. Long-input latency was not measured. The German gate (accuracy gap <= 5 points, Brier gap <= 0.05) is the preliminary gate from the handoff, not a product decision."
+  ],
+  "method": {
+    "runner": "scripts/spikes/decision-laya-candidates.mjs at the head of the PR branch (c4bba785 plus the candidates-prep export fixes), unchanged measurement code; no A-orig (hash-pinned runner) rows were run on the NAS this time",
+    "sameAsCloudReceipts": [
+      "one request per call, 180 calls = 60 core + 30 extra pairs x 2 locales, in fixture order",
+      "first call reported separately; warm p50/p95 over calls 2..180 with nearest-rank percentiles (percentile() from decision-laya-lib.mjs)",
+      "five-question English batch, 10 repetitions",
+      "intraOpNumThreads = threads, interOpNumThreads = 1, CPU execution provider, onnxruntime-node 1.30.0, Node 24.21.0"
+    ],
+    "quietRule": "Before each attempt: 1-minute load average < 0.5 and none of cargo/rustc/rustup/clippy-driver/pnpm/vitest/apt/apt-get/dpkg/packagekitd/gnome-software running (polled every 10 s); the desktop session stayed running. An attempt is discarded when the foreign CPU share in the inference loop >= 5 %, any 30-call chunk >= 10 % or steal >= 5 % (never triggered).",
+    "swapRule": "vmstat 1 runs during every attempt; the first (since boot) sample is skipped; ANY nonzero si or so in the remaining samples discards the attempt, even if it happened during model load. 16 attempts were discarded for this reason (list below), all valid runs have si = so = 0.",
+    "loadNote": "loadAvgAtStart is read inside the runner after its own start-up and can be slightly above 0.5; loadAvg1minBeforeLaunch is the value the quiet rule checked.",
+    "discardedRuns": [
+      {
+        "run": "B-t1",
+        "attempt": "1",
+        "at": "2026-10-21T18:09:29+02:00",
+        "vmstatSiKiB": 316856,
+        "vmstatSoKiB": 427672,
+        "secondsWithSwapActivity": 58,
+        "vmstatSamples": 75,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t1",
+        "attempt": "2",
+        "at": "2026-10-21T18:11:24+02:00",
+        "vmstatSiKiB": 48,
+        "vmstatSoKiB": 16500,
+        "secondsWithSwapActivity": 7,
+        "vmstatSamples": 57,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t1",
+        "attempt": "3",
+        "at": "2026-10-21T18:12:51+02:00",
+        "vmstatSiKiB": 336,
+        "vmstatSoKiB": 43080,
+        "secondsWithSwapActivity": 9,
+        "vmstatSamples": 59,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t1",
+        "attempt": "4",
+        "at": "2026-10-21T18:16:41+02:00",
+        "vmstatSiKiB": 92,
+        "vmstatSoKiB": 0,
+        "secondsWithSwapActivity": 3,
+        "vmstatSamples": 56,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t1",
+        "attempt": "5",
+        "at": "2026-10-21T18:18:10+02:00",
+        "vmstatSiKiB": 12,
+        "vmstatSoKiB": 2040,
+        "secondsWithSwapActivity": 3,
+        "vmstatSamples": 58,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t1",
+        "attempt": "6",
+        "at": "2026-10-21T18:19:51+02:00",
+        "vmstatSiKiB": 36,
+        "vmstatSoKiB": 4,
+        "secondsWithSwapActivity": 4,
+        "vmstatSamples": 60,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t2",
+        "attempt": "1",
+        "at": "2026-10-21T18:15:01+02:00",
+        "vmstatSiKiB": 8,
+        "vmstatSoKiB": 11208,
+        "secondsWithSwapActivity": 3,
+        "vmstatSamples": 40,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t2",
+        "attempt": "2",
+        "at": "2026-10-21T18:23:04+02:00",
+        "vmstatSiKiB": 4,
+        "vmstatSoKiB": 2828,
+        "secondsWithSwapActivity": 4,
+        "vmstatSamples": 40,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t2",
+        "attempt": "3",
+        "at": "2026-10-21T18:24:48+02:00",
+        "vmstatSiKiB": 8,
+        "vmstatSoKiB": 0,
+        "secondsWithSwapActivity": 2,
+        "vmstatSamples": 38,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t2",
+        "attempt": "4",
+        "at": "2026-10-21T18:26:29+02:00",
+        "vmstatSiKiB": 12,
+        "vmstatSoKiB": 0,
+        "secondsWithSwapActivity": 1,
+        "vmstatSamples": 38,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "B-t4",
+        "attempt": "1",
+        "at": "2026-10-21T18:29:30+02:00",
+        "vmstatSiKiB": 48,
+        "vmstatSoKiB": 0,
+        "secondsWithSwapActivity": 1,
+        "vmstatSamples": 31,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "C-t1",
+        "attempt": "1",
+        "at": "2026-10-21T17:42:32+02:00",
+        "vmstatSiKiB": 0,
+        "vmstatSoKiB": 300,
+        "secondsWithSwapActivity": 1,
+        "vmstatSamples": 49,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "C-t2",
+        "attempt": "1",
+        "at": "2026-10-21T17:45:07+02:00",
+        "vmstatSiKiB": 4,
+        "vmstatSoKiB": 0,
+        "secondsWithSwapActivity": 1,
+        "vmstatSamples": 30,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "D-t1",
+        "attempt": "1",
+        "at": "2026-10-21T17:51:10+02:00",
+        "vmstatSiKiB": 56,
+        "vmstatSoKiB": 4,
+        "secondsWithSwapActivity": 3,
+        "vmstatSamples": 161,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "D-t1",
+        "attempt": "2",
+        "at": "2026-10-21T17:54:41+02:00",
+        "vmstatSiKiB": 8,
+        "vmstatSoKiB": 0,
+        "secondsWithSwapActivity": 2,
+        "vmstatSamples": 154,
+        "reason": "vmstat swap activity (si/so > 0)"
+      },
+      {
+        "run": "D-t1",
+        "attempt": "3",
+        "at": "2026-10-21T17:58:05+02:00",
+        "vmstatSiKiB": 1484,
+        "vmstatSoKiB": 2940,
+        "secondsWithSwapActivity": 8,
+        "vmstatSamples": 148,
+        "reason": "vmstat swap activity (si/so > 0)"
+      }
+    ],
+    "lostRuns": [
+      {
+        "run": "B-t2",
+        "at": "about 2026-10-21T18:16+02:00",
+        "reason": "attempt in progress when the orchestrator was stopped by us to add the page-cache eviction step; no result"
+      },
+      {
+        "run": "D-t1",
+        "at": "2026-10-21T18:36:01+02:00",
+        "reason": "VM restarted by the owner during this attempt; repeated on cfg2"
+      }
+    ],
+    "runsExecuted": 45,
+    "validRuns": 27
+  },
   "environment": {
-    "vm": "Ubuntu 26.04.1 LTS, Linux 7.0.0-38-generic x86_64, KVM guest 'Standard PC (i440FX + PIIX, 1996)', 16 logical CPUs (guest view), Haswell-class flags: avx, avx2, fma, f16c, sse4_2; no avx512, no VNNI, no AMX",
-    "memory": "MemTotal 3468792 kB (3387 MiB), swap 3.9 GiB (swappiness 60, systemd-oomd active), desktop session running (gnome-shell, ptyxis)",
-    "node": "v24.21.0 linux-x64 official tarball (SHA-256 fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6 verified against SHASUMS256.txt), onnxruntime-node 1.30.0, @huggingface/transformers 4.3.1, npm install --ignore-scripts into a scratch directory, no lockfile",
-    "runner": "scripts/spikes/decision-laya.mjs from branch head bf052d60; the six model files were verified on the Mac against the manifest SHA-256 and copied to the VM with scp (the runner verifies them again before each run)",
-    "cleanup": "~/plur1bus-laya-bench on the VM (models, node, runtime, outputs) deleted after the attempt"
+    "vm": "Intel Xeon E5-2620 v3 @ 2.40GHz (Haswell-EP, family 6 model 63), KVM guest \"Standard PC (i440FX + PIIX, 1996)\", flags: sse4_2, avx, avx2, fma, f16c; no avx512*, no avx_vnni, no amx*",
+    "cfg1": {
+      "logicalCpus": 16,
+      "memory": "MemTotal 3387 MiB, swap 3.9 GiB (swappiness 60), 2.3-2.4 GiB MemAvailable at run start, swap in use 656-766 MiB before the runs started (no activity during valid runs), GNOME desktop session running"
+    },
+    "cfg2": {
+      "logicalCpus": 64,
+      "memory": "MemTotal 7393 MiB, swap 3.9 GiB unused, about 6.1-6.3 GiB MemAvailable at run start, desktop session running"
+    },
+    "os": "Ubuntu 26.04.1 LTS, Linux 7.0.0-38-generic",
+    "runtime": "Node v24.21.0 linux-x64 official tarball (SHA-256 checked against SHASUMS256.txt), onnxruntime-node 1.30.0, @huggingface/transformers 4.3.1, npm install --ignore-scripts in a scratch directory, no lockfile",
+    "builder": "Mac arm64, CPython 3.12, torch 2.14.1, transformers 5.20.2, onnx 1.23.2, onnxruntime 1.31.0 (quantizer), onnxscript 0.7.2, laya 0.4.12",
+    "files": "models copied with scp; the runner hashes every file (artifacts in each run of the original receipts; here in the candidates block)",
+    "cleanup": "~/plur1bus-laya-bench on the VM (models, node, runtime, outputs, logs) deleted after the measurement"
   },
   "candidates": {
     "A": {
-      "status": "discarded-swap",
-      "reason": "vmstat shows swap activity in 156 of 272 sampled seconds (swap-in 585660 KiB, swap-out 943083 KiB in total); model load took 79.0 s; MemAvailable dropped to 782 MiB; swap in use grew from 298 MiB to 645 MiB, pushing the desktop session's memory out. The run is not a valid latency measurement.",
-      "discardedRun": {
-        "label": "A-orig-t1",
-        "threads": 1,
-        "warmP50Ms": 866.4422769999946,
-        "warmP95Ms": 1443.7542930000054,
-        "fiveQuestionBatchP50Ms": 2355.952500000014,
-        "loadMs": 79046.89946300001,
-        "firstInferenceMs": 1936.194340999995,
-        "maxRssKiB": 1725568,
-        "correctDe": "28/60",
-        "correctEn": "39/60",
-        "germanGate": {
-          "passed": false,
-          "complete": true,
-          "accuracyGap": 0.18333333333333335,
-          "brierGap": 0.1905635128642138
+      "status": "measured",
+      "model": "inferenceprince/laya-onnx",
+      "revision": "dd0f4db73e24ef4c646d47d0e48e74024f439e6c",
+      "manifestVerified": true,
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 2063,
+          "sha256": "7f7ac00d9f70a2d5e8f41a10b6984d4a0833405984b3bf859ff1d49f1bced359"
         },
-        "loadAverageAtStart": "0.39 0.41 0.22 1/883 14327",
-        "loadAverageAtEnd": "1.10 1.07 0.58 1/872 15568",
-        "freeMiBStart": "Speicher:       3387        1306         808          39        1592        2080|Auslager:       3898         298        3600|",
-        "freeMiBEnd": "Speicher:       3387        1014        1663          10         993        2373|Auslager:       3898         645        3253|",
-        "swapFreeKiBStart": 3686408,
-        "swapFreeKiBEnd": 3331404,
-        "minMemAvailableMiBDuringRun": 782,
-        "vmstatSecondsWithSwapActivity": 156,
-        "vmstatSeconds": 272,
-        "stealJiffiesDelta": 116,
-        "wallSeconds": 271.66,
-        "note": "Not a valid timing (swap thrash). Kept only as evidence that A (about 1.7 GiB RSS) does not fit next to the desktop session on this VM. Picks are deterministic and equal the cloud and Windows receipts."
-      },
-      "otherRuns": "not run: threads 2 and 4 and the candidate runner were cancelled after the first run swapped, so as not to push the owner's desktop session further into swap"
+        {
+          "file": "model.onnx",
+          "size": 3336214,
+          "sha256": "75d37762009e57b03b28877d330a2a466acd576eb444b0fdd00ee2a3221f8761"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 842587136,
+          "sha256": "356764eb3ab760468479e6fa732217d8ccaa84ab38f2ca9e2ed174ae22aaf1b4"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 745,
+          "sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 3583228,
+          "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 308,
+          "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+        }
+      ],
+      "note": "Not measurable on the first guest configuration (3387 MiB: about 1.75 GiB RSS next to the desktop session swapped, see earlierAttempt). Measured after the owner enlarged the guest (MemAvailable >= 6 GiB >= the 3000 MiB precondition)."
     },
     "B": {
-      "status": "not-built",
-      "reason": "The export needs torch, onnx, onnxscript, transformers and laya==0.4.12 from PyPI. files.pythonhosted.org resolves to 0.0.0.0 in the local DNS on both the Mac and the VM (pypi.org itself answers). Not circumvented."
+      "status": "measured",
+      "model": "convaiinnovations/laya-multilingual",
+      "revision": "1720e3e3357cfe1e281542e223f8273b0890ca34",
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 160,
+          "sha256": "7add7c041b53f7091e65908553af79ab3f077946e5f2312d510ae13b17c7c134"
+        },
+        {
+          "file": "encoder/config.json",
+          "size": 1938,
+          "sha256": "83f6916d13ef0f556ac461f28308dc2bffa7ebeadee8ec9e2db5812020ea5bb4"
+        },
+        {
+          "file": "model.onnx",
+          "size": 2701220,
+          "sha256": "681189b816b29cb51aacf35f5da3dcbc39ba2f940555c4a6abf11c70cc072558"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 1287639040,
+          "sha256": "70e635514cbd2785fb06fb6eff5d8d36f229e7eb18158e5503973977e05c8f88"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 472,
+          "sha256": "25061739243b617ad88d1219ba6f8a9c86c5881ca28df024fa2d9b3b2fcc30c6"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 34363188,
+          "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 502,
+          "sha256": "424b69444bf7b5809dc2cd2e36d0bd71b8055124dd24274d6db3c655d38205e7"
+        }
+      ],
+      "sourceSha256": {
+        "model.safetensors": "9d628fd971b700382ac6f65920a86f149777b2e748e0c955fb3b19695aa8f204"
+      },
+      "parity": {
+        "jsVsPythonTokenMismatches": "0 of 180",
+        "maxAbsLogitDiffVsEagerFp32": 2.19e-05,
+        "argmaxFlips": 0,
+        "paddedBatch6MaxAbsLogitDiff": 1.14e-05,
+        "layaBuildSequenceLayoutIdentical": true,
+        "note": "scripts/spikes/candidates-prep/verify_multilingual_onnx.py on the Mac build"
+      }
     },
     "C": {
-      "status": "not-built",
-      "reason": "derived from B"
+      "status": "measured-numerically-broken",
+      "derivedFrom": "B",
+      "how": "quantize_dynamic_int8.py (per_channel, QInt8, reduce_range=False)",
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 160,
+          "sha256": "7add7c041b53f7091e65908553af79ab3f077946e5f2312d510ae13b17c7c134"
+        },
+        {
+          "file": "model.onnx",
+          "size": 3379509,
+          "sha256": "89f3cac52c8d8185bbc72aa790a0a40ef7f612bcd3848a99efc373dd7a7982dd"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 332695808,
+          "sha256": "08d0a8b7181e96d87b5e6adef1532c8b787175cf8adec0f1dcde58dddfc4ccea"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 472,
+          "sha256": "25061739243b617ad88d1219ba6f8a9c86c5881ca28df024fa2d9b3b2fcc30c6"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 34363188,
+          "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 502,
+          "sha256": "424b69444bf7b5809dc2cd2e36d0bd71b8055124dd24274d6db3c655d38205e7"
+        }
+      ],
+      "finding": "Probabilities are near-uniform on this CPU (max confidence 0.002); picks agree with B in 37.8 % of 180 rows. On arm64 (Mac) the same file agrees with B in 95.6 %, on the AVX-512 VNNI cloud VM in 76.1 %."
     },
     "D": {
-      "status": "not-built",
-      "reason": "needs onnx and onnxruntime from PyPI (fp32 upcast plus dynamic int8 quantization), same DNS block"
+      "status": "measured-numerically-broken",
+      "derivedFrom": "A (fp32 upcast) via upcast_fp16_to_fp32.py then quantize_dynamic_int8.py",
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 2063,
+          "sha256": "7f7ac00d9f70a2d5e8f41a10b6984d4a0833405984b3bf859ff1d49f1bced359"
+        },
+        {
+          "file": "model.onnx",
+          "size": 4726299,
+          "sha256": "c276e853c0f13469c84671a6d6ae08bf3faef7140ccf564766f01aa7445c181d"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 421558272,
+          "sha256": "924d0995531e480b1dcf888163ba09f4f1b7bba7e0bd5a1085b2f9df07a89a78"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 745,
+          "sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 3583228,
+          "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 308,
+          "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+        }
+      ],
+      "finding": "Same failure as C: near-uniform probabilities, 30.6 % agreement with A (Mac arm64: 93.9 %, cloud: 65.6 %)."
+    },
+    "Cr": {
+      "status": "measured-follow-up",
+      "derivedFrom": "B",
+      "how": "quantize_dynamic_int8.py with reduce_range=True (the only change; not committed as a script change)",
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 160,
+          "sha256": "7add7c041b53f7091e65908553af79ab3f077946e5f2312d510ae13b17c7c134"
+        },
+        {
+          "file": "model.onnx",
+          "size": 3379509,
+          "sha256": "5c26dbadf20ddeb951bd0fc1ba6696e0dac40e8c9f817cd13ac3453df5af7394"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 332695808,
+          "sha256": "98b4a181750f5eb80def7a34d9439d921a7f81a4e090c3485a03dc4108860ea8"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 472,
+          "sha256": "25061739243b617ad88d1219ba6f8a9c86c5881ca28df024fa2d9b3b2fcc30c6"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 34363188,
+          "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 502,
+          "sha256": "424b69444bf7b5809dc2cd2e36d0bd71b8055124dd24274d6db3c655d38205e7"
+        }
+      ],
+      "note": "Extra variant to test whether the failure is the 8-bit weight range on AVX2 without VNNI. It is not one of the requested candidates. Mac arm64 run: 50.0 / 61.7 %."
     }
   },
-  "ramRule": "Run only with load1 < 0.5, no heavy foreign process and MemAvailable >= 1900 MiB; discard any run with vmstat si/so > 0.",
-  "next": "Needs more VM RAM (A: about 1.7 GiB RSS plus the desktop session; B about 1.0 GiB and C/D about 0.6 GiB would fit) and the PyPI file host unblocked in DNS so that B, C and D can be built, copied and measured. They would then run unchanged with scripts/spikes/decision-laya-candidates.mjs."
+  "runs": [
+    {
+      "run": "A-t1",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 4283.553209000001,
+      "firstInferenceMs": 875.6284700000015,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 812.8567509999993,
+        "p95": 1357.303871000011
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 2412.0771620000014,
+        "p95": 2582.202658000024
+      },
+      "maxRssKiB": 1791672,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.43,
+        "loadAvgAtStart": "0.52 1.5 1.57",
+        "loadAvgAtEnd": "1 1.28 1.47",
+        "foreignCpuShareInferenceLoop": 0.0001458254695419934,
+        "worstChunkOf30Calls": 0.0002455729508448066,
+        "stealShare": 2.5235764278558682e-05
+      },
+      "swap": {
+        "vmstatSamples": 189,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6274,
+          "memUsedMiB": 1118,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6262,
+          "memUsedMiB": 1130,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T16:57:40.731Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A-t2",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3818.4938130000005,
+      "firstInferenceMs": 578.8963039999999,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 464.1130450000055,
+        "p95": 828.955667000002
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 1364.829906999992,
+        "p95": 1471.8841720000055
+      },
+      "maxRssKiB": 1880176,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.43,
+        "loadAvgAtStart": "0.4 1.04 1.37",
+        "loadAvgAtEnd": "1.74 1.34 1.44",
+        "foreignCpuShareInferenceLoop": 0.00012317222970959556,
+        "worstChunkOf30Calls": 0.00017831505401115174,
+        "stealShare": 1.4183812725655844e-05
+      },
+      "swap": {
+        "vmstatSamples": 110,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6240,
+          "memUsedMiB": 1152,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6256,
+          "memUsedMiB": 1136,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:00:44.479Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A-t2-rep2",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 2,
+      "loadMs": 6877.788173,
+      "firstInferenceMs": 1061.8239549999998,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 525.279896,
+        "p95": 909.7732749999996
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 1263.2067039999965,
+        "p95": 1432.1845759999997
+      },
+      "maxRssKiB": 1879864,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.45,
+        "loadAvgAtStart": "0.61 0.89 1.06",
+        "loadAvgAtEnd": "1.83 1.27 1.18",
+        "foreignCpuShareInferenceLoop": 9.961596973575935e-05,
+        "worstChunkOf30Calls": 0.00013640694846905565,
+        "stealShare": 0.0003053737461627842
+      },
+      "swap": {
+        "vmstatSamples": 128,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6073,
+          "memUsedMiB": 1319,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6063,
+          "memUsedMiB": 1329,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:30:37.704Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A-t4",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 4,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 4069.4124240000006,
+      "firstInferenceMs": 428.74131000000034,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 340.0646459999989,
+        "p95": 569.6010969999988
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 792.9712779999973,
+        "p95": 1089.3035040000104
+      },
+      "maxRssKiB": 1862740,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.43,
+        "loadAvgAtStart": "0.48 1.02 1.32",
+        "loadAvgAtEnd": "2.99 1.67 1.52",
+        "foreignCpuShareInferenceLoop": 0,
+        "worstChunkOf30Calls": 0.00023502109214937987,
+        "stealShare": 0.0004556365667161471
+      },
+      "swap": {
+        "vmstatSamples": 81,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6250,
+          "memUsedMiB": 1142,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6240,
+          "memUsedMiB": 1152,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:03:39.411Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A-t8",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 8,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3609.3302449999996,
+      "firstInferenceMs": 326.8754059999992,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 263.40594599999895,
+        "p95": 411.38164600000164
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 566.6283770000009,
+        "p95": 633.7502220000024
+      },
+      "maxRssKiB": 1917388,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.42,
+        "loadAvgAtStart": "0.55 1.15 1.35",
+        "loadAvgAtEnd": "5.04 2.3 1.73",
+        "foreignCpuShareInferenceLoop": 4.954258520195157e-06,
+        "worstChunkOf30Calls": 0.0001141177610604593,
+        "stealShare": 0.0001768475759380024
+      },
+      "swap": {
+        "vmstatSamples": 63,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6252,
+          "memUsedMiB": 1140,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6257,
+          "memUsedMiB": 1135,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:06:46.752Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t1",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3520.3341680000003,
+      "firstInferenceMs": 237.721861,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 228.13482300000032,
+        "p95": 293.39618100000007
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 723.2589880000014,
+        "p95": 736.4000620000006
+      },
+      "maxRssKiB": 1049668,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617448956157702,
+        "en": 0.482710494856215
+      },
+      "ece": {
+        "de": 0.18941217455455917,
+        "en": 0.16164318796572888
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903440075955526
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 7,
+        "discardedAttempts": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "loadAvg1minBeforeLaunch": 0.46,
+        "loadAvgAtStart": "0.55 0.68 0.79",
+        "loadAvgAtEnd": "0.81 0.73 0.8",
+        "foreignCpuShareInferenceLoop": 0.0006041606941288891,
+        "worstChunkOf30Calls": 0.000892541908279922,
+        "stealShare": 1.55326805034154e-05
+      },
+      "swap": {
+        "vmstatSamples": 57,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2432,
+          "memUsedMiB": 954,
+          "swapUsedMiB": 763
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2407,
+          "memUsedMiB": 979,
+          "swapUsedMiB": 763
+        }
+      },
+      "at": "2026-10-21T16:22:34.107Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t2",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3173.111797999999,
+      "firstInferenceMs": 165.59273399999984,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 130.28506099999868,
+        "p95": 175.62434600000051
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 390.9050419999985,
+        "p95": 409.68005700000504
+      },
+      "maxRssKiB": 1057256,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617448956157702,
+        "en": 0.482710494856215
+      },
+      "ece": {
+        "de": 0.18941217455455917,
+        "en": 0.16164318796572888
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903440075955526
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 5,
+        "discardedAttempts": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loadAvg1minBeforeLaunch": 0.46,
+        "loadAvgAtStart": "0.47 0.69 0.77",
+        "loadAvgAtEnd": "1.08 0.81 0.81",
+        "foreignCpuShareInferenceLoop": 0.0004605448550242038,
+        "worstChunkOf30Calls": 0.0006972138818021907,
+        "stealShare": 2.6032131715082557e-05
+      },
+      "swap": {
+        "vmstatSamples": 37,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2429,
+          "memUsedMiB": 957,
+          "swapUsedMiB": 766
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2409,
+          "memUsedMiB": 977,
+          "swapUsedMiB": 766
+        }
+      },
+      "at": "2026-10-21T16:28:39.432Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t2-rep2",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 2,
+      "loadMs": 3772.5811940000003,
+      "firstInferenceMs": 194.8046719999984,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 133.66074300000037,
+        "p95": 180.38188900000023
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 431.2445020000014,
+        "p95": 503.43834600000264
+      },
+      "maxRssKiB": 1393840,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617448956157702,
+        "en": 0.482710494856215
+      },
+      "ece": {
+        "de": 0.18941217455455917,
+        "en": 0.16164318796572888
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903440075955526
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.49,
+        "loadAvgAtStart": "0.62 0.97 1.24",
+        "loadAvgAtEnd": "1.16 1.07 1.27",
+        "foreignCpuShareInferenceLoop": 8.345931696777829e-05,
+        "worstChunkOf30Calls": 0.00014807305225927707,
+        "stealShare": 1.937340030821737e-05
+      },
+      "swap": {
+        "vmstatSamples": 40,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6071,
+          "memUsedMiB": 1321,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6053,
+          "memUsedMiB": 1339,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:16:42.753Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t2-rep3",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 3,
+      "loadMs": 3662.439055,
+      "firstInferenceMs": 170.518059,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 145.43929700000444,
+        "p95": 220.86991999999736
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 515.1911219999965,
+        "p95": 542.6374670000005
+      },
+      "maxRssKiB": 1395260,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617448956157702,
+        "en": 0.482710494856215
+      },
+      "ece": {
+        "de": 0.18941217455455917,
+        "en": 0.16164318796572888
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903440075955526
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.48,
+        "loadAvgAtStart": "0.52 0.89 1.12",
+        "loadAvgAtEnd": "1.2 1.02 1.16",
+        "foreignCpuShareInferenceLoop": 0.00011302453438761286,
+        "worstChunkOf30Calls": 0.0002009903020518117,
+        "stealShare": 3.4969019756078416e-05
+      },
+      "swap": {
+        "vmstatSamples": 42,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6087,
+          "memUsedMiB": 1305,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6069,
+          "memUsedMiB": 1324,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:22:55.494Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t4",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 4,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3393.155829000001,
+      "firstInferenceMs": 121.74841500000002,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 107.60220699999991,
+        "p95": 140.77159699999902
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 279.23379399999976,
+        "p95": 286.61601399999927
+      },
+      "maxRssKiB": 1060408,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617448956157702,
+        "en": 0.482710494856215
+      },
+      "ece": {
+        "de": 0.18941217455455917,
+        "en": 0.16164318796572888
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903440075955526
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 2,
+        "discardedAttempts": [
+          1
+        ],
+        "loadAvg1minBeforeLaunch": 0.42,
+        "loadAvgAtStart": "0.44 0.72 0.78",
+        "loadAvgAtEnd": "1.66 0.98 0.86",
+        "foreignCpuShareInferenceLoop": 0.0008378955812293499,
+        "worstChunkOf30Calls": 0.001569288550470295,
+        "stealShare": 3.256151049945533e-05
+      },
+      "swap": {
+        "vmstatSamples": 31,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2423,
+          "memUsedMiB": 963,
+          "swapUsedMiB": 766
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2435,
+          "memUsedMiB": 952,
+          "swapUsedMiB": 766
+        }
+      },
+      "at": "2026-10-21T16:32:08.180Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t8",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 8,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3782.2068610000006,
+      "firstInferenceMs": 121.04123900000013,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 88.92397500000152,
+        "p95": 117.80976699999883
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 242.32087399999727,
+        "p95": 292.8238010000023
+      },
+      "maxRssKiB": 1076192,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617448956157702,
+        "en": 0.482710494856215
+      },
+      "ece": {
+        "de": 0.18941217455455917,
+        "en": 0.16164318796572888
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903440075955526
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.43,
+        "loadAvgAtStart": "0.6 0.77 0.8",
+        "loadAvgAtEnd": "2.58 1.21 0.94",
+        "foreignCpuShareInferenceLoop": 0,
+        "worstChunkOf30Calls": 0.00021649162531156452,
+        "stealShare": 0.00022681934051238338
+      },
+      "swap": {
+        "vmstatSamples": 29,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2433,
+          "memUsedMiB": 953,
+          "swapUsedMiB": 766
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2421,
+          "memUsedMiB": 966,
+          "swapUsedMiB": 766
+        }
+      },
+      "at": "2026-10-21T16:34:00.399Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "C-t1",
+      "candidate": "C",
+      "description": "B with ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 2970.567674,
+      "firstInferenceMs": 184.64572300000054,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 178.46858200000133,
+        "p95": 261.0252560000008
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 700.6134930000044,
+        "p95": 786.862513
+      },
+      "maxRssKiB": 746252,
+      "accuracy": {
+        "de": 0.25,
+        "en": 0.3333333333333333,
+        "deCorrect": 15,
+        "enCorrect": 20,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6876807041302355,
+        "en": 0.6882083842151374
+      },
+      "ece": {
+        "de": 0.06811905675513799,
+        "en": 0.015973634226539996
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333332,
+        "brierGap": -0.0005276800849018937
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 2,
+        "discardedAttempts": [
+          1
+        ],
+        "loadAvg1minBeforeLaunch": 0.44,
+        "loadAvgAtStart": "0.44 0.39 0.32",
+        "loadAvgAtEnd": "0.74 0.47 0.35",
+        "foreignCpuShareInferenceLoop": 0.002015744760739479,
+        "worstChunkOf30Calls": 0.004423480151651385,
+        "stealShare": 0
+      },
+      "swap": {
+        "vmstatSamples": 46,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2303,
+          "memUsedMiB": 1084,
+          "swapUsedMiB": 656
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2287,
+          "memUsedMiB": 1099,
+          "swapUsedMiB": 656
+        }
+      },
+      "at": "2026-10-21T15:44:37.145Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": {
+        "reference": "B-t1",
+        "fraction": 0.37777777777777777
+      }
+    },
+    {
+      "run": "C-t2",
+      "candidate": "C",
+      "description": "B with ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3035.5746929999996,
+      "firstInferenceMs": 157.07169299999987,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 119.9121729999988,
+        "p95": 157.51368100000036
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 380.0030990000014,
+        "p95": 398.4013989999985
+      },
+      "maxRssKiB": 807028,
+      "accuracy": {
+        "de": 0.25,
+        "en": 0.3333333333333333,
+        "deCorrect": 15,
+        "enCorrect": 20,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6876807041302355,
+        "en": 0.6882083842151374
+      },
+      "ece": {
+        "de": 0.06811905675513799,
+        "en": 0.015973634226539996
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333332,
+        "brierGap": -0.0005276800849018937
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 2,
+        "discardedAttempts": [
+          1
+        ],
+        "loadAvg1minBeforeLaunch": 0.44,
+        "loadAvgAtStart": "0.44 0.47 0.36",
+        "loadAvgAtEnd": "1 0.61 0.41",
+        "foreignCpuShareInferenceLoop": 0.0004390721455750976,
+        "worstChunkOf30Calls": 0.000672182018647387,
+        "stealShare": 2.9211495434381775e-05
+      },
+      "swap": {
+        "vmstatSamples": 30,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2308,
+          "memUsedMiB": 1078,
+          "swapUsedMiB": 656
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2294,
+          "memUsedMiB": 1092,
+          "swapUsedMiB": 656
+        }
+      },
+      "at": "2026-10-21T15:46:57.709Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": {
+        "reference": "B-t2",
+        "fraction": 0.37777777777777777
+      }
+    },
+    {
+      "run": "C-t2-rep2",
+      "candidate": "C",
+      "description": "B with ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 2,
+      "loadMs": 3090.780034,
+      "firstInferenceMs": 154.13369899999998,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 134.7768589999996,
+        "p95": 180.8664549999994
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 425.9393459999992,
+        "p95": 510.4788630000003
+      },
+      "maxRssKiB": 760520,
+      "accuracy": {
+        "de": 0.25,
+        "en": 0.3333333333333333,
+        "deCorrect": 15,
+        "enCorrect": 20,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6876807041302355,
+        "en": 0.6882083842151374
+      },
+      "ece": {
+        "de": 0.06811905675513799,
+        "en": 0.015973634226539996
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333332,
+        "brierGap": -0.0005276800849018937
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.42,
+        "loadAvgAtStart": "0.39 0.86 1.18",
+        "loadAvgAtEnd": "1.06 0.97 1.2",
+        "foreignCpuShareInferenceLoop": 0.0002823524096495415,
+        "worstChunkOf30Calls": 0.0009753167255642836,
+        "stealShare": 0.00011161471838256419
+      },
+      "swap": {
+        "vmstatSamples": 34,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6085,
+          "memUsedMiB": 1307,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6078,
+          "memUsedMiB": 1314,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:18:20.346Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "C-t2-rep3",
+      "candidate": "C",
+      "description": "B with ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 3,
+      "loadMs": 2700.3445410000004,
+      "firstInferenceMs": 223.89598899999964,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 116.62118499999997,
+        "p95": 193.27794299999732
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 401.5488789999981,
+        "p95": 508.5810989999991
+      },
+      "maxRssKiB": 730976,
+      "accuracy": {
+        "de": 0.25,
+        "en": 0.3333333333333333,
+        "deCorrect": 15,
+        "enCorrect": 20,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6876807041302355,
+        "en": 0.6882083842151374
+      },
+      "ece": {
+        "de": 0.06811905675513799,
+        "en": 0.015973634226539996
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333332,
+        "brierGap": -0.0005276800849018937
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.44,
+        "loadAvgAtStart": "0.48 0.83 1.08",
+        "loadAvgAtEnd": "1.08 0.94 1.11",
+        "foreignCpuShareInferenceLoop": 9.32042831140904e-05,
+        "worstChunkOf30Calls": 0.0002193807147794512,
+        "stealShare": 1.3903720135463736e-05
+      },
+      "swap": {
+        "vmstatSamples": 32,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6085,
+          "memUsedMiB": 1307,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6077,
+          "memUsedMiB": 1315,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:24:30.815Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "C-t4",
+      "candidate": "C",
+      "description": "B with ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 4,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 2620.6527100000003,
+      "firstInferenceMs": 117.22883000000002,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 79.87540399999853,
+        "p95": 117.07846699999936
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 260.51636099999814,
+        "p95": 274.1153290000002
+      },
+      "maxRssKiB": 806892,
+      "accuracy": {
+        "de": 0.25,
+        "en": 0.3333333333333333,
+        "deCorrect": 15,
+        "enCorrect": 20,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6876807041302355,
+        "en": 0.6882083842151374
+      },
+      "ece": {
+        "de": 0.06811905675513799,
+        "en": 0.015973634226539996
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333332,
+        "brierGap": -0.0005276800849018937
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.43,
+        "loadAvgAtStart": "0.43 0.51 0.39",
+        "loadAvgAtEnd": "1.26 0.69 0.45",
+        "foreignCpuShareInferenceLoop": 0.0006319364796734958,
+        "worstChunkOf30Calls": 0.0010856156346845925,
+        "stealShare": 8.353257763210198e-05
+      },
+      "swap": {
+        "vmstatSamples": 22,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2306,
+          "memUsedMiB": 1080,
+          "swapUsedMiB": 656
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2303,
+          "memUsedMiB": 1083,
+          "swapUsedMiB": 656
+        }
+      },
+      "at": "2026-10-21T15:48:10.130Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": {
+        "reference": "B-t4",
+        "fraction": 0.37777777777777777
+      }
+    },
+    {
+      "run": "C-t8",
+      "candidate": "C",
+      "description": "B with ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 8,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 2800.423852,
+      "firstInferenceMs": 93.76455999999962,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 68.47314499999993,
+        "p95": 88.7786789999991
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 191.06180099999983,
+        "p95": 280.0296619999972
+      },
+      "maxRssKiB": 819180,
+      "accuracy": {
+        "de": 0.25,
+        "en": 0.3333333333333333,
+        "deCorrect": 15,
+        "enCorrect": 20,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6876807041302355,
+        "en": 0.6882083842151374
+      },
+      "ece": {
+        "de": 0.06811905675513799,
+        "en": 0.015973634226539996
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333332,
+        "brierGap": -0.0005276800849018937
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.46,
+        "loadAvgAtStart": "0.58 0.59 0.43",
+        "loadAvgAtEnd": "2.23 0.95 0.55",
+        "foreignCpuShareInferenceLoop": 0.0015833951724738865,
+        "worstChunkOf30Calls": 0.012827151422786775,
+        "stealShare": 0
+      },
+      "swap": {
+        "vmstatSamples": 19,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2321,
+          "memUsedMiB": 1066,
+          "swapUsedMiB": 656
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2308,
+          "memUsedMiB": 1078,
+          "swapUsedMiB": 656
+        }
+      },
+      "at": "2026-10-21T15:49:29.732Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": {
+        "reference": "B-t8",
+        "fraction": 0.37777777777777777
+      }
+    },
+    {
+      "run": "Cr-t1",
+      "candidate": "Cr",
+      "description": "B with ORT dynamic int8, reduce_range=True (follow-up variant, not a requested candidate)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3112.2090819999994,
+      "firstInferenceMs": 176.06447799999933,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 198.81705699999839,
+        "p95": 290.8088379999972
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 813.1153830000039,
+        "p95": 889.5236730000033
+      },
+      "maxRssKiB": 756876,
+      "accuracy": {
+        "de": 0.5,
+        "en": 0.5833333333333334,
+        "deCorrect": 30,
+        "enCorrect": 35,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6254235370459207,
+        "en": 0.5303142678645234
+      },
+      "ece": {
+        "de": 0.12207667110720062,
+        "en": 0.14211572693304123
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333337,
+        "brierGap": 0.09510926918139728
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.48,
+        "loadAvgAtStart": "0.45 1.41 1.47",
+        "loadAvgAtEnd": "0.76 1.35 1.44",
+        "foreignCpuShareInferenceLoop": 0.00012829898962250764,
+        "worstChunkOf30Calls": 0.00024363281495367244,
+        "stealShare": 8.513762118603526e-06
+      },
+      "swap": {
+        "vmstatSamples": 51,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6252,
+          "memUsedMiB": 1140,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6248,
+          "memUsedMiB": 1144,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:10:02.212Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": {
+        "reference": "B-t1",
+        "fraction": 0.7666666666666667
+      }
+    },
+    {
+      "run": "Cr-t2",
+      "candidate": "Cr",
+      "description": "B with ORT dynamic int8, reduce_range=True (follow-up variant, not a requested candidate)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3109.861917,
+      "firstInferenceMs": 128.2455719999998,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 121.81244700000025,
+        "p95": 179.949442000001
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 455.44186400000035,
+        "p95": 478.6276570000009
+      },
+      "maxRssKiB": 781600,
+      "accuracy": {
+        "de": 0.5,
+        "en": 0.5833333333333334,
+        "deCorrect": 30,
+        "enCorrect": 35,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6254235370459207,
+        "en": 0.5303142678645234
+      },
+      "ece": {
+        "de": 0.12207667110720062,
+        "en": 0.14211572693304123
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333337,
+        "brierGap": 0.09510926918139728
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.46,
+        "loadAvgAtStart": "0.42 1.2 1.39",
+        "loadAvgAtEnd": "0.99 1.26 1.4",
+        "foreignCpuShareInferenceLoop": 7.344287984221655e-05,
+        "worstChunkOf30Calls": 0.00016644982100020276,
+        "stealShare": 2.0381739255570696e-05
+      },
+      "swap": {
+        "vmstatSamples": 33,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6245,
+          "memUsedMiB": 1147,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6233,
+          "memUsedMiB": 1159,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:11:08.270Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": {
+        "reference": "B-t2",
+        "fraction": 0.7666666666666667
+      }
+    },
+    {
+      "run": "Cr-t4",
+      "candidate": "Cr",
+      "description": "B with ORT dynamic int8, reduce_range=True (follow-up variant, not a requested candidate)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 4,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 2666.181869,
+      "firstInferenceMs": 160.94735599999967,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 83.66239200000018,
+        "p95": 128.6583559999999
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 248.32281200000216,
+        "p95": 269.9465600000003
+      },
+      "maxRssKiB": 730732,
+      "accuracy": {
+        "de": 0.5,
+        "en": 0.5833333333333334,
+        "deCorrect": 30,
+        "enCorrect": 35,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6254235370459207,
+        "en": 0.5303142678645234
+      },
+      "ece": {
+        "de": 0.12207667110720062,
+        "en": 0.14211572693304123
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333337,
+        "brierGap": 0.09510926918139728
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.47,
+        "loadAvgAtStart": "0.43 1.06 1.33",
+        "loadAvgAtEnd": "1.48 1.25 1.38",
+        "foreignCpuShareInferenceLoop": 0.00011766091076382309,
+        "worstChunkOf30Calls": 0.0003181557374674881,
+        "stealShare": 5.8910475444386826e-05
+      },
+      "swap": {
+        "vmstatSamples": 24,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6237,
+          "memUsedMiB": 1155,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6231,
+          "memUsedMiB": 1161,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:12:25.236Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": {
+        "reference": "B-t4",
+        "fraction": 0.7666666666666667
+      }
+    },
+    {
+      "run": "Cr-t8",
+      "candidate": "Cr",
+      "description": "B with ORT dynamic int8, reduce_range=True (follow-up variant, not a requested candidate)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 8,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 2721.5530529999996,
+      "firstInferenceMs": 160.82110599999942,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 70.47280799999953,
+        "p95": 91.80802699999913
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 186.60148299999855,
+        "p95": 195.50168699999995
+      },
+      "maxRssKiB": 731664,
+      "accuracy": {
+        "de": 0.5,
+        "en": 0.5833333333333334,
+        "deCorrect": 30,
+        "enCorrect": 35,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6254235370459207,
+        "en": 0.5303142678645234
+      },
+      "ece": {
+        "de": 0.12207667110720062,
+        "en": 0.14211572693304123
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333337,
+        "brierGap": 0.09510926918139728
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.46,
+        "loadAvgAtStart": "0.5 0.99 1.28",
+        "loadAvgAtEnd": "2.16 1.33 1.39",
+        "foreignCpuShareInferenceLoop": 0,
+        "worstChunkOf30Calls": 7.81169604753892e-05,
+        "stealShare": 2.4545574612908646e-05
+      },
+      "swap": {
+        "vmstatSamples": 19,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6244,
+          "memUsedMiB": 1149,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6231,
+          "memUsedMiB": 1161,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:13:58.224Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": {
+        "reference": "B-t8",
+        "fraction": 0.7666666666666667
+      }
+    },
+    {
+      "run": "D-t1",
+      "candidate": "D",
+      "description": "A (laya-onnx) fp32 upcast + ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 5383.843220000001,
+      "firstInferenceMs": 884.0055149999989,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 664.3573659999965,
+        "p95": 1230.716029000003
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 2286.1484439999913,
+        "p95": 2488.725880999991
+      },
+      "maxRssKiB": 602744,
+      "accuracy": {
+        "de": 0.2833333333333333,
+        "en": 0.3,
+        "deCorrect": 17,
+        "enCorrect": 18,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6873045696636653,
+        "en": 0.688361974102366
+      },
+      "ece": {
+        "de": 0.030124736196732893,
+        "en": 0.013952124166680985
+      },
+      "germanGate": {
+        "passed": true,
+        "accuracyGapPoints": 1.6666666666666663,
+        "brierGap": -0.0010574044387007264,
+        "trivial": "both languages at chance level (accuracy <= 30 %, near-uniform probabilities); the gate only compares the two languages and says nothing about quality, so this is not a pass"
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 4,
+        "discardedAttempts": [
+          1,
+          2,
+          3
+        ],
+        "loadAvg1minBeforeLaunch": 0.43,
+        "loadAvgAtStart": "0.59 2.4 1.8",
+        "loadAvgAtEnd": "1 1.83 1.68",
+        "foreignCpuShareInferenceLoop": 0.0002176303232552448,
+        "worstChunkOf30Calls": 0.0003652421647915625,
+        "stealShare": 4.145650837414507e-05
+      },
+      "swap": {
+        "vmstatSamples": 168,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6260,
+          "memUsedMiB": 1133,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6279,
+          "memUsedMiB": 1113,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T16:53:27.349Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": {
+        "reference": "A-t1",
+        "fraction": 0.3055555555555556
+      }
+    },
+    {
+      "run": "D-t2",
+      "candidate": "D",
+      "description": "A (laya-onnx) fp32 upcast + ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 1764.4380710000003,
+      "firstInferenceMs": 479.2332059999999,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 342.12365999999747,
+        "p95": 621.4495119999992
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 1104.280979999996,
+        "p95": 1212.962962000005
+      },
+      "maxRssKiB": 628208,
+      "accuracy": {
+        "de": 0.2833333333333333,
+        "en": 0.3,
+        "deCorrect": 17,
+        "enCorrect": 18,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6873045696636653,
+        "en": 0.688361974102366
+      },
+      "ece": {
+        "de": 0.030124736196732893,
+        "en": 0.013952124166680985
+      },
+      "germanGate": {
+        "passed": true,
+        "accuracyGapPoints": 1.6666666666666663,
+        "brierGap": -0.0010574044387007264,
+        "trivial": "both languages at chance level (accuracy <= 30 %, near-uniform probabilities); the gate only compares the two languages and says nothing about quality, so this is not a pass"
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.44,
+        "loadAvgAtStart": "0.44 0.74 0.65",
+        "loadAvgAtEnd": "1.57 1.03 0.76",
+        "foreignCpuShareInferenceLoop": 0.001172342658700228,
+        "worstChunkOf30Calls": 0.002486556879604935,
+        "stealShare": 1.8925571898578268e-05
+      },
+      "swap": {
+        "vmstatSamples": 81,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2322,
+          "memUsedMiB": 1064,
+          "swapUsedMiB": 659
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2308,
+          "memUsedMiB": 1078,
+          "swapUsedMiB": 659
+        }
+      },
+      "at": "2026-10-21T16:02:55.083Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": {
+        "reference": "A-t2",
+        "fraction": 0.3055555555555556
+      }
+    },
+    {
+      "run": "D-t2-rep2",
+      "candidate": "D",
+      "description": "A (laya-onnx) fp32 upcast + ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 2,
+      "loadMs": 1960.1628489999998,
+      "firstInferenceMs": 510.5951049999999,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 420.69458199999644,
+        "p95": 775.4441769999976
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 1136.286340000006,
+        "p95": 1282.7722119999962
+      },
+      "maxRssKiB": 610384,
+      "accuracy": {
+        "de": 0.2833333333333333,
+        "en": 0.3,
+        "deCorrect": 17,
+        "enCorrect": 18,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6873045696636653,
+        "en": 0.688361974102366
+      },
+      "ece": {
+        "de": 0.030124736196732893,
+        "en": 0.013952124166680985
+      },
+      "germanGate": {
+        "passed": true,
+        "accuracyGapPoints": 1.6666666666666663,
+        "brierGap": -0.0010574044387007264,
+        "trivial": "both languages at chance level (accuracy <= 30 %, near-uniform probabilities); the gate only compares the two languages and says nothing about quality, so this is not a pass"
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.46,
+        "loadAvgAtStart": "0.5 0.82 1.14",
+        "loadAvgAtEnd": "1.71 1.15 1.23",
+        "foreignCpuShareInferenceLoop": 2.068292924557789e-05,
+        "worstChunkOf30Calls": 9.330696264670892e-05,
+        "stealShare": 0.0003693590723415528
+      },
+      "swap": {
+        "vmstatSamples": 96,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6077,
+          "memUsedMiB": 1315,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6074,
+          "memUsedMiB": 1318,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:20:49.640Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "D-t2-rep3",
+      "candidate": "D",
+      "description": "A (laya-onnx) fp32 upcast + ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 3,
+      "loadMs": 2313.6555869999997,
+      "firstInferenceMs": 596.9456390000005,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 439.01274200000626,
+        "p95": 857.7464550000004
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 1240.3162789999915,
+        "p95": 1454.5407009999908
+      },
+      "maxRssKiB": 620332,
+      "accuracy": {
+        "de": 0.2833333333333333,
+        "en": 0.3,
+        "deCorrect": 17,
+        "enCorrect": 18,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6873045696636653,
+        "en": 0.688361974102366
+      },
+      "ece": {
+        "de": 0.030124736196732893,
+        "en": 0.013952124166680985
+      },
+      "germanGate": {
+        "passed": true,
+        "accuracyGapPoints": 1.6666666666666663,
+        "brierGap": -0.0010574044387007264,
+        "trivial": "both languages at chance level (accuracy <= 30 %, near-uniform probabilities); the gate only compares the two languages and says nothing about quality, so this is not a pass"
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.47,
+        "loadAvgAtStart": "0.51 0.8 1.05",
+        "loadAvgAtEnd": "1.72 1.15 1.15",
+        "foreignCpuShareInferenceLoop": 0,
+        "worstChunkOf30Calls": 0.00015561997813722672,
+        "stealShare": 0.0005503398782127746
+      },
+      "swap": {
+        "vmstatSamples": 102,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 6076,
+          "memUsedMiB": 1316,
+          "swapUsedMiB": 0
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 6073,
+          "memUsedMiB": 1319,
+          "swapUsedMiB": 0
+        }
+      },
+      "at": "2026-10-21T17:27:05.907Z",
+      "vmConfig": "cfg2-64vcpu-7393MiB",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "D-t4",
+      "candidate": "D",
+      "description": "A (laya-onnx) fp32 upcast + ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 4,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 1810.2149570000001,
+      "firstInferenceMs": 317.77540199999976,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 222.81744699999763,
+        "p95": 384.3300640000016
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 653.974371999997,
+        "p95": 719.6429540000026
+      },
+      "maxRssKiB": 630552,
+      "accuracy": {
+        "de": 0.2833333333333333,
+        "en": 0.3,
+        "deCorrect": 17,
+        "enCorrect": 18,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6873045696636653,
+        "en": 0.688361974102366
+      },
+      "ece": {
+        "de": 0.030124736196732893,
+        "en": 0.013952124166680985
+      },
+      "germanGate": {
+        "passed": true,
+        "accuracyGapPoints": 1.6666666666666663,
+        "brierGap": -0.0010574044387007264,
+        "trivial": "both languages at chance level (accuracy <= 30 %, near-uniform probabilities); the gate only compares the two languages and says nothing about quality, so this is not a pass"
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.48,
+        "loadAvgAtStart": "0.61 0.83 0.71",
+        "loadAvgAtEnd": "2.59 1.34 0.89",
+        "foreignCpuShareInferenceLoop": 0.0013178097313727567,
+        "worstChunkOf30Calls": 0.004864109445350235,
+        "stealShare": 2.9120067603948734e-05
+      },
+      "swap": {
+        "vmstatSamples": 54,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2319,
+          "memUsedMiB": 1067,
+          "swapUsedMiB": 659
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2309,
+          "memUsedMiB": 1077,
+          "swapUsedMiB": 659
+        }
+      },
+      "at": "2026-10-21T16:04:59.029Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": {
+        "reference": "A-t4",
+        "fraction": 0.3055555555555556
+      }
+    },
+    {
+      "run": "D-t8",
+      "candidate": "D",
+      "description": "A (laya-onnx) fp32 upcast + ORT dynamic int8",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 8,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 1880.537448,
+      "firstInferenceMs": 284.5251510000003,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 151.145787999998,
+        "p95": 264.07864999999947
+      },
+      "fiveQuestionBatchMs": {
+        "n": 10,
+        "p50": 429.8584550000014,
+        "p95": 463.23675399999775
+      },
+      "maxRssKiB": 620020,
+      "accuracy": {
+        "de": 0.2833333333333333,
+        "en": 0.3,
+        "deCorrect": 17,
+        "enCorrect": 18,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6873045696636653,
+        "en": 0.688361974102366
+      },
+      "ece": {
+        "de": 0.030124736196732893,
+        "en": 0.013952124166680985
+      },
+      "germanGate": {
+        "passed": true,
+        "accuracyGapPoints": 1.6666666666666663,
+        "brierGap": -0.0010574044387007264,
+        "trivial": "both languages at chance level (accuracy <= 30 %, near-uniform probabilities); the gate only compares the two languages and says nothing about quality, so this is not a pass"
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvg1minBeforeLaunch": 0.49,
+        "loadAvgAtStart": "0.53 0.95 0.8",
+        "loadAvgAtEnd": "3.84 1.73 1.06",
+        "foreignCpuShareInferenceLoop": 0,
+        "worstChunkOf30Calls": 0.00010115248449211267,
+        "stealShare": 0
+      },
+      "swap": {
+        "vmstatSamples": 38,
+        "siKiB": 0,
+        "soKiB": 0,
+        "secondsWithSwapActivity": 0,
+        "memAvailableStart": {
+          "memAvailableMiB": 2313,
+          "memUsedMiB": 1074,
+          "swapUsedMiB": 659
+        },
+        "memAvailableEnd": {
+          "memAvailableMiB": 2322,
+          "memUsedMiB": 1064,
+          "swapUsedMiB": 659
+        }
+      },
+      "at": "2026-10-21T16:07:17.883Z",
+      "vmConfig": "cfg1-16vcpu-3387MiB",
+      "optionAgreementWithReference": {
+        "reference": "A-t8",
+        "fraction": 0.3055555555555556
+      }
+    }
+  ],
+  "runToRunSpreadThreads2": {
+    "warmP50Ms": {
+      "A": [
+        464.1130450000055,
+        525.279896
+      ],
+      "B": [
+        130.28506099999868,
+        133.66074300000037,
+        145.43929700000444
+      ],
+      "C": [
+        119.9121729999988,
+        134.7768589999996,
+        116.62118499999997
+      ],
+      "D": [
+        342.12365999999747,
+        420.69458199999644,
+        439.01274200000626
+      ]
+    },
+    "note": "First entry of B, C, D is cfg1, the other entries cfg2. A was run on cfg2 only (two runs)."
+  },
+  "earlierAttempt": {
+    "label": "A-orig-t1",
+    "threads": 1,
+    "warmP50Ms": 866.4422769999946,
+    "warmP95Ms": 1443.7542930000054,
+    "fiveQuestionBatchP50Ms": 2355.952500000014,
+    "loadMs": 79046.89946300001,
+    "firstInferenceMs": 1936.194340999995,
+    "maxRssKiB": 1725568,
+    "correctDe": "28/60",
+    "correctEn": "39/60",
+    "germanGate": {
+      "passed": false,
+      "complete": true,
+      "accuracyGap": 0.18333333333333335,
+      "brierGap": 0.1905635128642138
+    },
+    "loadAverageAtStart": "0.39 0.41 0.22 1/883 14327",
+    "loadAverageAtEnd": "1.10 1.07 0.58 1/872 15568",
+    "freeMiBStart": "Speicher:       3387        1306         808          39        1592        2080|Auslager:       3898         298        3600|",
+    "freeMiBEnd": "Speicher:       3387        1014        1663          10         993        2373|Auslager:       3898         645        3253|",
+    "swapFreeKiBStart": 3686408,
+    "swapFreeKiBEnd": 3331404,
+    "minMemAvailableMiBDuringRun": 782,
+    "vmstatSecondsWithSwapActivity": 156,
+    "vmstatSeconds": 272,
+    "stealJiffiesDelta": 116,
+    "wallSeconds": 271.66,
+    "note": "First NAS attempt (guest cfg1, original runner): swapped, not a latency result. Kept for the record.",
+    "reason": "vmstat shows swap activity in 156 of 272 sampled seconds (swap-in 585660 KiB, swap-out 943083 KiB in total); model load took 79.0 s; MemAvailable dropped to 782 MiB; swap in use grew from 298 MiB to 645 MiB, pushing the desktop session's memory out. The run is not a valid latency measurement.",
+    "status": "discarded-swap"
+  },
+  "ramRule": "Run only with load1 < 0.5 before launch and no heavy foreign process; any vmstat si/so > 0 discards the run; A only with MemAvailable >= 3000 MiB.",
+  "next": "Decide on the multilingual candidate with the German gate evidence in mind; on CPUs without VNNI do not ship the ORT dynamic-int8 recipe (C/D) as built; a statically quantized (QDQ) or reduce_range variant would have to be re-validated per target CPU. Independent labels, reference hardware and long-input latency are still open."
 }

@@ -206,3 +206,40 @@ test('Linux candidate comparison evidence is complete, quiet-machine validated a
   }
   assert.equal(comparison.runs.find(r => r.run === 'B-t2-cap64').sequenceTokens.truncatedRows, 36);
 });
+
+test('NAS VM candidate evidence: swap-free, quiet, hashes recorded, int8 failure on record, consistent with the cloud picks', () => {
+  const nas = evidence('2026-10-21-nas-ubuntu-candidates.json'), cloud = evidence('2026-10-21-linux-x64-candidates.json');
+  assert.equal(nas.schema, 'plur1bus.decision-candidates-comparison/1');
+  assert.equal(nas.hostRole, 'owner-nas-vm');
+  assert.ok(nas.honesty.some(line => /agent-authored/.test(line)) && nas.honesty.some(line => /not reference hardware/.test(line)));
+  const names = new Set(nas.runs.map(run => run.run));
+  assert.equal(names.size, nas.runs.length);
+  for (const candidate of ['A', 'B', 'C', 'D']) for (const threads of [1, 2, 4, 8]) assert.ok(names.has(`${candidate}-t${threads}`), `missing ${candidate}-t${threads}`);
+  const fixtureHash = createHash('sha256').update(readFileSync(new URL('../spikes/decision-eval-cases.json', import.meta.url))).digest('hex');
+  for (const candidate of ['A', 'B', 'C', 'D']) assert.ok(nas.candidates[candidate].artifacts.every(a => /^[a-f0-9]{64}$/.test(a.sha256) && a.size > 0), `${candidate} artifacts`);
+  for (const run of nas.runs) {
+    assert.equal(run.warmLatencyMs.n, 179); assert.ok(run.warmLatencyMs.p50 > 0 && run.warmLatencyMs.p95 >= run.warmLatencyMs.p50, run.run);
+    assert.equal(run.accuracy.n, 60); assert.equal(run.errorRows, 0);
+    assert.equal(run.accuracy.de, run.accuracy.deCorrect / 60); assert.equal(run.accuracy.en, run.accuracy.enCorrect / 60);
+    assert.equal(run.swap.siKiB, 0, `${run.run} swapped in`); assert.equal(run.swap.soKiB, 0, `${run.run} swapped out`); assert.equal(run.swap.secondsWithSwapActivity, 0);
+    assert.ok(run.swap.vmstatSamples > 10);
+    assert.ok(run.contention.loadAvg1minBeforeLaunch < 0.5, `${run.run} did not start on a quiet machine`);
+    assert.ok(run.contention.foreignCpuShareInferenceLoop < 0.05 && run.contention.worstChunkOf30Calls < 0.10 && run.contention.stealShare < 0.05, `${run.run} overlapped foreign load`);
+    // The relative gate can only be 'passed' by a model that is at chance level in both languages (D); that must be flagged as trivial.
+    if (run.germanGate.passed) { assert.ok(run.germanGate.trivial && run.accuracy.en < 0.4 && run.accuracy.de < 0.4, `${run.run} passes the gate without being trivially at chance`); }
+    assert.match(run.vmConfig, /^cfg[12]-/);
+  }
+  // A and B must reproduce the picks (hence the metrics) of the cloud runs; the NAS never produces a different answer for fp models.
+  const cloudRun = name => cloud.runs.find(run => run.run === name);
+  for (const [nasRun, cloudName] of [['A-t1', 'A-t1'], ['A-t2', 'A-t2'], ['B-t1', 'B-t1'], ['B-t2', 'B-t2']]) {
+    const a = nas.runs.find(run => run.run === nasRun), b = cloudRun(cloudName);
+    assert.equal(a.accuracy.deCorrect, b.accuracy.deCorrect, nasRun); assert.equal(a.accuracy.enCorrect, b.accuracy.enCorrect, nasRun);
+    assert.ok(Math.abs(a.brier.de - b.brier.de) < 1e-4 && Math.abs(a.brier.en - b.brier.en) < 1e-4, nasRun);
+  }
+  // The int8 failure on this CPU stays on the record and nobody may call C or D usable.
+  for (const name of ['C-t2', 'D-t2']) assert.ok(nas.runs.find(run => run.run === name).accuracy.en < 0.4, `${name} int8 failure not recorded`);
+  assert.match(nas.candidates.C.status, /broken/); assert.match(nas.candidates.D.status, /broken/);
+  assert.ok(nas.runs.every(run => run.optionAgreementWithReference === null || run.optionAgreementWithReference.fraction <= 1));
+  assert.equal(nas.method.discardedRuns.every(d => d.vmstatSiKiB > 0 || d.vmstatSoKiB > 0), true);
+  assert.ok(fixtureHash.length === 64);
+});
