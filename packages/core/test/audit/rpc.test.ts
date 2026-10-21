@@ -29,6 +29,24 @@ describe("audit.verify in a running core", () => {
   });
   after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); });
 
+  it("core.status preserves public diagnostics and restricts audit metadata to human Owner/Admin", async () => {
+    for (const role of ["viewer", "operator", "member", "owner", "admin"] as const) {
+      who = { userId: `health-${role}`, role, kind: "person" };
+      const status = await c.call<any>("core.status", {});
+      assert.equal(status.process.state, "ready");
+      assert.equal("audit" in status, role === "owner" || role === "admin");
+      assert.equal(validateResult("core.status", status).ok, true);
+      if (status.audit) assert.equal(status.audit.lastVerifiedAt, null);
+    }
+    who = { userId: "health-agent", role: "owner", kind: "agent" };
+    assert.equal("audit" in await c.call<any>("core.status", {}), false);
+    who = { userId: "health-owner", role: "owner", kind: "person" };
+    assert.equal((await c.call<any>("audit.verify", {})).ok, true);
+    const health = (await c.call<any>("core.status", {})).audit;
+    assert.equal(typeof health.lastVerifiedAt, "number");
+    assert.ok(readFileSync(path.join(logs, "audit-chain.verified.json"), "utf8").includes(String(health.lastVerifiedAt)));
+  });
+
   it("Viewer and Operator are refused (E_DENIED), Owner and Admin reach the verifier", async () => {
     for (const role of ["viewer", "operator", "member"] as const) {
       who = { userId: `u-${role}`, role };

@@ -108,6 +108,7 @@ import { createDreams, forgetRemovedAgent, itemsFromEngineList, type Dreams } fr
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
+import { createAuditHealth, projectAuditStatus } from "./audit/health.ts";
 import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.ts";
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
 import { approvalsDbPath } from "./approvals/db.ts";
@@ -606,6 +607,7 @@ export function createCore(o: CoreOptions): Core {
       // B5: the hash-chained audit file (logs/audit-chain*.jsonl). The core's own writers tee into it besides audit.log.
       auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p) });
       const chain = auditChain;
+      const auditHealth = createAuditHealth({ dir: l.logs, clock, securePath: platform.securePath });
       const identityLog = createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock });
       identity = createIdentityService({
         dbPath: path.join(l.state, "identity.sqlite"), clock,
@@ -847,6 +849,7 @@ export function createCore(o: CoreOptions): Core {
         identity,
         backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath) },
         auditChain,
+        auditVerified: ok => auditHealth.verified(ok),
         reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log, targetPolicy: () => reembedTargetPolicy(cfg()), egress }),
         ...(budget ? { budget } : {}),
         egress,
@@ -907,6 +910,12 @@ export function createCore(o: CoreOptions): Core {
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});
+      const publicStatus = rawMethods["core.status"]!;
+      rawMethods["core.status"] = async (params, ctx) => {
+        const result = await publicStatus(params, ctx) as object;
+        const principal = await resolvePrincipal(ctx, "core.status", params);
+        return projectAuditStatus(result, principal, () => auditHealth.status());
+      };
       const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       const subscribe = methods["events.subscribe"]!;
       methods["events.subscribe"] = async (p, ctx) => {

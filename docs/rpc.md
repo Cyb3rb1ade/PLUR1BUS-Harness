@@ -8797,7 +8797,7 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
 
 **Served by:** core
 
-B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE.
+B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE. A successful explicit check also records its time in a private audit-chain.verified.json metadata sidecar; chain evidence is not changed. Failure to persist that time is E_STORAGE.
 
 **params**
 
@@ -9711,6 +9711,9 @@ The supervisor's own state and one entry per supervised child.
       "items": {
         "$ref": "#/$defs/ChildStatus"
       }
+    },
+    "audit": {
+      "$ref": "#/$defs/AuditHealth"
     },
     "config": {
       "description": "Experimental (1.3.0). The configuration the supervisor runs (B4): `revision` of the running configuration (null when no valid configuration runs, e.g. config.json was invalid at start) and the last hand edit of config.json it rejected (null once a valid file or a config.set replaced it).",
@@ -19937,6 +19940,227 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `AuditHealth`
+
+```json
+{
+  "description": "Experimental cached audit operational metadata for human Owner/Admin with audit.read only. Omitted for all other callers; the public status remains available under its existing policy. At most one read-only metadata scan per 30 seconds, hashing only the latest two complete rows. No record details. state=ok describes whether the observed tail/anchor allows appends, not verification of history. Status never heals or modifies chain evidence.",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "state",
+    "reason",
+    "lastSeq",
+    "observedAt",
+    "lastVerifiedAt",
+    "pendingLines",
+    "pendingDropped",
+    "pending",
+    "lastAnchorAdvanced",
+    "lastReanchor"
+  ],
+  "properties": {
+    "state": {
+      "enum": [
+        "ok",
+        "refusing"
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Writer refusal code or audit-unreadable. This is a cached tail/anchor observation, not historical verification."
+    },
+    "lastSeq": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "observedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastVerifiedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Last successful explicit audit.verify in epoch ms; persisted across Core/Supervisor restarts. Null until known. Later appends do not change this time."
+    },
+    "pendingLines": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pendingDropped": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pending": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "at",
+          "actor",
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "actor": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "user",
+                  "host"
+                ],
+                "properties": {
+                  "user": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "host": {
+                    "type": "string",
+                    "maxLength": 128
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "action": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "lastAnchorAdvanced": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "at",
+            "actor"
+          ],
+          "properties": {
+            "at": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "actor": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "user",
+                    "host"
+                  ],
+                  "properties": {
+                    "user": {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    "host": {
+                      "type": "string",
+                      "maxLength": 128
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lastReanchor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "at",
+            "actor"
+          ],
+          "properties": {
+            "at": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "actor": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "user",
+                    "host"
+                  ],
+                  "properties": {
+                    "user": {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    "host": {
+                      "type": "string",
+                      "maxLength": 128
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
 ### `CoreStatus`
 
 ```json
@@ -20072,6 +20296,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "config": {
       "$ref": "#/$defs/CoreConfigStatus"
+    },
+    "audit": {
+      "$ref": "#/$defs/AuditHealth"
     },
     "deprecationsUsed": {
       "type": "array",

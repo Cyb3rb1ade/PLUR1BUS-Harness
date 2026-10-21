@@ -882,3 +882,28 @@ fn a_foreign_listener_on_the_supervisor_socket_does_not_stop_the_lock_holder_fro
     assert_eq!(s.wait_exit(WAIT).code(), Some(0));
     drop(foreign);
 }
+
+#[test]
+fn daemon_status_observes_audit_health_and_a_persisted_verification_without_repair() {
+    let h = Home::new();
+    h.write_config(json!({"schemaVersion":1}));
+    let logs = h.home.join("logs");
+    std::fs::create_dir_all(&logs).unwrap();
+    std::fs::write(logs.join("audit-chain.anchor"), "broken").unwrap();
+    std::fs::write(
+        logs.join("audit-chain.verified.json"),
+        "{\"v\":1,\"at\":123}",
+    )
+    .unwrap();
+    let _supervisor = start(&h, "normal", "0.01");
+    let mut c = client(&h.home);
+    let s = c.call("daemon.status", json!({})).unwrap();
+    assert!(validator("daemon.status/result").is_valid(&s), "{s}");
+    assert_eq!(s["audit"]["state"], "refusing");
+    assert_eq!(s["audit"]["reason"], "anchor-invalid");
+    assert_eq!(s["audit"]["lastVerifiedAt"], 123);
+    assert_eq!(
+        std::fs::read_to_string(logs.join("audit-chain.anchor")).unwrap(),
+        "broken"
+    );
+}

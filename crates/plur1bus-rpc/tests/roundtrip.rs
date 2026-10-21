@@ -1394,3 +1394,22 @@ fn discovery_new_flag_roundtrips_and_remains_optional() {
     let typed: types::ModelEntry = serde_json::from_value(model).unwrap();
     assert!(serde_json::to_value(typed).unwrap().get("new").is_none());
 }
+
+#[test]
+fn both_status_types_read_the_additive_closed_audit_health() {
+    let audit = serde_json::json!({"state":"refusing","reason":"anchor-invalid","lastSeq":7,"observedAt":200,"lastVerifiedAt":100,"pendingLines":1,"pendingDropped":2,"pending":[{"at":42,"actor":{"user":"owner","host":"host"},"action":"audit_config_set","reason":"anchor-invalid"}],"lastAnchorAdvanced":null,"lastReanchor":{"at":90,"actor":{"user":"owner","host":"host"}}});
+    let load = |method: &str| {
+        let f: Value = serde_json::from_str(
+            &fs::read_to_string(fixtures().join(format!("{method}.json"))).unwrap(),
+        )
+        .unwrap();
+        let mut result = f["result"].clone();
+        result["audit"] = audit.clone();
+        result
+    };
+    let core: types::CoreStatusResult = serde_json::from_value(load("core.status")).unwrap();
+    assert!(core.audit.is_some());
+    let daemon: types::DaemonStatusResult = serde_json::from_value(load("daemon.status")).unwrap();
+    assert!(daemon.audit.is_some());
+    round_trip::<types::AuditHealth>(&audit, "shared audit health");
+}
