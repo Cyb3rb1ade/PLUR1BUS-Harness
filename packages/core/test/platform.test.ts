@@ -1,6 +1,6 @@
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, symlinkSync, writeFileSync, statSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { createPlatformCapabilities } from "../src/platform.ts";
 import { basename, dirname, join } from "node:path";
@@ -61,7 +61,15 @@ describe("platform", () => {
   // run in a temp base and need POSIX owners and modes, so they skip on a Windows host.
   const posixOnly = { skip: process.platform === "win32" };
   const euid = typeof process.geteuid === "function" ? process.geteuid() : 0;
-  const fallback = () => ({ socketFallbackBase: tempDir("p1b-sock-"), euid });
+  // The fallback base lives under /tmp, not tmpdir(): macOS's per-user tmpdir is about 66 bytes, so a base made there
+  // would already push <base>/plur1bus-<euid>/<name> past sun_path and ipcAddress would throw (as in admin-ops.test.ts).
+  const sockBases: string[] = [];
+  after(() => { for (const d of sockBases) rmSync(d, { recursive: true, force: true }); });
+  const fallback = () => {
+    const base = mkdtempSync(join(process.platform === "win32" ? tmpdir() : "/tmp", "p1b-s-"));
+    sockBases.push(base);
+    return { socketFallbackBase: base, euid };
+  };
 
   it("a unix socket path over the platform limit is detected and shortened by ipcAddress", posixOnly, () => {
     const long = "/" + "d".repeat(120);
