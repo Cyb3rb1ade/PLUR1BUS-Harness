@@ -53,7 +53,7 @@ function AuditContent(): View {
         check.status === "fail" ? h(FailureState, { failure: check.failure })
           : check.status === "done" ? h(VerificationView, { result: check.result, at: check.at })
             : h("p", { role: "status" }, t(check.status === "busy" ? "audit.checking" : "audit.unchecked")),
-        h("button", { class: "btn", type: "button", disabled: check.status === "busy", onClick: () => { void verify(); } }, t("audit.verify")))),
+        h("button", { class: "btn", type: "button", disabled: check.status === "busy", onClick: () => { void verify(); } }, t("audit.verifyButton")))),
     h(Card, { title: t("audit.localRepair"), level: 3 },
       h("p", {}, t("audit.localHelp")), h("pre", { class: "audit-command" }, h("code", {}, t("audit.localCommand"))), h("p", { class: "field-hint" }, t("audit.localEffect"))));
 }
