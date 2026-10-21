@@ -56,8 +56,11 @@ against the installed old pin.
 Pre-pin source evidence on 2026-10-21: all seven tests passed against Engine
 `4c7cf1c359cea02e11f2853a09e551a09810f168` using a temporary process-only resolver;
 no committed dependency, lockfile or module resolver was changed. The real test
-checks an empty queue, a real not-found resolution response and foreign-agent
-refusal; the fixture tests cover successful Keep/Drop receipts. The required
+loads persisted Neo queue fixtures through the real Engine, resolves Keep and
+Drop successfully, verifies the promoted/demoted JSONL revisions and mandatory
+audit receipts, then restarts the Core and checks that both decisions persist.
+Foreign evidence remains hidden and unchanged; re-resolving completed entries
+returns not-found without a second audit mutation. The required
 post-pin command must still pass against the actual installed Controller pin.
 
 RPC `x-since: 1.6.0` matches the current unreleased RPC surface. ADR-016's A4

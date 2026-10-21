@@ -22,8 +22,12 @@ node --import /tmp/memissues-engine-source-hook.mjs \
 
 The temporary hook only redirects `@cyb3rb1ade/plur1bus-memory/` import URLs into
 that source checkout. The committed exact Engine dependency and lockfiles are
-unchanged. Source acceptance covers a real empty queue, not-found resolve and
-foreign-agent refusal; successful Keep/Drop receipts remain fixture-tested.
+unchanged. Source acceptance seeds the known persisted Neo queue format on disk, then the
+real Core/Engine lists its two own records, hides a foreign record, successfully
+Keeps/Drops the records and verifies promoted/demoted JSONL revisions plus two
+mandatory audit receipts. After a full Core restart the queue remains resolved,
+repeat resolutions return not-found without extra audit writes, and the foreign
+record remains unchanged. No Engine method or module is replaced.
 The required post-pin test must still run against the actual installed Engine.
 
 ADR-016's A4 implementation record explains why `x-since: 1.6.0` and
