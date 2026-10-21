@@ -4331,6 +4331,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-desktop-net"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "plur1bus-desktop-test-bins"
 version = "0.1.0"
 dependencies = [
