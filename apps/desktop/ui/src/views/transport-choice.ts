@@ -9,7 +9,7 @@ export type ChoiceOptions = {
   /** Distinguishes the ids of two choosers on one page (add form, *Weg ändern…* dialog). */
   idPrefix: string;
   /** A confirmation lasts for this app session only (spec §3.2, `transport.public.session`). */
-  storeReadOnly?: boolean;
+  storeReadOnly?: boolean | undefined;
   /** Called after every change the surrounding form may care about (submit state). */
   onChange?: () => void;
 };

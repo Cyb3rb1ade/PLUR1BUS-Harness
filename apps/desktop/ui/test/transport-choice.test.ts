@@ -259,3 +259,20 @@ test("transport states pass axe, 44 px targets and 400 px in DE/EN light/dark, k
     }
   });
 });
+
+test("a remote connection is added and opened with each path", async () => {
+  for (const [label, path, chipText] of [["Through Tailscale", "tailscale", "Tailscale"], ["Direct", "direct", "Direct"]] as const) {
+    await withShell(async page => {
+      await openAdd(page, "https://harness.test");
+      await page.getByRole("radio", { name: label }).check();
+      await page.waitForFunction(() => !(document.querySelector("form button[type=submit]") as HTMLButtonElement).disabled);
+      await submit(page).click();
+      await page.getByRole("heading", { name: "Desk" }).waitFor();
+      await page.getByText(`Path: ${chipText}`, { exact: true }).waitFor();
+      await page.getByRole("button", { name: "Open", exact: true }).click();
+      await page.getByText("Connection verified and selected.", { exact: false }).waitFor();
+      assert.equal(await page.locator(".connections-side .chip", { hasText: chipText }).count(), 1);
+      assert.deepEqual((await shell(page).calls()).filter(c => c[0] === "pair" || c[0] === "open").map(c => c[0] === "pair" ? c[1] : "open"), [path, "open"]);
+    });
+  }
+});

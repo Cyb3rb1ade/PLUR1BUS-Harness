@@ -210,29 +210,69 @@ The bounded SSE primitive re-pulls, persists and acknowledges the same document;
 WP6 supplies its continuous subscription/reconnect lifecycle. The WP4 UI itself
 is not continuously subscribed. CA upload/admin states remain D2.
 
-### Transport choice (groundwork)
+### Transport choice
 
-The [transport-choice spec](superpowers/specs/2026-10-21-desktop-transport-choice-design.md) is being built in
-packages. The std-only crate `apps/desktop/net` (`plur1bus-desktop-net`) classifies addresses against the shared IANA
-vectors. `src-tauri/src/transport/` validates host input, resolves once through an injected resolver, and returns the
-category, hints and the exact address set to connect to (`check_target`, `gate`). It also keeps each remote
-connection's path in the sidecar `connection-transport.json`. That file is tolerant of unknown fields, read-only when
-written by a newer version, and moved aside as `.corrupt-<ms>-<uuid>` when corrupt. `connections.json` is never written.
+The [transport-choice spec](superpowers/specs/2026-10-21-desktop-transport-choice-design.md) gives every remote
+connection a path, „Über Tailscale“ or „Direkt“. The choice selects checks and notices; it never relaxes TLS, pins,
+pairing or host keys (spec §9.1).
 
-The Tailscale check (spec §5) runs inside `check_target` for the Tailscale path, `*.ts.net` names and tailnet
-addresses. `CliTailscale` runs `status --json` only from the fixed absolute candidates (never `PATH`; ownership, mode,
-symlink and reparse-point checks; the checked path is the one executed), with a cleared environment, a 4 s timeout, an 8 MiB stdout cap, and caches the
-parsed view for 10 s; inside Flatpak it runs nothing. A matched `*.ts.net` or short name connects to the peer's
-Tailscale addresses without a DNS query. `TcpProber` connects to at most four addresses (3 s each, no bytes sent) and
-compares the local address with this device's Tailscale addresses. Of the status, only the state code, the matched
-peer's label (first `DNSName` label) and its online flag reach the report, plus, for `tailscale-short-name`, that
-peer's own DNS name as the suggestion; for a name match the report's addresses are the matched peer's (or this
-device's) Tailscale addresses, at most eight. The status is never logged. Debug-only seams, ignored by release
-builds: `PLUR1BUS_DESKTOP_TAILSCALE_STATUS=<file>` (a status document instead of the CLI) and
-`PLUR1BUS_DESKTOP_TAILSCALE_BIN=<path>` (a fake CLI, `test-bins` `fake-tailscale`, which reads its scenario from
-`fake-tailscale.scenario` beside itself). Tests use synthetic fixtures under `src-tauri/tests/fixtures/tailscale/` and
-never run a real `tailscale`. IPC, pinned connect and UI follow in later packages; until then nothing in the app calls
-this module.
+**Classification and check.** The std-only crate `apps/desktop/net` (`plur1bus-desktop-net`) classifies addresses
+against the shared IANA vectors. `src-tauri/src/transport/` validates host input (spec §4.4: `host-invalid`,
+`host-ipv4-noncanonical`), resolves once through the OS resolver (5 s, at most 32 addresses, no DoH, no proxy), and
+returns the category, hints and the exact address set to connect to (`check_target`); `gate` turns a public target
+without a valid confirmation into `transport-confirm-needed`.
+
+**Storage.** Each remote connection's path lives in the sidecar `connection-transport.json` beside `connections.json`
+(`{ transport, publicAck? }`, `publicAck = { atMs, classifier }`, never addresses). The file is tolerant of unknown
+fields, read-only when written by a newer version (`transport.store.newer`), moved aside as `.corrupt-<ms>-<uuid>`
+when corrupt, and it never writes `connections.json`. A missing entry is the derived default (`*.ts.net` or a tailnet
+literal: Tailscale, otherwise direct, no confirmation). Removing a connection removes its entry after the keychain and
+the metadata. A confirmation is stored only when a fresh check finds the target public; an unchanged path keeps a valid
+one; a path change clears it; a confirmation from another classifier snapshot counts as none. While the store cannot
+persist (newer version, unreadable, a failed write) a confirmation is held in memory for the app session only
+(`transport.public.session`), and a path change is refused (`transport-store-readonly`).
+
+**Check-then-connect.** `pair_code` (with the required `transport` and `publicAck`) and `open_connection` re-run the
+check in Rust before any TCP connection to the harness: the UI's check is advisory. An open of a public target without a
+valid confirmation returns `transport-confirm-needed` and contacts nothing; a stored entry without a confirmation that
+meets a public target is reported as `target-changed-public`. Every client of the open is pinned to the checked
+addresses (`HarnessClient::with_pin`: reqwest `resolve_to_addrs` for HTTP and SSE; `websocket_connect` hands a TCP
+stream connected to a checked address to the WebSocket handshake), including the SPA proxy, ticket retries and the
+native status and trust streams; TLS keeps the host name for SNI and certificate checks. Every reconnect of the status
+or trust stream runs the check again and reconnects over its addresses; a DNS failure waits another backoff; a target
+that now needs a confirmation stops the loop, sets the tray's attention badge and emits `transport-attention` to the
+shell. No confirmation is ever given automatically.
+
+**IPC and UI.** `transport_check` (`{ target: origin | host | connection, transport, purpose }`) and
+`connection_transport_set` (`{ id, transport, publicAck }`) are shell-only commands with closed requests. One check runs
+per window; a newer one supersedes it (`transport-check-busy`). `connections_list` carries `transports` (path, valid
+confirmation, store read-only) and `transportStore`. The add-remote form has the required radio group (no
+preselection) between origin and code, the check panel (600 ms after input, a polite live region), the public banner
+with its confirmation, and keeps submit disabled until a path is chosen and a required confirmation is ticked. The
+connection list shows a path chip and a Tailscale chip; the detail has *Weg ändern…* and the confirm-needed state with
+*Bestätigen und verbinden*. The tray header reads `PLUR1BUS — {connection} · {path} — {state}` and appends
+„Tailscale getrennt“ for a Tailscale notice.
+
+**Tailscale mechanism.** The check (spec §5) runs for the Tailscale path, `*.ts.net` names and tailnet addresses.
+`CliTailscale` runs `status --json` only from the fixed absolute candidates (never `PATH`; ownership, mode, symlink and
+reparse-point checks; the checked path is the one executed), with a cleared environment, a 4 s timeout, an 8 MiB stdout
+cap, and caches the parsed view for 10 s; inside Flatpak it runs nothing. A matched `*.ts.net` or short name connects
+to the peer's Tailscale addresses without a DNS query. `TcpProber` connects to at most four addresses (3 s each, no
+bytes sent) on every check-panel run and every open over a tailnet path, and compares the local address with this
+device's Tailscale addresses. Debug-only seams, ignored by release builds: `PLUR1BUS_DESKTOP_TAILSCALE_STATUS=<file>`
+(a status document instead of the CLI) and `PLUR1BUS_DESKTOP_TAILSCALE_BIN=<path>` (a fake CLI, `test-bins`
+`fake-tailscale`, which reads its scenario from `fake-tailscale.scenario` beside itself); `check-release-seams.mjs`
+requires both in the debug executable and refuses them in the release one. Tests inject the resolver, the Tailscale
+source and the prober, use synthetic fixtures under `src-tauri/tests/fixtures/tailscale/` and never run a real
+`tailscale`.
+
+**Privacy.** Of the status, only the state code, the matched peer's label (first `DNSName` label) and its online flag
+reach the report, plus, for `tailscale-short-name`, that peer's own DNS name as the suggestion; for a name match the
+report's addresses are the matched peer's (or this device's) Tailscale addresses, at most eight. The status is never
+persisted or logged: a check writes one line through an injected sink (stderr in the app) with its purpose, category,
+hint codes and refusal code only (`TRANSPORT_CHECK purpose=open category=public codes=target-changed-public
+result=transport-confirm-needed`); `tests/transport_open.rs` captures these lines over the `running.json` fixture and
+asserts that no peer name, user, address or identifier appears.
 
 ### Scratch profile without keychain access
 

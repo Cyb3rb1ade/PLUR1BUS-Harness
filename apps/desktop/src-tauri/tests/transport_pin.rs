@@ -1,7 +1,7 @@
 //! Check-then-connect (transport choice spec §2 T7, §9.2): every HTTP, SSE and WebSocket request of an open goes to
 //! exactly the addresses the check classified. The fake resolver answers A (the mock harness on 127.0.0.1) at check
-//! time and B (a second listener on [::1], same port) afterwards; B must never see a connection, and nothing may
-//! resolve the host a second time.
+//! time and B (a second listener on [::1], or 127.0.0.2, same port) afterwards; B must never see a connection, and
+//! nothing may resolve the host a second time.
 use futures_util::{future::BoxFuture, SinkExt, StreamExt};
 use plur1bus_desktop::{
     client::HarnessClient,
@@ -62,6 +62,7 @@ impl Prober for NoProbe {
 
 /// A listener that only counts the connections it accepts.
 struct Decoy {
+    addr: SocketAddr,
     accepted: Arc<AtomicUsize>,
     task: tokio::task::JoinHandle<()>,
 }
@@ -71,7 +72,7 @@ impl Drop for Decoy {
     }
 }
 
-/// The mock harness on 127.0.0.1:P under the name `harness.test`, and the decoy on [::1]:P.
+/// The mock harness on 127.0.0.1:P under the name `harness.test`, and the decoy on another loopback address, port P.
 async fn a_and_b() -> (MockHandle, u16, Decoy) {
     for _ in 0..20 {
         let mock = MockHarness::start_tls(
@@ -84,12 +85,21 @@ async fn a_and_b() -> (MockHandle, u16, Decoy) {
         .await
         .unwrap();
         let port = url::Url::parse(&mock.origin).unwrap().port().unwrap();
-        let Ok(listener) =
-            tokio::net::TcpListener::bind(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), port))
-                .await
-        else {
+        // B on the IPv6 loopback, or (a host without it) on 127.0.0.2, which Windows and Linux route to loopback.
+        let mut decoy = None;
+        for ip in [
+            IpAddr::V6(Ipv6Addr::LOCALHOST),
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 2)),
+        ] {
+            if let Ok(listener) = tokio::net::TcpListener::bind(SocketAddr::new(ip, port)).await {
+                decoy = Some(listener);
+                break;
+            }
+        }
+        let Some(listener) = decoy else {
             continue;
         };
+        let b = listener.local_addr().unwrap();
         mock.control
             .set_origin(&format!("https://harness.test:{port}"));
         let accepted = Arc::new(AtomicUsize::new(0));
@@ -100,7 +110,15 @@ async fn a_and_b() -> (MockHandle, u16, Decoy) {
                 drop(stream);
             }
         });
-        return (mock, port, Decoy { accepted, task });
+        return (
+            mock,
+            port,
+            Decoy {
+                addr: b,
+                accepted,
+                task,
+            },
+        );
     }
     panic!("no port free on both loopback families");
 }
@@ -117,7 +135,7 @@ async fn every_request_of_an_open_reaches_the_checked_address_only() {
         let (mock, port, decoy) = a_and_b().await;
         let origin = format!("https://harness.test:{port}");
         let a = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-        let b = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), port);
+        let b = decoy.addr;
         let resolver = Arc::new(Switch {
             first: vec![a],
             later: vec![b],
