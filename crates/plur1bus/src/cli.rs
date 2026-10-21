@@ -180,7 +180,7 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: BudgetCmd,
     },
-    /// [experimental] Audit trail: verify the hash-chained audit file (B5)
+    /// [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
     Audit {
         #[command(subcommand)]
         sub: AuditCmd,
@@ -1162,8 +1162,26 @@ pub enum AuditCmd {
     ///
     /// Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must
     /// be gapless across rotated files, and the anchor file must match the newest line. Asks the core
-    /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
+    /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result
+    /// also names the era boundary and checks the set-aside chain up to its first deviation.
     Verify,
+    /// [experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
+    ///
+    /// Writers refuse to append when the anchor is missing or invalid, when the chain is shorter than the anchor,
+    /// when its end does not match the anchor, or when its last line is not a chain line. This command repairs that
+    /// state under the same lock the writers use, also while the core is stopped: the chain files and the anchor are
+    /// renamed to `<name>.pre-reanchor-<ms>` (never deleted), and a new chain begins with an `audit.chain.reanchored`
+    /// event that records the old anchor, the old end, your reason (secrets redacted), the actor and the set-aside
+    /// files. It refuses with "nothing to repair" when writers accept the chain. Run it as the user that owns the home.
+    /// `--dry-run` shows the finding and changes nothing.
+    Reanchor {
+        /// Why the chain is repaired; recorded in the first event of the new chain (secrets are redacted)
+        #[arg(long, value_name = "TEXT", required_unless_present = "dry_run")]
+        reason: Option<String>,
+        /// Show what is wrong and what would be set aside; change nothing
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -1510,6 +1528,9 @@ pub enum SecretCmd {
     Set {
         /// the secret's name: letters, digits and . _ : / @ - (at most 128, first a letter or digit)
         name: String,
+        /// what the secret is for (one line, at most 200 characters, never the value); the agent sees it in `secret_names`. Omitted, a replacement keeps the stored text; an empty text removes it
+        #[arg(long)]
+        description: Option<String>,
         /// refused: a value never goes in an argument (kept only so the refusal does not echo it)
         #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
         rest: Vec<String>,

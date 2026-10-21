@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { renderInline, SafeMarkdown } from "../src/pages/projects/markdown.ts";
+import { isSafeUrl, renderInline, SafeMarkdown } from "../src/pages/projects/markdown.ts";
 
 test("SafeMarkdown renders text, headers, lists, code and blocks unsafe links", () => {
   // Safe link
@@ -26,4 +26,9 @@ test("SafeMarkdown renders text, headers, lists, code and blocks unsafe links", 
   assert.equal(children[1].type, "p");
   assert.equal(children[2].type, "ul");
   assert.equal(children[3].type, "pre");
+});
+
+test("isSafeUrl allows http, https, mailto and anchors only", () => {
+  for (const ok of ["https://example.com", "HTTP://example.com/a?b=1", "mailto:a@b.example", " https://example.com ", "#section"]) assert.equal(isSafeUrl(ok), true, ok);
+  for (const bad of ["javascript:alert(1)", " JavaScript:alert(1)", "java\tscript:alert(1)", "data:text/html,x", "vbscript:x", "file:///etc/passwd", "ftp://x", "//evil.example", "/relative", "blob:https://x", ""]) assert.equal(isSafeUrl(bad), false, JSON.stringify(bad));
 });

@@ -8797,7 +8797,7 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
 
 **Served by:** core
 
-B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. An unreadable log directory is E_STORAGE.
+B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE.
 
 **params**
 
@@ -8928,6 +8928,176 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
       "type": "integer",
       "minimum": 0,
       "description": "All findings; findings carries the first 50."
+    },
+    "reanchors": {
+      "type": "array",
+      "description": "Era boundaries in the current chain: each audit.chain.reanchored event, written by `plur1bus audit reanchor` as the first line of a new chain. A note, never a finding; it does not make ok false. Absent from cores older than this field.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seq",
+          "file",
+          "line",
+          "at",
+          "suffix"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "at": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The event's timestamp (ms since the epoch)."
+          },
+          "suffix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^pre-reanchor-[0-9]{1,16}$",
+            "description": "The suffix of the set-aside files the event names; null when it names none or not a valid one."
+          }
+        }
+      }
+    },
+    "previousChains": {
+      "type": "array",
+      "description": "Chains a reanchor set aside as audit-chain*.pre-reanchor-<ms>, oldest first, each read only up to its first deviation. A deviation there is usually the reason for the reanchor and does not make ok false. Absent from cores older than this field.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "suffix",
+          "announced",
+          "files",
+          "records",
+          "lastSeq",
+          "lastHash",
+          "intact",
+          "firstBreak",
+          "anchor"
+        ],
+        "properties": {
+          "suffix": {
+            "type": "string",
+            "pattern": "^pre-reanchor-[0-9]{1,16}$"
+          },
+          "announced": {
+            "type": "boolean",
+            "description": "False when no reanchor event in the current chain names this suffix."
+          },
+          "files": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "records": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Lines read before the first deviation."
+          },
+          "lastSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastHash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "intact": {
+            "type": "boolean",
+            "description": "No deviation anywhere in the set and its own anchor matches (or trails by one write)."
+          },
+          "firstBreak": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "code",
+                  "file",
+                  "line",
+                  "seq"
+                ],
+                "properties": {
+                  "code": {
+                    "enum": [
+                      "line-malformed",
+                      "hash-mismatch",
+                      "seq-gap",
+                      "prefix-missing",
+                      "file-name-mismatch",
+                      "torn-tail"
+                    ]
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  },
+                  "seq": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  }
+                }
+              }
+            ],
+            "description": "The first deviation, or null when the set was read to its end."
+          },
+          "anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "seq"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "match",
+                  "behind",
+                  "absent",
+                  "invalid",
+                  "ahead",
+                  "mismatch"
+                ]
+              },
+              "seq": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -14676,7 +14846,7 @@ Sets the caption of a medium (source `user`); the caption is a memory entry of t
 
 **Served by:** core
 
-Creates or replaces a secret; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
+Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
 
 **params**
 
@@ -14697,6 +14867,11 @@ Creates or replaces a secret; leases on the old value are revoked. The value is 
       "type": "string",
       "minLength": 1,
       "maxLength": 65536
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "What the secret is for (one line of plain text, at most 200 characters, never the value); the agent's `secret_names` tool shows it. Absent: a replacement keeps the stored description. Empty: removes it."
     }
   }
 }
@@ -24295,7 +24470,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.5.0). A secret's name and timestamps; never its value (M2, ADR-005).",
+  "description": "Experimental (1.5.0). A secret's name, timestamps and optional description; never its value (M2, ADR-005).",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -24323,6 +24498,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "updatedBy": {
       "type": "string",
       "description": "Person ID of the last writer, when known; never a secret value."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value."
     }
   }
 }
@@ -24433,6 +24613,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           },
           "updatedBy": {
             "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200
           }
         }
       },

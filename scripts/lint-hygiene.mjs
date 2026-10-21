@@ -3,6 +3,7 @@
 // engine dependency line, a documented parity import, and the lines in this file and the
 // import-hygiene test that name the very patterns being checked for).
 import { openaiWorkflowFindings } from "./openai-workflow-gate.mjs";
+import { workflowPinFindings } from "./workflow-pin-gate.mjs";
 import { foreignClientFindings } from "./foreign-client-fingerprints.mjs";
 import { lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -277,6 +278,10 @@ try {
     const path = `.github/workflows/${file}`;
     for (const f of openaiWorkflowFindings(path, readFileSync(path, "utf8"))) {
       console.error(`[HYG-015] ${path}:${f.line}: OpenAI credential outside owner-gated live job`);
+      bad += 1;
+    }
+    for (const f of workflowPinFindings(readFileSync(path, "utf8"))) {
+      console.error(`[HYG-016] ${path}:${f.line}: action not pinned to a full commit SHA (docs/ci.md): ${f.ref.slice(0, 120)}`);
       bad += 1;
     }
   }

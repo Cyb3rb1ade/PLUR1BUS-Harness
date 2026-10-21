@@ -2,7 +2,7 @@
 // Wired to agent.rights.get and agent.rights.set: rights belong to one person and one agent, the panel loads what the person holds and
 // sends only what changed (a right taken away goes as null).
 import { h } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import type { View } from "../../../view.ts";
 import { PageLoading } from "../../../components/page-state.ts";
 import { t } from "../../../i18n.ts";
@@ -62,24 +62,19 @@ async function loadHeld(userId: string, agents: string[], signal: AbortSignal): 
 /** Owner and Admin hold Manage on every agent through the role; their rights are not edited here. */
 const editable = (r: Row): boolean => r.role !== "owner" && r.role !== "admin";
 
-/** The rights editor of the section: pick the person, then the matrix with what they hold now. */
-export function RightsPanel({ self }: { self: { id: string; role: string } }): View {
-  const people = useLoad((signal) => fetchUsers(self, signal), [self.id, self.role]);
-  const agents = useLoad(loadAgents, []);
-  const [picked, setPicked] = useState<string | null>(null);
-  const [rights, setRights] = useState<Rights>({});
-  const [base, setBase] = useState<Held>({});
+/** What a load found, tagged with the person and agent list it was loaded for: the loader keeps the previous answer on screen for one
+ *  draw after its inputs change, and that answer must never be shown for the new person (or for an agent list it does not cover). */
+type HeldFor = { key: string; rights: Held };
+
+/** The matrix of one person with a save button. It starts from the rights that were loaded (its initial state, not an effect that copies
+ *  them in later), so the first draw already shows what the person holds; the panel mounts it anew for every person and every load. */
+function RightsEditor({ person, agents, initial }: { person: Row; agents: string[]; initial: Held }): View {
+  const [rights, setRights] = useState<Rights>(initial);
+  const [base, setBase] = useState<Held>(initial);
   const [saved, setSaved] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const list = people.state.status === "ok" ? people.state.data.filter(editable) : [];
-  const person = list.find((p) => p.id === picked) ?? list[0];
-  const agentList = agents.state.status === "ok" ? agents.state.data : [];
-  const held = useLoad((signal) => (person && agentList.length ? loadHeld(person.id, agentList, signal) : Promise.resolve({} as Held)), [person?.id ?? "", agentList.join("\n")]);
-  useEffect(() => { if (held.state.status === "ok") { setBase(held.state.data); setRights(held.state.data); } }, [held.state]);
-
   const save = async (): Promise<void> => {
-    if (!person) return;
     setSaving(true);
     setSaved(null);
     try {
@@ -95,29 +90,42 @@ export function RightsPanel({ self }: { self: { id: string; role: string } }): V
     }
   };
 
+  return h("div", null,
+    h(RightsTable, { role: person.role === "operator" ? "operator" : "member", rights, agents, draft: false, idPrefix: "users-rights", onChange: (r) => { setRights(r); setSaved(null); } }),
+    h("div", { class: "users-rights-actions" },
+      h("button", { type: "button", class: "btn btn-primary", disabled: saving, onClick: () => { void save(); } }, saving ? t("shared.confirm.working") : t("users.rights.save")),
+      saved ? h("p", { class: "form-notice", role: saved.ok ? "status" : "alert" }, saved.text) : null));
+}
+
+/** The rights editor of the section: pick the person, then the matrix with what they hold now. */
+export function RightsPanel({ self }: { self: { id: string; role: string } }): View {
+  const people = useLoad((signal) => fetchUsers(self, signal), [self.id, self.role]);
+  const agents = useLoad(loadAgents, []);
+  const [picked, setPicked] = useState<string | null>(null);
+
+  const list = people.state.status === "ok" ? people.state.data.filter(editable) : [];
+  const person = list.find((p) => p.id === picked) ?? list[0];
+  const agentList = agents.state.status === "ok" ? agents.state.data : [];
+  const key = `${person?.id ?? ""}\n${agentList.join("\n")}`;
+  const held = useLoad(async (signal): Promise<HeldFor> => ({ key, rights: person && agentList.length ? await loadHeld(person.id, agentList, signal) : {} }), [key]);
+  const current = held.state.status === "ok" && held.state.data.key === key ? held.state.data : null;
+
   let body: View;
   if (people.state.status === "loading" || agents.state.status === "loading") body = h(PageLoading, { label: t("users.rights.loading") });
   else if (people.state.status === "fail") body = h(FailureState, { failure: people.state.failure, onRetry: people.reload });
   else if (agents.state.status === "fail") body = h(FailureState, { failure: agents.state.failure, onRetry: agents.reload });
   else if (!person) body = h("p", { class: "users-empty" }, t("users.rights.noPeople"));
   else if (agentList.length === 0) body = h("p", { class: "users-empty" }, t("users.rights.none"));
-  else if (held.state.status === "loading") body = h(PageLoading, { label: t("users.rights.loadingHeld") });
   else if (held.state.status === "fail") body = h(FailureState, { failure: held.state.failure, onRetry: held.reload });
-  else {
-    const role = person.role === "operator" ? "operator" : "member";
-    body = h("div", null,
-      h(RightsTable, { role, rights, agents: agentList, draft: false, idPrefix: "users-rights", onChange: (r) => { setRights(r); setSaved(null); } }),
-      h("div", { class: "users-rights-actions" },
-        h("button", { type: "button", class: "btn btn-primary", disabled: saving, onClick: () => { void save(); } }, saving ? t("shared.confirm.working") : t("users.rights.save")),
-        saved ? h("p", { class: "form-notice", role: saved.ok ? "status" : "alert" }, saved.text) : null));
-  }
+  else if (!current) body = h(PageLoading, { label: t("users.rights.loadingHeld") });
+  else body = h(RightsEditor, { key: current.key, person, agents: agentList, initial: current.rights });
 
   return h("section", { class: "card users-block", "aria-labelledby": "users-rights-h" },
     h("h2", { id: "users-rights-h", class: "card-title" }, t("users.rights.title")),
     h("p", { class: "field-hint" }, t("users.rights.lead")),
     list.length ? h("div", { class: "field" },
       h("label", { for: "users-rights-person" }, t("users.rights.person")),
-      h("select", { id: "users-rights-person", value: person?.id ?? "", onChange: (e: Event) => { setPicked((e.target as HTMLSelectElement).value); setSaved(null); } },
+      h("select", { id: "users-rights-person", value: person?.id ?? "", onChange: (e: Event) => { setPicked((e.target as HTMLSelectElement).value); } },
         list.map((p) => h("option", { key: p.id, value: p.id, selected: p.id === person?.id }, p.name)))) : null,
     body);
 }

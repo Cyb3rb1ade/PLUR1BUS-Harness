@@ -1,8 +1,6 @@
 // Push notifications (A2A 0.3 `tasks/pushNotificationConfig/*`). Delivery is HTTP POST of the Task object.
-// URL admission goes through egress (`decide`); the POST itself is in this file because `egress.request` is GET-only
-// (web.fetch). Each redirect hop is re-checked with `decide` (SSRF, also after redirect).
-import http from "node:http";
-import https from "node:https";
+// URL admission (`decide`) and the POST itself both go through the egress service (`egress.request`, the POST-capable
+// variant): this file opens no socket. Each redirect hop is re-checked with `decide` and sent with `egress.request`.
 import { randomUUID } from "node:crypto";
 import type { DryRun, Egress } from "../egress/service.ts";
 import type { A2aPushConfig, A2aTask, A2aTaskPushConfig } from "./types.ts";
@@ -14,7 +12,7 @@ export interface PushPostResult { status: number; location?: string }
 
 export interface PushTransport {
   decide(url: string): Promise<DryRun>;
-  /** POST `body` to `url` (pinned to `address` when provided). Does not follow redirects. */
+  /** POST `body` to `url`. Does not follow redirects. `address` / `family` are what `decide` vetted for this hop; the egress transport re-vets and pins on its own. */
   post(a: { url: string; address?: string; family?: 4 | 6; headers: Record<string, string>; body: string; signal?: AbortSignal }): Promise<PushPostResult>;
 }
 
@@ -30,6 +28,9 @@ export class PushError extends Error {
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const REDIRECT = new Set([301, 302, 303, 307, 308]);
+const PUSH_USER_AGENT = "PLUR1BUS-a2a-push";
+/** The egress client's own bound on one POST; the dispatcher's `postTimeoutMs` (15 s by default) is the one that normally ends a delivery, so a larger value there is capped here. */
+const PUSH_MAX_MS = 60_000;
 
 export function parsePushConfig(raw: unknown): A2aPushConfig {
   if (!isObj(raw) || typeof raw.url !== "string" || raw.url.trim() === "") throw new PushError("invalid", "pushNotificationConfig.url is required");
@@ -50,42 +51,26 @@ export function parsePushConfig(raw: unknown): A2aPushConfig {
   return cfg;
 }
 
+/** The one place the POST leaves the process: `egress.request` gates the URL, re-vets and pins the connect, caps the
+ *  request and response, enforces the deadline and never follows a redirect that carries a body or caller headers (the 3xx
+ *  comes back; `PushDispatcher` decides whether to follow it, hop by hop). Only status and `Location` are read: a
+ *  receiver's response body is never downloaded, so a large answer cannot turn an accepted delivery into a retry. */
 export function createEgressPushTransport(egress: Egress): PushTransport {
   return {
     decide: (url) => egress.decide(url),
-    post({ url, address, family, headers, body, signal }) {
-      return new Promise((resolve, reject) => {
-        let target: URL;
-        try { target = new URL(url); } catch { reject(new PushError("invalid", "invalid push URL")); return; }
-        const secure = target.protocol === "https:";
-        const hostname = target.hostname.startsWith("[") ? target.hostname.slice(1, -1) : target.hostname;
-        const req = (secure ? https : http).request({
-          host: address ?? hostname,
-          port: target.port === "" ? (secure ? 443 : 80) : Number(target.port),
-          path: `${target.pathname}${target.search}`,
-          method: "POST",
-          agent: false,
-          servername: secure ? hostname : undefined,
-          headers: { host: target.host, "content-length": Buffer.byteLength(body), ...headers },
-          lookup: address
-            ? ((_h: string, opts: { all?: boolean } | undefined, cb: (...args: unknown[]) => void) => {
-              const fam = family ?? (address.includes(":") ? 6 : 4);
-              if (typeof opts === "object" && opts?.all) (cb as (e: null, a: { address: string; family: number }[]) => void)(null, [{ address, family: fam }]);
-              else (cb as (e: null, a: string, f: number) => void)(null, address, fam);
-            }) as never
-            : undefined,
-        }, (res) => {
-          const location = typeof res.headers.location === "string" ? res.headers.location : undefined;
-          res.resume();
-          resolve({ status: res.statusCode ?? 0, ...(location ? { location } : {}) });
-        });
-        const onAbort = (): void => { req.destroy(); reject(new Error("aborted")); };
-        if (signal?.aborted) { onAbort(); return; }
-        signal?.addEventListener("abort", onAbort, { once: true });
-        req.on("error", reject);
-        req.on("close", () => signal?.removeEventListener("abort", onAbort));
-        req.end(body);
-      });
+    // `address` / `family` are what `decide` vetted for this hop. `egress.request` resolves and pins again inside the one
+    // guarded client, so they are not used to connect.
+    async post({ url, headers, body, signal }) {
+      try { new URL(url); } catch { throw new PushError("invalid", "invalid push URL"); }
+      try {
+        const r = await egress.request(url, { userAgent: PUSH_USER_AGENT, method: "POST", headers, body, discardBody: true, timeoutMs: PUSH_MAX_MS, ...(signal ? { signal } : {}) });
+        const location = typeof r.headers.location === "string" && r.headers.location !== "" ? r.headers.location : undefined;
+        return { status: r.status, ...(location ? { location } : {}) };
+      } catch (err) {
+        // The dispatcher aborts a delivery that outlives its time limit; that is the cause, whatever the client reports.
+        if (signal?.aborted) throw new Error("aborted");
+        throw err;
+      }
     },
   };
 }

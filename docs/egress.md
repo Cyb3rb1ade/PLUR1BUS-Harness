@@ -56,8 +56,23 @@ the policy end to end. The gate, the SSRF check and the pinned connect apply exa
 - a request with a body, a method other than GET/HEAD or caller headers **never follows a redirect**: the 3xx answer is
   returned unread, so a body or an `Authorization` header never reaches a host it was not addressed to.
 
-`a2a/push.ts` and `auth/http.ts` still carry their own POST; moving them onto this variant is a follow-up (both have
-their own redirect and response handling with tests that would need to move with them).
+The A2A push delivery (`a2a/push.ts`) and the OAuth token POST (`auth/http.ts`) send through this variant and nothing else:
+neither file opens a socket or calls `fetch` (`test/egress/post-paths.test.ts` guards that statically). Pinning, the
+request and response caps, the deadline, the no-redirect rule for a request with a body or caller headers and the
+decision counters therefore live here only.
+
+- **Push** sends `POST` with `discardBody: true`: only status and `Location` are read, so a large answer from the receiver
+  cannot make an accepted delivery look failed. The dispatcher keeps what is specific to A2A: it judges each hop with
+  `decide`, follows a 3xx itself (at most `maxRedirects`), drops the token and bearer credentials when the origin changes,
+  retries with backoff and abandons a POST after `postTimeoutMs` (default 15 s; the egress call itself is bounded at 60 s).
+- **OAuth token POST** sends the form with `errorBodyBytes` equal to its 64 KiB cap (an error answer carries the OAuth
+  error code), one deadline of `timeoutMs` (default 30 s) over the whole call, and refuses every 3xx (`redirect_refused`)
+  so the form never leaves the host it was addressed to. A refusal by the gate, the SSRF check or the URL rules is
+  `egress_denied`, a timeout, connection or TLS failure is `transient`, a body over the cap or an unreadable
+  `Content-Encoding` is `invalid_response`; no text of the failure is kept.
+
+`discardBody` (any `request` call): the response body is never read, whatever its size or encoding, and `body` comes back
+empty; status and headers are returned as usual.
 
 ## Engine model endpoints at start
 
@@ -73,10 +88,10 @@ calls its provider's default endpoint, which cannot be judged here and is logged
 `privacy.localOnly` (Settings > Privacy, installation-wide, with `agents.<id>.privacy.localOnly` as a per-agent override in
 both directions) decides **which model providers** may be used: only loopback (`localhost`, `127.0.0.0/8`, `::1`) or an
 exact origin listed in `privacy.localEndpoints` (a self-hosted Ollama or vLLM server in the home network; a LAN address
-is never local by itself). It is enforced where a provider is chosen: chat and role models (also compaction summaries),
+is never local by itself). It is enforced where a provider is chosen: chat and role models (also compaction summaries), the model probe `models.test` (a cloud model is refused before a provider is built, no request is sent),
 model discovery (cloud models are listed with `locked: "local-only"`, not hidden), voice (local tier only, no cloud adapter
-is built), media generation, the media index and captioning, and the memory engine (embedding, reranker, engine LLM
-features). The memory engine and the media index are shared by all agents, so they stay local while the installation or
+is built), media generation, the media index and captioning, the memory engine (embedding, reranker, engine LLM
+features) and the embedding adapters package (`deps.policy`, see docs/embedding-adapters.md). The memory engine and the media index are shared by all agents, so they stay local while the installation or
 **any** agent is local-only. A refused provider fails with `E_DENIED`, `reason: local-only`, and a hint to the switch;
 it is never replaced by another model. Egress still applies on top: a local endpoint must also be reachable under
 `egress.*` (loopback needs `allowLoopback`).

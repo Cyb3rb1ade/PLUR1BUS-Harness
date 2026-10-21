@@ -7,9 +7,10 @@ import assert from "node:assert/strict";
 import fs, { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import {
   ImportLedger, agentIdempotencyKey, cardIdempotencyKey, channelIdempotencyKey, cronIdempotencyKey, fileIdempotencyKey,
-  memoryBatchIdempotencyKey, storeIdempotencyKey, type LedgerEntry,
+  memoryBatchIdempotencyKey, recordCreatedConfig, storeIdempotencyKey, type LedgerEntry,
 } from "../../src/import/ledger.ts";
 import { mulberry32, useTempDirs } from "./helpers.ts";
 
@@ -308,5 +309,33 @@ describe("ImportLedger: torn-line repair (docs/import.md §5.3)", () => {
       assert.ok(reloaded.has("done") && reloaded.has("after") && !reloaded.has("pending"), ctx);
       assert.ok(reloaded.corruptLineCount <= 1, ctx);
     }
+  });
+});
+
+describe("recordCreatedConfig (what rollback compares config.json against, §5.5)", () => {
+  const sha = (t: string) => createHash("sha256").update(t).digest("hex");
+  const open = () => new ImportLedger(path.join(tmpDir(), "ledger.jsonl"), "run-1");
+
+  it("records the hash of a config the import created", () => {
+    const ledger = open();
+    recordCreatedConfig(ledger, false, "{\"a\":1}\n");
+    assert.deepEqual(ledger.entries().map((e) => [e.entity, e.action, e.targetRef, e.sha256]), [["file", "created", "config.json", sha("{\"a\":1}\n")]]);
+  });
+
+  it("records nothing for a config that existed before (the snapshot restores it, rollback never removes it)", () => {
+    const ledger = open();
+    recordCreatedConfig(ledger, true, "{}\n");
+    assert.deepEqual(ledger.entries(), []);
+  });
+
+  it("a resumed run that rewrites the config it created earlier records the new hash", () => {
+    const ledger = open();
+    recordCreatedConfig(ledger, false, "one\n");
+    recordCreatedConfig(ledger, true, "two\n");
+    assert.deepEqual(ledger.entries().map((e) => e.sha256), [sha("one\n"), sha("two\n")]);
+  });
+
+  it("without a ledger it is a no-op", () => {
+    assert.doesNotThrow(() => recordCreatedConfig(undefined, false, "x"));
   });
 });

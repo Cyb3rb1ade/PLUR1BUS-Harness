@@ -8,6 +8,14 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **A description per secret (`secret.set`, `secret set --description`, Settings > Secrets).** An optional one-line note (at most
+  200 characters, never the value) saying what a secret is for. `secret.list`, `secret.get` and `secret.status` return it, and
+  the agent's `secret_names` tool lists it next to a stored secret. A replacement without one keeps the stored text, an empty one
+  removes it. Files and keyring indexes written before the field existed read unchanged (same schema ids).
+- **A2A push and the OAuth token POST send through `egress.request`.** Both files open no socket any more (a static test guards
+  it): pinning, request and response caps, the deadline and the no-redirect rule for a request with a body live in the egress
+  service. New `discardBody` option for calls that need status and headers only. The caller can no longer set `Host`,
+  `Content-Length` or `Cookie` on a push POST, and a compressed token answer is now decoded.
 - **Engine pin 98dfe2f0 (contract 1.16.0): duplicate cards are linked in the engine.** `@cyb3rb1ade/plur1bus-memory` is
   pinned to the merge of plugin PR #253 (it also carries 1.13.0 to 1.15.0); `CORE_CONTRACT` is 1.16.0, the floor stays 1.8.0.
   The OpenClaw and Hermes card importers attach a card that duplicates an existing memory to it through `memory.link` when the
@@ -108,6 +116,15 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   - Not included: plugin #233 (further leak-audit items) was still open at the 61025251 pin; not checked since.
 
 ### Fixed
+
+- **A backup restore no longer silently brings forgotten memories back (partly; KNOWN GAP until the engine pin moves).** `state/_tombstones`
+  is not part of a backup and stays as it was, but the restored store rows are the backup's, so a memory forgotten after the backup was
+  active again. `backup restore` now leaves `state/.restore-reapply-tombstones` (written before the first swap, removed by a clean
+  roll-back), and the core re-applies the committed tombstones through the engine's `reapplyCommittedTombstones` at the next start,
+  before the engine is built and the socket listens, removing the marker only after a complete, verified re-apply. The pinned engine has
+  no `lib/tombstone-reapply.js` yet (engine PR #259): until then the marker stays and the core warns on every start. A manifest whose
+  store target or unit is, or lies in, a `_tombstones` directory is refused (`manifest-invalid`), so a crafted archive cannot replace the
+  registry. See `docs/ops/backup-restore.md`.
 
 - **#151:** Fixed non-reproducible container core-layer builds.
 - **#152:** Removed a duplicate RPC schema definition and added duplicate-key detection.

@@ -25,6 +25,7 @@ import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreSta
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
 import { BACKUP_METHODS } from "./backup-ops.ts";
+import { reapplyTombstonesAfterRestore, type LoadEngineReapply } from "./restore-reapply.ts";
 import { createMigrationDriver, type MigrationDriver } from "./embedding-migrate/driver.ts";
 import { createEnginePort } from "./embedding-migrate/engine-port.ts";
 import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
@@ -39,6 +40,7 @@ import { assertEngineContract, bindEngine } from "./engine.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
 import { isLocalEndpoint, localEndpoints, localOnlyFor } from "./privacy/local-only.ts";
 import { localOnlyCheck } from "./privacy/doctor.ts";
+import { emailAuthChecks } from "./channels/email-auth-check.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
@@ -71,6 +73,7 @@ import { alwaysGrantsToInbox, approvalToInbox, jobFailedToInbox, pairingToInbox,
 import { sessionUsage } from "./rpc/session-usage.ts";
 import { breakglassMemory } from "./rpc/breakglass-memory.ts";
 import { sessionWriteAccess } from "./rpc/session-access.ts";
+import { memoryCallerAccess } from "./rpc/memory-caller-access.ts";
 import { sessionTranscriptSurface } from "./rpc/session-overview.ts";
 import { UserJobs } from "./user-jobs/index.ts";
 import { attachUserJobMethods } from "./user-jobs/rpc.ts";
@@ -175,6 +178,8 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** Test seam: the engine's tombstone re-apply a backup restore's marker asks for (restore-reapply.ts); default: the engine's `lib/tombstone-reapply.js`, when it has one. */
+  tombstoneReapply?: LoadEngineReapply;
   /** Legacy injected provider seam, adapted through composition; absent, configured provider definitions supply the pipeline. */
   chatProvider?: ChatProvider;
   composition?: CompositionOptions;
@@ -477,12 +482,15 @@ export function createCore(o: CoreOptions): Core {
         }
       };
       const host = createHarnessHost({
-        layout: l, logger, config, engineConfig, agents: executionRegistry, events, clock,
+        layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
         mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
         canMutateConfig: () => cs.source === "supervisor",
       });
       o.inspectHost?.(host);
+      // A backup restore left rows that may hold memories forgotten since: re-apply the committed tombstones before the engine
+      // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
+      await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
       const eng = lifecycleEngine(bindEngine(host, engineConfig, o.testInternals ? engineInternals : undefined), lifecycle); engine = eng;
       assertEngineContract(eng);
@@ -636,7 +644,7 @@ export function createCore(o: CoreOptions): Core {
       });
       permissionNotifier = notifier;
       const board = switchboard = openChannelSwitchboard({
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
@@ -673,7 +681,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
@@ -725,6 +733,10 @@ export function createCore(o: CoreOptions): Core {
           void deliverBreakglassNotice(notice, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "notice", connectionId: id, signal: shutdown.signal }, "breakglass.notices", {}), notify: (m,p,options) => server?.notify(m,p,options), stopped: () => shutdown.signal.aborted }).catch(() => { log.debug("break-glass live notice withheld; durable inbox retained"); });
         },
       });
+      // The one break-glass registry: a lapsed grant is unusable at once, and its `break-glass.expired` audit line is written by whoever asks next or, when
+      // nobody does, by this timer (it used to be the API's second registry's). A failing audit sink keeps the grant listed; the next sweep retries.
+      const breakglassSweep = setInterval(() => { if (!shutdown.signal.aborted) try { breakglass.sweep(); } catch { log.debug("break-glass sweep postponed"); } }, 30_000);
+      breakglassSweep.unref(); shutdown.signal.addEventListener("abort", () => clearInterval(breakglassSweep), { once: true });
       const signer = agentExportSigner(secretStore);
       const licenceLedger = modelLicences = new LicenceLedger(path.join(l.state, "model-licences.sqlite"), rbacAudit, clock);
       const reservedAgents = new Map<string, Awaited<ReturnType<typeof eng.open>>>();
@@ -888,8 +900,10 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.list"] = async (p, ctx) => { const r = await listAgents!(p,ctx) as { agents: { agentId: string }[] }; return { ...r, agents: r.agents.filter(a => !lifecycle.state(a.agentId).deleted).map(a => ({ ...a, lifecycle: lifecycle.state(a.agentId) })) }; };
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
+      // The other caller-taking memory ops (forget, correct, share, state, propose, proposals.*) act as the principal derived from `caller`: bind it to the authenticated person like memory.list/show and session.*.
+      Object.assign(rawMethods, memoryCallerAccess({ methods: rawMethods, ownership, resolve: resolvePrincipal }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg())] }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg())] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});

@@ -218,6 +218,9 @@ export class EmailChannel implements Channel {
       await this.#sync(conn, ac.signal);
       this.#loop = this.#run(ac.signal);
       this.#log("info", "channel.email.started", { idle: this.#cfg.imap.idle });
+      // Setup warning: without a DMARC requirement the From address is the only identity of a text turn, and anyone can forge it
+      // (pairing and approvals are DMARC-gated regardless). Documented in docs/channels/email.md; also a doctor finding.
+      if (!this.#cfg.requireAuthPass) this.#log("warn", "channel.email.auth-not-required", {});
     } catch (e) {
       ac.abort();
       this.#conn?.close();

@@ -101,6 +101,31 @@ test("audit: the number of inbound attachments per message is capped", async () 
   }
 });
 
+for (const id of ["../../etc/passwd", "..", "../x", "a/b", "/abs", "x/../y", ".hidden", "a..b", "a.b.c", "a\\b", "a b", "x.", "name.toolongextension12345"])
+  test(`audit: attachment id ${JSON.stringify(id)} is refused before any daemon lookup`, async () => {
+    const r = await rig();
+    r.daemon.attachments.set(id, PNG);
+    try {
+      await push(r, textEnvelope({ message: "x", attachments: [{ id, contentType: "image/png", size: 8 }] }));
+      assert.equal(r.received.length, 0);
+      assert.equal(r.daemon.callsOf("getAttachment").length, 0, "the daemon never sees a path-like id");
+    } finally {
+      await r.close();
+    }
+  });
+
+for (const id of ["att1", "dPFrJ5N2qzm1w3dT_dXK-1", "abc+def==", "att1.png"])
+  test(`audit: attachment id ${JSON.stringify(id)} (one path segment, optional extension) is still fetched`, async () => {
+    const r = await rig();
+    r.daemon.attachments.set(id, PNG);
+    try {
+      await push(r, textEnvelope({ message: "x", attachments: [{ id, contentType: "image/png", size: 8 }] }));
+      assert.equal(r.daemon.callsOf("getAttachment").length, 1);
+    } finally {
+      await r.close();
+    }
+  });
+
 test("audit: redactString removes the known account also without its plus sign", () => {
   const out = redactString(`failed for ${ACCOUNT.slice(1)} now`, ACCOUNT);
   assert.ok(!out.includes(ACCOUNT.slice(1)), out);
