@@ -6,10 +6,13 @@ import { initialWizard, advanceWizard, agreeWizard, foundRuntimes, completeWizar
 import type { DesktopTransport } from "../ipc.ts";
 import type { MessageKey } from "../i18n.ts";
 import { redactedTail } from "../models/redact.ts";
+import { isTimeout } from "../models/deadline.ts";
 const knownStates = new Set(["not-installed","ready","stopped","starting","runtime-down","crashed","error"]);
 export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey,values?:Record<string,string>)=>string,refresh:()=>void) {
  const renderInstallRuntime=installRuntime(transport,t,refresh,()=>{state={...state,step:"runtime"};void detect();});
  let state:Wizard=initialWizard(), busy=false, status="", log="", memory=3, phase="image";
+ // The log read has its own state: it must not freeze the runtime controls, and a slow tail must not pass for a harness state.
+ let logs:"idle"|"loading"|"failed"|"timeout"="idle";
  void transport.harnessStatus?.().then(value=>{status=value.state;if(value.resources)memory=value.resources.memoryMiB/1024;refresh();}).catch(()=>{});
  void transport.harnessStatusEvents?.(value=>{status=value.state;refresh();}).catch(()=>{});
  async function detect() {if(!transport.runtimeDetect||busy)return;busy=true;refresh();try{const rows=await transport.runtimeDetect();state=foundRuntimes(state,rows,rows.find(r=>r.state==="ready")?.id??rows[0]?.id??null);}catch{state=failWizard(state,"runtime");}finally{busy=false;refresh();}}
@@ -27,6 +30,7 @@ export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey,valu
   if(!["error","installing","install-runtime","opened"].includes(state.step)){const next=button(t(state.step==="done"?"wizard.open":"wizard.continue"),primary,"primary");next.disabled=busy||(state.step==="licences"&&!state.agreed);body.append(next);}const choices=element("aside","wizard-choices");append(choices,element("h2",undefined,t("wizard.choices")),element("p",undefined,state.runtimes.find(r=>r.id===state.selected)?.engine??t("runtime.status.unknown")));body.append(choices);return body;
  }
  async function action(fn:()=>Promise<unknown>){if(busy)return;busy=true;refresh();try{await fn();status=(await transport.harnessStatus?.())?.state??"";}catch{status="error";}finally{busy=false;refresh();}}
+ async function loadLogs(){if(logs==="loading")return;logs="loading";refresh();try{log=await transport.harnessLogsTail?.()??"";logs="idle";}catch(error){logs=isTimeout(error)?"timeout":"failed";}finally{refresh();}}
  function settings():HTMLElement {
   const body=element("section","settings-card runtime-settings");append(body,element("h2",undefined,t("nav.runtime")),element("p",undefined,t("runtime.nativeOnly")));
   const stateText=element("p",undefined,knownStates.has(status)?t((`runtime.status.${status}`) as MessageKey):t("runtime.status.unknown"));stateText.setAttribute("role","status");body.append(stateText);
@@ -35,7 +39,10 @@ export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey,valu
   const label=element("label","memory-control"),input=document.createElement("input");input.type="range";input.min="2";input.max="16";input.step="1";input.value=String(memory);input.setAttribute("aria-label",t("runtime.memory"));const output=element("output",undefined,t("runtime.memoryValue",{gib:String(memory)}));input.addEventListener("input",()=>{memory=Number(input.value);output.textContent=t("runtime.memoryValue",{gib:String(memory)});});append(label,element("span",undefined,t("runtime.memory")),input,output);body.append(label);
   const apply=button(t("runtime.applyMemory"),()=>void action(()=>transport.harnessStart?.(memory)??Promise.reject()));apply.disabled=busy;body.append(apply);
   for(const [key,fn] of [["runtime.start",()=>transport.harnessStart?.()],["runtime.stop",()=>transport.harnessStop?.()]] as const){const control=button(t(key),()=>void action(()=>fn()??Promise.reject()));control.disabled=busy;body.append(control);}
-  const logs=button(t("runtime.logs"),()=>void action(async()=>{log=await transport.harnessLogsTail?.()??"";}));body.append(logs);if(log)body.append(element("pre","runtime-log",redactedTail(log)));
+  const retry=logs==="failed"||logs==="timeout";const showLogs=button(t(retry?"runtime.logsRetry":"runtime.logs"),()=>void loadLogs());showLogs.disabled=logs==="loading";body.append(showLogs);
+  if(logs==="loading"){const wait=element("p",undefined,t("runtime.logsLoading"));wait.setAttribute("role","status");body.append(wait);}
+  if(retry){const error=element("p",undefined,t(logs==="timeout"?"runtime.logsTimeout":"runtime.logsFailed"));error.setAttribute("role","alert");body.append(error);}
+  if(log)body.append(element("pre","runtime-log",redactedTail(log)));
   return body;
  }
  return {wizard,settings,reset:()=>{state=initialWizard();refresh();},detect};

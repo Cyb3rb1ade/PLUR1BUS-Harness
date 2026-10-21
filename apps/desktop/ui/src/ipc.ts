@@ -1,6 +1,8 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { LocaleChoice } from "./i18n.ts";
+import { withDeadline } from "./models/deadline.ts";
+import { parseUpdateProgress } from "./models/update-model.ts";
 
 export type ThemeChoice = "system" | "light" | "dark";
 export type Platform = "mac" | "win" | "gnome" | "kde";
@@ -8,7 +10,7 @@ export type Settings = { theme: ThemeChoice; locale: LocaleChoice };
 export type Connection = { id: string; name: string; kind: "bundled" | "local" | "remote"; origin: string; installationId: string; deviceId: string; tokenHint: string; certPin: string | null; caPin: string | null; nextCertPin: string | null; nextCaPin: string | null; observedCertPin: string | null; pairingNeeded: boolean };
 export type TokenStoreKind = "keychain" | "memory-only";
 export type ConnectionList = { connections: Connection[]; active: string | null; tokenStore: TokenStoreKind | null };
-export type ConnectionSnapshot = { status: "loading" | "ready" | "error"; data: ConnectionList | null };
+export type ConnectionSnapshot = { status: "loading" | "ready" | "error"; data: ConnectionList | null; timedOut?: boolean };
 export type LinkEnvelope = { id: number; intent: {kind: "pair"; origin: string; code: string; pin: string | null; ca: string | null} | {kind: "open"; path: string} | {kind: "chat" | "install" | "p1x" | "ignored"} };
 export type PairPrefill = { linkId: number; origin: string; code: string; pin: string | null; ca: string | null };
 export type PairRequest = { name: string; origin: string; code: string; repairId: string | null; linkId?: number | null };
@@ -45,6 +47,7 @@ export type DesktopTransport = {
   updateSettings?(request?:import("./models/update-model.ts").UpdatePreferences):Promise<import("./models/update-model.ts").UpdateSnapshot>;
   updateCheck?(startup?:boolean):Promise<import("./models/update-model.ts").UpdateSnapshot>;
   updateInstall?():Promise<void>;
+  updateProgress?(onProgress:(progress:import("./models/update-model.ts").UpdateProgress)=>void):Promise<()=>void>;
   updateSkip?():Promise<import("./models/update-model.ts").UpdateSnapshot>;
   updateLater?():Promise<import("./models/update-model.ts").UpdateSnapshot>;
   updateStoreOpen?():Promise<void>;
@@ -97,6 +100,7 @@ export const nativeTransport: DesktopTransport = {
  updateSettings:request=>invoke("update_settings",{request:request??null}),
  updateCheck:startup=>invoke("update_check",{startup:startup??false}),
  updateInstall:()=>invoke("update_install"),
+ updateProgress:onProgress=>listen<unknown>("desktop-update-progress",event=>{const progress=parseUpdateProgress(event.payload);if(progress)onProgress(progress);}),
  updateSkip:()=>invoke("update_skip"),
  updateLater:()=>invoke("update_later"),
  updateStoreOpen:()=>invoke("update_store_open"),
@@ -123,3 +127,17 @@ export const nativeTransport: DesktopTransport = {
   settingsGet: () => invoke("settings_get"),
   settingsSet: settings => invoke("settings_set", { request: { settings } }),
 };
+
+/** How long the UI waits for the calls that otherwise leave a view loading until the native side answers. pair_code
+ * may need several network steps of up to 15 s each natively; the others are local or one runtime call. */
+export type Deadlines = { connectionsList: number; pairCode: number; harnessLogsTail: number };
+export const DEADLINES: Deadlines = { connectionsList: 20_000, pairCode: 45_000, harnessLogsTail: 30_000 };
+export function withDeadlines(base: DesktopTransport, limits: Deadlines = DEADLINES): DesktopTransport {
+  const logs = base.harnessLogsTail;
+  return {
+    ...base,
+    connectionsList: () => withDeadline(() => base.connectionsList(), limits.connectionsList),
+    pairCode: request => withDeadline(() => base.pairCode(request), limits.pairCode),
+    ...(logs ? { harnessLogsTail: () => withDeadline(() => logs.call(base), limits.harnessLogsTail) } : {}),
+  };
+}

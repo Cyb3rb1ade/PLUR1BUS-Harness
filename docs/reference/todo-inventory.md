@@ -139,10 +139,6 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 | apps/desktop/transport-spike/known-gaps.test.mjs:7 | H/transport: real SPA proxy HTTP/SSE/WS, jump host and LAN p95 overhead |
 | apps/desktop/transport-spike/known-gaps.test.mjs:8 | H/agent: Windows pipe, isolated 1Password/FIDO fixture and hashed known_hosts |
 | apps/desktop/transport-spike/known-gaps.test.mjs:9 | H/size: installed desktop binary delta on five release targets |
-| apps/desktop/ui/test/d13-known-gaps.test.ts:4 | harness_logs_tail returns raw container output; native redaction is needed besides the UI mask |
-| apps/desktop/ui/test/d13-known-gaps.test.ts:5 | invoke calls carry no deadline or cancel; a hung pair_code, connections_list or harness_logs_tail keeps its view loading until the native side answers |
-| apps/desktop/ui/test/d13-known-gaps.test.ts:6 | the rename form is not a view mode, so any shell re-render drops it together with the typed name |
-| apps/desktop/ui/test/d13-known-gaps.test.ts:7 | update_install gives no progress events to the offer dialog; the button stays disabled with no feedback until the app restarts |
 
 ### tests/acceptance
 
