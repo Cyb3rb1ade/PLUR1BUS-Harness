@@ -20,12 +20,18 @@ async fn helper_gets_no_inherited_env_in_the_actual_child() {
     drop(input);
     let output = child.wait_with_output().await.unwrap();
     let names: Vec<String> = serde_json::from_slice(&output.stdout).unwrap();
-    assert!(!names
-        .iter()
-        .any(|n| n == "INJECTED_SECRET" || n == "LD_PRELOAD"));
-    assert!(names
-        .iter()
-        .all(|n| ["PATH", "HOME", "LANG"].contains(&n.as_str())));
+    assert!(
+        !names
+            .iter()
+            .any(|n| n == "INJECTED_SECRET" || n == "LD_PRELOAD"),
+        "child environment names: {names:?}"
+    );
+    assert!(
+        names
+            .iter()
+            .all(|n| ["PATH", "HOME", "LANG"].contains(&n.as_str())),
+        "child environment names: {names:?}"
+    );
 }
 #[tokio::test]
 async fn helper_is_restarted_with_backoff_after_an_actual_child_exit() {

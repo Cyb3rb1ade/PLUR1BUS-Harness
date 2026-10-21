@@ -175,8 +175,20 @@ fn link_pin_is_bound_to_exact_origin_and_code_and_never_repair() {
 #[test]
 fn p1x_hook_never_reads_the_file_and_queue_is_bounded() {
     use plur1bus_desktop::deeplink::{parse_argument, Inbox};
-    assert!(parse_argument("/nonexistent/example.p1x") == DeepLink::P1x);
-    assert!(parse_argument("file:///nonexistent/example.p1x") == DeepLink::P1x);
+    // A Windows path is absolute only with a drive or UNC prefix, and a file URL
+    // only maps to a path with a drive letter, so each platform probes its own form.
+    #[cfg(windows)]
+    let (plain, url) = (
+        r"C:\nonexistent\example.p1x",
+        "file:///C:/nonexistent/example.p1x",
+    );
+    #[cfg(not(windows))]
+    let (plain, url) = (
+        "/nonexistent/example.p1x",
+        "file:///nonexistent/example.p1x",
+    );
+    assert!(parse_argument(plain) == DeepLink::P1x);
+    assert!(parse_argument(url) == DeepLink::P1x);
     assert!(parse_argument("file://foreign.test/nonexistent/example.p1x") == DeepLink::Ignored);
     let mut inbox = Inbox::default();
     for _ in 0..1000 {
