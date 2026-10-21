@@ -37,7 +37,6 @@ Created window (UTC): 2026-10-20T11:08:56.000Z – 2026-10-21T01:31:06.000Z. Fre
 | web-browser | 12.0 / 18.0 | 3.0 / 1450.0 | 16.0 | 15 / 15 |
 | web-browser (macos-15, 1/2) | n/a / n/a | n/a / n/a | 1.0 | 0 / 0 |
 | web-browser (macos-15, 2/2) | n/a / n/a | n/a / n/a | 1.0 | 0 / 0 |
-| web-browser shard ${{ matrix.shard }}/${{ matrix.total }} | 0.0 / 0.0 | 0.0 / 0.0 | 1.0 | 1 / 1 |
 | web-browser shard 1/4 | 455.0 / 657.0 | 3.0 / 1672.0 | 18.0 | 15 / 16 |
 | web-browser shard 2/4 | 383.0 / 449.0 | 2.0 / 245.0 | 18.0 | 15 / 15 |
 | web-browser shard 3/4 | 409.0 / 444.0 | 2.0 / 1525.0 | 18.0 | 15 / 15 |
@@ -45,7 +44,7 @@ Created window (UTC): 2026-10-20T11:08:56.000Z – 2026-10-21T01:31:06.000Z. Fre
 | web-browser-build | 148.0 / 1093.0 | 2.0 / 2019.0 | 27.0 | 19 / 20 |
 | wsl | 154.0 / 1500.0 | 4.0 / 2939.0 | 27.0 | 18 / 19 |
 
-Nearest-rank percentiles. Wait = job.started_at − job.created_at: this includes dependency/environment delay and is not pure runner queue time. Skipped jobs and missing/invalid timestamps are excluded from timing samples. Running jobs contribute waiting only; unfinished durations are censored. Cancelled jobs contribute partial execution durations, not full-suite estimates.
+Nearest-rank percentiles. Wait = job.started_at − job.created_at: this includes dependency/environment delay and is not pure runner queue time. Unresolved matrix job names are excluded from job groups and samples. Skipped jobs and missing/invalid timestamps are excluded from timing samples. Running jobs contribute waiting only; unfinished durations are censored. Cancelled jobs contribute partial execution durations, not full-suite estimates.
 
 The API does not state why a run was cancelled. A cancelled run with a newer different head on the same branch and event is only a supersession candidate, never proof of concurrency cancellation. Runs are sampled once; no CI polling.
 
@@ -62,7 +61,7 @@ node scripts/ci/timings.mjs --input /tmp/gp5-ci-baseline.json
 ```
 
 Die Stichprobe enthält **keinen erfolgreichen Run**: 13 sind fehlgeschlagen, 22 abgebrochen und 15 noch nicht abgeschlossen.
-Die Zeiten sind daher keine Messung „Push bis grünes Gate“. Die p95-Startverzögerung der macOS-Unit beträgt rund 218 Minuten;
+Die Zeiten sind daher keine Messung „Push bis grünes Gate“. Die p95-Startverzögerung der macOS-Unit beträgt rund 388 Minuten;
 die p95-Ausführungszeit der Windows-Unit rund 40 Minuten. Die langen macOS-Startverzögerungen sind ein konkreter Ansatzpunkt,
 aber die API trennt Runner-Warteschlange, Abhängigkeiten und Freigaben nicht vollständig.
 
@@ -94,3 +93,11 @@ wobei noch laufende Runs dann einen anderen Stand haben können.
 ## KNOWN GAPs und Owner-Fragen
 
 Die vorhandene Audit-Allowlist-TODO bleibt offen und gehört zur Lieferkettenarbeit. P1 braucht keine Owner-Entscheidung.
+
+## Triage N6: Matrix-Platzhalter ausgeschlossen
+
+Namen mit nicht aufgelösten Actions-Ausdrücken werden vor Gruppierung und Stichprobenzählung verworfen. Ein Regressionstest deckt abgeschlossene, laufende und wartende Platzhalter sowie einen gültigen konkreten Shard ab. Vor der Korrektur: 8/9 bestanden, der neue Test rot. Danach sind alle 9 Timing-Tests grün; zusammen mit Release-Skripttests: **46 bestanden, 0 Fehler, 0 Skips, 1 bestehendes TODO**. Hygiene, Doku-Links, actionlint und Toolchaincheck bestehen.
+
+Die Tabelle wurde ausschließlich aus demselben lokalen JSON mit dem oben genannten SHA-256 neu erzeugt. Keine neue Actions-Abfrage, keine Nachher-Messung, kein Polling. Run-Zahl, Abbruchquote und die realen Shard-Stichproben bleiben unverändert; die falsche Platzhalterzeile entfällt.
+
+Die vorhandene Prosa zur macOS-Unit wurde an den Tabellenwert angepasst: 23.283 Sekunden p95-Startverzögerung sind rund 388 Minuten (6,5 Stunden), nicht 218 Minuten. Das ist eine Korrektur der Umrechnung, kein neuer Messlauf.

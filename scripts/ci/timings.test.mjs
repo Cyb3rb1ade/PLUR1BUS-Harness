@@ -35,6 +35,21 @@ test('queued jobs with synthetic started_at are not measured as zero-wait starts
   assert.equal(s.jobs[0].p50WaitSeconds, null);
 });
 
+test('unresolved matrix job names contribute neither groups nor timing samples', () => {
+  const s = summarize({ runs: [run(1)], jobs: [{ runId: 1, jobs: [
+    job(999, { name: 'web-browser shard ${{ matrix.shard }}/${{ matrix.total }}' }),
+    job(777, { name: 'unit (${{ matrix.os }})', status: 'in_progress', completed_at: null }),
+    job(1, { name: 'pending ${{ matrix.os }}', status: 'queued', started_at: null, completed_at: null }),
+    job(40, { name: 'web-browser shard 1/4' }),
+  ] }] });
+  assert.equal(s.runCount, 1, 'excluding placeholder jobs does not remove the sampled workflow run');
+  assert.deepEqual(s.jobs.map(j => j.name), ['web-browser shard 1/4']);
+  assert.equal(s.jobs[0].jobs, 1);
+  assert.equal(s.jobs[0].durationSamples, 1);
+  assert.equal(s.jobs[0].p95DurationSeconds, 40);
+  assert.equal(renderMarkdown(s).includes('${{'), false);
+});
+
 test('cancellations and newer-head candidates are distinct, branch and event scoped', () => {
   const s = summarize({ runs: [run(5), run(4, { event: 'push', conclusion: 'cancelled' }),
     run(3, { head_branch: 'other', conclusion: 'cancelled' }),

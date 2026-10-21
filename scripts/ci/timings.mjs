@@ -20,6 +20,7 @@ export function summarize({ runs, jobs }) {
   const windowDays = dates.length ? Math.max(1, (Math.max(...dates) - Math.min(...dates)) / 86400000) : 1;
   const grouped = new Map();
   for (const entry of jobs) for (const job of entry.jobs) {
+    if (job.name.includes('${{')) continue;
     let group = grouped.get(job.name);
     if (!group) grouped.set(job.name, group = { count: 0, runs: new Set(), duration: [], wait: [] });
     group.count++;
@@ -85,7 +86,7 @@ export function renderMarkdown(s) {
     '| Job | p50/p95 duration (s) | p50/p95 wait (s) | Runs/day | Duration/wait samples |',
     '| --- | ---: | ---: | ---: | ---: |',
     ...s.jobs.map(j => `| ${cell(j.name)} | ${fmt(j.p50DurationSeconds)} / ${fmt(j.p95DurationSeconds)} | ${fmt(j.p50WaitSeconds)} / ${fmt(j.p95WaitSeconds)} | ${fmt(j.runsPerDay)} | ${j.durationSamples} / ${j.waitSamples} |`), '',
-    'Nearest-rank percentiles. Wait = job.started_at − job.created_at: this includes dependency/environment delay and is not pure runner queue time. Skipped jobs and missing/invalid timestamps are excluded from timing samples. Running jobs contribute waiting only; unfinished durations are censored. Cancelled jobs contribute partial execution durations, not full-suite estimates.', '',
+    'Nearest-rank percentiles. Wait = job.started_at − job.created_at: this includes dependency/environment delay and is not pure runner queue time. Unresolved matrix job names are excluded from job groups and samples. Skipped jobs and missing/invalid timestamps are excluded from timing samples. Running jobs contribute waiting only; unfinished durations are censored. Cancelled jobs contribute partial execution durations, not full-suite estimates.', '',
     'The API does not state why a run was cancelled. A cancelled run with a newer different head on the same branch and event is only a supersession candidate, never proof of concurrency cancellation. Runs are sampled once; no CI polling.', '',
     `Run IDs (latest attempt of each): ${s.runIds.join(', ')}.`, '',
   ].join('\n');
