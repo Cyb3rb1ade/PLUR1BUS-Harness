@@ -18,6 +18,14 @@ test("every exposed method is declared on its routed server", () => {
   for (const method of WEB_CORE_METHODS) assert.ok(METHODS_BY_SERVER.core.includes(method), method);
   for (const method of WEB_SUPERVISOR_METHODS) assert.ok(METHODS_BY_SERVER.supervisor.includes(method), method);
 });
+test("the Library page's media.output.list is reachable through the web allowlist and routed to the core", async () => {
+  assert.equal(webEndpoint("media.output.list"), "core");
+  let got: unknown;
+  const core: CoreRpc = { call: async () => { throw new Error("legacy path"); }, callAs: async (m, p, who, endpoint) => { got = { m, p, who, endpoint }; return { outputs: [] } as never; } };
+  const answer = await rpcRoute(core, { jsonrpc: "2.0", id: 1, method: "media.output.list", params: {} }, person);
+  assert.ok("result" in answer, JSON.stringify(answer));
+  assert.deepEqual(got, { m: "media.output.list", p: {}, who: person, endpoint: "core" });
+});
 test("principal spoofing is discarded; batches refused; errors have safe text with original code", async () => {
   let got: unknown;
   const core: CoreRpc = { call: async () => { throw new Error("legacy path"); }, callAs: async (m, p, who) => { got = { m, p, who }; return {} as never; } };
