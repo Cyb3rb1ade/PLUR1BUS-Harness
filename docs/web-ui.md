@@ -462,7 +462,7 @@ override), `src/pages/surfaces/media.ts` (the search and the "Find similar" butt
 
 - **Free provider choice.** Text and media providers are chosen independently; there is no combination list. Validation checks only
   capability (the media provider must take every chosen modality, so OpenAI can only be the text index), licence (a non-commercial
-  model needs its confirmation, `E_MEDIA_LICENSE`), privacy pin (`E_MEDIA_PRIVACY`) and availability. The pin is not in the wizard's
+  model needs its confirmation, `E_MEDIA_LICENSE`), “Only local models” (`E_MEDIA_PRIVACY`) and availability. The switch is not in the wizard's
   answers: the setup only explains it, and the server refuses the request.
 - **Defaults write nothing.** Config changes are computed against the contract defaults and the loaded values, so an untouched form
   sends no media key. The existing setup test pins the exact `config.set` list of the default flow; this keeps it true.
@@ -494,8 +494,8 @@ override). The config mock writes into the objects it receives, so each test bui
 - **Memory tab.** Done in `src/pages/memory/media-tab.ts`, reached from `src/pages/memory/index.ts`. Re-index needs the typed word
   (`memory.media.reindexWord`) and sends `confirm: true`. The Settings card keeps its own layout and labels.
 - **Setup, media part.** The part already existed. This change adds browser tests for Back, for a reload after the step, and for the
-  rule that at least one media type is needed. Open: the setup has no privacy pin (the text step has none either), so the media
-  validation does not assume a global pin. Setup still offers local text models only; an explicitly selected cloud captioner now requires its own provider-naming privacy acknowledgment. The existing runtime pin takes precedence independently.
+  rule that at least one media type is needed. Open: the setup has no “Only local models” switch (the text step has none either), so the media
+  validation does not assume it is on. Setup still offers local text models only; an explicitly selected cloud captioner now requires its own provider-naming privacy acknowledgment. The “Only local models” switch takes precedence independently.
 - **Media search.** The find-similar button, the segment range and jump, the kind filter and the captions switch already existed.
   This change adds browser tests for the captions switch (`fuseCaptions`), for image hits without a segment, and for clearing a
   similar search. Open: the switch is labelled "Also use captions for ranking"; the owner's name "Captions einbeziehen" is not used,
@@ -529,7 +529,7 @@ override). The config mock writes into the objects it receives, so each test bui
   as the default; the cloud id must match the backend's provider registry.
 - **F52. Agent override clearing.** Clearing a field writes `null`. The contract does not say whether `config.set` accepts `null` for
   an `agents.<id>.memory.mediaEmbedding.*` key; if it does not, clearing needs a dedicated delete.
-- **F53. Privacy pin.** The setup only explains the pin. The Settings panel does not show whether it is set; the server's refusal
+- **F53. “Only local models”.** The setup only explains the switch. The Settings panel does not show whether it is on; the server's refusal
   (`E_MEDIA_PRIVACY`) is the only signal.
 - **F54. Size.** The contract's catalogue has no size; the forms show "not stated". A size field would make the setup's "Größe" useful.
 - **F55. Playback test.** The browser test checks the `#t=` fragment and `data-start`, not actual playback.
