@@ -221,6 +221,19 @@ pub async fn pair_code(
     store: &Store,
     repair: Option<uuid::Uuid>,
 ) -> Result<Connection, PairError> {
+    pair_code_pinned(origin, code, name, tokens, store, repair, None).await
+}
+/// [`pair_code`] whose every connection goes to the checked addresses of `connect` (transport choice spec §7.1: the
+/// shell re-runs the check and pairs over the checked addresses). `None` pairs unpinned.
+pub async fn pair_code_pinned(
+    origin: &str,
+    code: &str,
+    name: &str,
+    tokens: &dyn TokenStore,
+    store: &Store,
+    repair: Option<uuid::Uuid>,
+    connect: Option<crate::transport::ConnectPin>,
+) -> Result<Connection, PairError> {
     let origin = Origin::parse(origin).map_err(|_| PairError::InsecureOrigin)?;
     let existing = if let Some(id) = repair {
         Some(
@@ -240,8 +253,13 @@ pub async fn pair_code(
     {
         return Err(PairError::Invalid);
     }
-    pair(
-        origin,
+    let client = HarnessClient::new(origin, None);
+    let client = match connect {
+        Some(pin) => client.with_pin(pin),
+        None => client,
+    };
+    pair_using_client(
+        client,
         code,
         name,
         existing.as_ref().map_or(Kind::Remote, |c| c.kind.clone()),
@@ -417,6 +435,15 @@ pub async fn validate_connection(
     tokens: &dyn TokenStore,
     store: &Store,
 ) -> Result<(), PairError> {
+    validate_connection_pinned(c, tokens, store, None).await
+}
+/// [`validate_connection`] over the checked addresses of the open (`None`: unpinned, loopback rows).
+pub async fn validate_connection_pinned(
+    c: &mut Connection,
+    tokens: &dyn TokenStore,
+    store: &Store,
+    connect: Option<&crate::transport::ConnectPin>,
+) -> Result<(), PairError> {
     let token = match connection_token(c, tokens) {
         Ok(token) => token,
         Err(error) => {
@@ -425,7 +452,7 @@ pub async fn validate_connection(
             return Err(error);
         }
     };
-    let client = match HarnessClient::from_connection(c).await {
+    let client = match HarnessClient::from_connection_pinned(c, connect.cloned()).await {
         Ok(client) => client,
         Err(e) => {
             mark_failure(c, &e, tokens, store)?;
@@ -518,9 +545,18 @@ pub async fn session_ticket(
     tokens: &dyn TokenStore,
     store: &Store,
 ) -> Result<crate::client::Ticket, PairError> {
+    session_ticket_pinned(c, tokens, store, None).await
+}
+/// [`session_ticket`] over the checked addresses of the open (`None`: unpinned, loopback rows).
+pub async fn session_ticket_pinned(
+    c: &mut Connection,
+    tokens: &dyn TokenStore,
+    store: &Store,
+    connect: Option<&crate::transport::ConnectPin>,
+) -> Result<crate::client::Ticket, PairError> {
     let token = connection_token(c, tokens)?;
     let result = async {
-        let client = HarnessClient::from_connection(c).await?;
+        let client = HarnessClient::from_connection_pinned(c, connect.cloned()).await?;
         client.session_ticket(&c.installation_id, &token).await
     }
     .await;

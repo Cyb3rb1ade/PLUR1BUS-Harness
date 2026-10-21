@@ -3,6 +3,7 @@
 use crate::{
     connections::{CertPin, Connection, Origin},
     secrets::SecretString,
+    transport::ConnectPin,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use plur1bus_desktop_contract::{capability, route, trust};
@@ -187,6 +188,9 @@ pub struct HarnessClient {
     roots: Option<Vec<Vec<u8>>>,
     ca_failure: Option<ClientError>,
     observed: Arc<Mutex<Observed>>,
+    /// The checked addresses of this open (transport choice spec §9.2). Every HTTP, SSE and WebSocket connection of a
+    /// pinned client goes to exactly these addresses; the host name is used for TLS only.
+    connect: Option<ConnectPin>,
 }
 impl HarnessClient {
     pub fn new(origin: Origin, pin: Option<CertPin>) -> Self {
@@ -202,7 +206,29 @@ impl HarnessClient {
             roots: None,
             ca_failure: None,
             observed: Arc::default(),
+            connect: None,
         }
+    }
+    /// Pins every later connection of this client to the checked addresses of `pin` (transport choice spec §9.2:
+    /// reqwest `resolve_to_addrs` for HTTP and SSE, a pre-connected TCP stream for WebSocket). Already prepared
+    /// transports are rebuilt from the prepared TLS policy without any network I/O. A pin whose host is not this
+    /// client's origin host makes every request fail instead of silently connecting unpinned.
+    pub fn with_pin(mut self, pin: ConnectPin) -> Self {
+        self.connect = Some(pin);
+        if self.http.is_some() || self.stream.is_some() {
+            self.http = self.transport(self.tls.as_ref(), false).ok();
+            self.stream = self.transport(self.tls.as_ref(), true).ok();
+        }
+        self
+    }
+    /// The checked addresses this client is pinned to, if any.
+    pub fn pin(&self) -> Option<&ConnectPin> {
+        self.connect.as_ref()
+    }
+    /// The origin's host as a pin names it: the name, or the address without brackets.
+    fn origin_host(&self) -> Option<String> {
+        let url = url::Url::parse(self.origin.as_str()).ok()?;
+        Some(url.host_str()?.trim_matches(['[', ']']).to_owned())
     }
     /// Trust from an explicitly confirmed OS pairing payload, never a typed pin field.
     pub async fn from_pairing_payload(
@@ -210,7 +236,18 @@ impl HarnessClient {
         pin: Option<CertPin>,
         ca: Option<CertPin>,
     ) -> Result<Self, ClientError> {
+        Self::from_pairing_payload_pinned(origin, pin, ca, None).await
+    }
+    /// [`Self::from_pairing_payload`] whose every connection, including the CA fetch while preparing, goes to the
+    /// checked addresses of `connect`.
+    pub async fn from_pairing_payload_pinned(
+        origin: Origin,
+        pin: Option<CertPin>,
+        ca: Option<CertPin>,
+        connect: Option<ConnectPin>,
+    ) -> Result<Self, ClientError> {
         let mut client = Self::new(origin, pin);
+        client.connect = connect;
         client.ca = ca;
         client.prepare().await?;
         Ok(client)
@@ -225,16 +262,26 @@ impl HarnessClient {
         c: &Connection,
         roots: Vec<Vec<u8>>,
     ) -> Result<Self, ClientError> {
-        Self::from_connection_inner(c, Some(roots)).await
+        Self::from_connection_inner(c, Some(roots), None).await
     }
     pub async fn from_connection(c: &Connection) -> Result<Self, ClientError> {
-        Self::from_connection_inner(c, None).await
+        Self::from_connection_inner(c, None, None).await
+    }
+    /// [`Self::from_connection`] whose every connection, including the CA fetch while preparing, goes to the checked
+    /// addresses of `connect` (`None`: unpinned, for loopback rows that have no transport).
+    pub async fn from_connection_pinned(
+        c: &Connection,
+        connect: Option<ConnectPin>,
+    ) -> Result<Self, ClientError> {
+        Self::from_connection_inner(c, None, connect).await
     }
     async fn from_connection_inner(
         c: &Connection,
         roots: Option<Vec<Vec<u8>>>,
+        connect: Option<ConnectPin>,
     ) -> Result<Self, ClientError> {
         let mut client = Self::new(c.origin.clone(), c.cert_pin.clone());
+        client.connect = connect;
         client.roots = roots;
         client.ca = c.ca_pin.clone();
         client.next_cert = c.next_cert_pin.clone();
@@ -275,6 +322,7 @@ impl HarnessClient {
         Ok(Some(Arc::new(tls)))
     }
     fn transport(
+        &self,
         tls: Option<&Arc<rustls::ClientConfig>>,
         streaming: bool,
     ) -> Result<reqwest::Client, ClientError> {
@@ -286,6 +334,17 @@ impl HarnessClient {
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))
             .pool_max_idle_per_host(0);
+        if let Some(pin) = &self.connect {
+            // The override is keyed by the URL host, so a pin for another host would not apply: refuse instead.
+            let host = self.origin_host().ok_or(ClientError::Protocol)?;
+            if host != pin.host || pin.addrs.is_empty() {
+                return Err(ClientError::Protocol);
+            }
+            // An IP literal is never resolved; it is itself the checked address.
+            if host.parse::<std::net::IpAddr>().is_err() {
+                builder = builder.resolve_to_addrs(&pin.host, &pin.addrs);
+            }
+        }
         if let Some(tls) = tls {
             builder = builder.use_preconfigured_tls((**tls).clone());
         }
@@ -300,7 +359,7 @@ impl HarnessClient {
         ca: Option<&[u8]>,
         next_ca: Option<&[u8]>,
     ) -> Result<reqwest::Client, ClientError> {
-        Self::transport(self.tls_config(bootstrap, ca, next_ca)?.as_ref(), false)
+        self.transport(self.tls_config(bootstrap, ca, next_ca)?.as_ref(), false)
     }
     /// Streaming uses the API client's prepared verifier without its total-body timeout.
     pub fn streaming_http(&self) -> Result<reqwest::Client, ClientError> {
@@ -312,6 +371,74 @@ impl HarnessClient {
             return Err(ClientError::Protocol);
         }
         Ok(self.tls.clone().map(tokio_tungstenite::Connector::Rustls))
+    }
+    /// Opens a WebSocket to this client's origin with the prepared TLS policy. A pinned client connects the TCP
+    /// stream to the first reachable checked address and hands it to the handshake, so the WebSocket library never
+    /// resolves the host (transport choice spec §9.2); the request's host still drives SNI and certificate checks.
+    /// A request for any other host than the origin's is refused.
+    pub async fn websocket_connect<R>(
+        &self,
+        request: R,
+    ) -> Result<
+        (
+            tokio_tungstenite::WebSocketStream<
+                tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+            >,
+            tokio_tungstenite::tungstenite::handshake::client::Response,
+        ),
+        ClientError,
+    >
+    where
+        R: tokio_tungstenite::tungstenite::client::IntoClientRequest + Unpin,
+    {
+        let connector = self.websocket_connector()?;
+        let request = request
+            .into_client_request()
+            .map_err(|_| ClientError::Protocol)?;
+        let uri = request.uri();
+        let host = uri
+            .host()
+            .ok_or(ClientError::Protocol)?
+            .trim_matches(['[', ']'])
+            .to_owned();
+        let port = uri.port_u16().unwrap_or(match uri.scheme_str() {
+            Some("wss") => 443,
+            _ => 80,
+        });
+        if Some(&host) != self.origin_host().as_ref() {
+            return Err(ClientError::Protocol);
+        }
+        let stream = match &self.connect {
+            Some(pin) => {
+                if pin.host != host {
+                    return Err(ClientError::Protocol);
+                }
+                let mut connected = None;
+                for addr in &pin.addrs {
+                    let addr = std::net::SocketAddr::new(addr.ip(), port);
+                    let attempt = tokio::time::timeout(
+                        Duration::from_secs(10),
+                        tokio::net::TcpStream::connect(addr),
+                    )
+                    .await;
+                    if let Ok(Ok(stream)) = attempt {
+                        connected = Some(stream);
+                        break;
+                    }
+                }
+                connected.ok_or(ClientError::Network)?
+            }
+            None => tokio::time::timeout(
+                Duration::from_secs(10),
+                tokio::net::TcpStream::connect((host.as_str(), port)),
+            )
+            .await
+            .map_err(|_| ClientError::Network)?
+            .map_err(|_| ClientError::Network)?,
+        };
+        tokio_tungstenite::client_async_tls_with_config(request, stream, None, connector)
+            .await
+            .map_err(|_| ClientError::Network)
     }
     async fn prepare(&mut self) -> Result<(), ClientError> {
         // Current and next are alternatives. An unavailable CA must not disable
@@ -347,8 +474,8 @@ impl HarnessClient {
             return Err(self.ca_failure.clone().unwrap_or(ClientError::CaNotKnown));
         }
         self.tls = self.tls_config(false, ca.as_deref(), next.as_deref())?;
-        self.http = Some(Self::transport(self.tls.as_ref(), false)?);
-        self.stream = Some(Self::transport(self.tls.as_ref(), true)?);
+        self.http = Some(self.transport(self.tls.as_ref(), false)?);
+        self.stream = Some(self.transport(self.tls.as_ref(), true)?);
         Ok(())
     }
     fn remember_ca_failure(&mut self, error: ClientError) {

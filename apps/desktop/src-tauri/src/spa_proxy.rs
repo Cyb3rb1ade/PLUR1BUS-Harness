@@ -553,15 +553,9 @@ async fn forward(
             return StatusCode::BAD_GATEWAY.into_response();
         };
         upstream.headers_mut().extend(headers);
-        let connector = match client.websocket_connector() {
-            Ok(v) => v,
-            Err(_) => return StatusCode::BAD_GATEWAY.into_response(),
-        };
-        let opened = tokio::time::timeout(
-            Duration::from_secs(10),
-            tokio_tungstenite::connect_async_tls_with_config(upstream, None, false, connector),
-        )
-        .await;
+        // The client connects to the open's checked addresses only (transport choice spec §9.2).
+        let opened =
+            tokio::time::timeout(Duration::from_secs(10), client.websocket_connect(upstream)).await;
         let Ok(Ok((socket, response))) = opened else {
             return StatusCode::BAD_GATEWAY.into_response();
         };
