@@ -4282,6 +4282,7 @@ dependencies = [
  "minisign",
  "minisign-verify",
  "plur1bus-desktop-contract",
+ "plur1bus-desktop-net",
  "plur1bus-host",
  "plur1bus-mock-harness",
  "rand 0.9.5",

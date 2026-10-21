@@ -33,6 +33,7 @@ pub mod settings;
 mod shell_commands;
 pub mod spa;
 pub mod spa_proxy;
+pub mod transport;
 pub mod tray;
 pub mod update_commands;
 pub mod updates;
