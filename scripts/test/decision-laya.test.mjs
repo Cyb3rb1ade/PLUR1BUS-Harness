@@ -110,3 +110,99 @@ test('process-first inference is separated from warm calls without discarding ei
   assert.throws(()=>summarizeLatencyPhases([1,NaN]),/latency/);
   assert.throws(()=>summarizeLatencyPhases([-1]),/latency/);
 });
+
+import { specialTokenNames, buildCappedInputs, expectedCalibrationError, parseProcStat, foreignCpuShare } from '../spikes/decision-laya-candidates.mjs';
+import { buildInputs as buildUncapped } from '../spikes/decision-laya-lib.mjs';
+const charTok = { encode: text => Array.from(text, c => c.charCodeAt(0)), cls: 1, sep: 2, mask: 3 };
+const cappedRequest = { primitive: 'choice', question: 'pick', state: 'state-with-a-long-tail-0123456789', options: [{ id: 'a', description: 'x' }, { id: 'b', description: 'y' }] };
+
+test('candidate runner reads special tokens from the tokenizer config and falls back to the English BERT trio', () => {
+  assert.deepEqual(specialTokenNames({ cls_token: '<bos>', sep_token: '<eos>', mask_token: '<mask>' }), { cls: '<bos>', sep: '<eos>', mask: '<mask>' });
+  assert.deepEqual(specialTokenNames({ cls_token: { content: '<c>' } }), { cls: '<c>', sep: '[SEP]', mask: '[MASK]' });
+  assert.deepEqual(specialTokenNames({}), { cls: '[CLS]', sep: '[SEP]', mask: '[MASK]' });
+  assert.deepEqual(specialTokenNames(undefined), { cls: '[CLS]', sep: '[SEP]', mask: '[MASK]' });
+});
+test('without a token cap the candidate prompt is byte-identical to the hash-pinned runner prompt', () => {
+  const config = { max_len: 200, head_max_len: 100 };
+  const base = buildUncapped(cappedRequest, charTok, config), same = buildCappedInputs(cappedRequest, charTok, config);
+  assert.deepEqual({ ids: same.ids, positions: same.positions }, base);
+  assert.equal(same.truncated, false);
+  // A cap that is not reached changes nothing either.
+  const roomy = buildCappedInputs(cappedRequest, charTok, config, 150);
+  assert.deepEqual(roomy.ids, base.ids); assert.equal(roomy.truncated, false); assert.equal(roomy.stateTokensUsed, roomy.stateTokens);
+});
+test('token cap keeps the whole head, clips the state on the right and always ends with a separator', () => {
+  const config = { max_len: 200, head_max_len: 100 };
+  const full = buildUncapped(cappedRequest, charTok, config);
+  const head = full.ids.length - cappedRequest.state.length - 1; // head (already ends in [SEP]); the state and its closing [SEP] follow
+  const capped = buildCappedInputs(cappedRequest, charTok, config, head + 10 + 1);
+  assert.equal(capped.ids.length, head + 10 + 1);
+  assert.deepEqual(capped.ids.slice(0, head), full.ids.slice(0, head));
+  assert.deepEqual(capped.positions, full.positions);
+  assert.equal(capped.ids.at(-1), 2);
+  assert.deepEqual(capped.ids.slice(head, head + 10), charTok.encode(cappedRequest.state).slice(0, 10)); // right clip: the beginning survives
+  assert.equal(capped.stateTokensUsed, 10); assert.equal(capped.stateTokens, cappedRequest.state.length); assert.equal(capped.truncated, true);
+  // No room at all: head + closing separator only.
+  const bare = buildCappedInputs(cappedRequest, charTok, config, head + 1);
+  assert.equal(bare.stateTokensUsed, 0); assert.deepEqual(bare.ids, [...full.ids.slice(0, head), 2]);
+});
+test('a head longer than the token cap is refused, never shortened; invalid caps are refused', () => {
+  const config = { max_len: 200, head_max_len: 100 };
+  assert.throws(() => buildCappedInputs(cappedRequest, charTok, config, 20), /head exceeds token cap/);
+  assert.throws(() => buildCappedInputs(cappedRequest, charTok, config, 7), /invalid max tokens/);
+  assert.throws(() => buildCappedInputs(cappedRequest, charTok, config, 12.5), /invalid max tokens/);
+  assert.throws(() => buildCappedInputs({ ...cappedRequest, options: [cappedRequest.options[0]] }, charTok, config, 100), /invalid request/);
+});
+test('ECE uses 15 equal-width bins on the top probability and matches hand-computed values', () => {
+  const rows = [['a', .9], ['a', .9], ['a', .9], ['b', .9]].map(([gold, p]) => ({ gold: gold === 'a' ? 'a' : 'b', probabilities: { a: p, b: 1 - p } }));
+  // top class is always "a" (p=.9): three correct, one wrong -> one bin, |0.9 - 0.75|
+  assert.ok(Math.abs(expectedCalibrationError(rows) - .15) < 1e-12);
+  const split = [{ gold: 'a', probabilities: { a: .6, b: .4 } }, { gold: 'b', probabilities: { a: .95, b: .05 } }];
+  assert.ok(Math.abs(expectedCalibrationError(split) - (.5 * .4 + .5 * .95)) < 1e-12);
+  assert.equal(expectedCalibrationError([]), null);
+  assert.throws(() => expectedCalibrationError(rows, 0), /bins/);
+});
+test('contention evidence: /proc/stat parsing and the foreign CPU share exclude this process own CPU time', () => {
+  const text = 'cpu  100 5 50 800 20 1 2 3 0 0\ncpu0 1 1 1 1 1 1 1 1 0 0\n';
+  assert.deepEqual(parseProcStat(text), { busy: 100 + 5 + 50 + 1 + 2, idle: 820, steal: 3 });
+  assert.throws(() => parseProcStat('intr 1 2 3'), /no cpu line/);
+  const before = { busy: 1000, idle: 0, steal: 0 }, after = { busy: 1200, idle: 0, steal: 0 }; // 200 jiffies = 2000 ms busy
+  assert.ok(Math.abs(foreignCpuShare(before, after, 1900, 1000, 2) - 100 / 2000) < 1e-12); // 100 ms foreign over 2 cpus x 1 s
+  assert.equal(foreignCpuShare(before, after, 5000, 1000, 2), 0); // never negative
+  assert.equal(foreignCpuShare(before, after, 0, 0, 2), null);
+});
+
+import { readFileSync } from 'node:fs';
+const evidence = name => JSON.parse(readFileSync(new URL(`../../docs/evidence/decision/${name}`, import.meta.url), 'utf8'));
+test('Linux candidate comparison evidence is complete, quiet-machine validated and consistent with the committed receipts', () => {
+  const comparison = evidence('2026-10-21-linux-x64-candidates.json');
+  assert.equal(comparison.schema, 'plur1bus.decision-candidates-comparison/1');
+  assert.ok(comparison.honesty.some(line => /agent-authored/.test(line)) && comparison.honesty.some(line => /not reference hardware/.test(line)));
+  const fixtureHash = createHash('sha256').update(readFileSync(new URL('../spikes/decision-eval-cases.json', import.meta.url))).digest('hex');
+  const names = new Set(comparison.runs.map(run => run.run));
+  assert.equal(names.size, comparison.runs.length);
+  for (const required of ['A-orig-t1', 'A-orig-t2', 'A-t1', 'A-t2', 'B-t1', 'B-t2', 'C-t1', 'C-t2', 'D-t2', 'A-t2-cap128', 'A-t2-cap256', 'B-t2-cap128', 'B-t2-cap256', 'C-t2-cap128', 'C-t2-cap256', 'D-t2-cap128', 'D-t2-cap256'])
+    assert.ok(names.has(required), `missing run ${required}`);
+  for (const run of comparison.runs) {
+    assert.equal(run.warmLatencyMs.n, 179); assert.ok(run.warmLatencyMs.p50 > 0 && run.warmLatencyMs.p95 >= run.warmLatencyMs.p50, run.run);
+    assert.equal(run.accuracy.n, 60); assert.equal(run.errorRows, 0);
+    assert.equal(run.accuracy.de, run.accuracy.deCorrect / 60); assert.equal(run.accuracy.en, run.accuracy.enCorrect / 60);
+    assert.ok(run.contention.foreignCpuShareInferenceLoop < 0.05 && run.contention.worstChunkOf30Calls < 0.10 && run.contention.stealShare < 0.05, `${run.run} overlapped foreign load`);
+    assert.ok(Number(run.contention.loadAvgAtStart.split(' ')[0]) < 0.5, `${run.run} did not start on a quiet machine`);
+    assert.equal(run.germanGate.passed, false, 'no candidate may be reported as passing the preliminary German gate on this evidence');
+    if (run.maxTokens !== null) assert.ok(run.threads === 2);
+  }
+  // Candidate A rows must agree with the committed hash-pinned receipts (same runner family, same model).
+  for (const [run, receipt] of [['A-orig-t1', 'laya-linux-x64-threads1.json'], ['A-orig-t2', 'laya-linux-x64-threads2.json']]) {
+    const entry = comparison.runs.find(r => r.run === run), proof = evidence(receipt);
+    assert.equal(proof.fixtureSha256, fixtureHash);
+    assert.equal(entry.warmLatencyMs.p50, proof.warmLatency.p50); assert.equal(entry.warmLatencyMs.p95, proof.warmLatency.p95);
+    assert.equal(entry.accuracy.deCorrect, 28); assert.equal(entry.accuracy.enCorrect, 39);
+  }
+  // Caps that exceed every sequence are no-ops: identical answers, nothing truncated.
+  for (const run of comparison.runs.filter(r => r.maxTokens !== null && r.maxTokens >= 128)) {
+    assert.equal(run.sequenceTokens.truncatedRows, 0, run.run);
+    assert.equal(run.optionAgreementWithReference.fraction, 1, run.run);
+  }
+  assert.equal(comparison.runs.find(r => r.run === 'B-t2-cap64').sequenceTokens.truncatedRows, 36);
+});

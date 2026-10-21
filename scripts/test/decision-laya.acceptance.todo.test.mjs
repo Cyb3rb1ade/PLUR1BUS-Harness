@@ -37,7 +37,7 @@ test('KNOWN GAP: production Laya service or module has public backend, bounded a
   assert.equal(proof.roleFallbackVerified, true);
 });
 for (const [key, platform] of [['linux-x64', 'linux'], ['win32-x64', 'win32']]) {
-  test(`${key}: actual hash-matched native latency, cold/warm phases and RSS receipt`, { todo: gates.measuredNativeReceipts[key] ? false : gates.blockers.native }, () => {
+  test(`${key}: actual hash-matched native latency, cold/warm phases, RSS and environment receipt`, { todo: gates.measuredNativeReceipts[key] ? false : gates.blockers.native }, () => {
     const proof = receipt(gates.measuredNativeReceipts[key]);
     assert.equal(proof.schema, 'plur1bus.decision-spike/1'); assert.equal(proof.platform, platform); assert.equal(proof.arch, 'x64');
     assert.deepEqual(proof.manifest, manifest); assert.equal(proof.fixtureSha256, hash);
@@ -58,15 +58,24 @@ for (const [key, platform] of [['linux-x64', 'linux'], ['win32-x64', 'win32']]) 
       assert.equal(rows.length, 60); evaluate(rows);
     }
     assert.equal(proof.automaticGermanEligibility, false, 'native timing alone never grants German admission');
-    if (platform === 'win32') {
+    {
       const environment = receipt(gates.nativeEnvironmentReceipts?.[key]);
       assert.equal(environment.schema, 'plur1bus.laya-native-environment/1');
       assert.equal(environment.virtualMachine, true); assert.equal(environment.bareMetalAcceptance, false);
       assert.equal(environment.runtime.node, proof.node); assert.equal(environment.runtime.arch, 'x64');
+      assert.equal(environment.runtime.platform, platform);
       assert.equal(environment.runtime.versions['onnxruntime-node'], '1.30.0');
       assert.equal(environment.runtime.versions['@huggingface/transformers'], '4.3.1');
-      assert.equal(environment.defenderConfiguration, 'unchanged');
       assert.ok(environment.system.TotalPhysicalMemory > 0 && environment.system.NumberOfLogicalProcessors > 0);
+      if (platform === 'win32') assert.equal(environment.defenderConfiguration, 'unchanged');
+      if (platform === 'linux') {
+        // The Linux receipt comes from a cloud sandbox VM, not the owner NAS VM: that must stay on the record.
+        assert.equal(environment.hostRole, 'cloud-sandbox');
+        assert.ok(environment.operatingSystem.Kernel.length && environment.system.CpuModelName.length);
+        assert.equal(typeof environment.system.CpuFlagsOfInterest.avx2, 'boolean');
+        const timing = environment.timingRuns[gates.measuredNativeReceipts[key].split('/').at(-1)];
+        assert.equal(timing.valid, true); assert.ok(timing.foreignCpuShare < 0.05, 'timing run must not overlap foreign CPU load');
+      }
       for (const file of ['decision-laya.mjs','decision-laya-lib.mjs','decision-laya-paths.mjs','decision-laya-manifest.json','decision-eval-cases.json']) {
         assert.equal(environment.sourceSha256[file], createHash('sha256').update(readFileSync(new URL(`scripts/spikes/${file}`, root))).digest('hex'));
       }
@@ -90,22 +99,24 @@ test('KNOWN GAP: role comparison uses independently reviewed identical German/En
   }
 });
 
-test('Windows thread receipts preserve every paired case and independently recomputed cold/warm summaries',()=>{
-  const reports=[read('docs/evidence/decision/laya-windows-x64-threads1.json'),read('docs/evidence/decision/laya-windows-x64-threads2.json')];
-  const mac=read('docs/evidence/decision/laya-macos-arm64-process-phases.json');
-  const quantile=(values,p)=>[...values].sort((a,b)=>a-b)[Math.ceil(values.length*p)-1];
-  const picks=report=>report.rows.map(row=>`${row.id}:${row.locale}:${Object.entries(row.probabilities).sort((a,b)=>b[1]-a[1])[0][0]}`);
-  for(const [index,report] of reports.entries()){
-    assert.equal(report.threads,index+1);assert.equal(report.platform,'win32');assert.equal(report.arch,'x64');
-    assert.equal(report.fixtureSha256,hash);assert.deepEqual(report.manifest,manifest);
-    assert.equal(report.rows.length,180);assert.ok(report.rows.every(row=>!row.error));
-    const times=report.rows.map(row=>row.elapsedMs),warm=times.slice(1);
-    assert.equal(report.firstInferenceMs,times[0]);assert.equal(report.warmLatency.n,179);
-    for(const [field,p] of [['p50',.5],['p95',.95]]){
-      assert.equal(report.latency[field],quantile(times,p));
-      assert.equal(report.warmLatency[field],quantile(warm,p));
+for (const [name, platform] of [['windows', 'win32'], ['linux', 'linux']]) {
+  test(`${name} thread receipts preserve every paired case and independently recomputed cold/warm summaries`,()=>{
+    const reports=[read(`docs/evidence/decision/laya-${name}-x64-threads1.json`),read(`docs/evidence/decision/laya-${name}-x64-threads2.json`)];
+    const mac=read('docs/evidence/decision/laya-macos-arm64-process-phases.json');
+    const quantile=(values,p)=>[...values].sort((a,b)=>a-b)[Math.ceil(values.length*p)-1];
+    const picks=report=>report.rows.map(row=>`${row.id}:${row.locale}:${Object.entries(row.probabilities).sort((a,b)=>b[1]-a[1])[0][0]}`);
+    for(const [index,report] of reports.entries()){
+      assert.equal(report.threads,index+1);assert.equal(report.platform,platform);assert.equal(report.arch,'x64');
+      assert.equal(report.fixtureSha256,hash);assert.deepEqual(report.manifest,manifest);
+      assert.equal(report.rows.length,180);assert.ok(report.rows.every(row=>!row.error));
+      const times=report.rows.map(row=>row.elapsedMs),warm=times.slice(1);
+      assert.equal(report.firstInferenceMs,times[0]);assert.equal(report.warmLatency.n,179);
+      for(const [field,p] of [['p50',.5],['p95',.95]]){
+        assert.equal(report.latency[field],quantile(times,p));
+        assert.equal(report.warmLatency[field],quantile(warm,p));
+      }
+      assert.deepEqual(picks(report),picks(mac));
+      for(const locale of ['de','en'])assert.equal(evaluate(report.rows.filter(row=>row.coreGate&&row.locale===locale)).accuracy,locale==='de'?28/60:39/60);
     }
-    assert.deepEqual(picks(report),picks(mac));
-    for(const locale of ['de','en'])assert.equal(evaluate(report.rows.filter(row=>row.coreGate&&row.locale===locale)).accuracy,locale==='de'?28/60:39/60);
-  }
-});
+  });
+}

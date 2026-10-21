@@ -2,7 +2,7 @@
   "schema": "plur1bus.laya-acceptance-gates/1",
   "measuredNativeReceipts": {
     "darwin-arm64": "docs/evidence/decision/laya-macos-arm64-threads4.json",
-    "linux-x64": null,
+    "linux-x64": "docs/evidence/decision/laya-linux-x64-threads1.json",
     "win32-x64": "docs/evidence/decision/laya-windows-x64-threads1.json"
   },
   "productionBackendReceipt": null,
@@ -10,11 +10,12 @@
   "roleComparisonReceipt": null,
   "blockers": {
     "productionBackendReceipt": "Production Core service or supervised module and public F2 backend port not delivered; controller owns dependency/lock changes",
-    "native": "Windows x64 NAS measured; Ubuntu x64 NAS SSH still refuses port 22, so Linux x64 evidence remains absent",
+    "native": "Windows x64 (NAS VM) and Linux x64 (cloud sandbox VM, not the owner Ubuntu NAS VM) measured; neither is reference hardware or a bare-metal acceptance; the owner Ubuntu NAS VM still refuses SSH port 22",
     "labels": "Current labels are agent-authored; independent review and holdout not delivered",
     "roleComparisonReceipt": "Matched local role baseline not measured; no paid calls authorized"
   },
   "nativeEnvironmentReceipts": {
-    "win32-x64": "docs/evidence/decision/laya-windows-x64-environment.json"
+    "win32-x64": "docs/evidence/decision/laya-windows-x64-environment.json",
+    "linux-x64": "docs/evidence/decision/laya-linux-x64-environment.json"
   }
 }
