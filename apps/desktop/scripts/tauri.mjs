@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { normalizeBuiltDebs } from './normalize-deb.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const cli = resolve(root, 'node_modules/@tauri-apps/cli/tauri.js');
@@ -38,6 +39,8 @@ try {
   tauri = child(process.execPath, [cli, ...args]);
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => tauri.kill(signal));
   process.exitCode = await wait(tauri);
+  // tauri-bundler ignores SOURCE_DATE_EPOCH and stamps the .deb with the build clock (see normalize-deb.mjs).
+  if (process.exitCode === 0) await normalizeBuiltDebs({ root, args });
 } catch (error) {
   console.error(`desktop dev: ${error.message}`);
   process.exitCode = 1;
