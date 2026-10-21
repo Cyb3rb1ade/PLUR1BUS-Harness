@@ -263,7 +263,7 @@ describe("streaming over HTTP", () => {
       available: () => true, ensureSession: (a) => ({ sessionId: a.contextId }), cancel: () => false,
       run: async function* () { yield { type: "delta", text: big }; yield { type: "delta", text: big }; },
     };
-    const { url } = await start({ turns });
+    const { url } = await start({ turns, limits: { maxReplyBytes: 2_000_000 } }); // this test is about backpressure, not the 256 KiB default reply cap
     const r = await post(url, rpcBody("message/stream", msg("big")));
     const events = parseSse(await r.text());
     const total = events.filter((e) => e.result.kind === "artifact-update").map((e) => e.result.artifact.parts[0].text.length).reduce((a, b) => a + b, 0);

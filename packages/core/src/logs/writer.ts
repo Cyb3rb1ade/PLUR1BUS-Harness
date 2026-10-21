@@ -6,10 +6,13 @@ import { LevelPolicy, type LevelSettings, type Source } from "./levels.ts";
 export type { LevelSettings, Source };
 import { currentTrace, newTrace } from "./trace.ts";
 import { createSink } from "./sink.ts";
+import type { ExclusiveLock } from "@plur1bus/module-api";
 /** Records held while the sink fails; the oldest are dropped (and reported once the sink works again). */
 const MAX_PENDING = 256;
+/** Most records written under one acquisition of the role lock (bounds how long other writers wait for it). */
+const MAX_BATCH = 256;
 export interface WriteFields { source?: Source; level?: Level; stream?: "stdout" | "stderr"; bypassRate?: boolean }
-export interface WriterOptions { dir: string; role: string; source: Source; now?: () => number; timers?: boolean; strict?: boolean; maxBytes?: number; keep?: number; retentionDays?: number; redactPii?: boolean; levels?: LevelSettings }
+export interface WriterOptions { dir: string; role: string; source: Source; now?: () => number; timers?: boolean; strict?: boolean; maxBytes?: number; keep?: number; retentionDays?: number; redactPii?: boolean; levels?: LevelSettings; /** Test seam: counts or replaces the sink's OS lock acquisition. */ acquireLock?: (lockPath: string) => ExclusiveLock | null }
 type RecordValue = Record<string, any>;
 interface Repeat { record: RecordValue; start: number; count: number }
 interface Bucket { tokens: number; at: number; start: number; dropped: number; source: Source }
@@ -51,14 +54,20 @@ export function createWriter(o: WriterOptions) {
     if (flushing) return;
     flushing = true;
     try {
-      drain();
-      if (lost > 0 && !closed) { const dropped = lost; lost = 0; emit("log.suppressed", { dropped, window_ms: 0, reason: "sink-failed" }, {}, true); drain(); }
+      drain(durable);
+      if (lost > 0 && !closed) { const dropped = lost; lost = 0; emit("log.suppressed", { dropped, window_ms: 0, reason: "sink-failed" }, {}, true); drain(durable); }
       if (durable) sink.sync();
     }
     finally { flushing = false; }
     retryAt = 0;
   }
-  function drain(): void { while (pending.length) { sink.append(pending[0]!, false); pending.shift(); } }
+  /** Writes the queue in order, one role-lock acquisition per batch; the final batch also syncs when `durable`. A failing batch keeps exactly the records that did not reach the file queued. */
+  function drain(durable = false): void {
+    while (pending.length) {
+      const batch = pending.slice(0, MAX_BATCH);
+      sink.appendBatch(batch, durable && pending.length <= MAX_BATCH, count => { pending.splice(0, count); });
+    }
+  }
   function fit(record: RecordValue): RecordValue {
     const attrs = record.attrs as RecordValue; const original = Buffer.byteLength(JSON.stringify(attrs));
     const schema = attrsSchemaFor(lookupEvent(record.event)!); const props = schema.properties as Record<string, { maxLength?: number; maxItems?: number; items?: { maxLength?: number } }>;

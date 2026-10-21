@@ -24,8 +24,8 @@ before enqueueing. Unknown events throw with `strict: true`; otherwise they prod
 `log.unregistered` record. Audit/payload events and invalid attribution, attrs or levels are refused.
 
 New records flush every second or after 64 records; transitional legacy calls flush synchronously to preserve existing diagnostic readers. `flush()` drains it synchronously; `close()`
-also emits pending dedup/drop summaries. Each complete line is appended under a shared native
-role lock with `O_APPEND` and fsync. Handles close before rotation and deletion, including on Windows.
+also emits pending dedup/drop summaries. The queue is appended in order, in batches of at most 256 records, each batch under one acquisition of the shared native
+role lock (`O_APPEND`, one fsync per durable batch); other processes interleave between batches, never inside a line. Handles close before rotation and deletion, including on Windows.
 Files are secured with the existing module API's private-path helper (0600 on POSIX; Windows ACL).
 An I/O failure retains the unwritten queue head for retry; a producer's explicit flush can throw.
 The Core bootstrap registers `uncaughtExceptionMonitor` and `exit` flushes without replacing the
@@ -60,7 +60,7 @@ the adapter. Fatal records bypass rate limiting and dedup. This module does not 
 
 Writer-side redaction reuses `logs/redact.ts` and the shared data, before truncation. It covers
 sensitive keys/headers, vendor tokens, JWT/PEM, environment values, URL credentials/query/fragment,
-credential paths and optional PII (`redactPii`, false by default). `registerSecret(value)` adds known
+credential paths and optional PII (`redactPii`, false by default). GitHub tokens of the `ghp_`, `gho_`, `ghs_`, `ghu_`, `ghr_` and `github_pat_` families are covered, and so are the credentials in the path of a Telegram bot, Slack, Discord or Teams webhook URL. The `detail` of an audit event goes through the same redactor where it is serialised (the chain and both `audit.log` writers). `registerSecret(value)` adds known
 values of at least eight characters plus base64 and URL encodings to an in-memory registry
 capped at the 256 newest values (LRU). The secret store registers every value it sets, rotates, reveals or leases (`secrets/redaction.ts`); the registry fans out to the core log, the discovery and exec writers, the policy audit, `logs.query`/`logs.tail` and the doctor report. A retired or deleted value stays masked: the writer has no unregister. Pure hexadecimal hashes remain readable.
 Path matching uses the existing reader's lexical canonicalisation; filesystem/symlink-aware D109
@@ -104,8 +104,14 @@ Each stream assembles UTF-8 lines across reads, strips ANSI/OSC and C0/C1 contro
 redacts and truncates. A partial line is emitted after one second idle (`tick` from the exec timer,
 then `flush`). Memory per line is bounded at 64 KiB; larger lines are replaced wholesale by
 `[TRUNCATED:oversized-line]` with their original byte count, rather than exposing a credential
-prefix from discarded bytes. Framed text is then cut to 4096 bytes (`LIMITS.lineBytes`) before
-writer-side redaction.
+prefix from discarded bytes. Framed text is redacted first (a window of twice the cut, so a secret that starts before
+the cut is masked from its start even when it runs on past it) and then cut to 4096 bytes (`LIMITS.lineBytes`); the
+writer redacts again afterwards.
+A private key printed by a child spans many lines and the writer sees one line at a time, so each stream tracks the
+`-----BEGIN … PRIVATE KEY-----` … `-----END … PRIVATE KEY-----` block itself (the markers of the `pem-private-key` rule):
+every line inside the block, the marker lines included, is written as `[REDACTED:pattern]`, text on the marker lines
+outside the block is kept, and an unterminated block stays masked to the end of the stream. The state advances on lines
+the rate limiter drops.
 Each stream has its own 100/s, burst-500 bucket and emits `process.output.suppressed` with the count.
 
 `process.output.line` always has level info, `stream`, `attrs.text`, `attrs.untrusted: true`.
