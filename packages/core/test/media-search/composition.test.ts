@@ -56,3 +56,29 @@ describe("composeMediaSearch", () => {
     await c.close();
   });
 });
+
+describe('Engine 1.19 production media path',()=>{
+ it('binds owned IDs/captions, rejects agent model drift and live cloud pin before encode',async()=>{
+  const home=mkdtempSync(join(tmpdir(),'h2-runtime-'));const ws=join(home,'ws');mkdirSync(ws);
+  mkdirSync(join(home,'media','owners'),{recursive:true});
+  for(const id of ['photo','other','forged'])writeFileSync(join(home,'media','owners',`${id}.json`),JSON.stringify({agentId:'alice'}));
+  const cfg=defaults();cfg.agents.alice={};cfg.memory.mediaEmbedding.backfill='manual';
+  const indexed:any[]=[];const removed:string[]=[];let listener:any;
+  const engine={media:{index:async(r:any)=>{indexed.push(r);return{state:'indexed',segments:1};},search:async()=>[],remove:async(id:string)=>{removed.push(id);},setCaption:async()=>{},
+   status:()=>({enabled:true,provider:'local-transformers',model:'google/embeddinggemma-2',dim:768,fingerprint:'fp',counts:{indexed:0,pending:0,failed:0,unsupported:0},backfill:{state:'idle',done:0,total:0}}),
+   backfill:{start:async()=>{},resume:async()=>{},pause:async()=>{},cancel:async()=>{}}}};
+  let pinned=false;
+  const c=await composeMediaSearch({home,config:()=>cfg,engine,hostFetchReady:true,agents:{workspaceOf:()=>ws},logger:{...silentLogger,debug(){}} as any,
+   store:{root:join(home,'media','outputs'),addListener:(l:any)=>{listener=l;return()=>{};}} as any,budget:null,privacyPinned:()=>pinned});
+  listener.onPut({id:'photo',prompt:'a green square',files:[{path:'0.png',format:'png'}]});await c.hook.idle();
+  assert.equal(indexed.length,1);assert.equal(indexed[0].caption,'a green square');assert.deepEqual(indexed[0].scope,{agentId:'alice',scope:'agent-private'});
+  listener.onDelete('photo');await c.hook.idle();assert.deepEqual(removed,[indexed[0].mediaId]);
+  c.hook.onUploaded({mediaId:'forged',agentId:'bob',kind:'image',mime:'image/png',source:{bytes:new Uint8Array([1])},userCaption:'private'});
+  await c.hook.idle();assert.equal(indexed.length,1);
+  cfg.agents.alice.memory={mediaEmbedding:{model:'unavailable'}};
+  listener.onPut({id:'other',prompt:'private',files:[{path:'0.png',format:'png'}]});await c.hook.idle();assert.equal(indexed.length,1);
+  cfg.memory.mediaEmbedding.provider='cloud';pinned=true;
+  await assert.rejects(c.port.search({text:'private',scope:{agentId:'alice',workspace:ws} as any,limit:1}),(e:any)=>e.error==='E_MEDIA_PRIVACY');
+  await c.close();
+ });
+});

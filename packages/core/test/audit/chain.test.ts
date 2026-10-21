@@ -99,14 +99,15 @@ describe("audit chain", () => {
   });
 
   it("an anchor behind the tail cannot be papered over by another append", () => {
-    const t = fresh(); fill(t.chain, 2);
+    // Two lines behind: not the one crash state a writer heals (see "crash between the line and the anchor" below), so still a refusal.
+    const t = fresh(); fill(t.chain, 3);
     const anchorFile = path.join(t.dir, ANCHOR_NAME);
     const behind = JSON.stringify({ v: 1, seq: 1, hash: hashLine(t.read()[0] as string) });
     writeFileSync(anchorFile, behind);
     const v = t.chain.verify();
     assert.deepEqual([v.ok, v.anchor.status], [true, "behind"]);
-    assert.throws(() => t.chain.append(ev(2)), /tail does not match the anchor/);
-    assert.equal(t.read().length, 2);
+    assert.throws(() => t.chain.append(ev(3)), /tail does not match the anchor/);
+    assert.equal(t.read().length, 3);
     assert.equal(readFileSync(anchorFile, "utf8"), behind);
   });
 

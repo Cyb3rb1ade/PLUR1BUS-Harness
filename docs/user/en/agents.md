@@ -1,0 +1,75 @@
+# Managing agents
+
+An agent is a named assistant with its own memory and skills. The Agents page (`#/agents`) lists them, creates new ones and runs their life cycle: pause, archive, export and delete. The first agent is created by `plur1bus setup`, see [quickstart.md](quickstart.md). The German version of this page is [../de/agenten.md](../de/agenten.md).
+
+## The list
+
+The list shows the newest agent first. Each row has the name, the ID, the creation date, the number of skills and a badge for the state: **Active**, **Paused** or **Archived**. The arrow keys move between rows. A row opens the agent's detail page (`#/agents/<id>`) with name, ID, creation date, state, skills and, where they exist, the explicit rights of people on this agent.
+
+The detail page also holds the settings this agent overrides: the real-time voice settings ([voice.md](voice.md)) and the media settings ([media-search.md](media-search.md)). Everything not overridden is inherited from the global settings.
+
+## Create an agent
+
+Only Owner and Admin can create agents. Everyone else sees the list and a note.
+
+1. Choose **Create agent**.
+2. **Name and ID:** the name is shown in lists and chats (up to 80 characters). The page suggests the ID from the name. The ID has lowercase letters, digits, `-` and `_`, starts with a letter or a digit and has at most 64 characters. It cannot be changed later. An ID that exists already is refused.
+3. **Skills:** tick installed skills, or skip the step. Skills are managed in [extensions.md](extensions.md).
+4. **Review**, then **Create agent**.
+
+One wizard run sends one creation key. If the connection breaks, you can send the same wizard again: the server returns the same agent and the page says that an earlier attempt had already created it. Nothing is written twice. If the configuration changed in the meantime, nothing is written and you create the agent again.
+
+## Pause, archive, export, delete
+
+The buttons are under **Lifecycle** on the detail page.
+
+- **Pause** stops new turns and background work and keeps all state. **Resume** undoes it.
+- **Archive** retires an agent and keeps its data. **Unarchive** brings it back and keeps its pause state. While an agent is archived, pause and resume are not offered.
+- **Export bundle** downloads a file `<id>-export.json` with the agent's configuration and skills. Secrets are not part of it.
+- **Delete** is offered for archived agents only. You type the agent's name to confirm, and the dialog offers an export first. Deleting removes the agent, its configuration and its memory, and cannot be undone. In this build, erasing needs a function of the memory engine that is not available: the dialog then says so, nothing is deleted, and archiving and exporting stay available.
+
+The page enables the buttons for Owner, Admin and for a person who holds the explicit right **Manage** on this agent. All others see them disabled with the reason. The server has the last word: it lets Owner, Admin and Operator pause and resume, and only Owner and Admin archive, unarchive, export and delete. The rights table is in [../../rbac.md](../../rbac.md).
+
+## Rights per person
+
+Owner and Admin hold every right on every agent through their role, and an Operator can use and operate every agent. For a Member, the explicit right **Use** lets them see and chat with a single agent, and **Manage** also lets them change it. A Viewer with **Use** can see the agent. Owner and Admin set these rights, see [users-and-roles.md](users-and-roles.md), or with `plur1bus agent rights` below.
+
+## What is separate between agents
+
+The list page has a folded section **Agent isolation**. Per agent are: configuration, persona, sessions, memory pools, scoped secrets, tool views, MCP selection, terminal environment and budget counters. Shared are: the model cache for embeddings and reranking, the HTTP listener, the process lock, the operating system process and the native runtime. The same operating system user remains a trusted boundary; agents are not separated into processes.
+
+## On the command line
+
+The agent commands are marked experimental in the command reference.
+
+```sh
+plur1bus agent list
+plur1bus agent create notes
+plur1bus agent create notes --config agent-settings.json
+plur1bus agent validate agent-payload.json
+plur1bus agent status notes
+plur1bus agent pause notes
+plur1bus agent resume notes
+plur1bus agent archive notes
+plur1bus agent unarchive notes
+plur1bus agent export notes --offer-only
+plur1bus agent import notes-export.json --on-conflict rename
+plur1bus agent delete notes --confirm-name Notes --export-offer <offer>
+plur1bus agent remove notes
+plur1bus agent rights get notes
+plur1bus agent rights set notes <user> use
+```
+
+- `agent create <id>` registers an agent. With `--config` it takes a JSON file with `persona` (plain text, up to 4000 characters), `model` (an existing model profile), `memory`, `rights` and `channels`. Settings need a running core of the current version. `agent validate <file>` is a dry run of such a file: it reports errors per wizard step and creates nothing.
+- `agent status <id>` shows what the agent is doing and where its workspace is. `agent list` shows the registered agents and, with a running core, their activity.
+- `agent export <id>` writes a signed export without secrets. `agent import <file>` reads one and verifies its checksums and signature before writing anything; no credentials are imported, so you set missing secrets with `plur1bus secret set` ([secrets.md](secrets.md)). `--on-conflict` is `fail` (the default) or `rename`, which picks the next free name such as `notes-2`.
+- `agent delete` needs `--confirm-name` and `--export-offer`; the offer comes from `agent export <id> --offer-only`. With the current memory engine it reports that erasing is not available.
+- `agent remove <id>` only takes the agent out of the registry. Its data stays in place under `agents/<id>`.
+- `agent rights get <id>` lists the explicit rights. `agent rights set <id> <user> <right>` takes `use`, `manage` or `none`; `none` removes the explicit right.
+
+## Next
+
+- The wizard, creation keys and model licences: [agent-provisioning.md](agent-provisioning.md)
+- Talking to an agent: [chat.md](chat.md)
+- What an agent remembers: [memories.md](memories.md)
+- Roles and rights: [users-and-roles.md](users-and-roles.md)

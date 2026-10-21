@@ -52,6 +52,7 @@ export function createSessionRoleProvider(create: typeof createTurnProvider, opt
   };
   return { id: main.id, telemetry: main.telemetry,
     roleModels() { return (candidates ?? []).map(c => ({ provider:c.provider,model:c.model })); },
+    defaultModelProfile(agentId) { return options.profileForAgent?.(agentId) ?? options.profile ?? "default"; },
     modelProfiles() { return Object.keys(options.profiles).filter(name => options.profiles[name]?.length); },
     contextModels(_text, profile) {
       // A session-selected model profile (session.setModel) is the turn's profile; reserve for it alone.

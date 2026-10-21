@@ -122,6 +122,7 @@ not lost: `plur1bus media job <id>` shows it.
 | `release-version-invalid` | A version that is not a semantic version (`major.minor.patch`, optional `-pre-release`) cannot be ordered against the other. |
 | `prerelease-on-stable` | The release is a pre-release and this install follows the stable channel; `--channel beta` follows pre-releases. |
 | `guard-unreadable`, `addons-unreadable`, `state-unreadable` | A file under `<home>/update/` does not parse; it is never treated as empty. |
+| `update-in-progress` | Another `update`, `update --rollback` or `setup` holds `<home>/update/update.lock` (or an interrupted update's process is still alive); nothing was changed, run it again when the other one has finished. `update --plan`, `--check` and `update status` never take the lock. |
 | `addon-incompatible` | A required add-on would be incompatible with the new version; `--force` disables it and updates anyway. |
 | `addon-disable-failed` | (Outcome `rolled-back`.) An add-on could not be disabled after the swap; the update was rolled back. |
 | `bundle-unreadable`, `bundle-invalid`, `archive-unsupported`, `archive-unsafe-entry`, `channel-mismatch` | An offline bundle (`--from`) is missing, lacks `manifest.json`, `manifest.json.minisig` or an artefact, is not a `.tar.zst`/`.zip`, holds an entry that is not a plain file or directory (traversal, absolute name, link, duplicate), or is for another channel. |
@@ -168,6 +169,18 @@ are no new top-level error codes. Messages contain no key material or pairing co
 The central RBAC gate additionally returns `E_UNAUTHORIZED` for a missing
 principal and `E_DENIED` for forbidden role/kind/token scope, using the existing
 RBAC reasons. Repeating a completed revocation is idempotent.
+
+## Audit chain repair (`plur1bus audit reanchor`)
+
+Existing `E_*` codes with these additive `reason` values; there are no new top-level error codes. See [audit-chain.md](audit-chain.md#recovery).
+
+| Reason | Error | Exit | Meaning |
+|---|---|---|---|
+| `nothing-to-repair` | `E_NOT_AVAILABLE` | 2 | Writers accept the chain and its anchor (or there is no `logs/` directory); also the one state a writer heals itself, an anchor one complete line behind. Nothing was changed. |
+| `reason-empty` | `E_INVALID_PARAMS` | 2 | `--reason` is empty after trimming (it is required unless `--dry-run`). |
+| `not-owner` | `E_UNAUTHORIZED` | 1 | `logs/` does not belong to the calling OS user or is writable by group or others. Nothing was changed. |
+| `audit-chain-locked` | `E_LOCKED` | 3 | Another process holds the chain lock for longer than 5 seconds (a running core that is writing). Try again. |
+| `audit-reanchor-failed` | `E_STORAGE` | 1 | A file could not be renamed or written. The old files are put back under their names. |
 
 ## CLI-Exit-Codes
 

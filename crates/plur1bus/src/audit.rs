@@ -4,7 +4,7 @@
 // The writers (setup, repair) land in 2a-H3b-b Tasks 4 and 7; until then only the tests call `append`.
 #![allow(dead_code)]
 #[path = "audit_chain.rs"]
-mod chain;
+pub(crate) mod chain;
 use crate::paths::Layout;
 use serde_json::{json, Value};
 use std::fs;
@@ -44,7 +44,7 @@ pub(crate) fn create_private(path: &Path, truncate: bool) -> io::Result<fs::File
     Ok(f)
 }
 
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -68,8 +68,13 @@ pub fn append(layout: &Layout, action: &str, target: &str, detail: Value) -> io:
         "detail": detail,
     });
     chain::append(&layout.logs(), &line)?;
-    let mut f = fs::OpenOptions::new().append(true).read(true).open(&path)?;
-    let entry = serde_json::to_string(&line).map_err(io::Error::other)?;
+    write_log_line(&path, &line)
+}
+
+/// The `audit.log` half of an append: one line, after the file was created private.
+fn write_log_line(path: &Path, line: &Value) -> io::Result<()> {
+    let mut f = fs::OpenOptions::new().append(true).read(true).open(path)?;
+    let entry = serde_json::to_string(line).map_err(io::Error::other)?;
     {
         // The torn-line check and the write are one step: without the lock a writer checking the last byte can see
         // another writer's half-finished line and add a '\n' of its own, which shows up as an extra, empty line.
@@ -85,6 +90,27 @@ pub fn append(layout: &Layout, action: &str, target: &str, detail: Value) -> io:
         f.write_all(text.as_bytes())?;
     }
     f.sync_all()
+}
+
+/// `plur1bus audit reanchor`: the chain side is [`chain::reanchor`] (inspect, set the old chain aside, start a new one with an
+/// `audit.chain.reanchored` event). The same event is also written to `audit.log`, which an attacker on the chain would have to
+/// change too; a failure of that second copy is reported by the caller and does not undo the repair.
+pub(crate) fn reanchor(
+    layout: &Layout,
+    reason: &str,
+    dry_run: bool,
+) -> Result<(chain::Reanchored, Option<io::Error>), chain::ReanchorError> {
+    let done = chain::reanchor(&layout.logs(), reason, dry_run)?;
+    let mirrored = if done.dry_run {
+        None
+    } else {
+        let path = layout.audit_log();
+        create_private(&path, false)
+            .map(drop)
+            .and_then(|()| write_log_line(&path, &done.event))
+            .err()
+    };
+    Ok((done, mirrored))
 }
 
 /// Serialises the torn-line check and the append of one entry among the threads of this process.
@@ -166,6 +192,79 @@ mod tests {
         fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
         assert!(append(&layout, "repair.test", "test", json!({})).is_err());
         assert_eq!(fs::read_to_string(chain).unwrap(), text);
+    }
+
+    #[test]
+    fn a_reanchor_is_copied_to_audit_log_and_the_audit_line_after_it_joins_the_new_chain() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        append(&layout, "setup.complete", "test", json!({})).unwrap();
+        append(&layout, "repair.one", "test", json!({})).unwrap();
+        fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
+        assert!(append(&layout, "repair.two", "test", json!({})).is_err());
+        let log_before = fs::read_to_string(layout.audit_log()).unwrap();
+
+        let (done, mirror_error) = reanchor(&layout, "anchor lost", false).unwrap();
+        assert!(mirror_error.is_none());
+        assert!(!done.dry_run);
+
+        // audit.log keeps its earlier lines untouched and gains the event as one five-key line.
+        let log_after = fs::read_to_string(layout.audit_log()).unwrap();
+        assert!(log_after.starts_with(&log_before));
+        let event: Value = serde_json::from_str(log_after.lines().last().unwrap()).unwrap();
+        assert_eq!(event["action"], "audit.chain.reanchored");
+        assert_eq!(event["detail"]["reason"], "anchor lost");
+        assert_eq!(event.as_object().unwrap().len(), 5);
+        assert_eq!(event["detail"]["asideSuffix"], done.suffix.as_str());
+
+        // The chain is writable again, and the next event is line 2 of the new chain.
+        append(&layout, "repair.three", "test", json!({})).unwrap();
+        let chain = fs::read_to_string(layout.logs().join("audit-chain.jsonl")).unwrap();
+        let seqs: Vec<(u64, String)> = chain
+            .lines()
+            .map(|l| {
+                let v: Value = serde_json::from_str(l).unwrap();
+                (
+                    v["seq"].as_u64().unwrap(),
+                    v["rec"]["action"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            seqs,
+            vec![
+                (1, "audit.chain.reanchored".to_string()),
+                (2, "repair.three".to_string())
+            ]
+        );
+        // Nothing of the old chain is gone.
+        assert!(layout
+            .logs()
+            .join(format!("audit-chain.jsonl.{}", done.suffix))
+            .is_file());
+    }
+
+    #[test]
+    fn a_reanchor_dry_run_touches_neither_audit_log_nor_the_chain() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        append(&layout, "setup.complete", "test", json!({})).unwrap();
+        append(&layout, "repair.one", "test", json!({})).unwrap();
+        fs::write(layout.logs().join("audit-chain.anchor"), "{}").unwrap();
+        let snapshot = |l: &Layout| {
+            let mut all: Vec<(String, Vec<u8>)> = fs::read_dir(l.logs())
+                .unwrap()
+                .map(|e| e.unwrap().path())
+                .filter(|p| !p.to_string_lossy().ends_with(".lock"))
+                .map(|p| (p.display().to_string(), fs::read(&p).unwrap()))
+                .collect();
+            all.sort();
+            all
+        };
+        let before = snapshot(&layout);
+        let (done, _) = reanchor(&layout, "", true).unwrap();
+        assert!(done.dry_run && done.suffix.is_empty());
+        assert_eq!(snapshot(&layout), before);
     }
 
     fn lines(layout: &Layout) -> Vec<String> {

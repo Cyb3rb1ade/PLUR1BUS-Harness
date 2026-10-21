@@ -30,6 +30,11 @@ pub const FIXED_FILES: &[&str] = &[
     "state/memory/run-state.json",
     "state/memory/merge-proposals.jsonl",
 ];
+/// The engine's tombstone registry directory (`<dirname of the store>/_tombstones`, i.e. `state/_tombstones`). It is not
+/// part of any archive and no unit may be, or lie in, a directory of this name: the registry is the record of what was
+/// forgotten, and neither an old backup nor a crafted manifest may replace it (a store target of `state/_tombstones`
+/// would swap the registry for the archive's files and bring every forgotten memory back).
+pub const TOMBSTONE_DIR: &str = "_tombstones";
 /// First path segments never part of an archive (tokens and sockets, logs, the runtime, the models, the backups).
 const EXCLUDED_ROOTS: &[&str] = &["run", "logs", "runtime", "models", "backups"];
 /// Engine-staged units (their archive prefix is `memory/…`, `store`) the core produces; the rest the CLI copies.
@@ -135,6 +140,7 @@ fn first_segment(p: &str) -> &str {
 
 fn excluded(p: &str) -> bool {
     EXCLUDED_ROOTS.contains(&first_segment(p))
+        || p.split('/').any(|s| s == TOMBSTONE_DIR)
         || first_segment(p).starts_with(".restore-")
         || p == "state/core.lock"
         || p == "state/backup-staging"
@@ -411,6 +417,9 @@ mod tests {
             "backups/old",
             "state/core.lock",
             "state/backup-staging/x",
+            "state/_tombstones",
+            "state/_tombstones/x.sqlite",
+            "state/lancedb/_tombstones",
             "elsewhere",
             "state/other.txt",
             "../x",
@@ -429,6 +438,14 @@ mod tests {
         assert!(!store_target_allowed("run/store"));
         assert!(!store_target_allowed("agents/store"));
         assert!(store_target_allowed("state/lancedb"));
+        // The tombstone registry is never a store, nor inside one, nor a place a unit may land.
+        for t in [
+            "state/_tombstones",
+            "state/_tombstones/a",
+            "data/_tombstones",
+        ] {
+            assert!(!store_target_allowed(t), "{t}");
+        }
     }
 
     #[test]
