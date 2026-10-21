@@ -10,7 +10,7 @@ export interface InboxChange { userId: string; change: "created" | "read" | "dis
 
 /** What a source module is given: one call to publish, one to close the entry again. Both are synchronous and never throw. */
 export interface InboxPort {
-  publish(n: InboxNotice): void;
+  publish(n: InboxNotice, options?: { cooldownMs: number }): void;
   settle(target: SettleTarget, dedupeKey: string): void;
 }
 export interface InboxService extends InboxPort {
@@ -35,11 +35,11 @@ export function createInboxService(o: InboxServiceOptions): InboxService {
   const emit = (c: InboxChange): void => { try { o.onChange?.(c); } catch (e) { log("inbox change listener failed", { error: e instanceof Error ? e.message : String(e) }); } };
   const users = (t: InboxTarget): string[] => "userId" in t ? [t.userId] : [...new Set(o.admins())];
   return {
-    publish(n) {
+    publish(n, options) {
       try {
         for (const userId of users(n)) {
           const { audience: _a, userId: _u, ...rest } = n as InboxNotice & { audience?: string; userId?: string };
-          const r = o.store.publish({ ...rest, userId });
+          const r = options ? o.store.publishRateLimited({ ...rest, userId }, options.cooldownMs) : o.store.publish({ ...rest, userId });
           if (!r.created) continue;
           try { o.onPublished?.(n.kind); } catch { /* a metric never blocks */ }
           emit({ userId, change: "created", kinds: [n.kind] });

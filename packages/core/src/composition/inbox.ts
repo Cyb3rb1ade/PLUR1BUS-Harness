@@ -36,5 +36,5 @@ export function openInbox(o: InboxCompositionOptions): InboxComposition {
 
 /** A port that can be handed to producers before the inbox is open (and after it closed): calls in between are dropped. */
 export function lateInboxPort(get: () => InboxService | null): InboxPort {
-  return { publish: (n: InboxNotice) => get()?.publish(n), settle: (t: SettleTarget, k: string) => get()?.settle(t, k) };
+  return { publish: (n: InboxNotice, options?: { cooldownMs: number }) => get()?.publish(n, options), settle: (t: SettleTarget, k: string) => get()?.settle(t, k) };
 }
