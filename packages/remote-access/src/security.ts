@@ -109,6 +109,9 @@ export interface FirstAidState {
   readonly funnelActive?: boolean | undefined;
   /** False when the network listener has no usable certificate and key. */
   readonly tlsReady?: boolean | undefined;
+  /** The configured `allowSubnets` ranges that contain public addresses, each with the lowest public address as an
+   *  example. Classified by the caller (the API, with the shared `ip.ts` rules); this module only words the notice. */
+  readonly allowlistPublic?: readonly { readonly cidr: string; readonly example: string }[] | undefined;
 }
 
 export interface FirstAidEntry {
@@ -148,6 +151,11 @@ export function firstAidChecks(config: RemoteConfig, state: FirstAidState): Firs
   }
   if (config.allowSubnets.length === 0) {
     warn("remote.allowlist-empty", "No client subnet allow-list is set: any machine that can reach the address may attempt to connect.", "Add the subnets your devices connect from (remote.allowSubnets).");
+  }
+  // A notice, never a refusal: an organisation may well own a public block, so the range stays in force either way.
+  for (const range of state.allowlistPublic ?? []) {
+    warn("remote.allowlist-public", `${range.cidr} contains public addresses (for example ${range.example}): clients from those addresses pass the allow-list.`,
+      "Keep it only if your organisation owns this block; otherwise correct remote.allowSubnets.");
   }
   return out;
 }

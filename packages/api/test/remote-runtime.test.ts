@@ -7,7 +7,7 @@ import { createServer as reservePort } from "node:net";
 import { request as httpsRequest } from "node:https";
 import { randomBytes } from "node:crypto";
 import { certPin, pinsEqual, type ExecPort, type RemoteConfig } from "../../remote-access/src/index.ts";
-import { startRemoteRuntime, loadRemoteStartup } from "../src/remote-runtime.ts";
+import { startRemoteRuntime, loadRemoteStartup, allowlistPublic } from "../src/remote-runtime.ts";
 import { createApiServer } from "../src/server.ts";
 import { fakeCore } from "./helpers.ts";
 import type { TLSSocket } from "node:tls";
@@ -78,3 +78,36 @@ test("startup config uses tailnet and remote MFA defaults; rejects unknown expos
   writeFileSync(join(dir, "config.json"), JSON.stringify({ remote: { publish: "network", funnel: true } })); assert.throws(() => loadRemoteStartup(dir), /invalid remote exposure/);
 });
 test.todo("KNOWN GAP: native Tailscale Serve, CA-verified edge and desktop pairing acceptance require a disposable joined host");
+
+test("allowlistPublic classifies each range with the shared ip.ts rules and names the lowest public address", () => {
+  assert.deepEqual(allowlistPublic(["0.0.0.0/0", "100.0.0.0/8", "8.8.8.0/24", "172.16.0.0/11", "::/0", "2000::/3", "64:ff9b::/96", "::ffff:8.8.8.0/120"]).map(r => [r.cidr, r.example]), [
+    ["0.0.0.0/0", "1.0.0.0"], ["100.0.0.0/8", "100.0.0.0"], ["8.8.8.0/24", "8.8.8.0"], ["172.16.0.0/11", "172.0.0.0"],
+    ["::/0", "1.0.0.0"], ["2000::/3", "2000::"], ["64:ff9b::/96", "64:ff9b::100:0"], ["::ffff:8.8.8.0/120", "8.8.8.0"]]);
+  assert.deepEqual(allowlistPublic(["10.0.0.0/8", "192.168.0.0/16", "fd00::/8", "192.0.2.0/24", "100.64.0.0/10", "::ffff:10.0.0.0/104", "2002:0a00::/24", "not-a-range", ""]), []);
+  assert.deepEqual(allowlistPublic([]), []);
+});
+
+test("a public range in remote.allowSubnets adds a Doctor row, keeps the range in force and refuses nothing", async t => {
+  const dir = home(t), port = await unusedPort();
+  const runtime = await startRemoteRuntime({ home: dir, config: config("network", ["10.0.0.0/8", "8.8.8.0/24", "192.0.2.0/24", "100.0.0.0/8"]), publicOrigin: `https://localhost:${port}`, noticeAck: ack, localPort: 3001, hostInterfaces: [{ name: "fixture", address: "192.168.1.20" }], createApi: bind => createApiServer({ ...bind, core: fakeCore(), ownerToken: randomBytes(32).toString("hex"), rateClasses: wide }) });
+  try {
+    assert.equal(runtime.state.phase, "active");
+    const rows = (doctor: readonly { id: string; severity: string; message: string }[]) => doctor.filter(e => e.id === "remote.allowlist-public");
+    const check = (doctor: readonly { id: string; severity: string; message: string }[]) => {
+      assert.deepEqual(rows(doctor).map(e => [e.severity, e.message.split(":")[0]]), [
+        ["warn", "8.8.8.0/24 contains public addresses (for example 8.8.8.0)"], ["warn", "100.0.0.0/8 contains public addresses (for example 100.0.0.0)"]]);
+      assert.ok(doctor.some(e => e.id === "remote.network-on"));
+    };
+    check(runtime.state.doctor);
+    check((JSON.parse(readFileSync(join(dir, "state", "remote-status.json"), "utf8")) as { doctor: { id: string; severity: string; message: string }[] }).doctor);
+    // The second call site: the row survives a certificate rotation.
+    await runtime.certificates!.stageSelfSigned(); await runtime.activateStaged();
+    assert.equal(runtime.state.phase, "active"); check(runtime.state.doctor);
+  } finally { await runtime.close(); }
+});
+
+test("private and documentation ranges add no allowlist-public row", async t => {
+  const port = await unusedPort();
+  const runtime = await startRemoteRuntime({ home: home(t), config: config("network", ["10.0.0.0/8", "fd00::/8", "192.0.2.0/24"]), publicOrigin: `https://localhost:${port}`, noticeAck: ack, localPort: 3001, hostInterfaces: [{ name: "fixture", address: "192.168.1.20" }], createApi: bind => createApiServer({ ...bind, core: fakeCore(), ownerToken: randomBytes(32).toString("hex"), rateClasses: wide }) });
+  try { assert.equal(runtime.state.phase, "active"); assert.deepEqual(runtime.state.doctor.map(e => e.id), ["remote.network-on"]); } finally { await runtime.close(); }
+});

@@ -112,6 +112,49 @@ describe("remote controls: real REST contract", opts, () => {
       assert.deepEqual(remote.calls.filter(c => c.path.endsWith("rotate")).map(c => c.body), [{ operation: "stage" }, { operation: "activate" }]);
     });
   });
+  describe("public range notice (a notice, never a refusal)", () => {
+    type Page = import("playwright").Page;
+    const subnetsLabel = (locale: string) => locale === "de-DE" ? "Erlaubte Client-Subnetze (CIDR, eines pro Zeile)" : "Allowed client subnets (CIDR, one per line)";
+    const publishLabel = (locale: string) => locale === "de-DE" ? "Erreichbarkeit" : "Exposure";
+    const rows = (page: Page) => page.locator("#remote-subnets-public li").allInnerTexts();
+    test("the documentation range shows nothing, a range with public addresses shows the notice with an example, and saving is never blocked", async () => {
+      await withApp({}, async app => {
+        const remote = remoteFixture(app); await openRoute(app.page, route);
+        await app.page.getByLabel("Exposure", { exact: true }).selectOption("network");
+        const field = app.page.getByLabel(subnetsLabel("en-US"));
+        await field.fill("192.0.2.0/24\n10.0.0.0/8\nfd00::/8");
+        assert.deepEqual(await rows(app.page), []);
+        assert.equal(await field.getAttribute("aria-describedby"), null);
+        await field.fill("8.8.8.0/24");
+        await app.page.getByText("8.8.8.0/24 contains public addresses (for example 8.8.8.0). That is only right if your organisation owns public address blocks; otherwise it is probably a typo.").waitFor();
+        assert.equal(await field.getAttribute("aria-describedby"), "remote-subnets-public");
+        // One notice per valid public line, in order; documentation range, junk and a repeated line add none.
+        await field.fill("192.0.2.0/24\n8.8.8.0/24, 100.0.0.0/8\n0.0.0.0/0\n::/0\nnot a range\n8.8.8.0/24");
+        assert.deepEqual((await rows(app.page)).map(x => x.slice(0, x.indexOf(" contains")) + " | " + /for example ([^)]*)\)/.exec(x)![1]), [
+          "8.8.8.0/24 | 8.8.8.0", "100.0.0.0/8 | 100.0.0.0", "0.0.0.0/0 | 1.0.0.0", "::/0 | 1.0.0.0"]);
+        await field.fill("192.0.2.0/24");
+        assert.deepEqual(await rows(app.page), []);
+        await field.fill("8.8.8.0/24");
+        await app.page.getByText(/^8\.8\.8\.0\/24 contains public addresses/).waitFor();
+        const save = app.page.getByRole("button", { name: "Apply remote settings" });
+        await app.page.getByRole("checkbox", { name: "I understand and confirm the network security notice" }).click();
+        assert.equal(await save.isDisabled(), false); await save.click();
+        await app.page.getByText("Settings saved. Restart the harness to apply them.").waitFor();
+        assert.deepEqual((remote.calls.find(c => c.method === "PATCH")!.body as { allowSubnets: string[] }).allowSubnets, ["8.8.8.0/24"]);
+      });
+    });
+    for (const locale of ["en-US", "de-DE"]) for (const colorScheme of ["light", "dark"] as const) test(`the notice is accessible (${locale}/${colorScheme})`, async () => {
+      await withApp({ locale, colorScheme, width: 400 }, async app => {
+        remoteFixture(app); await openRoute(app.page, route, locale === "de-DE" ? "de" : "en");
+        await app.page.getByLabel(publishLabel(locale), { exact: true }).selectOption("network");
+        await app.page.getByLabel(subnetsLabel(locale)).fill("8.8.8.0/24\n::/0");
+        await app.page.getByText(locale === "de-DE" ? /^8\.8\.8\.0\/24 enthält öffentliche Adressen \(zum Beispiel 8\.8\.8\.0\)/ : /^8\.8\.8\.0\/24 contains public addresses/).waitFor();
+        assert.equal((await rows(app.page)).length, 2);
+        assert.equal(await app.page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
+        await expectAxeClean(app.page, `range-notice-${locale}-${colorScheme}`);
+      });
+    });
+  });
   for (const locale of ["en-US", "de-DE"]) for (const colorScheme of ["light", "dark"] as const) test(`network notice is accessible (${locale}/${colorScheme})`, async () => {
     await withApp({ locale, colorScheme, width: 400 }, async app => {
       remoteFixture(app); await openRoute(app.page, route, locale === "de-DE" ? "de" : "en");

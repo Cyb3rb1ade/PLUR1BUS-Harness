@@ -93,6 +93,7 @@ export const en = {
   "devices.remote.notice.allowList": "CIDR rules can restrict the client subnets. Pairing and sign-in still apply.",
   "devices.remote.notice.allowListEmpty": "The allowlist is empty: any computer that can reach the address may attempt a connection.",
   "devices.remote.notice.neverPublic": "The API is never published publicly. Funnel and public API sharing are unavailable.",
+  "devices.remote.allowlistPublic": "{range} contains public addresses (for example {example}). That is only right if your organisation owns public address blocks; otherwise it is probably a typo.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -189,4 +190,5 @@ export const de: Record<keyof typeof en, string> = {
   "devices.remote.notice.allowList": "CIDR-Regeln können die Client-Subnetze einschränken. Kopplung und Anmeldung bleiben verpflichtend.",
   "devices.remote.notice.allowListEmpty": "Die Allowlist ist leer: Jeder Computer, der die Adresse erreicht, darf einen Verbindungsversuch starten.",
   "devices.remote.notice.neverPublic": "Die API wird niemals öffentlich veröffentlicht. Funnel und öffentliches Teilen der API sind nicht verfügbar.",
+  "devices.remote.allowlistPublic": "{range} enthält öffentliche Adressen (zum Beispiel {example}). Das passt nur, wenn dein Unternehmen eigene öffentliche Adressbereiche nutzt; sonst ist es vermutlich ein Tippfehler.",
 };
