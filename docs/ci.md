@@ -108,3 +108,24 @@ Since the owner decision of 2026-10-18 the suite runs in four shards. `web-brows
 The registry-driven `shipped-conformance.test.ts` includes every shipped page automatically. Browser reflow at 200% uses 720 CSS px and device scale 2 for the equivalent 1440 physical-pixel window; CSS `zoom` alone leaves media queries unchanged. The shipped-page matrix also checks enlarged text with CSS zoom at 200%; the existing pattern cases remain. Target measurements use the WCAG 2.5.5 inline-prose exception, while standalone links and controls remain measured ([W3C target-size explanation](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html)). Browser fixture tests establish UI accessibility and layout, while served-stack acceptance is recorded independently in `docs/demos/m3.md`.
 
 The macOS unit lint step uses a 4096 MiB V8 heap. This increases the available memory without reducing the checked files or changing the gate. Verification on the local Mac does not prove a hosted runner's memory behavior; CI is not polled.
+
+
+## Superseded-run cancellation (GP5 P3)
+
+The cancellation behavior requested by GP5 was already present on main at `1dae60f2ae` (including #655's workflow
+hygiene work). P3 preserves it and adds offline regression checks; it introduces no concurrency mutation.
+
+- `ci`, `desktop` and `hermes-host` group by workflow and PR number (falling back to ref). That is stable across new
+  commits on one PR and distinct across PRs. Unrelated label events use the existing `-noop` suffix so they cannot
+  cancel a useful run; `ci:macos` intentionally replaces it with the requested platform run.
+- `cancel-in-progress` is true only for `pull_request`, false for main pushes, schedules, manual and merge-group runs.
+- `container` and `release-smoke` already use the same PR-only cancellation. P3 leaves their workflows unchanged.
+  Release-smoke tests a candidate; it does not publish it.
+- `harness-release` explicitly uses `cancel-in-progress: false`, including reusable/manual invocations. `nightly` has
+  no PR trigger, and its schedule/manual events cannot activate its existing PR-only cancellation expression.
+
+`node --test scripts/release/test/concurrency.test.mjs` evaluates the actual concurrency expressions with synthetic
+Actions contexts: different commits/PRs/refs/workflows, all relevant event types and both label cases. It checks the
+existing policy without dispatching or polling Actions. The release-script suite already runs this file in CI.
+
+No repository rules, release policy, controller merging or watcher behavior change in P3.
