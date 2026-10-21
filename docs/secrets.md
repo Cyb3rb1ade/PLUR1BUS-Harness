@@ -42,7 +42,4 @@ Tests cover full/partial-value rejection, rotation with retained descriptions, m
 unchanged active leases and ciphertext, concurrent rotation, audit failure, owner/agent RPC boundaries, WebMCP exclusion,
 CLI text/clear parsing, Web behavior, redaction, axe and 400 px layout.
 
-#574 is itself stacked on #570. Its new basic `privacy.localOnly` key lacked the mandatory CLI setup question. The
-additive integration repair asks against the current configured value, preserves that value on reruns, and never changes
-it in unattended setup. Restart classes and the local-only implementation remain the inherited #570 contract; Phase C
-owns the live-application follow-up. No Engine pin or Engine-repository code changes are made here.
+No Engine pin or Engine-repository code changes are made here.
