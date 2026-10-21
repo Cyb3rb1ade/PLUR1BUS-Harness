@@ -242,8 +242,6 @@ Each is a test marked `KNOWN GAP`; none is fixed because the fix changes behavio
 
 - **Global session cap** (`hardening-session.test.ts`): any signed-in account can fill the 64 sessions and evict everyone else's,
   the owner's included. A per-principal limit would fix it.
-- **Stronger password hashes are replaced** (`hardening-login.test.ts`): `needsRehash` rewrites any hash whose parameters differ
-  from the current ones, a stronger hash included.
 - **No HTTP status for six core codes** (`hardening-openapi.test.ts`): `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`,
   `E_INVITE_INVALID` and the voice codes (`E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE`, `E_VOICE_UNAVAILABLE`) fall back to 500. No route returns them yet.
 - **Windows device names** (`hardening-static.test.ts`): `CON`, `NUL`, `AUX`, `COM1`, `LPT1` (with or without an extension) are

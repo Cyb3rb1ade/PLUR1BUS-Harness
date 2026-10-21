@@ -64,13 +64,32 @@ test("over HTTP: a 1 MB password never reaches the hasher (413 or a cut connecti
   } finally { await h.close(); }
 });
 
-test("KNOWN GAP: a hash made with stronger parameters than the current ones is replaced by the weaker current ones at the next login", { todo: "KNOWN GAP: needsRehash treats any difference as stale (docs/api.md says \"other parameters\"); see SICHERHEIT in the PR" }, async () => {
+test("a hash made with stronger parameters than the current ones is kept at the next login, not replaced by the weaker current ones", async () => {
   const users = new MemoryUserDirectory(); const clock = new FakeClock();
   const strong = { memoryKiB: 65_536, passes: 3, parallelism: 1 };
   users.add({ id: "u-s", username: "strong", role: "member", passwordHash: await hashPassword(FIXTURE_PASSWORD, strong) });
   const r = await new PasswordLogin({ users, clock }).check("strong", FIXTURE_PASSWORD); assert.equal(r.ok, true);
   const after = parsePhc((await users.findByUsername("strong"))!.passwordHash)!;
   assert.deepEqual([after.memoryKiB, after.passes], [strong.memoryKiB, strong.passes], "the stronger cost was kept");
+});
+
+test("a hash that is stronger in one parameter and weaker in another is rehashed to the per-parameter maximum: nothing is lowered, the weak one is raised", async () => {
+  const users = new MemoryUserDirectory(); const clock = new FakeClock();
+  const mixed = { memoryKiB: 65_536, passes: 1, parallelism: 1 };
+  users.add({ id: "u-m", username: "mixed", role: "member", passwordHash: await hashPassword(FIXTURE_PASSWORD, mixed) });
+  const r = await new PasswordLogin({ users, clock }).check("mixed", FIXTURE_PASSWORD); assert.equal(r.ok && r.rehashed, true);
+  const after = parsePhc((await users.findByUsername("mixed"))!.passwordHash)!;
+  assert.deepEqual([after.memoryKiB, after.passes, after.parallelism], [65_536, ARGON2_PARAMS.passes, 1]);
+  assert.equal(await verifyPassword((await users.findByUsername("mixed"))!.passwordHash, FIXTURE_PASSWORD), true);
+});
+
+test("a stronger hash is not rewritten at all: the stored record and its version stay as they were", async () => {
+  const users = new MemoryUserDirectory(); const clock = new FakeClock();
+  const hash = await hashPassword(FIXTURE_PASSWORD, { memoryKiB: 65_536, passes: 3, parallelism: 1 });
+  users.add({ id: "u-s2", username: "strong2", role: "member", passwordHash: hash });
+  const before = (await users.findById("u-s2"))!;
+  const r = await new PasswordLogin({ users, clock }).check("strong2", FIXTURE_PASSWORD); assert.equal(r.ok && r.rehashed, false);
+  const after = (await users.findById("u-s2"))!; assert.equal(after.passwordHash, hash); assert.equal(after.version, before.version);
 });
 
 // ---- lockout -------------------------------------------------------------------------------------------------------
