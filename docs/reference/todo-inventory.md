@@ -194,7 +194,6 @@ Ebenfalls geschlossen: `packages/embedding-adapters/test/audit-c15.test.ts` (Clo
 | crates/plur1bus-log-schema/tests/events.rs:708 | SICHERHEIT, latent: `config.schema.json` ohne `x-sensitive`, das Webhook-Secret wird nicht redigiert |
 | crates/plur1bus/src/backup/hardening.rs:524 | SICHERHEIT: `config.json` liegt im Backup im Klartext, mit dem Telegram-Webhook-Secret |
 | crates/plur1bus/tests/firstaid_bundle_hardening.rs:408 | SICHERHEIT, niedrig: ein hex-kodiertes registriertes Secret wird im Bundle nicht redigiert |
-| crates/plur1bus/tests/supervisor_children.rs:814 | der Supervisor beendet den Core per PID, nicht per Prozessgruppe |
 | crates/plur1bus/tests/coverage_login.rs:128 | UNKLAR: soll ein nur aus Leerraum bestehender API-Key abgelehnt werden? (docs/testing/coverage-2026-10-wave2.md, offene Frage 9) |
 
 Weitere `#[ignore]` sind Umgebungs- oder Opt-in-Marker und keine Lücken: `apps/desktop/src-tauri/tests/controller_e2e.rs` (3, Docker, Podman, lokale Registry), `upgrade_e2e.rs` (2), `secrets.rs` (1, echter Keychain), `apps/desktop/src-tauri/examples/production_job.rs` (4 Subprozess-Einstiege) und `crates/plur1bus-ext/tests/fuzz.rs` (2, Nightly-Job).
