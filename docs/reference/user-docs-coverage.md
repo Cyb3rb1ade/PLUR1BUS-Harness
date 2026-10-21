@@ -1,6 +1,6 @@
 # Abdeckung der Nutzer-Doku (docs/user)
 
-Stand: 21.10.2026, GP5 U2. Basis ist `origin/main` `1dae60f2ae6d4f7b361cefa61e4717dfae00fa0b` mit U1 aus [#693](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/693), Head `5bdfa711ca892b71a37d6558a647ffbd6c06b6ff`. [#657](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/657) ist integriert. [#661](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/661), Head `819085993a1b06c13bd9c5d37e68fca79535c7bc`, ist bei der Prüfung noch offen; seine zusätzlichen Befehlsseiten zählen hier nicht als integriert.
+Stand: 22.10.2026, GP5 U2 nach normalem Merge von `origin/main` `52ef14c2e1574914903e4322b65fc7031bf8b5bc`. U1 aus [#693](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/693), letzter Head `6a6031dd80e29fc998a8d62976c6b4b542149558`, ist dort integriert. [#657](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/657) ist integriert. [#661](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/661), Head `819085993a1b06c13bd9c5d37e68fca79535c7bc`, ist bei der Prüfung noch offen; seine zusätzlichen Befehlsseiten zählen hier nicht als integriert.
 
 ## Methode und Grenzen
 
@@ -20,11 +20,13 @@ Stand: 21.10.2026, GP5 U2. Basis ist `origin/main` `1dae60f2ae6d4f7b361cefa61e47
 | Web-Doku: teilweise | 9 |
 | Web-Doku: fehlt | 0 |
 | CLI-Blattbefehle | 217 |
-| Je Sprache wörtlich abgedeckt | 130 (59,9 %) |
-| Je Sprache ohne wörtliches Beispiel | 87 |
+| Je Sprache wörtlich abgedeckt | 131 (60,4 %) |
+| Je Sprache ohne wörtliches Beispiel | 86 |
 | Nutzerseiten | 40 de / 40 en |
 
 Die alte Bestandsaufnahme nannte 36 Web-Funktionen, enthielt aber 37 Zeilen (24 ja, 7 teilweise, 6 fehlend). Hier kommt der bisher ausgelassene Bereich `/settings/media` hinzu. Die sechs U1-Themen schließen die fehlenden Seiten; die Erzeugungsdialoge sind nun ebenfalls beschrieben. Anbieter-Anmeldung und Erweiterungs-Einstellungen werden nach erneuter Quellprüfung nur teilweise gewertet. So sind die aktuellen Summen direkt aus der folgenden Tabelle nachvollziehbar.
+
+Seit der ursprünglichen U2-Zählung ist `budget set` in beiden Budget-Seiten hinzugekommen. Daher steigt die CLI-Abdeckung von 130 auf 131, ohne den Nenner oder die Web-Themen zu ändern.
 
 ## Web-Funktionen
 
@@ -94,12 +96,12 @@ Die Spalten de und en zählen nur die vorhandenen 40 Seiten je Sprache auf diese
 | `admin` | 6 | 0 | 0 | alle 6 |
 | `inbox` | 4 | 0 | 0 | alle 4 |
 | `device`, `breakglass` | 8 | 0 | 0 | alle 8 |
-| `jobs`, `budget`, `trace`, `pairing`, `acp`, `core` | 9 | 0 | 0 | alle 9 |
-| Summe | 217 | 130 | 130 | 87 |
+| `jobs`, `budget`, `trace`, `pairing`, `acp`, `core` | 9 | 1 | 1 | acht; `budget set` ist in beiden Budget-Seiten dokumentiert |
+| Summe | 217 | 131 | 131 | 86 |
 
 ### Noch offene Ergänzungen aus #661
 
-Die Dokumente am geprüften PR-Head enthalten alle 21 `project`- und alle 11 `voice`-Blätter, gemessen mit demselben korrigierten Parser gegen die aktuelle CLI-Referenz. Die Befehlsmengen sind in beiden Sprachen identisch. Es fehlen dort weiterhin 55 der 217 aktuellen CLI-Blätter; #661 behauptet also keine vollständige Abdeckung. Seine zwei zusätzlichen Seiten je Sprache würden zusammen mit U1 **42 Seiten je Sprache** ergeben. Nach einer Integration wären **162/217 CLI-Blätter (74,7 %)** je Sprache abgedeckt. Bis dahin bleiben **130/217** die Zahl dieses Zweigs. Die 36 Seiten je Sprache im isolierten #661-Snapshot enthalten die sechs U1-Seiten noch nicht; das verändert die CLI-Menge nicht, weil U1 keine CLI-Beispiele hinzufügt.
+Die Dokumente am geprüften PR-Head enthalten alle 21 `project`- und alle 11 `voice`-Blätter, gemessen mit demselben korrigierten Parser gegen die aktuelle CLI-Referenz. Die Befehlsmengen sind in beiden Sprachen identisch. Es fehlen dort weiterhin 55 der 217 aktuellen CLI-Blätter; #661 behauptet also keine vollständige Abdeckung. Seine zwei zusätzlichen Seiten je Sprache würden zusammen mit U1 **42 Seiten je Sprache** ergeben. Die Vereinigung mit dem heutigen U2-Stand einschließlich `budget set` ergäbe nach einer Integration **163/217 CLI-Blätter (75,1 %)** je Sprache; 54 fehlten noch. Bis dahin bleiben **131/217** die Zahl dieses Zweigs. Die 36 Seiten je Sprache im isolierten #661-Snapshot enthalten die sechs U1-Seiten noch nicht; das verändert die CLI-Menge nicht, weil U1 keine CLI-Beispiele hinzufügt.
 
 ## Restlücken nach Wichtigkeit
 
@@ -107,7 +109,7 @@ Die Dokumente am geprüften PR-Head enthalten alle 21 `project`- und alle 11 `vo
 2. **Modelle und Anbieter:** Für `/models` fehlen Katalogfilter, Scan und Überschreibungen. Für `/settings/models` fehlen Rollenfelder, Modelltest und das konkrete Konfigurationsformular. `providers.md` behauptet noch, es gebe keine Web-Anmeldung, während `pages/settings/sections/providers.ts` bereits Anmelde-, Callback-, API-Key- und Abmeldeabläufe enthält. Das ist eine Korrekturlücke und bleibt teilweise abgedeckt.
 3. **Betrieb über Web und CLI:** Für `/settings/modules` fehlen Modulgraph, Bestätigungen und Rollen bei Installation/Deinstallation; die Betriebsseite erklärt überwiegend CLI-Updates. Bei `/settings/extensions` fehlen die Felder für unsignierte Pakete, Papierkorbfrist und Größenlimits, obwohl der Erweiterungsmanager selbst beschrieben ist. Bei `/settings/media` fehlen der eigene Metadaten-Schalter und die Agentenwahl; die Bibliotheksseite beschreibt nur ihren globalen Schalter. `audit reanchor` und `session model get/set` haben ebenfalls noch keine wörtlichen Nutzerbeispiele; Audit-Inhalte bleiben dem GP5-Audit-Dokupaket vorbehalten.
 4. **Noch unintegrierte CLI-Anleitungen:** `project` (21) und `voice` (11) sind auf dieser Basis die größten Zahlenlücken, werden aber bereits von #661 bearbeitet. Nicht doppelt schreiben; nach Controller-Integration erneut zählen.
-5. **Weitere CLI-Lücken:** `inbox` (4), `device`/`breakglass` (8), `jobs`/`budget` (4), `media` (6), `approval`/`grant` (5), `config`/`module`/`model`/`ext` (10), dazu `channel disable` und zwei `identity`-Blätter. `admin` (6), `trace` (2), `pairing qr`, `acp serve`, `core run` und `user pair claim` folgen nach den üblichen Nutzerwegen; interne und Adapter-Befehle bleiben im Nenner sichtbar.
+5. **Weitere CLI-Lücken:** `inbox` (4), `device`/`breakglass` (8), `jobs`/`budget` (3), `media` (6), `approval`/`grant` (5), `config`/`module`/`model`/`ext` (10), dazu `channel disable` und zwei `identity`-Blätter. `admin` (6), `trace` (2), `pairing qr`, `acp serve`, `core run` und `user pair claim` folgen nach den üblichen Nutzerwegen; interne und Adapter-Befehle bleiben im Nenner sichtbar.
 
 Die Web-Anbindung der Bibliothek ist ein **separater Produktbefund**, keine fehlende Hilfeseite: `packages/api/src/rpc-route.ts` lässt den von `pages/library/page.ts` angeforderten Listenaufruf nicht durch. Auch die Metadaten-Seite verwendet einen dort noch nicht freigegebenen Medienaufruf. Die Inventarzahlen bestätigen weder diese Abläufe noch Anbieter- oder Modellqualität.
 
