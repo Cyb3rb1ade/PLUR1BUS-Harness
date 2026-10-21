@@ -27,8 +27,9 @@ stolen token cannot mint another one or switch off a second factor. The core's R
 Argon2id through `node:crypto` (no dependency), as a PHC string `$argon2id$v=19$m=19456,t=2,p=1$<salt>$<tag>`: 19 MiB, 2
 passes, 1 lane, 16-byte salt, 32-byte tag. ADR-007 defers the parameters to ADR-005, which states none; these are the OWASP
 minimum for Argon2id and are a decision to confirm. A stored hash is only trusted inside bounds (8 MiB to 256 MiB, 1 to 10
-passes, 1 to 4 lanes), so a planted record cannot make a login allocate gigabytes. After a good login a hash made with other
-parameters is replaced by one made with the current ones.
+passes, 1 to 4 lanes), so a planted record cannot make a login allocate gigabytes. After a good login a hash that is weaker than the current
+parameters in at least one of memory, passes or lanes is replaced by one made with the per-parameter maximum of the stored and
+the current ones; a hash that is equal or stronger is left alone, so a login never downgrades a record.
 
 - **Constant work.** An unknown name, a disabled account and an account without a password each cost one Argon2id
   verification against a dummy hash, and answer exactly like a wrong password (`401`, `reason: invalid-credentials`).
