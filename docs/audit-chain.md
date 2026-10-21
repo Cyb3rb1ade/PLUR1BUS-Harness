@@ -179,6 +179,16 @@ changes nothing. A drained line is chained late, not backdated: it sits after th
 `audit-chain.pending.jsonl` is not part of the chain: `audit.verify` does not read it, and lines waiting in it are not tamper-evident until they
 are drained. A reporting gap while the chain is refused is the price of never blocking the person saving a configuration. Phase `prepare` rows record preparation before the config replacement, not by themselves a successful commit. Reanchor does not itself drain this journal; a subsequent successful Rust audit append triggers the attempt.
 
+## Owner inbox notices
+
+The Core sends active Owners person-scoped `system` warnings with `titleKey: inbox.audit.warning` and a `/logs` reference. Admin role alone does not subscribe a person. Notice parameters are exactly bounded `code`, non-negative safe-integer `count`, and observation time `at`; they never include audit records, actors, targets, `detail`, reasons or free-form error text. This content boundary applies to notices; the existing producer-redaction gap for audit records remains described below.
+
+Refusal codes are `anchor-missing`, `anchor-invalid`, `chain-shorter-than-anchor`, `tail-anchor-mismatch`, `tail-malformed`, `sequence-exhausted`, `rotation-target-exists`, `lock-timeout`, `audit-unreadable` and `audit-unavailable`. Unknown refusal text becomes `audit-unavailable`. `pending` reports observed queued rows or the count in a recent `audit.chain.pending_drained`; `pending-overflow` reports dropped rows from health or recent pending overflow/drain events. Counts reflect the triggering observation, not a continuously updated total.
+
+The Inbox commits a rolling 3,600,000 ms cooldown atomically with each entry, keyed by Owner and cause. At most one notice per Owner/cause/hour survives restarts, dismissal, entry retention and clock rollback; different causes and new Owners have independent cooldowns. Failed insertion rolls the cooldown back. Expiry needs a new observation before another notice is created. Inbox storage failure is best effort and does not change the original audit failure.
+
+Immediate Core refusal hooks combine with cached health and a read-only incremental `audit.log` reader for cross-process events, including queues drained between samples. The reader catches up in 1 MiB event-loop ticks; idle retry is 30 seconds with one cancellable timer. Log events must have a safe-integer timestamp within the past hour; old historical rows do not produce new warnings, while current persistent health/pending still can. Oversized buffered rows emit bounded `audit-unavailable` and are discarded through their newline. These warnings convey operational metadata, not successful integrity verification or guaranteed audit completeness.
+
 ## Evidence and operational repair
 
 Use [Audit recovery](ops/audit-recovery.md) before making further writes or starting a new era. Preserve the chain, its anchor, `audit.log`, pending journal, verification metadata and all torn/set-aside evidence together, with private permissions. The installation backup excludes `logs/`; `backup verify` checks its archive, not this audit chain. An update rollback or `1staid repair` is likewise not proof of historical audit integrity.

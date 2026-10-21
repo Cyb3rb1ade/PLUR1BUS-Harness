@@ -31,6 +31,23 @@ plur1bus audit verify
 
 `audit verify` fragt den laufenden Core. Bei Befunden endet es mit Status 1. Fehler beim Lesen oder bei der Prüfung sind kein Beleg für eine intakte Kette. Eine erfolgreiche ausdrückliche Prüfung speichert ihren Zeitpunkt in einer privaten Metadatendatei; die Kettenbeweise werden dabei nicht repariert.
 
+## Audit-Hinweise im Posteingang
+
+Aktive Owner erhalten bei verweigerten Audit-Schreibvorgängen, wartenden Zeilen oder Pending-Überlauf einen Systemhinweis im persönlichen Posteingang. Admins erhalten diese Owner-Hinweise nicht allein aufgrund ihrer Rolle; ihre Audit-Leserechte bleiben bestehen. Der Hinweis verlinkt die Protokolle und enthält nur einen begrenzten Code, eine Anzahl und den Beobachtungszeitpunkt. Audit-Inhalte, Akteure, Ziele, Detailfelder und freie Fehlertexte werden nicht in den Hinweis übernommen.
+
+| Code | Bedeutung |
+|---|---|
+| `anchor-missing`, `anchor-invalid` | Anker fehlt oder ist ungültig |
+| `chain-shorter-than-anchor`, `tail-anchor-mismatch`, `tail-malformed` | Kettenende und Anker erlauben keine normale Fortsetzung |
+| `sequence-exhausted`, `rotation-target-exists`, `lock-timeout` | Nummernraum, Rotationsziel oder Schreibsperre verhindert das Schreiben |
+| `audit-unreadable`, `audit-unavailable` | Audit-Zustand ist nicht lesbar oder nicht sicher bestimmbar; unbekannte Ursachen werden auf `audit-unavailable` begrenzt |
+| `pending` | Zeilen warten oder wurden nach einer Wartephase nachgetragen |
+| `pending-overflow` | Die Pending-Grenze hat Zeilen verworfen |
+
+Pro Owner und Ursache entsteht höchstens ein Hinweis innerhalb einer **rollierenden Stunde**. Andere Ursachen können eigene Hinweise erzeugen. Die Sperrfrist bleibt nach Neustart, Ausblenden, Aufbewahrungsbereinigung und zurückgestellter Uhr erhalten. Ein fehlgeschlagener Inbox-Schreibvorgang verbraucht die Sperrfrist nicht; die Zustellung bleibt bei Speicherfehlern bestmöglich. Ausblenden behebt die Audit-Ursache nicht, und das Ende der Sperrfrist erzeugt ohne erneute Beobachtung keinen Hinweis.
+
+Die Beobachtung kombiniert unmittelbare Core-Verweigerungen, zwischengespeicherten Betriebsstatus und neue Metadaten aus `audit.log`. Historische Logereignisse von vor mehr als einer Stunde lösen keinen frischen Hinweis aus; ein weiterhin beobachteter verweigerter Zustand oder Pending-Bestand kann das tun. Ein Hinweis ersetzt weder die Statusabfrage noch die ausdrückliche Kettenprüfung.
+
 ## Was „Kette verweigert“ bedeutet
 
 `refusing` mit einem Grund wie `anchor-missing`, `anchor-invalid` oder `tail-anchor-mismatch` heißt, dass das beobachtete Ende keine normale Fortsetzung erlaubt. Eine fehlende oder beschädigte Datei kann auf einen Absturz, einen Speicherfehler oder eine Veränderung zurückgehen. Der Grund allein entscheidet das nicht.

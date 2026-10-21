@@ -31,6 +31,23 @@ plur1bus audit verify
 
 `audit verify` asks the running core. Findings cause exit status 1. A read or verification error does not establish an intact chain. A successful explicit verification stores its time in a private metadata file; it does not repair chain evidence.
 
+## Audit notices in the inbox
+
+Active Owners receive a system notice in their personal inbox for refused audit writes, pending rows or pending overflow. Admins do not receive these Owner notices solely through their role; their audit read permissions still apply. The notice links to logs and carries only a bounded code, a count and observation time. Audit content, actors, targets, detail fields and free-form error text are not copied into the notice.
+
+| Code | Meaning |
+|---|---|
+| `anchor-missing`, `anchor-invalid` | The anchor is missing or invalid |
+| `chain-shorter-than-anchor`, `tail-anchor-mismatch`, `tail-malformed` | The chain end and anchor do not permit normal continuation |
+| `sequence-exhausted`, `rotation-target-exists`, `lock-timeout` | Sequence space, rotation target or write lock prevents writing |
+| `audit-unreadable`, `audit-unavailable` | Audit state cannot be read or safely determined; unknown causes are bounded to `audit-unavailable` |
+| `pending` | Rows are waiting or were appended after waiting |
+| `pending-overflow` | The pending limit discarded rows |
+
+Each Owner receives at most one notice per cause within a **rolling hour**. Different causes can generate separate notices. The cooldown survives restart, dismissal, retention cleanup and clock rollback. Failed inbox insertion does not consume the cooldown; delivery remains best effort under storage failure. Dismissal does not resolve the audit cause, and cooldown expiry alone does not generate a notice without another observation.
+
+Observation combines immediate Core refusals, cached operational status and new metadata from `audit.log`. Historical log events older than one hour do not create fresh notices; a persistently observed refusal or pending backlog still can. A notice replaces neither checking status nor explicit chain verification.
+
 ## What a refusing chain means
 
 `refusing`, with a reason such as `anchor-missing`, `anchor-invalid` or `tail-anchor-mismatch`, means the observed end does not permit normal continuation. A missing or damaged file can result from a crash, storage failure or modification. The reason alone does not distinguish these causes.
