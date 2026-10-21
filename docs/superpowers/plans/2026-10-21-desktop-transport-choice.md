@@ -31,8 +31,8 @@ harness* (bundled only), *Start runtime* (macOS), *Update…*, **one `connection
 `tray.rs:148` „Verbindungen…“ / `tray.rs:157` “Connections…”), *Settings…*, *Quit*; the handler maps it to
 `navigate_shell(app, "#/connections")` (`native.rs:677`). No per-connection entries, no submenu, no switch.
 Side finding: *Start harness* / *Stop harness* are created disabled (`native.rs:597–603`, `604–610`, `enabled = false`),
-nothing enables them, and `on_menu_event` (`native.rs:675–684`) has no arm for either id. Both are outside this plan;
-T4 only adds the path label to the tray header so a future switch submenu can reuse it (spec §7.3).
+nothing enables them, and `on_menu_event` (`native.rs:675–684`) has no arm for either id. **Owner decision 2026-10-21:** the switch submenu and working *Start/Stop harness* items are part of this plan as
+package **T4b** (below); spec §6.3 of the desktop design is the target, not the D1 plan's single *Connections…* entry.
 
 ## Review focus
 
@@ -350,6 +350,34 @@ in schema and bytes.
 
 ---
 
+## T4b — Tray: switch connection, start/stop harness (≈ 2 agent days; owner 2026-10-21)
+
+**Purpose.** Spec §6.3 of the desktop design: the tray/menubar lists every connection and switches the active one;
+*Start/Stop harness* work for the bundled harness.
+
+**Files.**
+- `src-tauri/src/native.rs` `tray_menu` (`:583`): a *Connections* submenu with one item per connection (name, path label
+  from T4, the active one checked; at most 20 entries, then *More…* opening `#/connections`), followed by
+  *Manage connections…*. `on_menu_event` (`:675`) gains arms for `connection:<uuid>` (calls the same code path as
+  `open_connection`, including the T4 transport gate: a connection that needs a confirmation opens the shell on its
+  confirm dialog instead of switching silently) and for `harness-start` / `harness-stop`.
+- Start/Stop: enabled only for the active `bundled` connection whose runtime is reachable; they call the existing
+  controller start/stop path (no new runtime command); state changes go through the existing tray state update.
+  Disabled with a reason tooltip otherwise (remote/local connection, runtime down, operation running).
+- The menu is rebuilt on `connections` changes and on active-connection change (debounced), never from webview input.
+- `src-tauri/src/tray.rs`: texts DE/EN (`tray.switch`, `tray.manage`, `tray.more`, start/stop reasons), du-Anrede.
+
+**Tests.**
+- `tests/tray_state.rs`: submenu model for 0, 1, 20, 21 connections; active checked; path labels; DE/EN.
+- Menu-event tests with injected seams: `connection:<uuid>` switches via the open path; an unknown/removed uuid is
+  ignored; a connection needing confirmation leads to the confirm route and **no** harness contact; start/stop only for
+  the active bundled connection, refused otherwise; no handler accepts ids from webviews.
+- Manual pass on macOS (menubar) and Windows (tray) recorded in the status doc.
+
+**Acceptance.** Desktop Green; switching from the tray behaves exactly like *Open* in the connection list.
+
+---
+
 ## T5 — Harness `remote.allowSubnets` public-range notice (≈ 1.5 agent days)
 
 **Purpose.** Owner decision 3 for the harness's own range input.
@@ -428,18 +456,17 @@ the checked addresses; host-key tests of WP1 unchanged.
 | T2 | 2 | T1 |
 | T3 | 3 | T1 (ranges); parallel to T2 |
 | T4 | 4 | T2, T3 |
+| T4b | 2 | T4 |
 | T5 | 1.5 | T0 |
 | T6 | 2 | T4; SSH WP1/WP2/WP3/WP5 respectively |
 | T7 | 1 | T4 (again after T6) |
 
-Total ≈ 16.5 agent days; T0–T5 ≈ 13.5 before any SSH client code.
+Total ≈ 18.5 agent days; T0–T5 incl. T4b ≈ 15.5 before any SSH client code.
 
 ## Open points
 
-- Owner questions Q-T1 … Q-T7 (spec §12) with recommendations; T4 implements the recommendations of Q-T1 and Q-T2
-  unless the owner decides otherwise before it starts.
-- The tray connection switch (spec §6.3) and the disabled tray *Start/Stop harness* items are unbuilt (*Tray finding*);
-  they need their own package and an owner decision whether §6.3 or the D1 plan's *Connections…* is the target.
+- Owner questions Q-T1 … Q-T7 (spec §12) are decided (2026-10-21, recommendations accepted).
+- Tray switch and *Start/Stop harness*: decided 2026-10-21, package T4b.
 - `packages/remote-access/src/net-address.ts` `addressScope` (used for the `network` bind-interface check) is a
   second, non-IANA scope function (it calls documentation ranges and `0.x` "public"). Not changed here; a follow-up
   could base it on `ip.ts` once the bridge exists.

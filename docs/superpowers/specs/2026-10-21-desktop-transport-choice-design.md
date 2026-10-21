@@ -459,9 +459,11 @@ byte-identical, tolerant sidecar, read-only on a newer version, corrupt sidecar 
 tests; Playwright UI tests with an injected transport (chooser, banners, confirmation, re-confirmation, tray text,
 axe light/dark DE/EN, 44 px, 400 px); manual real-Tailscale passes on the Mac and the Windows 11 VM.
 
-## 12. Open owner questions
+## 12. Owner questions (decided 2026-10-21)
 
-| # | Question | Recommendation |
+The owner accepted every recommendation below on 2026-10-21; they are binding for T0–T6.
+
+| # | Question | Decision (= recommendation) |
 |---|---|---|
 | Q-T1 | Preselect a path (for example „Über Tailscale“ when Tailscale is running)? | No preselection; a required choice. The check panel suggests the other path when the input clearly belongs to it. |
 | Q-T2 | Existing public direct connections (created before this feature): confirm once at the next open, or treat as confirmed? | Confirm once at the next open. |
