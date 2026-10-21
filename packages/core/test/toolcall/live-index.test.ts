@@ -90,7 +90,7 @@ test('local vectors are persisted and reused; no cloud adapter is admitted', asy
 test('nightly recheck uses the system-job contract and removes orphaned skills', async () => {
   const { home, live } = setup(); skill(home); live.view('a', []);
   try {
-    const job = live.job(); assert.equal(job.spec.name, 'capabilities.recheck'); assert.throws(() => job.validateArgs({ invalid: true })); skill(home, false);
+    const job = live.job(); assert.equal(job.spec.name, 'capabilities.recheck'); assert.equal(job.spec.exclusive, true); assert.throws(() => job.validateArgs({ invalid: true })); skill(home, false);
     const result = await job.run({}, { runId: 'night', trigger: 'cron', signal: new AbortController().signal }); assert.equal(result.outcome, 'completed'); assert.equal(live.registry.snapshot().length, 0); assert.notEqual(live.status().lastRecheck, null);
     assert.equal(usagePrior({ offered: 9, used: 9, succeeded: 9, foundBySearch: 9 }, { offered: 0, used: 0, succeeded: 0, foundBySearch: 0 }, loadCalibration()), 0);
     assert(usagePrior({ offered: 20, used: 20, succeeded: 20, foundBySearch: 20 }, { offered: 0, used: 0, succeeded: 0, foundBySearch: 0 }, loadCalibration()) <= .2);

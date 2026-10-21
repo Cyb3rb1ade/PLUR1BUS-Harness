@@ -3,6 +3,8 @@ import test from "node:test";
 import { FakeClock } from "../src/clock.ts";
 import { DEFAULT_SESSION_LIMITS, OWNER, ownerTokenVerifier, readCookie, SessionStore } from "../src/session.ts";
 
+const ALICE = Object.freeze({ kind: "user", id: "u-alice", role: "member" } as const);
+const MALLORY = Object.freeze({ kind: "user", id: "u-mallory", role: "viewer" } as const);
 const limits = { ...DEFAULT_SESSION_LIMITS, idleMs: 1000, absoluteMs: 5000, maxSessions: 2, csrfTtlMs: 1000, maxCsrfPerSession: 2 };
 
 test("a session lives until its idle timer runs out, each use pushes it out, the absolute limit is final", () => {
@@ -30,10 +32,47 @@ test("unknown, empty and destroyed ids are not sessions", () => {
   assert.equal(s.destroy(id), true); assert.equal(s.get(id), undefined); assert.equal(s.destroy(id), false);
 });
 
-test("the session count is capped by dropping the oldest", () => {
-  const clock = new FakeClock(); const s = new SessionStore(clock, limits);
-  const a = s.create(OWNER); const b = s.create(OWNER); const c = s.create(OWNER);
+// F2: the old rule ("at maxSessions, drop the globally oldest") let one account push every other person's session out
+// without a trace. The cap is now per principal (that principal's own oldest goes), with a higher global ceiling.
+test("the session count is capped per principal by dropping that principal's own oldest, and the eviction is reported", () => {
+  const clock = new FakeClock(); const s = new SessionStore(clock, { ...limits, maxSessions: 8, maxSessionsPerPrincipal: 2 });
+  const seen: Array<{ id: string; reason: string; by: string }> = []; s.onEvict(e => seen.push({ id: e.session.principal.id, reason: e.reason, by: e.by.id }));
+  const a = s.create(OWNER); clock.advance(1); const b = s.create(OWNER); clock.advance(1); const c = s.create(OWNER);
   assert.equal(s.get(a.id), undefined); assert.ok(s.get(b.id)); assert.ok(s.get(c.id));
+  assert.deepEqual(seen, [{ id: "owner", reason: "principal-cap", by: "owner" }]);
+});
+
+test("one principal at its cap never ends another principal's session", () => {
+  const clock = new FakeClock(); const s = new SessionStore(clock, { ...limits, maxSessions: 8, maxSessionsPerPrincipal: 2 });
+  const owner = s.create(OWNER); clock.advance(1);
+  const m1 = s.create(MALLORY); clock.advance(1); const m2 = s.create(MALLORY); clock.advance(1); const m3 = s.create(MALLORY);
+  assert.ok(s.get(owner.id), "the older session of somebody else survives");
+  assert.equal(s.get(m1.id), undefined); assert.ok(s.get(m2.id)); assert.ok(s.get(m3.id));
+});
+
+test("at the global ceiling the principal holding the most sessions loses its oldest one, audited as global-cap", () => {
+  const clock = new FakeClock(); const s = new SessionStore(clock, { ...limits, maxSessions: 4, maxSessionsPerPrincipal: 4 });
+  const seen: Array<{ id: string; reason: string; by: string }> = []; s.onEvict(e => seen.push({ id: e.session.principal.id, reason: e.reason, by: e.by.id }));
+  const owner = s.create(OWNER); clock.advance(1);
+  const m1 = s.create(MALLORY); clock.advance(1); const m2 = s.create(MALLORY); clock.advance(1); const m3 = s.create(MALLORY); clock.advance(1);
+  const a = s.create(ALICE);
+  assert.ok(s.get(owner.id), "the owner holds one session and is not the greediest account");
+  assert.equal(s.get(m1.id), undefined); assert.ok(s.get(m2.id)); assert.ok(s.get(m3.id)); assert.ok(s.get(a.id));
+  assert.deepEqual(seen, [{ id: "u-mallory", reason: "global-cap", by: "u-alice" }]);
+  assert.equal(s.size, 4);
+});
+
+test("without an explicit per-principal cap, maxSessions bounds a single principal as before", () => {
+  const clock = new FakeClock(); const s = new SessionStore(clock, limits); // maxSessions: 2
+  const a = s.create(OWNER); clock.advance(1); const b = s.create(OWNER); clock.advance(1); const c = s.create(OWNER);
+  assert.equal(s.get(a.id), undefined); assert.ok(s.get(b.id)); assert.ok(s.get(c.id));
+});
+
+test("a throwing eviction listener does not stop the eviction or the other listeners", () => {
+  const clock = new FakeClock(); const s = new SessionStore(clock, { ...limits, maxSessionsPerPrincipal: 1 });
+  let second = 0; s.onEvict(() => { throw new Error("boom"); }); s.onEvict(() => { second++; });
+  const a = s.create(OWNER); s.create(OWNER);
+  assert.equal(s.get(a.id), undefined); assert.equal(second, 1);
 });
 
 test("a CSRF token works once, only for its own session, and expires", () => {
@@ -71,7 +110,6 @@ test("readCookie returns the first matching cookie only", () => {
   assert.equal(readCookie(undefined, "x"), undefined); assert.equal(readCookie("xplur1bus_session=1", "plur1bus_session"), undefined);
 });
 
-const ALICE = Object.freeze({ kind: "user", id: "u-alice", role: "member" } as const);
 
 test("rotate gives the session a new cookie value: the old one dies, the lifetime is not extended, pending CSRF tokens are dropped", () => {
   const clock = new FakeClock(); const s = new SessionStore(clock, limits);

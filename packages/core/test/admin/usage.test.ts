@@ -6,8 +6,9 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { sessionUsage } from "../../src/rpc/session-usage.ts";
 test("session usage joins every settled/retry call once in tokens; a pending call is counted, never priced", t => {
-  const root = mkdtempSync(join(tmpdir(), "admin-usage-")), file = join(root,"budget.sqlite"); t.after(() => rmSync(root,{ recursive: true, force: true }));
-  const db = new DatabaseSync(file); t.after(() => db.close());
+  const root = mkdtempSync(join(tmpdir(), "admin-usage-")), file = join(root,"budget.sqlite");
+  // close first, remove second: after-hooks run in registration order and Windows cannot remove an open SQLite file
+  const db = new DatabaseSync(file); t.after(() => db.close()); t.after(() => rmSync(root,{ recursive: true, force: true }));
   db.exec(`CREATE TABLE budget_call(id TEXT,session TEXT,model TEXT,state TEXT,cost INTEGER,ts INTEGER);
     CREATE TABLE usage_event(request_id TEXT,input_tokens INTEGER,output_tokens INTEGER);
     INSERT INTO budget_call VALUES ('one','first','model-a','settled',5,1),('two','first','model-b','settled',7,2),('third','other','model-c','reserved',9,3);

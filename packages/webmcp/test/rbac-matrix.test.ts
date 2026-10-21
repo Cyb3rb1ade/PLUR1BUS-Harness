@@ -230,3 +230,16 @@ it('capabilities.search stays dispatcher-only and cannot bypass RPC RBAC through
   assert.equal(Object.hasOwn(methods, 'capabilities.search'), false);
   assert.equal(Object.hasOwn(RPC_RULES, 'capabilities.search'), false);
 });
+
+describe("C2. humanOnly set on the RPC rule itself is forbidden in WebMCP too", () => {
+  // Section C only follows POLICY's humanOnly (the action); a rule can also carry `humanOnly: true` on its own (guard.ts).
+  // The same reasoning holds: the page's client is the person, so an agent driving the page would act as the person.
+  const ruleLevel = coreMethods.filter((m) => RPC_RULES[m]?.humanOnly === true && !policyFor(RPC_RULES[m]!.action)?.humanOnly);
+  it("finds rule-level person-only methods", () => assert.ok(ruleLevel.includes("model.licence.confirm") && ruleLevel.includes("voice.session.create")));
+  for (const m of ruleLevel) {
+    // provider.test.ts 'Voice V3 human-only writes' asserts that voice.* methods other than the seven writes stay open; blocking
+    // voice.session.create would contradict it, so it stays a todo until the owner decides.
+    const gap = m === "voice.session.create" && !isForbiddenMethod(m) ? `${GAP_HUMAN} (an existing Voice V3 test asserts non-write voice.* stays open)` : undefined;
+    t(`${m}: not offered to an agent over WebMCP`, gap, () => assert.ok(isForbiddenMethod(m)));
+  }
+});

@@ -993,8 +993,10 @@ pub enum BackupCmd {
     ///
     /// The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite
     /// backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are
-    /// copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and
-    /// `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+    /// copied. The archive is private to the user. The secret store is never read: API keys stay in the OS keyring and
+    /// `run/` (tokens) is never archived, and a webhook secret kept in `config.json` is replaced by a placeholder. The API
+    /// account database (`state/api/accounts.db`) is archived with its password hashes and TOTP seeds. Checksums detect
+    /// corruption; the archive is not signed or encrypted.
     Create {
         /// where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
         #[arg(long)]
@@ -1221,8 +1223,9 @@ pub enum BudgetCmd {
     /// [experimental] Set or clear a limit, or the time zone budget periods follow
     ///
     /// A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`, `--hard`,
-    /// `--clear-soft`, `--clear-hard`. Values are input + output tokens (output includes reported
-    /// reasoning tokens). A bound left out stays as it is.
+    /// `--clear-soft`, `--clear-hard`. Values are whole numbers in the metric: input + output tokens
+    /// (output includes reported reasoning tokens), generated images, or seconds of generated video.
+    /// A bound left out stays as it is.
     Set {
         /// the limit covers all agents together
         #[arg(long, conflicts_with = "agent")]
@@ -1233,8 +1236,8 @@ pub enum BudgetCmd {
         /// the period the limit resets on (local calendar day or month)
         #[arg(long, value_parser = ["day", "month"])]
         period: Option<String>,
-        /// what is counted: input + output tokens (the only metric; may be left out)
-        #[arg(long, value_parser = ["tokens"])]
+        /// what is counted: input + output tokens (the default), generated images, or seconds of generated video
+        #[arg(long, value_parser = ["tokens", "images", "video-seconds"])]
         metric: Option<String>,
         /// warn (once per period) above this value
         #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]

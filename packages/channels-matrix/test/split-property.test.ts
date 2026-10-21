@@ -20,18 +20,19 @@
 //   the last part: the splitter does not repair the author's own unterminated fence.
 // - Empty input: "", and any whitespace-only input (String.prototype.trim), give [].
 //
-// Property 1 does not hold without exception: a part can exceed `max` by the closer that flush() appends, when the line that
-// opens a fence is the one that fills the part (KNOWN GAP, overshoot at most "\n" + the marker; a second test pins that bound).
+// Property 1 holds without exception: put() reserves the closer of the fence the placed line leaves open, so also the line that
+// opens a fence and fills the part leaves room for its own closer (regression test "the fence opener that fills a part ...").
 //
-// Property 3 is split in two. 3a (no surrogate pair is torn) holds. 3b (no extended grapheme cluster is torn) does not: the hard
-// split works on code points. A cut between CR and LF is not counted: the line break itself is the separator the code removes.
+// Property 3 is split in two. 3a (no surrogate pair is torn) and 3b (no extended grapheme cluster is torn) both hold: the hard
+// split cuts on grapheme cluster boundaries (Intl.Segmenter) and falls back to code points only for a single cluster that is
+// larger than the window. A cut between CR and LF is not counted: the line break itself is the separator the code removes.
 //
-// Property 4 is split in four. 4a holds: a fenced block that crosses a part boundary is closed in the left part and reopened
-// in the right one, and every part is balanced on its own. Three product deviations were found and are tracked as KNOWN GAPs:
-//   (i)   the reopen line is glued to the next piece when a hard-split code line continues across the boundary;
-//   (ii)  fences in CRLF text are not recognised at all (the opening regex stops at "\r"), so nothing is closed or reopened;
-//   (iii) a closing fence line that is longer than the reserved closer (trailing spaces, longer marker) and is the line that
-//         overflows leaves the left part unclosed, and the right part starts with that closing line, which then opens a new fence.
+// Property 4 is split in four, and all four hold: a fenced block that crosses a part boundary is closed in the left part and
+// reopened in the right one, and every part is balanced on its own (4a). Three former deviations are fixed and guarded by their
+// own tests (since commit ace7b9f7):
+//   (i, 4b)   the reopened fence line stands alone, also when a hard-split code line continues across the boundary;
+//   (ii, 4c)  fences in CRLF text are recognised like those in LF text (the "\r" is ignored for detection, kept in the text);
+//   (iii, 4d) a closing fence line that does not fit moves to the next part behind the reopened fence, so the left part is closed.
 //
 // Replay: every generated case is derived from (seed, index) alone: caseAt(SEED, index) rebuilds exactly the input a failure
 // message names. Structured edge cases carry `seed=- index=edge:<name>` and hand-picked cases `seed=- index=hand:<name>`.
@@ -585,10 +586,9 @@ test("corpus: >= 500 generated inputs, reproducible from (seed, index), well-for
 
 // ---- property 1: every part is within the limit -------------------------------------------------------------------
 
-// KNOWN GAP (product deviation, found by this test): put() leaves no room for the closer of a fence that is opened by the very
-// line that fills the part. The check in put() uses `closer()` while `fence` is still undefined (the opening line is placed first,
-// `fence` is set after it), so the "\n" + marker that flush() appends later is not part of the budget. Overshoot is at most
-// 1 + the opening marker, see the pinned test below. The reproducers are the hand cases "fence opener fills the part".
+// The budget check in put() reserves the closer of the fence the placed line leaves open (`after`), so the "\n" + marker that
+// closes a part is part of its budget even when the opening line itself fills the part. The reproducers are the hand cases
+// "fence opener fills the part"; the regression test right below pins them.
 test(
   "property 1: every part is at most `max` UTF-8 bytes (the real limit is the documented 16000)",
   () => {
@@ -689,10 +689,9 @@ test("property 3a: no surrogate pair is split (every part is well-formed UTF-16,
   }
 });
 
-// KNOWN GAP (product deviation, found by this test): hardSplit() in src/split.ts walks `for (const ch of rest)`, that is code
-// points, and cuts at the byte budget. Nothing keeps ZWJ sequences, flag pairs (two regional indicators), emoji with a skin-tone
-// modifier or base + combining mark together. A boundary that falls inside such a cluster is reported with the code points of
-// the torn cluster. A CR directly before the removed LF is not counted (see the header).
+// hardSplit() in src/split.ts works on extended grapheme clusters (Intl.Segmenter) and cuts at the byte budget, so ZWJ sequences,
+// flag pairs (two regional indicators), emoji with a skin-tone modifier and base + combining mark stay together. Only a single
+// cluster that is larger than the window is cut into code points. A CR directly before the removed LF is not counted (see the header).
 test(
   "property 3b: every part boundary falls on a grapheme boundary of the original (Intl.Segmenter)",
   () => {
@@ -719,7 +718,7 @@ test("property 4a: fenced blocks are closed and reopened across parts and every 
     const r = run(c);
     const other = r.analysis.issues.find((i) => i.kind === "other");
     if (other) fail(c, other.message);
-    if (r.analysis.issues.length > 0) continue; // the three tracked deviations below
+    if (r.analysis.issues.length > 0) continue; // the specific issue kinds are asserted by 4b, 4c and 4d below
     const sourceOpen = openAtEnd(c.text);
     for (const [k, part] of r.parts.entries()) {
       const last = k === r.parts.length - 1;
@@ -745,7 +744,8 @@ test("property 4a: fenced blocks are closed and reopened across parts and every 
   for (const part of parts.slice(1)) assert.ok(part.startsWith("```\n") && !part.includes("iiii"), "reopened with the bare marker, the long info string is not repeated");
 });
 
-// KNOWN GAP (i): put(piece, newline = false) appends a hard-split continuation straight onto the reopened fence line.
+// Guards (i): the reopened fence line is always followed by a line break, also in front of a hard-split continuation
+// (put() sets the separator after a flush).
 test(
   "property 4b: the reopened fence line is a line of its own, also when a hard-split code line continues across the boundary",
   () => {
@@ -756,7 +756,7 @@ test(
   },
 );
 
-// KNOWN GAP (ii): FENCE_OPEN is /^ {0,3}(`{3,}|~{3,})(.*)$/ and `.` does not match "\r", so "```ts\r" is not an opening line.
+// Guards (ii): splitMessage() strips a trailing "\r" before it matches FENCE_OPEN / FENCE_CLOSE, so "```ts\r" is an opening line.
 test(
   "property 4c: fences in CRLF text are closed and reopened like fences in LF text",
   () => {
@@ -767,8 +767,8 @@ test(
   },
 );
 
-// KNOWN GAP (iii): the closing line is placed with `fence` already cleared, so a flush right before it adds no closer and
-// reopens nothing; with a closing line longer than "\n" + marker it can be the line that does not fit.
+// Guards (iii): put() flushes with the fence the text is in before the line (`before`), so a closing line that does not fit
+// (longer than "\n" + marker) still gets a closer in the left part and moves behind the reopened fence in the next one.
 test(
   "property 4d: a closing fence line that does not fit does not leave the left part unclosed",
   () => {
