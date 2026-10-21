@@ -1,15 +1,17 @@
 // Budget service (L8, ADR-010 §4): usage accounting, soft/hard limits, and the check that runs before every model call.
 // Provider adapters call `recordUsage` after a call and `check`/`enforce` before it. The service never sees prompt content.
-// Budgets count tokens only (owner decision 2026-10-19: no money dimension anywhere; price tables and cost limits were removed).
+// Budgets count tokens and media units: images and video seconds (owner decisions 2026-10-19: no money dimension anywhere;
+// price tables and cost limits were removed). The call port (`calls.ts`) enforces all three; `check`/`enforce` here are tokens only.
 import type { DatabaseSync } from "node:sqlite";
 import { periodBounds, validateTimeZone, type Period } from "./period.ts";
 import { openBudgetDb, transaction } from "./store.ts";
 
 export type LimitScope = "global" | "agent";
-/** Input + output tokens; output includes the reasoning tokens a provider reports. */
-export type Metric = "tokens";
+/** `tokens`: input + output (output includes the reasoning tokens a provider reports); `images`: generated images;
+ *  `videoSeconds`: seconds of generated video (whole seconds, a fraction is rounded up). */
+export type Metric = "tokens" | "images" | "videoSeconds";
 export const PERIODS: readonly Period[] = ["day", "month"];
-export const METRICS: readonly Metric[] = ["tokens"];
+export const METRICS: readonly Metric[] = ["tokens", "images", "videoSeconds"];
 interface TokenCounts { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }
 
 /** What a provider adapter reports after a call. Closed: any other property (a prompt, a message list) is refused. */
@@ -57,14 +59,15 @@ export class BudgetExceededError extends Error {
 }
 export class BudgetInputError extends RangeError { constructor(m: string) { super(m); this.name = "BudgetInputError"; } }
 
-const fmt = (n: number) => `${n} tokens`;
+const UNIT: Record<Metric, string> = { tokens: "tokens", images: "images", videoSeconds: "video seconds" };
 export function describeBreach(b: Breach): string {
+  const fmt = (n: number) => `${n} ${UNIT[b.metric]}`;
   const who = b.scope === "global" ? "global" : `agent ${b.agentId}`;
   const when = `${b.period === "day" ? "daily" : "monthly"} ${b.metric}`;
   return `${who} ${when} hard limit ${fmt(b.limit)} would be exceeded (used ${fmt(b.used)}, this call ~${fmt(b.estimate)}; resets ${new Date(b.resetsAt).toISOString()})`;
 }
 
-export interface UsageTotals { events: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }
+export interface UsageTotals { events: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; images: number; videoSeconds: number }
 export interface StatusLimit extends Limit { used: number; state: "ok" | "soft" | "hard" }
 export interface StatusPeriod {
   period: Period; key: string; start: number; end: number; total: UsageTotals;
@@ -100,10 +103,11 @@ function closed(what: string, o: object, allowed: Set<string>): void {
   for (const k of Object.keys(o)) if (!allowed.has(k)) throw new BudgetInputError(`${what}: unknown property "${k}" (the budget store holds counts and ids only)`);
 }
 
-interface Row { n: number; i: number; o: number; cr: number; cw: number }
-const ZERO: UsageTotals = { events: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
-const totals = (r: Row): UsageTotals => ({ events: r.n, inputTokens: r.i, outputTokens: r.o, cacheReadTokens: r.cr, cacheWriteTokens: r.cw });
-const SUMS = "COUNT(*) AS n, COALESCE(SUM(input_tokens),0) AS i, COALESCE(SUM(output_tokens),0) AS o, COALESCE(SUM(cache_read_tokens),0) AS cr, COALESCE(SUM(cache_write_tokens),0) AS cw";
+interface Row { n: number; i: number; o: number; cr: number; cw: number; im: number; vs: number }
+const ZERO: UsageTotals = { events: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, images: 0, videoSeconds: 0 };
+const totals = (r: Row): UsageTotals => ({ events: r.n, inputTokens: r.i, outputTokens: r.o, cacheReadTokens: r.cr, cacheWriteTokens: r.cw, images: r.im, videoSeconds: r.vs });
+const SUMS = "COUNT(*) AS n, COALESCE(SUM(input_tokens),0) AS i, COALESCE(SUM(output_tokens),0) AS o, COALESCE(SUM(cache_read_tokens),0) AS cr, COALESCE(SUM(cache_write_tokens),0) AS cw, COALESCE(SUM(images),0) AS im, COALESCE(SUM(video_seconds),0) AS vs";
+const USED: Record<Metric, (r: Row) => number> = { tokens: (r) => r.i + r.o, images: (r) => r.im, videoSeconds: (r) => r.vs };
 /**
  * The legacy money columns of `usage_event` (schema 1: the cost and the price-table version) stay in the store, unused:
  * new rows leave the cost NULL and write an empty price version.
@@ -111,6 +115,8 @@ const SUMS = "COUNT(*) AS n, COALESCE(SUM(input_tokens),0) AS i, COALESCE(SUM(ou
  * dropped by a migration, so an older core can still open the store.
  */
 const TOKEN_LIMITS = "metric = 'tokens'";
+/** Every limit this core knows (status, limits, setLimit); `check`/`recordUsage` notices stay on token limits. */
+const KNOWN_LIMITS = `metric IN (${METRICS.map((m) => `'${m}'`).join(", ")})`;
 
 export interface BudgetService {
   recordUsage(e: UsageEvent): RecordResult;
@@ -145,14 +151,14 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
   const usedFor = (l: { scope: LimitScope; agent: string; period: Period; metric: Metric }, ts: number, tz: string) => {
     const b = periodBounds(ts, tz, l.period);
     const r = sums(b.start, b.end, l.scope === "agent" ? l.agent : undefined);
-    return { used: r.i + r.o, bounds: b };
+    return { used: USED[l.metric](r), bounds: b };
   };
 
   interface LimitRow { scope: LimitScope; agent: string; period: Period; metric: Metric; soft: number | null; hard: number | null }
-  const limitRows = (agent?: string): LimitRow[] =>
+  const limitRows = (agent?: string, which = TOKEN_LIMITS): LimitRow[] =>
     (agent === undefined
-      ? db.prepare(`SELECT scope, agent, period, metric, soft, hard FROM budget_limit WHERE ${TOKEN_LIMITS} ORDER BY scope, agent, period, metric`).all()
-      : db.prepare(`SELECT scope, agent, period, metric, soft, hard FROM budget_limit WHERE ${TOKEN_LIMITS} AND (scope = 'global' OR agent = ?) ORDER BY scope, agent, period, metric`).all(agent)) as unknown as LimitRow[];
+      ? db.prepare(`SELECT scope, agent, period, metric, soft, hard FROM budget_limit WHERE ${which} ORDER BY scope, agent, period, metric`).all()
+      : db.prepare(`SELECT scope, agent, period, metric, soft, hard FROM budget_limit WHERE ${which} AND (scope = 'global' OR agent = ?) ORDER BY scope, agent, period, metric`).all(agent)) as unknown as LimitRow[];
   const toLimit = (r: LimitRow): Limit => ({ scope: r.scope, ...(r.scope === "agent" ? { agentId: r.agent } : {}), period: r.period, metric: r.metric, soft: r.soft, hard: r.hard });
 
   /** Inserts the notice and reports whether this is the first one for the period (a restart does not re-warn). */
@@ -266,19 +272,19 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
         }
         return { period, key: b.key, start: b.start, end: b.end, total, agents: [...agents.values()] };
       });
-      const limits: StatusLimit[] = limitRows(opts.agentId).map((r) => {
+      const limits: StatusLimit[] = limitRows(opts.agentId, KNOWN_LIMITS).map((r) => {
         const { used } = usedFor(r, now, tz);
         return { ...toLimit(r), used, state: r.hard !== null && used >= r.hard ? "hard" : r.soft !== null && used >= r.soft ? "soft" : "ok" };
       });
       return { timeZone: tz, now, periods, limits };
     },
 
-    limits: () => limitRows().map(toLimit),
+    limits: () => limitRows(undefined, KNOWN_LIMITS).map(toLimit),
 
     setLimit(l) {
       if (l.scope !== "global" && l.scope !== "agent") throw new BudgetInputError("scope must be global or agent");
       if (!PERIODS.includes(l.period)) throw new BudgetInputError("period must be day or month");
-      if (!METRICS.includes(l.metric)) throw new BudgetInputError("metric must be tokens");
+      if (!METRICS.includes(l.metric)) throw new BudgetInputError("metric must be tokens, images or videoSeconds");
       const agent = l.scope === "agent" ? ident("agentId", l.agentId) : "";
       if (l.scope === "global" && l.agentId !== undefined) throw new BudgetInputError("a global limit takes no agentId");
       const bound = (n: string, v: number | null | undefined) => (v === undefined || v === null ? v : count(n, v));

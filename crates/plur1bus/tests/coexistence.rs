@@ -268,6 +268,102 @@ fn supervisor_config_set_refuses_a_foreign_store_path() {
 }
 
 #[test]
+fn supervisor_hand_edit_with_a_foreign_store_path_is_rejected_like_a_set() {
+    // ADR-013 §5: a hand edit is applied like a set, so `engine.baseDbPathOverride` inside another host's state
+    // directory is rejected (the running config stays, the file is reported), and a legitimate edit still applies.
+    use common::{client, wait_until, Supervisor, Watch, SCALE, TICK, WAIT};
+    use std::process::Stdio;
+
+    let dir = tempfile::tempdir().unwrap();
+    let host = dir.path().join("custom-state");
+    let home = dir.path().join("harness");
+    fs::create_dir_all(&host).unwrap();
+    fs::create_dir_all(&home).unwrap();
+    fs::write(host.join("openclaw.json"), "{}").unwrap();
+    fs::write(home.join("config.json"), r#"{"schemaVersion":1}"#).unwrap();
+    let child = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
+        .arg("--home")
+        .arg(&home)
+        .args(["supervise", "--no-core"])
+        .env("HOME", dir.path())
+        .env("USERPROFILE", dir.path())
+        .env("OPENCLAW_STATE_DIR", &host)
+        .env_remove("OPENCLAW_HOME")
+        .env_remove("OPENCLAW_PROFILE")
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", SCALE)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let _supervisor = Supervisor {
+        child,
+        home: home.clone(),
+    };
+    wait_until("run/supervisor.token", WAIT, || {
+        home.join("run/supervisor.token").exists()
+    });
+    let mut client = client(&home);
+    let watch = Watch::open(&home);
+    let status = |c: &mut plur1bus_rpc::Client| {
+        c.call("daemon.status", json!({})).unwrap()["config"].clone()
+    };
+    let before = status(&mut client);
+    let revision = before["revision"].clone();
+
+    let foreign = host.join("memory/lancedb");
+    let edited = json!({
+        "schemaVersion": 1,
+        "engine": { "baseDbPathOverride": foreign.to_string_lossy() },
+    });
+    fs::write(
+        home.join("config.json"),
+        serde_json::to_vec_pretty(&edited).unwrap(),
+    )
+    .unwrap();
+    wait_until("the foreign store path to be rejected", WAIT, || {
+        status(&mut client)["rejected"]["errors"]
+            .to_string()
+            .contains("foreign-host-store-path")
+    });
+    let rejected = status(&mut client);
+    assert_eq!(rejected["revision"], revision, "{rejected}");
+    assert!(
+        rejected["rejected"]["errors"]
+            .to_string()
+            .contains("choose a path under the harness home"),
+        "{rejected}"
+    );
+    let running = client.call("config.get", json!({})).unwrap();
+    assert_eq!(running["revision"], revision, "{running}");
+    assert!(running["value"]["engine"]["baseDbPathOverride"].is_null());
+    assert!(watch.changes_within(TICK * 3).is_empty());
+
+    // The legitimate behaviour is unchanged: a store path under the harness home applies like a set.
+    let own = home.join("store");
+    let fixed = json!({
+        "schemaVersion": 1,
+        "engine": { "baseDbPathOverride": own.to_string_lossy() },
+    });
+    fs::write(
+        home.join("config.json"),
+        serde_json::to_vec_pretty(&fixed).unwrap(),
+    )
+    .unwrap();
+    let change = watch
+        .next_change(WAIT)
+        .expect("no config.changed for the legitimate hand edit");
+    assert_eq!(change["source"], "file", "{change}");
+    assert!(status(&mut client)["rejected"].is_null());
+    let running = client.call("config.get", json!({})).unwrap();
+    assert_eq!(
+        running["value"]["engine"]["baseDbPathOverride"],
+        own.to_string_lossy().to_string()
+    );
+}
+
+#[test]
 fn setup_refuses_a_foreign_store_path_before_installing() {
     let e = setup_env::Env::new();
     fs::create_dir_all(&e.home).unwrap();

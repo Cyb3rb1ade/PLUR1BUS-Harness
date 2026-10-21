@@ -20,8 +20,17 @@ export interface Session {
   stepUpAt?: number;
 }
 
-export interface SessionLimits { idleMs: number; absoluteMs: number; maxSessions: number; csrfTtlMs: number; maxCsrfPerSession: number }
-export const DEFAULT_SESSION_LIMITS: SessionLimits = { idleMs: 30 * 60_000, absoluteMs: 12 * 3_600_000, maxSessions: 64, csrfTtlMs: 10 * 60_000, maxCsrfPerSession: 16 };
+/** `maxSessionsPerPrincipal` is the cap one account (or the owner) can hold: a new session beyond it ends that account's own
+ *  oldest one and nobody else's. `maxSessions` is the global ceiling above all accounts together; it is only reached when
+ *  many accounts are busy, and then the account holding the most sessions loses its oldest. Without `maxSessionsPerPrincipal`
+ *  the per-account cap is 64, or `maxSessions` when that is lower. */
+export interface SessionLimits { idleMs: number; absoluteMs: number; maxSessions: number; maxSessionsPerPrincipal?: number; csrfTtlMs: number; maxCsrfPerSession: number }
+export const DEFAULT_SESSION_LIMITS: SessionLimits = { idleMs: 30 * 60_000, absoluteMs: 12 * 3_600_000, maxSessions: 1024, maxSessionsPerPrincipal: 64, csrfTtlMs: 10 * 60_000, maxCsrfPerSession: 16 };
+const DEFAULT_PER_PRINCIPAL = 64;
+
+/** A live session ended because a limit was reached, not because its holder or its clock ended it. `by` is who made the
+ *  new session that forced it out. */
+export interface SessionEviction { session: Session; reason: "principal-cap" | "global-cap"; by: Principal }
 
 const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
 const newSecret = () => randomBytes(32).toString("base64url");
@@ -34,7 +43,10 @@ export class SessionStore {
   readonly #clock: Clock; readonly #limits: SessionLimits;
   readonly #byId = new Map<string, Entry>();
   readonly #ended = new Set<(session: Session) => void>();
+  readonly #evicted = new Set<(e: SessionEviction) => void>();
   onEnd(fn: (session: Session) => void): () => void { this.#ended.add(fn); return () => { this.#ended.delete(fn); }; }
+  /** Called after a session was forced out by a cap (after `onEnd` ran for it). A throwing listener never stops the others. */
+  onEvict(fn: (e: SessionEviction) => void): () => void { this.#evicted.add(fn); return () => { this.#evicted.delete(fn); }; }
   /** Checks expiry without renewing idle time; a stream never keeps a session alive. */
   peek(id: string | undefined): Session | undefined { return this.#entry(id); }
   #remove(hash: string): boolean {
@@ -49,11 +61,41 @@ export class SessionStore {
   create(principal: Principal, o: { authVersion?: number; stepUpAt?: number; device?: Session["device"] } = {}): { id: string; session: Session } {
     const now = this.#clock.now();
     this.#sweep(now);
-    while (this.#byId.size >= this.#limits.maxSessions) { const first = this.#byId.keys().next(); if (first.done) break; this.#remove(first.value); }
+    this.#makeRoom(principal);
     const id = newSecret();
     const e: Entry = { principal, createdAt: now, absoluteExpiresAt: now + this.#limits.absoluteMs, idleExpiresAt: now + this.#limits.idleMs, authVersion: o.authVersion ?? 0, mustRotate: false, ...(o.device ? {device:structuredClone(o.device)} : {}), csrf: new Map(), ...(o.stepUpAt !== undefined ? { stepUpAt: o.stepUpAt } : {}) };
     this.#byId.set(sha256(id), e);
     return { id, session: e };
+  }
+
+  /** Makes room for one more session of `principal`: first its own cap (its own oldest goes), then the global ceiling (the
+   *  oldest session of whichever account holds the most goes). Each forced exit is reported to `onEvict`. */
+  #makeRoom(principal: Principal): void {
+    const perPrincipal = Math.max(1, Math.min(this.#limits.maxSessionsPerPrincipal ?? DEFAULT_PER_PRINCIPAL, this.#limits.maxSessions));
+    for (;;) {
+      let count = 0; let oldest: string | undefined; let oldestAt = Infinity;
+      for (const [h, e] of this.#byId) if (e.principal.id === principal.id) { count++; if (e.createdAt < oldestAt) { oldestAt = e.createdAt; oldest = h; } }
+      if (count < perPrincipal || oldest === undefined) break;
+      this.#evict(oldest, "principal-cap", principal);
+    }
+    while (this.#byId.size >= this.#limits.maxSessions) {
+      const held = new Map<string, { n: number; hash: string; at: number }>();
+      for (const [h, e] of this.#byId) {
+        const cur = held.get(e.principal.id);
+        if (!cur) held.set(e.principal.id, { n: 1, hash: h, at: e.createdAt });
+        else { cur.n++; if (e.createdAt < cur.at) { cur.at = e.createdAt; cur.hash = h; } }
+      }
+      let pick: { n: number; hash: string; at: number } | undefined;
+      for (const c of held.values()) if (!pick || c.n > pick.n || (c.n === pick.n && c.at < pick.at)) pick = c;
+      if (!pick) break;
+      this.#evict(pick.hash, "global-cap", principal);
+    }
+  }
+
+  #evict(hash: string, reason: SessionEviction["reason"], by: Principal): void {
+    const e = this.#byId.get(hash); if (!e) return;
+    this.#remove(hash);
+    for (const fn of this.#evicted) { try { fn({ session: e, reason, by }); } catch { /* the eviction stands */ } }
   }
 
   /** The live session for a cookie value, with its idle timer pushed out; `undefined` when unknown or expired. */

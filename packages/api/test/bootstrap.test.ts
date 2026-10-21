@@ -8,8 +8,11 @@ import { ensureBootstrap, verifyBootstrap } from "../src/bootstrap.ts";
 function rig(t: TestContext, now = Date.now()) {
   const home = mkdtempSync(join(tmpdir(), "bootstrap-private-")); mkdirSync(join(home, "run"), { mode: 0o700 }); chmodSync(join(home, "run"), 0o700);
   let clock = now; const accounts = new AccountStore({ path: join(home, "state", "accounts.db"), resolve: async userId => ({ userId, kind: "person", role: "owner", disabled: false, version: 1 }), now: () => clock });
-  t.after(() => { accounts.close(); rmSync(home, { recursive: true, force: true }); });
-  return { home, accounts, file: join(home, "run", "api-bootstrap.token"), expire: () => { clock = Date.now(); } };
+  // Further stores a test opens on the same files must be closed before the directory goes (Windows refuses to remove an open SQLite file);
+  // after-hooks run in registration order, so they register here, ahead of the removal.
+  const closers: Array<() => void> = [];
+  t.after(() => { for (const c of closers.reverse()) c(); accounts.close(); rmSync(home, { recursive: true, force: true }); });
+  return { home, accounts, file: join(home, "run", "api-bootstrap.token"), expire: () => { clock = Date.now(); }, closeBeforeRemoval: (c: () => void) => { closers.push(c); } };
 }
 test("bootstrap proof is private, persists pending startup, and cannot regenerate after account creation", async t => {
   const r = rig(t), clean = ensureBootstrap(r.home, r.accounts), proof = readFileSync(r.file, "utf8").trim();
@@ -39,7 +42,7 @@ test("oversized private bootstrap state fails closed before reading or replacing
 test("two database connections cannot bootstrap two Owners; audit refusal rolls the transaction back", async t => {
   const r=rig(t);ensureBootstrap(r.home,r.accounts);
   const peer=new AccountStore({path:join(r.home,"state","accounts.db"),resolve:async userId=>({userId,kind:"person",role:"owner",disabled:false,version:1})});
-  t.after(()=>peer.close());
+  r.closeBeforeRemoval(()=>peer.close());
   await assert.rejects(r.accounts.bootstrapOwner("first","unused",()=>{throw Error("audit offline");}),/audit|storage/);
   assert.equal(r.accounts.bootstrapState()?.consumed,false);assert.equal(r.accounts.hasOwnerAccount(),false);
   let audits=0;

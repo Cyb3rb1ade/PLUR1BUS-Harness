@@ -40,3 +40,21 @@ test("a failed connect fails that call only; the next call tries again; a closed
   await link.close();
   await assert.rejects(link.call("x"), /closed/);
 });
+
+test("F5: when the service connection's events.subscribe fails, that connection is closed and the next call connects afresh", async () => {
+  let opens = 0; let closed = 0; let failSubscribe = true;
+  const link = createCoreLink("/h", {
+    connect: async () => {
+      opens++;
+      const c = fakeClient(`s${opens}`, []);
+      return { ...c, call: (async (m: string) => { if (m === "events.subscribe" && failSubscribe) throw new Error("subscribe refused"); return { ok: true }; }) as CoreClient["call"], close: async () => { closed++; } };
+    },
+    readToken: () => "t", readPid: () => undefined, readApiToken: () => "api",
+  });
+  await assert.rejects(link.serviceCall!("admin.api.person.resolve", { userId: "u" }), /subscribe refused/);
+  assert.equal(opens, 1); assert.equal(closed, 1, "the half-set-up connection does not leak");
+  failSubscribe = false;
+  assert.deepEqual(await link.serviceCall!("admin.api.person.resolve", { userId: "u" }), { ok: true });
+  assert.equal(opens, 2); assert.equal(closed, 1, "the good connection stays open");
+  await link.close(); assert.equal(closed, 2);
+});

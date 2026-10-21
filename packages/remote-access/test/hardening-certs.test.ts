@@ -167,10 +167,30 @@ test("unknown OIDs (a signature algorithm, an extended key usage, a critical ext
   assert.equal(eku.ok === false && eku.issues.some((i) => i.code === "eku-no-server-auth"), true, "a certificate that is valid for no known purpose is not a server certificate");
 });
 
-test("KNOWN GAP: a leaf with a critical extension nobody understands is imported (TLS clients such as rustls will refuse it at connect time)", { todo: "KNOWN GAP: the import does not look at critical extensions; see SICHERHEIT in the PR" }, async () => {
+const importLeafOnly = (pki: ReturnType<typeof makePki>, der: Buffer, secrets = createMemorySecretPort()) =>
+  importCompanyCa({ certChainPem: asPem(der), keyPem: pki.leafKeyPem, hostnames: ["harness.corp.example"], now: NOW, keyRef: "k", secrets });
+
+test("a leaf with a critical extension nobody understands is refused at import (TLS clients such as rustls would refuse it at connect time), and its key is never stored", async () => {
   const pki = makePki(); const secrets = createMemorySecretPort(); const bad = swap(Buffer.from(new X509Certificate(pki.leafPem).raw), "551d0f", "551d63");
-  const r = await importCompanyCa({ certChainPem: asPem(bad), keyPem: pki.leafKeyPem, hostnames: ["harness.corp.example"], now: NOW, keyRef: "k", secrets });
-  assert.equal(r.ok, false);
+  const r = await importLeafOnly(pki, bad, secrets);
+  assert.equal(r.ok, false); assert.equal(r.ok === false && r.issues[0]?.code, "critical-extension-unsupported", "the first issue is what the API reports as the reason");
+  assert.match(r.ok === false ? r.issues[0]!.message : "", /2\.5\.29\.99/, "the message names the extension by OID"); assert.deepEqual(secrets.refs(), []);
+});
+
+test("critical extensions that rustls-webpki remembers stay importable; the ones it does not remember (certificatePolicies, authorityKeyIdentifier) are refused; unknown but non-critical is fine", async () => {
+  const pki = makePki(); const leafDer = Buffer.from(new X509Certificate(pki.leafPem).raw); const ext = extensionsOf(leafDer);
+  assert.equal(ext.get("551d0f")!.critical, true, "the builder marks keyUsage critical"); assert.equal(ext.get("551d13")!.critical, true, "the builder marks basicConstraints critical");
+  const plain = await importLeafOnly(pki, leafDer); assert.equal(plain.ok, true, "the default leaf (critical keyUsage and basicConstraints) imports");
+  // critical flag kept, OID moved onto another number: 15 keyUsage, 17 SAN, 19 basicConstraints, 30 nameConstraints, 31 cRLDistributionPoints, 37 extendedKeyUsage are all remembered by webpki 0.103.
+  for (const [label, der] of [["critical nameConstraints", swap(leafDer, "551d13", "551d1e")], ["critical cRLDistributionPoints", swap(leafDer, "551d13", "551d1f")], ["critical extKeyUsage-numbered", swap(leafDer, "551d0f", "551d25")]] as const) {
+    const r = await importLeafOnly(pki, der); assert.equal(r.ok === false && r.issues.some((i) => i.code === "critical-extension-unsupported"), false, label);
+  }
+  for (const [label, der, oidText] of [["critical certificatePolicies", swap(leafDer, "551d0f", "551d20"), "2.5.29.32"], ["critical authorityKeyIdentifier", swap(leafDer, "551d0f", "551d23"), "2.5.29.35"]] as const) {
+    const r = await importLeafOnly(pki, der); assert.equal(r.ok, false, label); assert.equal(r.ok === false && r.issues.some((i) => i.code === "critical-extension-unsupported" && i.message.includes(oidText)), true, label);
+  }
+  const quiet = await importLeafOnly(pki, swap(leafDer, "551d0e", "551d63")); assert.equal(quiet.ok, true, "an unknown extension that is not critical is ignored by clients, so it is allowed");
+  const garbled = Buffer.from(leafDer); const keyUsageAt = garbled.indexOf(Buffer.from("551d0f", "hex")); garbled[keyUsageAt + 3] = 0x02;     // 'critical' BOOLEAN header becomes a tag the extension reader cannot read
+  const g = await importLeafOnly(pki, garbled).catch((e: unknown) => assert.fail(`threw ${(e as Error).message}`)); assert.equal(g.ok === false ? g.issues.length > 0 : true, true, "a certificate whose extensions cannot be read ends in a defined result");
 });
 
 // ---- self-signed and company-CA time -------------------------------------------------------------------------------
