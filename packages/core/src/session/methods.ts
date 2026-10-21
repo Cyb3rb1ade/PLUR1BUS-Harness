@@ -17,7 +17,7 @@ import { SessionError, type EventRecord, type MessageRecord, type SessionRecord 
 
 /** The store, runner and compactor that serve one session: the durable ones, or the memory-only set of an incognito session. */
 export interface SessionRuntime { store: SessionStore; runner: TurnRunner; compactor?: import("./compaction.ts").Compactor }
-export interface SessionMethodDeps { /** The runtime holding the given session (the in-memory incognito one for ephemeral sessions, the durable one otherwise). Falls back to `store`/`runner`/`storeFor`. */ runtimeFor?: (sessionId: string) => SessionRuntime; /** The memory-only runtime where an incognito session is created, so nothing of it reaches disk. Absent: everything is durable. */ ephemeral?: () => SessionRuntime; modelProfiles?: () => readonly string[]; /** Store that holds the given session: the in-memory incognito store for ephemeral sessions, the durable store otherwise. */ storeFor?: (sessionId: string) => SessionStore;  compactor?: import("./compaction.ts").Compactor; store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
+export interface SessionMethodDeps { /** The runtime holding the given session (the in-memory incognito one for ephemeral sessions, the durable one otherwise). Falls back to `store`/`runner`/`storeFor`. */ runtimeFor?: (sessionId: string) => SessionRuntime; /** The memory-only runtime where an incognito session is created, so nothing of it reaches disk. Absent: everything is durable. */ ephemeral?: () => SessionRuntime; modelProfiles?: () => readonly string[]; defaultProfile?: (agentId: string) => string | undefined; /** Store that holds the given session: the in-memory incognito store for ephemeral sessions, the durable store otherwise. */ storeFor?: (sessionId: string) => SessionStore;  compactor?: import("./compaction.ts").Compactor; store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
   approver?: (ctx: CallContext, params: unknown) => Promise<import("./provider.ts").TurnApprover> }
 
 /** The session owner: the engine's own user-principal hash of the caller. An identity that would not give the engine a
@@ -61,6 +61,12 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
   const rt = (sessionId: string): SessionRuntime => d.runtimeFor?.(sessionId) ?? { store: d.storeFor?.(sessionId) ?? d.store, runner: d.runner, ...(d.compactor ? { compactor: d.compactor } : {}) };
 
   return {
+    "session.model.get": wrap(async (p: {caller: CallerIdentity; sessionId: string}, owner) => {
+      const {store}=rt(p.sessionId), session=store.getOwned(p.sessionId,owner);
+      requireAgent(d.agents,session.agentId);
+      const current=store.modelProfile(session.id), stored=store.modelReasoning(session.id);
+      return {sessionId:session.id,...current,defaultProfile:d.defaultProfile?.(session.agentId) ?? null,reasoning:isReasoningChoice(stored)?stored:"default"};
+    }),
     "session.model.set": wrap(async (p: { caller: CallerIdentity; sessionId: string; profile: string; confirmed?: boolean; expectedRevision?: number; reasoning?: ReasoningChoice }, owner) => {
       if (d.isStopping()) throw stopping();
       // Incognito sessions live in a memory-only store; the profile is kept there too, so nothing reaches disk.
@@ -68,16 +74,17 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       const s = store.getOwned(p.sessionId, owner);
       requireAgent(d.agents, s.agentId);
       if (s.kind !== "direct" || s.archivedAt !== null || store.runningTurn(s.id)) throw new SessionError("conflict", "model switch requires an idle direct session", "session-busy");
-      if (!d.modelProfiles?.().includes(p.profile)) throw new RpcError("E_NOT_AVAILABLE", "model profile is not configured", { reason: "model-profile-unavailable" });
       const current = store.modelProfile(s.id);
+      const profile = p.profile;
+      if (!d.modelProfiles?.().includes(profile)) throw new RpcError("E_NOT_AVAILABLE", "model profile is not configured", { reason: "model-profile-unavailable" });
       let revision = current.revision;
       if (p.confirmed === true) {
         if (p.expectedRevision === undefined) throw new RpcError("E_INVALID_PARAMS", "model switch confirmation requires the preview revision");
-        revision = store.setModelProfile(s.id, p.profile, p.expectedRevision, p.reasoning === undefined ? undefined : p.reasoning === "default" ? null : p.reasoning);
+        revision = store.setModelProfile(s.id, profile, p.expectedRevision, p.reasoning === undefined ? undefined : p.reasoning === "default" ? null : p.reasoning);
       }
       // The reasoning choice that applies (or would apply) with this profile: the requested one, else the stored one.
       const stored = store.modelReasoning(s.id), reasoning: ReasoningChoice = p.reasoning ?? (isReasoningChoice(stored) ? stored : "default");
-      return { sessionId: s.id, profile: p.profile, previousProfile: current.profile, revision, applied: p.confirmed === true, warning: "cache-rebuild-cost-prefixes-preserved", reasoning };
+      return { sessionId: s.id, profile, previousProfile: current.profile, revision, applied: p.confirmed === true, warning: "cache-rebuild-cost-prefixes-preserved", reasoning };
     }),
     "session.create": wrap(async (p: SessionCreateParams, owner) => {
       requireAgent(d.agents, p.agentId);
@@ -117,7 +124,7 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       const limit = p.limit ?? 100;
       const all = store.listMessages(s.id);
       const lastEventSeq = lastSeq(store, s.id);
-      return { session: toWireSession(s), runningTurnId: store.runningTurn(s.id)?.id ?? null, messages: all.slice(-limit).map(toWireMessage), lastEventSeq };
+      return { session: toWireSession(s), runningTurnId: store.runningTurn(s.id)?.id ?? null, messages: all.slice(-limit).map(toWireMessage), modelChanges: store.modelChanges(s.id).map(toWireEvent), lastEventSeq };
     }),
 
     "session.archive": wrap(async (p: SessionArchiveParams, owner) => {

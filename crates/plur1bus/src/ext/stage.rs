@@ -19,6 +19,7 @@ use super::state::ItemRecord;
 use super::ExtError;
 use crate::install::archive;
 use crate::paths::Layout;
+use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::{parse_manifest, Kind, P1xManifest};
 use plur1bus_ext::refusal::{reason, Refusal};
 use plur1bus_ext::skill::validate_skill_md;
@@ -199,6 +200,63 @@ pub(crate) fn check_tree(dest: &Path, m: &P1xManifest) -> Result<(), ExtError> {
     Ok(())
 }
 
+/// Whether the file at `path` holds exactly `want` (a missing file does not). Reads at most one byte more than `want`, so a swapped, enormous file costs
+/// no more than a small one.
+fn holds_exactly(path: &Path, want: &[u8]) -> Result<bool, ExtError> {
+    use std::io::Read;
+    let mut got = Vec::with_capacity(want.len() + 1);
+    match std::fs::File::open(path)
+        .and_then(|f| f.take(want.len() as u64 + 1).read_to_end(&mut got))
+    {
+        Ok(_) => Ok(got == want),
+        // A missing file is not what the audit read.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(io_error("cannot read", path, &e)),
+    }
+}
+
+/// The two root files of an extracted package against the bytes the audit read: `p1x.json` is exactly the audited manifest,
+/// `p1x.json.minisig` exactly the audited signature (and absent when the audit saw none). [`check_tree`] checks the payload
+/// against `files`; the root files are not in `files`, so without this a package stored as extracted would carry a manifest
+/// or a signature nobody audited.
+pub(crate) fn check_root_files(
+    dest: &Path,
+    manifest: &[u8],
+    signature: Option<&[u8]>,
+) -> Result<(), ExtError> {
+    if !holds_exactly(&dest.join("p1x.json"), manifest)? {
+        return Err(invalid(
+            reason::DIGEST,
+            "p1x.json after extraction is not the manifest the audit read",
+        ));
+    }
+    let sig_path = dest.join("p1x.json.minisig");
+    match (signature, std::fs::symlink_metadata(&sig_path).is_ok()) {
+        (Some(want), true) => {
+            if !holds_exactly(&sig_path, want)? {
+                return Err(invalid(
+                    reason::DIGEST,
+                    "p1x.json.minisig after extraction is not the signature the audit read",
+                ));
+            }
+        }
+        (Some(_), false) => {
+            return Err(invalid(
+                reason::PACKAGE_INVALID,
+                "p1x.json.minisig was audited but not extracted",
+            ))
+        }
+        (None, true) => {
+            return Err(invalid(
+                reason::PACKAGE_INVALID,
+                "p1x.json.minisig was extracted but the audit saw no signature",
+            ))
+        }
+        (None, false) => {}
+    }
+    Ok(())
+}
+
 fn read_payload_text(payload: &Path, rel: &str) -> Result<String, ExtError> {
     let p = payload.join(rel);
     match std::fs::read(&p) {
@@ -315,7 +373,8 @@ fn record_of(rec: &InspectionRecord, m: &P1xManifest) -> ItemRecord {
             .iter()
             .map(|(k, v)| (strip_payload(k), v.clone()))
             .collect::<BTreeMap<_, _>>(),
-        capabilities: m.capabilities.clone(),
+        // What the acknowledgment hash covers: the capabilities and, for the kinds that have one, the endpoint URL.
+        capabilities: acknowledged_capabilities(m),
         capabilities_ack: None,
         scripts,
         required_secrets,

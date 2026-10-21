@@ -1,39 +1,266 @@
 {
   "schema": "plur1bus.reasoning-metadata/1",
-  "revision": "2026-10-18.1",
+  "revision": "2026-10-18.2",
   "notes": "Fallback for models whose provider API does not describe reasoning control. Order matters: the vendor section first, then generic; the first match wins. kind none = the model reasons (or not) on its own and takes no setting.",
   "vendors": {
     "anthropic": [
-      { "pattern": "^claude-(3-7-sonnet|(sonnet|opus|haiku)-4(-[0-9])?)(-\\d{8})?(-latest)?$", "kind": "budget", "levels": ["off", "minimal", "low", "medium", "high", "xhigh"], "default": "off", "vendorParam": "thinking.budget_tokens", "budget": { "min": 1024, "max": 32000, "default": 8192 } },
-      { "pattern": "^claude-.+$", "kind": "none" }
+      {
+        "pattern": "^claude-(opus|sonnet)-4-6(-\\d{8})?(-latest)?$",
+        "kind": "effort",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "default": "high",
+        "vendorParam": "output_config.effort",
+        "values": {
+          "xhigh": "max"
+        },
+        "adaptiveThinking": true
+      },
+      {
+        "pattern": "^claude-opus-4-[78](-\\d{8})?(-latest)?$",
+        "kind": "effort",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "default": "high",
+        "vendorParam": "output_config.effort",
+        "adaptiveThinking": true
+      },
+      {
+        "pattern": "^claude-(3-7-sonnet|(sonnet|opus|haiku)-4(-[0-9])?)(-\\d{8})?(-latest)?$",
+        "kind": "budget",
+        "levels": [
+          "off",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "default": "off",
+        "vendorParam": "thinking.budget_tokens",
+        "budget": {
+          "min": 1024,
+          "max": 32000,
+          "default": 8192
+        }
+      },
+      {
+        "pattern": "^claude-.+$",
+        "kind": "none"
+      }
     ],
     "google": [
-      { "pattern": "^gemini-2\\.5-pro(-preview-[0-9-]+)?$", "kind": "budget", "levels": ["minimal", "low", "medium", "high", "xhigh"], "default": "medium", "vendorParam": "thinkingConfig.thinkingBudget", "budget": { "min": 128, "max": 32768, "default": 8192 } },
-      { "pattern": "^gemini-2\\.5-flash(-lite)?(-preview-[0-9-]+)?$", "kind": "budget", "levels": ["off", "minimal", "low", "medium", "high", "xhigh"], "default": "medium", "vendorParam": "thinkingConfig.thinkingBudget", "budget": { "min": 512, "max": 24576, "default": 8192 } },
-      { "pattern": "^gemini-3(\\.[0-9])?-pro(-preview)?(-[0-9-]+)?$", "kind": "effort", "levels": ["low", "high"], "default": "high", "vendorParam": "thinkingConfig.thinkingLevel" },
-      { "pattern": "^gemini-3(\\.[0-9])?-flash(-preview)?(-[0-9-]+)?$", "kind": "effort", "levels": ["minimal", "low", "medium", "high"], "default": "high", "vendorParam": "thinkingConfig.thinkingLevel" },
-      { "pattern": "^gemini-.+$", "kind": "none" }
+      {
+        "pattern": "^gemini-2\\.5-pro(-preview-[0-9-]+)?$",
+        "kind": "budget",
+        "levels": [
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "default": "medium",
+        "vendorParam": "thinkingConfig.thinkingBudget",
+        "budget": {
+          "min": 128,
+          "max": 32768,
+          "default": 8192
+        }
+      },
+      {
+        "pattern": "^gemini-2\\.5-flash(-lite)?(-preview-[0-9-]+)?$",
+        "kind": "budget",
+        "levels": [
+          "off",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "default": "medium",
+        "vendorParam": "thinkingConfig.thinkingBudget",
+        "budget": {
+          "min": 512,
+          "max": 24576,
+          "default": 8192
+        }
+      },
+      {
+        "pattern": "^gemini-3(\\.[0-9])?-pro(-preview)?(-[0-9-]+)?$",
+        "kind": "effort",
+        "levels": [
+          "low",
+          "high"
+        ],
+        "default": "high",
+        "vendorParam": "thinkingConfig.thinkingLevel"
+      },
+      {
+        "pattern": "^gemini-3(\\.[0-9])?-flash(-preview)?(-[0-9-]+)?$",
+        "kind": "effort",
+        "levels": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "high",
+        "vendorParam": "thinkingConfig.thinkingLevel"
+      },
+      {
+        "pattern": "^gemini-.+$",
+        "kind": "none"
+      }
     ],
     "ollama": [
-      { "pattern": "^gpt-oss:[a-z0-9.]+$", "kind": "effort", "levels": ["low", "medium", "high"], "default": "medium", "vendorParam": "reasoning_effort" },
-      { "pattern": "^(qwen3|deepseek-r1|magistral)(:[a-z0-9.]+)?$", "kind": "toggle", "levels": ["off", "medium"], "default": "medium", "vendorParam": "reasoning_effort", "values": { "off": "none", "medium": "medium" } }
+      {
+        "pattern": "^gpt-oss:[a-z0-9.]+$",
+        "kind": "effort",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium",
+        "vendorParam": "reasoning_effort"
+      },
+      {
+        "pattern": "^(qwen3|deepseek-r1|magistral)(:[a-z0-9.]+)?$",
+        "kind": "toggle",
+        "levels": [
+          "off",
+          "medium"
+        ],
+        "default": "medium",
+        "vendorParam": "reasoning_effort",
+        "values": {
+          "off": "none",
+          "medium": "medium"
+        }
+      }
     ],
     "xai": [
-      { "pattern": "^grok-3-mini(-fast)?(-beta)?(-latest)?$", "kind": "effort", "levels": ["low", "high"], "default": "low", "vendorParam": "reasoning_effort" },
-      { "pattern": "^grok-.+$", "kind": "none" }
+      {
+        "pattern": "^grok-3-mini(-fast)?(-beta)?(-latest)?$",
+        "kind": "effort",
+        "levels": [
+          "low",
+          "high"
+        ],
+        "default": "low",
+        "vendorParam": "reasoning_effort"
+      },
+      {
+        "pattern": "^grok-.+$",
+        "kind": "none"
+      }
     ],
     "deepseek": [
-      { "pattern": "^deepseek-.+$", "kind": "none" }
+      {
+        "pattern": "^deepseek-.+$",
+        "kind": "none"
+      }
     ],
     "generic": [
-      { "pattern": "^(openai/)?o[134](-mini|-pro)?(-\\d{4}-\\d{2}-\\d{2})?$", "kind": "effort", "levels": ["low", "medium", "high"], "default": "medium", "vendorParam": "reasoning_effort" },
-      { "pattern": "^(openai/)?gpt-5(-mini|-nano|-codex)?(-\\d{4}-\\d{2}-\\d{2})?$", "kind": "effort", "levels": ["minimal", "low", "medium", "high"], "default": "medium", "vendorParam": "reasoning_effort" },
-      { "pattern": "^(openai/)?gpt-5\\.1(-mini|-codex|-codex-mini)?(-\\d{4}-\\d{2}-\\d{2})?$", "kind": "effort", "levels": ["off", "low", "medium", "high"], "default": "off", "vendorParam": "reasoning_effort", "values": { "off": "none" } },
-      { "pattern": "^(openai/)?gpt-5\\.([2-9]|1-codex-max)(-mini|-codex)?(-\\d{4}-\\d{2}-\\d{2})?$", "kind": "effort", "levels": ["off", "low", "medium", "high", "xhigh"], "default": "off", "vendorParam": "reasoning_effort", "values": { "off": "none" } },
-      { "pattern": "^(openai/)?gpt-oss-(20b|120b)$", "kind": "effort", "levels": ["low", "medium", "high"], "default": "medium", "vendorParam": "reasoning_effort" },
-      { "pattern": "^(x-ai/)?grok-3-mini(-fast)?(-beta)?$", "kind": "effort", "levels": ["low", "high"], "default": "low", "vendorParam": "reasoning_effort" },
-      { "pattern": "^(qwen/)?qwen3-(0\\.6b|1\\.7b|4b|8b|14b|32b|30b-a3b|235b-a22b)$", "kind": "toggle", "levels": ["off", "medium"], "default": "medium", "vendorParam": "chat_template_kwargs.enable_thinking" },
-      { "pattern": "^(deepseek/|deepseek-ai/)?deepseek-(r1|reasoner).*$", "kind": "none" }
+      {
+        "pattern": "^(openai/)?o[134](-mini|-pro)?(-\\d{4}-\\d{2}-\\d{2})?$",
+        "kind": "effort",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium",
+        "vendorParam": "reasoning_effort"
+      },
+      {
+        "pattern": "^(openai/)?gpt-5(-mini|-nano|-codex)?(-\\d{4}-\\d{2}-\\d{2})?$",
+        "kind": "effort",
+        "levels": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium",
+        "vendorParam": "reasoning_effort"
+      },
+      {
+        "pattern": "^(openai/)?gpt-5\\.1(-mini|-codex|-codex-mini)?(-\\d{4}-\\d{2}-\\d{2})?$",
+        "kind": "effort",
+        "levels": [
+          "off",
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "off",
+        "vendorParam": "reasoning_effort",
+        "values": {
+          "off": "none"
+        }
+      },
+      {
+        "pattern": "^(openai/)?gpt-5\\.([2-9]|1-codex-max)(-mini|-codex)?(-\\d{4}-\\d{2}-\\d{2})?$",
+        "kind": "effort",
+        "levels": [
+          "off",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "default": "off",
+        "vendorParam": "reasoning_effort",
+        "values": {
+          "off": "none"
+        }
+      },
+      {
+        "pattern": "^(openai/)?gpt-oss-(20b|120b)$",
+        "kind": "effort",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium",
+        "vendorParam": "reasoning_effort"
+      },
+      {
+        "pattern": "^(x-ai/)?grok-3-mini(-fast)?(-beta)?$",
+        "kind": "effort",
+        "levels": [
+          "low",
+          "high"
+        ],
+        "default": "low",
+        "vendorParam": "reasoning_effort"
+      },
+      {
+        "pattern": "^(qwen/)?qwen3-(0\\.6b|1\\.7b|4b|8b|14b|32b|30b-a3b|235b-a22b)$",
+        "kind": "toggle",
+        "levels": [
+          "off",
+          "medium"
+        ],
+        "default": "medium",
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      },
+      {
+        "pattern": "^(deepseek/|deepseek-ai/)?deepseek-(r1|reasoner).*$",
+        "kind": "none"
+      }
     ]
   }
 }

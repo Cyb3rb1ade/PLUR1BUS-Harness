@@ -1,0 +1,79 @@
+# Status, Protokolle und Audit-Protokoll
+
+Zwei Seiten in der Gruppe **Kontrolle** der Seitenleiste sagen dir, ob die Installation gesund ist und was sie getan hat: **Status** (`#/doctor`) zeigt den Zustand von API, Core und Agenten, und **Protokolle** (`#/logs`) enthält den Log-Viewer, einen verständlichen Aktivitätsfeed und die Prüfung des Audit-Protokolls. Die englische Version dieser Seite ist [../en/diagnostics.md](../en/diagnostics.md).
+
+## Die Seite Status
+
+Ein Banner oben fasst es zusammen:
+
+- **Alles in Ordnung**: Der Core läuft und die Engine ist bereit.
+- **Eingeschränkter Betrieb**: Einige Funktionen sind eventuell eingeschränkt. Das Banner nennt die Ursache und die betroffene Fähigkeit oder sagt, dass die Engine noch nicht bereit ist.
+- **Der Core ist nicht erreichbar**: Die API läuft, aber der Core ist aus. Starte ihn und wähle dann **Erneut prüfen**. Auf der Kommandozeile startet `plur1bus daemon start` den Supervisor und seinen Core.
+- **Zustand unbekannt**: Der Health-Endpunkt ist nicht verfügbar, daher lässt sich der Zustand des Cores nicht anzeigen.
+
+Die Seite prüft alle 30 Sekunden erneut, solange der Tab sichtbar ist. **Erneut prüfen** tut es sofort, und die Seite sagt dir, wann sie zuletzt geprüft hat.
+
+Unter dem Banner stehen diese Karten:
+
+- **API und Core**: **API-Version**, **Core-RPC-Version**, **Contract-Version**, **Laufzeit** und **Engine bereit**.
+- **Core-Details**: der **Prozess**-Zustand (startet, bereit, eingeschränkt, verwaist, stoppt, gestoppt oder abgestürzt), das **Embedder-Modell** und das **Reranker-Modell** (lädt, bereit, fehlgeschlagen oder deaktiviert), das **Store-Schema** im Vergleich zum erwarteten und ob **Geteilter Speicher** verfügbar ist.
+- **Agenten**: eine Zeile pro Agent mit der Angabe, ob er offen ist, seiner **Aktivität** (Leerlauf, erinnert, erfasst, sichert Zwischenstand, träumt, konsolidiert oder Wartung), seit wann und, beim Träumen, der Phase.
+- **Aktueller Provisioning-Bericht**: die Prüfungen der Ersten-Hilfe-Prüfung, jede mit einem Status (**OK**, **Warnung**, **Fehlgeschlagen** oder **Übersprungen**), einer kurzen Zusammenfassung und, wo es sie gibt, einem Hinweis zur Behebung. Eine Prüfung, die dieser Build nicht ausführen kann, erscheint als übersprungen; sie wird nie als geprüft ausgegeben. Owner, Admins und Operatoren können mit **Provisioning erneut prüfen** die Prüfungen noch einmal laufen lassen, höchstens alle 30 Sekunden. Eine zweite Anforderung in dieser Zeit wird abgelehnt, und die Karte sagt es.
+- **Provisionierungsergebnisse**: Du kannst die Ausgabe von `plur1bus 1staid check --json` als Datei laden und als Tabelle mit **Prüfung**, **Status**, **Meldung** und **Behebung** lesen. Die Datei wird nur in deinem Browser gelesen und nirgends hin gesendet. Sie muss ein JSON-Dokument von höchstens 1 MB im Format `1staid.check/1` sein. **Als JSON kopieren**, **JSON herunterladen** und **Zurücksetzen** wirken auf das geladene Ergebnis.
+
+Darf deine Rolle eine Karte nicht sehen, sagt die Karte das, und der Rest wird weiter angezeigt.
+
+## Die Seite Protokolle
+
+Die Seite hat drei Tabs.
+
+### Protokolle
+
+Der Log-Viewer ist für Owner und Admins. Andere Rollen sehen einen Hinweis, dass sie keinen Zugriff haben.
+
+1. Wähle den **Stream**: **Diagnose** für die Einträge von Supervisor, Core und Modulen oder **Audit** für das Audit-Protokoll privilegierter Aktionen.
+2. Grenze ein mit **Mindeststufe** (Trace bis Fatal, nicht für den Audit-Stream), **Komponente** (eine Dateirolle wie `core`, eine Quell-ID oder eine Quellart), **Suchtext** (Groß- und Kleinschreibung egal, gesucht wird im geschwärzten Eintrag), **Trace-ID** (wird als Text gesucht, also nicht zusammen mit einem Suchtext) und **Zeitraum** (beliebig, letzte 15 Minuten, letzte Stunde, letzte 24 Stunden oder ein eigener Zeitraum).
+3. Wähle die **Reihenfolge**, neueste zuerst oder älteste zuerst, und **Filter anwenden**.
+
+Einträge zeigen **Zeit**, **Stufe**, **Komponente** und **Meldung**. Mit den Pfeiltasten wechselst du zwischen ihnen, Eingabe öffnet die Details, in denen du einzelne Felder oder den ganzen Eintrag als JSON kopieren kannst. Der Viewer lädt Seite für Seite; **Ältere laden** und **Neuere laden** holen mehr. Hat der Server am Scan-Limit aufgehört oder unlesbare Zeilen übersprungen, sagt ein Hinweis das.
+
+Werte, die nicht erscheinen dürfen, etwa Secrets, schwärzt der Server und kennzeichnet sie mit **Geschwärzt**. Die ursprünglichen Werte sind nicht verfügbar.
+
+**Live-Verfolgung** folgt neuen Einträgen, während du schaust. **Live-Verfolgung pausieren** hält sie zurück und zählt sie als neue Einträge. Die Live-Verfolgung ist bei „Älteste zuerst“ und bei Zeiträumen mit Ende aus. **NDJSON exportieren** und **JSON exportieren** speichern die in dieser Ansicht geladenen Einträge genau so, wie der Server sie geliefert hat.
+
+### Aktivität
+
+Der Tab zeigt die jüngste Aktivität in einfachen Worten, gruppiert nach heute, gestern, früher in dieser Woche und älter: Agentenläufe, Träume, Modell-Scans, Backups, Anmeldungen und Break-glass-Zugriff, jeweils mit dem, der es getan hat. **Im Protokoll öffnen** springt zum passenden Eintrag im Tab Protokolle. **Zeitraum** bietet 24 Stunden, 7 Tage, 30 Tage oder alles, und **Mehr anzeigen** lädt weitere Einträge. Lässt sich eines der beiden Protokolle nicht lesen, sagt der Tab, dass einige Einträge fehlen. Der Feed und die Audit-Prüfung sind für Owner und Admins. **Agentenaktivität** über dem Feed zeigt den Zustandsverlauf eines Agenten, gefiltert nach **Agenten-ID** und Zeit; andere Rollen sehen das auch, mit einem Hinweis statt des Feeds.
+
+Die Karte **Audit-Kette** prüft, dass das Audit-Protokoll nicht verändert oder abgeschnitten wurde. **Geprüft** heißt, dass keine Änderung gefunden wurde, und zeigt, wie viele Einträge und Dateien geprüft wurden. **Fehlgeschlagen** listet die Befunde auf. **Erneut prüfen** wiederholt die Prüfung.
+
+### Sitzungen
+
+Der Tab listet deine eigenen direkten Chats mit Titel, Agent und Daten, nie den Nachrichtentext. Du kannst suchen, nach Agent, Status und letzter Aktivität filtern und sortieren. Ein Transkript lässt sich nur über Break-glass-Zugriff lesen; der wird protokolliert und der betroffenen Person mitgeteilt, siehe [breakglass.md](breakglass.md). Der Tab steht Owner, Admins, Operatoren und Viewern offen. Owner, Admins und Operatoren sehen auch die Chats anderer Personen, mit Besitzer, Modell und Nutzung.
+
+## Auf der Kommandozeile
+
+```sh
+plur1bus daemon status
+plur1bus 1staid check
+plur1bus 1staid repair --dry-run
+plur1bus 1staid bundle --out ./diagnostics
+plur1bus logs query --level warn --component core --limit 50
+plur1bus logs query --stream audit --from 2026-10-19T08:00:00Z
+plur1bus logs tail --follow --level error
+plur1bus audit verify
+```
+
+- `daemon status` zeigt den Zustand von Supervisor und Core. `1staid check` ist die schreibgeschützte Prüfung hinter dem aktuellen Provisioning-Bericht; `1staid repair --dry-run` gibt aus, was eine Reparatur täte, und ändert nichts. Mehr zu beiden in [operations.md](operations.md).
+- `1staid bundle` schreibt ein geschwärztes Diagnose-Zip und gibt seinen Pfad aus: Versionen, Prüfergebnisse, Dienststatus, Konfiguration und die letzten Logzeilen, nie das Audit-Protokoll, Secrets oder Gedächtnisspeicher. `--out` ist eine neue Datei oder ein bestehendes Verzeichnis, `--lines` behält die letzten N Zeilen jedes Logs (standardmäßig 500).
+- `logs query` gibt die neuesten Einträge zuerst aus, `logs tail` die jüngsten und mit `--follow` fragt es weiter, bis du abbrichst. `--stream` ist `diagnostic` oder `audit`. `--level` ist `trace`, `debug`, `info`, `warn`, `error` oder `fatal`. `--from` und `--to` sind einschließende Grenzen; schreibe sie wie `2026-10-19T08:00:00Z`. `--trace` nimmt eine 32-stellige Trace-ID.
+- `audit verify` prüft, dass jede Zeile des Audit-Protokolls den Hash der Zeile davor trägt, dass die Sequenznummern lückenlos sind und dass die Ankerdatei zur neuesten Zeile passt. Bei einem Fehler endet es mit Status 1. Owner und Admins können es ausführen.
+
+Logs und Audit-Protokoll zu lesen, setzt die Rolle Owner oder Admin voraus. Die Dateien selbst stehen in [operations.md](operations.md).
+
+## Weiter
+
+- Verzeichnisse, Logdateien, Dienste und Updates: [operations.md](operations.md)
+- Private Chats im Notfall lesen: [breakglass.md](breakglass.md)
+- Was ein Agent gerade tut: [agenten.md](agenten.md)
+- Zustand des Gedächtnisses: [erinnerungen.md](erinnerungen.md)
