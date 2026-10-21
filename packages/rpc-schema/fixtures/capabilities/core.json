@@ -920,6 +920,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "session.model.get": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
     "session.model.set": {
       "stability": "experimental",
       "since": "1.7.0"
@@ -1094,6 +1098,10 @@
     "embedding.identity.changed": {
       "stability": "experimental",
       "since": "1.1.0"
+    },
+    "chat.models.changed": {
+      "stability": "experimental",
+      "since": "1.7.0"
     },
     "models.changed": {
       "stability": "experimental",

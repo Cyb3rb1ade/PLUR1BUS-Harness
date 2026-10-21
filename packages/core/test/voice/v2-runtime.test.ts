@@ -52,6 +52,21 @@ test('runtime language switch closes the old ASR/VAD leases and loads the new la
     await c.close(); assert.equal(f.released(), 1);
   } finally { await f.close(); }
 });
+test('a failed runtime language switch keeps the old session working and closes nothing', async () => {
+  const f = await fixture(); try {
+    const c = await f.v2.openTalk({ sessionId: f.session.id, privacyPin: true }, f.client);
+    const loadAsr = f.engine.loadAsr.bind(f.engine); let breakEnglish = true;
+    f.engine.loadAsr = async m => { const asr = await loadAsr(m); return m.model.id === 't-stt-en' && breakEnglish ? { ...asr, createStream() { throw new Error('boom'); } } : asr; };
+    const before = f.engine.events.length;
+    await assert.rejects(c.setLanguage('en'));
+    assert.ok(!f.engine.events.slice(before).includes('dispose:t-stt-de'), 'the old session still holds its models');
+    assert.ok(!f.events.some(e => (e as { type: string }).type === 'voice.language_changed'));
+    c.send(new Uint8Array(8)); // the old session is still the live one, and the channel is no longer "changing"
+    breakEnglish = false; await c.setLanguage('en'); // a retry works and only now lets the old models go
+    assert.ok(f.engine.events.slice(before).includes('dispose:t-stt-de')); assert.ok(f.events.some(e => (e as { type: string }).type === 'voice.language_changed'));
+    await c.close(); assert.equal(f.released(), 1);
+  } finally { await f.close(); }
+});
 test('provider connect failure is sanitised; fallback preserves privacy and session ownership', async () => {
   const f = await fixture(); try {
     let calls = 0; const reg: VoiceRegistry = { asr: {}, tts: {}, realtime: { xai: { id: 'xai', kind: 'realtime', toolCalls: true, async connect() { calls++; throw new Error('private credential'); }, async listModels() { throw new Error('discovery must not run'); } } }, status: [] };

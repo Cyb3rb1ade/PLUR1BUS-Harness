@@ -117,7 +117,8 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Fe
     let verified = match verify_release(layout, &raw, &channel, &src, bundle.as_ref(), persist) {
         Ok(v) => v,
         Err((reason, message)) => {
-            if !persist && reason == "release-signature-invalid" {
+            // `--check` alone leaves a note for the module list; a plan, like an apply, writes nothing here.
+            if args.check && !persist && reason == "release-signature-invalid" {
                 let modules = installed_modules(layout)
                     .into_iter()
                     .filter_map(|m| m["name"].as_str().map(str::to_owned))
@@ -152,13 +153,26 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
     }
     if args.rollback {
         super::refuse_in_container(out, "update --rollback");
-        super::update_apply::recover_at_start(layout);
+        // Held until the process exits (`rollback` does not return): a second update, rollback or setup is refused.
+        let _lock = super::update_apply::lock_or_fail(out, layout);
+        super::update_apply::recover_locked(layout);
         super::update_apply::rollback(out, layout);
     }
     if !args.check {
         super::refuse_in_container(out, "update");
-        super::update_apply::recover_at_start(layout);
-        let feed = load_feed(out, layout, &args, true);
+        // `--plan` reads and prints, like `--check`: it settles no interrupted update, takes no lock (it may run beside
+        // an update that is in flight) and records no announced key list (`persist` is off).
+        if !args.plan && !matches!(install::manifest::read(layout), Ok(Some(_))) {
+            // Nothing installed: nothing to lock or settle. `load_feed` refuses with `not-installed` before anything is
+            // written (not even `update/` for the lock); should a `setup` finish in between, it returns and the run
+            // goes on under the lock like any other.
+            let _ = load_feed(out, layout, &args, false);
+        }
+        let _lock = (!args.plan).then(|| super::update_apply::lock_or_fail(out, layout));
+        if !args.plan {
+            super::update_apply::recover_locked(layout);
+        }
+        let feed = load_feed(out, layout, &args, !args.plan);
         super::update_apply::apply(out, layout, &args, feed);
     }
     super::refuse_in_container(out, "update --check");

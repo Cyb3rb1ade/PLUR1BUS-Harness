@@ -6,9 +6,8 @@ import { FakeClock } from "../src/clock.ts";
 import { createAuditEmitter } from "../src/audit.ts";
 import { ApiError } from "../src/errors.ts";
 import { LoginChallenges } from "../src/challenge.ts";
-import { NoticeInbox } from "../src/notices.ts";
 import { RateLimiter } from "../src/rate-limit.ts";
-import { BreakGlassError, memoryAuditSink } from "../src/rbac-bridge.ts";
+import { memoryAuditSink } from "../src/rbac-bridge.ts";
 import {
   API_PREFIX, API_VERSION, buildHandlers, COMPONENT_SCHEMAS, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie,
   type HandlerDeps, type HandlerInput, type HandlerOutput,
@@ -315,110 +314,131 @@ describe("routes: totp.status / setup / confirm / disable", () => {
 });
 
 describe("routes: break-glass and notices", () => {
-  const grant = { id: "g1", targetUserId: "u2", reason: "needed for support", issuedAt: 1_700_000_000_000, expiresAt: 1_700_000_900_000 };
-  const bg = (o: Any = {}): Any => ({ request: () => grant, active: () => [grant], revoke: () => {}, ...o });
-  const users = { findById: async (id: string) => (id === "u2" ? { id: "u2" } : undefined) } as Any;
+  // The routes hold no registry: they check the shape of a request and forward it to the core (`d.core.call`, as the caller).
+  const grant = { id: "g1", holderUserId: "u1", targetUserId: "u2", reason: "needed for support", issuedAt: 1_700_000_000_000, expiresAt: 1_700_000_900_000 };
+  type Call = { method: string; params: Any };
+  const coreOf = (answer: (method: string, params: Any) => unknown = () => ({})) => { const calls: Call[] = []; return { calls, core: { call: (async (method: string, params: Any) => { calls.push({ method, params }); return answer(method, params); }) as Any } }; };
+  const rpcError = (error: string, reason?: string) => Object.assign(new Error("core text with /secret/path"), { error, ...(reason ? { reason } : {}) });
   const req = (body: unknown) => inp({ body });
 
-  it("request: 401 without rbac or a dependency", async () => {
-    await fails(rig({ breakGlass: bg(), users }).h["breakglass.request"]!(inp({ rbac: undefined })) as Promise<unknown>, 401);
-    await fails(rig({ users }).h["breakglass.request"]!(req({})) as Promise<unknown>, 401);
-    await fails(rig({ breakGlass: bg() }).h["breakglass.request"]!(req({})) as Promise<unknown>, 401);
+  it("request: 401 without rbac, and nothing is forwarded", async () => {
+    const c = coreOf();
+    await fails(rig({ core: c.core }).h["breakglass.request"]!(inp({ rbac: undefined })) as Promise<unknown>, 401);
+    assert.equal(c.calls.length, 0);
   });
 
   const badRequests: Array<[string, unknown, string]> = [
     ["null body", null, "body"], ["array body", [], "body"], ["unknown key", { targetUserId: "u2", reason: "x", extra: 1 }, "body"],
     ["no target", { reason: "long enough reason" }, "target"], ["empty target", { targetUserId: "", reason: "long enough reason" }, "target"],
-    ["target not a string", { targetUserId: 4, reason: "long enough reason" }, "target"],
-    ["no reason", { targetUserId: "u2" }, "reason"], ["reason not a string", { targetUserId: "u2", reason: 4 }, "reason"],
+    ["target not a string", { targetUserId: 4, reason: "long enough reason" }, "target"], ["target with a control character", { targetUserId: "u\n2", reason: "long enough reason" }, "target"],
+    ["target too long", { targetUserId: "u".repeat(129), reason: "long enough reason" }, "target"],
+    ["no reason", { targetUserId: "u2" }, "reason"], ["reason not a string", { targetUserId: "u2", reason: 4 }, "reason"], ["blank reason", { targetUserId: "u2", reason: "   " }, "reason"],
+    ["reason far too long", { targetUserId: "u2", reason: "x".repeat(10_001) }, "reason"],
     ["ttl not a number", { targetUserId: "u2", reason: "long enough reason", ttlMinutes: "5" }, "ttl"],
     ["ttl fractional", { targetUserId: "u2", reason: "long enough reason", ttlMinutes: 1.5 }, "ttl"],
     ["ttl zero", { targetUserId: "u2", reason: "long enough reason", ttlMinutes: 0 }, "ttl"],
     ["ttl 61", { targetUserId: "u2", reason: "long enough reason", ttlMinutes: 61 }, "ttl"],
   ];
-  for (const [label, body, reason] of badRequests) it(`request: rejects ${label}`, async () => {
-    await fails(rig({ breakGlass: bg(), users }).h["breakglass.request"]!(req(body)) as Promise<unknown>, 400, reason);
+  for (const [label, body, reason] of badRequests) it(`request: rejects ${label} before the core is asked`, async () => {
+    const c = coreOf();
+    await fails(rig({ core: c.core }).h["breakglass.request"]!(req(body)) as Promise<unknown>, 400, reason);
+    assert.equal(c.calls.length, 0);
   });
 
-  it("request: 404 for an unknown target, but self and owner skip the lookup", async () => {
-    const seen: unknown[] = [];
-    const r = rig({ breakGlass: bg({ request: (_p: unknown, a: unknown) => { seen.push(a); return grant; } }), users });
-    await fails(r.h["breakglass.request"]!(req({ targetUserId: "ghost", reason: "long enough reason" })) as Promise<unknown>, 404, "target");
-    await r.h["breakglass.request"]!(req({ targetUserId: "u1", reason: "long enough reason" }));
-    await r.h["breakglass.request"]!(req({ targetUserId: "owner", reason: "long enough reason" }));
-    assert.equal(seen.length, 2);
-  });
-
-  it("request: passes the ttl in ms when given, omits it otherwise, and answers 201 with ISO times", async () => {
-    const seen: Any[] = [];
-    const r = rig({ breakGlass: bg({ request: (_p: unknown, a: Any) => { seen.push(a); return grant; } }), users });
+  it("request: forwards the window as windowMinutes when given and omits it otherwise; the installation owner is local-owner in the core", async () => {
+    const c = coreOf(() => grant); const r = rig({ core: c.core });
     const out = await r.h["breakglass.request"]!(req({ targetUserId: "u2", reason: "long enough reason", ttlMinutes: 60 }));
     await r.h["breakglass.request"]!(req({ targetUserId: "u2", reason: "long enough reason" }));
-    assert.equal(seen[0].ttlMs, 3_600_000);
-    assert.ok(!("ttlMs" in seen[1]));
+    await r.h["breakglass.request"]!(req({ targetUserId: "owner", reason: "long enough reason" }));
+    assert.deepEqual(c.calls.map((x) => x.method), ["breakglass.request", "breakglass.request", "breakglass.request"]);
+    assert.deepEqual(c.calls[0]!.params, { targetUserId: "u2", reason: "long enough reason", windowMinutes: 60 });
+    assert.deepEqual(c.calls[1]!.params, { targetUserId: "u2", reason: "long enough reason" });
+    assert.equal(c.calls[2]!.params.targetUserId, "local-owner");
     assert.equal(out.status, 201);
     assert.deepEqual((out.body as Any).grant, { id: "g1", targetUserId: "u2", reason: "needed for support", issuedAt: "2023-11-14T22:13:20.000Z", expiresAt: "2023-11-14T22:28:20.000Z" });
   });
 
-  const codes: Array<[string, number, string, string]> = [
-    ["not-permitted", 403, "E_DENIED", "role-denied"], ["invalid-target", 400, "E_INVALID_PARAMS", "target"], ["self-target", 400, "E_INVALID_PARAMS", "self-target"],
-    ["reason-required", 400, "E_INVALID_PARAMS", "reason"], ["ttl-invalid", 400, "E_INVALID_PARAMS", "ttl"], ["audit-failed", 503, "E_NOT_AVAILABLE", "audit-unavailable"],
-    ["unknown-grant", 404, "E_NOT_FOUND", "grant"], ["something-new", 400, "E_INVALID_PARAMS", "request"],
+  it("the reason goes to the core as written: its length rules are the core's configuration", async () => {
+    const c = coreOf(() => grant);
+    await rig({ core: c.core }).h["breakglass.request"]!(req({ targetUserId: "u2", reason: "short" }));
+    assert.equal(c.calls[0]!.params.reason, "short");
+  });
+
+  const refusals: Array<[string, string, string | undefined, number, string, string]> = [
+    ["E_DENIED not-permitted", "E_DENIED", "not-permitted", 403, "E_DENIED", "role-denied"], ["E_DENIED without a reason", "E_DENIED", undefined, 403, "E_DENIED", "role-denied"],
+    ["E_INVALID_PARAMS invalid-target", "E_INVALID_PARAMS", "invalid-target", 400, "E_INVALID_PARAMS", "target"], ["E_INVALID_PARAMS self-target", "E_INVALID_PARAMS", "self-target", 400, "E_INVALID_PARAMS", "self-target"],
+    ["E_INVALID_PARAMS reason-required", "E_INVALID_PARAMS", "reason-required", 400, "E_INVALID_PARAMS", "reason"], ["E_INVALID_PARAMS ttl-invalid", "E_INVALID_PARAMS", "ttl-invalid", 400, "E_INVALID_PARAMS", "ttl"],
+    ["E_INVALID_PARAMS anything else", "E_INVALID_PARAMS", undefined, 400, "E_INVALID_PARAMS", "request"],
+    ["E_STORAGE audit-failed", "E_STORAGE", "audit-failed", 503, "E_NOT_AVAILABLE", "audit-unavailable"],
+    ["E_NOT_AVAILABLE notification-failed", "E_NOT_AVAILABLE", "notification-failed", 503, "E_NOT_AVAILABLE", "notice-unavailable"],
   ];
-  for (const [code, status, error, reason] of codes) it(`maps break-glass failure ${code} to ${status}/${reason} for request and revoke`, async () => {
-    const boom = () => { throw new BreakGlassError(code as Any, "internal text with /secret/path"); };
-    const r = rig({ breakGlass: bg({ request: boom, revoke: boom }), users });
+  for (const [label, code, coreReason, status, error, reason] of refusals) it(`maps the core's ${label} to ${status}/${reason} for request and revoke, without its text`, async () => {
+    const boom = () => { throw rpcError(code, coreReason); };
+    const r = rig({ core: coreOf(boom).core });
     const e1 = await fails(r.h["breakglass.request"]!(req({ targetUserId: "u2", reason: "long enough reason" })) as Promise<unknown>, status, reason);
     assert.equal(e1.error, error);
     assert.ok(!e1.message.includes("/secret"));
-    await fails(() => r.h["breakglass.revoke"]!(req({ grantId: "g1" })), status, reason);
+    const e2 = await fails(r.h["breakglass.revoke"]!(req({ grantId: "g1" })) as Promise<unknown>, status, reason);
+    assert.ok(!e2.message.includes("/secret"));
   });
 
-  it("a non-break-glass error is not swallowed or mapped", async () => {
-    const boom = () => { throw new TypeError("disk on fire"); };
-    const r = rig({ breakGlass: bg({ request: boom, revoke: boom }), users });
-    await assert.rejects(Promise.resolve(r.h["breakglass.request"]!(req({ targetUserId: "u2", reason: "long enough reason" }))), TypeError);
-    assert.throws(() => r.h["breakglass.revoke"]!(req({ grantId: "g1" })), TypeError);
+  it("maps the core's E_NOT_FOUND by route: an unknown user on request, an unknown grant on revoke", async () => {
+    const r = rig({ core: coreOf(() => { throw rpcError("E_NOT_FOUND"); }).core });
+    await fails(r.h["breakglass.request"]!(req({ targetUserId: "ghost", reason: "long enough reason" })) as Promise<unknown>, 404, "target");
+    await fails(r.h["breakglass.revoke"]!(req({ grantId: "g1" })) as Promise<unknown>, 404, "grant");
   });
 
-  it("list: 401 without prerequisites, else the caller's active grants", () => {
-    assert.throws(() => rig({ breakGlass: bg() }).h["breakglass.list"]!(inp({ rbac: undefined })), ApiError);
-    assert.throws(() => rig().h["breakglass.list"]!(inp()), ApiError);
-    let asked = "";
-    const r = rig({ breakGlass: bg({ active: (id: string) => { asked = id; return [grant]; } }) });
-    const out = r.h["breakglass.list"]!(inp()) as HandlerOutput;
-    assert.equal(asked, "u1");
-    assert.equal((out.body as Any).grants.length, 1);
+  it("any other core failure is the API's usual core error, never a grant", async () => {
+    const down = rig({ core: coreOf(() => { throw new Error("socket closed"); }).core });
+    await fails(down.h["breakglass.request"]!(req({ targetUserId: "u2", reason: "long enough reason" })) as Promise<unknown>, 503, "core-unreachable");
+    const hurt = rig({ core: coreOf(() => { throw rpcError("E_STORAGE"); }).core });
+    await fails(hurt.h["breakglass.request"]!(req({ targetUserId: "u2", reason: "long enough reason" })) as Promise<unknown>, 502, "core-error");
+  });
+
+  it("a grant the core describes malformed is not shown", async () => {
+    for (const bad of [null, {}, { ...grant, id: 5 }, { ...grant, issuedAt: "yesterday" }, { ...grant, expiresAt: 1.5 }]) {
+      await fails(rig({ core: coreOf(() => bad).core }).h["breakglass.request"]!(req({ targetUserId: "u2", reason: "long enough reason" })) as Promise<unknown>, 502, "core-error");
+    }
+  });
+
+  it("list: 401 without rbac, else the core's grants of the caller with ISO times (the owner shown as `owner`)", async () => {
+    await fails(rig({ core: coreOf().core }).h["breakglass.list"]!(inp({ rbac: undefined })) as Promise<unknown>, 401);
+    const c = coreOf(() => ({ grants: [grant, { ...grant, id: "g2", targetUserId: "local-owner" }] })); const r = rig({ core: c.core });
+    const out = await r.h["breakglass.list"]!(inp()) as HandlerOutput;
+    assert.deepEqual(c.calls, [{ method: "breakglass.list", params: {} }]);
     assert.equal((out.body as Any).schema, "breakglass.list/1");
+    assert.deepEqual((out.body as Any).grants.map((g: Any) => [g.id, g.targetUserId, g.issuedAt]), [["g1", "u2", "2023-11-14T22:13:20.000Z"], ["g2", "owner", "2023-11-14T22:13:20.000Z"]]);
+    assert.ok(!("holderUserId" in (out.body as Any).grants[0]));
+    await fails(rig({ core: coreOf(() => ({ grants: "none" })).core }).h["breakglass.list"]!(inp()) as Promise<unknown>, 502, "core-error");
+    await fails(rig({ core: coreOf(() => { throw rpcError("E_DENIED"); }).core }).h["breakglass.list"]!(inp()) as Promise<unknown>, 403, "role-denied");
   });
 
-  const badRevoke: Array<[string, unknown]> = [["null", null], ["array", []], ["no id", {}], ["empty id", { grantId: "" }], ["number id", { grantId: 3 }], ["extra key", { grantId: "g", x: 1 }]];
-  for (const [label, body] of badRevoke) it(`revoke: rejects ${label}`, () => {
-    assert.throws(() => rig({ breakGlass: bg() }).h["breakglass.revoke"]!(inp({ body })), (e: Any) => e instanceof ApiError && e.status === 400 && e.reason === "body");
+  const badRevoke: Array<[string, unknown]> = [["null", null], ["array", []], ["no id", {}], ["empty id", { grantId: "" }], ["number id", { grantId: 3 }], ["extra key", { grantId: "g", x: 1 }], ["id too long", { grantId: "g".repeat(129) }], ["id with a control character", { grantId: "g\n1" }]];
+  for (const [label, body] of badRevoke) it(`revoke: rejects ${label} before the core is asked`, async () => {
+    const c = coreOf();
+    await fails(rig({ core: c.core }).h["breakglass.revoke"]!(inp({ body })) as Promise<unknown>, 400, "body");
+    assert.equal(c.calls.length, 0);
   });
 
-  it("revoke: 401 without prerequisites, else revokes", () => {
-    assert.throws(() => rig({ breakGlass: bg() }).h["breakglass.revoke"]!(inp({ rbac: undefined, body: { grantId: "g" } })), ApiError);
-    assert.throws(() => rig().h["breakglass.revoke"]!(inp({ body: { grantId: "g" } })), ApiError);
-    const revoked: unknown[] = [];
-    const r = rig({ breakGlass: bg({ revoke: (p: unknown, id: string) => { revoked.push([p, id]); } }) });
-    assert.deepEqual((r.h["breakglass.revoke"]!(inp({ body: { grantId: "g1" } })) as HandlerOutput).body, { schema: "breakglass.revoke/1", revoked: true });
-    assert.deepEqual(revoked, [[RBAC, "g1"]]);
+  it("revoke: 401 without rbac, else forwards the grant id and answers revoked", async () => {
+    await fails(rig({ core: coreOf().core }).h["breakglass.revoke"]!(inp({ rbac: undefined, body: { grantId: "g" } })) as Promise<unknown>, 401);
+    const c = coreOf(() => ({ id: "g1", revoked: true })); const r = rig({ core: c.core });
+    assert.deepEqual((await r.h["breakglass.revoke"]!(inp({ body: { grantId: "g1" } }))).body, { schema: "breakglass.revoke/1", revoked: true });
+    assert.deepEqual(c.calls, [{ method: "breakglass.revoke", params: { grantId: "g1" } }]);
   });
 
-  it("notices.list: 401 without prerequisites, else the caller's notices newest first with ISO times", () => {
-    assert.throws(() => rig({ notices: new NoticeInbox(new FakeClock()) }).h["notices.list"]!(inp({ rbac: undefined })), ApiError);
-    assert.throws(() => rig().h["notices.list"]!(inp()), ApiError);
-    const clock = new FakeClock(); const notices = new NoticeInbox(clock);
-    notices.add({ userId: "u1", grantId: "g1", holderUserId: "h", reason: "r1", expiresAt: clock.now() + 1000 } as Any);
-    clock.advance(1000);
-    notices.add({ userId: "u1", grantId: "g2", holderUserId: "h", reason: "r2", expiresAt: clock.now() + 1000 } as Any);
-    const out = rig({ notices }).h["notices.list"]!(inp()) as HandlerOutput;
+  it("notices.list: 401 without rbac, else the core's notices as they came (newest first), with ISO expiry and no invented issue time", async () => {
+    await fails(rig({ core: coreOf().core }).h["notices.list"]!(inp({ rbac: undefined })) as Promise<unknown>, 401);
+    const notice = (grantId: string, holderUserId = "h") => ({ kind: "granted", userId: "u1", grantId, holderUserId, reason: "r", expiresAt: 1_700_000_900_000 });
+    const c = coreOf(() => ({ notices: [notice("g2"), notice("g1", "local-owner")] })); const r = rig({ core: c.core });
+    const out = await r.h["notices.list"]!(inp()) as HandlerOutput;
+    assert.deepEqual(c.calls, [{ method: "breakglass.notices", params: {} }]);
     const list = (out.body as Any).notices;
     assert.deepEqual(list.map((n: Any) => n.grantId), ["g2", "g1"]);
-    assert.equal(list[0].kind, "break-glass.granted");
-    assert.equal(list[0].at, "2023-11-14T22:13:21.000Z");
-    assert.deepEqual((rig({ notices }).h["notices.list"]!(inp({ rbac: { ...RBAC, userId: "nobody" } })) as HandlerOutput).body, { schema: "notices.list/1", notices: [] });
+    assert.deepEqual(list[0], { kind: "break-glass.granted", grantId: "g2", holderUserId: "h", reason: "r", expiresAt: "2023-11-14T22:28:20.000Z" });
+    assert.equal(list[1].holderUserId, "owner");
+    assert.deepEqual((await rig({ core: coreOf(() => ({ notices: [] })).core }).h["notices.list"]!(inp())).body, { schema: "notices.list/1", notices: [] });
+    await fails(rig({ core: coreOf(() => ({ notices: [{ grantId: 1 }] })).core }).h["notices.list"]!(inp()) as Promise<unknown>, 502, "core-error");
   });
 });
 

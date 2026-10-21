@@ -45,7 +45,8 @@ test("all methods succeed with stored rights, emit changes only after commit, WI
     await f.call("project.column.update", { columnId: custom.id, title: "New", wipLimit: 3 });
     await f.call("project.column.move", { columnId: custom.id, position: 1 });
     const card = await f.call("project.card.create", { columnId: backlog.id, title: "Task", description: "<script>literal</script>" }) as any;
-    await f.call("project.card.update", { cardId: card.id, title: "Changed", labels: ["bug"], links: [{ kind: "session", id: "session1" }, { kind: "job", id: "job1" }, { kind: "media", id: "media1" }, { kind: "url", id: "javascript:literal" }] });
+    await f.call("project.card.update", { cardId: card.id, title: "Changed", labels: ["bug"], links: [{ kind: "session", id: "session1" }, { kind: "job", id: "job1" }, { kind: "media", id: "media1" }, { kind: "url", id: "https://example.org/literal" }] });
+    await assert.rejects(f.call("project.card.update", { cardId: card.id, links: [{ kind: "url", id: "javascript:literal" }] }), isCode("E_INVALID_PARAMS"));
     await f.call("project.card.assign", { cardId: card.id, assignee: { kind: "agent", id: "agent1" } });
     await f.call("project.card.assign", { cardId: card.id, assignee: { kind: "person", id: "bob" } });
     await f.call("project.card.unassign", { cardId: card.id, assignee: { kind: "person", id: "bob" } });

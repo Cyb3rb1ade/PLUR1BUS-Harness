@@ -264,6 +264,30 @@ pub fn run_steps(
     o: &SetupOpts,
     ask: &mut dyn Prompter,
 ) -> Vec<StepResult> {
+    // One installer at a time, and none beside an `update`: they stage into the same runtime, and a second one would
+    // clear what the first is about to move. Held until the steps are done. A lock that cannot be made at all (a home
+    // that cannot be created) is the `state-root` step's to report, in its own words.
+    let _lock = match crate::update::lock(layout) {
+        Ok(l) => Some(l),
+        Err(crate::update::LockError::Busy) => {
+            return STEP_IDS
+                .into_iter()
+                .enumerate()
+                .map(|(i, id)| match i {
+                    0 => StepResult::failed(
+                        id,
+                        StepError::new(
+                            "io",
+                            "another setup, update or rollback is running on this home",
+                        )
+                        .hint("wait for it to finish, then run `plur1bus setup` again"),
+                    ),
+                    _ => StepResult::skipped(id, "after-failure", json!({})),
+                })
+                .collect();
+        }
+        Err(crate::update::LockError::Io(_)) => None,
+    };
     let (prev, prev_error) = match manifest::read(layout) {
         Ok(m) => (m, None),
         Err(e) => (None, Some(e)),

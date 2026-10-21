@@ -55,14 +55,14 @@ This page lists every environment variable that the code in `packages/`, `apps/`
 | PLUR1BUS_F2_STARTUP_PRODUCTION_CAP | apps/desktop/scripts/windows-startup.test.mjs | [Test] `1` selects the 12 s helper timeout; otherwise 40 s | 40000 ms | apps/desktop/scripts/windows-startup.test.mjs:490 |
 | PLUR1BUS_BIN | scripts/gen-docs.mjs; scripts/bench.mjs | Path to the CLI binary used by the script | gen-docs: `target/debug/plur1bus`; bench: `target/release/plur1bus` | scripts/gen-docs.mjs:82-83; scripts/bench.mjs:13 |
 | PLUR1BUS_FIXTURE_MODULE | crates/plur1bus/tests/{modules,module_cmd,reboot,windows,ext_supervisor}.rs; crates/plur1bus-ext/examples/make-fixtures.rs | [Test] Directory of the fixture module | `packages/module-fixture/dist` | crates/plur1bus/tests/modules.rs:23-26 |
-| PLUR1BUS_TEST_NODE_SHA256 | crates/plur1bus/src/install/pins.rs | [Test] Replaces the current target's Node SHA-256 pin | committed pin | crates/plur1bus/src/install/pins.rs:55 |
-| PLUR1BUS_TEST_CORE_SHA256 | crates/plur1bus/src/install/pins.rs | [Test] Replaces the core payload SHA-256 | build-time value | crates/plur1bus/src/install/pins.rs:83 |
-| PLUR1BUS_TEST_RELEASE_PUBKEY | crates/plur1bus/src/install/pins.rs | [Test] Replaces the release minisign key | build-time key | crates/plur1bus/src/install/pins.rs:98 |
+| PLUR1BUS_TEST_NODE_SHA256 | crates/plur1bus/src/install/pins.rs | [Test] Replaces the current target's Node SHA-256 pin; ignored (with a warning) by a build that bakes a release key and has no debug assertions | committed pin | crates/plur1bus/src/install/pins.rs:55 |
+| PLUR1BUS_TEST_CORE_SHA256 | crates/plur1bus/src/install/pins.rs | [Test] Replaces the core payload SHA-256; ignored (with a warning) by a build that bakes a release key and has no debug assertions | build-time value | crates/plur1bus/src/install/pins.rs:83 |
+| PLUR1BUS_TEST_RELEASE_PUBKEY | crates/plur1bus/src/install/pins.rs | [Test] Replaces the release minisign key; ignored (with a warning) by a build that bakes a release key and has no debug assertions | build-time key | crates/plur1bus/src/install/pins.rs:98 |
 | PLUR1BUS_MODULE_API_CURRENT | crates/plur1bus/src/modules/manifest.rs | [Test] Overrides the module API version (n ≥ 1) | `MODULE_API_VERSION` = 1 | crates/plur1bus/src/modules/manifest.rs:4-12 |
 | PLUR1BUS_REEMBED_POLL_MS | crates/plur1bus/src/commands/memory_reembed.rs | Poll interval of the re-embed follow loop; honoured only with test internals | `1000` ms | crates/plur1bus/src/commands/memory_reembed.rs:18,26 |
 | PLUR1BUS_UPDATE_GATE_TIMEOUT_MS | crates/plur1bus/src/update/host.rs | [Test] Update gate timeout | `90000` ms | crates/plur1bus/src/update/host.rs:8-11 |
-| PLUR1BUS_UPDATE_TARGET_BIN | crates/plur1bus/src/update/mod.rs | [Test] Replaces the update target binary | – | crates/plur1bus/src/update/mod.rs:456-457 |
-| PLUR1BUS_TEST_UPDATE_KILL_AT | crates/plur1bus/src/update/mod.rs | [Test] Kill point during update | – | crates/plur1bus/src/update/mod.rs:89 |
+| PLUR1BUS_UPDATE_TARGET_BIN | crates/plur1bus/src/update/mod.rs | [Test] Replaces the update target binary; ignored (with a warning) by a build that bakes a release key and has no debug assertions | – | crates/plur1bus/src/update/mod.rs:456-457 |
+| PLUR1BUS_TEST_UPDATE_KILL_AT | crates/plur1bus/src/update/mod.rs | [Test] Kill point during update; ignored by a build that bakes a release key and has no debug assertions | – | crates/plur1bus/src/update/mod.rs:89 |
 | PLUR1BUS_TEST_FAIL_RUN_ACL | crates/plur1bus/src/supervisor/mod.rs | [Test] Forces a run-ACL failure | off | crates/plur1bus/src/supervisor/mod.rs:458 |
 | PLUR1BUS_TEST_SETUP_PAUSE_AT | crates/plur1bus/src/install/setup.rs | [Test] Pauses setup at the named step | – | crates/plur1bus/src/install/setup.rs:225 |
 | PLUR1BUS_TEST_HARNESS_VERSION | crates/plur1bus/src/ext/host.rs | [Test] Overrides the harness version (valid semver) | `CARGO_PKG_VERSION` | crates/plur1bus/src/ext/host.rs:18-22 |

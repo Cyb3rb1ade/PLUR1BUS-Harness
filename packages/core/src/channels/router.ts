@@ -98,6 +98,8 @@ export class ChannelRouter {
     try {
       const r = await this.#d.identity.resolve(sender);
       if (!r.linked) return await this.#unknown(msg, sender, send);
+      // A disabled person is neither a stranger (no pairing, no "not paired" reply) nor a user: nothing reaches a session.
+      if (r.disabled === true) { this.#d.log.warn("channel.inbound.dropped", { channel: msg.channel, reason: "person-disabled" }); return; }
       userId = r.userId;
     } catch (e) {
       // Fail closed: if we cannot tell who this is, they are nobody.
