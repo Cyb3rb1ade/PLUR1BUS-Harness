@@ -11,6 +11,8 @@ writer, the secret store); the chain wraps the unchanged record.
 | `audit-chain.jsonl` | the active chain file |
 | `audit-chain.<firstSeq:10>.jsonl` | a rotated file (rotation by size, 8 MiB, or `rotate()`) |
 | `audit-chain.anchor` | `{"v":1,"seq":N,"hash":"…"}`, replaced atomically after every append |
+| `audit-chain.pending.jsonl` | bounded journal of configuration-audit rows refused by the chain; outside the chain until drained |
+| `audit-chain.verified.json` | private `{ "v": 1, "at": <epoch ms> }` metadata from the last successful explicit verification; survives restart, does not pin the current chain |
 | `audit-chain.lock` | OS lock (module-api `acquireExclusiveLock`) serialising writers and the verifier |
 | `audit-chain.jsonl.torn-<ms>` | bytes of a crashed, unterminated write, set aside by the next append |
 | `audit-chain[.<firstSeq:10>].jsonl.pre-reanchor-<ms>`, `audit-chain.anchor.pre-reanchor-<ms>` | an earlier chain era, set aside unchanged by `plur1bus audit reanchor` (see [Recovery](#recovery)) |
@@ -56,6 +58,25 @@ After a reanchor the result also carries two additive lists. Neither makes `ok` 
   deviation and the anchor matches). A deviation there is normally the reason it was set aside. `announced: false` means no
   reanchor event in the current chain names that suffix (a crash between the renames and the event, or files put there by hand).
 
+## Operational status
+
+`core.status.audit` and `daemon.status.audit` expose cached metadata for human Owner/Admin with `audit.read`; scoped tokens also need that scope. Other principals do not receive the audit object. The local supervisor CLI follows its existing OS-user trust path; use `plur1bus daemon status --json` to see the raw section. These reads do not append, advance an anchor, trim a torn tail or create verification evidence.
+
+The cache lasts 30 seconds. The reader scans metadata and hashes only the newest two complete rows; it is **not** a historical chain verification. `state: "ok"` means the observed tail/anchor is acceptable or in the narrowly healable one-line crash window. It proves neither complete history nor successful future writes. In particular, status preserves an unterminated fragment byte for byte; it can still require investigation even when the observed complete tail matches the anchor.
+
+| Field | Meaning and limit |
+|---|---|
+| `state`, `reason` | `ok` or `refusing`, with a refusal code or `audit-unreadable`; a cached observation, not an integrity verdict |
+| `lastSeq`, `observedAt` | newest observed complete sequence and observation time; an unreadable/malformed end can leave the sequence unknown |
+| `lastVerifiedAt` | last successful explicit `audit.verify`, persisted in `audit-chain.verified.json`; null until known, unchanged by later appends |
+| `pendingLines`, `pendingDropped` | rows observed in the pending journal and the journal's overflow counter; neither establishes complete audit coverage |
+| `pending` | timestamp, actor, action and refusal reason only; no `target` or `detail` payload |
+| `lastAnchorAdvanced`, `lastReanchor` | last matching events observed in the current chain, timestamp and actor only; null when unknown |
+
+A successful explicit verification updates its private metadata sidecar. Failure to persist that time is `E_STORAGE`, even though the chain files were not changed. A previous success timestamp is not reset by a later failed check, so operators must inspect the latest verification result as well. It is not an external hash pin.
+
+For the Web audit view, see the [user guide](user/en/audit.md) for the actual controls and the [operations runbook](ops/audit-recovery.md) for evidence handling.
+
 ## Writers
 
 The core tees its RBAC sink, identity audit writer and sanitized secret-store records into the chain. Secret records keep their nullable target; no secret value is added to either audit file.
@@ -64,8 +85,7 @@ The supervisor's `config.set` writes its `audit.config.set` rows (one per change
 
 The Rust CLI writes directly, including while the core is stopped (setup, repair, backup, uninstall and extensions). It uses the same line envelope, SHA-256 bytes, anchor and 8 MiB rotation names. The core holds a SQLite `BEGIN EXCLUSIVE` OS lock on `audit-chain.lock`; Rust holds the corresponding pending/reserved/shared byte range (`0x40000000`, 512 bytes), using `fcntl` on Unix and `LockFileEx` on Windows. A Rust process mutex also serializes its own threads because POSIX record locks belong to a process. No SQLite database contents are changed by Rust. The kernel releases either lock when its process exits. Direct writes keep offline operations independent of RPC authentication and core availability. Every writer except the config audit **fails closed**: it refuses to
 append when the anchor is missing or invalid, when the chain is shorter than the anchor, when the tail does not
-match the anchor (including an anchor behind the tail), or when the last line is not a chain line, so tampering is never
-papered over by new lines (the config audit queues its lines instead of appending them, see [Config saves never wait for the chain](#config-saves-never-wait-for-the-chain)). Exactly one state is healed by the writers themselves, and one command repairs the rest:
+match the anchor (including an anchor behind the tail), or when the last line is not a chain line, so a refused tail/anchor is not silently rebuilt to accept new lines. This is a tail check, not a verification of all earlier history (the config audit attempts to queue its lines instead of appending them, see [Config saves never wait for the chain](#config-saves-never-wait-for-the-chain)). Exactly one state is healed by the writers themselves, and one command repairs the rest:
 see [Recovery](#recovery).
 
 ## Recovery
@@ -91,7 +111,7 @@ that is not a chain line. Crash states are tested by building the file states di
 vectors in `tests/fixtures/audit-chain-recovery-v1.json`.
 
 Torn writes were handled before: an unterminated last line is set aside as `audit-chain.jsonl.torn-<ms>` and never reached the
-anchor.
+anchor. The fragment remains evidence; it is not reconstructed as a complete event. A later intact chain does not establish its contents or completeness of the earlier audit. Status reads themselves never perform this cleanup.
 
 ### `plur1bus audit reanchor --reason <text>` (owner only)
 
@@ -142,11 +162,11 @@ degrades, and only on a refusal:
 When only the chain refuses, the chain and its anchor are not touched (tampering is not papered over) and:
 
 1. The redacted line still goes to `audit.log`, with the extra fields `chain: "refused"` and `chainReason` (one of the codes above, never content).
-2. The same line (byte for byte) is appended to the pending journal `logs/audit-chain.pending.jsonl` (0600, fsynced). It keeps at most
+2. The writer attempts to append the same line (byte for byte) to the pending journal `logs/audit-chain.pending.jsonl` (0600, fsynced). It keeps at most
    10,000 lines and 8 MiB; beyond that the oldest lines are discarded, counted in a first line `{"pendingDropped":N}`, and noted in
-   `audit.log` as `audit.chain.pending_overflow` (`dropped`, `limitLines`, `limitBytes`).
+   `audit.log` as `audit.chain.pending_overflow` (`dropped`, `limitLines`, `limitBytes`). A journal write can itself fail after the `audit.log` line succeeded: config saving still proceeds, with `queued: false` in the supervisor diagnostic. Do not infer successful queuing from the warning alone.
 3. The `config.set` result carries `warnings: ["audit-chain-unavailable"]` (the CLI prints it), and the supervisor log an `error` line
-   with the reason, the number of rows and whether they are queued. `daemon.status` has no audit or health section, so it shows nothing.
+   with the reason, the number of rows and whether they are queued. The cached `audit` section of `daemon.status` and `core.status` reports operational metadata (above); it does not replace the warning or prove completeness.
 
 `audit::drain_pending` runs after every successful append (when there is no journal, that is one `stat`). Once the chain accepts
 appends again (after the anchor is restored, for example), it appends the queued lines to the chain in their original order,
@@ -157,7 +177,13 @@ between the chain write and the clearing can chain a line a second time, never l
 changes nothing. A drained line is chained late, not backdated: it sits after the line that triggered the drain, and its own time is `rec.at`.
 
 `audit-chain.pending.jsonl` is not part of the chain: `audit.verify` does not read it, and lines waiting in it are not tamper-evident until they
-are drained. A reporting gap while the chain is refused is the price of never blocking the person saving a configuration.
+are drained. A reporting gap while the chain is refused is the price of never blocking the person saving a configuration. Phase `prepare` rows record preparation before the config replacement, not by themselves a successful commit. Reanchor does not itself drain this journal; a subsequent successful Rust audit append triggers the attempt.
+
+## Evidence and operational repair
+
+Use [Audit recovery](ops/audit-recovery.md) before making further writes or starting a new era. Preserve the chain, its anchor, `audit.log`, pending journal, verification metadata and all torn/set-aside evidence together, with private permissions. The installation backup excludes `logs/`; `backup verify` checks its archive, not this audit chain. An update rollback or `1staid repair` is likewise not proof of historical audit integrity.
+
+Reanchor is CLI-only; no Web control runs it. A new era makes the recorded boundary visible but does not reconstruct missing records, validate the old suffix beyond its first deviation, or turn a prior failure into proof of an unbroken history. The user guide distinguishes the [current era and prior chains](user/en/audit.md).
 
 ## What it does not protect
 

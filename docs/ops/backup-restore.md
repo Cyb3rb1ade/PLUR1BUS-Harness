@@ -137,6 +137,14 @@ Absatz und den Test zu entfernen. Bis dahin lässt sich das Einspielen bei gesto
 `node scripts/reapply-tombstones.mjs --apply --base-db-path <home>/state/lancedb` aus dem Engine-Paket
 (`@cyb3rb1ade/plur1bus-memory`); endet es ohne Fehler, kann der Marker gelöscht werden.
 
+## Audit-Beweise gesondert aufbewahren
+
+Das Installationsbackup schließt den gesamten Bereich `<home>/logs/` aus. Es ist daher keine Sicherung von `audit.log`, Audit-Kette, Anker, Pending-Journal oder beiseitegelegten alten Ären und Schreibfragmenten. `backup verify` bestätigt das Archiv gegen sein Manifest; es ersetzt weder `audit verify` noch einen getrennt vom Host aufbewahrten Hash-Pin.
+
+Wenn du Audit-Beweise brauchst, bewahre eine geschützte, konsistente Kopie dieses Bereichs und die zugehörigen Prüfberichte separat auf. Koordiniere dabei laufende Writer, damit Kette und Anker zur selben Aufnahme gehören. Lösche keine `.torn-*`- oder `.pre-reanchor-*`-Dateien, um einen Restore oder eine Prüfung erfolgreich erscheinen zu lassen.
+
+Nach einer Wiederherstellung sind Dienstbereitschaft, Archivprüfung und Audit-Integrität getrennt zu beurteilen. Ein früherer erfolgreicher Prüfzeitpunkt oder ein späteres `state: "ok"` ist kein Nachweis einer unveränderten Historie. Bei Verweigerungen folge dem [Audit-Betriebsablauf](audit-recovery.md); ein Reanchor macht eine neue Ära sichtbar und repariert nicht die Beweislage der alten.
+
 ## Typische Fehler
 
 | Meldung oder Grund | Bedeutung und nächster Schritt |

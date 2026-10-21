@@ -25,7 +25,7 @@ If your role may not see a card, the card says so and the rest still shows.
 
 ## The Logs page
 
-The page has three tabs.
+The page has four tabs.
 
 ### Logs
 
@@ -45,11 +45,15 @@ Values that must not appear, such as secrets, are masked by the server and marke
 
 The tab shows recent activity in plain words, grouped as today, yesterday, earlier this week and older: agent runs, dreams, model scans, backups, sign-ins and break-glass access, each with who did it. **Open in log** jumps to the matching entry in the Logs tab. **Time range** offers 24 hours, 7 days, 30 days or all, and **Show more** loads further entries. If one of the two logs cannot be read, the tab says that some entries are missing. The feed and the audit check are for Owner and Admin. **Agent activity** above the feed shows the state history of an agent, filtered by **Agent ID** and by time; other roles see it too, with a note instead of the feed.
 
-The card **Audit trail** checks that the audit trail has not been changed or cut off. **Verified** means that no change was found and shows how many records and files were checked. **Failed** lists the findings. **Verify again** repeats the check.
+The **Audit trail** card checks the current chain against its existing anchor. **Verified** means that this check found no discrepancy and shows how many records and files were checked. **Failed** lists the findings. **Verify again** repeats the check. Someone who can rewrite both the chain and its anchor consistently can bypass this check; [audit.md](audit.md) explains earlier eras and the limits.
 
 ### Sessions
 
 The tab lists your own direct chats with title, agent and dates, never the message text. You can search, filter by agent, status and last activity, and sort. A transcript can only be read through break-glass access, which is logged and told to the person concerned, see [breakglass.md](breakglass.md). The tab is open to Owner, Admin, Operator and Viewer. Owner, Admin and Operator also see other people's chats, with owner, model and usage.
+
+### Audit
+
+Owner and Admin can view the cached operating state of the audit chain and metadata for pending lines. **Verify chain** starts an explicit check with separate results for the current chain and earlier eras. Operating state alone does not confirm full integrity. Reanchor remains a local CLI step; see [audit.md](audit.md) for the procedure and its limits.
 
 ## On the command line
 

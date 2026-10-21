@@ -9,6 +9,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Agenten verwalten"
   },
   {
+    "slug": "audit",
+    "title": "Audit-Kette prüfen und wieder in Betrieb nehmen"
+  },
+  {
     "slug": "benutzer-rollen",
     "title": "Benutzer und Rollen"
   },
@@ -142,6 +146,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
   switch (slug) {
     case "agent-provisioning": return import("./de/agent-provisioning.ts").then(m => m.doc);
     case "agenten": return import("./de/agenten.ts").then(m => m.doc);
+    case "audit": return import("./de/audit.ts").then(m => m.doc);
     case "benutzer-rollen": return import("./de/benutzer-rollen.ts").then(m => m.doc);
     case "bestaetigung-betriebssystem": return import("./de/bestaetigung-betriebssystem.ts").then(m => m.doc);
     case "breakglass": return import("./de/breakglass.ts").then(m => m.doc);
