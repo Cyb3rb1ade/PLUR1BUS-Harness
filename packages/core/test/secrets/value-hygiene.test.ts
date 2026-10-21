@@ -9,8 +9,9 @@ import { createFileBackend } from "../../src/secrets/file-backend.ts";
 import { createKeyringBackend } from "../../src/secrets/keyring-backend.ts";
 import { createMemoryBackend } from "../../src/secrets/memory-backend.ts";
 import { buildSecretMethods } from "../../src/secrets/rpc.ts";
+import { createSecretRedaction } from "../../src/secrets/redaction.ts";
 import { createSecretStore } from "../../src/secrets/store.ts";
-import { MIN_ENTERED_VALUE_CHARS, SecretError, type SecretBackend, type SecretPrincipal } from "../../src/secrets/types.ts";
+import { MIN_REDACTED_VALUE_CHARS, SecretError, type SecretBackend, type SecretPrincipal } from "../../src/secrets/types.ts";
 import { fakeClock, fakeKeyring, secure } from "./helpers.ts";
 
 const owner: SecretPrincipal = { kind: "owner", id: "tester" };
@@ -119,24 +120,43 @@ describe("keyring: a failed index write leaves the old state", () => {
   });
 });
 
-describe("the shortest value an owner may enter", () => {
+describe("a short value is accepted and comes back with a warning (#652)", () => {
   const rig = () => {
     const store = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink(), clock: fakeClock() });
     return { store, methods: buildSecretMethods({ store, principalOf: () => owner }) };
   };
   const ctx = {} as never;
-  it(`secret.set refuses fewer than ${MIN_ENTERED_VALUE_CHARS} characters with E_INVALID_PARAMS on the value, and stores nothing`, async () => {
+  it(`secret.set stores a value of fewer than ${MIN_REDACTED_VALUE_CHARS} characters and answers with a warning that never contains it`, async () => {
     const { store, methods } = rig();
-    for (const v of ["x", "1234567", "short"]) {
-      await assert.rejects(() => methods["secret.set"]({ name: "k", value: v }, ctx), (e: any) => { assert.equal(e.error, "E_INVALID_PARAMS"); assert.equal(e.detail, "value"); assert.ok(!e.message.includes(v) || v.length === 1); return true; }, v);
+    for (const v of ["x", "1234567", "pin-77"]) {
+      const r = await methods["secret.set"]({ name: "k", value: v }, ctx) as any;
+      assert.equal(r.name, "k");
+      assert.deepEqual(Object.keys(r.warning).sort(), ["code", "message", "minMaskedChars"]);
+      assert.equal(r.warning.code, "short-value-unmasked");
+      assert.equal(r.warning.minMaskedChars, MIN_REDACTED_VALUE_CHARS);
+      assert.ok(v.length === 1 || !JSON.stringify(r).includes(v), "the value is not echoed");
+      assert.equal((await store.reveal(owner, "k")).value, v, "the short value was stored");
     }
-    assert.deepEqual(await store.list(owner), []);
   });
-  it("exactly the minimum is accepted, and so are the core's own stores (no minimum in process)", async () => {
-    const { store, methods } = rig();
-    await methods["secret.set"]({ name: "k", value: "12345678" }, ctx);
-    await store.set(owner, "inprocess", "1");
+  it("a value of exactly the redactor's minimum, and a longer one, come back without a warning", async () => {
+    const { methods } = rig();
+    for (const v of ["12345678", "a much longer value"]) {
+      const r = await methods["secret.set"]({ name: "k", value: v }, ctx) as any;
+      assert.equal("warning" in r, false, v);
+    }
+  });
+  it("the store itself (the core's own writes) takes a one-character value and adds nothing to the metadata", async () => {
+    const { store } = rig();
+    const meta = await store.set(owner, "inprocess", "1");
+    assert.equal("warning" in meta, false);
     assert.equal((await store.reveal(owner, "inprocess")).value, "1");
+  });
+  it("a short value is still not masked by the redactor (the limit the warning describes)", async () => {
+    const r = createSecretRedaction();
+    r.register("short", "k");
+    assert.equal(r.contains("a short word"), false);
+    r.register("long enough", "k");
+    assert.equal(r.contains("a long enough value"), true);
   });
   it("an agent with a short value is still refused as denied (the gate comes before the value is looked at)", async () => {
     const store = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink(), clock: fakeClock() });

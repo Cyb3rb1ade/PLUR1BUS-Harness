@@ -221,12 +221,11 @@ export function createSecretStore(o: SecretStoreOptions) {
       };
     },
 
-    /** `description` is optional: omitted, a rotation keeps the stored one; an empty one removes it. `opts.minValueChars` is for a value an owner typed (RPC, CLI). */
-    async set(p: SecretPrincipal, name: string, value: string, description?: string, opts?: { minValueChars?: number }): Promise<SecretMeta> {
+    /** `description` is optional: omitted, a rotation keeps the stored one; an empty one removes it. A short value is accepted (see `shortValueWarning`). */
+    async set(p: SecretPrincipal, name: string, value: string, description?: string): Promise<SecretMeta> {
       gate(p, "set", typeof name === "string" ? name : null, ["owner"]);
       gateSurface(p, "set", typeof name === "string" ? name : null);
       checkName(name); checkValue(value);
-      if (opts?.minValueChars !== undefined && value.length < opts.minValueChars) throw new SecretError("invalid-value", `secret value must be at least ${opts.minValueChars} characters`);
       const text = checkDescription(description, value);
       return exclusive(async () => {
         const s = await select();

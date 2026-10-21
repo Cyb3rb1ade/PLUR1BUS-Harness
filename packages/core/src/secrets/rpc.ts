@@ -1,6 +1,6 @@
 import { RpcError } from "../rpc/errors.ts";
 import type { Handler } from "../rpc/server.ts";
-import { MIN_ENTERED_VALUE_CHARS, SecretError, type SecretErrorCode } from "./types.ts";
+import { SecretError, shortValueWarning, type SecretErrorCode } from "./types.ts";
 import type { SecretStore } from "./store.ts";
 import type { SecretPrincipal } from "./types.ts";
 
@@ -35,7 +35,11 @@ export function buildSecretMethods(d: SecretMethodDeps): Record<SecretMethod, Ha
   return {
     "secret.status": wrap("secret.status", (p) => d.store.status(p)),
     "secret.list": wrap("secret.list", async (p) => ({ secrets: await d.store.list(p) })),
-    "secret.set": wrap("secret.set", (p, a: { name: string; value: string; description?: string }) => d.store.set(p, a.name, a.value, a.description, { minValueChars: MIN_ENTERED_VALUE_CHARS })),
+    "secret.set": wrap("secret.set", async (p, a: { name: string; value: string; description?: string }) => {
+      const meta = await d.store.set(p, a.name, a.value, a.description);
+      const warning = shortValueWarning(a.value);
+      return warning ? { ...meta, warning } : meta;
+    }),
     "secret.get": wrap("secret.get", async (p, a: { name: string; reveal?: boolean }) => {
       if (a.reveal === true) { const r = await d.store.reveal(p, a.name); return { secret: r.meta, value: r.value }; }
       return { secret: await d.store.meta(p, a.name) };

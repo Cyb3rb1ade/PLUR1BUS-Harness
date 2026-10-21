@@ -135,8 +135,8 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   masking after about 256 OAuth refreshes). The value a stored name holds now is pinned in the registry and in the log writers that subscribe to it;
   only retired values (rotated away, or registered without a name) are bounded.
 - **Secret store: a failed keyring index write rolls the value back** (the old value stays active and the stale-copy cleanup is not skipped),
-  and `secret.set` refuses a value of fewer than 8 characters (the redactor ignores shorter ones, so such a secret could never be kept out of a log;
-  stored shorter values stay readable, and the core's own stores are not subject to it).
+  and `secret.set` accepts a value of fewer than 8 characters but answers with a `warning` (`short-value-unmasked`): the redactor ignores shorter
+  values, so such a secret can appear in a log line. `plur1bus secret set` prints a note and Settings > Secrets shows a notice; there is no hard minimum.
 
 - **A backup restore no longer silently brings forgotten memories back (partly; KNOWN GAP until the engine pin moves).** `state/_tombstones`
   is not part of a backup and stays as it was, but the restored store rows are the backup's, so a memory forgotten after the backup was

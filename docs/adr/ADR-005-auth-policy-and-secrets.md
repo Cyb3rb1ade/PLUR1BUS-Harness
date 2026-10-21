@@ -240,7 +240,7 @@ What shipped for action items 5, 6 and 8 (`docs/superpowers/plans/2026-10-06-m2-
   a CLI that can be attested (an OS confirmation per call, or a TTY attestation the core verifies); that is an owner decision. (c) *Redaction.* The value a
   stored name holds now is pinned (registry and subscribing log writers) and never displaced; retired and name-less values are bounded at 256. (d) *Descriptions*
   are checked against every stored value and every value the process has seen, and `secret.status` masks a registered value in a stored description. (e) *Values.*
-  `secret.set` refuses fewer than 8 characters (the redactor's own minimum); the keyring backend undoes its value write when the index write fails.
+  `secret.set` accepts a value of any length but answers with a `warning` (`short-value-unmasked`) below 8 characters, the redactor's own minimum (owner decision on #652: no hard minimum; the CLI prints a note, the web UI shows a notice); the keyring backend undoes its value write when the index write fails.
 - **Q3 ruling (B19, owner decision still open).** The file's key is a machine-bound key file (`state/secrets/store.key`, 32
   random bytes, created once, 0600 or user-and-SYSTEM ACL), as `decisions-for-owner.md` B19 recommends. The passphrase mode B19
   keeps "available for higher-assurance installs" is not built. The fallback is off by default until the owner decides. The

@@ -56,10 +56,17 @@ export function checkName(name: unknown): string {
   return name;
 }
 
-/** The shortest value an owner may enter over RPC or the CLI. The redactor ignores anything shorter (masking a three-letter value would
- *  blank ordinary words in every log line), so a shorter secret could never be kept out of a log: it is refused up front instead. Values
- *  the core stores for itself (machine-made tokens and keys) are not subject to it, and entries written earlier stay readable. */
-export const MIN_ENTERED_VALUE_CHARS = 8;
+/** The shortest value the log redactor masks. A shorter value is accepted like any other (#652), but masking a three-letter value would
+ *  blank ordinary words in every log line, so it is not looked for in logs: `secret.set` answers with `shortValueWarning` instead. */
+export const MIN_REDACTED_VALUE_CHARS = 8;
+
+/** What `secret.set` returns beside the metadata when the value is too short for the redactor to mask (never the value itself). */
+export interface SecretWarning { code: "short-value-unmasked"; minMaskedChars: number; message: string }
+
+export function shortValueWarning(value: string): SecretWarning | undefined {
+  if (value.length >= MIN_REDACTED_VALUE_CHARS) return undefined;
+  return { code: "short-value-unmasked", minMaskedChars: MIN_REDACTED_VALUE_CHARS, message: `The value has fewer than ${MIN_REDACTED_VALUE_CHARS} characters: it was stored, but the log redactor does not mask values this short, so it could appear in a log line.` };
+}
 /** A value shorter than this is not looked for in a description (a letter or a word that happens to occur in prose is not a leak). */
 export const MIN_DESCRIPTION_VALUE_CHARS = 8;
 

@@ -8,11 +8,12 @@
 // somewhere must stay masked, but retired values are bounded (the newest `MAX_REGISTERED_SECRETS`), which is what keeps a
 // token that refreshes every hour from growing the set, and the cost of every log line, without end.
 import { createRedactor, type Redactor } from "../logs/redact.ts";
+import { MIN_REDACTED_VALUE_CHARS } from "./types.ts";
 
 /** How many retired (and name-less) values are kept, newest first. Pinned values are not counted and never leave. */
 export const MAX_REGISTERED_SECRETS = 256;
-/** Shorter values are not masked (a three-letter value would blank ordinary words in every line); an owner cannot enter one (`MIN_ENTERED_VALUE_CHARS`). */
-const MIN_LENGTH = 8;
+/** Shorter values are not masked (a three-letter value would blank ordinary words in every line); `secret.set` warns about one (`shortValueWarning`). */
+const MIN_LENGTH = MIN_REDACTED_VALUE_CHARS;
 
 /** `pinned`: the value is the current one of a store name, so the sink must keep it for good. A sink hears a value again when it is
  *  retired (`pinned: false`) so that it can let go of it like any other transient value. */
