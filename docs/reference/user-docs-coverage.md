@@ -2,7 +2,7 @@
 
 Stand: 20.10.2026, Basis `origin/main` 31f8dd62c plus der Zweig `fix/user-docs-coverage`. Die Tabelle zeigt, welche Funktionen der Weboberfläche und der Kommandozeile eine Seite oder einen Abschnitt in `docs/user/de/` und `docs/user/en/` haben. Sie ist die Arbeitsgrundlage für die nächsten Doku-Runden.
 
-Nachtrag U1 (21.10.2026, Basis `origin/main` `1dae60f2ae`): Die sechs neuen Themen sind unten verlinkt. Kennzahlen, Web-Urteile, CLI-Zählung und Rangfolge bleiben die historische Bestandsaufnahme vom 20.10.; ihre Neuberechnung ist U2. Die Bibliotheksseite nennt ausdrücklich die noch unvollständige Web-Anbindung. #657 ist integriert; die project-/voice-Ergänzungen und der Befehlschecker aus #661 sind auf dieser Basis noch offen.
+Nachtrag U1 (21.10.2026, Basis `origin/main` `1dae60f2ae`): Die sechs neuen Themen sind unten verlinkt. Die Netzwerkzeile ist nach U1 als dokumentiert markiert. Kennzahlen, übrige Web-Urteile, CLI-Zählung und Rangfolge bleiben die historische Bestandsaufnahme vom 20.10.; ihre Neuberechnung ist U2. Die Bibliotheksseite nennt ausdrücklich die noch unvollständige Web-Anbindung. #657 ist integriert; die project-/voice-Ergänzungen und der Befehlschecker aus #661 sind auf dieser Basis noch offen.
 
 ## Methode
 
@@ -51,7 +51,7 @@ Neu in dieser Runde sind sechs Seiten, je in de und en: Chat, Agenten, Erinnerun
 | Einstellungen: Modelle | `/settings/models` | `config …`, `model …` | [providers.md](../user/de/providers.md), [chat-modelle.md](../user/de/chat-modelle.md) | [providers.md](../user/en/providers.md), [chat-models.md](../user/en/chat-models.md) | teilw. |
 | Einstellungen: Memory (Embeddings, Medienindex) | `/settings/memory` | `memory reembed` | [reembed.md](../user/de/reembed.md), [cloud-embeddings.md](../user/de/cloud-embeddings.md), [mediensuche.md](../user/de/mediensuche.md) | [reembed.md](../user/en/reembed.md), [cloud-embeddings.md](../user/en/cloud-embeddings.md), [media-search.md](../user/en/media-search.md) | ja |
 | Einstellungen: Erweiterungen | `/settings/extensions` | `ext …` | [extensions.md](../user/de/extensions.md) | [extensions.md](../user/en/extensions.md) | ja |
-| Einstellungen: Netzwerk (Egress) | `/settings/network` | – | [einstellungen-netzwerk.md](../user/de/einstellungen-netzwerk.md) (U1) | [network-settings.md](../user/en/network-settings.md) (U1) | fehlt |
+| Einstellungen: Netzwerk (Egress) | `/settings/network` | – | [einstellungen-netzwerk.md](../user/de/einstellungen-netzwerk.md) (U1) | [network-settings.md](../user/en/network-settings.md) (U1) | ja (U1) |
 | Einstellungen: Sicherheit und Berechtigungen | `/settings/security` | – | [passkeys.md](../user/de/passkeys.md) (nur Passkeys) | [passkeys.md](../user/en/passkeys.md) (nur Passkeys) | teilw. |
 | Einstellungen: Datenschutz („Nur lokal“) | `/settings/privacy` | `config set` | [datenschutz.md](../user/de/datenschutz.md) | [privacy.md](../user/en/privacy.md) | ja |
 | Einstellungen: Benutzer und Rollen, Identitäten | `/settings/users` | `user …`, `identity …` | [benutzer-rollen.md](../user/de/benutzer-rollen.md) *neu*, [einladungen.md](../user/de/einladungen.md) | [users-and-roles.md](../user/en/users-and-roles.md) *neu*, [invitations.md](../user/en/invitations.md) | ja (vorher teilw.) |
