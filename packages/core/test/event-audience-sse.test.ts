@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { defaults } from "@plur1bus/config-schema";
-import { connect } from "@plur1bus/module-api";
+import { connect } from "./helpers/connect.ts";
 import { createCore } from "../src/core.ts";
 import { AdminStore } from "../src/identity/admin-store.ts";
 import { layout } from "../src/paths.ts";
