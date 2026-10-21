@@ -9,8 +9,8 @@ local ffmpeg for JPEG/WebP), the question sets and verdict, a candidate store an
 turn tools. The core composes the verifier per check behind privacy → egress → secret (the `composeMedia` order), adds
 per-run budget admission, offers (`media.offer.*`), a `media.retention` system job and one shared `OutputStore`. Web,
 switchboard and CLI render the offer question and take the answer.
-**Status.** Plan only. Owner decisions of 2026-10-21 recorded (spec §2); open questions Q1–Q15 (spec §17). WP1–WP3 and
-WP5 are unblocked now; WP6 needs Q15 (schema changes); WP11 needs the owner's TypeSafe key (Q7).
+**Status.** Plan only. Owner decisions of 2026-10-21 recorded (spec §2); Q1–Q15 decided the same day (spec §17).
+**Gate:** the live probe (WP11a) runs first — no other package starts until it shows the pinned model accepts images.
 **Constraints.** No new dependency (no `@typesafe-ai/sdk`, no image library); additive RPC methods with
 `x-stability: "experimental"`, `x-server: "core"`, `x-since: "1.7.0"`, closed params; every config key with `x-restart`
 and `x-tier`; no new RPC error codes (new reason strings only, documented in `docs/errors.md`); no network in tests (fake
@@ -50,12 +50,19 @@ needs its predecessor's code: WP4 on WP1–WP3, WP7 on WP4–WP6, WP8/WP9 on WP7
 
 ---
 
-## WP0 — Owner answers (≈ 0.25 agent days)
+## WP0 — Owner answers (done 2026-10-21)
 
-**Content.** Record the answers to spec §17 Q1–Q15 as status lines in the spec; adjust defaults (retention days, model
-pin, thresholds) and the WP list if an answer changes scope (Q9 buttons, Q11 inbox kind, Q15 schema release).
-Enter D117 in the core spec's register once decided.
-**Acceptance.** Every question has a status; the spec's defaults match the answers.
+Spec §17 records every answer. Scope changes against the first draft: a per-output keep pin is in WP5 (Q1), inline
+yes/no buttons through a generic channel choice port are in WP8 (Q9), edit verification has its own switch (Q10, WP6/WP7),
+the agent may only tighten verification per call (Q14, WP7). Enter D117 in the core spec's register with WP6.
+
+## WP11a — Live probe (≈ 0.25 agent days + owner; first)
+
+**Content.** The owner stores the key himself (`plur1bus secret set typesafe`); a throwaway script outside the repo sends
+one generated PNG with the three `normal` questions to `jev-1.13.0` (and `jev-1.14.0` if 1.13 refuses images) and records
+the raw answers, token usage and latency. No key value is printed or written.
+**Acceptance.** A short note in the PR thread: image accepted yes/no per model, answer shapes match spec §4, measured
+latency. If no model accepts images, stop and return to the owner.
 
 ## WP1 — System One client and fake server (`packages/media`; ≈ 1.5 agent days)
 
@@ -123,7 +130,9 @@ to a run on `main` (golden JSON).
 **Acceptance.** Coverage gates hold; `JobRunner` without verify unchanged (existing `lifecycle.test.ts`, `store*.test.ts`
 untouched and green).
 
-## WP5 — Retention (`packages/media` + `packages/core`; ≈ 1.5 agent days)
+## WP5 — Retention (`packages/media` + `packages/core`; ≈ 2 agent days)
+
+**Keep pin (Q1).** A per-output `pinned` manifest flag exempts an output from retention; set and cleared by the owner of the output (RPC in WP6, CLI in WP9, gallery toggle in WP8); `prune` skips pinned outputs and tests prove it.
 
 **Files.** `packages/media/src/store.ts` (`prune(now, { olderThanMs })`, additive), `packages/core/src/composition/media-store.ts`
 (new: one `OutputStore` per home for outputs and one for candidates, from the live config), `packages/core/src/composition/media.ts`,
@@ -177,10 +186,10 @@ accept), existing `media-budget.test.ts` and `media-video.test.ts` unchanged and
 **Acceptance.** `pnpm --filter @plur1bus/core test` for the touched files green (engine-dependent tests may fail locally,
 known); `pnpm --filter @plur1bus/core typecheck`.
 
-## WP8 — Web UI and switchboard (`packages/web`, `packages/core/src/channels`; ≈ 3 agent days)
+## WP8 — Web UI and switchboard (`packages/web`, `packages/core/src/channels`; ≈ 4 agent days)
 
 **Files.** `packages/core/src/channels/switchboard.ts` (`#collectMedia` also collects `offer` objects; after
-`flushMedia`, the question text in `channels.<name>.locale` through `output()`; no buttons unless Q9 says so),
+`flushMedia`, the question text in `channels.<name>.locale` through `output()`; inline yes/no buttons through a new generic channel choice port — Telegram inline keyboard, Discord components, any channel with an equivalent — free text as the fallback, Q9),
 `packages/core/src/channels/offer-text.ts` (new: en/de strings of spec §8.2), `packages/web/src/pages/chat/model.ts`
 (`offerReference` → offer entry; several output ids per tool result), `packages/web/src/pages/chat/*` offer card
 component, `packages/web/src/pages/surfaces/media.ts` (Settings > Media "Image check (Preview)" and retention, spec
@@ -231,19 +240,20 @@ with measured values; owner sign-off on the thresholds.
 
 | WP | Agent days |
 |---|---|
-| WP0 | 0.25 |
+| WP0 | done |
+| WP11a | 0.25 (+ owner) |
 | WP1 | 1.5 |
 | WP2 | 2 |
 | WP3 | 1.5 |
 | WP4 | 3 |
-| WP5 | 1.5 |
+| WP5 | 2 (keep pin, Q1) |
 | WP6 | 1.5 |
 | WP7 | 3 |
-| WP8 | 3 |
+| WP8 | 4 (buttons, Q9) |
 | WP9 | 1.5 |
 | WP10 | 1 |
 | WP11 | 1 (+ owner) |
-| **Total** | **≈ 20.75** |
+| **Total** | **≈ 22.25** |
 
-Critical path: WP1–WP3 (parallel, ≈ 2) → WP4 (3) → WP7 (3) → WP8 (3) → WP11 (1) ≈ 12 days with parallel lanes for
+Critical path: WP11a (0.25) → WP1–WP3 (parallel, ≈ 2) → WP4 (3) → WP7 (3) → WP8 (4) → WP11 (1) ≈ 13.25 days with parallel lanes for
 WP5, WP6, WP9, WP10.

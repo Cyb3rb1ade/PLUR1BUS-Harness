@@ -861,22 +861,28 @@ Images and prompts leave the machine, also for local generators; TypeSafe states
 A short default deletes media people expected to keep. Mitigations: §13.4 deferral and notice, audit on changes,
 warning on shortening, Q1 (pin/keep).
 
-## 17. Open owner questions
+## 17. Owner questions — decided 2026-10-21
 
-| # | Question | Proposal |
+Q1, Q9, Q10 and Q14 were answered by the owner; the others were settled by the controller (technical, reversible) and are binding unless the owner reverses them. Where a decision differs from the proposal in the earlier sections, this table wins.
+
+| # | Question | Decision |
 |---|---|---|
-| Q1 | Default `media.retentionDays`, and is "keep forever" or a per-output "keep" pin (exempt from retention) wanted? | 30 days; no "forever"; a keep pin as follow-up; §13.4 deferral on upgrade |
-| Q2 | Does an alternate's retention clock start at generation (`createdAt`) or at the offer/acceptance? | At generation |
-| Q3 | After a restart mid-loop: finalize with the stored candidates (no new generation), or continue the remaining runs? | Finalize (interrupt recovery never resubmits) |
-| Q4 | For `n > 1`: slot-based retries (run k requests only the missing images) as in §7.1? | Yes |
-| Q5 | Model pin: `jev-1.13.0` (current stable, `jev-latest`) or `jev-1.14.0` (newest)? The models page lists both as text-only while the images page says both accept images. | `jev-1.13.0`, re-checked in the live calibration |
-| Q6 | Confirm fail-open as default and the fail-closed behaviour (held as an `unchecked-hold` offer, job `failed`/`backend_unavailable`). | Yes |
-| Q7 | Initial thresholds of the three levels (§6.2) and a live calibration run with your TypeSafe key (about 100 checks over German and English prompts); who funds the key? | Run WP11 with your key, then fix the `@1` tables |
-| Q8 | Under "Only local models", may a System One-compatible endpoint that is loopback or in `privacy.localEndpoints` (for example a future Kev with image input) run the check? | No for now (C3 says off); revisit when a local image-capable model exists |
-| Q9 | Channels: inline yes/no buttons (Telegram inline keyboard, Discord components) in this package, or free-text answers through the agent only? | Free text now; buttons as a follow-up using a new generic channel choice port |
-| Q10 | Include edits, with the first reference image sent as `reference` (extra tokens)? | Yes |
-| Q11 | Inbox entry (new kind `media-offer`, a change of the closed kind set) for offers of RPC-direct jobs whose connection is gone? | Yes, Owner of the job only, settled on resolve/expiry |
-| Q12 | One TypeSafe secret (suggested name `typesafe`) shared with the future decision module's `jev` backend? | Yes |
-| Q13 | Retention also deletes terminal job records (they contain reference/mask bytes) and orphaned owner records? | Yes |
-| Q14 | May the agent itself switch verification on or choose a stricter level per call (tool argument)? It spends budget. | Yes, within budget; it may not switch off a verification the config enables |
-| Q15 | Implementation needs config-schema and rpc-schema changes and new reason strings; the current agent rules forbid schema changes per round. Release this package from that rule? | Yes, as WP6, one PR |
+| Q1 | Default `media.retentionDays`; "keep forever" or a per-output keep pin? | **Owner:** 30 days default, user-configurable; a per-output **keep pin** (exempt from retention) is part of this package, not a follow-up; no global "forever". §13.4 deferral on upgrade stays. |
+| Q2 | Alternate's retention clock | At generation (`createdAt`). |
+| Q3 | Restart mid-loop | Finalize with the stored candidates; recovery never starts a new paid run. |
+| Q4 | `n > 1` | Slot-based retries: only missing images are re-requested. |
+| Q5 | Model pin | `jev-1.13.0`, gated by a live probe (WP11 moved first, see below): the docs disagree on image input, so no implementation package starts before the probe shows images are accepted. |
+| Q6 | Failure default | Fail-open (marked "unchecked"); fail-closed holds the image as an `unchecked-hold` offer and fails the job with `backend_unavailable`. |
+| Q7 | Thresholds | Calibrate in WP11 with the owner's key (entered by the owner via `plur1bus secret set typesafe`), then fix the `@1` tables. |
+| Q8 | Local-only | No: under "Only local models" the check is always off. |
+| Q9 | Channels | **Owner:** inline yes/no buttons now (Telegram inline keyboard, Discord components and any channel with an equivalent) through a generic channel choice port; free-text answer through the agent as the fallback where a channel has no buttons. |
+| Q10 | Edits | **Owner:** yes, with its own switch — verification of generation and of edits is configured separately (global / agent / call), so an edit's reference image is only sent when edit verification is on. |
+| Q11 | Inbox kind | Yes, `media-offer`, owner of the job only, settled on resolve/expiry. |
+| Q12 | Secret | One shared secret `typesafe`. |
+| Q13 | Retention scope | Also deletes terminal job records and orphaned owner records. |
+| Q14 | Agent per call | **Owner:** tighten only — the agent may switch verification on or choose a stricter level per call (within budget), never switch off or loosen what the user/agent configuration requires. |
+| Q15 | Schema changes | Released: WP6 changes config-schema and rpc-schema in one PR (it was an internal agent rule, not an owner rule). |
+
+### Order change from these decisions
+
+WP11's live probe (one image, the three `normal` questions, against the owner's key) runs **before WP1**; the full calibration stays in WP11. If the probe shows the pinned model rejects images, the package stops and the spec goes back to the owner.
