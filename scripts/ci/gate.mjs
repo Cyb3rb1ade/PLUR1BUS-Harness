@@ -10,6 +10,8 @@ export function selections(o) {
   return {
     'docs-hygiene': enabled,
     unit: enabled && runtime,
+    'core-unit-shard': enabled && o['ts-core'] === 'true',
+    'core-unit': enabled && o['ts-core'] === 'true',
     system: enabled && runtime,
     service: enabled && runtime,
     'python-host': enabled && (runtime || o.python === 'true'),

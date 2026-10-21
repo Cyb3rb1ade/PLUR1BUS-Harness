@@ -19,6 +19,7 @@ for (const [name, files, expected] of [
   ['config schema', ['packages/config-schema/src/index.ts'], ['python', 'rust', 'ts-core', 'web']],
   ['log schema', ['packages/log-schema/schema/catalogue.json'], ['python', 'rust', 'ts-core', 'web']],
   ['workflow', ['.github/workflows/ci.yml'], full.filter(x => x !== 'engine-pin')],
+  ['Core shard timing profile', ['.github/ci/core-test-timings.json'], full.filter(x => x !== 'engine-pin' && x !== 'workflows')],
   ['JS lock', ['pnpm-lock.yaml'], full.filter(x => x !== 'engine-pin' && x !== 'workflows')],
   ['unknown', ['future/new-runtime.bin'], full.filter(x => x !== 'engine-pin' && x !== 'workflows')],
   ['mixed docs and Rust', ['docs/a.md', 'crates/x/src/lib.rs'], ['rust']],

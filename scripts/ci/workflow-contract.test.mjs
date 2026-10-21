@@ -34,3 +34,15 @@ test('every workflow job is in the gate and actual job conditions match its skip
     assert.deepEqual(evaluateGate(needs), []);
   }
 });
+
+test('every executable CI job has a bounded timeout, including the Core shard and its gate', () => {
+  const yaml = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const jobs = yaml.slice(yaml.indexOf('\njobs:\n')).split(/(?=^  [a-z][\w-]*:\n)/m).slice(1);
+  for (const job of jobs) {
+    const name = /^  ([\w-]+):/.exec(job)[1];
+    const timeout = /^    timeout-minutes: (.+)$/m.exec(job)?.[1];
+    assert.ok(timeout, `${name}: explicit job timeout required`);
+    const minutes = timeout.startsWith('${{') ? [...timeout.matchAll(/(?:&&|\|\|)\s*(\d+)/g)].map(m => Number(m[1])) : [Number(timeout)];
+    assert.ok(minutes.length > 0 && minutes.every(n => Number.isInteger(n) && n >= 1 && n <= 120), `${name}: unreasonable job budget ${timeout}`);
+  }
+});

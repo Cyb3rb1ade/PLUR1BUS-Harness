@@ -106,7 +106,8 @@ so on) would stay pending on a PR that skips it; configure the aggregate `ci-gat
 | Job | Gate |
 | --- | --- |
 | `plan` | Tested runner/label policy; a non-macOS label event deliberately runs no expensive matrix |
-| `unit` | Toolchain, fixture drift, lint, offline TypeScript tests, Rust fmt/clippy/tests and generated docs |
+| `unit` | Toolchain, fixture drift, lint and selected language tests; Ubuntu Core tests run in the measured shards below, macOS/Windows keep all TypeScript packages |
+| `core-unit-shard`, `core-unit` | Three measured Ubuntu Core shards plus an exact-partition gate; failures, cancellation and missing manifests fail `ci-gate` |
 | `system` | Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command) |
 | `service` | Service manager tests; existing systemd-unavailable handling remains documented in the workflow |
 | `python-host` | Python client/Hermes offline and live synthetic-host tests; Windows ARM informational policy is unchanged |
@@ -116,6 +117,32 @@ so on) would stay pending on a PR that skips it; configure the aggregate `ci-gat
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 
 CI/nightly actions are pinned to full commit SHAs; comments record their versions. `node scripts/lint-hygiene.mjs` (rule HYG-016) rejects any workflow `uses:` that is not a full SHA, a local `./` action or a `docker://` image with a `@sha256:` digest. Workflow default is `contents: read`. PR concurrency cancels superseded runs. No new third-party retry action is introduced.
+
+### Core sharding and job budgets (GP5 P5)
+
+For selected TypeScript suites, Ubuntu runs `packages/core` in three `core-unit-shard` jobs. The existing Ubuntu
+unit job runs every other package through the same root test runner and its nonzero-test guard. macOS and Windows
+keep the full unsharded workspace test run. New Core files are always included, even before their timing is measured.
+
+`.github/ci/core-test-timings.json` records all 601 Core file durations from the historical successful Ubuntu run
+39516791460 at `1dae60f2ae` (artifact 12310137290). `selectShard` assigns the longest measured file first to the
+least-loaded shard, with deterministic ties, a 100 ms floor and a 1000 ms estimate for new files. Only the Core
+job sets `PLUR1BUS_TEST_SHARD_TIMINGS`; browser sharding remains round-robin. No test or assertion was removed.
+
+Each Core shard writes its executed file list and uploads a timing report. `core-unit` checks the manifests against
+the live file inventory and requires the entire matrix to succeed. The final `ci-gate` requires both the shard
+matrix and the partition gate when TypeScript was selected. A missing/cancelled/failed shard cannot become a pass.
+Every `ci.yml` job has an explicit budget; new Core shards allow 20 minutes per job and 15 minutes for tests, with
+5 minutes for the partition gate. Existing platform and integration budgets remain in place until new measurements
+justify changing them. The [P5 handoff](handoffs/2026-10-21-gp5-p5-core-shards.md) lists all budgets, the global Top 20,
+the measured partition and its limits. The projected balance is not a hosted before/after result.
+
+To run a weighted Core shard locally after preparation:
+
+```bash
+PLUR1BUS_TEST_SHARD=1/3 PLUR1BUS_TEST_SHARD_TIMINGS="$PWD/.github/ci/core-test-timings.json" \
+  pnpm --filter @plur1bus/core test
+```
 
 ### Windows timeout and timings
 

@@ -57,3 +57,17 @@ test('an added job cannot silently bypass the gate', () => {
   input['new-check'] = { result: 'failure' };
   assert(evaluateGate(input).some(error => error.includes('new-check')));
 });
+
+test('Core shards and their exact-partition gate are required only for selected TypeScript suites', () => {
+  for (const selected of [false, true]) {
+    const outputs = flags({ 'ts-core': String(selected), 'docs-only': String(!selected) });
+    for (const job of ['core-unit-shard', 'core-unit']) {
+      assert.equal(selections(outputs)[job], selected, job);
+      if (selected) for (const result of ['failure', 'cancelled', 'skipped', undefined]) {
+        const input = needs(outputs);
+        input[job] = result === undefined ? undefined : { result };
+        assert(evaluateGate(input).some(error => error.includes(job)), `${job}:${result}`);
+      }
+    }
+  }
+});
