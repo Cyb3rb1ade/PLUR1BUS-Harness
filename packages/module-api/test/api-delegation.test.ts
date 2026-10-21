@@ -10,9 +10,10 @@ import { createRpcServer } from "../src/rpc-server.ts";
 import { apiPrincipal } from "../src/api-principal.ts";
 import { createLogger } from "../src/logger.ts";
 import { guardMethods } from "../../core/src/rbac/guard.ts";
+import { rpcAddress, selfServer } from "./helpers/endpoint.ts";
 
 test("real socket: only API credential delegates; missing principal and agents fail humanOnly; audiences keep targeting metadata", async t => {
-  const dir = mkdtempSync(join(tmpdir(), "p1b-api-delegate-")); const address = join(dir, "rpc.sock");
+  const dir = mkdtempSync(join(tmpdir(), "p1b-api-delegate-")); const address = rpcAddress(dir);
   const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
   const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" });
   const inbox = new InboxStore({ path: ":memory:", clock: Date.now }); t.after(() => inbox.close());
@@ -22,10 +23,10 @@ test("real socket: only API credential delegates; missing principal and agents f
   const server = createRpcServer({ address, token, apiToken, methods, logger, hello: () => ({ rpc: "1.6.0", instanceId: "test", pid: process.pid }), apiPersonOfConnection: async (_c, p) => active && p.kind === "person" ? p.userId : null });
   await server.listen(); t.after(async () => { await server.close(); await logger.close(); rmSync(dir, { recursive: true, force: true }); });
   const api = { clientId: "harness-api" as const, token: apiToken, principal: { userId: "alice", kind: "person" as const, role: "member" as const } };
-  await assert.rejects(connect({ address, token, api: { ...api, token } }), e => (e as any).error === "E_UNAUTHORIZED");
-  const alice = await connect({ address, token, api }); t.after(() => alice.close());
-  const absent = await connect({ address, token, api: { clientId: "harness-api", token: apiToken } }); t.after(() => absent.close());
-  const agent = await connect({ address, token, api: { ...api, principal: { ...api.principal, kind: "agent" } } }); t.after(() => agent.close());
+  await assert.rejects(connect({ address, token, ...selfServer, api: { ...api, token } }), e => (e as any).error === "E_UNAUTHORIZED");
+  const alice = await connect({ address, token, ...selfServer, api }); t.after(() => alice.close());
+  const absent = await connect({ address, token, ...selfServer, api: { clientId: "harness-api", token: apiToken } }); t.after(() => absent.close());
+  const agent = await connect({ address, token, ...selfServer, api: { ...api, principal: { ...api.principal, kind: "agent" } } }); t.after(() => agent.close());
   assert.equal((await alice.call<any>("inbox.count")).total, 0);
   await assert.rejects(alice.call("core.status"), e => (e as any).error === "E_INTERNAL" && !(e as Error).message.includes(marker));
   await new Promise(r => setTimeout(r, 20));
@@ -47,22 +48,22 @@ test("real socket: only API credential delegates; missing principal and agents f
 });
 
 test("a delegated handshake has its own short deadline despite a long method budget", async t => {
-  const dir = mkdtempSync(join(tmpdir(), "p1b-api-auth-deadline-")), address = join(dir, "rpc.sock");
+  const dir = mkdtempSync(join(tmpdir(), "p1b-api-auth-deadline-")), address = rpcAddress(dir);
   const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
   const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" });
   const server = createRpcServer({ address, token, apiToken, logger, methods: {}, hello: () => ({ rpc: "1.6.0", instanceId: "test", pid: process.pid }), apiPrincipalOf: () => new Promise(() => {}) });
   await server.listen(); t.after(async () => { await server.close(); await logger.close(); rmSync(dir, { recursive: true, force: true }); });
   const started = Date.now();
-  await assert.rejects(connect({ address, token, handshakeTimeoutMs: 30, callTimeoutMs: 300_000, api: { clientId: "harness-api", token: apiToken, principal: { userId: "alice", role: "member", kind: "person" } } }), e => (e as any).reason === "call-timeout");
+  await assert.rejects(connect({ address, token, ...selfServer, handshakeTimeoutMs: 30, callTimeoutMs: 300_000, api: { clientId: "harness-api", token: apiToken, principal: { userId: "alice", role: "member", kind: "person" } } }), e => (e as any).reason === "call-timeout");
   assert.ok(Date.now() - started < 1000);
 });
 
 test("API authority-change notifications reach only the credential-authenticated service connection", async t => {
-  const dir = mkdtempSync(join(tmpdir(), "api-service-notify-")), address = join(dir, "rpc.sock"); const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
+  const dir = mkdtempSync(join(tmpdir(), "api-service-notify-")), address = rpcAddress(dir); const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
   const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" }); const serviceIds: string[] = [];
   const server = createRpcServer({ address, token, apiToken, methods: {}, logger, hello: () => ({ rpc: "1.6.0", instanceId: "test", pid: process.pid }), onApiAuthenticated: (id, p) => { if (p === null && !serviceIds.includes(id)) serviceIds.push(id); }, apiPersonOfConnection: async (_id, p) => p.kind === "person" ? p.userId : null });
   await server.listen(); t.after(async () => { await server.close(); await logger.close(); rmSync(dir, { recursive: true, force: true }); });
-  const service = await connect({ address, token, api: { clientId: "harness-api", token: apiToken } }); const browser = await connect({ address, token, api: { clientId: "harness-api", token: apiToken, principal: { userId: "alice", kind: "person", role: "owner" } } }); const local = await connect({ address, token });
+  const service = await connect({ address, token, ...selfServer, api: { clientId: "harness-api", token: apiToken } }); const browser = await connect({ address, token, ...selfServer, api: { clientId: "harness-api", token: apiToken, principal: { userId: "alice", kind: "person", role: "owner" } } }); const local = await connect({ address, token, ...selfServer });
   t.after(async () => { await service.close(); await browser.close(); await local.close(); });
   const seen: string[] = []; service.onNotification(() => seen.push("service")); browser.onNotification(() => seen.push("browser")); local.onNotification(() => seen.push("local"));
   for (const c of [service, browser, local]) await c.call("events.subscribe", { names: ["api.account.changed"] });

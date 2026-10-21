@@ -13,7 +13,7 @@ export class AgentCreateSaga {
     mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     const path = this.path(record.key, record.actor), temp = `${path}.${randomUUID()}.tmp`;
     writeFileSync(temp, JSON.stringify(record), { mode: 0o600, flag: "wx" });
-    const fd = openSync(temp, "r"); try { fsyncSync(fd); } finally { closeSync(fd); }
+    const fd = openSync(temp, "r+"); try { fsyncSync(fd); } finally { closeSync(fd); } // "r+": fsync on a read-only handle is EPERM on Windows
     renameSync(temp, path);
     // Windows does not support fsync on directory handles; the file is durable there.
     if (process.platform !== "win32") { const dir = openSync(this.directory, "r"); try { fsyncSync(dir); } finally { closeSync(dir); } }
@@ -22,7 +22,7 @@ export class AgentCreateSaga {
     const path = this.path(key, actor);
     if (!existsSync(path)) return undefined;
     const r = JSON.parse(readFileSync(path, "utf8")) as SagaRecord;
-    if (r.version !== 1 || r.key !== key || r.actor !== actor || !Number.isInteger(r.attempted) || r.attempted < 0 || r.attempted > 4 || !["running", "undoing", "complete", "compensated"].includes(r.state)) throw new RpcError("E_STORAGE", "invalid provisioning journal");
+    if (r.version !== 1 || r.key !== key || r.actor !== actor || !Number.isInteger(r.attempted) || r.attempted < 0 || r.attempted > 5 || !["running", "undoing", "complete", "compensated"].includes(r.state)) throw new RpcError("E_STORAGE", "invalid provisioning journal");
     return r;
   }
   markActivated(record: SagaRecord) { record.activated = true; this.save(record); }
