@@ -22,9 +22,13 @@ for open pull requests (in this repo and in the sibling repos `plur1bus-hermes-s
 
 Wait for these, they are the reliable signal:
 
-- `unit (ubuntu-24.04)` (lint, `pnpm test`, cargo, `docs:check`)
+- `unit (ubuntu-24.04)` (toolchain check, config fixture drift, lint, `pnpm test`, release-script tests, cargo fmt/clippy/test, `docs:check`)
+- `web-browser` (workflow `ci`): the merge gate over `web-browser-build` and the four `web-browser shard i/4` jobs. It fails unless the plan, the build and every shard succeeded, and unless every `packages/web` test file ran in exactly one shard (`docs/ci.md`, "M3 web browser checks"). Wait for the gate job, not the single shards.
+- `quality` (workflow `release-quality`, macos-15): third-party notices, `pnpm lint`, the release checklist and the dependency audit policy
 - `build + smoke (amd64)` (workflow `container`)
 - `wsl`
+
+`build + smoke (amd64)` only runs for pull requests that touch the paths in `container.yml`; a check that is absent is not a red one.
 
 Do not wait for these, and do not treat them as blocking. They are slow, flaky or already
 red on `main`, and are meant to be fixed on `main` separately:
@@ -33,6 +37,7 @@ red on `main`, and are meant to be fixed on `main` separately:
 - `unit (macos-15)` (known failing package: `packages/core`)
 - `python-host (windows-11-arm, 3.13, true)` (experimental)
 - the `desktop` workflow (`desktop.yml`)
+- advisory jobs: `startup (…)` and `budget catalogue (…, advisory)` in `ci`, `reproducible` in `container` and `real-image` in `desktop real-image compatibility` (the last two are `continue-on-error`)
 
 Use judgement: if the same job is red on `main` and in an unrelated PR, it is not the PR's
 fault. If a reliable job is red, or a normally green job fails only in this PR, it counts.

@@ -11,6 +11,26 @@ import { defaults } from '@plur1bus/config-schema';
 import { distribution, runs } from './metrics.mjs';
 
 const pause = ms => new Promise(r => setTimeout(r, ms));
+const STATUS_CALL_MS = 5000;
+// Polls core.status until the core and its engine are healthy. A call that gets no answer within STATUS_CALL_MS (reason
+// 'call-timeout') means the core's event loop was busy (model download and load on a cold runner), not that startup failed:
+// it is counted as a stall and polling goes on until `timeoutMs`, so the healthy-ready time includes the stall and the report
+// shows it. Any other error (closed connection, auth, protocol) is a real failure and is thrown at once.
+export async function pollHealthy({ call, timeoutMs, pauseMs = 10, now = () => performance.now() }) {
+  const t = now();
+  let stalls = 0;
+  for (;;) {
+    try {
+      const status = await call('core.status', {}, STATUS_CALL_MS);
+      if (status.process.state === 'ready' && status.engine.ready && status.engine.degraded === null) return { stalls };
+    } catch (e) {
+      if (e?.reason !== 'call-timeout') throw e;
+      stalls++;
+    }
+    if (now() - t > timeoutMs) throw Object.assign(new Error('healthy core timeout'), { stalls });
+    await pause(pauseMs);
+  }
+}
 export async function startup({ count = 30, real = false, cache, bin = resolve(process.env.PLUR1BUS_BIN ?? `target/release/plur1bus${platform() === 'win32' ? '.exe' : ''}`), core = resolve(process.env.PLUR1BUS_CORE_JS ?? 'packages/core/dist/core.js') } = {}) {
   runs(count);
   const report = { schema: 'plur1bus-startup/v1', target: `${platform()}-${arch()}`, os: release(), node: process.version,
@@ -35,6 +55,8 @@ export async function startup({ count = 30, real = false, cache, bin = resolve(p
     const socket = [], healthy = [], rpc = [];
     const series = [['socket-ready', socket], ['healthy-ready', healthy]].map(([scenario, samples]) => ({ budget: 'B8', scenario: `${real ? 'real-models' : 'flat-embedder'}-${scenario}`, mode: 'advisory', reason: 'ADR-010 tracking; local-model and reference hardware acceptance reported separately.', limitMs: real ? 15000 : 3000, samples, n: 0, warmups: 1, outliersDiscarded: 0 }));
     report.results.push(...series);
+    const stalls = { warmup: 0, measured: 0, limitMs: STATUS_CALL_MS };
+    report.stalls = stalls;
     if (real && !cache) throw new Error('real models require an explicit populated --models-cache');
     for (let i = -1; i < count; i++) {
       const home = join(root, `core-${i}`); mkdirSync(home);
@@ -64,12 +86,10 @@ export async function startup({ count = 30, real = false, cache, bin = resolve(p
         const socketMs = performance.now() - t;
         child.stdout.resume();
         client = await connect({ address: ready.address, expectedServerPid: ready.pid, token: readFileSync(join(home, 'run/core.token'), 'utf8').trim() });
-        for (;;) {
-          const status = await client.call('core.status', {}, 5000);
-          if (status.process.state === 'ready' && status.engine.ready && status.engine.degraded === null) break;
-          if (performance.now() - t > startupTimeout) throw new Error('healthy core timeout');
-          await pause(10);
-        }
+        try {
+          const polled = await pollHealthy({ call: (method, params, timeoutMs) => client.call(method, params, timeoutMs), timeoutMs: startupTimeout - (performance.now() - t) });
+          stalls[i === -1 ? 'warmup' : 'measured'] += polled.stalls;
+        } catch (e) { stalls[i === -1 ? 'warmup' : 'measured'] += e.stalls ?? 0; throw e; }
         if (i >= 0) { socket.push(socketMs); healthy.push(performance.now() - t); for (const result of series) Object.assign(result, distribution(result.samples, 1)); }
         if (i === count - 1) {
           for (let j = -20; j < 200; j++) { const t1 = performance.now(); await client.call('core.status'); if (j >= 0) rpc.push(performance.now() - t1); }
@@ -89,7 +109,7 @@ export async function startup({ count = 30, real = false, cache, bin = resolve(p
   return report;
 }
 export function markdown(report) {
-  return `# Startup benchmarks: ${report.target}\n\n${report.methodology}\n\n| Budget / scenario | n | warmups | p50 ms | p95 ms | limit ms | result | policy |\n|---|---:|---:|---:|---:|---:|---|---|\n` + report.results.map(r => `| ${r.budget} ${r.scenario} | ${r.n} | ${r.warmups} | ${r.p50?.toFixed(2) ?? '—'} | ${r.p95?.toFixed(2) ?? '—'} | ${r.limitMs} | ${r.n < 30 ? 'INCOMPLETE' : r.p95 < r.limitMs ? 'PASS' : 'SLOW'} | ${r.mode} |`).join('\n') + '\n\n' + report.errors.map(e => `ERROR: ${e}`).join('\n') + '\n';
+  return `# Startup benchmarks: ${report.target}\n\n${report.methodology}\n\n| Budget / scenario | n | warmups | p50 ms | p95 ms | limit ms | result | policy |\n|---|---:|---:|---:|---:|---:|---|---|\n` + report.results.map(r => `| ${r.budget} ${r.scenario} | ${r.n} | ${r.warmups} | ${r.p50?.toFixed(2) ?? '—'} | ${r.p95?.toFixed(2) ?? '—'} | ${r.limitMs} | ${r.n < 30 ? 'INCOMPLETE' : r.p95 < r.limitMs ? 'PASS' : 'SLOW'} | ${r.mode} |`).join('\n') + '\n\n' + (report.stalls ? `core.status stalls (calls without an answer within ${report.stalls.limitMs} ms, polling continued): warm-up ${report.stalls.warmup}, measured ${report.stalls.measured}\n\n` : '') + report.errors.map(e => `ERROR: ${e}`).join('\n') + '\n';
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const { values } = parseArgs({ options: { runs: { type: 'string' }, out: { type: 'string', default: 'startup-benchmark' }, 'real-models': { type: 'boolean' }, 'models-cache': { type: 'string' } } });

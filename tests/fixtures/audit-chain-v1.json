@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "lines": [
+    {
+      "line": "{\"seq\":1,\"prev\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"rec\":{\"at\":1001,\"actor\":{\"user\":\"test\",\"host\":\"fixture\"},\"action\":\"fixture.event\",\"target\":\"secret:key\",\"detail\":{\"i\":1,\"text\":\"line\\nnext\\r\\nend\"}}}",
+      "hash": "9b653064fbde4dcd361dfe7260c3bd58d2ba2b23a17aa50dbd89700f99cf3ab2",
+      "seq": 1
+    },
+    {
+      "line": "{\"seq\":2,\"prev\":\"9b653064fbde4dcd361dfe7260c3bd58d2ba2b23a17aa50dbd89700f99cf3ab2\",\"rec\":{\"at\":1002,\"actor\":{\"user\":\"test\",\"host\":\"fixture\"},\"action\":\"fixture.event\",\"target\":null,\"detail\":{\"i\":2,\"text\":\"line\\nnext\\r\\nend\"}}}",
+      "hash": "7f8986318d091e70f080c551d86fa66c2d3822d14fc282efe7bf5fb1b31cbb3e",
+      "seq": 2
+    },
+    {
+      "line": "{\"seq\":3,\"prev\":\"7f8986318d091e70f080c551d86fa66c2d3822d14fc282efe7bf5fb1b31cbb3e\",\"rec\":{\"at\":1003,\"actor\":{\"user\":\"test\",\"host\":\"fixture\"},\"action\":\"fixture.event\",\"target\":\"ünï ✓ 😀 \",\"detail\":{\"i\":3,\"text\":\"line\\nnext\\r\\nend\"}}}",
+      "hash": "f301bf2bc53758d380e977cbd4d26327ee52986ea88fa096b0885b50ae273e8f",
+      "seq": 3
+    }
+  ]
+}

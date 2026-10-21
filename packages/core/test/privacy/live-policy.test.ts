@@ -45,7 +45,12 @@ test("standalone file policy refreshes on the next admission read, without a Cor
  try {
   let changes=0;source.onChange(()=>changes++);
   cfg.privacy.localOnly=true;cfg.privacy.localEndpoints=["http://192.168.1.4:11434"];
+  const observed=new Promise<void>((resolve,reject)=>{
+   const timeout=setTimeout(()=>reject(new Error("standalone live config event did not arrive")),3000);
+   const off=source.onChange(()=>{clearTimeout(timeout);off();resolve();});
+  });
   writeFileSync(l.configPath,JSON.stringify(cfg));
+  await observed;
   assert.equal(source.current().privacy.localOnly,true);assert.equal(changes,1);
   assert.equal(source.restartPending(),false);
   assert.deepEqual(source.current().privacy.localEndpoints,cfg.privacy.localEndpoints);

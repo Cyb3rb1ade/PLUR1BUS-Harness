@@ -59,7 +59,7 @@ Legend: "Rolle / Recht" is taken from `docs/rbac.md` and confirmed against `RPC_
 | dreams.schedule.set | settings.write: Owner, Admin | Edits one phase schedule: cron, IANA timezone, enabled | rpc.schema.json:730 |
 | dreams.enable | settings.write: Owner, Admin | Enables one phase schedule | rpc.schema.json:736 |
 | dreams.disable | settings.write: Owner, Admin | Disables one phase schedule; run-now still works | rpc.schema.json:742 |
-| dreams.diary | agent.manage on the agent (Owner, Admin, member with manage); viewer denied | Private workspace-root DREAMS.md of one agent; redacted; unlimited retention | rpc.schema.json:7008 |
+| dreams.diary | agent.manage on the agent (Owner, Admin, member with manage); viewer denied | Private workspace-root DREAMS.md of one agent; redacted; unlimited retention | rpc.schema.json:7015 |
 
 ## admin (11)
 

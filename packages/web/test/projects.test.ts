@@ -507,3 +507,67 @@ describe("projects: German translation", opts, () => {
     });
   });
 });
+
+describe("projects: card links", opts, () => {
+  test("a url link is a clickable anchor only for http(s) and mailto; any other scheme is shown as plain text", async () => {
+    const cards: BoardCard[] = [{
+      ...cardsFixture[0]!,
+      links: [
+        { kind: "url", id: "https://example.com/ok" },
+        { kind: "url", id: "javascript:alert(1)" },
+        { kind: "url", id: "  JavaScript:alert(2)" },
+        { kind: "url", id: "data:text/html,<b>x</b>" },
+        { kind: "url", id: "mailto:team@example.com" },
+        { kind: "session", id: "sess_1" },
+      ],
+    }];
+    await withApp({}, async (app) => {
+      seedProjectBoard(app.server.rpc, { cards });
+      await openRoute(app.page, "#/projects/prj_alpha");
+      await app.page.locator('[data-card-id="card_1"]').click();
+      const drawer = app.page.locator(".card-drawer");
+      await drawer.locator(".links-list").waitFor();
+      const hrefs = await drawer.locator(".links-list a").evaluateAll((els) => els.map((e) => e.getAttribute("href")));
+      assert.deepEqual(hrefs, ["https://example.com/ok", "mailto:team@example.com"]);
+      const plain = await drawer.locator(".links-list .link-ref").allTextContents();
+      assert.deepEqual(plain.map((s) => s.trim()), ["javascript:alert(1)", "JavaScript:alert(2)", "data:text/html,<b>x</b>", "sess_1"]);
+    });
+  });
+});
+
+describe("projects: overlapping moves", opts, () => {
+  test("a failed move puts back only its own card; a move that succeeded meanwhile stays where it went", async () => {
+    // Earlier tests move the shared fixture cards around: start from explicit places.
+    const place: Record<string, [string, number]> = { card_1: ["col_backlog", 0], card_2: ["col_progress", 0], card_3: ["col_done", 0] };
+    const cards: BoardCard[] = cardsFixture.map((c) => ({ ...c, columnId: place[c.id]![0], position: place[c.id]![1] }));
+    let failFirst: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => { failFirst = resolve; });
+    await withApp({}, async (app) => {
+      seedProjectBoard(app.server.rpc, { cards });
+      app.server.rpc.handle("project.card.move", async (p: any) => {
+        if (p.cardId === "card_1") { await gate; throw rpcError("E_INTERNAL", "backend down"); }
+        const moved = cards.find((c) => c.id === p.cardId)!;
+        moved.columnId = p.columnId;
+        moved.position = p.position ?? 0;
+        return moved;
+      });
+      await openRoute(app.page, "#/projects/prj_alpha");
+
+      // Move 1 (card_1, backlog -> in progress) stays in flight; move 2 (card_2, in progress -> review) succeeds meanwhile.
+      await app.page.locator('[data-card-id="card_1"]').focus();
+      await app.page.keyboard.press("ArrowRight");
+      await app.page.locator('[data-column-id="col_progress"] [data-card-id="card_1"]').waitFor();
+      await app.page.locator('[data-card-id="card_2"]').focus();
+      await app.page.keyboard.press("ArrowRight");
+      await app.page.locator('[data-column-id="col_review"] [data-card-id="card_2"]').waitFor();
+      for (let i = 0; i < 40 && app.server.rpc.calls.filter((c) => c.method === "project.card.move").length < 2; i++) await app.page.waitForTimeout(50);
+
+      failFirst?.();
+      await app.page.locator(".board-alert").waitFor();
+      await app.page.locator('[data-column-id="col_backlog"] [data-card-id="card_1"]').waitFor();
+      assert.equal(await app.page.locator('[data-column-id="col_review"] [data-card-id="card_2"]').count(), 1, "card_2 stays in review");
+      assert.equal(await app.page.locator('[data-column-id="col_progress"] [data-card-id="card_2"]').count(), 0, "card_2 is not put back into in progress");
+      assert.equal(await app.page.locator('[data-card-id="card_1"]').count(), 1);
+    });
+  });
+});

@@ -191,7 +191,8 @@ origin and live meta/installation identity, then invokes the known absolute
 `device pair --json --kind desktop --name <name>` args. No token file is opened.
 Output is limited to 8192 bytes, errors never include it, and the process is killed
 on its 15-second timeout. Denial falls back to the code form. All connection/token
-mutations share one native async mutex; listing does not acquire credentials.
+mutations share one native async mutex; listing does not acquire credentials and never waits for
+that mutex (it reads the store kind that the last finished credential action published).
 
 Home, the top summary and Connections share one public metadata snapshot loaded
 at startup and refreshed after connection actions. Loading and read errors remain
@@ -309,7 +310,8 @@ the authenticated SPA policy exposes no IPC transport. Harness nonce/hash rules
 remain in force. Foreign CSP reporting directives and Reporting/NEL destinations are removed
 to prevent native User-Agent disclosure. External CDN assets need safe origin-relative routing before a real SPA
 can use them. Foreign navigation uses the classified Rust http/https/mailto
-opener; popups are blocked. Failed tickets are retried once, then the error view
+opener; popups never open a window: a popup aimed at the harness origin is remapped onto the proxy origin
+in the SPA window like any navigation, so the upstream is never loaded directly. Failed tickets are retried once, then the error view
 offers Copy log and Retry with 44px controls. Runtime and data are untouched.
 
 The 2026-10-04 owner decision covers only the Windows post-exit read.
@@ -443,7 +445,11 @@ stay in the signed feed (handoff G7/G8). Installation checks the SHA-256 of
 the pinned JSON before downloading. The plugin then verifies the archive with
 the selected channel's independent updater key. Rust writes private, atomic
 `upgrades.json { pending: version }` before invoking the installer, which can
-exit the process on Windows. Windows updater install mode is passive.
+exit the process on Windows. Windows updater install mode is passive. The update owner lock is held only
+to decide and to claim the single install slot, not across the download. Settings, Later and Skip stay available
+while it runs, and the offer is decided again with the current settings before the install is approved.
+Signed feeds are checked for rollback: the newest accepted feed per channel (`lastSeen` in `updates.json`) is
+kept, and a feed with a lower version, or the same version with an older date, is refused with `update-manifest`.
 
 Only public **placeholders** are committed in `src-tauri/keys/`: one feed key
 and one updater key per channel. A release build refuses them unless explicitly
