@@ -755,7 +755,8 @@ impl CliTailscale {
         }
     }
 
-    /// Whether a debug seam replaced the CLI. Always `false` in a release build.
+    /// Whether a debug seam replaced the CLI (test surface, debug builds only).
+    #[cfg(debug_assertions)]
     pub fn uses_debug_seam(&self) -> bool {
         !matches!(self.source, Source::Candidates)
     }

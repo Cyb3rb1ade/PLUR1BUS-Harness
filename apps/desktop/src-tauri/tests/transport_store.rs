@@ -192,6 +192,57 @@ fn unknown_fields_survive_a_write() {
 }
 
 #[test]
+fn unknown_transport_value_is_one_absent_entry_not_a_corrupt_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = row(Kind::Remote, "https://nas.tail1234.ts.net");
+    let b = row(Kind::Remote, "https://other.corp.example");
+    let c = row(Kind::Remote, "https://third.corp.example");
+    seed(dir.path(), &[a.clone(), b.clone(), c.clone()]);
+    let future = serde_json::json!({ "transport": "carrier-pigeon", "wings": 2 });
+    let body = serde_json::to_vec(&serde_json::json!({
+        "version": 1,
+        "connections": {
+            a.id.to_string(): future.clone(),
+            b.id.to_string(): { "transport": "direct" }
+        }
+    }))
+    .unwrap();
+    fs::write(dir.path().join(SIDECAR), &body).unwrap();
+    let store = TransportStore::open(dir.path());
+    // The unknown value reads as no entry (the derived default); the file and its other entries stay.
+    assert_eq!(store.mode(), StoreMode::ReadWrite);
+    assert_eq!(store.get(a.id), None);
+    assert_eq!(store.effective(&a).transport, Transport::Tailscale);
+    assert_eq!(
+        store.get(b.id),
+        Some(TransportEntry::new(Transport::Direct))
+    );
+    assert_eq!(fs::read(dir.path().join(SIDECAR)).unwrap(), body);
+    assert!(corrupt_copies(dir.path()).is_empty());
+    // A write for another row keeps the unknown entry's bytes.
+    store
+        .set(c.id, TransportEntry::new(Transport::Direct))
+        .unwrap();
+    let json = sidecar(dir.path());
+    assert_eq!(json["connections"][a.id.to_string()], future);
+    assert_eq!(
+        json["connections"][b.id.to_string()],
+        serde_json::json!({ "transport": "direct" })
+    );
+    assert!(corrupt_copies(dir.path()).is_empty());
+    // Choosing a transport for that row replaces the unknown entry.
+    store.set(a.id, direct_acked()).unwrap();
+    let got = store.get(a.id).unwrap();
+    assert_eq!(got.transport, Transport::Direct);
+    assert!(got.public_ack.is_some());
+    assert!(got.extra.is_empty());
+    assert_eq!(
+        sidecar(dir.path())["connections"][a.id.to_string()]["transport"],
+        serde_json::json!("direct")
+    );
+}
+
+#[test]
 fn newer_version_is_read_only_and_untouched() {
     let dir = tempfile::tempdir().unwrap();
     let a = row(Kind::Remote, "https://nas.tail1234.ts.net");
@@ -229,7 +280,7 @@ fn garbage_sidecar_is_renamed_and_defaults_apply() {
     };
     let wrong_types = serde_json::to_vec(&serde_json::json!({
         "version": 1,
-        "connections": { a.id.to_string(): { "transport": "carrier-pigeon" } }
+        "connections": { a.id.to_string(): { "transport": 5 } }
     }))
     .unwrap();
     let cases: Vec<(&str, Vec<u8>)> = vec![

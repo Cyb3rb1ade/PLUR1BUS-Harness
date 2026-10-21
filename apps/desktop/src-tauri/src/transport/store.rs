@@ -99,11 +99,45 @@ impl std::fmt::Display for TransportStoreError {
 
 impl std::error::Error for TransportStoreError {}
 
+/// One entry of the sidecar. An entry whose `transport` is a string this build does not know (a newer build's path)
+/// is kept as it was read and treated as absent (derived default); it does not make the file corrupt, and it is
+/// written back unchanged until an explicit set replaces it. Any other malformed entry still makes the file corrupt.
+#[derive(Clone, Debug)]
+enum Slot {
+    Known(TransportEntry),
+    Unknown(Value),
+}
+
+impl Serialize for Slot {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Known(entry) => entry.serialize(s),
+            Self::Unknown(raw) => raw.serialize(s),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Slot {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let raw = Value::deserialize(d)?;
+        let unknown = raw
+            .get("transport")
+            .and_then(Value::as_str)
+            .is_some_and(|t| serde_json::from_value::<Transport>(Value::from(t)).is_err());
+        if unknown {
+            return Ok(Self::Unknown(raw));
+        }
+        serde_json::from_value(raw)
+            .map(Self::Known)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct Sidecar {
     version: u64,
     #[serde(default)]
-    connections: BTreeMap<Uuid, TransportEntry>,
+    connections: BTreeMap<Uuid, Slot>,
     #[serde(flatten)]
     extra: Map<String, Value>,
 }
@@ -172,7 +206,10 @@ impl TransportStore {
     /// The stored entry, if any. A newer, unreadable or corrupt sidecar has none.
     pub fn get(&self, id: Uuid) -> Option<TransportEntry> {
         match self.read_settled() {
-            Loaded::Current(file) => file.connections.get(&id).cloned(),
+            Loaded::Current(file) => match file.connections.get(&id) {
+                Some(Slot::Known(entry)) => Some(entry.clone()),
+                Some(Slot::Unknown(_)) | None => None,
+            },
             _ => None,
         }
     }
@@ -196,7 +233,7 @@ impl TransportStore {
         if !remote.contains(&id) {
             return Err(TransportStoreError::NotRemote);
         }
-        file.connections.insert(id, entry);
+        file.connections.insert(id, Slot::Known(entry));
         file.connections.retain(|k, _| remote.contains(k));
         self.write(&file)
     }
@@ -218,7 +255,9 @@ impl TransportStore {
     }
 
     /// Drops every entry whose id is not in `live` (the ids of `connections.json`). Writes only when something
-    /// changed.
+    /// changed. Test surface only (debug builds): production drops stale entries in [`Self::set`] and
+    /// [`Self::remove`].
+    #[cfg(debug_assertions)]
     pub fn gc(&self, live: &[Uuid]) -> Result<(), TransportStoreError> {
         let _guard = WRITE_OWNER.lock().unwrap_or_else(|e| e.into_inner());
         let mut file = self.load_for_write()?;
