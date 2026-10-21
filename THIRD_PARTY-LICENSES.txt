@@ -13391,7 +13391,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ============================================================
 
 SHA256 5b698ca13897be3afdb7174256fa1574f8c6892b8bea1a66dd6469d3fe27885a
-cargo:rustls-webpki@0.103.15/LICENSE
+cargo:rustls-webpki@0.103.16/LICENSE
 
 Except as otherwise noted, this project is licensed under the following
 (ISC-style) terms:
@@ -30890,8 +30890,8 @@ DEALINGS IN THE SOFTWARE.
 ============================================================
 
 SHA256 e271993808fec50ab29350b39539cdec611a9103f827e0aa26d61da70e2d33f8
-cargo:webpki-root-certs@1.0.9/LICENSE
-cargo:webpki-roots@1.0.9/LICENSE
+cargo:webpki-root-certs@1.0.10/LICENSE
+cargo:webpki-roots@1.0.10/LICENSE
 
 # Community Data License Agreement - Permissive - Version 2.0
 

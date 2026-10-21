@@ -6,8 +6,8 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: d10615da861ad74f6f028f9ca5cb557e371f6ec580ed6c5da801008f5a9cf6aa
-Cargo.lock: 55c75aa0da38eb758ee800935f72bfdbdff1207f52253218f79fd21c430384d2
-apps/desktop/Cargo.lock: d6abb38db3d9a6fab2d33bf8c0f2ab167da9556a1d57c579312524278e7d2a75
+Cargo.lock: 97db60bd7b87b798be231737d4bf70dbc9fb031754f5f4812587592c0ae17373
+apps/desktop/Cargo.lock: f078ae5953712efbcd11c42383e0315b7c58d74e9f770747f2864328f299d66f
 ```
 
 | Ecosystem | Dependency | Version | Licence | Attribution |
@@ -535,7 +535,7 @@ apps/desktop/Cargo.lock: d6abb38db3d9a6fab2d33bf8c0f2ab167da9556a1d57c5793125242
 | cargo | rustls-pki-types | 1.15.1 | MIT OR Apache-2.0 |  |
 | cargo | rustls-platform-verifier-android | 0.2.0 | MIT OR Apache-2.0 |  |
 | cargo | rustls-platform-verifier | 0.7.1 | MIT OR Apache-2.0 |  |
-| cargo | rustls-webpki | 0.103.15 | ISC |  |
+| cargo | rustls-webpki | 0.103.16 | ISC |  |
 | cargo | rustls | 0.23.46 | Apache-2.0 OR ISC OR MIT |  |
 | cargo | rustversion | 1.0.23 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | rusty-fork | 0.3.1 | MIT/Apache-2.0 | Jason Lingle |
@@ -736,8 +736,8 @@ apps/desktop/Cargo.lock: d6abb38db3d9a6fab2d33bf8c0f2ab167da9556a1d57c5793125242
 | cargo | web_atoms | 0.2.6 | MIT OR Apache-2.0 | The html5ever Project Developers |
 | cargo | webkit2gtk-sys | 2.0.2 | MIT |  |
 | cargo | webkit2gtk | 2.0.2 | MIT |  |
-| cargo | webpki-root-certs | 1.0.9 | CDLA-Permissive-2.0 |  |
-| cargo | webpki-roots | 1.0.9 | CDLA-Permissive-2.0 |  |
+| cargo | webpki-root-certs | 1.0.10 | CDLA-Permissive-2.0 |  |
+| cargo | webpki-roots | 1.0.10 | CDLA-Permissive-2.0 |  |
 | cargo | webview2-com-macros | 0.8.1 | MIT |  |
 | cargo | webview2-com-sys | 0.39.1 | MIT |  |
 | cargo | webview2-com | 0.39.1 | MIT |  |
