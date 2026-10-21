@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpBase } from './helpers/tmp.ts';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
@@ -57,8 +57,8 @@ const ctxWithoutSession = (): RunContext => ({ agentId: 'agent-fixture', princip
 const codeOf = async (p: Promise<unknown>) => { try { await p; return undefined; } catch (e) { return e instanceof HostctlError ? e.code : (e as Error).name; } };
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'hostctl-processes-'));
-  home = await mkdtemp(join(tmpdir(), 'hostctl-processes-home-'));
+  root = await mkdtemp(join(tmpBase(), 'hostctl-processes-'));
+  home = await mkdtemp(join(tmpBase(), 'hostctl-processes-home-'));
 });
 afterEach(async () => {
   vi.useRealTimers();

@@ -55,7 +55,7 @@ Rate limits use 15-minute windows and 15-minute locks:
 | Global guesses | 20 | Rotating channel identities cannot evade the lock |
 | User issuance | 10 | Successful code issuances across all channels |
 | Global issuance | 100 | Successful issuances across all users |
-| User claims | 5 | Valid claims awaiting confirmation across channel identities |
+| User claims | 5 | Valid claims awaiting confirmation across channel identities; a confirmed claim frees its place, a declined one stays counted |
 
 Counters are durable SQLite rows; keys for users and channel triples are hashed. A locked channel
 or global guess counter blocks even a correct code. Invalid guesses have one uniform error.

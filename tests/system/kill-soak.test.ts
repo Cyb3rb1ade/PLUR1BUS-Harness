@@ -326,11 +326,16 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       // before it stores again.
       assert.deepEqual(replayedTwice, [], `journaled facts not present exactly once: ${JSON.stringify(replayedTwice)}`);
 
-      // Exactly one supervisor and one core remain, and only the core holds LanceDB files.
+      // Exactly one supervisor and one core remain (next to the loopback API the supervisor monitors since the
+      // supervised API landed: at most one healthy `api` child), and only the core holds
+      // LanceDB files.
       const status = daemonStatus(h);
-      assert.equal(status.children.length, 1, JSON.stringify(status));
+      const cores = status.children.filter((c: any) => c.role === "core");
+      const others = status.children.filter((c: any) => c.role !== "core");
+      assert.equal(cores.length, 1, JSON.stringify(status));
+      assert.ok(others.length <= 1 && others.every((c: any) => c.role === "api" && c.process?.state === "ready"), `only a healthy api may run next to the core: ${JSON.stringify(status)}`);
       const pids = homePids(h).sort();
-      assert.deepEqual(pids, [status.supervisor.pid, ready.pid].sort(), `pgrep -f -- "--home ${h}"`);
+      assert.deepEqual(pids, [status.supervisor.pid, ready.pid, ...others.map((c: any) => c.pid)].sort(), `pgrep -f -- "--home ${h}"`);
       if (process.platform === "linux") {
         const lancedb = `${realpathSync(h)}/state/lancedb`;
         const owners = pids.filter((pid) => readdirSync(`/proc/${pid}/fd`).some((fd) => {
@@ -380,7 +385,7 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       assert.equal(still.pid, null, JSON.stringify(still));
       // Only `daemon start` resets it (S9, spec §6.4).
       const started = startDaemon(h, env);
-      const back = started.status?.children?.[0] ?? readyChild(h);
+      const back = started.status?.children?.find((c: any) => c.role === "core") ?? readyChild(h);
       assert.equal(back?.process?.state, "ready", JSON.stringify(started));
       t.diagnostic(`gave up after ${GIVE_UP_EXITS} kills in ${elapsed.toFixed(0)} ms; daemon start restarted core ${back.pid}`);
       stopDaemon(h);

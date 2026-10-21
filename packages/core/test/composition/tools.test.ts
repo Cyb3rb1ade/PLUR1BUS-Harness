@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFi
 import { join } from "node:path";
 import { composeTools, ToolAdapterError, type ToolCompositionOptions } from "../../src/composition/tools.ts";
 import { RegistryError, type ToolDef, type ToolRegistry, type ToolRunContext } from "../../src/tools/registry.ts";
-import { CallBudgetExceededError } from "../../src/budget/index.ts";
+import { CallBudgetExceededError, createCallBudget } from "../../src/budget/index.ts";
 import { WebFailure } from "../../src/tools/web/failure.ts";
 import { OutputStore, MediaError } from "../../../media/src/index.ts";
 import { makePng } from "../../../media/test/adapters-fixtures.ts";
@@ -275,7 +275,7 @@ describe("composition/tools composeTools: media generate and edit", () => {
     assert.equal(names(reg).some((n) => n.startsWith("image.") || n.startsWith("media.")), false);
   });
 
-  it("generate: admits against the budget with the adapter identity, stores the output and settles the call in tokens (media reports none)", async () => {
+  it("generate: admits the requested images against the budget with the adapter identity, stores the output and settles the delivered images", async () => {
     const { reg, events, calls } = await mk();
     const out = await get(reg, "image.generate").execute({ prompt: "a cat", n: 1 }, run()) as { id: string; files: unknown[] };
     assert.match(out.id, /^[0-9a-f-]{36}$/); assert.equal(out.files.length, 1);
@@ -284,7 +284,8 @@ describe("composition/tools composeTools: media generate and edit", () => {
     assert.equal(events[0]![0], "check");
     assert.deepEqual([check.principal, check.agent, check.provider, check.model, check.session, check.project], ["user-1", "a1", "fixture", "synthetic-1", "s1", "direct"]);
     assert.deepEqual(events.map((e) => e[0]), ["check", "settle"]);
-    assert.deepEqual((events[1]![1] as { usage: unknown }).usage, { inputTokens: 0, outputTokens: 0 }); // no money dimension: no media price units
+    assert.deepEqual([check.estimatedInputTokens, check.maxOutputTokens, check.images, check.videoSeconds], [0, 0, 1, undefined], "media reserves its own units, no tokens");
+    assert.deepEqual((events[1]![1] as { usage: unknown }).usage, { inputTokens: 0, outputTokens: 0, images: 1 }); // no money dimension: media units only
     assert.equal("media" in check, false);
   });
 
@@ -331,6 +332,20 @@ describe("composition/tools composeTools: media generate and edit", () => {
     assert.notEqual(edited.id, made.id);
     assert.deepEqual(calls.map((c) => c.op), ["generate", "edit"]);
     assert.equal((calls[1]!.request as { referenceImages: { bytes: Uint8Array }[] }).referenceImages[0]!.bytes.length, makePng().length);
+  });
+
+  it("with a real budget, a limit of 2 images refuses the third request (and n=3 with 2 left) before the adapter runs", async () => {
+    const home = tmp.make(); const a = fakeAdapter();
+    const budget = createCallBudget({ path: join(home, "state", "budget.sqlite"), clock: { now: () => Date.UTC(2026, 9, 19, 12) } });
+    try {
+      budget.setLimit({ scope: "agent", id: "a1", period: "day", metric: "images", hard: 2 });
+      const reg = await composeTools({ home, roots: [], audit: noAudit, grants: noGrants, budget, media: { adapter: a.adapter, store: new OutputStore(join(home, "outputs")) } }, turn());
+      await get(reg, "image.generate").execute({ prompt: "p", n: 1 }, run());
+      await assert.rejects(() => get(reg, "image.generate").execute({ prompt: "p", n: 3 }, run()), (e) => e instanceof CallBudgetExceededError && e.refusal.metric === "images" && e.refusal.estimate === 3);
+      await get(reg, "image.generate").execute({ prompt: "p", n: 1 }, run());
+      await assert.rejects(() => get(reg, "image.generate").execute({ prompt: "p", n: 1 }, run()), (e) => e instanceof CallBudgetExceededError && e.refusal.used === 2);
+      assert.equal(a.calls.length, 2, "the refused requests never reached the adapter");
+    } finally { budget.close(); }
   });
 
   it("without a budget the tool still works (the budget is optional in composition)", async () => {

@@ -266,6 +266,18 @@ describe("isInsideDir", () => {
     }
   });
 
+  it("a path that does not exist yet is judged under the real path of its nearest existing ancestor (macOS: tmpdir is a symlink)", { skip: posixOnly }, () => {
+    const d = tmpDir();
+    mkdirSync(path.join(d, "real", "sub"), { recursive: true });
+    symlinkSync(path.join(d, "real"), path.join(d, "alias"));
+    // The root is given by its real path, the target through the alias (and the other way round): both name the same place.
+    assert.equal(isInsideDir(path.join(d, "real"), path.join(d, "alias", "sub", "new", "file")), true);
+    assert.equal(isInsideDir(path.join(d, "alias"), path.join(d, "real", "sub", "new", "file")), true);
+    assert.equal(isInsideDir(path.join(d, "alias"), path.join(d, "alias", "sub", "new", "file")), true);
+    assert.equal(isInsideDir(path.join(d, "real", "sub"), path.join(d, "alias", "other", "new")), false);
+    assert.equal(isInsideDir(path.join(d, "alias", "sub"), path.join(d, "alias", "other", "new")), false);
+  });
+
   it("a dangling symlink is judged by its own (unresolvable) path, not by what it points to", { skip: posixOnly }, () => {
     const d = tmpDir();
     mkdirSync(path.join(d, "root"));

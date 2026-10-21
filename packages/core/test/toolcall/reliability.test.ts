@@ -47,6 +47,12 @@ test('results cap whole structures, binaries reference full result, errors omit 
   assert.ok(Buffer.byteLength(JSON.stringify(result)) <= 150);
   assert.equal((await capResult(new Uint8Array([1]), port)).reference, 'result:1');
 });
+test('idempotency keys distinguish arguments with an own "__proto__" key (JSON.parse creates one)', () => {
+  const a = JSON.parse('{"__proto__":{"a":1}}'), b = JSON.parse('{"__proto__":{"a":2}}');
+  assert.notEqual(idempotencyKey('task1', 'write', a), idempotencyKey('task1', 'write', b));
+  assert.notEqual(idempotencyKey('task1', 'write', a), idempotencyKey('task1', 'write', {}));
+  assert.equal(idempotencyKey('task1', 'write', a), idempotencyKey('task1', 'write', JSON.parse('{"__proto__":{"a":1}}')));
+});
 test('idempotency keys include scope and canonical arguments; parallel results ordered, duplicates execute once', async () => {
   assert.equal(idempotencyKey('task1', 'write', { a: 1, b: 2 }), idempotencyKey('task1', 'write', { b: 2, a: 1 }));
   assert.notEqual(idempotencyKey('task1', 'write', {}), idempotencyKey('task2', 'write', {}));
