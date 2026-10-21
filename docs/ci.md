@@ -21,7 +21,8 @@ invalid manifest fails the plan; unknown paths and empty diffs select the full s
 The category outputs are `rust`, `ts-core`, `web`, `python`, `docs-only`, `workflows`, `engine-pin` and `documents`.
 The existing macOS label/path policy still selects the platform legs *within* each affected suite; it cannot turn a
 failed classifier into a successful skip. Main pushes, scheduled nightly and manual CI runs select all suites.
-`merge_group` classification also selects all suites; its trigger is added in P6.
+`merge_group.checks_requested` starts the same workflow and selects all suites, including the full macOS policy and
+all Core/browser shards. It uses the queue commit checked out by Actions and needs no PR diff, labels or PR metadata.
 
 The existing combined `unit` job keeps setup/build and checks only the selected language's tests: TypeScript changes
 omit Rust fmt/clippy/unit tests, Rust changes omit the TypeScript unit suite. Served-stack browser acceptance still
@@ -36,6 +37,29 @@ retain their existing path rules. Their checks are not folded into this workflow
 be literal `true` or `false`. Every selected job must report `success`; `failure`, `cancelled`, `skipped`, an absent result
 or an unknown job fail the gate. An omitted job may be `skipped` or may have succeeded, but never failed or cancelled.
 The existing deliberate no-op for labels other than `ci:macos` remains a successful classification with explicit skips.
+
+### Merge queue: owner activation (GP5 P6)
+
+The workflow is prepared for merge groups. Queue activation remains an explicit owner decision; no repository setting
+is changed here, and the Controller/Watcher process continues unchanged until the owner enables an available queue.
+The read-only repository API on 2026-10-21 reports a public repository with `owner.type=User`. GitHub currently offers
+GitHub.com merge queues for organization-owned repositories, so this repository first needs an owner-approved change
+of ownership or future feature availability. Do not move it automatically for this feature. See
+[GitHub's merge queue documentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue).
+
+When eligible, an administrator can open Settings → Branches (or the existing main ruleset), select the exact `main`
+branch, require the GitHub Actions `ci-gate` check and enable **Require merge queue**. Use the aggregate check rather
+than filtered/matrix job names, which can deliberately skip on PRs. Any other required workflow must also report for
+merge groups before activating the queue. Start with queue build concurrency 1 to limit runner demand; increase it
+only after a measured queue/throughput comparison. A successful PR check does not substitute for the queue commit's check.
+
+Open owner decision: whether to enable a queue after integration and after resolving feature availability. Recommendation:
+retain the current Controller/Watcher for this personal repository; review any organization move separately. If a queue
+becomes available and is approved, use exact `main`, `ci-gate` and initial build concurrency 1. No existing permission,
+branch-protection or merge-method setting is silently changed.
+
+The [CI throughput handoff](handoffs/2026-10-21-ci-throughput.md) preserves the historical P1 baseline and the executable
+preflight for a genuine measurement after P1–P5 integration. No after measurement or speedup is claimed yet.
 
 `gate.test.mjs` exercises result combinations, and `workflow-contract.test.mjs` evaluates the actual job-level boolean
 conditions against the skip policy and proves every declared job is a gate dependency. Matrix failures remain failures;
