@@ -23,7 +23,7 @@ export const SECTIONS: readonly SectionDef[] = [
   { id: "privacy", kind: "config", label: "settings.section.privacy", keys: ["privacy."] },
   { id: "users", kind: "users", label: "settings.section.users" },
   { id: "providers", kind: "providers", label: "settings.section.providers", keys: ["auth."] },
-  { id: "secrets", kind: "secrets", label: "settings.section.secrets", keys: ["secrets."] },
+  { id: "secrets", kind: "secrets", label: "settings.section.secrets", keys: ["secrets.", "decision.systemOne.jev.secretRef"] },
   { id: "voice", kind: "voice", label: "settings.section.voice" },
   { id: "devices", kind: "devices", label: "settings.section.devices" },
   { id: "modules", kind: "modules", label: "settings.section.modules" },
@@ -40,7 +40,9 @@ const matches = (key: string, pattern: string): boolean => (pattern.endsWith("."
 /** The section that edits `key`, or undefined for a key edited elsewhere (`agents` lives on the Agents page, `$schema` and
  * `schemaVersion` are not settings). */
 export function sectionOf(key: string): SectionDef | undefined {
-  return SECTIONS.find((s) => s.keys?.some((p) => matches(key, p)));
+  // An exact key wins over a prefix: `decision.systemOne.jev.secretRef` names a secret-store entry, so it belongs to Secrets and
+  // never becomes an editable config field, although the Models section owns the rest of `decision`.
+  return SECTIONS.find((s) => s.keys?.includes(key)) ?? SECTIONS.find((s) => s.keys?.some((p) => matches(key, p)));
 }
 
 /** Where a settings hit goes: the section's route with `?focus=<key>`. `agents` goes to the Agents page. */
