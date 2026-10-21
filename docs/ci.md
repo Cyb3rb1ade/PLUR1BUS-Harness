@@ -51,7 +51,7 @@ GitHub.com merge queues for organization-owned repositories, so this repository 
 of ownership or future feature availability. Do not move it automatically for this feature. See
 [GitHub's merge queue documentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue).
 
-When eligible, an administrator can open Settings → Branches (or the existing main ruleset), select the exact `main`
+Only after a green Windows baseline and refreshed open PR heads, and when eligible, an administrator can open Settings → Branches (or the existing main ruleset), select the exact `main`
 branch, require the GitHub Actions `ci-gate` check and enable **Require merge queue**. Use the aggregate check rather
 than filtered/matrix job names, which can deliberately skip on PRs. Any other required workflow must also report for
 merge groups before activating the queue. Start with queue build concurrency 1 to limit runner demand; increase it

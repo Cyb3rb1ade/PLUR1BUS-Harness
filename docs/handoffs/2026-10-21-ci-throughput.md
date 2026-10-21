@@ -130,3 +130,26 @@ Auswertung die offenen Nachher-Zellen ersetzen. Der `/tmp`-Snapshot ist lokal un
   `ERR_MODULE_NOT_FOUND: ajv`, da Workspace-Abhängigkeiten fehlen. Die Paketsuite wurde nicht ausgeführt.
 
 Keine neuen TODOs, keine CI-Einstellung, kein Merge, keine Engine-Pin-/Lockfile-Änderung und kein Polling.
+
+## N1 follow-up: corrected integration ancestry and advisory contracts
+
+P5 correction `9f571cb356ebf3372284c47eaf60afba47c139c6` is incorporated by a normal feature merge;
+it contains P2 `f09ec4b29fce8491b0c13ecc2df2ca3690efb98f`. Shared Rust fixtures/source parity
+select the real Core shards and partition check. Only the two performance diagnostic jobs accept
+`success|failure|skipped`; required checks still fail for failure, cancellation, missing or unexpected skips.
+Missing/cancelled performance results also fail. The #621 macOS-browser job remains outside this stack until
+the Controller applies both sides of the integration recipe in the [N1 handoff](2026-10-21-gp5-n1-ci-contracts.md).
+
+The post-integration preflight now requires corrected P1
+`93462118ecf007a93592709d1029c04647201cff`, corrected P2 and corrected P5 above.
+P3 `e831e2cbef22b6fe157486e65e8524c9be4b9e8c` and P4
+`a2eddba2768cad8436419ad0384148b5a3ff3b24` still match their remote heads and are unchanged.
+This prevents an integration containing only the earlier P1/P2/P5 commits from qualifying as corrected after evidence.
+The historical baseline and its original collection source remain historical; no new hosted snapshot is claimed.
+
+Node24.21: 61/61 CI script tests and 8/8 Python workflow tests pass. The broader N1 offline command
+completes with 139 tests: 138 pass, zero failure/skip, one existing audit-policy TODO. Frozen dependency installation
+succeeds unchanged. Toolchain, hygiene, source-quality, documentation links, actionlint and diff checks pass.
+The full package suite and Windows baseline were not rerun for this script-only correction. Required-check migration
+and merge-queue activation remain disabled until green Windows baseline, refreshed open heads and owner activation.
+No Engine pin/lockfile setting or Controller/Watcher behavior changed; no CI polling or main/PR integration occurred.

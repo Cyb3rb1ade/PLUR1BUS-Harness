@@ -94,3 +94,10 @@ has **136 tests: 135 pass, 0 failure/skip, 1 existing TODO**. Frozen dependency 
 with no tracked generated output, lock or Engine pin changes. Source-quality passes after installation.
 The two real shared-reader test files pass after generation; their initial missing generated RPC data was a local
 prerequisite, not a suppressed test. See the P5 handoff for the final count and `/tmp/gp5-n1-p5-*.log` for local logs.
+
+P6 follow-up: after the normal P5 feature merge, **61/61 CI tests and 8/8 Python tests** pass; the broader command
+has **139 tests: 138 pass, 0 failure/skip, 1 existing TODO**. Toolchain, frozen install, hygiene, source-quality,
+documentation links, actionlint and diff check pass. The after-evidence ancestry manifest now requires corrected P1
+`93462118ecf007a93592709d1029c04647201cff`, P2 `f09ec4b29fce8491b0c13ecc2df2ca3690efb98f`,
+and P5 `9f571cb356ebf3372284c47eaf60afba47c139c6`. P3/P4 remote heads still match their existing manifest entries.
+No after measurement or hosted green baseline is asserted. Local logs: `/tmp/gp5-n1-p6-*.log`.
