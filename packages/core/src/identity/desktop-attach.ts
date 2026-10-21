@@ -61,6 +61,7 @@ export class DesktopAttach {
     return { deviceId:d.id,userId:d.pairedBy,scopes:DESKTOP_SCOPES.filter(s=>d.scope.includes(s)),expiresAt:Number(row.expires_at) };
   }
   #version(id: string): number { const v = this.#o.personVersion ? this.#o.personVersion(id) : 0; if (v === null) throw new DeviceError("denied"); return v; }
-  #audit(action: string,user: string,target="desktop") { this.#o.audit.append({at:this.#o.now(),actor:{user,host:"desktop-attach"},action,target,detail:{}}); }
+  /** The person and the device are hashed as the identity audit hashes its ids (plain SHA-256 hex); "desktop" and the host are fixed labels, not identifiers. */
+  #audit(action: string,user: string,device?: string) { this.#o.audit.append({at:this.#o.now(),actor:{user:digest(user),host:"desktop-attach"},action,target:device===undefined?"desktop":digest(device),detail:{}}); }
   close() { this.#db.close(); }
 }
