@@ -75,7 +75,6 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 | packages/core/test/composition/model-test.test.ts:63 | engine embedding/reranker role probes require the Phase D host ports |
 | packages/core/test/host-tools/audit-b07.test.ts:66 | apps.open can launch executables but is registered as sys.read/low (auto-allowed) |
 | packages/core/test/audit/chain-hardening.test.ts:47 | secrets inside 'detail' are written as given (redaction belongs to the event producers in rbac/identity) |
-| packages/core/test/platform.test.ts:58 | a unix socket path over the platform limit is not detected or shortened by ipcAddress |
 | packages/core/test/journal-hardening.test.ts:79 | a replaying file is read whole into memory (needs a streaming line reader and a per-line bound) |
 | packages/core/test/channels/behaviour-runtime.test.ts:84 | engine per-request allowedScopes and searchable provenance-only capture are absent on pin 6868b7b1; restrictive profiles suppress engine memory calls |
 | packages/core/test/warmup.test.ts:201 | models.warm() itself has no deadline (a first-run model download may legitimately take minutes); a hung provider keeps recallWarmPending true until... |
