@@ -15,6 +15,7 @@ pub mod state;
 use crate::install::archive;
 use crate::install::fetch;
 use crate::install::manifest::{self, CoreUnit};
+use crate::install::pins;
 use crate::paths::Layout;
 use serde::Serialize;
 use state::{CoreTarget, Phase, State, Target};
@@ -54,6 +55,18 @@ pub trait Host {
     /// After the new version is healthy: re-enables add-ons an earlier update disabled that are compatible now.
     /// Returns `(name, why)` for the ones that refused.
     fn reenable_addons(&self, _layout: &Layout, _names: &[String]) -> Vec<(String, String)> {
+        Vec::new()
+    }
+    /// After a manual rollback from `from` to `to`: disables again what [`Host::reenable_addons`] re-enabled for the
+    /// version that was rolled back (the version that is back in place judged them incompatible). Returns the names it
+    /// could not disable.
+    fn redisable_addons(
+        &self,
+        _layout: &Layout,
+        _names: &[String],
+        _from: &str,
+        _to: &str,
+    ) -> Vec<String> {
         Vec::new()
     }
 }
@@ -110,7 +123,7 @@ pub enum Outcome {
 /// written, as a killed updater would.
 fn maybe_die(phase: Phase) {
     let on = std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1");
-    if !on {
+    if !on || !pins::trust_seams_allowed() {
         return;
     }
     let name = serde_json::to_value(phase)
@@ -267,8 +280,9 @@ fn ensure_idle(layout: &Layout, host: &dyn Host) -> Result<(), UpdateError> {
     }
 }
 
-/// Runs the whole flow for `plan`. `Err`: refused or failed before the first write (nothing changed). `Ok`: the
-/// final state, `Committed` or, after an automatic rollback, `RolledBack`/`Failed`.
+/// Runs the whole flow for `plan` (the caller holds [`lock`]). `Err`: refused or failed before the swap, so no
+/// installed file changed, and a daemon that was running is running again. `Ok`: the final state, `Committed` or,
+/// after an automatic rollback, `RolledBack`/`Failed`.
 pub fn apply(
     layout: &Layout,
     host: &dyn Host,
@@ -320,7 +334,19 @@ pub fn apply(
         }
         return Err(UpdateError::new("snapshot-failed", m));
     }
-    enter(layout, &mut st, Phase::Snapshotted).map_err(io)?;
+    if let Err(m) = enter(layout, &mut st, Phase::Snapshotted) {
+        // The daemon is stopped and nothing else changed. A state file that cannot be written must not keep it down:
+        // start it again first, then try to close the attempt (a state left at `stopping` is settled by the next
+        // `update` or `daemon start`, which finds nothing swapped).
+        st.reason = Some("io".into());
+        st.message = Some(m.clone());
+        if st.was_running {
+            let _ = host.start(layout, target_bin);
+        }
+        let _ = enter(layout, &mut st, Phase::RolledBack);
+        state::remove_dir(&state::staging_dir(layout));
+        return Err(io(m));
+    }
 
     let flow = (|| -> Result<(), (&'static str, String)> {
         enter(layout, &mut st, Phase::Swapping).map_err(|m| ("io", m))?;
@@ -386,6 +412,9 @@ fn commit(layout: &Layout, host: &dyn Host, st: &mut State) -> Result<(), String
         if !refused.is_empty() {
             let list: Vec<String> = refused.iter().map(|(n, w)| format!("{n} ({w})")).collect();
             st.message = Some(format!("add-ons not re-enabled: {}", list.join("; ")));
+            // What stays here is what this update really switched on: a manual rollback disables exactly that again.
+            st.addons_reenable
+                .retain(|n| !refused.iter().any(|(r, _)| r == n));
         }
     }
     enter(layout, st, Phase::Committed)?;
@@ -442,7 +471,8 @@ fn rollback(layout: &Layout, host: &dyn Host, mut st: State, reason: &str, messa
 
 /// Settles an update whose owner is gone (plan "Design"): before the swap nothing changed; from `swapping` on it is
 /// rolled back; once the gate passed it is rolled forward. `Ok(None)`: nothing to do (no update, a finished one, or
-/// an owner that is still alive).
+/// an owner that is still alive). The caller holds [`lock`] (or got [`LockError::Busy`] and leaves the state to
+/// whoever holds it).
 pub fn recover(layout: &Layout, host: &dyn Host) -> Result<Option<State>, String> {
     let Some(mut st) = state::load(layout)? else {
         return Ok(None);
@@ -456,11 +486,14 @@ pub fn recover(layout: &Layout, host: &dyn Host) -> Result<Option<State>, String
         Phase::Stopping | Phase::Snapshotted => {
             st.reason = Some("interrupted".into());
             st.message = Some("the update stopped before the swap; nothing was changed".into());
-            enter(layout, &mut st, Phase::RolledBack)?;
+            let closed = enter(layout, &mut st, Phase::RolledBack);
             state::remove_dir(&state::staging_dir(layout));
+            // Nothing was swapped, so the daemon goes back up even when the state cannot be written: a state file
+            // that fails must not keep it down, and a state left behind is settled the same way next time.
             if st.was_running {
                 let _ = host.start(layout, &st.target_bin);
             }
+            closed?;
             st
         }
         Phase::Gated => {
@@ -478,7 +511,7 @@ pub fn recover(layout: &Layout, host: &dyn Host) -> Result<Option<State>, String
     Ok(Some(settled))
 }
 
-/// `update --rollback`: restores the snapshot of the last committed update.
+/// `update --rollback`: restores the snapshot of the last committed update (the caller holds [`lock`]).
 pub fn rollback_manual(layout: &Layout, host: &dyn Host) -> Result<State, UpdateError> {
     ensure_idle(layout, host)?;
     let last = state::load(layout)
@@ -492,6 +525,8 @@ pub fn rollback_manual(layout: &Layout, host: &dyn Host) -> Result<State, Update
         })?;
     let meta = snapshot::verify(layout).map_err(|m| UpdateError::new("snapshot-invalid", m))?;
     let undo_addons = last.addons_disabled.clone();
+    // What the rolled-back update re-enabled was disabled for the version that comes back.
+    let redo_addons = last.addons_reenable.clone();
     let mut st = State {
         id: state::new_id(),
         trigger: "manual-rollback".into(),
@@ -516,22 +551,38 @@ pub fn rollback_manual(layout: &Layout, host: &dyn Host) -> Result<State, Update
         let _ = enter(layout, &mut st, Phase::Failed);
         return Err(UpdateError::new("restore-failed", m));
     }
-    if st.was_running {
-        if let Err(m) = host.start(layout, &st.target_bin) {
-            st.message = Some(format!(
-                "restored, but the previous version did not start: {m}"
-            ));
-        }
-    }
+    // The add-ons are put right while the daemon is stopped (the ext layer is edited offline), then it starts.
+    let mut notes: Vec<String> = Vec::new();
     if !undo_addons.is_empty() {
         // The previous version is back: the add-ons its successor disabled were fine with it.
         let failed = host.restore_addons(layout, &undo_addons);
         if !failed.is_empty() {
-            st.message = Some(format!(
+            notes.push(format!(
                 "add-ons that stayed disabled: {}",
                 failed.join(", ")
             ));
         }
+    }
+    if !redo_addons.is_empty() {
+        // The previous version is back, and it is the one that judged these incompatible: they go off again.
+        let failed = host.redisable_addons(layout, &redo_addons, &st.from, &st.to);
+        if !failed.is_empty() {
+            notes.push(format!(
+                "add-ons that stayed enabled although the previous version does not support them: {}",
+                failed.join(", ")
+            ));
+        }
+    }
+    if st.was_running {
+        if let Err(m) = host.start(layout, &st.target_bin) {
+            notes.insert(
+                0,
+                format!("restored, but the previous version did not start: {m}"),
+            );
+        }
+    }
+    if !notes.is_empty() {
+        st.message = Some(notes.join("; "));
     }
     enter(layout, &mut st, Phase::RolledBack).map_err(UpdateError::new_io)?;
     state::remove_dir(&state::snapshot_dir(layout));
@@ -550,11 +601,58 @@ impl UpdateError {
     }
 }
 
+/// Why [`lock`] handed out no lock.
+#[derive(Debug, PartialEq, Eq)]
+pub enum LockError {
+    /// An `update`, an `update --rollback`, a recovery or a `setup` holds it.
+    Busy,
+    Io(String),
+}
+
+/// `<home>/update/update.lock`.
+pub fn lock_path(layout: &Layout) -> PathBuf {
+    state::dir(layout).join("update.lock")
+}
+
+/// The advisory lock every native `update`, `update --rollback`, `daemon start` recovery and `setup` holds for its
+/// whole run (the container updater has `container.lock` for the same reason). Before the first state write there is
+/// no state file to refuse a second run, and a second run clears `update/staging` and `update/snapshot` under the
+/// first. An advisory file lock goes away with its process, so a killed run leaves nothing stale behind.
+///
+/// The functions of this module do not take it themselves: a command holds it across recovery, download and apply,
+/// and one process cannot take it twice.
+pub fn lock(layout: &Layout) -> Result<fs::File, LockError> {
+    let dir = state::dir(layout);
+    fs::create_dir_all(&dir).map_err(|e| LockError::Io(format!("{}: {e}", dir.display())))?;
+    let path = lock_path(layout);
+    let mut open = fs::OpenOptions::new();
+    open.create(true).truncate(false).read(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        open.mode(0o600);
+    }
+    let file = open
+        .open(&path)
+        .map_err(|e| LockError::Io(format!("{}: {e}", path.display())))?;
+    match file.try_lock() {
+        Ok(()) => Ok(file),
+        Err(fs::TryLockError::WouldBlock) => Err(LockError::Busy),
+        Err(fs::TryLockError::Error(e)) => Err(LockError::Io(format!("{}: {e}", path.display()))),
+    }
+}
+
 /// Where the swap lands: `PLUR1BUS_UPDATE_TARGET_BIN` under test internals, else the running binary (plan R4).
 pub fn target_binary() -> Result<PathBuf, String> {
     if std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1") {
         if let Some(p) = std::env::var_os("PLUR1BUS_UPDATE_TARGET_BIN") {
-            return Ok(PathBuf::from(p));
+            if pins::trust_seams_allowed() {
+                return Ok(PathBuf::from(p));
+            }
+            // A shipped build swaps only the binary it is: its environment cannot point the swap elsewhere.
+            eprintln!(
+                "plur1bus: ignoring PLUR1BUS_UPDATE_TARGET_BIN: this build carries its own release key, so a test seam cannot redirect an update"
+            );
         }
     }
     std::env::current_exe().map_err(|e| format!("cannot locate the plur1bus binary: {e}"))

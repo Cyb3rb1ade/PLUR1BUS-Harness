@@ -8,8 +8,10 @@ use std::sync::{
 };
 use std::time::{Duration, Instant};
 
+#[cfg(unix)]
+use russh::keys::agent;
 use russh::keys::{
-    agent, Algorithm, PrivateKey, PrivateKeyWithHashAlg, PublicKey, PublicKeyOrCertificate,
+    Algorithm, PrivateKey, PrivateKeyWithHashAlg, PublicKey, PublicKeyOrCertificate,
 };
 use russh::{client, server, Channel, ChannelId, ChannelMsg};
 use russh_sftp::protocol::{Data, FileAttributes, Handle, OpenFlags, Status, StatusCode};

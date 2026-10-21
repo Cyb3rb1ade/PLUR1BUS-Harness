@@ -693,7 +693,7 @@ describe("break-glass: axe and German", opts, () => {
       const dialog = app.page.getByRole("dialog", { name: "Break-Glass-Zugriff anfordern" });
       await dialog.waitFor();
       await dialog.getByRole("button", { name: "Zugriff anfordern" }).click();
-      await dialog.getByText("Sie müssen die Anforderung vor dem Absenden bestätigen.").waitFor();
+      await dialog.getByText("Du musst die Anforderung vor dem Absenden bestätigen.").waitFor();
       await dialog.getByText("Die Begründung muss mindestens 10 Zeichen lang sein.").waitFor();
       assert.match((await dialog.textContent()) ?? "", /10 bis 500 Zeichen/);
       assert.equal(sent(app, "breakglass.request").length, 0);

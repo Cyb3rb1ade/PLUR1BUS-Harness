@@ -33,7 +33,9 @@ export interface MediaSearchSurfaceDeps {
   index: () => MediaIndexPort | null;
   config: () => HarnessConfig;
   backfill: { pause(): Promise<void>; resume(): Promise<void>; reindex(): Promise<void> };
-  scopeOf: (principal: Principal, ctx: CallContext) => Scope;
+  scopeOf: (principal: Principal, ctx: CallContext) => Scope | Scope[];
+  /** Engine 1.19 counters are global; never expose other agents counts to an agent. */
+  globalStatus?: boolean;
   readable: (principal: Principal, mediaId: string) => Promise<boolean>;
   editable: (principal: Principal, mediaId: string) => Promise<boolean>;
   captionOf?: (captionMemoryId: string | undefined) => Promise<string | undefined>;
@@ -139,10 +141,16 @@ export function createMediaSearchSurface(d: MediaSearchSurfaceDeps): { methods: 
       searchEnabled();
       // A seed medium the caller may not read is indistinguishable from an unknown one.
       if (q.likeMediaId !== undefined && !(await d.readable(who, q.likeMediaId))) throw new RpcError("E_NOT_FOUND", "media object not found", { reason: "unknown-media" });
-      const hits = await index.search({
+      const context = d.scopeOf(who, ctx);
+      const scopes = Array.isArray(context) ? context : [context];
+      const collected: MediaHit[] = [];
+      for (const scope of scopes) collected.push(...await index.search({
         ...(q.text !== undefined ? { text: q.text } : {}), ...(q.likeMediaId !== undefined ? { likeMediaId: q.likeMediaId } : {}),
-        ...(q.kinds ? { kinds: q.kinds } : {}), limit: Math.min(q.limit * OVERFETCH, MAX_FETCH), fuseCaptions: q.fuseCaptions, scope: d.scopeOf(who, ctx),
-      });
+        ...(q.kinds ? { kinds: q.kinds } : {}), limit: Math.min(q.limit * OVERFETCH, MAX_FETCH), fuseCaptions: q.fuseCaptions, scope,
+      }));
+      const best = new Map<string, MediaHit>();
+      for (const hit of collected.sort((a,b)=>b.score-a.score)) if (!best.has(hit.mediaId)) best.set(hit.mediaId,hit);
+      const hits = [...best.values()];
       const out = [];
       for (const h of hits) {
         if (out.length >= q.limit) break;
@@ -153,7 +161,7 @@ export function createMediaSearchSurface(d: MediaSearchSurfaceDeps): { methods: 
       return { hits: out };
     }),
 
-    "media.index.status": bind(async (raw) => { closed(raw, []); return status(); }),
+    "media.index.status": bind(async (raw, who) => { closed(raw, []); if(d.globalStatus && (who.kind !== "person" || !["owner", "admin"].includes(who.role))) unavailable("per-agent-status-unavailable"); return status(); }),
 
     "media.index.pause": bind(async (raw, who) => {
       closed(raw, []);

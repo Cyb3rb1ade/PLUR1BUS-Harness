@@ -25,7 +25,7 @@ export const nodeFs: HostFs = {
   async readdir(p) { return readdir(p); },
   async stat(p) {
     const s = await stat(p);
-    return { isFile: s.isFile(), isDirectory: s.isDirectory(), size: s.size };
+    return { isFile: s.isFile(), isDirectory: s.isDirectory(), size: s.size, mode: s.mode };
   },
 };
 

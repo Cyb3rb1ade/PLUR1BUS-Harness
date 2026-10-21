@@ -133,7 +133,7 @@ test("store load failures refuse initialization rather than admitting handshakes
   } finally { f.clean(); }
 });
 
-test("failed revocation write preserves disk, memory and connections until a successful retry", () => {
+test("failed revocation write keeps the file, blocks the device and closes its connections at once, and a successful retry makes it durable", () => {
   const f = fixture();
   try {
     const d = f.store.recordPairing(device);
@@ -146,18 +146,17 @@ test("failed revocation write preserves disk, memory and connections until a suc
     fail = true;
     assert.throws(() => s.revoke(d.id, "alice"), { code: "storage" });
     assert.equal(readFileSync(f.file, "utf8"), before);
-    assert.deepEqual(s.get(d.id), d);
-    assert.equal(closed, false);
+    assert.equal(s.get(d.id).revoked, true);
+    assert.equal(closed, true);
     assert.deepEqual(f.events.at(-1), { at: 1000, actor: { user: "alice", host: "device-store" }, action: "device.revoke.failed", target: d.id, detail: {} });
+    const nonce0 = s.challenge();
+    assert.throws(() => s.connect({ publicKey, challenge: nonce0, signature: sign(null, nonce0, keys.privateKey), close: () => {} }), { code: "denied" });
     const restarted = new DeviceStore(f.options);
-    assert.deepEqual(restarted.get(d.id), d);
-    for (const store of [s, restarted]) {
-      const nonce = store.challenge();
-      store.connect({ publicKey, challenge: nonce, signature: sign(null, nonce, keys.privateKey), close: () => {} })();
-    }
+    assert.deepEqual(restarted.get(d.id), d, "the failed write left the old durable state");
+    const nonce = restarted.challenge();
+    restarted.connect({ publicKey, challenge: nonce, signature: sign(null, nonce, keys.privateKey), close: () => {} })();
     fail = false;
     s.revoke(d.id, "alice");
-    assert.equal(closed, true);
     assert.equal(new DeviceStore(f.options).get(d.id).revoked, true);
   } finally { f.clean(); }
 });

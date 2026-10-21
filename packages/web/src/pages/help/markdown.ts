@@ -1,5 +1,6 @@
 import { h } from "preact";
 import type { View } from "../../view.ts";
+import type { DocLang } from "./route.ts";
 
 export type MarkdownNode =
   | { kind: "h"; level: number; text: string; id: string }
@@ -232,9 +233,17 @@ export type RenderOptions = {
   slug?: string;
   /** Whether a handbook page with this slug exists; a `.md` link to anything else (docs outside the handbook) is shown as text, not as a dead link. */
   hasDoc?: (slug: string) => boolean;
+  /** UI language, language of the document being rendered, and whether that language's handbook has the slug. With all three,
+   *  links keep their language: a `../de/x.md` link from an English page opens the German page (`#/help/de/x`), a bare `x.md`
+   *  link stays in the language of the page it is on. Without them every link is a plain `#/help/<slug>` (UI language decides). */
+  uiLang?: DocLang;
+  docLang?: DocLang;
+  hasDocIn?: (lang: DocLang, slug: string) => boolean;
 };
 
-const DOC_LINK = /(?:^|\/)([\p{L}\p{N}_-]+)\.md(?:#([^\s#]*))?$/u;
+/** A handbook link is `x.md`, `./x.md`, `de/x.md` or `../en/x.md`: a file of docs/user. Anything with other directories
+ *  (`../../media.md`, `../../channels/email.md`) is a developer document and never a handbook page, even if a page of that name exists. */
+const DOC_LINK = /^(?:\.\/|\.\.\/)?(?:(de|en)\/)?([\p{L}\p{N}_-]+)\.md(?:#([^\s#]*))?$/u;
 
 /** Where a markdown link may point. Only http(s) and mailto leave the app, in a new tab without opener; handbook pages and
  *  anchors stay inside the hash router. Everything else (javascript:, data:, vbscript:, protocol-relative, unknown relative
@@ -247,10 +256,28 @@ export function resolveHref(raw: string, opts: RenderOptions = {}): { href: stri
   if (scheme !== undefined) return scheme === "http" || scheme === "https" || scheme === "mailto" ? { href, external: true } : null;
   if (href.startsWith("//") || href.startsWith("\\")) return null;
   if (href.startsWith("#/")) return { href, external: false };
-  if (href.startsWith("#")) return { href: opts.slug ? `#/help/${opts.slug}${href}` : href, external: false };
+  if (href.startsWith("#")) {
+    // On a page shown in the other language than the UI's, the anchor must keep that language or it would open the UI-language page.
+    const pin = opts.uiLang && opts.docLang && opts.docLang !== opts.uiLang ? `${opts.docLang}/` : "";
+    return { href: opts.slug ? `#/help/${pin}${opts.slug}${href}` : href, external: false };
+  }
   const md = DOC_LINK.exec(href);
-  if (md?.[1] && (!opts.hasDoc || opts.hasDoc(md[1]))) return { href: `#/help/${md[1]}${md[2] ? `#${md[2]}` : ""}`, external: false };
-  return null;
+  const slug = md?.[2];
+  if (!md || !slug) return null;
+  const anchor = md[3] ? `#${md[3]}` : "";
+  const explicit = md[1] as DocLang | undefined;
+  const { uiLang, docLang, hasDocIn } = opts;
+  if (!uiLang || !docLang || !hasDocIn) {
+    return !opts.hasDoc || opts.hasDoc(slug) ? { href: `#/help/${slug}${anchor}`, external: false } : null;
+  }
+  // The language a link names (`../de/x.md`) or, for a bare `x.md`, the language of the page it is on; a bare link to a page that
+  // language lacks may still reach the English one (the fallback `pickDoc` applies to bare slugs).
+  let target: DocLang = explicit ?? docLang;
+  if (!hasDocIn(target, slug)) {
+    if (explicit || !hasDocIn("en", slug)) return null;
+    target = "en";
+  }
+  return { href: `#/help/${target === uiLang ? "" : `${target}/`}${slug}${anchor}`, external: false };
 }
 
 function renderInline(node: InlineNode, key: number | string, opts: RenderOptions): View {

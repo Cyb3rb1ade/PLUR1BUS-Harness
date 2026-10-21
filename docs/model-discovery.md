@@ -108,5 +108,35 @@ wire cannot write becomes `none` with the hint `reasoning-wire-unsupported`. Eac
 candidate model (the nearest supported level, ties to the cheaper one), so a fallback model with other levels gets its own nearest
 level; budget levels map onto the model's range (minimal = min, low 1/8, medium 1/4, high 1/2, xhigh = max). An adapter refuses a
 parameter it cannot express before any I/O. Anthropic: `max_tokens` is lifted above the thinking budget, and a request that continues
-a tool loop is sent without `thinking` because thinking signatures are not carried between rounds yet (sending it would be a 400).
+a tool loop carries its complete unmodified signed thinking and redacted-thinking blocks before assistant text/tool calls.
+Opaque blocks are kept in WeakMap transport metadata only for the current turn: they do not serialize into logs,
+partial results, prompt records or session storage. An unsigned continuation or a different fallback model fails before I/O.
+The budget guard reserves the same lifted output maximum that the wire sends, including every tool round.
 
+
+
+## Chat model selection II (2026-10-18)
+
+Confirmed changes append `session.model.changed` atomically with the profile/reasoning CAS. The event records model,
+profile, reasoning, time, actor and message position; a failed or stale write appends nothing. Remembered sessions
+persist these events, while incognito sessions and their changes stay in the memory-only store. `session.resume` and
+`chat.get` include the latest 2000 model-change notes, independent of delta volume, for chronological transcript replay.
+
+`plur1bus chat --model <profile> --reasoning <level>` sets either or both for a new/current session. The experimental
+`plur1bus session model get <session>` and `set <session> [--model <profile>] [--reasoning <level>] --yes` retain raw RPC
+fields in JSON (`session.model.get/1` and `session.model.set/1`). Preview/CAS and the cache/cost confirmation remain required.
+
+The dropdown uses `privacy/local-only.ts` as its sole classification source. Accepted live privacy changes emit
+`chat.models.changed`, a value-free invalidation containing only time and reason. The API can broadcast that hint;
+clients must reread their authorized `chat.model.get`, and receive no config, secret or agent-ID list through it.
+
+Anthropic's [effort documentation](https://platform.claude.com/docs/en/build-with-claude/effort), checked 2026-10-18,
+states that top-level `output_config.effort` needs no beta header. The curated supported-model rules use that stable
+parameter; per-message effort remains outside this implementation. Curated 4.6/4.7/4.8 rules explicitly enable adaptive
+thinking with effort; effort alone would leave thinking off on those models. Opus 4.5 and older manual-thinking models
+retain their token-budget path. The table and schema carry this capability, without model-name rules in the request builder.
+See also [thinking with tools](https://platform.claude.com/docs/en/build-with-claude/extended-thinking).
+
+`scripts/check-reasoning-metadata.mjs` validates the JSON Schema and safe compiled patterns in CI's unit job. Callers that
+pass a list of known models get informational coverage hints for models without a matching rule, never validation failures.
+Schema errors and unsafe/duplicate patterns fail. Local tests cover both cases.

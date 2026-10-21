@@ -92,6 +92,12 @@ describe("M8 — backup and restore against a real core", () => {
       assert.equal(restored.applied, true, JSON.stringify(restored));
       assert.ok(existsSync(restored.preRestore), "the replaced state is kept");
       core = await startCore(h);
+      // KNOWN GAP (docs/ops/backup-restore.md): `idsBefore[0]` was forgotten after the backup and is active again in the restored
+      // rows, which is what this asserts while the pinned engine has no lib/tombstone-reapply.js (the core then keeps
+      // state/.restore-reapply-tombstones and warns). With an engine that has it, the start re-applies the committed
+      // tombstone and the forgotten memory must stay gone: flip this assertion (and the recall one) when the pin moves; the
+      // tripwire in packages/core/test/restore-reapply.test.ts turns red at that point.
+      assert.ok(existsSync(join(h, "state", ".restore-reapply-tombstones")) || !ids().includes(idsBefore[0]!), "a restore leaves the re-apply marker unless the engine already settled it");
       assert.deepEqual(ids(), idsBefore, "the same memories");
       assert.deepEqual(recallAll(), recallBefore, "identical recall results");
       assert.ok(!JSON.stringify(cli(h, ["agent", "list"])).includes("anna"), "the agent created after the backup is gone");

@@ -49,6 +49,23 @@ describe("skill scan", () => {
     assert.deepEqual(s.entries.map((e) => e.rel), ["SKILL.md", "alias.md"]);
     assert.deepEqual(s.problems, []);
   });
+  it("skips a link under a harmless name that points at a credential or VCS file of the same skill (counted as secret/vcs, never copied)", needsFileSymlinks, () => {
+    const d = tempDir("p1b-imp-");
+    skill(join(d, "s"), "s", "x");
+    write(join(d, "s", ".env"), `K=${FAKE_TOKEN}`);
+    write(join(d, "s", "keys", "id.pem"), FAKE_TOKEN);
+    write(join(d, "s", ".git", "config"), "[core]");
+    write(join(d, "s", "docs", "guide.md"), "guide");
+    symlinkSync(".env", join(d, "s", "creds.txt"), "file");
+    symlinkSync(join("keys", "id.pem"), join(d, "s", "tok.txt"), "file");
+    symlinkSync(join(".git", "config"), join(d, "s", "gitcfg.txt"), "file");
+    symlinkSync(join("docs", "guide.md"), join(d, "s", "guide-link.md"), "file");
+    const s = scanSkill(join(d, "s"), R);
+    assert.deepEqual(s.entries.map((e) => e.rel), ["SKILL.md", "docs/guide.md", "guide-link.md"]);
+    assert.deepEqual(s.skipped, { symlinkEscapes: [], symlinkDirs: [], secretFiles: 4, vcs: 2 });
+    assert.ok(!s.entries.some((e) => e.sha256 === createHash("sha256").update(`K=${FAKE_TOKEN}`).digest("hex")), "the credential content is not in the copy set");
+    assert.deepEqual(s.problems, []);
+  });
   it("treats a junction (directory link) like a symlink: inside is skipped as a directory link, outside as an escape", () => {
     const d = tempDir("p1b-imp-");
     skill(join(d, "s"), "s", "x");

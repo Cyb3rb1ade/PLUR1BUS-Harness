@@ -169,6 +169,16 @@ impl Host for SystemHost {
     fn reenable_addons(&self, layout: &Layout, names: &[String]) -> Vec<(String, String)> {
         super::addons::reenable(layout, names)
     }
+
+    fn redisable_addons(
+        &self,
+        layout: &Layout,
+        names: &[String],
+        from: &str,
+        to: &str,
+    ) -> Vec<String> {
+        super::addons::redisable_after_rollback(layout, names, from, to)
+    }
 }
 
 /// One pass: the core child is `ready`, and `1staid check` has no `fail`.
