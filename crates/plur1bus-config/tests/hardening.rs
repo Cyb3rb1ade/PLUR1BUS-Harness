@@ -611,22 +611,31 @@ fn string_length_limits_hold_where_nothing_else_constrains_the_string() {
             continue;
         }
         let name = dotted(&n.path);
+        // A media provider that is not local needs a privacy acknowledgment while the index is enabled, a separate cross-field
+        // rule: probe the length of the provider id with the index switched off.
+        let put = |v: Value| {
+            let mut candidate = with_value_at(&cfg, &n.path, v);
+            if name == "memory.mediaEmbedding.provider" {
+                candidate["memory"]["mediaEmbedding"]["enabled"] = json!(false);
+            }
+            candidate
+        };
         if let Some(max) = n.schema.get("maxLength").and_then(Value::as_u64) {
             checked += 1;
-            let at = with_value_at(&cfg, &n.path, json!("a".repeat(max as usize)));
+            let at = put(json!("a".repeat(max as usize)));
             assert!(
                 validate(&at).is_ok(),
                 "{name}: {max} characters refused: {:?}",
                 validate(&at)
             );
-            let over = with_value_at(&cfg, &n.path, json!("a".repeat(max as usize + 1)));
+            let over = put(json!("a".repeat(max as usize + 1)));
             assert!(
                 validate(&over).is_err(),
                 "{name}: {} characters accepted",
                 max + 1
             );
             // Counted in characters, not bytes: `max` two-byte characters fit.
-            let wide = with_value_at(&cfg, &n.path, json!("ä".repeat(max as usize)));
+            let wide = put(json!("ä".repeat(max as usize)));
             assert!(
                 validate(&wide).is_ok(),
                 "{name}: {max} two-byte characters refused"
@@ -648,6 +657,63 @@ fn string_length_limits_hold_where_nothing_else_constrains_the_string() {
         }
     }
     assert!(checked > 10, "{checked} limits");
+}
+
+#[test]
+fn lists_and_strings_beyond_their_schema_limit_are_refused_and_at_the_limit_accepted() {
+    // The generic tests above walk the properties present in the defaults; these keys sit in optional sections or in maps.
+    fn put(path: &[&str], v: Value) -> Value {
+        let mut c = defaults();
+        let mut cur = &mut c;
+        for seg in path {
+            cur = &mut cur[*seg];
+        }
+        *cur = v;
+        c
+    }
+    for (path, max) in [
+        (vec!["auth", "openai", "federated", "args"], 128usize),
+        (vec!["agents", "bernd", "skills", "pinned"], 1024),
+        (vec!["agents", "bernd", "skills", "blocked"], 1024),
+    ] {
+        let list = |n: usize| Value::Array(vec![json!("s"); n]);
+        assert!(
+            validate(&put(&path, list(max))).is_ok(),
+            "{path:?}: {max} entries"
+        );
+        assert!(
+            validate(&put(&path, list(max + 1))).is_err(),
+            "{path:?}: {} entries",
+            max + 1
+        );
+    }
+    for (path, max) in [
+        (vec!["modelRoles", "chat"], 256usize),
+        (vec!["auth", "openai", "federated", "command"], 4096),
+        (
+            vec!["auth", "openai", "federated", "environment", "FOO"],
+            32767,
+        ),
+        (vec!["engine", "baseDbPathOverride"], 4096),
+    ] {
+        // A path-valued key gets an absolute-looking text, so the probe is about its length only.
+        let text = |n: usize| {
+            if path.last() == Some(&"baseDbPathOverride") {
+                format!("/{}", "a".repeat(n - 1))
+            } else {
+                "a".repeat(n)
+            }
+        };
+        assert!(
+            validate(&put(&path, json!(text(max)))).is_ok(),
+            "{path:?}: {max} characters"
+        );
+        assert!(
+            validate(&put(&path, json!(text(max + 1)))).is_err(),
+            "{path:?}: {} characters",
+            max + 1
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

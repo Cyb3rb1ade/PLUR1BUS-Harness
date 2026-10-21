@@ -188,6 +188,7 @@
                           },
                           "allowedScopes": {
                             "type": "array",
+                            "maxItems": 3,
                             "x-restart": "live",
                             "x-tier": "advanced",
                             "x-write-roles": [
@@ -512,6 +513,7 @@
                           },
                           "allowedScopes": {
                             "type": "array",
+                            "maxItems": 3,
                             "x-restart": "live",
                             "x-tier": "advanced",
                             "x-write-roles": [
@@ -836,6 +838,7 @@
                           },
                           "allowedScopes": {
                             "type": "array",
+                            "maxItems": 3,
                             "x-restart": "live",
                             "x-tier": "advanced",
                             "x-write-roles": [
@@ -1173,6 +1176,7 @@
                             },
                             "allowedScopes": {
                               "type": "array",
+                              "maxItems": 3,
                               "x-restart": "live",
                               "x-tier": "advanced",
                               "x-write-roles": [
@@ -1520,6 +1524,7 @@
                             },
                             "allowedScopes": {
                               "type": "array",
+                              "maxItems": 3,
                               "x-restart": "live",
                               "x-tier": "advanced",
                               "x-write-roles": [
@@ -2145,6 +2150,7 @@
               "createdAt": {
                 "description": "Timestamp when the agent was created, in date-time format.",
                 "type": "string",
+                "maxLength": 64,
                 "format": "date-time"
               },
               "displayName": {
@@ -2162,16 +2168,20 @@
                   "blocked": {
                     "description": "Skill names this agent must not receive, even when enabled installation-wide.",
                     "type": "array",
+                    "maxItems": 1024,
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "maxLength": 128
                     },
                     "default": []
                   },
                   "pinned": {
                     "description": "Skill names pinned for this agent; currently stored and displayed but not interpreted.",
                     "type": "array",
+                    "maxItems": 1024,
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "maxLength": 128
                     },
                     "default": []
                   },
@@ -2206,6 +2216,7 @@
                       "provider": {
                         "description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.",
                         "type": "string",
+                        "maxLength": 128,
                         "x-restart": "core",
                         "x-tier": "basic"
                       },
@@ -2235,6 +2246,7 @@
                           "acknowledgedAt": {
                             "description": "When this function-specific privacy acknowledgment was recorded.",
                             "type": "string",
+                            "maxLength": 64,
                             "format": "date-time"
                           },
                           "by": {
@@ -2254,6 +2266,7 @@
                       "model": {
                         "description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.",
                         "type": "string",
+                        "maxLength": 256,
                         "x-restart": "core",
                         "x-tier": "basic"
                       },
@@ -2261,6 +2274,7 @@
                         "description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).",
                         "type": "integer",
                         "minimum": 1,
+                        "maximum": 16384,
                         "x-restart": "core",
                         "x-tier": "advanced"
                       },
@@ -2278,6 +2292,7 @@
                         },
                         "uniqueItems": true,
                         "minItems": 1,
+                        "maxItems": 3,
                         "x-restart": "core",
                         "x-tier": "basic"
                       },
@@ -2290,6 +2305,7 @@
                             "description": "Length of one video segment in seconds.",
                             "type": "integer",
                             "minimum": 1,
+                            "maximum": 3600,
                             "x-restart": "core",
                             "x-tier": "advanced"
                           },
@@ -2297,6 +2313,7 @@
                             "description": "Maximum number of frames embedded per video; capped by the model limit.",
                             "type": "integer",
                             "minimum": 1,
+                            "maximum": 4096,
                             "x-restart": "core",
                             "x-tier": "advanced"
                           },
@@ -2317,6 +2334,7 @@
                             "description": "Length of one audio segment in seconds.",
                             "type": "integer",
                             "minimum": 1,
+                            "maximum": 3600,
                             "x-restart": "core",
                             "x-tier": "advanced"
                           },
@@ -2324,6 +2342,7 @@
                             "description": "Maximum audio duration in seconds that is indexed; longer media is truncated.",
                             "type": "integer",
                             "minimum": 1,
+                            "maximum": 604800,
                             "x-restart": "core",
                             "x-tier": "advanced"
                           }
@@ -2348,6 +2367,7 @@
                           "provider": {
                             "description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.",
                             "type": "string",
+                            "maxLength": 128,
                             "x-restart": "core",
                             "x-tier": "advanced"
                           },
@@ -2377,6 +2397,7 @@
                               "acknowledgedAt": {
                                 "description": "When this function-specific privacy acknowledgment was recorded.",
                                 "type": "string",
+                                "maxLength": 64,
                                 "format": "date-time"
                               },
                               "by": {
@@ -2397,6 +2418,7 @@
                             "description": "Maximum caption length in characters.",
                             "type": "integer",
                             "minimum": 20,
+                            "maximum": 10000,
                             "x-restart": "core",
                             "x-tier": "advanced"
                           },
@@ -2468,6 +2490,7 @@
                 "provider": {
                   "description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.",
                   "type": "string",
+                  "maxLength": 128,
                   "default": "local-transformers",
                   "x-restart": "core",
                   "x-tier": "basic"
@@ -2498,6 +2521,7 @@
                     "acknowledgedAt": {
                       "description": "When this function-specific privacy acknowledgment was recorded.",
                       "type": "string",
+                      "maxLength": 64,
                       "format": "date-time"
                     },
                     "by": {
@@ -2517,6 +2541,7 @@
                 "model": {
                   "description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.",
                   "type": "string",
+                  "maxLength": 256,
                   "default": "google/embeddinggemma-2",
                   "x-restart": "core",
                   "x-tier": "basic"
@@ -2525,6 +2550,7 @@
                   "description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).",
                   "type": "integer",
                   "minimum": 1,
+                  "maximum": 16384,
                   "default": 768,
                   "x-restart": "core",
                   "x-tier": "advanced"
@@ -2543,6 +2569,7 @@
                   },
                   "uniqueItems": true,
                   "minItems": 1,
+                  "maxItems": 3,
                   "default": [
                     "image",
                     "video",
@@ -2561,6 +2588,7 @@
                       "description": "Length of one video segment in seconds.",
                       "type": "integer",
                       "minimum": 1,
+                      "maximum": 3600,
                       "default": 10,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -2569,6 +2597,7 @@
                       "description": "Maximum number of frames embedded per video; capped by the model limit.",
                       "type": "integer",
                       "minimum": 1,
+                      "maximum": 4096,
                       "default": 32,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -2592,6 +2621,7 @@
                       "description": "Length of one audio segment in seconds.",
                       "type": "integer",
                       "minimum": 1,
+                      "maximum": 3600,
                       "default": 30,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -2600,6 +2630,7 @@
                       "description": "Maximum audio duration in seconds that is indexed; longer media is truncated.",
                       "type": "integer",
                       "minimum": 1,
+                      "maximum": 604800,
                       "default": 3600,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -2627,6 +2658,7 @@
                     "provider": {
                       "description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.",
                       "type": "string",
+                      "maxLength": 128,
                       "x-restart": "core",
                       "x-tier": "advanced"
                     },
@@ -2656,6 +2688,7 @@
                         "acknowledgedAt": {
                           "description": "When this function-specific privacy acknowledgment was recorded.",
                           "type": "string",
+                          "maxLength": 64,
                           "format": "date-time"
                         },
                         "by": {
@@ -2676,6 +2709,7 @@
                       "description": "Maximum caption length in characters.",
                       "type": "integer",
                       "minimum": 20,
+                      "maximum": 10000,
                       "default": 280,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -2734,7 +2768,8 @@
           },
           "additionalProperties": {
             "description": "Model identifier assigned to the role.",
-            "type": "string"
+            "type": "string",
+            "maxLength": 256
           }
         },
         "privacy": {
@@ -2919,7 +2954,8 @@
             "image": {
               "description": "Harness image reference; production installations should use an immutable digest.",
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 512
             },
             "stateVolume": {
               "description": "Runtime-managed state volume; never use a macOS virtiofs bind for SQLite state.",
@@ -2933,10 +2969,12 @@
               "anyOf": [
                 {
                   "type": "string",
+                  "maxLength": 15,
                   "format": "ipv4"
                 },
                 {
                   "type": "string",
+                  "maxLength": 45,
                   "format": "ipv6"
                 }
               ],
@@ -2988,13 +3026,15 @@
               "url": {
                 "description": "Credential-free HTTP(S) endpoint, or valkey://HOST:PORT/0 for remote Valkey over Tailscale.",
                 "type": "string",
+                "maxLength": 2048,
                 "format": "uri",
                 "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$"
               },
               "caBundle": {
                 "description": "Optional PEM trust bundle for the remote HTTPS host.",
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "maxLength": 65536
               },
               "fingerprint": {
                 "description": "Explicit self-signed leaf-certificate pin, SHA-256 of DER in lowercase hex. Health probes only; consumers must use pinned TLS too.",
@@ -3211,6 +3251,7 @@
                 "at": {
                   "type": "integer",
                   "minimum": 0,
+                  "maximum": 8640000000000000,
                   "x-restart": "core",
                   "x-tier": "advanced",
                   "description": "Confirmation time in epoch milliseconds.",
@@ -3249,6 +3290,7 @@
         "$schema": {
           "description": "URI identifying the JSON Schema used to validate this configuration.",
           "type": "string",
+          "maxLength": 2048,
           "x-restart": "live",
           "x-tier": "advanced"
         },
@@ -3395,7 +3437,8 @@
                         "TMP"
                       ],
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "maxLength": 128
                       },
                       "maxItems": 128,
                       "uniqueItems": true,
@@ -3410,7 +3453,8 @@
                   "default": [],
                   "items": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 1024
                   },
                   "maxItems": 128,
                   "x-tier": "advanced",
@@ -3462,17 +3506,19 @@
               "default": {},
               "properties": {
                 "softBudgetMs": {
-                  "description": "Soft target duration for a recall, in milliseconds.",
+                  "description": "Soft target duration for a recall, in milliseconds; must not exceed hardBudgetMs.",
                   "type": "integer",
                   "minimum": 50,
+                  "maximum": 3600000,
                   "default": 400,
                   "x-restart": "core",
                   "x-tier": "advanced"
                 },
                 "hardBudgetMs": {
-                  "description": "Maximum duration allowed for a recall before it is aborted, in milliseconds.",
+                  "description": "Maximum duration allowed for a recall before it is aborted, in milliseconds; must not be below softBudgetMs.",
                   "type": "integer",
                   "minimum": 100,
+                  "maximum": 3600000,
                   "default": 600,
                   "x-restart": "live",
                   "x-tier": "advanced"
@@ -3481,6 +3527,7 @@
                   "description": "Maximum number of characters returned by a recall.",
                   "type": "integer",
                   "minimum": 1000,
+                  "maximum": 10000000,
                   "default": 17000,
                   "x-restart": "core",
                   "x-tier": "advanced"
@@ -3497,6 +3544,7 @@
                   "description": "Maximum time to wait for a memory capture, in milliseconds.",
                   "type": "integer",
                   "minimum": 1000,
+                  "maximum": 3600000,
                   "default": 60000,
                   "x-restart": "live",
                   "x-tier": "advanced"
@@ -3507,6 +3555,7 @@
               "description": "Maximum time the core spends on graceful shutdown, in milliseconds.",
               "type": "integer",
               "minimum": 1000,
+              "maximum": 3600000,
               "default": 30000,
               "x-restart": "live",
               "x-tier": "advanced"
@@ -3523,6 +3572,7 @@
               "description": "Grace period given to a child process to exit during shutdown, in milliseconds.",
               "type": "integer",
               "minimum": 1000,
+              "maximum": 3600000,
               "default": 60000,
               "x-restart": "live",
               "x-tier": "advanced"
@@ -3531,6 +3581,7 @@
               "description": "Interval between child-process health checks, in milliseconds.",
               "type": "integer",
               "minimum": 1000,
+              "maximum": 3600000,
               "default": 5000,
               "x-restart": "live",
               "x-tier": "advanced"
@@ -3571,6 +3622,7 @@
               "description": "Maximum size of each log file before rotation, in bytes.",
               "type": "integer",
               "minimum": 1048576,
+              "maximum": 10737418240,
               "default": 20971520,
               "x-restart": "live",
               "x-tier": "advanced"
@@ -3579,6 +3631,7 @@
               "description": "Number of rotated log files to retain.",
               "type": "integer",
               "minimum": 1,
+              "maximum": 1000,
               "default": 5,
               "x-restart": "live",
               "x-tier": "advanced"
@@ -3651,6 +3704,7 @@
             "acceptedNcLicenceAt": {
               "description": "Date-time when the non-commercial licence was accepted.",
               "type": "string",
+              "maxLength": 64,
               "format": "date-time",
               "x-restart": "core",
               "x-tier": "advanced"
@@ -3694,6 +3748,7 @@
                     "acknowledgedAt": {
                       "description": "When this function-specific privacy acknowledgment was recorded.",
                       "type": "string",
+                      "maxLength": 64,
                       "format": "date-time"
                     },
                     "by": {
@@ -3743,6 +3798,7 @@
                     "acknowledgedAt": {
                       "description": "When this function-specific privacy acknowledgment was recorded.",
                       "type": "string",
+                      "maxLength": 64,
                       "format": "date-time"
                     },
                     "by": {
@@ -3772,6 +3828,7 @@
           "properties": {
             "baseDbPathOverride": {
               "type": "string",
+              "maxLength": 4096,
               "x-restart": "core",
               "x-tier": "advanced",
               "description": "Testing/advanced only; default <home>/state/lancedb"
@@ -3894,18 +3951,22 @@
                     "command": {
                       "description": "Executable that prints a fresh federated token as JSON on stdout (run without a shell). Mutually exclusive with file.",
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 4096
                     },
                     "file": {
                       "description": "File holding the federated token and its expiry, re-read on refresh. Mutually exclusive with command.",
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 4096
                     },
                     "args": {
                       "description": "Arguments passed to command, one array element per argument (no shell interpolation).",
                       "type": "array",
+                      "maxItems": 128,
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "maxLength": 4096
                       },
                       "default": []
                     },
@@ -3917,7 +3978,8 @@
                       },
                       "additionalProperties": {
                         "description": "Value of the environment variable.",
-                        "type": "string"
+                        "type": "string",
+                        "maxLength": 32767
                       },
                       "default": {}
                     }
@@ -4279,6 +4341,7 @@
                   "default": 1228,
                   "description": "Maximum summary tokens; also capped to 15 percent of the catalogue window.",
                   "minimum": 32,
+                  "maximum": 2000000,
                   "x-restart": "core",
                   "x-tier": "advanced"
                 },
@@ -4287,6 +4350,7 @@
                   "default": 819,
                   "description": "Maximum tokens per context message; originals stay in the transcript.",
                   "minimum": 32,
+                  "maximum": 2000000,
                   "x-restart": "core",
                   "x-tier": "advanced"
                 },
@@ -4319,6 +4383,7 @@
                       "default": 3,
                       "description": "Never hide tool pairs in the latest N turns.",
                       "minimum": 1,
+                      "maximum": 1000,
                       "x-restart": "core",
                       "x-tier": "advanced"
                     },
@@ -4397,6 +4462,7 @@
                   "type": "array",
                   "uniqueItems": true,
                   "minItems": 1,
+                  "maxItems": 6,
                   "items": {
                     "enum": [
                       "GUILDS",
@@ -4643,6 +4709,7 @@
                 },
                 "privateKeySecret": {
                   "type": "string",
+                  "maxLength": 128,
                   "default": "channels.buzz.private-key",
                   "description": "Name of the secret holding the Buzz private key; never the key itself.",
                   "x-restart": "module:buzz",
@@ -5301,7 +5368,9 @@
                         "pattern": "^-?[0-9]{1,20}$"
                       },
                       {
-                        "type": "integer"
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
                       }
                     ]
                   },
@@ -5321,7 +5390,9 @@
                         "pattern": "^-?[0-9]{1,20}$"
                       },
                       {
-                        "type": "integer"
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
                       }
                     ]
                   },
@@ -5346,6 +5417,7 @@
                     "url": {
                       "description": "HTTPS webhook URL Telegram will deliver updates to.",
                       "type": "string",
+                      "maxLength": 2048,
                       "format": "uri",
                       "pattern": "^https://",
                       "x-restart": "module:telegram",
@@ -5378,6 +5450,7 @@
                 "botId": {
                   "description": "Explicit bot user ID override (normally discovered via getMe).",
                   "type": "integer",
+                  "maximum": 9007199254740991,
                   "x-restart": "module:telegram",
                   "x-tier": "advanced"
                 },
@@ -6152,6 +6225,7 @@
                 "language": {
                   "description": "Language of the local voice (catalog code such as de or en). Empty: the system language when the catalog has it, else en.",
                   "type": "string",
+                  "maxLength": 32,
                   "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)?$",
                   "x-restart": "live",
                   "x-tier": "advanced"
@@ -6185,6 +6259,7 @@
                       "language": {
                         "description": "Language of the local voice for this agent.",
                         "type": "string",
+                        "maxLength": 32,
                         "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)?$",
                         "x-restart": "live",
                         "x-tier": "advanced"
@@ -6229,6 +6304,7 @@
                   "additionalProperties": {
                     "description": "Date-time at which this model's licence was confirmed.",
                     "type": "string",
+                    "maxLength": 64,
                     "format": "date-time",
                     "x-restart": "live",
                     "x-tier": "advanced"
@@ -6907,8 +6983,10 @@
                         },
                         "resolutions": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 64
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -6916,8 +6994,10 @@
                         },
                         "aspects": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 32
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -6925,6 +7005,7 @@
                         },
                         "fps": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
                             "type": "integer",
                             "minimum": 1,
@@ -7002,8 +7083,10 @@
                         },
                         "resolutions": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 64
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7011,8 +7094,10 @@
                         },
                         "aspects": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 32
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7020,6 +7105,7 @@
                         },
                         "fps": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
                             "type": "integer",
                             "minimum": 1,
@@ -7097,8 +7183,10 @@
                         },
                         "resolutions": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 64
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7106,8 +7194,10 @@
                         },
                         "aspects": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 32
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7115,6 +7205,7 @@
                         },
                         "fps": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
                             "type": "integer",
                             "minimum": 1,
@@ -7192,8 +7283,10 @@
                         },
                         "resolutions": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 64
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7201,8 +7294,10 @@
                         },
                         "aspects": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 32
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7210,6 +7305,7 @@
                         },
                         "fps": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
                             "type": "integer",
                             "minimum": 1,
@@ -7287,8 +7383,10 @@
                         },
                         "resolutions": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 64
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7296,8 +7394,10 @@
                         },
                         "aspects": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 32
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7305,6 +7405,7 @@
                         },
                         "fps": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
                             "type": "integer",
                             "minimum": 1,
@@ -7382,8 +7483,10 @@
                         },
                         "resolutions": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 64
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7391,8 +7494,10 @@
                         },
                         "aspects": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 32
                           },
                           "x-tier": "advanced",
                           "x-restart": "core",
@@ -7400,6 +7505,7 @@
                         },
                         "fps": {
                           "type": "array",
+                          "maxItems": 32,
                           "items": {
                             "type": "integer",
                             "minimum": 1,

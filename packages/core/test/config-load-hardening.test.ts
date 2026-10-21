@@ -100,7 +100,33 @@ describe("config cross-field rules", () => {
   });
 });
 
+describe("config schema bounds", () => {
+  // The limits themselves are pinned in packages/config-schema/test/schema-bounds.test.ts; this is the path a config file takes.
+  const refuses = (patch: Record<string, unknown>, mentions: string) => {
+    const p = file();
+    writeFileSync(p, JSON.stringify({ schemaVersion: 1, ...patch }));
+    for (const load of [loadConfig, readConfigFile]) assert.throws(() => load(p), (e: any) => e instanceof ConfigInvalid && e.errors.some((s: string) => s.includes(mentions)), mentions);
+  };
+
+  it("a config file with an unbounded number, list or string is refused", () => {
+    refuses({ logs: { keep: 2_000_000_000 } }, "/logs/keep");
+    refuses({ core: { recall: { capChars: 1e15 } } }, "/core/recall/capChars");
+    refuses({ session: { compaction: { summaryMaxTokens: 1e12 } } }, "/session/compaction/summaryMaxTokens");
+    refuses({ memory: { mediaEmbedding: { dimensions: 1_000_000 } } }, "/memory/mediaEmbedding/dimensions");
+    refuses({ auth: { openai: { federated: { command: "tool", args: Array.from({ length: 1000 }, () => "x") } } } }, "/auth/openai/federated/args");
+    refuses({ agents: { bernd: { skills: { pinned: Array.from({ length: 5000 }, () => "s") } } } }, "/agents/bernd/skills/pinned");
+    refuses({ modelRoles: { chat: "m".repeat(100_000) } }, "/modelRoles/chat");
+  });
+
+  it("generous but plausible values still load", () => {
+    const p = file();
+    writeFileSync(p, JSON.stringify({ schemaVersion: 1, logs: { keep: 100, maxBytes: 1_073_741_824 }, core: { recall: { capChars: 500_000 } }, session: { compaction: { summaryMaxTokens: 200_000, maxMessageTokens: 200_000 } }, memory: { mediaEmbedding: { dimensions: 3072 } }, agents: { bernd: { skills: { pinned: ["a", "b"] } } } }));
+    const { config } = loadConfig(p);
+    assert.equal(config.logs.keep, 100);
+    assert.equal(config.session.compaction.summaryMaxTokens, 200_000);
+  });
+});
+
 describe("config validation gaps (KNOWN GAP)", () => {
-  it.todo("KNOWN GAP: numbers without maximum (logs.keep, core.recall.capChars, session.compaction.*Tokens, media dimensions) and arrays/strings without maxItems/maxLength (auth.openai.federated.args, skills.pinned) need schema bounds");
   it.todo("KNOWN GAP: engine.baseDbPathOverride has no minLength/absolute-path constraint in the schema (engine-config.ts only ignores blank values)");
 });

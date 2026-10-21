@@ -11,8 +11,8 @@ Legende: `–` bedeutet im Schema kein `default` bzw. keine `x-restart`-Angabe. 
 | core | object | {} | – | Settings for the core process, including logging, memory operation budgets, and shutdown. | …json:12 |
 | core.logLevel | enum: debug, info, warn, error | info | live | Minimum severity written to the core log. | …json:16 |
 | core.recall | object | {} | – | Time and response-size limits for memory recall. | …json:17 |
-| core.recall.softBudgetMs | integer, min 50 | 400 | core | Soft target duration for a recall, in milliseconds. | …json:21 |
-| core.recall.hardBudgetMs | integer, min 100 | 600 | live | Maximum duration allowed for a recall before it is aborted, in milliseconds. | …json:22 |
+| core.recall.softBudgetMs | integer, min 50 | 400 | core | Soft target duration for a recall, in milliseconds; must not exceed hardBudgetMs. | …json:21 |
+| core.recall.hardBudgetMs | integer, min 100 | 600 | live | Maximum duration allowed for a recall before it is aborted, in milliseconds; must not be below softBudgetMs. | …json:22 |
 | core.recall.capChars | integer, min 1000 | 17000 | core | Maximum number of characters returned by a recall. | …json:23 |
 | core.capture | object | {} | – | Limits for waiting on memory capture after a turn. | …json:26 |
 | core.capture.waitMs | integer, min 1000 | 60000 | live | Maximum time to wait for a memory capture, in milliseconds. | …json:29 |
