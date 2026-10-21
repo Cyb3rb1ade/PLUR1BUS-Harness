@@ -40,6 +40,8 @@ export interface StartOptions {
   users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"]; webRoot?: string;
   /** The API's own unbuffered sink (bootstrap, remote); `noAudit` configures no sink at all. Break-glass is the core's, see `miniCore`. */
   breakGlassAudit?: AuditSink; auditSink?: AuditSink; noAudit?: boolean;
+  /** Tailnet mode (every client arrives from 127.0.0.1) and the global cap on model-backed work. */
+  remote?: ApiServerOptions["remote"]; requireSecondFactor?: ApiServerOptions["requireSecondFactor"]; expensiveConcurrency?: number;
 }
 
 export async function start(o: StartOptions = {}): Promise<Harness> {
@@ -52,6 +54,7 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
     ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),
     ...(o.breakGlassAudit ? { breakGlassAudit: o.breakGlassAudit } : {}),
+    ...(o.remote ? { remote: o.remote } : {}), ...(o.requireSecondFactor ? { requireSecondFactor: o.requireSecondFactor } : {}), ...(o.expensiveConcurrency ? { expensiveConcurrency: o.expensiveConcurrency } : {}),
   });
   const { url, port } = await api.listen();
   return { api, url, port, clock, core, logs, audit, users, close: () => api.close() };

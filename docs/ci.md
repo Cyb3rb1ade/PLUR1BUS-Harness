@@ -61,7 +61,7 @@ so on) would stay pending on a PR that skips it; `main` has no branch protection
 | nightly `system-real-models` | Real model acceptance and full kill soak; may fetch model weights |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 
-CI/nightly actions are pinned to full commit SHAs; comments record their versions. `node scripts/lint-hygiene.mjs` (rule HYG-016) rejects any workflow `uses:` that is not a full SHA, a local `./` action or a `docker://` image with a `@sha256:` digest. Workflow default is `contents: read`. PR concurrency cancels superseded runs. No new third-party retry action is introduced.
+CI/nightly actions are pinned to full commit SHAs; comments record their versions. `node scripts/lint-hygiene.mjs` (rule HYG-016) rejects any workflow `uses:` that is not a full SHA, a local `./` action or a `docker://` image with a `@sha256:` digest. It also rejects known annotated tag-object SHAs from the small offline denylist in `scripts/workflow-pin-gate.mjs`. That list cannot establish the type of an arbitrary Git object: when updating a pin, verify it through the Git API or `git ls-remote <repository> 'refs/tags/<tag>' 'refs/tags/<tag>^{}'` and use the peeled commit, with a version comment. Add newly discovered tag objects to the list with verification evidence and a regression test. Workflow default is `contents: read`. PR concurrency cancels superseded runs. No new third-party retry action is introduced.
 
 ### Windows timeout and timings
 
