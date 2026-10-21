@@ -153,3 +153,9 @@ succeeds unchanged. Toolchain, hygiene, source-quality, documentation links, act
 The full package suite and Windows baseline were not rerun for this script-only correction. Required-check migration
 and merge-queue activation remain disabled until green Windows baseline, refreshed open heads and owner activation.
 No Engine pin/lockfile setting or Controller/Watcher behavior changed; no CI polling or main/PR integration occurred.
+
+The initial P6 integration run exposed the merge-group test's separate old assertion that a diagnostic
+`perf-startup` failure must fail the aggregate gate (60/61 CI tests passed). The result table now explicitly
+checks advisory failure/skip acceptance while continuing to reject cancellation/missing outcomes and every
+required-check failure/skip/cancellation. Final rerun: 61/61 CI tests; broader 139 tests, 138 pass,
+zero failure/skip, one existing TODO. No test was removed or converted to a skip.

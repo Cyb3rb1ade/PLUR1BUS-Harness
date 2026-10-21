@@ -101,3 +101,9 @@ documentation links, actionlint and diff check pass. The after-evidence ancestry
 `93462118ecf007a93592709d1029c04647201cff`, P2 `f09ec4b29fce8491b0c13ecc2df2ca3690efb98f`,
 and P5 `9f571cb356ebf3372284c47eaf60afba47c139c6`. P3/P4 remote heads still match their existing manifest entries.
 No after measurement or hosted green baseline is asserted. Local logs: `/tmp/gp5-n1-p6-*.log`.
+
+P6 integration RED/GREEN: `merge-group.test.mjs` initially retained a second hard-performance assertion,
+so its first integrated CI run passed 60/61. Its full outcome table now matches the explicit advisory contract;
+required check failures/cancellations/skips/missing results remain rejection cases. Final recorded counts above
+were confirmed by rerunning both CI-only and broader commands after this correction. RED log:
+`/tmp/gp5-n1-p6-red.log`. No tests were removed, skipped or converted to TODO.

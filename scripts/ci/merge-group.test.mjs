@@ -11,7 +11,7 @@ test("the CI workflow requests checks for merge groups", () => {
   assert.match(yaml.slice(0, yaml.indexOf("\njobs:")), /^  merge_group:\n    types: \[checks_requested\]$/m);
 });
 
-test("a merge group without PR metadata or Git history selects the full gated matrix", async () => {
+test("a merge group without PR metadata selects the full matrix with required and advisory outcomes", async () => {
   const { spawnSync } = await import("node:child_process");
   const cwd = mkdtempSync(join(tmpdir(), "p1b-merge-group-"));
   try {
@@ -29,7 +29,8 @@ test("a merge group without PR metadata or Git history selects the full gated ma
     assert.deepEqual(evaluateGate(needs), []);
     for (const job of Object.keys(selected)) for (const status of ["failure", "cancelled", "skipped", undefined]) {
       const broken = { ...needs, [job]: status === undefined ? undefined : { result: status } };
-      assert.ok(evaluateGate(broken).some(error => error.includes(job)), `${job}:${status}`);
+      const advisoryCompleted = ["perf-startup", "perf-budgets"].includes(job) && ["failure", "skipped"].includes(status);
+      assert.equal(evaluateGate(broken).some(error => error.includes(job)), !advisoryCompleted, `${job}:${status}`);
     }
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
