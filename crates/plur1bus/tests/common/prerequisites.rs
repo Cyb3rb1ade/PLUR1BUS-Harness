@@ -16,7 +16,7 @@ pub fn require(mode: &str, root: &Path) {
         .arg(root)
         .output()
         .unwrap_or_else(|error| {
-            panic!("Test prerequisites ({mode}): could not run Node {node:?}: {error}. Install Node 24.21 and put it on PATH or set PLUR1BUS_NODE. The forthcoming `pnpm test:prep` (GP5 T2) prepares workspace prerequisites.")
+            panic!("Test prerequisites ({mode}): could not run Node {node:?}: {error}. Install Node 24.21 and put it on PATH or set PLUR1BUS_NODE. Run `pnpm test:prep` (GP5 T2) for workspace prerequisites.")
         });
     assert!(
         output.status.success(),
