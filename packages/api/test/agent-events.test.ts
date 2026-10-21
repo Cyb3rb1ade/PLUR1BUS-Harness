@@ -20,3 +20,10 @@ test("every web agent event needs a typed agent audience and current RBAC, never
     assert.equal(webEventAllowed(method, base, delivery([{ agentId: "bernd", personId: "viewer" } as unknown as AudienceTarget])), false, method);
   }
 });
+
+
+test("value-free model-options invalidation may be global; session data still requires its audience",()=>{
+ const principal:ApiPrincipal={userId:"viewer",role:"viewer",kind:"person"};
+ assert.equal(webEventAllowed("chat.models.changed",principal,{audience:null,connectionId:"c"}),true);
+ assert.equal(webEventAllowed("session.event",principal,{audience:null,connectionId:"c"}),false);
+});

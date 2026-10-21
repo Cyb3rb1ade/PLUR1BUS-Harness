@@ -291,9 +291,10 @@ async fn next_trust_transport(
                 error,
                 crate::client::ClientError::CertChanged | crate::client::ClientError::CaNotKnown
             ) {
-                let owner = crate::commands::ConnectionState(
-                    app.state::<crate::commands::ConnectionState>().0.clone(),
-                );
+                let owner = app
+                    .state::<crate::commands::ConnectionState>()
+                    .inner()
+                    .clone();
                 let handle = app.clone();
                 let id = row.id;
                 let observed = client.observed_pin();
@@ -328,9 +329,10 @@ async fn next_trust_transport(
             tokio::time::sleep(retry.next_delay(rand::random::<f64>())).await;
             continue;
         }
-        let owner = crate::commands::ConnectionState(
-            app.state::<crate::commands::ConnectionState>().0.clone(),
-        );
+        let owner = app
+            .state::<crate::commands::ConnectionState>()
+            .inner()
+            .clone();
         let handle = app.clone();
         let client = client.clone();
         let token = SecretString::new(token.expose().to_owned());

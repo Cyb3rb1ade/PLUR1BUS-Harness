@@ -83,7 +83,7 @@ The channel does not verify DKIM or SPF itself. It trusts the receiving server's
 - SPF, DKIM and DMARC are evaluated by the receiving server, not by this package. DMARC `pass` is the signal to trust, because it requires the signing or envelope domain to align with the From domain.
 - `requireAuthPass: true` is recommended for any mailbox that may receive mail from unknown mailboxes. It is also what approval by email relies on (section 5).
 - Spoofed From headers are rejected when they are ambiguous: duplicate From, multiple mailboxes, group syntax, or a Sender that disagrees with From.
-- Without `requireAuthPass`, `dmAllowlist` compares the From address only, and anyone can forge a From header. Pairing (`link`) and approvals always need DMARC `pass`, regardless of this setting.
+- Without `requireAuthPass`, `dmAllowlist` compares the From address only, and anyone can forge a From header. Pairing (`link`) and approvals always need DMARC `pass`, regardless of this setting. A forged From of an allowlisted, linked address therefore still runs a normal text turn with that person's rights. The channel warns about this: the log event `channel.email.auth-not-required` on every start, and the doctor check `channels.email.auth` (warning) while the channel is enabled and `requireAuthPass` is off.
 - Sender addresses longer than 254 characters are dropped. Stored thread subjects are cut to 500 characters and reference chains to 64 entries.
 
 ## 4. Reply rules

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { Writable } from "node:stream";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -196,3 +197,28 @@ test("abort stops the download with an aborted error and keeps the partial for r
     assert.equal(await isInstalled(dir, m), false);
   } finally { await v.close(); await rm(dir, { recursive: true, force: true }); }
 });
+
+// A WriteStream that fails (ENOSPC mid-write, or EACCES/ENOENT while opening) emits 'error'; with no listener that
+// crashes the process, and a pending 'drain' never fires. Both must surface as a clean download_failed.
+for (const when of ["mid-write", "on open"] as const) {
+  test(`a disk-write failure ${when} fails the download with download_failed instead of crashing or hanging`, async () => {
+    const files = testFiles();
+    const { v } = await server(files);
+    const dir = await tmp();
+    try {
+      const m = modelOf(v.httpUrl, files);
+      const fault = Object.assign(new Error("ENOSPC: no space left on device"), { code: "ENOSPC" });
+      const openPart = () => new Writable(when === "on open"
+        ? { construct(cb) { cb(fault); } }
+        : { highWaterMark: 1, write(_chunk, _enc, cb) { setImmediate(() => cb(fault)); } });
+      const failed = await Promise.race([
+        downloadModel(m, { modelsDir: dir, openPart }).then(() => null, (e: unknown) => e),
+        new Promise<"hang">((r) => setTimeout(() => r("hang"), 5000).unref()),
+      ]);
+      assert.notEqual(failed, "hang", "the download must not hang on a write error");
+      assert.ok(isVoiceProviderError(failed) && failed.code === "download_failed", String(failed));
+      assert.equal(String(failed).includes(dir), false, "no local path in the message");
+      assert.equal(await isInstalled(dir, m), false);
+    } finally { await v.close(); await rm(dir, { recursive: true, force: true }); }
+  });
+}

@@ -187,6 +187,47 @@ mod host {
         assert!(v.to_string().contains("/old@sha256"));
     }
     #[test]
+    fn a_failed_manual_rollback_keeps_its_target_for_the_next_attempt() {
+        let e = Env::new();
+        e.installed();
+        let feed = e.feed("next", 1);
+        assert_ok(e.run(&["update", "--yes", "--manifest", &feed]));
+        let state_path = e.dir.path().join("home/container-install.json");
+        let read = || -> Value { serde_json::from_slice(&fs::read(&state_path).unwrap()).unwrap() };
+        // The fake runtime fails the health check of an image whose reference says `bad`: a rollback target that
+        // cannot come up, like an image that is gone or does not start.
+        let bad = e.image("bad");
+        let mut st = read();
+        st["previous"][0]["image"] = json!(bad);
+        fs::write(&state_path, serde_json::to_vec(&st).unwrap()).unwrap();
+        for attempt in 1..=2 {
+            let o = e.run(&["update", "--rollback"]);
+            assert!(!o.status.success(), "attempt {attempt} must fail");
+            let st = read();
+            assert_eq!(
+                st["previous"][0]["image"],
+                json!(bad),
+                "attempt {attempt}: the target survives a failed rollback"
+            );
+            assert_eq!(st["previousVersion"], "0.1.0", "attempt {attempt}");
+            assert_eq!(st["version"], "0.2.0", "attempt {attempt}");
+            assert_eq!(st["pending"], false, "attempt {attempt}");
+        }
+        // Once the target is sound, the very same rollback goes through, and can itself be undone.
+        let mut st = read();
+        st["previous"][0]["image"] = json!(e.image("old"));
+        fs::write(&state_path, serde_json::to_vec(&st).unwrap()).unwrap();
+        let v = assert_ok(e.run(&["update", "--rollback"]));
+        assert_eq!(v["outcome"], "rolled-back", "{v}");
+        assert_eq!(v["version"], "0.1.0", "{v}");
+        let st = read();
+        assert_eq!(st["services"][0]["image"], json!(e.image("old")));
+        assert_eq!(st["previous"][0]["image"], json!(e.image("next")));
+        assert_eq!(st["previousVersion"], "0.2.0");
+        assert_eq!(st["pending"], false);
+    }
+
+    #[test]
     fn unverified_tampered_and_schema_changing_offers_never_touch_runtime() {
         let e = Env::new();
         e.installed();

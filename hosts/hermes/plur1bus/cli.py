@@ -266,7 +266,8 @@ def which_no_cwd(
     """Find ``name`` on the absolute entries of ``PATH`` only (audit, low). ``shutil.which`` on Windows looks in the
     current directory first and honours ``.`` and empty entries, so a ``plur1bus.exe`` planted in the directory
     ``hermes plur1bus bind`` runs from would win. Here an empty or relative entry is skipped, and ``name`` must not
-    contain a directory part. On Windows ``PATHEXT`` extensions are tried."""
+    contain a directory part. On Windows ``PATHEXT`` extensions are tried and
+    the returned path uses the filesystem's canonical spelling."""
     if not name or os.path.basename(name) != name:
         return None
     search = os.environ.get("PATH", "") if path is None else path
@@ -282,7 +283,9 @@ def which_no_cwd(
         for ext in exts:
             candidate = os.path.join(directory, name + ext)
             if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-                return candidate
+                # PATHEXT commonly says .EXE even when the file is stored as .exe.
+                # Windows realpath resolves that alias to the filesystem spelling.
+                return os.path.realpath(candidate) if platform == "win32" else candidate
     return None
 
 
