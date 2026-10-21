@@ -35,7 +35,7 @@ plur1bus audit verify
 
 `refusing` mit einem Grund wie `anchor-missing`, `anchor-invalid` oder `tail-anchor-mismatch` heißt, dass das beobachtete Ende keine normale Fortsetzung erlaubt. Eine fehlende oder beschädigte Datei kann auf einen Absturz, einen Speicherfehler oder eine Veränderung zurückgehen. Der Grund allein entscheidet das nicht.
 
-Eine besondere Ausnahme ist eine vollständige, korrekt verkettete Zeile genau einen Schritt vor dem alten Anker. Wenn auch die zuvor verankerte Zeile noch passt, kann der nächste Writer den Anker nachziehen und hält das als `audit.chain.anchor-advanced` fest. Andere Abweichungen werden dadurch nicht für gültig erklärt. Die Statusanzeige selbst heilt nichts.
+Eine besondere Ausnahme ist eine vollständige, korrekt verkettete Zeile, die unmittelbar auf die bislang verankerte Zeile folgt (Tail N+1 nach Anker N). Wenn auch die zuvor verankerte Zeile noch passt, kann der nächste Writer den Anker nachziehen und hält das als `audit.chain.anchor-advanced` fest. Andere Abweichungen werden dadurch nicht für gültig erklärt. Die Statusanzeige selbst heilt nichts.
 
 ### Konfiguration kann trotzdem gespeichert werden
 

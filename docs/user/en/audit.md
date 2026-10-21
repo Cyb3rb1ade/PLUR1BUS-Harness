@@ -35,7 +35,7 @@ plur1bus audit verify
 
 `refusing`, with a reason such as `anchor-missing`, `anchor-invalid` or `tail-anchor-mismatch`, means the observed end does not permit normal continuation. A missing or damaged file can result from a crash, storage failure or modification. The reason alone does not distinguish these causes.
 
-One special exception is a complete, correctly chained line exactly one step beyond the old anchor. If the previously anchored line still matches as well, the next writer can advance the anchor and records `audit.chain.anchor-advanced`. This does not validate other deviations. The status display itself repairs nothing.
+One special exception is a complete, correctly chained line immediately following the previously anchored line (tail N+1 after anchor N). If the previously anchored line still matches as well, the next writer can advance the anchor and records `audit.chain.anchor-advanced`. This does not validate other deviations. The status display itself repairs nothing.
 
 ### Configuration can still be saved
 
