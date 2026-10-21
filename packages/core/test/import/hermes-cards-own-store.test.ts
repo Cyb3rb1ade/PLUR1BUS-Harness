@@ -268,5 +268,53 @@ describe("Hermes memory cards with --adopt-store (owner decision 2026-10-19, sam
     assert.equal(plan.storeUndoStatus, "removed");
     assert.deepEqual(plan.memoryLinks, { recorded: 1, status: "reverted-with-store" });
   });
-  it.todo("KNOWN GAP: a run without --adopt-store after a reembed take-over imports the parked cards without duplicate linking (no store named, the plain import); the documented path is to re-run with the same --adopt-store");
+  it("a run without --adopt-store after a reembed take-over applies the same identity check: parked until the migration, then linked/created", { timeout }, async () => {
+    const fx = await fixture();
+    const src = await hermesStore((i) => i + 50); // written by "another model"
+    const home = tempDir("p1b-hm-cards-plain-after-reembed-");
+    const l = layout(home);
+    const first = await importHermes({ home, source: fx.root, adoptStore: src, adoptStrategy: "reembed", apply: true, testInternals: modelInternals() });
+    assert.deepEqual(memoryCards(first).map((c) => c.outcome), ["pending-reembed", "pending-reembed"]);
+
+    // No --adopt-store, store still in the foreign space: the cards stay parked (not written into the foreign-space store),
+    // the engine is never asked, the store stays exactly the source copy.
+    const { engine, calls } = recordingEngine();
+    const notYet = await importHermes({ home, source: fx.root, apply: true, engine, testInternals: modelInternals() });
+    assert.equal(notYet.storeAdopt, undefined, "no store was named");
+    assert.deepEqual(calls, [], "parked cards never reach the engine");
+    assert.deepEqual(memoryCards(notYet).map((c) => [c.outcome, c.reason]), [["pending-reembed", "agent-store-reembed-migration"], ["pending-reembed", "agent-store-reembed-migration"]]);
+    assert.equal(notYet.counts.memoryCardsPendingReembed, 2);
+    assert.equal(treeDigest(l.lancedb), treeDigest(src));
+    // The dry run plans the same.
+    const dry = await importHermes({ home, source: fx.root, apply: false, testInternals: modelInternals() });
+    assert.deepEqual(memoryCards(dry).map((c) => c.outcome), ["pending-reembed", "pending-reembed"]);
+
+    // The migration is done (harness model vectors at rows 0, 1, 2): the plain run imports in that space, the duplicate of
+    // row 1 is linked (not written twice), the new card is created.
+    rmSync(join(l.lancedb, "default"), { recursive: true, force: true });
+    await lanceStore(join(l.lancedb, "default"), DIM, 3, { ...ENGINE_COLUMNS, agentId: "default" });
+    const after = await importHermes({ home, source: fx.root, apply: true, testInternals: modelInternals() });
+    assert.deepEqual(after.errors, [], JSON.stringify(after.errors));
+    assert.deepEqual(memoryCards(after).map((c) => [c.outcome, c.linkedTo ?? null]), [["linked", ROW(1)], ["created", null]]);
+    assert.deepEqual([after.counts.memoryCardsPendingReembed, after.counts.memoryCardsLinked, after.counts.memoryCardsImported], [0, 1, 1]);
+    const rows = await rowsOf(join(l.lancedb, "default"));
+    assert.equal(rows.length, 4);
+    assert.equal(rows.filter((x) => x.text === `${CONTENT_MARKER} 1`).length, 1, "the duplicate is not in the store twice");
+    const card = rows.find((x) => x.text.endsWith("a new fact 7"));
+    assert.ok(card && card.dimension === DIM && card.hot === 7, "the parked card is in the store, in the target vector space");
+    assert.equal(ledgerOf(after).filter((e) => e.entity === "memory" && e.action === "linked").length, 1);
+  });
+
+  it("counter-test: a plain run in a home without parked cards is unchanged (no store check, no duplicate linking)", { timeout }, async () => {
+    const fx = await fixture();
+    const home = tempDir("p1b-hm-cards-plain-unchanged-");
+    const { engine, calls } = recordingEngine();
+    const r = await importHermes({ home, source: fx.root, apply: true, engine, testInternals: modelInternals() });
+    assert.deepEqual(calls.map((c) => c.op), ["import"], "the plain import: one memory.import, no memory.list duplicate check");
+    assert.deepEqual(memoryCards(r).map((c) => c.outcome), ["created", "created"]);
+    assert.deepEqual([r.counts.memoryCardsLinked, r.counts.memoryCardsPendingReembed, r.counts.memoryCardsDeferred], [0, 0, 0]);
+    // A second plain run is still the plain import.
+    const again = await importHermes({ home, source: fx.root, apply: true, engine: recordingEngine().engine, testInternals: modelInternals() });
+    assert.equal(again.counts.memoryCardsLinked, 0);
+  });
 });
