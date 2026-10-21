@@ -28,8 +28,12 @@ test('PNG UTF-8 metadata opt-in, precedence, unchanged default, retention and ha
   assert.throws(() => new OutputStore(root, { quotaBytes: -1 }));
 });
 test('quota concurrency cannot overcommit; recovery removes staging and stale lock', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'media-concurrent-')); const store = new OutputStore(root);
+  // The quota admits exactly one output: of two puts racing for the lock, one publishes and the other is refused with `quota`, never both.
+  const probe = await mkdtemp(join(tmpdir(), 'media-probe-')); const one = await new OutputStore(probe).put('a', req, result);
+  const size = (await readFile(join(probe, 'a', 'manifest.json'))).length + one.files.reduce((n, f) => n + f.bytes, 0);
+  const root = await mkdtemp(join(tmpdir(), 'media-concurrent-')); const store = new OutputStore(root, { quotaBytes: size + 8 });
   const outcomes = await Promise.allSettled([store.put('a', req, result), store.put('b', req, result)]); assert.equal(outcomes.filter(o => o.status === 'fulfilled').length, 1);
+  assert.ok(outcomes.some(o => o.status === 'rejected' && (o.reason as MediaError).code === 'quota'));
   await mkdir(join(root, '.stage-abcd')); await mkdir(join(root, '.lock')); await store.recoverStaging();
   assert.equal((await readdir(root)).length, 1);
 });

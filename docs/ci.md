@@ -118,7 +118,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | nightly `system-real-models` | Real model acceptance and full kill soak; may fetch model weights |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 
-CI/nightly actions are pinned to full commit SHAs; comments record their versions. `node scripts/lint-hygiene.mjs` (rule HYG-016) rejects any workflow `uses:` that is not a full SHA, a local `./` action or a `docker://` image with a `@sha256:` digest. Workflow default is `contents: read`. PR concurrency cancels superseded runs. No new third-party retry action is introduced.
+CI/nightly actions are pinned to full commit SHAs; comments record their versions. `node scripts/lint-hygiene.mjs` (rule HYG-016) rejects any workflow `uses:` that is not a full SHA, a local `./` action or a `docker://` image with a `@sha256:` digest. It also rejects known annotated tag-object SHAs from the small offline denylist in `scripts/workflow-pin-gate.mjs`. That list cannot establish the type of an arbitrary Git object: when updating a pin, verify it through the Git API or `git ls-remote <repository> 'refs/tags/<tag>' 'refs/tags/<tag>^{}'` and use the peeled commit, with a version comment. Add newly discovered tag objects to the list with verification evidence and a regression test. Workflow default is `contents: read`. PR concurrency cancels superseded runs. No new third-party retry action is introduced.
 
 ### Windows timeout and timings
 
@@ -141,6 +141,26 @@ The observed 64-line change in `tier-cases.json` was missing schema descriptions
 The existing `reproducible` job belongs to `container.yml`, not `ci.yml` or `nightly.yml`; it remains outside this change's allowed workflow scope. Reading its implementation shows two cache-independent Docker image builds and digest comparison, with `SOURCE_DATE_EPOCH` and rewritten timestamps already set. Its current `continue-on-error: true` remains an informational exception, **not a proven reproducibility pass**. No CI logs were fetched to attribute a particular historical failure to infrastructure.
 
 The Dockerfile already records a concrete nondeterminism source: pnpm's hoisted linker can select a different top-level version of `typical`/`array-back` (#149). It uses isolated deployment there. The release assembler still uses hoisted deployment for its existing link-free runtime contract; M8a excludes pnpm timestamp/store metadata and compares two independent deployments. Remaining mismatches are real gate failures and are not retried. Changing the container workflow/Dockerfile or replacing the deploy layout requires a separate scoped change; no infrastructure diagnosis is inferred from a digest mismatch.
+
+## Dependency and browser caches
+
+The existing `actions/setup-node` pnpm cache stores the directory reported by `pnpm store path --silent`, with a
+key derived from the root `pnpm-lock.yaml`, runner OS and architecture. It saves in a successful job's post step.
+The existing `Swatinem/rust-cache` key includes Cargo lockfiles/manifests, toolchain files, `rustc` identity, OS and
+architecture; its default failure-cache option is off. Keep these actions instead of adding overlapping caches.
+The pinned implementations and reviewed paths are recorded in the [GP5 P4 handoff](handoffs/2026-10-21-gp5-p4-ci-caches.md).
+
+The Playwright cache key includes OS, architecture and the lockfile hash. Chromium installation still runs to
+install Linux libraries and download missing browser files. The combined cache action saves only on success.
+Standalone model-cache saves also require success, a cache miss and a populated model directory; failed or
+cancelled Nightly runs no longer publish model caches. Cache paths exclude home-wide archives, git configuration,
+package-manager credentials and Harness runtime homes. Keep credentials in the existing install-step mechanism.
+
+`node --test scripts/ci/cache-policy.test.mjs` checks save conditions for success, failure and cancellation,
+cache hits/misses, empty/populated directories, browser-key isolation and the reviewed cache paths/options.
+The existing `release-scripts` job runs these offline checks. No hosted speedup is claimed without a later P1
+measurement. `sccache` remains an evaluated option: current dependency caches already exist, and P1 has not yet
+isolated compiler misses that justify another pinned tool and cache lifecycle.
 
 ## Local reproduction
 
