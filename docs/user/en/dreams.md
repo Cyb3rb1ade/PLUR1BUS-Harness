@@ -32,7 +32,7 @@ Guards can skip or end a run. Every skip is written to the ledger with its reaso
 | `idempotent` | The same material in the same window has already been processed. |
 | `min_corpus` | Too little new material since the last run. |
 | `already_running` | The same phase of this agent is running already. |
-| `no_candidates` | Nothing passed the check for candidates. |
+| `no_candidates` | Only in older entries: until recently a Deep run stopped here when no memory passed the check for candidates. Deep runs now do their upkeep regardless. |
 | `no_llm_route` | The engine has no model to use for this phase. |
 | `breaker_sessions`, `breaker_open` | The circuit breaker: an agent may start three model sessions per UTC day across REM and Deep. The fourth is not started, the run counts as aborted, and the breaker stays open until the next UTC midnight. |
 

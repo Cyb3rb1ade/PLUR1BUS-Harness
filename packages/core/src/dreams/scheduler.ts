@@ -420,17 +420,16 @@ export class DreamScheduler {
       const skip = this.#guards(agentId, phase, sched, jobs, key, now);
       if (skip) return finish("skipped", skip.reason, skip.counts);
 
-      // Candidate guards (inert until a producer is wired, see CandidateSource).
+      // Candidate guards (see CandidateSource). They only feed the promotion bookkeeping: the deep jobs (consolidate-daily,
+      // auto-accept-stale, gc-run) run whether or not a candidate passes the gate (#606). The pinned engine reports no recall
+      // statistics, so in production the gate passes nothing; gating the maintenance jobs on it would keep them from ever running.
       const cand: RunCounts = {};
       let promotable: { candidateId: string; decision: Decision }[] = [];
       if (this.#o.candidates && (phase === "light" || phase === "deep")) {
         try {
           const r = await this.#ingestCandidates(agentId, runId, now);
           Object.assign(cand, r.counts);
-          if (phase === "deep") {
-            promotable = r.promotable;
-            if (promotable.length === 0) return finish("skipped", REASON.noCandidates, cand);
-          }
+          if (phase === "deep") { promotable = r.promotable; cand.promotable = promotable.length; }
         } catch (e) { return finish("failed", REASON.engineError, cand, { error: { message: String((e as Error).message ?? e), name: (e as Error).name } }); }
       }
 

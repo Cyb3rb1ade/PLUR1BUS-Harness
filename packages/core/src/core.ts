@@ -958,7 +958,7 @@ export function createCore(o: CoreOptions): Core {
           engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
           // Content-only producer: Engine.memory.list yields text (+ optional score on a topic query, not on `since`).
           // Agent-private cards only (ADR-009 Q5). A truncated page throws; the scheduler maps that to engineError.
-          // Gates keep a content-only card from promoting; a deep run then skip/no_candidates (fail closed).
+          // Gates keep a content-only card from promoting (fail closed); the deep run's maintenance jobs run regardless (#606).
           candidateMemory: {
             async list(agentId) {
               const ws = executionRegistry.workspaceOf(agentId);

@@ -203,7 +203,7 @@ Results go only to **validated targets** (§4.1): the dream diary file, the ledg
 **Pros:** removes the "N jobs get out of sync" class; it is what OpenClaw converged on after starting with three separate jobs (`LEGACY_MEMORY_*_CRON_NAME` constants, `dreaming.ts:33-38`).
 **Cons:** "concentrates all three phases' failure modes onto a single trigger path — if the one system event never fires, *no* phase runs at all", which matches #62920/#62296/#62857 (`openclaw-layout-dreaming-ui.md` §2 Inferences). D4 requires per-phase control anyway.
 
-**Recommendation: B, taking C's lesson as a constraint** — phases are independently scheduled, but a *deep* run consumes the candidate table produced by *light*, so a deep run with no fresh light output records `skipped, reason=no_candidates` instead of doing nothing quietly.
+**Recommendation: B, taking C's lesson as a constraint** — phases are independently scheduled, but a *deep* run consumes the candidate table produced by *light*, so a deep run with no fresh light output records `skipped, reason=no_candidates` instead of doing nothing quietly. *(Amended by #606, see the implementation record: the deep phase's maintenance jobs no longer wait for a promotable candidate, so this skip reason is not recorded any more.)*
 
 ### Triggering: cron floor plus importance accumulation
 
@@ -310,7 +310,13 @@ The harness-owned scheduler landed in `packages/core/src/dreams/` (operator guid
   UNIQUE cannot be defeated by a NULL.
 * **Candidates:** the guards (dedupe, 72 h expiry, utility gate with a decision record) are implemented and tested, but the pinned
   engine has no candidate producer (C1, action 3), so they are inert until a `CandidateSource` is wired and a deep run does not
-  require candidates before then. A candidate that fails a gate stays `shortlisted` with the record.
+  require candidates before then. A candidate that fails a gate stays `shortlisted` with the record. **Amended (#606):** a
+  deep run never requires a promotable candidate, also with a `CandidateSource` wired. Its maintenance jobs (`consolidate-daily`,
+  `auto-accept-stale`, `gc-run`) run independently of the gate and the run is recorded like any other (`counts.promotable`
+  carries the number of candidates that passed; there is no `no_candidates` skip). Only the promotion bookkeeping depends on the
+  gate and happens after the engine's run. The pinned engine (98dfe2f0, contract 1.16.0) reports no recall statistics, so no
+  candidate passes and nothing is promoted until it does (engine follow-up #607). How the gate should work on the signals
+  available today stays an owner decision; the thresholds are unchanged.
 * **Diary:** an engine job that reports `diary.written = false` fails the run; `requireDiary` (off) would also demand one, because
   the pinned engine's `consolidate-daily` reports none.
 * **Scope left open:** the REM-trends reader (C2), the doctor check, the diary CLI, the UI, `dreams` events as catalogued D111 log

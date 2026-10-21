@@ -22,7 +22,6 @@ export const REASON = {
   breakerOpen: "breaker_open",
   breakerSessions: "breaker_sessions",
   minCorpus: "min_corpus",
-  noCandidates: "no_candidates",
   noLlmRoute: "no_llm_route",
   noJobs: "no_jobs",
   alreadyRunning: "already_running",
@@ -48,7 +47,7 @@ export interface ScheduleRow {
   lastCaptureAt: number | null;
 }
 
-export interface RunCounts { jobs?: number; llmSessions?: number; candidates?: number; promoted?: number; rejected?: number; expired?: number; [k: string]: number | undefined }
+export interface RunCounts { jobs?: number; llmSessions?: number; candidates?: number; promotable?: number; promoted?: number; rejected?: number; expired?: number; [k: string]: number | undefined }
 
 export interface DreamRun {
   runId: string; agentId: string; phase: Phase; jobId: string; partition: string | null;
@@ -84,8 +83,8 @@ export interface DreamJobRun {
   counts?: Record<string, number>; diary?: { written: boolean; reason?: string };
 }
 
-/** The producer of the candidate shortlist (ADR-009 C1). The pinned engine (1.12.0) has no recall/query stats
- *  API, so a fake engine in tests drives this port; production wiring maps Engine.memory.list agent-private
+/** The producer of the candidate shortlist (ADR-009 C1). The pinned engine (98dfe2f0, contract 1.16.0) has no recall/query
+ *  stats API, so a fake engine in tests drives this port; production wiring maps Engine.memory.list agent-private
  *  content (and an optional score) without inventing recalls or uniqueQueries. Absent: the candidate guards stay inert. */
 export interface CandidateSource { pull(agentId: string): Promise<CandidateInput[]> | CandidateInput[] }
 

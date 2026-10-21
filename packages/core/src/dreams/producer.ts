@@ -1,5 +1,5 @@
-// Maps existing recall/capture cards onto CandidateInput. The pinned engine (1.12.0) yields content
-// and an optional topic-search score, but no recall/query stats; those fields stay unset unless the
+// Maps existing recall/capture cards onto CandidateInput. The pinned engine (98dfe2f0, contract 1.16.0) yields
+// content and an optional topic-search score, but no recall/query stats; those fields stay unset unless the
 // memory port reports them. Gates in candidates.ts stay the authority. Do not invent scoring.
 // ADR-009 Q5: M1 dreams the agent-private partition only.
 import type { CandidateInput, CandidateSource } from "./types.ts";

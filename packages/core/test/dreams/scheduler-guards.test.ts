@@ -287,12 +287,90 @@ describe("dreams scheduler: llmRoute and diary", () => {
 describe("dreams scheduler: candidate guards", () => {
   const src = (items: { content: string; recalls?: number; uniqueQueries?: number; score?: number }[]) => ({ pull: () => items });
 
-  it("a deep run needs at least one promotable candidate; without one it is skipped/no_candidates and the engine is not called", async () => {
+  // #606: the deep phase's maintenance jobs (consolidate-daily, auto-accept-stale, gc-run) need no promotion; only the promotion
+  // bookkeeping depends on the gate. The pinned engine has no recall stats, so in production no candidate ever passes it.
+  const DEEP_JOBS = ["consolidate-daily", "auto-accept-stale", "gc-run"];
+
+  it("a deep run with candidates that all fail the gate still runs every deep job and completes; nothing is promoted", async () => {
     const h = harness(dirs, { over: { candidates: src([{ content: "a", recalls: 0, score: 0.99 }]) } }); h.sched = h.make(); h.captures("alpha", 3);
     const r = await manual(h, "deep");
-    assert.equal(r.outcome, "skipped"); assert.equal(r.reason, "no_candidates"); assert.equal(h.engine.calls.length, 0);
+    assert.equal(r.outcome, "completed"); assert.equal(r.reason, null);
+    assert.deepEqual(h.engine.calls.map((c) => c.job), DEEP_JOBS);
+    assert.equal(r.counts.jobs, 3); assert.equal(r.counts.candidates, 1); assert.equal(r.counts.rejected, 1);
+    assert.equal(r.counts.promotable, 0, "the zero is a count, not a skip reason"); assert.equal(r.counts.promoted, undefined);
     assert.equal(h.store.listCandidates("alpha", "shortlisted").length, 1, "a failing candidate stays shortlisted with its gate record");
+    assert.equal(h.store.listCandidates("alpha", "promoted").length, 0);
     assert.equal((h.store.listCandidates("alpha")[0]!.decision as { rejectedBy: string }).rejectedBy, "utility");
+    assert.equal(r.claimed, true); assert.equal(h.store.getSchedule("alpha", "deep")!.capturesAcc, 0, "a completed run consumes the corpus");
+  });
+
+  it("a deep run whose candidate source yields nothing runs every deep job against the engine and completes", async () => {
+    const h = harness(dirs, { over: { candidates: src([]) } }); h.sched = h.make(); h.captures("alpha", 3);
+    const r = await manual(h, "deep");
+    assert.equal(r.outcome, "completed"); assert.equal(r.reason, null);
+    assert.deepEqual(h.engine.calls.map((c) => c.job), DEEP_JOBS);
+    assert.ok(h.engine.calls.every((c) => c.trigger === "harness" && c.agentId === "alpha"));
+    assert.equal(r.counts.candidates, 0); assert.equal(r.counts.promotable, 0);
+    assert.equal(h.store.listCandidates("alpha").length, 0);
+    assert.equal(r.tokensIn, 100 * 3, "the tokens of all three jobs are on the ledger");
+  });
+
+  it("the light phase records no promotable count (only the deep phase asks the gate)", async () => {
+    const h = harness(dirs, { over: { candidates: src([{ content: "a", recalls: 0 }]) } }); h.sched = h.make(); h.captures("alpha", 3);
+    const r = await manual(h, "light");
+    assert.equal(r.outcome, "completed"); assert.equal(r.counts.promotable, undefined);
+  });
+
+  it("a promoted candidate is recorded only after the last deep job finished, never while the jobs run", async () => {
+    const h = harness(dirs, { over: { candidates: src([{ content: "good", recalls: 3, uniqueQueries: 3, score: 0.8 }]) } }); h.sched = h.make(); h.captures("alpha", 3);
+    const seen: Record<string, number> = {};
+    for (const j of DEEP_JOBS) h.engine.behaviours.set(j, () => { seen[j] = h.store.listCandidates("alpha", "promoted").length; return {}; });
+    const r = await manual(h, "deep");
+    assert.equal(r.outcome, "completed"); assert.equal(r.counts.promotable, 1); assert.equal(r.counts.promoted, 1);
+    assert.deepEqual(seen, { "consolidate-daily": 0, "auto-accept-stale": 0, "gc-run": 0 });
+    assert.equal(h.store.listCandidates("alpha", "promoted").length, 1);
+  });
+
+  it("a deep run without a promotable candidate keeps the failure paths: a failing job is failed, nothing is promoted, the corpus stays eligible", async () => {
+    const h = harness(dirs, { over: { candidates: src([{ content: "a", recalls: 0 }]) } }); h.sched = h.make(); h.captures("alpha", 3);
+    h.engine.behaviours.set("auto-accept-stale", () => ({ outcome: "failed", reason: "lancedb_locked" }));
+    const r = await manual(h, "deep");
+    assert.equal(r.outcome, "failed"); assert.equal(r.reason, "lancedb_locked"); assert.equal(r.claimed, false);
+    assert.deepEqual(h.engine.calls.map((c) => c.job), ["consolidate-daily", "auto-accept-stale"], "gc-run does not run after a failure");
+    assert.equal(h.store.getSchedule("alpha", "deep")!.capturesAcc, 3);
+  });
+
+  it("a deep run without a promotable candidate keeps the abort path: a cancelled run is aborted/cancelled and calls no job", async () => {
+    const h = harness(dirs, { over: { candidates: src([]) } }); h.sched = h.make(); h.captures("alpha", 3);
+    const ac = new AbortController(); ac.abort();
+    const r = await h.sched.runPhase("alpha", "deep", { trigger: "manual", signal: ac.signal });
+    assert.equal(r.outcome, "aborted"); assert.equal(r.reason, "cancelled"); assert.equal(h.engine.calls.length, 0);
+    assert.equal(h.store.getSchedule("alpha", "deep")!.capturesAcc, 3);
+  });
+
+  it("a deep run without a promotable candidate keeps the idempotency guard: the second run over the same corpus is skipped/idempotent", async () => {
+    const h = harness(dirs, { over: { candidates: src([{ content: "a", recalls: 0 }]) } }); h.sched = h.make(); h.captures("alpha", 3);
+    assert.equal((await manual(h, "deep")).outcome, "completed");
+    const again = await manual(h, "deep");
+    assert.equal(again.outcome, "skipped");
+    assert.equal(again.reason, "idempotent"); assert.equal(h.engine.calls.length, 3);
+  });
+
+  it("a deep run without a promotable candidate is skipped/no_llm_route when no route exists, with no engine call and a free key", async () => {
+    const h = harness(dirs, { over: { candidates: src([{ content: "a", recalls: 0 }]), llmRoute: () => false } }); h.sched = h.make(); h.captures("alpha", 3);
+    const r = await manual(h, "deep");
+    assert.equal(r.outcome, "skipped"); assert.equal(r.reason, "no_llm_route"); assert.equal(r.claimed, false); assert.equal(h.engine.calls.length, 0);
+    assert.equal(r.counts.promotable, 0, "the candidate guards ran before the route check");
+    assert.equal(h.store.getSchedule("alpha", "deep")!.capturesAcc, 3);
+  });
+
+  it("a deep run whose primary job skipped is skipped with the engine's reason; no candidate is promoted even with a promotable one", async () => {
+    const h = harness(dirs, { over: { candidates: src([{ content: "good", recalls: 3, uniqueQueries: 3, score: 0.8 }]) } }); h.sched = h.make(); h.captures("alpha", 3);
+    h.engine.behaviours.set("consolidate-daily", () => ({ outcome: "skipped", reason: "nothing_to_do" }));
+    const r = await manual(h, "deep");
+    assert.equal(r.outcome, "skipped"); assert.equal(r.reason, "nothing_to_do");
+    assert.equal(h.store.listCandidates("alpha", "promoted").length, 0);
+    assert.equal(h.store.getSchedule("alpha", "deep")!.capturesAcc, 3);
   });
 
   it("a promotable candidate is marked promoted only after the engine's run completed, with the decision record", async () => {

@@ -32,7 +32,7 @@ Schutzprüfungen können einen Lauf überspringen oder beenden. Jedes Übersprin
 | `idempotent` | Dasselbe Material im selben Fenster wurde schon verarbeitet. |
 | `min_corpus` | Seit dem letzten Lauf gibt es zu wenig neues Material. |
 | `already_running` | Dieselbe Phase dieses Agenten läuft schon. |
-| `no_candidates` | Nichts hat die Prüfung für Kandidaten bestanden. |
+| `no_candidates` | Nur in älteren Einträgen: Ein Tief-Lauf hörte früher hier auf, wenn keine Erinnerung die Prüfung für Kandidaten bestand. Tief-Läufe erledigen ihre Aufräumarbeit jetzt in jedem Fall. |
 | `no_llm_route` | Die Engine hat für diese Phase kein Modell zur Verfügung. |
 | `breaker_sessions`, `breaker_open` | Die Sicherung: Ein Agent darf pro UTC-Tag drei Modellsitzungen über REM und Tief starten. Die vierte startet nicht, der Lauf gilt als abgebrochen, und die Sicherung bleibt bis zur nächsten UTC-Mitternacht offen. |
 

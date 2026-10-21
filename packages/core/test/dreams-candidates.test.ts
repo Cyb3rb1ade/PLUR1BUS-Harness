@@ -49,12 +49,14 @@ describe("candidate guards in the deep phase (A5, dedupe, expiry)", () => {
     assert.ok((promoted.decision as { gates: { passed: boolean }[] }).gates.every((g) => g.passed));
   });
 
-  it("with only unfit candidates a deep run records skipped/no_candidates instead of doing nothing quietly", async () => {
+  it("with only unfit candidates a deep run still runs its maintenance jobs (#606) and promotes nothing", async () => {
     const h = mkHarness({ over: { candidates: pool([{ content: "x", recalls: 0 }]) } });
     h.captures("bernd", 3);
     const run = await h.sched.runPhase("bernd", "deep", { trigger: "manual" });
-    assert.equal(run.outcome, "skipped"); assert.equal(run.reason, "no_candidates");
-    assert.equal(h.engine.callsOf("consolidate-daily"), 0);
+    assert.equal(run.outcome, "completed"); assert.equal(run.reason, null);
+    assert.equal(run.counts.promotable, 0); assert.equal(run.counts.promoted, undefined); assert.equal(run.counts.rejected, 1);
+    for (const j of ["consolidate-daily", "auto-accept-stale", "gc-run"]) assert.equal(h.engine.callsOf(j), 1, j);
+    assert.equal(h.store.listCandidates("bernd", "promoted").length, 0);
   });
 
   it("dedupes by content hash per agent and partition, and refreshes the recall signals of a known candidate", async () => {
@@ -79,7 +81,8 @@ describe("candidate guards in the deep phase (A5, dedupe, expiry)", () => {
     await h.clock.advance(73 * HOUR); h.captures("bernd", 3);
     const run = await h.sched.runPhase("bernd", "deep", { trigger: "manual" });
     assert.equal(run.counts.expired, 1);
-    assert.equal(run.reason, "no_candidates");
+    assert.equal(run.outcome, "completed"); assert.equal(run.counts.promotable, 0);
+    assert.equal(h.engine.callsOf("consolidate-daily"), 1, "an expired candidate no longer holds the deep jobs back");
     assert.equal(h.store.listCandidates("bernd")[0]!.state, "expired");
   });
 });
