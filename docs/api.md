@@ -43,7 +43,7 @@ the current ones; a hash that is equal or stronger is left alone, so a login nev
 Cookie `plur1bus_session` (`__Host-plur1bus_session` over TLS): `HttpOnly`, `SameSite=Strict`, `Path=/`, `Secure` over TLS,
 no `Domain`. The value is 256 random bits; the server keeps only its SHA-256, in memory.
 
-- **Expiry.** Idle 30 min (each use pushes it out) and absolute 12 h; at most 64 live sessions, the oldest goes first.
+- **Expiry.** Idle 30 min (each use pushes it out) and absolute 12 h; at most 64 live sessions per account (a further login ends that account's own oldest one, never somebody else's) and 1024 in all (then the oldest session of the account holding the most goes). Both evictions are audited as `auth.session.evicted`.
 - **Fixation.** A cookie the login request carries is ended and never becomes the logged-in session; the new value is always
   fresh. The same holds for the TOTP step.
 - **Rights are read per request.** The role and object rights come from the user directory on every request, never from the
@@ -119,8 +119,18 @@ in whole seconds, `reason: rate-limited`.
 | `write` | 30 | 5 per s | writes |
 | `stream` | 6 | 1 per 5 s | opening `/events` |
 | `rpc` | 60 | 10 per s | `/rpc` |
+| `expensive` | 10 | 1 per 6 s | model-backed work, per person or token: the chat submit (`POST /api/v1/chats/{sessionId}/messages`) and, through `/rpc`, `session.submit`, `jobs.run`, `dreams.run`, `voice.realtime.start` |
 
-Forwarding headers (`X-Forwarded-For` and the like) are not trusted; the address is the socket's.
+Model-backed work also holds one slot of a global concurrency cap (default 8, `ApiServerOptions.expensiveConcurrency`) from the
+moment it is admitted until its response, a chat stream included, has ended. A refused call is `429`, `reason: rate-limited`,
+`Retry-After: 2`, and is audited as `auth.rate-limited` with `class: expensive`.
+
+Forwarding headers (`X-Forwarded-For` and the like) are not trusted; the address is the socket's. Behind `tailscale serve`
+(`remote.publish: tailnet`) that address is always `127.0.0.1`, so there it only bounds everybody together: the address bucket is
+ten times wider, a login also draws on a bucket per account name (`auth` class, so five wrong passwords for one name stop that
+name and no other), and signed-in requests are limited per principal or token. Tailscale's identity headers
+(`Tailscale-User-Login` and the like) are deliberately not used: the backend port is reachable by every local process, so the
+header proves nothing there, and the code base has no mechanism that binds it to `tailscaled`.
 
 ## Headers and the web app
 
@@ -169,6 +179,7 @@ caller typed (a failed login records a stable hash of it).
 |---|---|
 | `auth.login.success`, `auth.login.failure` | a login (`detail.via`: owner-token, password, password+totp, password+backup) |
 | `auth.logout`, `auth.logout-all`, `auth.session.rotated` | session ends or changes cookie |
+| `auth.session.evicted` | a session was forced out by a cap: `detail.reason` is `principal-cap` (the account's own oldest session, at 64 per account) or `global-cap` (the oldest session of the account holding the most, at 1024 in all); `detail.by` is the account whose new session caused it |
 | `auth.token.created`, `auth.token.revoked`, `auth.token.used-denied` | token lifecycle; a refused token (throttled) |
 | `auth.totp.enabled`, `auth.totp.disabled`, `auth.totp.failure`, `auth.totp.backup-used` | second factor |
 | `auth.rate-limited`, `auth.csrf-refused` | throttled to one per actor and target per minute |
@@ -258,9 +269,10 @@ The status table of the REST routes:
   When the queue is full the *new* event is dropped (the oldest stay), counted in `dropped` and logged once per burst. Events
   still queued when the process is killed (`SIGKILL`) are lost; a sink that throws after a partial write can produce a
   duplicate line. Break-glass does not use the queue.
-- **Rate limits per address.** The key is the socket address, which on loopback is always `127.0.0.1`: every local client
-  shares one `auth` bucket, so a local process can keep it empty and make the owner's login answer 429 until it refills.
-  The account lock is the real defence against guessing; the bucket is a cost brake.
+- **Rate limits per address.** The key is the socket address, which on loopback is always `127.0.0.1`: without a gateway every
+  local client shares one `auth` bucket, so a local process can keep it empty and make the owner's login answer 429 until it
+  refills. The account lock is the real defence against guessing; the bucket is a cost brake. In tailnet mode (all clients
+  behind `tailscale serve`) the address bucket is only an upper bound, see *Rate limits*.
 - **Core link.** There is no back-off: the next request simply tries again. The connect timeout is 1 s; a call (the handshake
   included) uses the default of 30 s, so a core that accepts the socket and never answers holds the shared pending connection
   that long; requests end earlier with 504/503. `close()` during a connect closes the late connection.
@@ -271,8 +283,7 @@ The status table of the REST routes:
 
 Each is a test marked `KNOWN GAP`; none is fixed because the fix changes behaviour.
 
-- **Global session cap** (`hardening-session.test.ts`): any signed-in account can fill the 64 sessions and evict everyone else's,
-  the owner's included. A per-principal limit would fix it.
+None is open in the hardening tests at the moment (`hardening-*.test.ts` has no `KNOWN GAP` left).
 
 ## Browser RPC and events
 
@@ -296,7 +307,7 @@ Local trust still ends at the OS-user boundary: another process with the same us
 
 The standalone API stores credentials in `<home>/state/api/accounts.db` (SQLite WAL, schema version 1; directory 0700, database 0600). It stores normalized unique usernames, unique Core person links, Argon2id PHC hashes, TOTP secrets and backup hashes, personal token hashes, credential versions and timestamps. Role, object rights and `disabled` always come from Core; missing people fail closed.
 
-`POST /api/v1/invitations/redeem` takes `{code, username, password}` without a session. `code` is the shareable invitation token, not a channel pairing code. Origin/Fetch-Site, body and per-IP/global authentication rate limits apply. Invalid, expired, revoked and consumed codes answer identically with HTTP 400 `E_INVITE_INVALID`. Only after validation can HTTP 409 `E_CONFLICT` reveal an account collision. Invalid usernames/passwords use HTTP 400 `E_INVALID_PARAMS` and reasons `username`/`password`; usernames are NFC/trim/lowercase, 3–64 ASCII letters/digits/dot/underscore/hyphen, excluding owner/admin/root/system. Passwords require 12 characters, at most 1024 UTF-8 bytes, and must differ from the username. HTTP 201 creates the account without logging in. Storage failures return `E_STORAGE` with fixed text, never paths or SQLite details.
+`POST /api/v1/invitations/redeem` takes `{code, username, password}` without a session. `code` is the shareable invitation token, not a channel pairing code. Origin/Fetch-Site, body and per-IP/global authentication rate limits apply. Invalid, expired, revoked and consumed codes answer identically with HTTP 400 `E_INVITE_INVALID`. Only after validation can HTTP 409 `E_CONFLICT` reveal an account collision. Invalid usernames/passwords use HTTP 400 `E_INVALID_PARAMS` and reasons `username`/`password`; usernames are NFC/trim/lowercase, 3–64 ASCII letters/digits/dot/underscore/hyphen, excluding owner/admin/root/system. Passwords require 12 characters, at most 1024 UTF-8 bytes, and must differ from the username. HTTP 201 creates the account without logging in. The invitation is spent last: the account is activated first, so a storage failure leaves the invitation redeemable, and a consumption that fails afterwards takes the account back out (audited as `invitation.account.failed`, reasons `activation-failed`, `revert-failed`, `pending-cleanup-failed`). Storage failures return `E_STORAGE` with fixed text, never paths or SQLite details.
 
 `POST /api/v1/accounts/bootstrap` creates the one password account linked to `local-owner`. It requires an authenticated bootstrap session, one-time CSRF and `{proof, username, password}` containing the current bootstrap token again. A password account named "owner" is never a bootstrap alias.
 

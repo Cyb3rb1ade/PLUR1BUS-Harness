@@ -34,15 +34,25 @@ export function buildAccountHandlers(d: HandlerDeps, accounts: AccountStore | un
       // Reserve after validation; never report whether a username exists to an invalid invitation holder.
       if (pending.has(invitation.userId)) throw new ApiError(409, "E_CONFLICT", "account registration in progress");
       pending.add(invitation.userId);
-      let inserted = false, consumed = false;
+      // The invitation is the one thing here that cannot be given back (the core has no "un-redeem"), so it is spent last: the
+      // account is made active first, and only an account that is live may consume it. A failure before that leaves the
+      // invitation untouched and usable again; one while spending it takes the account back out.
+      let inserted = false, activated = false;
       try {
         await accounts.createPending(invitation.userId, credentials.username, await hashPassword(credentials.password)); inserted = true;
-        try { const r = await core.serviceCall<{ userId: string }>("user.invite.redeem", { token: b.code }); if (r.userId !== invitation.userId) throw invalid(); consumed = true; } catch { throw invalid(); }
-        await accounts.activate(invitation.userId);
+        try { await accounts.activate(invitation.userId); activated = true; }
+        catch (e) { d.audit.emit("invitation.account.failed", invitation.userId, "invitation", { reason: "activation-failed" }); throw e; }
+        try { const r = await core.serviceCall<{ userId: string }>("user.invite.redeem", { token: b.code }); if (r.userId !== invitation.userId) throw invalid(); } catch { throw invalid(); }
         d.audit.emit("invitation.redeemed", invitation.userId, "invitation", { role: invitation.role });
+        inserted = activated = false;
         return { status: 201, body: { schema: "invitation.redeem/1", created: true } };
       } catch (e) {
-        if (consumed) d.audit.emit("invitation.account.failed", invitation.userId, "invitation", { reason: "activation-failed" });
+        if (activated) {
+          // Not consumed: take the live account back out so the invitation can be redeemed again. If that fails the account stays
+          // (and the invitation, unspent, can only ever reach this same person); it is audited either way.
+          try { await accounts.discardRegistration(invitation.userId); d.sessions.destroyAllFor(invitation.userId); inserted = false; }
+          catch { d.audit.emit("invitation.account.failed", invitation.userId, "invitation", { reason: "revert-failed" }); inserted = false; }
+        }
         if (inserted) { try { await accounts.removePending(invitation.userId); } catch { d.audit.emit("invitation.account.failed", invitation.userId, "invitation", { reason: "pending-cleanup-failed" }); } }
         throw e;
       } finally { pending.delete(invitation.userId); }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mkdtemp, rm, readdir } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpBase } from './helpers/tmp.ts';
 import { join } from 'node:path';
 import { createHostctl } from '../src/index.ts';
 import { createHostctlPool } from '../src/pool.ts';
@@ -25,7 +25,7 @@ describe('unchanged D109 gate', () => {
     });
   }
   it('fake approval denies foreign kill; approved call executes exactly once and read runs without asking', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hostctl-policy-')); const killForeign = vi.fn(); const audit: unknown[] = [];
+    const root = await mkdtemp(join(tmpBase(), 'hostctl-policy-')); const killForeign = vi.fn(); const audit: unknown[] = [];
     const h = createHostctl({ home: join(root, 'fixture-home'), baseEnv: {}, roots: [{ id: 'r', path: root }], audit: e => audit.push(e), killForeign });
     try {
       const registry = new ToolRegistry(); for (const t of h.definitions()) registry.register(t);
@@ -43,7 +43,7 @@ describe('unchanged D109 gate', () => {
     } finally { await h.close(); await rm(root, { recursive: true, force: true }); }
   });
   it('composition registers the local tools additively and disabled config removes them', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hostctl-composition-')); const pool = createHostctlPool({ home: join(root, 'fixture-home'), baseEnv: {}, audit: () => {} });
+    const root = await mkdtemp(join(tmpBase(), 'hostctl-composition-')); const pool = createHostctlPool({ home: join(root, 'fixture-home'), baseEnv: {}, audit: () => {} });
     const options = { home: root, roots: [{ id: 'r', path: join(root, 'workspace') }], audit: { append: () => {} }, grants: noGrants, hostctl: pool };
     try {
       const registry = await composeTools(options, { ...ctx, principal: 'person' } as any);

@@ -19,7 +19,7 @@ Yes, unless you pass `--no-service`. `plur1bus service install` registers the su
 `plur1bus backup create` writes `<home>/backups/plur1bus-backup-<UTC>.tar.gz`. `--dry-run` lists what would be archived without writing. `create` needs a running core. Source: [user/en/quickstart.md, §5](../user/en/quickstart.md).
 
 **Are API keys included in a backup?**
-No. The archive never contains secrets, which stay in the OS keyring, and `run/` is never archived. Source: [user/en/quickstart.md, §5](../user/en/quickstart.md).
+No. The secret store is never read: API keys stay in the OS keyring and `run/` is never archived; a webhook secret kept in `config.json` is replaced by a placeholder. The API account database `state/api/accounts.db` is archived, though, with its password hashes and TOTP seeds, so treat the archive as sensitive. Source: [user/en/quickstart.md, §5](../user/en/quickstart.md).
 
 **Is a backup encrypted or signed?**
 No. The archive is neither signed nor encrypted. Source: [user/en/quickstart.md, §5](../user/en/quickstart.md).
