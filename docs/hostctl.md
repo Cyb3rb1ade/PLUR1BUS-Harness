@@ -91,6 +91,9 @@ What is pinned:
   a child that never reads cannot make the harness buffer without limit.
 - **Search.** A content query with `\r` or `\n` always uses the built-in matcher; ripgrep is line-based and would never match it, so the
   result no longer depends on whether `rg` is installed.
+- **Search cost.** A search lists and reads only as far as it needs: it stops as soon as its results are full, and content search hands ripgrep
+  up to 32 files at a time (one process per batch, not per file). Each listed entry and each file read is still canonicalised against the
+  roots and the deny-list on its own; nothing is cached across entries.
 - **Files.** `fs.append` and `fs.edit` keep a UTF-8 byte order mark. A crash between the temporary file and the rename leaves the original
   byte for byte (kill test).
 - **Configuration.** `NaN`, `Infinity` and strings where numbers belong are clamped to a default or a bound; a string where a list belongs
