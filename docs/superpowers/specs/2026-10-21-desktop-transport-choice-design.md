@@ -150,7 +150,12 @@ Per resolved address, in this order:
 | `public: true` | `public` | yes |
 
 `100.64.0.0/10` is also carrier-grade NAT space; `tailnet` is a *candidate* only until the Tailscale check (§5) finds
-a matching peer. **Aggregate** over all connectable addresses: `public ≻ special ≻ private ≻ tailnet ≻ loopback`
+a matching peer. An IPv4-mapped address (`::ffff:a.b.c.d`) is the IPv4 host and takes that address's category (mapped
+`100.64.0.0/10` is `tailnet`), whereas an address that only carries an IPv4 address through a translator (NAT64
+`64:ff9b::/96` and `64:ff9b:1::/48`, 6to4 `2002::/16`) is not that host, so one carrying `100.64.0.0/10` is `special`
+(it reaches the translator's network, not the tailnet; the vector file pins both).
+
+**Aggregate** over all connectable addresses: `public ≻ special ≻ private ≻ tailnet ≻ loopback`
 (highest wins), so **any public address makes the target public** (`target-mixed` when non-public addresses are
 present too). Not-connectable addresses are dropped from the connect set and reported; if none remains the check
 fails with `target-not-connectable`.
