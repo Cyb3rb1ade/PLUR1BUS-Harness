@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,13 +8,14 @@ import { setTimeout as delay } from "node:timers/promises";
 import { connect, type CoreClient } from "../src/client.ts";
 import { createRpcServer, MAX_PENDING_NOTIFICATIONS, type RpcServerOptions } from "../src/rpc-server.ts";
 import { createLogger } from "../src/logger.ts";
+import { rpcAddress, selfServer } from "./helpers/endpoint.ts";
 
 // Delivery is bound to the subscriptions that matched when the producer called notify(): a subscription added while the
 // connection's queue is still busy is not one the producer checked, and a connection without any matching subscription
 // never occupies queue slots.
 async function harness(t: test.TestContext, extra: Partial<RpcServerOptions>) {
   const dir = await mkdtemp(join(tmpdir(), "p1b-notify-eligible-"));
-  const address = process.platform === "win32" ? `\\\\.\\pipe\\p1b-${randomUUID()}` : join(dir, "rpc.sock");
+  const address = rpcAddress(dir);
   const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
   const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" });
   const server = createRpcServer({ address, token, apiToken, logger, methods: {}, hello: () => ({ rpc: "1.6.0", pid: process.pid, instanceId: "test" }), ...extra });
@@ -22,7 +23,7 @@ async function harness(t: test.TestContext, extra: Partial<RpcServerOptions>) {
   const clients: CoreClient[] = [];
   // api: "control" is the API's credential-only link (no principal), "person" a delegated web session.
   const open = async (api?: "control" | "person") => {
-    const c = await connect({ address, token, ...(api ? { api: { clientId: "harness-api" as const, token: apiToken, ...(api === "person" ? { principal: { userId: "christian", role: "owner" as const, kind: "person" as const } } : {}) } } : {}) });
+    const c = await connect({ address, token, ...selfServer, ...(api ? { api: { clientId: "harness-api" as const, token: apiToken, ...(api === "person" ? { principal: { userId: "christian", role: "owner" as const, kind: "person" as const } } : {}) } } : {}) });
     clients.push(c); return c;
   };
   t.after(async () => { await Promise.all(clients.map(c => c.close())); await server.close(); await logger.close(); await rm(dir, { recursive: true, force: true }); });

@@ -7623,7 +7623,9 @@
           "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+            "images": { "type": "integer", "minimum": 0, "description": "Generated images (media units; absent from an older core)" },
+            "videoSeconds": { "type": "integer", "minimum": 0, "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)" }
           }
         },
                   "agents": {
@@ -7638,7 +7640,9 @@
           "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+            "images": { "type": "integer", "minimum": 0, "description": "Generated images (media units; absent from an older core)" },
+            "videoSeconds": { "type": "integer", "minimum": 0, "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)" }
           }
         },
                         "models": {
@@ -7649,7 +7653,8 @@
                             "properties": {
                               "model": { "type": "string" },
                               "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
+                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+                              "images": { "type": "integer", "minimum": 0 }, "videoSeconds": { "type": "integer", "minimum": 0 }
                             }
                           }
                         }
@@ -7697,7 +7702,7 @@
       },
       "budget.set": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.",
+        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.",
         "params": {
           "type": "object", "additionalProperties": false,
           "minProperties": 1,
@@ -7709,7 +7714,7 @@
                 "scope": { "enum": ["global", "agent"] },
                 "agentId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Required for scope agent, refused for global" },
                 "period": { "enum": ["day", "month"] },
-                "metric": { "enum": ["tokens"] },
+                "metric": { "enum": ["tokens", "images", "videoSeconds"] },
                 "soft": { "type": ["integer", "null"], "minimum": 0 },
                 "hard": { "type": ["integer", "null"], "minimum": 0 }
               }
@@ -10088,11 +10093,11 @@
       }
     },
     "BudgetLimit": {
-      "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
+      "description": "Experimental (1.5.0). A budget limit. Bounds count the metric: input + output tokens (output includes reported reasoning tokens), generated images, or seconds of generated video.",
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens", "images", "videoSeconds"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
@@ -10101,7 +10106,7 @@
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard", "used", "state"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens", "images", "videoSeconds"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 },
         "used": { "type": "integer", "minimum": 0 }, "state": { "enum": ["ok", "soft", "hard"] }
       }

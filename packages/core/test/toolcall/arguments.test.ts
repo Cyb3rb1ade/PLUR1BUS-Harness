@@ -549,3 +549,21 @@ describe("prepareCall: non-string raw input", () => {
     await assert.rejects(prepareCall("t", { type: "object" }, o), /getter boom/);
   });
 });
+
+describe("argument names like Object.prototype members", () => {
+  const schema: Schema = { type: "object", additionalProperties: false, properties: { constructor: { type: "integer" }, n: { type: "integer" } } };
+  it("an own schema property named 'constructor' is normalized like any other", async () => {
+    const r = await prepareCall("t", schema, '{"constructor":"5","n":"6"}', undefined, "openai-chat");
+    assert.deepEqual(r.ok && r.arguments, { constructor: 5, n: 6 });
+  });
+  it("names that are not own schema properties are never used as sub-schemas", async () => {
+    const open: Schema = { type: "object", properties: { n: { type: "integer" } } };
+    const r = await prepareCall("t", open, '{"n":"6","constructor":"7","__proto__":{"x":"8"}}', undefined, "openai-chat");
+    assert.equal(r.ok, true);
+    if (r.ok) {
+      const args = r.arguments as Record<string, unknown>;
+      assert.equal(args["n"], 6); assert.equal(args["constructor"], "7");
+      assert.deepEqual(Object.getOwnPropertyDescriptor(args, "__proto__")?.value, { x: "8" });
+    }
+  });
+});

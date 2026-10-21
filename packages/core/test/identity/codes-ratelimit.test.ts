@@ -369,6 +369,40 @@ describe("identity ratelimit: as the service applies it", () => {
     assert.equal(f.svc.claim({ code: p6.code, identity: at("u6") }).state, "awaiting-confirmation");
   });
 
+  it("claims the owner confirmed no longer count: five channels paired one after the other are not a lock, the sixth code works", () => {
+    const f = fixture(); const h = f.human();
+    for (let i = 1; i <= 6; i++) {
+      const p = f.svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
+      const c = f.svc.claim({ code: p.code, identity: at(`c${i}`) });
+      assert.equal(f.svc.confirm({ pairingId: c.pairingId, approve: true }, OWNER).state, "confirmed");
+    }
+    assert.equal(f.svc.list({}).humans.find((x) => x.id === h.id)!.identities.length, 6);
+  });
+
+  const CHANNELS = ["telegram", "signal", "matrix", "email", "web", "buzz"]; // a person holds at most 3 open codes per channel
+  const claimOn = (f: ReturnType<typeof fixture>, humanId: string, channel: string, who: string) =>
+    f.svc.claim({ code: f.svc.startPairing({ humanId, channel, ttlMs: 60 * MIN }, OWNER).code, identity: { channel, accountId: "acct", userId: who } });
+
+  it("claims waiting for confirmation still count: the sixth waiting claim is refused, and confirming one frees a place", () => {
+    const f = fixture(); const h = f.human();
+    const waiting = CHANNELS.slice(0, 5).map((ch, i) => claimOn(f, h.id, ch, `w${i}`).pairingId);
+    const p6 = f.svc.startPairing({ humanId: h.id, channel: "buzz", ttlMs: 60 * MIN }, OWNER);
+    const who6 = { channel: "buzz", accountId: "acct", userId: "w6" };
+    refuses(() => f.svc.claim({ code: p6.code, identity: who6 }), "rate-limited");
+    f.svc.confirm({ pairingId: waiting[0]!, approve: true }, OWNER);
+    assert.equal(f.svc.claim({ code: p6.code, identity: who6 }).state, "awaiting-confirmation");
+  });
+
+  it("a confirmation of a claim from an earlier window frees nothing in the current one", () => {
+    const f = fixture({ codeTtlMs: 60 * MIN }); const h = f.human(); // the owner may confirm long after the claim
+    const old = claimOn(f, h.id, "buzz", "old");
+    f.advance(16 * MIN); // the window of that claim is over
+    for (const [i, ch] of CHANNELS.slice(0, 5).entries()) claimOn(f, h.id, ch, `n${i}`);
+    f.svc.confirm({ pairingId: old.pairingId, approve: true }, OWNER);
+    const p6 = f.svc.startPairing({ humanId: h.id, channel: "buzz", ttlMs: 60 * MIN }, OWNER);
+    refuses(() => f.svc.claim({ code: p6.code, identity: { channel: "buzz", accountId: "acct", userId: "n6" } }), "rate-limited");
+  });
+
   it("issuing: 10 invitations per person per 15 minutes; the 11th is rate-limited, other people and later times are fine", () => {
     const f = fixture(); const h = f.human(); const other = f.human("Other");
     for (let i = 0; i < 10; i++) f.svc.startPairing({ humanId: h.id, channel: `chan${i}` }, OWNER);

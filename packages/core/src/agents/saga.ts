@@ -13,7 +13,7 @@ export class AgentCreateSaga {
     mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     const path = this.path(record.key, record.actor), temp = `${path}.${randomUUID()}.tmp`;
     writeFileSync(temp, JSON.stringify(record), { mode: 0o600, flag: "wx" });
-    const fd = openSync(temp, "r"); try { fsyncSync(fd); } finally { closeSync(fd); }
+    const fd = openSync(temp, "r+"); try { fsyncSync(fd); } finally { closeSync(fd); } // "r+": fsync on a read-only handle is EPERM on Windows
     renameSync(temp, path);
     // Windows does not support fsync on directory handles; the file is durable there.
     if (process.platform !== "win32") { const dir = openSync(this.directory, "r"); try { fsyncSync(dir); } finally { closeSync(dir); } }
