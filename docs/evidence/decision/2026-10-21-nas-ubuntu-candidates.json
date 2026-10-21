@@ -1,0 +1,65 @@
+{
+  "schema": "plur1bus.decision-candidates-comparison/1",
+  "at": "2026-10-21",
+  "hostRole": "owner-nas-vm",
+  "status": "not-measurable-without-swapping",
+  "summary": "On the owner's Ubuntu NAS VM (3.4 GiB RAM, about 2.0 GiB MemAvailable at idle with the desktop session running) candidate A could not be measured without swapping. The only run (A, original runner, 1 thread) swapped out 921 MiB and in 572 MiB and is discarded. Candidates B, C and D could not be built because files.pythonhosted.org is blackholed by the local DNS (resolves to 0.0.0.0) on the Mac and on the VM, so the Python export toolchain (torch, onnx, laya==0.4.12) cannot be installed; the DNS block was not circumvented.",
+  "environment": {
+    "vm": "Ubuntu 26.04.1 LTS, Linux 7.0.0-38-generic x86_64, KVM guest 'Standard PC (i440FX + PIIX, 1996)', 16 logical CPUs (guest view), Haswell-class flags: avx, avx2, fma, f16c, sse4_2; no avx512, no VNNI, no AMX",
+    "memory": "MemTotal 3468792 kB (3387 MiB), swap 3.9 GiB (swappiness 60, systemd-oomd active), desktop session running (gnome-shell, ptyxis)",
+    "node": "v24.21.0 linux-x64 official tarball (SHA-256 fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6 verified against SHASUMS256.txt), onnxruntime-node 1.30.0, @huggingface/transformers 4.3.1, npm install --ignore-scripts into a scratch directory, no lockfile",
+    "runner": "scripts/spikes/decision-laya.mjs from branch head bf052d60; the six model files were verified on the Mac against the manifest SHA-256 and copied to the VM with scp (the runner verifies them again before each run)",
+    "cleanup": "~/plur1bus-laya-bench on the VM (models, node, runtime, outputs) deleted after the attempt"
+  },
+  "candidates": {
+    "A": {
+      "status": "discarded-swap",
+      "reason": "vmstat shows swap activity in 156 of 272 sampled seconds (swap-in 585660 KiB, swap-out 943083 KiB in total); model load took 79.0 s; MemAvailable dropped to 782 MiB; swap in use grew from 298 MiB to 645 MiB, pushing the desktop session's memory out. The run is not a valid latency measurement.",
+      "discardedRun": {
+        "label": "A-orig-t1",
+        "threads": 1,
+        "warmP50Ms": 866.4422769999946,
+        "warmP95Ms": 1443.7542930000054,
+        "fiveQuestionBatchP50Ms": 2355.952500000014,
+        "loadMs": 79046.89946300001,
+        "firstInferenceMs": 1936.194340999995,
+        "maxRssKiB": 1725568,
+        "correctDe": "28/60",
+        "correctEn": "39/60",
+        "germanGate": {
+          "passed": false,
+          "complete": true,
+          "accuracyGap": 0.18333333333333335,
+          "brierGap": 0.1905635128642138
+        },
+        "loadAverageAtStart": "0.39 0.41 0.22 1/883 14327",
+        "loadAverageAtEnd": "1.10 1.07 0.58 1/872 15568",
+        "freeMiBStart": "Speicher:       3387        1306         808          39        1592        2080|Auslager:       3898         298        3600|",
+        "freeMiBEnd": "Speicher:       3387        1014        1663          10         993        2373|Auslager:       3898         645        3253|",
+        "swapFreeKiBStart": 3686408,
+        "swapFreeKiBEnd": 3331404,
+        "minMemAvailableMiBDuringRun": 782,
+        "vmstatSecondsWithSwapActivity": 156,
+        "vmstatSeconds": 272,
+        "stealJiffiesDelta": 116,
+        "wallSeconds": 271.66,
+        "note": "Not a valid timing (swap thrash). Kept only as evidence that A (about 1.7 GiB RSS) does not fit next to the desktop session on this VM. Picks are deterministic and equal the cloud and Windows receipts."
+      },
+      "otherRuns": "not run: threads 2 and 4 and the candidate runner were cancelled after the first run swapped, so as not to push the owner's desktop session further into swap"
+    },
+    "B": {
+      "status": "not-built",
+      "reason": "The export needs torch, onnx, onnxscript, transformers and laya==0.4.12 from PyPI. files.pythonhosted.org resolves to 0.0.0.0 in the local DNS on both the Mac and the VM (pypi.org itself answers). Not circumvented."
+    },
+    "C": {
+      "status": "not-built",
+      "reason": "derived from B"
+    },
+    "D": {
+      "status": "not-built",
+      "reason": "needs onnx and onnxruntime from PyPI (fp32 upcast plus dynamic int8 quantization), same DNS block"
+    }
+  },
+  "ramRule": "Run only with load1 < 0.5, no heavy foreign process and MemAvailable >= 1900 MiB; discard any run with vmstat si/so > 0.",
+  "next": "Needs more VM RAM (A: about 1.7 GiB RSS plus the desktop session; B about 1.0 GiB and C/D about 0.6 GiB would fit) and the PyPI file host unblocked in DNS so that B, C and D can be built, copied and measured. They would then run unchanged with scripts/spikes/decision-laya-candidates.mjs."
+}
