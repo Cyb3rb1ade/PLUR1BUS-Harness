@@ -9,4 +9,4 @@ export const QUIRKS: Readonly<Record<string, Readonly<ModelQuirks>>> = Object.fr
   'local-small': Object.freeze({ family: 'openai-chat', parallel: false, strict: false, maxTools: 8, namePattern: '^[A-Za-z0-9_-]+$', maxNameLength: 64, maxDescriptionLength: 1024, malformedArguments: Object.freeze(['unwrap-json-string', 'trailing-comma', 'numeric-string']) }),
 });
 const FALLBACK: Readonly<ModelQuirks> = Object.freeze({ ...QUIRKS['local-small']!, maxTools: 4 });
-export function lookupQuirks(modelFamily: string): Readonly<ModelQuirks> { return QUIRKS[modelFamily] ?? FALLBACK; }
+export function lookupQuirks(modelFamily: string): Readonly<ModelQuirks> { return Object.hasOwn(QUIRKS, modelFamily) ? QUIRKS[modelFamily]! : FALLBACK; }
