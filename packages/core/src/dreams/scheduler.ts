@@ -432,8 +432,7 @@ export class DreamScheduler {
           Object.assign(cand, r.counts);
           if (phase === "deep") promotable = r.promotable;
         } catch (e) {
-          if (phase !== "deep") return finish("failed", REASON.engineError, cand, { error: { message: String((e as Error).message ?? e), name: (e as Error).name } });
-          // Candidate reads must not suppress consolidate/accept/gc. Surface the
+          // Candidate reads must not suppress light or deep jobs. Surface the
           // failure after maintenance; promotion stays closed for this run.
           candidateError = e instanceof Error ? e : new Error(String(e));
         }
@@ -516,14 +515,19 @@ export class DreamScheduler {
       } else {
         if (signal.aborted) return finish("aborted", this.#stop.signal.aborted ? REASON.shutdown : REASON.cancelled, tally(), usage());
         try {
-          const requested = new Set(promotable.map((p) => p.memoryId));
-          const receipt = await this.#o.candidates.promote(agentId, [...requested]);
-          if (receipt.agentId !== agentId || !Array.isArray(receipt.items)) throw new Error("invalid Engine promotion receipt agent");
-          const byId = new Map<string, (typeof receipt.items)[number]>();
-          for (const item of receipt.items) {
-            if (!requested.has(item.id) || byId.has(item.id) ||
-              !(item.outcome === "promoted" && item.reason === "integrated" || item.outcome === "skipped" && typeof item.reason === "string")) throw new Error("invalid Engine promotion receipt item");
-            byId.set(item.id, item);
+          const ids = [...new Set(promotable.map((p) => p.memoryId))];
+          const byId = new Map<string, Awaited<ReturnType<NonNullable<CandidateSource["promote"]>>>["items"][number]>();
+          for (let start = 0; start < ids.length; start += 500) {
+            if (signal.aborted) return finish("aborted", this.#stop.signal.aborted ? REASON.shutdown : REASON.cancelled, tally(), usage());
+            const batch = ids.slice(start, start + 500);
+            const requested = new Set(batch);
+            const receipt = await this.#o.candidates.promote(agentId, batch);
+            if (receipt.agentId !== agentId || !Array.isArray(receipt.items)) throw new Error("invalid Engine promotion receipt agent");
+            for (const item of receipt.items) {
+              if (!requested.has(item.id) || byId.has(item.id) ||
+                !(item.outcome === "promoted" && item.reason === "integrated" || item.outcome === "skipped" && typeof item.reason === "string")) throw new Error("invalid Engine promotion receipt item");
+              byId.set(item.id, item);
+            }
           }
           if (signal.aborted) return finish("aborted", this.#stop.signal.aborted ? REASON.shutdown : REASON.cancelled, tally(), usage());
           this.#o.store.tx(() => {

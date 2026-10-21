@@ -105,7 +105,7 @@ import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { loadReasoningTable, resolveReasoning } from "./discovery/reasoning.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
-import { createDreams, forgetRemovedAgent, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
+import { createDreams, forgetRemovedAgent, readCandidateMemory, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
@@ -974,7 +974,7 @@ export function createCore(o: CoreOptions): Core {
             async list(agentId) {
               const ws = executionRegistry.workspaceOf(agentId);
               if (!ws) return [];
-              return itemsFromEngineList(await dreamMemory.list({ since: 0, limit: 100 }, dreamPrincipal(agentId), dreamContext));
+              return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
             },
             ...(typeof dreamMemory.stats === "function" ? {
               stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),

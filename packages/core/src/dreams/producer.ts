@@ -1,7 +1,7 @@
 // Public memory cards provide identity/age; Engine 1.17.0 (A1) adds persistent recall
 // statistics and confirmed promotion. The pinned contract is allowed to lack both.
 // ADR-009 Q5: dreaming considers agent-private cards only; no invented recall signals.
-import type { AgentContext, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { AgentContext, Principal, MemoryListQuery } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { contentHash } from "./candidates.ts";
 import type { CandidateInput, CandidateSource, CandidatePromotionResult, CandidateRecallStats } from "./types.ts";
 
@@ -28,6 +28,25 @@ export interface EngineMemoryCard {
 export interface EngineMemoryList { items: readonly EngineMemoryCard[]; truncated: boolean }
 const AGENT_PRIVATE = "agent-private";
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
+
+/** Read the public time-listing under the caller's existing principal. */
+export async function readCandidateMemory(list: (query: MemoryListQuery) => Promise<EngineMemoryList>, until = Date.now()): Promise<CandidateMemoryItem[]> {
+  const cards = new Map<string, EngineMemoryCard>();
+  for (;;) {
+    const page = await list({since: 0, until, limit: 100});
+    for (const card of page.items) {
+      if (typeof card.id !== "string" || card.id.length === 0) throw new Error("invalid Engine listing id");
+      if (!cards.has(card.id)) cards.set(card.id, card);
+    }
+    if (!page.truncated) return itemsFromEngineList({items: [...cards.values()], truncated: false});
+    // The public API has an inclusive upper time bound but no offset cursor.
+    // Repeat the boundary timestamp so same-time cards are never silently lost.
+    if (page.items.length === 0 || page.items.some(c => !finite(c.createdAt) || c.createdAt < 0 || c.createdAt > until)) throw new Error("invalid Engine listing timestamp");
+    const next = Math.min(...page.items.map(c => c.createdAt!));
+    if (next >= until) throw new Error("Engine listing timestamp makes no progress; cursor required");
+    until = next;
+  }
+}
 
 /** Refuse an incomplete corpus; retain actual private ids and source metadata. */
 export function itemsFromEngineList(r: EngineMemoryList): CandidateMemoryItem[] {
@@ -57,10 +76,11 @@ export function createCandidateSource(memory: CandidateMemory): CandidateSource 
       const items = (await memory.list(agentId)).filter((i) => i.partition === undefined || i.partition === AGENT_PRIVATE);
       const ids = [...new Set(items.flatMap((i) => i.memoryId ? [i.memoryId] : []))];
       const byId = new Map<string, CandidateRecallStats["items"][number]>();
-      if (memory.stats && ids.length > 0) {
-        const result = await memory.stats(agentId, ids);
+      for (let start = 0; memory.stats && start < ids.length; start += 500) {
+        const batch = ids.slice(start, start + 500);
+        const result = await memory.stats(agentId, batch);
         if (result.agentId !== agentId || !Array.isArray(result.items)) throw new Error("invalid Engine recall statistics agent");
-        const requested = new Set(ids);
+        const requested = new Set(batch);
         for (const s of result.items) {
           if (!requested.has(s.id) || byId.has(s.id) || !Number.isSafeInteger(s.recalls) || s.recalls < 0 ||
             !Number.isSafeInteger(s.distinctQueries) || s.distinctQueries < 0 ||
