@@ -220,7 +220,9 @@ pairing or host keys (spec §9.1).
 against the shared IANA vectors. `src-tauri/src/transport/` validates host input (spec §4.4: `host-invalid`,
 `host-ipv4-noncanonical`), resolves once through the OS resolver (5 s, at most 32 addresses, no DoH, no proxy), and
 returns the category, hints and the exact address set to connect to (`check_target`); `gate` turns a public target
-without a valid confirmation into `transport-confirm-needed`.
+without a valid confirmation into `transport-confirm-needed`. An existing remote connection whose stored origin host
+fails the §4.4 rules (`Origin::parse` admitted, for example, `_` or a label over 63 bytes) now refuses to open with
+`host-invalid`; remove it and add it again with a valid host name.
 
 **Storage.** Each remote connection's path lives in the sidecar `connection-transport.json` beside `connections.json`
 (`{ transport, publicAck? }`, `publicAck = { atMs, classifier }`, never addresses). The file is tolerant of unknown
@@ -253,14 +255,17 @@ preselection) between origin and code, the check panel (600 ms after input, a po
 with its confirmation, and keeps submit disabled until a path is chosen and a required confirmation is ticked. The
 connection list shows a path chip and a Tailscale chip; the detail has *Weg ändern…* and the confirm-needed state with
 *Bestätigen und verbinden*. The tray header reads `PLUR1BUS — {connection} · {path} — {state}` and appends
-„Tailscale getrennt“ for a Tailscale notice.
+„Tailscale getrennt“ (and the attention badge) only for an actual disconnect (`tailscale-daemon-down`, `-stopped`,
+`-needs-login`, `-peer-offline`); the list's Tailscale chip follows the same rule, and other notices, such as an
+unprobed subnet route, show neither.
 
 **Tailscale mechanism.** The check (spec §5) runs for the Tailscale path, `*.ts.net` names and tailnet addresses.
 `CliTailscale` runs `status --json` only from the fixed absolute candidates (never `PATH`; ownership, mode, symlink and
 reparse-point checks; the checked path is the one executed), with a cleared environment, a 4 s timeout, an 8 MiB stdout
 cap, and caches the parsed view for 10 s; inside Flatpak it runs nothing. A matched `*.ts.net` or short name connects
 to the peer's Tailscale addresses without a DNS query. `TcpProber` connects to at most four addresses (3 s each, no
-bytes sent) on every check-panel run and every open over a tailnet path, and compares the local address with this
+bytes sent) on every check-panel run, every open and every status or trust stream reconnect over a tailnet path, and
+compares the local address with this
 device's Tailscale addresses. It runs only once the target passes the confirmation gate, and only to the matched
 peer's tailnet addresses or the private addresses inside the matched subnet route, never to a public address
 (`check_target_acked`). Debug-only seams, ignored by release builds: `PLUR1BUS_DESKTOP_TAILSCALE_STATUS=<file>`

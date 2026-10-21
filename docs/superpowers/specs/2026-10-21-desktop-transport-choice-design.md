@@ -300,8 +300,9 @@ notice (§7.2) then applies on its own terms, because the path is not verified.
 
 ### 5.4 Caching and limits
 
-The parsed status is cached in memory for 10 s (one CLI run while the person types); at most one CLI run and one
-probe in flight; a newer check supersedes an older one. Nothing is persisted.
+The parsed status is cached in memory for 10 s (one CLI run while the person types); at most one CLI run in flight, and
+one probe in flight per window and per connection (a window's newer check supersedes its older one; the reconnects of
+one connection share one re-check). Nothing is persisted.
 
 ### 5.5 Without Tailscale
 
@@ -410,19 +411,22 @@ The last six rows (package T4) carry the wording of §7.1/§7.3 that had no key:
 detail and list, *Weg ändern…*, *Bestätigen und verbinden*, and the neutral line for the hint-less state
 `tailscale-peer-online` (§5.3; its wording is pending owner confirmation).
 
-The range text is also added to the web UI catalogues (`packages/web`, key `remote.allowlistPublic`).
+The range text is also added to the web UI catalogues (`packages/web`, key `devices.remote.allowlistPublic`).
 
 ### 7.3 Connection list and tray
 
 - **List** (`views/connections.ts`): next to the existing kind chip a path chip — „Tailscale“, „Direkt“, or
   „Direkt · öffentlich“ (warning tone **and** text, never colour alone); a second chip for an active Tailscale notice
-  („Tailscale getrennt“). Bundled/local rows show no path chip.
+  („Tailscale getrennt“) only when Tailscale is actually disconnected for it (`tailscale-daemon-down`,
+  `tailscale-stopped`, `tailscale-needs-login`, `tailscale-peer-offline`); other notices, such as an unprobed
+  `tailscale-subnet-route`, get no chip. Bundled/local rows show no path chip.
 - **Tray header** (`tray.rs` `Language::status`): `PLUR1BUS — {connection} · {path} — {state}`; `{path}` is
   „Tailscale“ / „direkt“ / „direkt, öffentlich“ (EN „Tailscale“ / „direct“ / „direct, public“), omitted for
-  bundled/local. A Tailscale notice on the active connection appends „— Tailscale getrennt“ / „— Tailscale
-  disconnected“ and sets the badge to *Attention* (same rule as a locked secrets store).
-- **Tray connection switch:** not built on `main` (plan, *Tray finding*). When it is built, each entry reads
-  `{name} ({path})`.
+  bundled/local. A Tailscale disconnect on the active connection (the same four codes as the list chip) appends
+  „— Tailscale getrennt“ / „— Tailscale disconnected“ and sets the badge to *Attention* (same rule as a locked
+  secrets store); other Tailscale notices do neither.
+- **Tray connection switch:** built (package T4b, `tray.rs` `SwitchMenu`, opened through `Transports::open_gated`
+  and `commands::connect_checked`, the same gate as *Open*). Each entry reads `{name} ({path})`.
 
 ## 8. Codes
 
