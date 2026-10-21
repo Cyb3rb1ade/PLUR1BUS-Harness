@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateGate, selections, UNGATED } from './gate.mjs';
+import { evaluateGate, selections, UNGATED, ADVISORY } from './gate.mjs';
 
-const flags = (extra = {}) => ({ proceed: 'true', rust: 'false', 'ts-core': 'false', web: 'false', python: 'false',
+const flags = (extra = {}) => ({ proceed: 'true', macos: 'false', rust: 'false', 'ts-core': 'false', web: 'false', python: 'false',
   documents: 'false', workflows: 'false', 'engine-pin': 'false', 'docs-only': 'true', ...extra });
 function needs(outputs, results = {}) {
   return { changes: { result: 'success', outputs }, ...Object.fromEntries(
@@ -16,11 +16,11 @@ test('docs-only runs only docs/hygiene and deliberately omits every expensive jo
 });
 
 test('the full matrix requires complete success from every required job', () => {
-  const outputs = flags({ rust: 'true', 'ts-core': 'true', web: 'true', python: 'true', documents: 'true', workflows: 'true', 'docs-only': 'false' });
+  const outputs = flags({ macos: 'true', rust: 'true', 'ts-core': 'true', web: 'true', python: 'true', documents: 'true', workflows: 'true', 'docs-only': 'false' });
   assert(Object.values(selections(outputs)).every(Boolean));
-  assert.deepEqual(Object.keys(selections(outputs)).sort(), ['docs-hygiene', 'unit', 'web-browser', 'wsl']);
+  assert.deepEqual(Object.keys(selections(outputs)).sort(), ['docs-hygiene', 'unit', 'web-browser', 'web-browser-macos', 'wsl']);
   assert.deepEqual(evaluateGate(needs(outputs)), []);
-  for (const job of Object.keys(selections(outputs))) for (const result of ['failure', 'cancelled', 'skipped', '', undefined]) {
+  for (const job of Object.keys(selections(outputs)).filter(job => !ADVISORY.has(job))) for (const result of ['failure', 'cancelled', 'skipped', '', undefined]) {
     const input = needs(outputs);
     input[job] = result === undefined ? undefined : { result };
     assert(evaluateGate(input).length > 0, `${job}:${result}`);
@@ -28,7 +28,7 @@ test('the full matrix requires complete success from every required job', () => 
 });
 
 test('required-check failure or cancellation is rejected even for an omitted job', () => {
-  for (const job of Object.keys(selections(flags()))) for (const result of ['failure', 'cancelled']) {
+  for (const job of Object.keys(selections(flags())).filter(job => !ADVISORY.has(job))) for (const result of ['failure', 'cancelled']) {
     assert(evaluateGate(needs(flags(), { [job]: result })).length > 0, `${job}:${result}`);
   }
 });

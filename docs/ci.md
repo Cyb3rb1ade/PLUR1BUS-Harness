@@ -138,6 +138,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `docs-hygiene` | Gated. Hygiene, source quality, i18n, doc links and `pnpm docs:check` (generated documents), for every selected run |
 | `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests, Rust fmt/clippy/tests |
 | `unit-os` | Not gated. The same steps on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)` |
+| `web-browser-macos` | Explicit advisory dependency: waits for the result, permits completed failure/skipped; selected only for proceed + web + macos |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
 | `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command) |
 | `service` | Not gated. Service manager tests; existing systemd-unavailable handling remains documented in the workflow |
@@ -146,7 +147,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `release-scripts` | Not gated. Ubuntu-only offline release tests and local actionlint validation of all workflows |
 | `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners; golden-set visual diff |
 | `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue |
-| `ci-gate` | THE gate: the jobs marked Gated above and nothing else |
+| `ci-gate` | THE gate: required jobs above plus the explicitly registered macOS browser advisory |
 | nightly `system-real-models` | Real model acceptance and full kill soak; may fetch model weights |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 
@@ -207,6 +208,14 @@ actionlint -shellcheck= -config-file scripts/release/actionlint.yaml .github/wor
 ```
 
 To collect file timings locally, set `TEST_TIMING_DIR` and `NODE_OPTIONS` to the absolute file URL of `scripts/release/timing-reporter.mjs` with `--test-reporter-destination=stdout`, run `pnpm test`, then `node scripts/release/timing-summary.mjs <directory>`. The source reporter does not change test outcomes. WSL setup reproduction requires a Windows host with the corresponding Ubuntu distribution; offline Linux/macOS tests are not evidence for that platform.
+
+## macOS browser suites
+
+`packages/web/test/browser-runtime.ts` also looks for the system Chrome (`/Applications/Google Chrome.app`), which every macOS runner has. `unit (macos-15)` therefore ran the whole browser suite in-line (`--test-concurrency=1`, 20+ minutes against 85 seconds on Linux, where no Chromium is found), and the 25-minute `pnpm test` step timed out inside `packages/web`: `packages/core`, which runs last, never started. Observed on main runs 39295005315 and 39345213479; the macOS state of core is unknown until a run reaches it.
+
+The fix is an explicit, documented switch, not a removed browser path: `PLUR1BUS_WEB_BROWSER=off` makes every browser suite of `packages/web` report `skipped` with the reason `browser suites off (PLUR1BUS_WEB_BROWSER=off); they run in the web-browser job`. The `unit-os` job sets it on macOS only (the identical Linux `unit` steps leave it empty) (`runner.os == 'macOS'`); Linux and Windows are unchanged. Combined with `PLUR1BUS_WEB_E2E_REQUIRED=1` it is a startup failure, so required mode can never be switched off. The switch is tested in `packages/web/test/browser-required.test.ts`.
+
+The coverage moves to `web-browser (macos-15, i/2)` (job `web-browser-macos`): two round-robin shards (`PLUR1BUS_TEST_SHARD=i/2`), frozen dependencies, `pnpm gen && pnpm build`, lockfile-matched Playwright Chromium (`PLUR1BUS_WEB_E2E_REQUIRED=1`, cached in `~/Library/Caches/ms-playwright`). It runs only when `changes` reports `proceed`, `web` and `macos` all true (macOS policy: push to main, schedule, dispatch, label `ci:macos`, platform-sensitive paths). It is an explicit advisory dependency of `ci-gate`: the gate waits for its matrix outcome, accepts `success`, `failure` or `skipped`, and rejects missing, cancelled or malformed results. It is not part of the required Linux `web-browser` aggregate and writes no shard manifest. The served-stack tests (`real-transport`, `real-accounts`, `surfaces-e2e`) need the Rust CLI and stay with the Linux shards (they skip here with a reason).
 
 ## M3 web browser checks
 
