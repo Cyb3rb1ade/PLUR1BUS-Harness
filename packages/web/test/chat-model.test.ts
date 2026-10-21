@@ -103,3 +103,19 @@ describe("addUser", () => {
     assert.equal(addUser(once, { id: "m1", text: "hi", turnId: "t1", state: "running" }), once);
   });
 });
+
+test("model-change notes replay at their message position and are not duplicated during a running-turn catch-up",()=>{
+ const messages:SessionMessage[]=[
+  {id:"m1",seq:1,role:"user",text:"first",createdAt:1},
+  {id:"m2",seq:2,role:"assistant",text:"answer",turnId:"t1",createdAt:2},
+  {id:"m3",seq:3,role:"user",text:"second",createdAt:4},
+ ];
+ const change=ev(1,"session.model.changed",null,{profile:"deep",displayName:"Thinker",reasoning:"high",afterMessageSeq:2});
+ const transcript=fromResume({messages,runningTurnId:"t2",lastEventSeq:2,modelChanges:[change]});
+ assert.deepEqual(transcript.entries.map(e=>e.id),["m1","m2","model-event:1","m3"]);
+ assert.equal(transcript.entries[2]!.modelChange?.model,"Thinker");
+ assert.equal(transcript.entries[2]!.modelChange?.reasoning,"high");
+ const replay=applyEvent(transcript,change);
+ assert.equal(replay.gap,false);assert.equal(replay.tr.entries.filter(e=>e.id==="model-event:1").length,1);
+ assert.equal(replay.tr.lastSeq,1);
+});

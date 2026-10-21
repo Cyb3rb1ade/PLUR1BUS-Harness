@@ -4,7 +4,8 @@ import type { McpCaller, McpLogger, McpServerDefinition } from "../../../src/mcp
 
 export const FIXTURE_STDIO = fileURLToPath(new URL("./fixture-stdio.ts", import.meta.url));
 export const NODE = process.execPath;
-export const policy = { allowedCommands: [NODE] };
+// Several fixtures start the node binary with `-e` code of their own, so the helper policy approves inline code for it.
+export const policy = { allowedCommands: [NODE], inlineCodeCommands: [NODE] };
 export const caller: McpCaller = { agentId: "bernd", principal: "user:v1:test" };
 
 export const stdioDef = (over: Record<string, unknown> = {}, env: Record<string, string> = {}): McpServerDefinition =>

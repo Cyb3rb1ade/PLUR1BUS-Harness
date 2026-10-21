@@ -12,6 +12,7 @@ import { fail, failure, string } from './errors.ts';
 import { files } from './files.ts';
 import { processes, type ProcessOptions, type RunContext } from './processes.ts';
 import * as native from './native.ts';
+import { launchesProgram } from './command.ts';
 export type { RunContext } from './processes.ts';
 export type { ConfigInput, HostctlConfig } from './config.ts';
 export { DEFAULT_CONFIG } from './config.ts';
@@ -73,7 +74,8 @@ export function createHostctl(o: Options) {
   async function invoke(name: string, raw: unknown, ctx: RunContext) {
     const op = name.replace(/^hostctl\./, ''); const description = SPECS[op];
     const a = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
-    const paths = ['path', 'destination', 'cwd'].flatMap(key => typeof a[key] === 'string' ? [a[key] as string] : []);
+    // A web target is left out: its query string may carry credentials. A local app.open target is a path like any other.
+    const paths = ['path', 'destination', 'cwd', 'target'].flatMap(key => typeof a[key] === 'string' && !(key === 'target' && (op !== 'app.open' || /^https?:\/\//i.test(a[key] as string))) ? [a[key] as string] : []);
     let processId = typeof a.id === 'string' && /^[a-f0-9-]{36}$/.test(a.id) ? a.id : undefined;
     let pid = typeof a.pid === 'number' && Number.isSafeInteger(a.pid) && a.pid > 1 ? a.pid : undefined;
     const event = (phase: Audit['phase'], code: string) => o.audit(redactor.value({ operation: name, phase, agentId: ctx.agentId, principal: ctx.principal, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), paths, code, ...(processId ? { processId } : {}), ...(pid ? { pid } : {}) }));
@@ -92,7 +94,11 @@ export function createHostctl(o: Options) {
       } else if (op === 'app.open') {
         let target = string(a, 'target');
         if (/^https?:\/\//i.test(target)) { const u = new URL(target); if (u.username || u.password) fail('DENIED', 'Use a URL without credentials.'); target = u.href; }
-        else target = (await fs.canon(target, 'read')).canonical;
+        else {
+          target = (await fs.canon(target, 'read')).canonical;
+          // Opening a program starts it, which is proc.exec/proc.shell territory (shell.exec approval, shell.allowed).
+          if (await launchesProgram(target)) fail('DENIED', 'app.open shows documents, folders and URLs; run programs and scripts with proc.exec or proc.shell.');
+        }
         await native.open(target, ctx.signal); value = { opened: true };
       } else {
         const tool = getHostTool(op); if (!tool) fail('UNAVAILABLE', 'Native operation unavailable.');

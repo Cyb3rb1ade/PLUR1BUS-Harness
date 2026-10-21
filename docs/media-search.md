@@ -3,7 +3,13 @@
 Search over images, videos and audio by text or by example (`plur1bus media search`, `media.search`). The vector work happens in the
 engine; this page describes what the harness adds: configuration and validation, the caption pipeline, the index hook, the backfill
 job, the ffmpeg ports, the RPC/CLI surface and the setup step. The binding interface is the contract of the media-embeddings plan
-(engine API = core port `MediaIndexPort`).
+(Engine 1.19 mapped by the Harness `EngineMediaIndex` adapter).
+
+## H2 integration status (2026-10-20)
+
+The production adapter targets Engine contract **1.19.0** ([Engine H1 PR #248](https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory/pull/248)); the current pinned Engine remains unchanged and does not expose that API. Media stays disabled until the Controller pin and an actual `HostServices.fetch` binding are present. [Harness #602](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/602) owns Fetch/Secret transport; this change does not copy it or fall back to global fetch. Bootstrap disables Engine media configuration before construction without Fetch and passes readiness to runtime composition.
+
+The existing Web **Medien** tab, settings and six RPC methods are reused. Native Harness H3 acceptance is gated on the pin/ports. Engine H1's real image/audio measurements remain separate evidence.
 
 ## Model of the two indexes
 
@@ -43,12 +49,15 @@ An index call that hit the hook timeout cannot be cancelled in the port; if the 
 
 | Implementation | When |
 |---|---|
-| `EngineMediaIndex` | the installed engine exports `media.*` (feature detection on the functions, no version comparison) |
+| `EngineMediaIndex` | installed engine exports the complete public `media.*` shape and bootstrap confirms a bound Host Fetch port |
 | `InMemoryMediaIndex` | reference implementation with brute-force cosine, for tests only |
 | `DisabledMediaIndex` | everything else; `media.search` answers `E_MEDIA_UNAVAILABLE` ("Engine-Version unterstützt Medienindex noch nicht") |
 
-The host hands three ports to the engine: `FrameExtractorPort`, `AudioDecoderPort` and the budget callback `canContinue()`.
-Handing them over uses `engine.media.attachHost?.(...)`; that call is an assumption until the engine release fixes the injection point.
+`createHarnessHost` supplies `capabilities.mediaPorts.frameExtractor.extract` and `audioDecoder.decode` **before** `createEngine`. They translate the existing ffmpeg frame/PCM ports into Engine 1.19 requests. `mediaSourceRoot` is `<home>/media`; decoders are bounded and local. There is no `attachHost` call.
+
+The adapter translates Harness principals to trusted `{agentId, scope:"agent-private"}`. Engine IDs include the agent, a workspace hash and safe media ID; unrelated agent/workspace hits are rejected before public projection. Mutations resolve the authoritative owner file, and indexing rejects an owner mismatch before caption/encoder work. Like-image seeds are sent only to their authoritative scope. Human queries search their authorized agents and retain the best score per readable item; agents query only their own index. Global counters are exposed only to Owner/Admin people, because 1.19 has no scoped status API.
+
+The current supported encoder selection is local Gemma 2, with exact supported dimensions. Unsupported providers/models remain unavailable, including non-commercial models without a bound license/catalogue admission path; nothing is automatically accepted or replaced. The shared Engine cannot serve distinct per-agent provider/model/dimension selections. Such overrides fail closed; enablement/modalities/caption preferences are checked per agent. Engine 1.19 also has one global backfill and segment interval. Its audio limit is 300 seconds, even when Harness configuration requests more.
 
 ### ffmpeg
 
@@ -88,6 +97,8 @@ After a result is stored in the `OutputStore` the hook captions the medium and c
 the reply never waits for it. Deleting calls `remove`; a delete that finishes while an index job of the same medium is still running makes that job remove the medium again, so a deleted medium does not come back. An error produces a `media.index.failed` event and a counter, nothing else.
 There is no inbound upload path in the repository yet; `hook.onUploaded` exists for it.
 
+Cloud encoding remains disabled in production. The dependency-free `MediaEncodingBudget` seam prepares [#603](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/603): reserve one image or the ceiling of trusted video seconds before encode, settle started encodes conservatively even on failure, release an unused reservation when privacy changes during admission, and propagate settlement failures. It imports no pending budget implementation and makes no token-budget substitution. Cloud query encoding also needs its own token/Secret admission; global Engine backfill cannot meter each item and therefore cannot run a cloud encoder. The current runtime binds only the coarse local backfill gate. This is not a claim that #603 unit accounting is wired.
+
 The backfill job starts by itself on activation and when the index fingerprint changes (`backfill = auto`), resumes after a restart
 unless the user paused it, and pauses with `pausedReason="budget"` when the call budget is used up. The last seen fingerprint is
 kept in `<home>/state/media-search.json`.
@@ -97,7 +108,7 @@ kept in `<home>/state/media-search.json`.
 | RPC | CLI | Allowed |
 |---|---|---|
 | `media.search` | `plur1bus media search "<text>" [--like <mediaId>] [--kind …] [--limit N]` | anyone who may read the medium; agents in their own scope |
-| `media.index.status` | `plur1bus media index status` | same |
+| `media.index.status` | `plur1bus media index status` | Owner/Admin people for the global 1.19 backend; other callers get unavailable |
 | `media.index.pause` / `resume` / `reindex` | `plur1bus media index pause\|resume\|reindex` | owner, admin |
 | `media.caption.set` | `plur1bus media caption set <id> <text>` | whoever may edit the medium; not agents |
 

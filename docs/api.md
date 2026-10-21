@@ -6,7 +6,7 @@ needs, is generated into [api-surface.md](api-surface.md) and [openapi.json](ope
 behind it.
 
 The API is the only listening TCP surface, loopback only. It is a peer client of the core (local RPC), not part of the core
-process. It reuses the core's pure RBAC (`authorize`, the policy table, the break-glass registry) and the core's hash-chained
+process. It reuses the core's pure RBAC (`authorize`, the policy table) and the core's hash-chained
 audit log; see *Follow-ups* for how that import is done today.
 
 ## Ways in
@@ -149,14 +149,23 @@ Every response, errors and malformed requests included, carries `X-Content-Type-
 
 ## Break-glass
 
-`POST /breakglass {"targetUserId","reason","ttlMinutes"?}` (Owner, Admin; cookie session only) on core's registry. The reason
-is mandatory (10 to 500 characters), the window is 1 to 60 minutes (15 by default), and the grant exists only after its audit
-entry was written: with no audit sink, or one that fails, the answer is `503 audit-unavailable` and there is no grant. The
-affected user can read the grant (who, why, until when) at `GET /me/notices`, and `notifyBreakGlass` is called for delivery
-over other channels (a throwing hook is audited, the grant stands). Grants end by themselves; lapsed ones are swept and
-audited twice a minute and on every list. `GET /breakglass` lists the caller's live grants; `POST /breakglass/revoke
-{"grantId"}` ends one (its holder or an Owner). A live grant is honoured by every `authorize` the dispatcher makes, and each
-use is audited; the memory routes that would use it are not built yet.
+There is one registry, the core's (D116, ADR-007 §Privacy): the grant, its audit line, the affected user's durable notice and the
+read that honours the grant (`memory.list`/`memory.show` with `targetUserId`, `session.get`) all live there. The REST routes
+check the shape of a request and forward it to the core as the caller (`breakglass.request`, `breakglass.list`,
+`breakglass.revoke`, `breakglass.notices`); the API keeps no registry, audit, notice or hook of its own, so a grant made over
+REST is the one a core read consults, and a grant made over RPC (the web UI does) shows in `GET /breakglass` and can be revoked
+here.
+
+`POST /breakglass {"targetUserId","reason","ttlMinutes"?}` (Owner, Admin; cookie session only). The reason is mandatory
+(10 to 500 characters by default, the core's `breakglass` configuration), the window is 1 to 60 minutes (15 by default), and
+the grant exists only after its audit entry was written and the notice stored: when the core cannot audit, the answer is `503
+audit-unavailable`; when it cannot store the notice, `503 notice-unavailable`; either way there is no grant and nobody was told.
+The affected user can read the grant (who, why, until when) at `GET /me/notices`, which is the core's notice list (the core
+records no issue time, so a notice has none); live delivery is the core's `breakglass.notice` event. Grants end by themselves; the
+core audits the lapse (`break-glass.expired`) on every list, read and request, and twice a minute. `GET /breakglass` lists the
+caller's live grants; `POST /breakglass/revoke {"grantId"}` ends one (its holder or an Owner). The installation owner is `owner`
+here and `local-owner` in the core; the routes translate. No API route is a memory read, so the dispatcher's own `authorize`
+needs no grant.
 
 ## Audit
 
@@ -173,7 +182,7 @@ caller typed (a failed login records a stable hash of it).
 | `auth.totp.enabled`, `auth.totp.disabled`, `auth.totp.failure`, `auth.totp.backup-used` | second factor |
 | `auth.rate-limited`, `auth.csrf-refused` | throttled to one per actor and target per minute |
 | `auth.denied` | a refused write (method other than GET) |
-| `break-glass.granted`, `.used`, `.expired`, `.revoked`, `.notify-failed` | written by core's registry |
+| `break-glass.granted`, `.used`, `.expired`, `.revoked`, `.notify-failed` | written by core's registry (the only one) |
 
 Auth events are queued and written off the request path (core shares the chain's OS lock, and a contended append would stop
 the event loop); a few retries, then the event is counted and logged by action name only. Break-glass writes the chain
@@ -183,7 +192,7 @@ requests keep answering and break-glass refuses.
 ## Running it
 
 `plur1bus-api --home <path> [--host <loopback>] [--port <n>] [--web-root <dir>]`. `createApiServer` takes `users`
-(`UserDirectory`), `tokens` (`TokenStore`), `totp` (`TotpStore`), `audit`, `breakGlassAudit`, `notifyBreakGlass`, `webRoot`,
+(`UserDirectory`), `tokens` (`TokenStore`), `totp` (`TotpStore`), `audit`, `breakGlassAudit` (the unbuffered sink for the API's own security writes; not break-glass), `webRoot`,
 `lockout` and the limits. **Historical foundation limitation (superseded by durable accounts and native attach):** the original entry wired no user store; only the compatibility owner token logged in, and tokens and second-factor
 secrets live in memory and are lost at a restart.
 

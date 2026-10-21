@@ -81,6 +81,76 @@ test("a secret is never configured for cleartext transport to a non-loopback hos
   assert.doesNotThrow(() => resolveEmbeddingSettings({ ...base, baseURL: "http://[::1]:8080" }));
 });
 
-test.todo("KNOWN GAP: createEmbeddingAdapter still builds cloud providers (openai, google, cohere, jina, voyage, openrouter) with default cloud base URLs; the owner rule is schema and validation only, which needs a decision on removing wires, docs and fixtures");
+const CLOUD_EMBED = [
+  { provider: "openai", model: "m", dimensions: 2, secretName: "k" },
+  { provider: "google", model: "m", dimensions: 2, secretName: "k" },
+  { provider: "cohere", model: "m", dimensions: 2, secretName: "k" },
+  { provider: "jina", model: "m", dimensions: 2, secretName: "k" },
+  { provider: "voyage", model: "m", dimensions: 2, secretName: "k" },
+  { provider: "openrouter", model: "m", dimensions: 2, secretName: "k", pinnedUpstream: "openai" },
+  { provider: "openai-compatible", model: "m", dimensions: 2, baseURL: "https://api.together.example/v1" },
+] as const;
+const CLOUD_RERANK = [
+  { provider: "cohere", model: "m", secretName: "k" },
+  { provider: "jina", model: "m", secretName: "k" },
+  { provider: "voyage", model: "m", secretName: "k" },
+] as const;
+const on = { localOnly: () => true };
+
+test("privacy.localOnly: every cloud embedding and rerank provider is refused at construction, before any request or secret lookup", () => {
+  let secretReads = 0;
+  const { deps, requests } = kit(ok2, { policy: on, getSecret: () => { secretReads++; return "s"; } });
+  for (const cfg of CLOUD_EMBED) {
+    assert.throws(() => createEmbeddingAdapter(cfg, deps), (e: unknown) => e instanceof ConfigError && e.issues.some((i) => i.path === "embedding.baseURL" && i.message.includes("privacy.localOnly")), cfg.provider);
+  }
+  for (const cfg of CLOUD_RERANK) {
+    assert.throws(() => createRerankAdapter(cfg, deps), (e: unknown) => e instanceof ConfigError && e.issues.some((i) => i.path === "rerank.baseURL" && i.message.includes("privacy.localOnly")), cfg.provider);
+  }
+  assert.equal(requests.length, 0);
+  assert.equal(secretReads, 0);
+});
+
+test("privacy.localOnly: loopback and listed endpoints keep working; an unlisted LAN host is refused", async () => {
+  const policy = { localOnly: () => true, localEndpoints: () => ["https://nas.lan:8443"] };
+  const { deps, requests } = kit(ok2, { policy });
+  const ollama = createEmbeddingAdapter({ provider: "ollama", model: "m", dimensions: 2 }, kit({ status: 200, json: { embeddings: [[3, 4], [0, 5]] } }, { policy }).deps);
+  assert.equal(ollama.id, "ollama:m");
+  const tei = createEmbeddingAdapter(embedCfg, deps);
+  assert.equal((await tei.embed(["a", "b"], { inputType: "document" })).length, 2);
+  assert.equal(requests.length, 1);
+  assert.doesNotThrow(() => createEmbeddingAdapter({ provider: "tei", model: "m", dimensions: 2, baseURL: "https://nas.lan:8443/x" }, deps));
+  assert.doesNotThrow(() => createRerankAdapter({ provider: "tei", baseURL: "https://nas.lan:8443" }, deps));
+  assert.throws(() => createEmbeddingAdapter({ provider: "tei", model: "m", dimensions: 2, baseURL: "https://nas.lan:9999" }, deps), ConfigError);
+  assert.throws(() => createEmbeddingAdapter({ provider: "tei", model: "m", dimensions: 2, baseURL: "http://192.168.1.20:8080" }, deps), ConfigError);
+});
+
+test("privacy.localOnly: without a policy, or with the switch off, cloud providers still build (owner decision: cloud works)", () => {
+  const { deps } = kit(ok2);
+  for (const cfg of CLOUD_EMBED) assert.doesNotThrow(() => createEmbeddingAdapter(cfg, deps), cfg.provider);
+  for (const cfg of CLOUD_RERANK) assert.doesNotThrow(() => createRerankAdapter(cfg, deps), cfg.provider);
+  const off = kit(ok2, { policy: { localOnly: () => false } }).deps;
+  for (const cfg of CLOUD_EMBED) assert.doesNotThrow(() => createEmbeddingAdapter(cfg, off), cfg.provider);
+});
+
+test("privacy.localOnly: a switch turned on after construction stops the adapter before any request", async () => {
+  let pinned = false;
+  const { deps, requests } = kit(ok2, { policy: { localOnly: () => pinned } });
+  const cloud = createEmbeddingAdapter(CLOUD_EMBED[0], deps);
+  const reranker = createRerankAdapter(CLOUD_RERANK[0], kit({ status: 200, json: { results: [] } }, { policy: { localOnly: () => pinned } }).deps);
+  pinned = true;
+  await assert.rejects(cloud.embed(["a", "b"], { inputType: "document" }), (e: unknown) => e instanceof AdapterError && e.kind === "invalid_request" && e.message.includes("privacy.localOnly"));
+  await assert.rejects(reranker.rerank("q", ["a"]), (e: unknown) => e instanceof AdapterError && e.message.includes("privacy.localOnly"));
+  assert.equal(requests.length, 0);
+});
+
+test("privacy.localOnly: a switch that throws or answers anything but false is on (fail-closed)", () => {
+  for (const localOnly of [() => { throw new Error("config unreadable"); }, () => undefined as unknown as boolean, () => "no" as unknown as boolean]) {
+    const { deps } = kit(ok2, { policy: { localOnly } });
+    assert.throws(() => createEmbeddingAdapter(CLOUD_EMBED[0], deps), ConfigError);
+    assert.doesNotThrow(() => createEmbeddingAdapter(embedCfg, deps));
+  }
+  const broken = kit(ok2, { policy: { localOnly: () => true, localEndpoints: () => { throw new Error("x"); } } }).deps;
+  assert.throws(() => createEmbeddingAdapter({ provider: "tei", model: "m", dimensions: 2, baseURL: "https://nas.lan:8443" }, broken), ConfigError);
+});
 test.todo("KNOWN GAP: an input over maxBatchTokens but within maxInputTokens is sent alone (documented, pinned by an existing test); config does not reject maxBatchTokens < maxInputTokens");
 test.todo("KNOWN GAP: docs/embedding-adapters.md says zero vectors are rejected 'when normalising'; the code now rejects them always (docs are outside this package)");

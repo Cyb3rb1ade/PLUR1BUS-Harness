@@ -69,7 +69,7 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
     },
     get(p,a) {
       const { service,session } = owned(p.sessionId,a,false);
-      return { session: toWireSession(session), messages: service.store.listMessages(session.id,{limit:p.limit ?? 200,...(p.beforeSeq!==undefined?{beforeSeq:p.beforeSeq}:{})}).map(({id,seq,turnId,role,text,createdAt})=>({id,seq,turnId,role,text,createdAt})), runningTurnId:service.store.runningTurn(session.id)?.id ?? null, lastEventSeq:service.store.lastEventSeq(session.id) ?? 0 };
+      return { session: toWireSession(session), modelChanges: service.store.modelChanges(session.id).map(toWireEvent), messages: service.store.listMessages(session.id,{limit:p.limit ?? 200,...(p.beforeSeq!==undefined?{beforeSeq:p.beforeSeq}:{})}).map(({id,seq,turnId,role,text,createdAt})=>({id,seq,turnId,role,text,createdAt})), runningTurnId:service.store.runningTurn(session.id)?.id ?? null, lastEventSeq:service.store.lastEventSeq(session.id) ?? 0 };
     },
     update(p,a) { const {service}=owned(p.sessionId,a,true); if (service.store.runningTurn(p.sessionId)) throw new SessionError("conflict","turn running","turn-running"); record("update",a,p.sessionId); return {session:toWireSession(service.store.updateSession(p.sessionId,{...(p.title !== undefined ? {title:p.title}:{}),...(p.pinned !== undefined ? {pinned:p.pinned}:{})}))}; },
     archive(p,a) { const {service}=owned(p.sessionId,a,true); record("archive",a,p.sessionId);return {session:toWireSession(service.store.archiveSession(p.sessionId))}; },
@@ -115,9 +115,10 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
       const reasoning:ReasoningChoice=p.reasoning ?? previousReasoning;
       if(!isReasoningChoice(reasoning))throw new RpcError("E_INVALID_PARAMS",`reasoning must be one of ${REASONING_CHOICES.join(", ")}`);
       const previousOption=options.find(o=>o.name===(before.profile ?? s.defaultProfile()));
-      const revision=service.store.setModelProfile(session.id,p.profile,p.expectedRevision,reasoning==="default"?null:reasoning);
+      const now=effectiveReasoning(reasoning,option.reasoning);
+      const revision=service.store.setModelProfile(session.id,p.profile,p.expectedRevision,reasoning==="default"?null:reasoning,a.userId,{model:option.model,displayName:option.displayName,effectiveReasoning:now.level ?? "default"});
       record("model.set",a,session.id);
-      const now=effectiveReasoning(reasoning,option.reasoning), was=previousOption?effectiveReasoning(previousReasoning,previousOption.reasoning).level:null;
+      const was=previousOption?effectiveReasoning(previousReasoning,previousOption.reasoning).level:null;
       const order=["off","minimal","low","medium","high","xhigh"], changed=before.profile!==p.profile||previousReasoning!==reasoning;
       return { sessionId:session.id, profile:p.profile, previousProfile:before.profile, reasoning, effectiveReasoning:now.level ?? "default", adjusted:now.adjusted, revision,
         ...(changed?{warning:"cache-rebuild-cost-prefixes-preserved"}:{}),

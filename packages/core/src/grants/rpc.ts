@@ -4,7 +4,7 @@
 import type { GrantCreateParams, GrantGetParams, GrantListParams, GrantMatch, GrantRecord, GrantRevokeParams } from "@plur1bus/rpc-schema";
 import { guarded, type ApprovalMethodDeps, type Caller, type PermissionHandles } from "../approvals/rpc-common.ts";
 import { grantRecordOf, page, parseIso } from "../approvals/wire.ts";
-import { CAPABILITIES, requiredSurface, scopeRank, type GrantScope } from "../policy/index.ts";
+import { CAPABILITIES, maxScopeFor, requiredSurface, scopeRank, type CallFlags, type GrantScope } from "../policy/index.ts";
 import type { Handler } from "../rpc/server.ts";
 import { RpcError } from "../rpc/errors.ts";
 import { GrantError, type CreateGrantInput, type GrantState, type StoredGrant } from "./store.ts";
@@ -77,9 +77,16 @@ export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | 
         if (expiresAt === undefined) throw invalid("invalid-grant", "expiresAt", "expiresAt must be an RFC 3339 time");
       }
       // §5: the surface a grant of this scope needs. A path grant is the way to reach outside the roots, so it is judged as outside them.
+      // §3: a path grant that reaches a home, a drive root, `/`, `/Users`, `C:\Users` or a system tree is T3 and at most `task` (`systemTree`).
       // Only when the scope is within the capability's ceiling: the store reports an over-wide scope as ceiling-exceeded.
-      if (def.ceiling !== null && scopeRank(p.scope) <= scopeRank(def.ceiling) && c.surface < requiredSurface(def, p.scope as GrantScope, { outsideRoots: match.kind === "path", denyListHit: false })) {
-        throw new RpcError("E_DENIED", `a ${p.scope} grant for ${def.id} needs a more trusted surface than this connection`, { reason: "surface-untrusted" });
+      if (def.ceiling !== null && scopeRank(p.scope) <= scopeRank(def.ceiling)) {
+        const flags: CallFlags = { outsideRoots: match.kind === "path", denyListHit: false, ...(match.kind === "path" && h.grants.reachesSystemTree(match.path, match.recursive) ? { systemTree: true } : {}) };
+        if (scopeRank(p.scope) > scopeRank(maxScopeFor(def, flags))) {
+          throw new RpcError("E_INVALID_PARAMS", `a ${p.scope} grant on a home, drive root or system tree is not possible; at most ${maxScopeFor(def, flags)}`, { reason: "ceiling-exceeded" });
+        }
+        if (c.surface < requiredSurface(def, p.scope as GrantScope, flags)) {
+          throw new RpcError("E_DENIED", `a ${p.scope} grant for ${def.id} needs a more trusted surface than this connection`, { reason: "surface-untrusted" });
+        }
       }
       let g: StoredGrant;
       try {
