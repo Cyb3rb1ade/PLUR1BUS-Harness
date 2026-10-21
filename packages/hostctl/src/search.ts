@@ -16,15 +16,16 @@ export async function textMatcher() {
   },
   /**
    * Which of many verified texts contain the literal, in one ripgrep start instead of one per text. The texts go over stdin as NUL-separated
-   * records (a decoded text never holds NUL, so a match cannot straddle two of them, and the literal may then span lines) and ripgrep reports
-   * the 1-based number of every record that matched. Anything unexpected (no ripgrep, a literal ripgrep cannot be given, exit code 2, output
+   * records (a decoded text never holds NUL, so a match cannot straddle two of them) and ripgrep reports
+   * the 1-based number of every record that matched. A literal with `\r` or `\n` never goes to ripgrep, as in `matches` (docs/hostctl.md).
+   * Anything unexpected (no ripgrep, a literal ripgrep cannot be given, exit code 2, output
    * beyond the cap, an index out of range, the time budget) is answered by the same plain substring test, so the result never depends on
    * the backend.
    */
   async matchMany(texts: readonly string[], query: string, signal: AbortSignal): Promise<boolean[]> {
     signal.throwIfAborted();
     const plain = () => texts.map(text => text.includes(query));
-    if (!program || texts.length === 0 || query === '' || query.includes('\0') || !query.isWellFormed() || texts.some(text => text.includes('\0'))) return plain();
+    if (!program || texts.length === 0 || query === '' || query.includes('\0') || /[\r\n]/.test(query) || !query.isWellFormed() || texts.some(text => text.includes('\0'))) return plain();
     return new Promise((resolve, reject) => {
       const child = spawn(program, ['--no-config', '--null-data', '--fixed-strings', '--line-number', '--only-matching', '--no-filename', '--color', 'never', '--', query], { shell: false, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
       const chunks: Buffer[] = []; let size = 0, settled = false;
