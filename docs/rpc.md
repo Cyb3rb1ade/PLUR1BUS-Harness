@@ -9955,7 +9955,7 @@ The running configuration (spec §6.1, B5): the whole value, one key (dotted pat
 
 **Served by:** supervisor
 
-Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it.
+Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it. A chain that refuses the audit rows does not block the set; `warnings` then lists audit-chain-unavailable. A failure to write audit.log still refuses it (E_INTERNAL).
 
 **params**
 
@@ -10052,6 +10052,15 @@ Validates and applies all changes or none, writes config.json atomically and not
         ]
       },
       "description": "Estimated restart time (ms) per unit, null when unknown."
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "audit-chain-unavailable"
+        ]
+      },
+      "description": "Present only when the set was applied with a caveat. `audit-chain-unavailable`: the configuration is saved, but the audit hash chain refused the audit rows (anchor missing or invalid, integrity mismatch, lock timeout); they are in audit.log with chain=refused and wait in the pending journal until the chain accepts appends again."
     }
   }
 }
