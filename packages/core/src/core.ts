@@ -48,6 +48,7 @@ import { type HarnessLogger, type Level } from "./logger.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
+import type { A1MemoryOperations } from "./dreams/producer.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
@@ -104,7 +105,7 @@ import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { loadReasoningTable, resolveReasoning } from "./discovery/reasoning.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
-import { createDreams, forgetRemovedAgent, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
+import { createDreams, forgetRemovedAgent, readCandidateMemory, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
@@ -439,7 +440,7 @@ export function createCore(o: CoreOptions): Core {
       if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
-      if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers."))) scanScheduler?.replan();
+      if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers.") || k === "privacy" || k.startsWith("privacy."))) scanScheduler?.replan();
       // An agent that left the configuration loses its dream schedule at once (forgetAgent refuses one the registry still lists).
       for (const id of Object.keys(prev.agents)) if (!Object.hasOwn(next.agents, id)) forgetRemovedAgent(dreams?.scheduler, id, log);
       if (discoveryWriter) discoveryWriter.updateLevels({ ...discoveryWriter.currentLevels(), defaultLevel: next.core.logLevel });
@@ -954,18 +955,33 @@ export function createCore(o: CoreOptions): Core {
       if (o.discovery?.scheduler !== false) scanScheduler.start();
       // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
       try {
+        // A1 is optional until the Controller pins Engine contract 1.17.0.
+        // These are public host operations under the agent's existing principal,
+        // never calls made by a model or a background AgentContext.
+        const dreamMemory = eng.memory as typeof eng.memory & A1MemoryOperations;
+        const dreamContext = { origin: "system", background: false } as const;
+        const dreamPrincipal = (agentId: string) => {
+          const ws = executionRegistry.workspaceOf(agentId);
+          if (!ws) throw new Error(`dreams agent workspace unavailable: ${agentId}`);
+          return callerToPrincipal(cliCaller(), agentId, ws).principal;
+        };
         dreams = createDreams({
           engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
-          // Content-only producer: Engine.memory.list yields text (+ optional score on a topic query, not on `since`).
-          // Agent-private cards only (ADR-009 Q5). A truncated page throws; the scheduler maps that to engineError.
-          // Gates keep a content-only card from promoting; a deep run then skip/no_candidates (fail closed).
+          // Agent-private public cards plus A1's persistent recall counters when
+          // available. Missing A1 keeps promotion closed, never maintenance. A
+          // truncated corpus fails closed after the independent jobs ran.
           candidateMemory: {
             async list(agentId) {
               const ws = executionRegistry.workspaceOf(agentId);
               if (!ws) return [];
-              const { principal } = callerToPrincipal(cliCaller(), agentId, ws);
-              return itemsFromEngineList(await eng.memory.list({ since: 0, limit: 100 }, principal, AGENT_CONTEXT_CLI));
+              return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
             },
+            ...(typeof dreamMemory.stats === "function" ? {
+              stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
+            } : {}),
+            ...(typeof dreamMemory.promote === "function" ? {
+              promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
+            } : {}),
           },
           ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
         });

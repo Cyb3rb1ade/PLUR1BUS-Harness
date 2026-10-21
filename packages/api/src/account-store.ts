@@ -63,6 +63,8 @@ export class AccountStore implements UserDirectory {
       catch (e) { if ((e as { errcode?: number }).errcode === 2067 || (e as { errcode?: number }).errcode === 1555) throw conflict(); throw e; } });
   }
   async activate(id: string): Promise<void> { this.#safe(() => { const result = this.#db.prepare("UPDATE accounts SET pending=0,updated_at=? WHERE person_id=? AND pending=1").run(this.#now(), id); if (Number(result.changes) !== 1) throw storage(); }); }
+  /** Takes back a registration made in this very request (an account activated just before its invitation could not be spent). Never the owner's. */
+  async discardRegistration(id: string): Promise<void> { this.#safe(() => this.#db.prepare("DELETE FROM accounts WHERE person_id=? AND person_id<>'local-owner'").run(id)); }
   async removePending(id: string): Promise<void> { this.#safe(() => this.#db.prepare("DELETE FROM accounts WHERE person_id=? AND pending=1").run(id)); }
   async credentialsByUsername(username: string): Promise<UserRecord | undefined> {
     const row = this.#safe(() => this.#db.prepare("SELECT * FROM accounts WHERE username=? AND pending=0").get(normalizeUsername(username)));

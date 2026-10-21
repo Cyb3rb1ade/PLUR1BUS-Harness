@@ -9,6 +9,7 @@ export const APPROVALS_INTEGRITY_JOB_SPEC: SystemJobSpec = {
   needsLlm: false,
   singleton: true,
   schedule: { every: 86_400_000, jitter: 0.1 },
+  exclusive: true, // the start run, the daily timer and a manual jobs.run must not verify the chain at the same time
 };
 
 export interface ApprovalsIntegrityJobDeps {

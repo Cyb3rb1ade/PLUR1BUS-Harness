@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { createSherpaEngine, platformAvailability, resolveModel } from "../src/local/engine.ts";
 import { builtinCatalog } from "../src/local/catalog.ts";
 import { isVoiceProviderError } from "../src/errors.ts";
+import { normalize } from "node:path";
+
+// resolveModel joins with the platform separator, so the expected spelling is built the same way ("/m/x/y" is "\\m\\x\\y" on Windows).
+const at = (p: string): string => normalize(p);
 
 test("platform availability: supported platform/arch pairs pass, others explain themselves", () => {
   for (const [p, a] of [["linux", "x64"], ["linux", "arm64"], ["darwin", "arm64"], ["win32", "x64"]] as const) assert.deepEqual(platformAvailability(p, a), { ok: true });
@@ -40,17 +44,17 @@ test("sherpa configs are built from the catalog roles (fake module records them)
   const c = builtinCatalog();
   const asr = await engine.loadAsr(resolveModel(c.models["kroko-de"]!, "/m/kroko-de"));
   assert.equal(asr.streaming, true);
-  assert.equal(seen["online"].modelConfig.transducer.encoder, "/m/kroko-de/encoder.onnx");
-  assert.equal(seen["online"].modelConfig.tokens, "/m/kroko-de/tokens.txt");
+  assert.equal(seen["online"].modelConfig.transducer.encoder, at("/m/kroko-de/encoder.onnx"));
+  assert.equal(seen["online"].modelConfig.tokens, at("/m/kroko-de/tokens.txt"));
   assert.equal(seen["online"].modelConfig.numThreads, 3);
   const st = asr.createStream();
   assert.equal(st.result().text, "hi");
   const tts = await engine.loadTts(resolveModel(c.models["kokoro-multi"]!, "/m/kokoro"));
-  assert.equal(seen["tts"].model.kokoro.voices, "/m/kokoro/voices.bin");
+  assert.equal(seen["tts"].model.kokoro.voices, at("/m/kokoro/voices.bin"));
   assert.equal(tts.sampleRate, 22050);
   assert.equal((await tts.generate("hi", {})).samples.length, 4);
   const vad = await engine.loadVad(resolveModel(c.models["silero-vad"]!, "/m/vad"));
-  assert.equal(seen["vad"].sileroVad.model, "/m/vad/silero_vad.onnx");
+  assert.equal(seen["vad"].sileroVad.model, at("/m/vad/silero_vad.onnx"));
   assert.equal(vad.isSpeech(), true);
 });
 
@@ -85,7 +89,7 @@ test("the Parakeet 110M entry runs as a single-file CTC model, not a transducer"
   assert.equal(m.engine, "nemo-ctc");
   const asr = await engine.loadAsr(resolveModel(m, "/m/p110"));
   assert.equal(asr.streaming, false);
-  assert.equal(seen["offline"].modelConfig.nemoCtc.model, "/m/p110/model.int8.onnx");
-  assert.equal(seen["offline"].modelConfig.tokens, "/m/p110/tokens.txt");
+  assert.equal(seen["offline"].modelConfig.nemoCtc.model, at("/m/p110/model.int8.onnx"));
+  assert.equal(seen["offline"].modelConfig.tokens, at("/m/p110/tokens.txt"));
   assert.equal(seen["offline"].modelConfig.transducer, undefined);
 });
