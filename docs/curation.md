@@ -33,3 +33,34 @@ Engine audit.
 This phase needs Engine contract **1.17.0**. Until the Controller pin is installed,
 requests fail explicitly with `E_NOT_AVAILABLE / engine-contract-unavailable`.
 There is no local substitute queue or false successful resolution.
+
+## Required Controller pin acceptance
+
+Before closing #609, the Controller must install the committed Engine pin with
+`pnpm install --frozen-lockfile`, regenerate with `pnpm gen`, and run from the
+repository root:
+
+```bash
+PLUR1BUS_REQUIRE_CURATION_ACCEPTANCE=1 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 --test-timeout=120000 packages/core/test/memory-curation.test.ts
+```
+
+This is a required acceptance gate after the pin, not an optional diagnostic.
+The real Core transport must report Engine contract 1.17.0 or later and execute
+real `memory.curation.list` and `memory.curation.resolve` calls. The check fails
+on the current 1.16.0 pin. Ordinary pre-pin tests separately verify explicit
+`engine-contract-unavailable`; that passing refusal branch is not acceptance.
+Setting `PLUR1BUS_ENGINE_ACCEPTANCE_SOURCE` also makes the contract assertion
+mandatory, so a requested source run without its resolver cannot silently pass
+against the installed old pin.
+
+Pre-pin source evidence on 2026-10-21: all seven tests passed against Engine
+`4c7cf1c359cea02e11f2853a09e551a09810f168` using a temporary process-only resolver;
+no committed dependency, lockfile or module resolver was changed. The real test
+checks an empty queue, a real not-found resolution response and foreign-agent
+refusal; the fixture tests cover successful Keep/Drop receipts. The required
+post-pin command must still pass against the actual installed Controller pin.
+
+RPC `x-since: 1.6.0` matches the current unreleased RPC surface. ADR-016's A4
+implementation record documents the additive-method precedent and the reviewed
+release basis. If 1.6.0 is published before merge, bump the minor and `x-since`
+together; the Engine contract version is independent.

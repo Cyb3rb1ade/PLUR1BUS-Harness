@@ -66,7 +66,7 @@ test("curation is exposed only on the human web route and never as WebMCP, and u
   assert.equal(f.calls.length, 0);
 });
 
-test("real pinned Core transport proves the controller-pin gap explicitly, then exercises real curation when 1.17.0 is installed", { timeout: 60_000 }, async () => {
+test("real Core curation acceptance requires contract 1.17.0 in the mandatory Controller pin check", { timeout: 60_000 }, async () => {
   const { defaults } = await import("@plur1bus/config-schema");
   const { writeFileSync, mkdirSync } = await import("node:fs");
   const { join } = await import("node:path");
@@ -90,6 +90,8 @@ test("real pinned Core transport proves the controller-pin gap explicitly, then 
     const status = await client.call<any>("core.status");
     const [major, minor] = String(status.contract).split(".").map(Number);
     const ready = major! > 1 || (major === 1 && minor! >= 17);
+    const required = process.env.PLUR1BUS_REQUIRE_CURATION_ACCEPTANCE === "1" || Boolean(process.env.PLUR1BUS_ENGINE_ACCEPTANCE_SOURCE);
+    if (required) assert.ok(ready, `mandatory A4 curation acceptance requires Engine contract >=1.17.0; installed ${String(status.contract)}. Run against the Controller pin, or load the requested Engine source explicitly.`);
     who = { userId: "alice", role: "member", kind: "person", agentRights: { anna: "manage" } };
     if (ready) {
       assert.deepEqual(await client.call("memory.curation.list", { agentId: "anna" }), { agentId: "anna", items: [], truncated: false });
