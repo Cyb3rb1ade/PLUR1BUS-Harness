@@ -7,6 +7,8 @@ import { McpError, ErrorCode, CallToolResultSchema, ContentBlockSchema, ReadReso
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
 import type { JsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/types.js";
 import type { Egress } from "../egress/index.ts";
+import { OutputLines } from "../logs/output.ts";
+import type { LogWriter } from "../logs/writer.ts";
 import type { Clock } from "./clock.ts";
 import { buildChildEnv } from "./env.ts";
 import { McpClientError } from "./errors.ts";
@@ -37,6 +39,8 @@ export interface ConnectionDeps {
   onNotification?: (method: string, params: Record<string, unknown>) => void;
   onState?: (state: McpConnectionState) => void;
   ports?: McpClientPorts; egress?: Pick<Egress, "decide">; auth?: McpAuthProvider;
+  /** D111 writer for a stdio server's stderr (`process.output.line`, stream `stderr`). Absent: the legacy `mcp.server.stderr` debug line. */
+  output?: LogWriter;
   /** Known era from the registry; absent means probe modern first. */
   knownVersion?: McpProtocolVersion;
   /** In-process pipe seam. A factory returns a fresh transport when fallback needs one. */
@@ -82,6 +86,10 @@ export class McpConnection {
   private stderrWindowStart = 0;
   private stderrInWindow = 0;
   stderrLines = 0;
+  // One D111 line framer per connection (a fallback transport reuses it); null without a writer, and again once closed.
+  private stderrOut: OutputLines | null = null;
+  private stderrTick: NodeJS.Timeout | null = null;
+  private stderrClosed = false;
   private pidValue: number | null = null;
   private readonly d: ConnectionDeps;
   private stateValue: McpConnectionState = "connecting";
@@ -317,12 +325,19 @@ export class McpConnection {
       try { await Promise.race([this.transport.terminateSession(), new Promise<void>(r => { timeout = setTimeout(r, this.d.def.timeouts.closeGraceMs); })]); } catch { /* session gone */ } finally { clearTimeout(timeout); }
     }
     try { await this.client.close(); } catch { /* transport already closed */ }
-    this.exited = true; this.flushStderr(); this.d.logger.info("mcp.server.stopped", { server: this.d.def.name, mode });
+    this.exited = true; this.flushStderr(); this.closeStderrOutput(); this.d.logger.info("mcp.server.stopped", { server: this.d.def.name, mode });
   }
   private attachStderr(t: BoundedStdioTransport): void {
     const s = t.stderr;
     if (!s || this.stderrAttached.has(t)) return;
     this.stderrAttached.add(t);
+    if (this.d.output && !this.stderrOut && !this.stderrClosed) {
+      const out = new OutputLines(this.d.output, "stderr", { now: () => this.d.clock.now() });
+      this.stderrOut = out;
+      // The framer flushes a half line and reports dropped lines from tick(); the writer has its own flush timer.
+      this.stderrTick = setInterval(() => { try { out.tick(); } catch { /* the writer is gone: nothing to report to */ } }, 1000);
+      this.stderrTick.unref();
+    }
     const decoder = new StringDecoder("utf8");
     s.on("end", () => { this.stderrBuf += decoder.end(); this.flushStderr(); });
     s.on("data", (chunk: Buffer | string) => {
@@ -337,14 +352,27 @@ export class McpConnection {
     if (this.stderrBuf.length) { this.emitLine(this.stderrBuf); this.stderrBuf = ""; }
   }
 
-  /** ADR-014 §7: split into lines first, then redact, then cap, then rate-limit; nothing is logged raw. */
+  private closeStderrOutput(): void {
+    this.stderrClosed = true;
+    if (this.stderrTick) { clearInterval(this.stderrTick); this.stderrTick = null; }
+    const out = this.stderrOut; this.stderrOut = null;
+    try { out?.close(); } catch { /* the writer is gone: the remaining lines have nowhere to go */ }
+  }
+
+  /** ADR-014 §7: split into lines first, then redact the declared secrets; the D111 framer (when a writer is wired) then
+   *  strips terminal controls, redacts by pattern, caps and rate-limits; without a writer the legacy path caps and rate-limits here. */
   private emitLine(raw: string): void {
     this.stderrLines++;
+    const redacted = this.d.redactor.redact(raw.replace(/\r$/, ""));
+    if (this.d.output) {
+      // Foreign text goes into the writer as process.output.line only; a line after close or a dead writer is dropped, never thrown.
+      try { this.stderrOut?.push(Buffer.from(`${redacted}\n`)); } catch { /* writer closed during shutdown */ }
+      return;
+    }
     const now = this.d.clock.now();
     if (now - this.stderrWindowStart >= STDERR_WINDOW_MS) { this.stderrWindowStart = now; this.stderrInWindow = 0; }
     if (++this.stderrInWindow > STDERR_BURST) return; // counted, not logged
-    const line = this.d.redactor.redact(raw.replace(/\r$/, ""));
-    this.d.logger.debug("mcp.server.stderr", { server: this.d.def.name, line: line.length > STDERR_LINE_MAX ? `${line.slice(0, STDERR_LINE_MAX)}…` : line });
+    this.d.logger.debug("mcp.server.stderr", { server: this.d.def.name, line: redacted.length > STDERR_LINE_MAX ? `${redacted.slice(0, STDERR_LINE_MAX)}…` : redacted });
   }
 }
 
