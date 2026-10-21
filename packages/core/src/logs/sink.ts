@@ -1,9 +1,9 @@
 import { chmodSync, closeSync, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeSync } from "node:fs";
 import path from "node:path";
-import { acquireExclusiveLock, createSecurePath, type SecurePath } from "@plur1bus/module-api";
+import { acquireExclusiveLock, createSecurePath, type ExclusiveLock, type SecurePath } from "@plur1bus/module-api";
 const DAY = 86400000;
 /** No persistent descriptors: rotation/pruning also work on Windows. All writers of a role share the native lock. */
-export function createSink(o: { dir: string; role: string; now: () => number; maxBytes?: number; keep?: number; retentionDays?: number; securePath?: SecurePath }) {
+export function createSink(o: { dir: string; role: string; now: () => number; maxBytes?: number; keep?: number; retentionDays?: number; securePath?: SecurePath; acquireLock?: (lockPath: string) => ExclusiveLock | null }) {
   if (!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(o.role) || /^(audit|payload)(\.|$)/.test(o.role)) throw new RangeError("diagnostic role required");
   mkdirSync(o.dir, { recursive: true, mode: 0o700 });
   if (!lstatSync(o.dir).isDirectory()) throw new Error("log directory is not a directory");
@@ -13,12 +13,13 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
   const file = path.join(o.dir, `${o.role}.log`); let maxBytes = o.maxBytes ?? 20 * 1024 * 1024; let keep = o.keep ?? 5;
   const retentionDays = o.retentionDays ?? 14;
   if (!Number.isSafeInteger(retentionDays) || retentionDays < 0) throw new RangeError("invalid retention days");
+  const acquire = o.acquireLock ?? acquireExclusiveLock;
   const locked = <T>(lockPath: string, waitMs: number, fn: () => T): T => {
-    let lock = acquireExclusiveLock(lockPath); const deadline = Date.now() + waitMs;
+    let lock = acquire(lockPath); const deadline = Date.now() + waitMs;
     while (!lock) {
       if (Date.now() >= deadline) throw new Error("log writer busy");
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
-      lock = acquireExclusiveLock(lockPath);
+      lock = acquire(lockPath);
     }
     try { return fn(); } finally { lock.release(); }
   };
@@ -45,13 +46,27 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
     if (existsSync(file)) renameSync(file, `${file}.1`);
     securedIdentity = null;
   };
-  return {
-    file,
-    setRotation(r: { maxBytes: number; keep: number }) { if (!Number.isFinite(r.maxBytes) || r.maxBytes <= 0 || !Number.isInteger(r.keep) || r.keep < 1) throw new RangeError("invalid rotation"); maxBytes = r.maxBytes; keep = r.keep; },
-    append(line: string, durable = true) {
-      locked(`${file}.writer-lock`, 5000, () => {
-        regular(file);
-        if (existsSync(file)) { const st = statSync(file); if (st.size > 0 && (st.size + Buffer.byteLength(line) > maxBytes || Math.floor(st.mtimeMs / DAY) < Math.floor(o.now() / DAY))) rotate(); }
+  /**
+   * Appends `lines` in order under ONE acquisition of the role lock (the lock is a SQLite EXCLUSIVE transaction and costs
+   * about a millisecond; taking it per record made bursts of output lines block the event loop). The lock protocol, the
+   * file format and the rotation rules are those of single appends: a line that would push a non-empty file over
+   * `maxBytes` rotates first, and a file last written on an earlier day rotates before the batch. Lines of one
+   * batch are contiguous in the file; other processes interleave between batches, never inside a line.
+   * `written(n)` is called after each chunk of n lines reached the file (before any fsync), so a caller that
+   * keeps the rest queued after a throw neither loses nor repeats a record.
+   */
+  const appendBatch = (lines: readonly string[], durable = true, written?: (count: number) => void): void => {
+    if (!lines.length) return;
+    locked(`${file}.writer-lock`, 5000, () => {
+      regular(file);
+      let size = 0;
+      if (existsSync(file)) {
+        const st = statSync(file); size = st.size;
+        if (size > 0 && Math.floor(st.mtimeMs / DAY) < Math.floor(o.now() / DAY)) { rotate(); size = 0; }
+      }
+      let chunk: string[] = []; let chunkBytes = 0;
+      const write = () => {
+        if (!chunk.length) return;
         const fd = openSync(file, "a", 0o600);
         try {
           const st = fstatSync(fd); const identity = `${st.dev}:${st.ino}:${st.birthtimeMs}`;
@@ -59,14 +74,28 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
             if (process.platform !== "win32") chmodSync(file, 0o600);
             secure(file, 0o600); securedIdentity = identity;
           }
-          const buf = Buffer.from(line); if (writeSync(fd, buf) !== buf.length) throw new Error("short log write");
+          const buf = Buffer.from(chunk.join("")); let at = 0;
+          while (at < buf.length) { const n = writeSync(fd, buf, at); if (n <= 0) throw new Error("short log write"); at += n; }
           dirty = true;
-          if (durable) { fsyncSync(fd); dirty = false; }
-        }
-        finally { closeSync(fd); }
+          const count = chunk.length; size += chunkBytes; chunk = []; chunkBytes = 0;
+          written?.(count);
+        } finally { closeSync(fd); }
         utimesSync(file, new Date(o.now()), new Date(o.now()));
-      });
-    },
+      };
+      for (const line of lines) {
+        const bytes = Buffer.byteLength(line);
+        if (size + chunkBytes > 0 && size + chunkBytes + bytes > maxBytes) { write(); rotate(); size = 0; }
+        chunk.push(line); chunkBytes += bytes;
+      }
+      write();
+      if (durable && dirty) syncDirty();
+    });
+  };
+  return {
+    file,
+    setRotation(r: { maxBytes: number; keep: number }) { if (!Number.isFinite(r.maxBytes) || r.maxBytes <= 0 || !Number.isInteger(r.keep) || r.keep < 1) throw new RangeError("invalid rotation"); maxBytes = r.maxBytes; keep = r.keep; },
+    append(line: string, durable = true) { appendBatch([line], durable); },
+    appendBatch,
     sync() {
       if (dirty) locked(`${file}.writer-lock`, 5000, syncDirty);
     },
