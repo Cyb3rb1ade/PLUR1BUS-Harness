@@ -302,7 +302,8 @@ notice (§7.2) then applies on its own terms, because the path is not verified.
 
 The parsed status is cached in memory for 10 s (one CLI run while the person types); at most one CLI run in flight, and
 one probe in flight per window and per connection (a window's newer check supersedes its older one; the reconnects of
-one connection share one re-check). Nothing is persisted.
+one connection share one re-check). The probe of an open (from the shell or the tray switch) may overlap a panel check
+or a reconnect re-check; every probe still passes the gate and the target filter of §5.2. Nothing is persisted.
 
 ### 5.5 Without Tailscale
 
@@ -427,7 +428,8 @@ The range text is also added to the web UI catalogues (`packages/web`, key `devi
   secrets store). `tailscale-unreachable` and `tailscale-route-mismatch` (the chosen path does not work) set the
   badge without that text; other Tailscale notices do neither.
 - **Tray connection switch:** built (package T4b, `tray.rs` `SwitchMenu`, opened through `Transports::open_gated`
-  and `commands::connect_checked`, the same gate as *Open*). Each entry reads `{name} ({path})`.
+  and `commands::connect_checked`, the same gate as *Open*). Each entry reads `{name} ({path})`; at most 20 entries,
+  the open connection always among them (it takes the 20th place when it would fall later), then *More…*.
 
 ## 8. Codes
 

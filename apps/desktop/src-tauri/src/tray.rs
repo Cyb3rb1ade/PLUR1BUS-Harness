@@ -78,10 +78,11 @@ pub struct TrayState {
     pub held: bool,
     /// The active remote connection's path; `None` for bundled and local connections or none.
     pub path: Option<PathLabel>,
-    /// The active connection's path needs the person: a Tailscale notice, or a reconnect stopped because the target
-    /// needs a confirmation. The badge shows *Attention*.
+    /// The active connection's path needs the person: a Tailscale disconnect (daemon down, stopped, needs login, peer
+    /// offline), `tailscale-unreachable`, `tailscale-route-mismatch`, or a reconnect stopped because the target needs a
+    /// confirmation. The badge shows *Attention*.
     pub transport_attention: bool,
-    /// The attention is a Tailscale notice (the header says „Tailscale getrennt“).
+    /// The attention is one of the four Tailscale disconnect states (the header says „Tailscale getrennt“).
     pub tailscale_notice: bool,
 }
 /// The hint codes of an actual Tailscale disconnect (transport choice spec §7.3): the daemon is down, Tailscale is

@@ -101,7 +101,7 @@ impl std::error::Error for TransportStoreError {}
 
 /// One entry of the sidecar. An entry whose `transport` is a string this build does not know (a newer build's path)
 /// is kept as it was read and treated as absent (derived default); it does not make the file corrupt, and it is
-/// written back unchanged until an explicit set replaces it. Any other malformed entry still makes the file corrupt.
+/// written back as an equal JSON value (keys may be reordered) until an explicit set replaces it. Any other malformed entry still makes the file corrupt.
 #[derive(Clone, Debug)]
 enum Slot {
     Known(TransportEntry),
