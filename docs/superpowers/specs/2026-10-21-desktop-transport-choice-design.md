@@ -54,8 +54,8 @@ The IANA registries were read on 2026-10-21 (§4.1).
 | T6 | Public = ? | **Positively global** (default deny), exactly `ip.ts`'s `public: true`. Non-public addresses are split for the UI into `loopback`, `tailnet`, `private`, `special`; `unspecified`, multicast and limited broadcast are not connectable. | "Public unless private": would warn about documentation and benchmark ranges as if they were internet hosts. |
 | T7 | Check-then-connect | The app resolves once, classifies, and **connects only to exactly the checked addresses** (reqwest `resolve_to_addrs`, a pre-connected TCP stream for WebSocket, pre-resolved `SocketAddr`s for russh). Every new open or reconnect repeats the full check. | Check the name, let the HTTP client resolve again: a DNS rebinding window between check and connect. |
 | T8 | Tailscale check | **`tailscale status --json`** run from a **fixed absolute path** (per-OS candidate list, ownership checks), fixed argv, no shell, cleared environment, 4 s timeout, 8 MiB cap; plus a **TCP probe** whose **local address** must be one of this device's Tailscale IPs. `*.ts.net` names are resolved from the **peer list**, not from DNS. | The LocalAPI directly: three transports (Unix socket, a Windows named pipe under `ProtectedPrefix`, a macOS loopback port with a "sameuserproof" token in the app-group container), all undocumented and version-specific; `tailscale ping <ip>`: would put user input into argv. |
-| T9 | Notices vs. blocks | Notices and one explicit confirmation; **the only refusals are invalid input** (non-canonical IPv4 spelling, unspecified/multicast/broadcast, no connectable address). A failed Tailscale check never blocks. | Blocking public targets: contradicts the owner decision. |
-| T10 | Confirmation memory | The confirmation for a public direct target is stored per connection/host as `publicAck { atMs, classifier }` **without addresses**; it stays valid while the host is unchanged. A target that **becomes** public later (it was private when created) needs a **new** confirmation before the app connects. | Asking at every open: banner blindness. Never asking again: misses a DNS change to a public address. |
+| T9 | Notices vs. blocks | Notices and one explicit confirmation; **the only refusals are invalid input** (non-canonical IPv4 spelling `host-ipv4-noncanonical`, malformed host syntax `host-invalid` (§4.4), unspecified/multicast/broadcast, no connectable address). A failed Tailscale check never blocks. | Blocking public targets: contradicts the owner decision. |
+| T10 | Confirmation memory | The confirmation for a public direct target is stored per connection/host as `publicAck { atMs, classifier }` **without addresses**; it stays valid while the host is unchanged. A target that **becomes** public later (it was private when created) needs a **new** confirmation before the app connects. An ack counts only under the classifier snapshot it names: after a snapshot update the person confirms again. A change of the resolved address set needs no new confirmation; a host/origin change or a switch to „Über Tailscale“ clears it (§7.1). | Asking at every open: banner blindness. Never asking again: misses a DNS change to a public address. |
 
 ## 3. Data model and storage
 
@@ -66,6 +66,9 @@ Transport   = "tailscale" | "direct"
 Category    = "loopback" | "tailnet" | "private" | "special" | "public"        // §4.3
 PublicAck   = { atMs: u64, classifier: "iana-special-2025-10-09" }             // what was confirmed, never where
 ```
+
+A `PublicAck` is valid only while its `classifier` equals the current snapshot id (§4.1); an ack from an older
+snapshot counts as none, so the person re-confirms once after a snapshot update (T10).
 
 ### 3.2 `connection-transport.json` (remote connections)
 
@@ -88,6 +91,10 @@ Rules (R10, downgrade and upgrade safety):
 - **Entries are tolerant, the file is not a schema gate:** unknown fields inside an entry and unknown top-level keys
   are kept on write (as `settings.json` does). A `version` above 1 puts the store into **read-only** mode: the app uses
   derived defaults, writes nothing and says so once ("Weg-Einstellungen stammen aus einer neueren App-Version").
+- **Confirmation while the store cannot persist** (read-only on a newer version, or a sidecar that cannot be read or
+  written): a public confirmation is held **in memory for the app session only** — not persisted, cleared on a
+  host/origin or transport change like a stored one, and shown with a notice that it will not be remembered
+  (§7.1, `transport.public.session`). Without this, a downgraded build could never open a public direct connection.
 - **Corrupt file** (not JSON, oversized, wrong types): only the sidecar is renamed to
   `connection-transport.json.corrupt-<ms>-<uuid>`; connections stay; defaults apply.
 - **Garbage collection:** entries whose id is not in `connections.json` (for example removed by an older build) are
@@ -171,6 +178,12 @@ bytes, no trailing dot required), a canonical dotted-quad IPv4, an IPv6 literal 
 and `localhost` (treated as loopback without DNS, RFC 6761). A string that parses only under the lenient `inet_aton`
 rules (`127.1`, `0x7f000001`, `017700000001`) is refused with `host-ipv4-noncanonical` — the OS resolver would turn
 it into an address the person did not write. This matches `Origin::parse`, which already refuses those spellings.
+Every other malformed string is refused with `host-invalid` (no parameters): empty or over 1024 bytes; white space,
+control characters, U+FEFF or `%` (zone ids, percent-encoding); a string with `[` or `:` that is not a strict IPv6
+literal (`host:22`, `[::1]:22`, `[192.168.1.1]`); a URL host error; a name that fails the LDH rules after IDNA. The same
+checks apply to the host of a stored origin (`Origin::parse` is more lenient: `_`, long labels), which then also gets
+`host-invalid`. A canonical unspecified, multicast or broadcast literal is valid syntax and is refused by the check
+with `target-not-connectable` (§4.3).
 
 ### 4.5 Ranges (CIDR)
 
@@ -319,7 +332,8 @@ confirmation in a dialog). Changing the host/origin or switching to „Über Tai
 **Open / connect:** if the fresh check is public and there is no valid `publicAck` (or the target was private when
 confirmed and is public now), the command returns `transport-confirm-needed`; the page shows the banner with the
 reason, *Bestätigen und verbinden*, *Abbrechen*, and *Weg ändern…*. Tailscale notices appear on the page and in the
-tray but do not stop the attempt.
+tray but do not stop the attempt. While the transport store cannot persist (§3.2), *Bestätigen und verbinden* holds the
+confirmation for this app session only and the banner adds `transport.public.session`.
 
 ### 7.2 Texts (du; `ui/src/i18n/{de,en}.json`, keys `transport.*`)
 
@@ -342,6 +356,8 @@ tray but do not stop the attempt.
 | `transport.special` | {address} ist eine Sonderadresse (zum Beispiel für Dokumentation oder Tests) und im Internet nicht erreichbar. | {address} is a special-purpose address (for example for documentation or testing) and is not reachable on the internet. |
 | `transport.error.target-not-connectable` | {address} ist keine Zieladresse. | {address} is not a destination address. |
 | `transport.error.host-ipv4-noncanonical` | Schreibe die IPv4-Adresse in der Form a.b.c.d. | Write the IPv4 address as a.b.c.d. |
+| `transport.error.host-invalid` | Das ist weder ein gültiger Rechnername noch eine IP-Adresse. | This is neither a valid host name nor an IP address. |
+| `transport.public.session` | Die Bestätigung gilt nur bis zum Beenden der App, weil die Weg-Einstellungen gerade nicht gespeichert werden können. | This confirmation lasts only until you quit the app, because path settings cannot be saved right now. |
 | `transport.unresolved` | {host} lässt sich nicht auflösen. Bist du im richtigen Netz oder VPN? | {host} cannot be resolved. Are you on the right network or VPN? |
 | `transport.dns-timeout` | Die Namensauflösung für {host} hat zu lange gedauert. | Resolving {host} took too long. |
 | `transport.via-jump` | {host} wird vom Sprung-Host aufgelöst und hier nicht geprüft. | {host} is resolved by the jump host and not checked here. |
@@ -391,12 +407,13 @@ Stable kebab-case strings returned to the bundled shell; the UI translates them 
 | `target-special` | notice | no |
 | `target-unresolved`, `target-dns-timeout` | notice when adding, error when connecting | only because nothing can be connected |
 | `target-via-jump` | info | no |
-| `target-not-connectable`, `host-ipv4-noncanonical` | error | yes (invalid input) |
+| `target-not-connectable` | error when no connectable address remains; notice for addresses dropped while others stay connectable (§4.3) | only when none remains (invalid input) |
+| `host-ipv4-noncanonical`, `host-invalid` | error | yes (invalid input, §4.4; `host-invalid` has no parameters) |
 | `range-public` | warning | no |
 | `tailscale-*` (§5.3) | info/notice | no |
 | `transport-confirm-needed` | command error | until `connection_transport_set { publicAck: true }` |
 | `transport-check-busy` | command error | superseded check |
-| `transport-store-readonly` | notice | no |
+| `transport-store-readonly` | notice | no (a public confirmation is then held for the session only, §3.2) |
 
 ## 9. Security
 
