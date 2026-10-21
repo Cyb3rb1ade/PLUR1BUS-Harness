@@ -653,6 +653,7 @@ fn tailscale_status_debug_prints_no_names_or_addresses() {
     };
     let view = TailnetView {
         self_ips: vec!["100.99.98.97".parse().unwrap()],
+        self_dns_name: "secret-self.tail1234.ts.net.".into(),
         magic_suffix: Some("tail1234.ts.net".into()),
         peers: vec![peer.clone()],
     };
@@ -668,6 +669,7 @@ fn tailscale_status_debug_prints_no_names_or_addresses() {
             "tail1234",
             "100.101.102.103",
             "100.99.98.97",
+            "secret-self",
             "192.168.77",
         ] {
             assert!(!text.contains(secret), "{secret} in {text}");

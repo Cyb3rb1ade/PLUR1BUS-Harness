@@ -1,6 +1,8 @@
 //! Where the Tailscale CLI may come from (transport choice spec §5.2 step 1; package T3): fixed absolute candidates,
 //! never `PATH`, and only a regular file with safe ownership and mode (POSIX) or no reparse point inside Program Files
-//! (Windows). Only temporary files are created; no candidate is ever executed.
+//! (Windows). Only temporary files are created; no candidate is ever executed. `usable_with` is a debug-only test
+//! surface, so this file is too.
+#![cfg(debug_assertions)]
 use plur1bus_desktop::transport::{candidates, usable, usable_with};
 use std::path::{Path, PathBuf};
 

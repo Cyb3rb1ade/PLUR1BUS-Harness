@@ -51,6 +51,8 @@ pub enum UnavailableWhy {
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct TailnetView {
     pub self_ips: Vec<IpAddr>,
+    /// This device's own `DNSName` (`Self.DNSName`), empty when absent; only ever compared, never reported.
+    pub self_dns_name: String,
     pub magic_suffix: Option<String>,
     pub peers: Vec<PeerView>,
 }
@@ -208,8 +210,13 @@ pub fn parse_status(success: bool, stdout: &[u8]) -> TailscaleStatus {
                 .collect(),
         })
         .collect();
+    let (self_ips, self_dns_name) = raw
+        .self_node
+        .map(|s| (addresses(s.tailscale_ips), s.dns_name.unwrap_or_default()))
+        .unwrap_or_default();
     TailscaleStatus::Running(TailnetView {
-        self_ips: addresses(raw.self_node.and_then(|s| s.tailscale_ips)),
+        self_ips,
+        self_dns_name,
         magic_suffix,
         peers,
     })
@@ -233,9 +240,9 @@ pub enum PeerMatch {
         ips: Vec<IpAddr>,
         online: bool,
     },
-    /// One of this device's own Tailscale addresses.
+    /// This device: its own MagicDNS name or one of its own Tailscale addresses.
     SelfNode,
-    /// An address inside an online peer's `PrimaryRoutes`.
+    /// An address inside the `PrimaryRoutes` of a peer that is online and not expired.
     SubnetRoute {
         label: String,
         online: bool,
@@ -243,34 +250,55 @@ pub enum PeerMatch {
     None,
 }
 
-/// Matches a target (spec §5.2 step 4): a `*.ts.net` name → the peer whose `DNSName` (without trailing dot, any case)
-/// equals it; a single-label name → the peer whose first `DNSName` label equals it (MagicDNS short name); otherwise,
-/// or without a name match, the addresses (`addrs`, compared as IPv4 hosts when IPv4-mapped): the peer whose
-/// `TailscaleIPs` contains one, else [`PeerMatch::SelfNode`], else an online peer whose `PrimaryRoutes` contains one.
+/// Matches a target (spec §5.2 step 4). A name first: a `*.ts.net` name matches the peer, or this device, whose
+/// `DNSName` (without trailing dot, any case) equals it; a single-label name matches only the one whose `DNSName` is
+/// exactly `<name>.<MagicDNS suffix>`, and nothing when there is no suffix (MagicDNS off). Otherwise, or without a name
+/// match, the addresses (`addrs`, compared as IPv4 hosts when IPv4-mapped): the peer whose `TailscaleIPs` contains one,
+/// else [`PeerMatch::SelfNode`], else a peer that is online and not expired whose `PrimaryRoutes` contains one.
 pub fn match_target(view: &TailnetView, host: &HostInput, addrs: &[IpAddr]) -> PeerMatch {
-    if let Some(peer) = match_name(view, host) {
-        return peer_match(peer, host);
+    if let Some(named) = match_name(view, host) {
+        return named.matched;
     }
     match_addrs(view, host, addrs)
 }
 
+/// A name match: the peer or this device, the addresses to connect to (its `TailscaleIPs`), and for a peer its own
+/// validated MagicDNS name (the `tailscale-short-name` suggestion, spec §7.2/§9.4).
+pub(super) struct NameMatch {
+    pub(super) matched: PeerMatch,
+    pub(super) ips: Vec<IpAddr>,
+    pub(super) dns_name: Option<String>,
+}
+
 /// The name part of [`match_target`].
-pub(super) fn match_name<'a>(view: &'a TailnetView, host: &HostInput) -> Option<&'a PeerView> {
+pub(super) fn match_name(view: &TailnetView, host: &HostInput) -> Option<NameMatch> {
     let HostInput::Name(name) = host else {
         return None;
     };
     let bare = bare_name(name);
-    if host.is_ts_net() {
-        view.peers
-            .iter()
-            .find(|p| bare_name(&p.dns_name).eq_ignore_ascii_case(bare))
+    let wanted = if host.is_ts_net() {
+        bare.to_owned()
     } else if !bare.contains('.') {
-        view.peers
-            .iter()
-            .find(|p| first_label(&p.dns_name).eq_ignore_ascii_case(bare))
+        format!("{bare}.{}", view.magic_suffix.as_deref()?)
     } else {
-        None
+        return None;
+    };
+    let is_wanted = |dns_name: &str| bare_name(dns_name).eq_ignore_ascii_case(&wanted);
+    if let Some(peer) = view.peers.iter().find(|p| is_wanted(&p.dns_name)) {
+        return Some(NameMatch {
+            matched: peer_match(peer, host),
+            ips: peer.ips.clone(),
+            dns_name: valid_dns_name(&peer.dns_name),
+        });
     }
+    if is_wanted(&view.self_dns_name) {
+        return Some(NameMatch {
+            matched: PeerMatch::SelfNode,
+            ips: view.self_ips.clone(),
+            dns_name: None,
+        });
+    }
+    None
 }
 
 /// The address part of [`match_target`].
@@ -285,20 +313,21 @@ pub(super) fn match_addrs(view: &TailnetView, host: &HostInput, addrs: &[IpAddr]
     }
     if let Some(router) = view.peers.iter().find(|p| {
         p.online
+            && !p.expired
             && p.routes
                 .iter()
                 .any(|r| addrs.iter().any(|a| in_cidr(*a, r)))
     }) {
         return PeerMatch::SubnetRoute {
             label: label(router, host),
-            online: router.online && !router.expired,
+            online: true,
         };
     }
     PeerMatch::None
 }
 
 /// The label and online flag of a matched peer.
-pub(super) fn peer_match(peer: &PeerView, host: &HostInput) -> PeerMatch {
+fn peer_match(peer: &PeerView, host: &HostInput) -> PeerMatch {
     PeerMatch::Peer {
         label: label(peer, host),
         ips: peer.ips.clone(),
@@ -318,16 +347,28 @@ pub fn cgnat_candidate(addrs: &[IpAddr]) -> bool {
 /// otherwise the host the person typed, so nothing unexpected from the CLI output reaches the webview.
 fn label(peer: &PeerView, host: &HostInput) -> String {
     let first = first_label(&peer.dns_name);
-    let plain = !first.is_empty()
-        && first.len() <= 63
-        && first
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-');
-    if plain {
+    if is_ldh_label(first) {
         first.to_ascii_lowercase()
     } else {
         host.to_string()
     }
+}
+
+/// A peer's own `DNSName` as the shell may show it: lower case, without the trailing dot, at most 253 bytes of LDH
+/// labels; `None` for anything else.
+fn valid_dns_name(dns_name: &str) -> Option<String> {
+    let bare = bare_name(dns_name);
+    (bare.len() <= 253 && bare.split('.').all(is_ldh_label)).then(|| bare.to_ascii_lowercase())
+}
+
+fn is_ldh_label(label: &str) -> bool {
+    !label.is_empty()
+        && label.len() <= 63
+        && label
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        && !label.starts_with('-')
+        && !label.ends_with('-')
 }
 
 fn bare_name(name: &str) -> &str {
@@ -372,62 +413,76 @@ pub fn candidates() -> Vec<PathBuf> {
 
 /// Where a symlinked candidate may point (spec §5.2 step 1).
 #[cfg(unix)]
-const LINK_PREFIXES: [&str; 4] = [
+const LINK_PREFIXES: [&str; 3] = [
     "/Applications/Tailscale.app",
     "/opt/homebrew/Cellar/tailscale",
     "/usr/local/Cellar/tailscale",
-    "/snap",
 ];
 
-/// Whether a candidate may be run (spec §5.2 step 1, §9.3). POSIX: a regular file, reached through a symlink only
-/// when the real path lies under `/Applications/Tailscale.app/`, `/opt/homebrew/Cellar/tailscale/`,
-/// `/usr/local/Cellar/tailscale/` or `/snap/`; owned by root or the current user; not group- or other-writable.
-/// Windows: a regular file inside the Program Files known folder with no reparse point (symlink, junction) on the way.
-pub fn usable(path: &Path) -> bool {
+/// The one symlink allowed outside [`LINK_PREFIXES`]: snap's `/snap/bin/tailscale` → `/usr/bin/snap`, exactly.
+#[cfg(unix)]
+const SNAP_LINK: (&str, &str) = ("/snap/bin/tailscale", "/usr/bin/snap");
+
+/// The default allowed places of [`usable`].
+fn default_allowed() -> Vec<PathBuf> {
     #[cfg(unix)]
-    {
-        let allowed: Vec<PathBuf> = LINK_PREFIXES.iter().map(PathBuf::from).collect();
-        usable_with(path, &allowed)
-    }
+    let allowed: Vec<PathBuf> = LINK_PREFIXES.iter().map(PathBuf::from).collect();
     #[cfg(windows)]
-    {
-        program_files().is_some_and(|root| usable_with(path, &[root]))
-    }
+    let allowed: Vec<PathBuf> = program_files().into_iter().collect();
     #[cfg(not(any(unix, windows)))]
-    {
-        let _ = path;
-        false
-    }
+    let allowed: Vec<PathBuf> = Vec::new();
+    allowed
+}
+
+/// Whether a candidate may be run (spec §5.2 step 1, §9.3). POSIX: a regular file, reached through a symlink only
+/// when the real path lies under `/Applications/Tailscale.app/`, `/opt/homebrew/Cellar/tailscale/` or
+/// `/usr/local/Cellar/tailscale/`, or is exactly `/usr/bin/snap` for `/snap/bin/tailscale`; owned by root or the
+/// current user; not group- or other-writable. Windows: a regular file inside the Program Files known folder with no
+/// reparse point (symlink, junction) on the way.
+pub fn usable(path: &Path) -> bool {
+    usable_with(path, &default_allowed())
 }
 
 /// [`usable`] with the allowed places given: on POSIX the prefixes a symlink may resolve into (any symlink on the way,
-/// also a directory, counts), on Windows the roots the file must lie in. The path must be absolute.
-#[cfg(unix)]
+/// also a directory, counts; the snap pair is always allowed), on Windows the roots the file must lie in. The path
+/// must be absolute.
 pub fn usable_with(path: &Path, allowed: &[PathBuf]) -> bool {
+    checked(path, allowed).is_some()
+}
+
+/// Whether a symlinked candidate `path` may resolve to `real` (spec §5.2 step 1).
+#[cfg(unix)]
+fn link_allowed(path: &Path, real: &Path, allowed: &[PathBuf]) -> bool {
+    real == path
+        || allowed.iter().any(|prefix| real.starts_with(prefix))
+        || (path == Path::new(SNAP_LINK.0) && real == Path::new(SNAP_LINK.1))
+}
+
+/// The path to execute when `path` passes the checks of [`usable_with`]: the canonical path on POSIX (so the checked
+/// file is the one run, not whatever a link points to by then), the path itself on Windows.
+#[cfg(unix)]
+fn checked(path: &Path, allowed: &[PathBuf]) -> Option<PathBuf> {
     use std::os::unix::fs::MetadataExt;
     if !path.is_absolute() {
-        return false;
+        return None;
     }
-    let Ok(real) = std::fs::canonicalize(path) else {
-        return false;
-    };
-    if real != path && !allowed.iter().any(|prefix| real.starts_with(prefix)) {
-        return false;
+    let real = std::fs::canonicalize(path).ok()?;
+    if !link_allowed(path, &real, allowed) {
+        return None;
     }
-    let Ok(meta) = std::fs::symlink_metadata(&real) else {
-        return false;
-    };
+    let meta = std::fs::symlink_metadata(&real).ok()?;
     // SAFETY: `geteuid` has no preconditions and cannot fail.
     let euid = unsafe { libc::geteuid() };
-    meta.file_type().is_file()
+    let ok = meta.file_type().is_file()
         && (meta.uid() == 0 || meta.uid() == euid)
-        && meta.mode() & 0o022 == 0
+        && meta.mode() & 0o022 == 0;
+    ok.then_some(real)
 }
 
-/// [`usable`] with the allowed places given: on POSIX the prefixes a symlink may resolve into (any symlink on the way,
-/// also a directory, counts), on Windows the roots the file must lie in. The path must be absolute.
+/// The path to execute when `path` passes the checks of [`usable_with`]: the canonical path on POSIX (so the checked
+/// file is the one run, not whatever a link points to by then), the path itself on Windows.
 #[cfg(windows)]
-pub fn usable_with(path: &Path, allowed: &[PathBuf]) -> bool {
+fn checked(path: &Path, allowed: &[PathBuf]) -> Option<PathBuf> {
     use std::os::windows::fs::MetadataExt;
     use std::path::Component;
     use windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT;
@@ -436,30 +491,27 @@ pub fn usable_with(path: &Path, allowed: &[PathBuf]) -> bool {
             .components()
             .any(|c| matches!(c, Component::ParentDir | Component::CurDir))
     {
-        return false;
+        return None;
     }
-    let Some(root) = allowed.iter().find(|root| path.starts_with(root)) else {
-        return false;
-    };
+    let root = allowed.iter().find(|root| path.starts_with(root))?;
     // The file and every directory up to and including the root: none may be a reparse point.
     for dir in path.ancestors() {
-        let Ok(meta) = std::fs::symlink_metadata(dir) else {
-            return false;
-        };
+        let meta = std::fs::symlink_metadata(dir).ok()?;
         if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
-            return false;
+            return None;
         }
         if dir == root.as_path() {
             break;
         }
     }
-    std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_file())
+    let is_file = std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_file());
+    is_file.then(|| path.to_path_buf())
 }
 
 /// Not POSIX or Windows: nothing is usable.
 #[cfg(not(any(unix, windows)))]
-pub fn usable_with(_path: &Path, _allowed: &[PathBuf]) -> bool {
-    false
+fn checked(_path: &Path, _allowed: &[PathBuf]) -> Option<PathBuf> {
+    None
 }
 
 /// `FOLDERID_ProgramFiles` through the known-folder API, not the `%ProgramFiles%` variable (spec §5.2 step 1).
@@ -537,16 +589,28 @@ fn child_env() -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
     env
 }
 
-/// Runs `<binary> status --json` (spec §5.2 step 2): exactly these two arguments, never one derived from input; no
-/// shell; the environment cleared and refilled from the allow-list; stdin null; stdout capped at
-/// [`MAX_STATUS_BYTES`] (more → `TooLarge`), stderr read up to [`MAX_STDERR_BYTES`] and drained; [`EXEC_TIMEOUT`]
-/// (→ `Timeout`); the child killed on every early return; on Windows no console window. A relative path is refused
-/// (`Spawn`), as is anything that cannot be started.
+/// Runs `<binary> status --json` with `binary` as its own `argv[0]` (see [`run_status`]). Debug builds only: the
+/// exec tests and the `PLUR1BUS_DESKTOP_TAILSCALE_BIN` seam use it; release code runs only a [`usable`] candidate.
+#[cfg(debug_assertions)]
 pub async fn exec_status(binary: &Path) -> ExecOutcome {
-    if !binary.is_absolute() {
+    run_status(binary, binary).await
+}
+
+/// Runs `<program> status --json` (spec §5.2 step 2): exactly these two arguments, never one derived from input; no
+/// shell; on POSIX `argv[0]` is `arg0` (the candidate path, so snap's dispatcher still sees `tailscale`); the
+/// environment cleared and refilled from the allow-list; stdin null; stdout capped at [`MAX_STATUS_BYTES`] (more →
+/// `TooLarge`), stderr read up to [`MAX_STDERR_BYTES`] and drained; [`EXEC_TIMEOUT`] (→ `Timeout`); the child killed
+/// on every early return; on Windows no console window. A relative path is refused (`Spawn`), as is anything that
+/// cannot be started or read.
+async fn run_status(program: &Path, arg0: &Path) -> ExecOutcome {
+    if !program.is_absolute() {
         return ExecOutcome::Failed(UnavailableWhy::Spawn);
     }
-    let mut command = tokio::process::Command::new(binary);
+    let mut command = tokio::process::Command::new(program);
+    #[cfg(unix)]
+    command.arg0(arg0);
+    #[cfg(not(unix))]
+    let _ = arg0;
     command
         .args(["status", "--json"])
         .env_clear()
@@ -583,7 +647,8 @@ pub async fn exec_status(binary: &Path) -> ExecOutcome {
     }
 }
 
-/// Reads at most `cap` bytes; one more means the output is too large.
+/// Reads at most `cap` bytes; one more means the output is too large. A read error is `Spawn` (the process could not
+/// deliver its output).
 async fn read_capped(
     reader: impl AsyncRead + Unpin,
     cap: usize,
@@ -594,7 +659,7 @@ async fn read_capped(
         .take(limit)
         .read_to_end(&mut bytes)
         .await
-        .map_err(|_| UnavailableWhy::Unparseable)?;
+        .map_err(|_| UnavailableWhy::Spawn)?;
     if bytes.len() > cap {
         return Err(UnavailableWhy::TooLarge);
     }
@@ -642,7 +707,7 @@ impl Source {
     }
 }
 
-/// The real [`TailscaleSource`]: the first [`usable`] candidate run with [`exec_status`] and read with
+/// The real [`TailscaleSource`]: the first [`usable`] candidate, run (as its checked path) and read with
 /// [`parse_status`]. Inside a Flatpak sandbox (`FLATPAK_ID` set when the source is created) nothing is run
 /// (`Unavailable(Flatpak)`). No candidate on disk is `NotInstalled`; candidates that exist but none usable is
 /// `Unavailable(Spawn)`. The answer is cached for [`STATUS_TTL`], and a caller arriving during a run waits for that run
@@ -677,17 +742,17 @@ impl CliTailscale {
         if self.flatpak {
             return TailscaleStatus::Unavailable(UnavailableWhy::Flatpak);
         }
-        let binary = match &self.source {
+        let outcome = match &self.source {
             Source::Candidates => match pick() {
-                Ok(binary) => binary,
+                Ok((program, candidate)) => run_status(&program, &candidate).await,
                 Err(status) => return status,
             },
             #[cfg(debug_assertions)]
             Source::Fixture(file) => return read_fixture(file),
             #[cfg(debug_assertions)]
-            Source::Binary(binary) => binary.clone(),
+            Source::Binary(binary) => exec_status(binary).await,
         };
-        match exec_status(&binary).await {
+        match outcome {
             ExecOutcome::Exited { success, stdout } => parse_status(success, &stdout),
             ExecOutcome::Failed(why) => TailscaleStatus::Unavailable(why),
         }
@@ -710,15 +775,16 @@ impl TailscaleSource for CliTailscale {
     }
 }
 
-/// The first usable candidate; `NotInstalled` when none exists, `Unavailable(Spawn)` when some exist but none passes
-/// [`usable`].
-fn pick() -> Result<PathBuf, TailscaleStatus> {
+/// The first usable candidate as (checked path to execute, candidate path for `argv[0]`); `NotInstalled` when none
+/// exists, `Unavailable(Spawn)` when some exist but none passes [`usable`].
+fn pick() -> Result<(PathBuf, PathBuf), TailscaleStatus> {
+    let allowed = default_allowed();
     let mut present = false;
     for candidate in candidates() {
         if std::fs::symlink_metadata(&candidate).is_ok() {
             present = true;
-            if usable(&candidate) {
-                return Ok(candidate);
+            if let Some(program) = checked(&candidate, &allowed) {
+                return Ok((program, candidate));
             }
         }
     }
@@ -740,5 +806,85 @@ fn read_fixture(file: &Path) -> TailscaleStatus {
     match std::fs::File::open(file).and_then(|f| f.take(limit).read_to_end(&mut bytes)) {
         Ok(_) => parse_status(true, &bytes),
         Err(_) => TailscaleStatus::Unavailable(UnavailableWhy::Spawn),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn snap_link_is_one_exact_pair() {
+        let none: [PathBuf; 0] = [];
+        let p = Path::new;
+        assert!(link_allowed(
+            p("/snap/bin/tailscale"),
+            p("/usr/bin/snap"),
+            &none
+        ));
+        // Not another snap command, not another target, not another candidate, and no `/snap/` prefix.
+        assert!(!link_allowed(
+            p("/snap/bin/other"),
+            p("/usr/bin/snap"),
+            &none
+        ));
+        assert!(!link_allowed(
+            p("/snap/bin/tailscale"),
+            p("/usr/bin/snapd"),
+            &none
+        ));
+        assert!(!link_allowed(
+            p("/snap/bin/tailscale"),
+            p("/usr/bin/snap/x"),
+            &none
+        ));
+        assert!(!link_allowed(
+            p("/usr/local/bin/tailscale"),
+            p("/usr/bin/snap"),
+            &none
+        ));
+        assert!(!link_allowed(
+            p("/snap/bin/tailscale"),
+            p("/snap/tailscale/current/bin/tailscale"),
+            &none
+        ));
+        // A path that is its own real path needs no allowance; others need a whole-component prefix.
+        assert!(link_allowed(
+            p("/usr/bin/tailscale"),
+            p("/usr/bin/tailscale"),
+            &none
+        ));
+        let cellar = [PathBuf::from("/opt/homebrew/Cellar/tailscale")];
+        assert!(link_allowed(
+            p("/opt/homebrew/bin/tailscale"),
+            p("/opt/homebrew/Cellar/tailscale/1.90.0/bin/tailscale"),
+            &cellar
+        ));
+        assert!(!link_allowed(
+            p("/opt/homebrew/bin/tailscale"),
+            p("/opt/homebrew/Cellar/tailscale-evil/bin/tailscale"),
+            &cellar
+        ));
+    }
+
+    #[test]
+    fn suggestion_names_are_validated_ldh() {
+        assert_eq!(
+            valid_dns_name("NAS.Example.ts.net.").as_deref(),
+            Some("nas.example.ts.net")
+        );
+        for bad in [
+            "",
+            ".",
+            "nas..ts.net",
+            "-nas.ts.net",
+            "nas_1.ts.net",
+            "nas.ts.net/x",
+            "nås.ts.net",
+        ] {
+            assert_eq!(valid_dns_name(bad), None, "{bad}");
+        }
+        assert_eq!(valid_dns_name(&format!("{}.ts.net", "a".repeat(64))), None);
     }
 }

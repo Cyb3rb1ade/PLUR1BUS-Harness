@@ -1,7 +1,8 @@
 //! The Tailscale CLI exec path (transport choice spec §5.2 step 2; package T3) through `fake-tailscale`: exactly
 //! `status --json`, a cleared environment refilled from the allow-list, the 4 s timeout and the 8 MiB stdout cap. Each
 //! test copies the fake into its own temporary directory with its own `fake-tailscale.scenario`, so the scenario never
-//! travels through the environment the exec clears.
+//! travels through the environment the exec clears. `exec_status` is a debug-only test surface, so this file is too.
+#![cfg(debug_assertions)]
 use plur1bus_desktop::transport::{
     exec_status, CliTailscale, ExecOutcome, TailscaleSource, TailscaleStatus, UnavailableWhy,
 };
@@ -59,6 +60,8 @@ fn argv_is_exactly_status_json_and_only_allow_listed_variables_pass() {
     assert!(success);
     let doc: serde_json::Value = serde_json::from_slice(&stdout).unwrap();
     assert_eq!(doc["argv"], serde_json::json!(["status", "--json"]));
+    // `argv[0]` is the path the exec was given (production passes the candidate path there).
+    assert_eq!(doc["argv0"].as_str(), f.bin.to_str());
     let names: Vec<String> = doc["env"]
         .as_array()
         .unwrap()

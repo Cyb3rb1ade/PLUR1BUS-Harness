@@ -38,6 +38,7 @@ fn running_fixture_parses_into_the_minimal_view() {
         view.self_ips,
         vec![ip("100.90.0.1"), ip("fd7a:115c:a1e0::1")]
     );
+    assert_eq!(view.self_dns_name, "workstation.example.ts.net.");
     assert_eq!(view.magic_suffix.as_deref(), Some("example.ts.net"));
     assert_eq!(view.peers.len(), 3);
     let nas = view

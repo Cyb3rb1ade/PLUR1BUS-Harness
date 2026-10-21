@@ -40,6 +40,7 @@ fn ip(s: &str) -> IpAddr {
 fn loopback_tailnet(self_ips: &[&str]) -> TailscaleStatus {
     TailscaleStatus::Running(TailnetView {
         self_ips: self_ips.iter().map(|s| ip(s)).collect(),
+        self_dns_name: "workstation.example.ts.net.".into(),
         magic_suffix: Some("example.ts.net".into()),
         peers: vec![PeerView {
             dns_name: "nas.example.ts.net.".into(),

@@ -51,8 +51,11 @@ fn main() {
                 .map(|(k, _)| k.to_string_lossy().into_owned())
                 .collect();
             names.sort();
+            let argv0 = std::env::args_os()
+                .next()
+                .map(|a| a.to_string_lossy().into_owned());
             let argv: Vec<String> = std::env::args().skip(1).collect();
-            let doc = serde_json::json!({ "env": names, "argv": argv });
+            let doc = serde_json::json!({ "env": names, "argv0": argv0, "argv": argv });
             let _ = out.write_all(doc.to_string().as_bytes());
         }
         _ => {

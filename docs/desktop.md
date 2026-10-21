@@ -221,7 +221,7 @@ written by a newer version, and moved aside as `.corrupt-<ms>-<uuid>` when corru
 
 The Tailscale check (spec §5) runs inside `check_target` for the Tailscale path, `*.ts.net` names and tailnet
 addresses. `CliTailscale` runs `status --json` only from the fixed absolute candidates (never `PATH`; ownership, mode,
-symlink and reparse-point checks), with a cleared environment, a 4 s timeout, an 8 MiB stdout cap, and caches the
+symlink and reparse-point checks; the checked path is the one executed), with a cleared environment, a 4 s timeout, an 8 MiB stdout cap, and caches the
 parsed view for 10 s; inside Flatpak it runs nothing. A matched `*.ts.net` or short name connects to the peer's
 Tailscale addresses without a DNS query. `TcpProber` connects to at most four addresses (3 s each, no bytes sent) and
 compares the local address with this device's Tailscale addresses. Only the state code, the matched peer's first

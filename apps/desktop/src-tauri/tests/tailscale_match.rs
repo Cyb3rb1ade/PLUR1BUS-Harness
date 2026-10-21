@@ -362,12 +362,18 @@ async fn short_name_match_on_the_tailscale_path_skips_the_resolver_and_suggests_
         param(&checked.report, "tailscale-short-name", "suggestion"),
         Some("nas.example.ts.net")
     );
-    // SSH needs no full name; without MagicDNS there is no suggestion to make.
+    // SSH needs no full name.
     let checked = run(&h, &target("nas", Transport::Tailscale, Purpose::Ssh), true).await;
     assert_eq!(codes(&checked.report), vec!["tailscale-ok"]);
+}
+
+#[tokio::test]
+async fn without_magicdns_a_short_name_is_never_name_matched_and_goes_to_the_resolver() {
+    let v = view(NO_MAGICDNS);
+    assert_eq!(match_target(&v, &host("nas"), &[]), PeerMatch::None);
     let h = harness(
-        TailscaleStatus::Running(view(NO_MAGICDNS)),
-        &[],
+        TailscaleStatus::Running(v),
+        &[("nas", &["100.101.102.103"])],
         connected("100.90.0.1"),
     );
     let checked = run(
@@ -376,7 +382,95 @@ async fn short_name_match_on_the_tailscale_path_skips_the_resolver_and_suggests_
         true,
     )
     .await;
+    assert_eq!(*h.resolver.calls.lock().unwrap(), vec!["nas".to_string()]);
+    // The resolver's tailnet answer still finds the peer by address, but an address match suggests no name.
     assert_eq!(codes(&checked.report), vec!["tailscale-ok"]);
+}
+
+#[test]
+fn a_short_name_matches_only_inside_the_own_magicdns_suffix() {
+    let mut v = view(RUNNING);
+    let mut shared = v.peers[0].clone();
+    shared.dns_name = "printer.other-tailnet.ts.net.".into();
+    shared.ips = vec![ip("100.101.102.199")];
+    v.peers.push(shared);
+    // Same first label, other suffix: no short-name match, but the full name matches.
+    assert_eq!(match_target(&v, &host("printer"), &[]), PeerMatch::None);
+    assert_eq!(
+        match_target(&v, &host("printer.other-tailnet.ts.net"), &[]),
+        peer("printer", &["100.101.102.199"], true)
+    );
+    // With a `nas` in another tailnet listed first, the short name still picks the own tailnet's `nas`.
+    let mut v = view(RUNNING);
+    let mut other_nas = v.peers[0].clone();
+    other_nas.dns_name = "nas.other-tailnet.ts.net.".into();
+    other_nas.ips = vec![ip("100.101.102.198")];
+    v.peers.insert(0, other_nas);
+    assert_eq!(
+        match_target(&v, &host("nas"), &[]),
+        peer("nas", &["100.101.102.103", "fd7a:115c:a1e0::65"], true)
+    );
+}
+
+#[tokio::test]
+async fn an_address_match_of_a_short_name_never_suggests_a_name() {
+    // Direct + remote + `nas`, but the resolver answers the laptop's address: matched by address, no suggestion.
+    let h = harness(
+        TailscaleStatus::Running(view(RUNNING)),
+        &[("nas", &["100.101.102.104"])],
+        connected("100.90.0.1"),
+    );
+    let checked = run(&h, &target("nas", Transport::Direct, Purpose::Remote), true).await;
+    assert_eq!(*h.resolver.calls.lock().unwrap(), vec!["nas".to_string()]);
+    assert_eq!(codes(&checked.report), vec!["tailscale-ok"]);
+    assert_eq!(
+        checked.report.tailscale.as_ref().unwrap().peer.as_deref(),
+        Some("laptop")
+    );
+}
+
+#[tokio::test]
+async fn own_magicdns_name_is_self_without_a_lookup() {
+    let v = view(RUNNING);
+    assert_eq!(
+        match_target(&v, &host("workstation.example.ts.net."), &[]),
+        PeerMatch::SelfNode
+    );
+    assert_eq!(
+        match_target(&v, &host("WORKSTATION"), &[]),
+        PeerMatch::SelfNode
+    );
+    let h = harness(TailscaleStatus::Running(v), &[], connected("100.90.0.1"));
+    for name in ["workstation.example.ts.net", "workstation"] {
+        let checked = run(
+            &h,
+            &target(name, Transport::Tailscale, Purpose::Remote),
+            true,
+        )
+        .await;
+        assert_eq!(codes(&checked.report), vec!["tailscale-self"], "{name}");
+        assert_eq!(
+            checked.pin.addrs,
+            vec![sock("100.90.0.1"), sock("fd7a:115c:a1e0::1")]
+        );
+    }
+    assert!(h.resolver.calls.lock().unwrap().is_empty());
+    assert!(h.prober.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn an_expired_router_is_no_subnet_route() {
+    let mut s = view(SUBNET_ROUTER);
+    let router = s
+        .peers
+        .iter_mut()
+        .find(|p| p.host_name == "router-host")
+        .unwrap();
+    router.expired = true;
+    assert_eq!(
+        match_target(&s, &host("192.168.10.5"), &[ip("192.168.10.5")]),
+        PeerMatch::None
+    );
 }
 
 #[tokio::test]

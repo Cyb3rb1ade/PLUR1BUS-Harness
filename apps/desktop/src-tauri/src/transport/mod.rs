@@ -22,10 +22,14 @@ pub use report::{Hint, Severity, TransportReport};
 pub use resolve::{OsResolver, ResolveError, Resolver, LOOKUP_TIMEOUT, MAX_ADDRESSES};
 pub use store::{StoreMode, TransportEntry, TransportStore, TransportStoreError};
 pub use tailscale::{
-    candidates, cgnat_candidate, exec_status, match_target, parse_status, usable, usable_with,
-    CliTailscale, ExecOutcome, PeerMatch, PeerView, TailnetView, TailscaleSource, TailscaleStatus,
-    TailscaleView, UnavailableWhy, EXEC_TIMEOUT, MAX_STATUS_BYTES, MAX_STDERR_BYTES, STATUS_TTL,
+    candidates, cgnat_candidate, match_target, parse_status, usable, CliTailscale, PeerMatch,
+    PeerView, TailnetView, TailscaleSource, TailscaleStatus, TailscaleView, UnavailableWhy,
+    EXEC_TIMEOUT, MAX_STATUS_BYTES, MAX_STDERR_BYTES, STATUS_TTL,
 };
+/// Test-only surface (debug builds, like the DR19 seams): running an arbitrary absolute binary and the binary check
+/// with injected allowed places. Release builds expose neither.
+#[cfg(debug_assertions)]
+pub use tailscale::{exec_status, usable_with, ExecOutcome};
 
 use plur1bus_desktop_net::{
     aggregate, canonical, is_tailnet, target_class, AddrClass, CLASSIFIER_ID,
@@ -173,15 +177,17 @@ pub async fn check_target(
         None
     };
     let named = match &status {
-        Some(TailscaleStatus::Running(view)) => tailscale::match_name(view, &input.host)
-            .filter(|peer| !peer.ips.is_empty())
-            .map(|peer| tailscale::peer_match(peer, &input.host)),
+        Some(TailscaleStatus::Running(view)) => {
+            tailscale::match_name(view, &input.host).filter(|named| !named.ips.is_empty())
+        }
         _ => None,
     };
     let resolved: Vec<SocketAddr> = match (&input.host, &named) {
-        (_, Some(PeerMatch::Peer { ips, .. })) => {
-            ips.iter().map(|ip| SocketAddr::new(*ip, port)).collect()
-        }
+        (_, Some(named)) => named
+            .ips
+            .iter()
+            .map(|ip| SocketAddr::new(*ip, port))
+            .collect(),
         (HostInput::Localhost, _) => [
             IpAddr::V4(Ipv4Addr::LOCALHOST),
             IpAddr::V6(Ipv6Addr::LOCALHOST),
@@ -310,27 +316,18 @@ struct TailscaleOutcome {
     via_route: bool,
 }
 
-/// What the probe found about the path (spec §5.2 step 5).
-enum Probed {
-    /// Connected from one of this device's Tailscale addresses.
-    Tailnet,
-    /// Connected, but from another local address: `tailscale-route-mismatch`.
-    Mismatch,
-    /// Refused or timed out: `tailscale-unreachable`.
-    Unreachable,
-}
-
 /// Picks the Tailscale state of a check (spec §5.3). Not running → that state's notice. Running → the match: a name
 /// match found before the lookup (`named`), else the connect set's addresses. An offline or expired peer is
 /// `tailscale-peer-offline` and is not probed; an online peer or subnet route is probed when `probe` is set (ok or
 /// subnet route, `tailscale-route-mismatch`, `tailscale-unreachable`); unprobed, an online peer is the state
 /// `tailscale-peer-online` with no hint (nothing verified the path) and a subnet route a `tailscale-subnet-route`
 /// notice. No match is `tailscale-peer-unknown` for a tailnet target (naming CGNAT for `100.64.0.0/10`) and the state
-/// `tailscale-not-tailnet-target` otherwise (its hint is added by the caller).
+/// `tailscale-not-tailnet-target` otherwise (its hint is added by the caller). A short name matched by name to a peer
+/// adds `tailscale-short-name` for a remote target, suggesting that peer's own DNS name.
 async fn tailscale_check(
     input: &TargetInput,
     status: &TailscaleStatus,
-    named: Option<PeerMatch>,
+    named: Option<tailscale::NameMatch>,
     addrs: &[SocketAddr],
     tailnet_target: bool,
     prober: &dyn Prober,
@@ -349,11 +346,25 @@ async fn tailscale_check(
         TailscaleStatus::Stopped => return notice("tailscale-stopped", None),
     };
     let ips: Vec<IpAddr> = addrs.iter().map(|sa| sa.ip()).collect();
-    let matched = named.unwrap_or_else(|| tailscale::match_addrs(view, &input.host, &ips));
+    let (matched, full_name) = match named {
+        Some(named) => (named.matched, named.dns_name),
+        None => (tailscale::match_addrs(view, &input.host, &ips), None),
+    };
     let state = |state, peer: Option<&String>, online| TailscaleView {
         state,
         peer: peer.cloned(),
         online,
+    };
+    let probed = |ok: &'static str, label: String| {
+        probed(
+            prober,
+            addrs,
+            &view.self_ips,
+            ok,
+            label,
+            host.clone(),
+            input.port,
+        )
     };
     let mut out = TailscaleOutcome {
         view: state("tailscale-not-tailnet-target", None, None),
@@ -380,28 +391,9 @@ async fn tailscale_check(
             ..
         } => {
             let code = if probe {
-                match probe_path(prober, addrs, &view.self_ips).await {
-                    Probed::Tailnet => {
-                        out.hints.push(hint(
-                            "tailscale-ok",
-                            Severity::Info,
-                            [("peer", label.clone())],
-                        ));
-                        "tailscale-ok"
-                    }
-                    Probed::Mismatch => {
-                        out.hints.push(hint(
-                            "tailscale-route-mismatch",
-                            Severity::Notice,
-                            [("host", host.clone())],
-                        ));
-                        "tailscale-route-mismatch"
-                    }
-                    Probed::Unreachable => {
-                        out.hints.push(unreachable(label, input.port));
-                        "tailscale-unreachable"
-                    }
-                }
+                let (code, h) = probed("tailscale-ok", label.clone()).await;
+                out.hints.push(h);
+                code
             } else {
                 "tailscale-peer-online"
             };
@@ -413,37 +405,16 @@ async fn tailscale_check(
         }
         PeerMatch::SubnetRoute { label, online } => {
             out.via_route = true;
-            let code = if probe {
-                match probe_path(prober, addrs, &view.self_ips).await {
-                    Probed::Tailnet => {
-                        out.hints.push(hint(
-                            "tailscale-subnet-route",
-                            Severity::Info,
-                            [("peer", label.clone())],
-                        ));
-                        "tailscale-subnet-route"
-                    }
-                    Probed::Mismatch => {
-                        out.hints.push(hint(
-                            "tailscale-route-mismatch",
-                            Severity::Notice,
-                            [("host", host.clone())],
-                        ));
-                        "tailscale-route-mismatch"
-                    }
-                    Probed::Unreachable => {
-                        out.hints.push(unreachable(label, input.port));
-                        "tailscale-unreachable"
-                    }
-                }
+            let (code, h) = if probe {
+                probed("tailscale-subnet-route", label.clone()).await
             } else {
-                out.hints.push(hint(
-                    "tailscale-subnet-route",
-                    Severity::Notice,
-                    [("peer", label.clone())],
-                ));
-                "tailscale-subnet-route"
+                let code = "tailscale-subnet-route";
+                (
+                    code,
+                    hint(code, Severity::Notice, [("peer", label.clone())]),
+                )
             };
+            out.hints.push(h);
             out.view = state(code, Some(label), Some(*online));
         }
         PeerMatch::None if tailnet_target => {
@@ -460,19 +431,16 @@ async fn tailscale_check(
         }
         PeerMatch::None => {}
     }
-    // Spec §7.2 `transport.tailscale.short-name`: HTTPS needs the full MagicDNS name of a short name.
-    if let (PeerMatch::Peer { .. }, HostInput::Name(name), Purpose::Remote, Some(suffix)) = (
-        &matched,
-        &input.host,
-        input.purpose,
-        view.magic_suffix.as_deref(),
-    ) {
-        let bare = name.strip_suffix('.').unwrap_or(name);
-        if !bare.contains('.') {
+    // Spec §7.2 `transport.tailscale.short-name`: HTTPS needs the full name. Only for a short name matched by name,
+    // and the suggestion is the matched peer's own validated DNS name (spec §9.4).
+    if let (PeerMatch::Peer { .. }, Some(full_name), HostInput::Name(name), Purpose::Remote) =
+        (&matched, full_name, &input.host, input.purpose)
+    {
+        if !name.strip_suffix('.').unwrap_or(name).contains('.') {
             out.short_name = Some(hint(
                 "tailscale-short-name",
                 Severity::Info,
-                [("suggestion", format!("{bare}.{suffix}"))],
+                [("suggestion", full_name)],
             ));
         }
     }
@@ -505,27 +473,35 @@ fn hint<const N: usize>(
     Hint::new(code, severity, params.into_iter().collect())
 }
 
-fn unreachable(peer: &str, port: u16) -> Hint {
-    hint(
-        "tailscale-unreachable",
-        Severity::Notice,
-        [("peer", peer.to_owned()), ("port", port.to_string())],
-    )
-}
-
-/// Probes at most [`PROBE_ADDRESSES`] of the connect set and compares the local address with `self_ips`.
-async fn probe_path(prober: &dyn Prober, addrs: &[SocketAddr], self_ips: &[IpAddr]) -> Probed {
+/// Probes at most [`PROBE_ADDRESSES`] of the connect set (spec §5.2 step 5) and turns the outcome into a state and its
+/// hint: connected from one of this device's Tailscale addresses → `ok` (info, `peer`); connected from another local
+/// address → `tailscale-route-mismatch` (notice, `host`); refused or timed out → `tailscale-unreachable` (notice,
+/// `peer`, `port`).
+async fn probed(
+    prober: &dyn Prober,
+    addrs: &[SocketAddr],
+    self_ips: &[IpAddr],
+    ok: &'static str,
+    label: String,
+    host: String,
+    port: u16,
+) -> (&'static str, Hint) {
     let addrs = &addrs[..addrs.len().min(PROBE_ADDRESSES)];
     match prober.probe(addrs).await {
         ProbeOutcome::Connected { local, .. } => {
             let local = canonical(local.ip());
             if self_ips.iter().any(|ip| canonical(*ip) == local) {
-                Probed::Tailnet
+                (ok, hint(ok, Severity::Info, [("peer", label)]))
             } else {
-                Probed::Mismatch
+                let code = "tailscale-route-mismatch";
+                (code, hint(code, Severity::Notice, [("host", host)]))
             }
         }
-        ProbeOutcome::Refused | ProbeOutcome::Timeout => Probed::Unreachable,
+        ProbeOutcome::Refused | ProbeOutcome::Timeout => {
+            let code = "tailscale-unreachable";
+            let params = [("peer", label), ("port", port.to_string())];
+            (code, hint(code, Severity::Notice, params))
+        }
     }
 }
 

@@ -53,25 +53,34 @@ impl Prober for Connected {
     }
 }
 
-fn deps(doc: &[u8]) -> CheckDeps {
+fn deps(status: TailscaleStatus) -> CheckDeps {
     CheckDeps {
         resolver: Arc::new(Answers(vec![(
             "nas.corp.example".into(),
             vec!["100.101.102.103:22".parse().unwrap()],
         )])),
-        tailscale: Arc::new(Fixed(parse_status(true, doc))),
+        tailscale: Arc::new(Fixed(status)),
         prober: Arc::new(Connected),
     }
 }
 
 async fn report_json(doc: &[u8], host: &str, transport: Transport, purpose: Purpose) -> String {
+    report_json_for(parse_status(true, doc), host, transport, purpose).await
+}
+
+async fn report_json_for(
+    status: TailscaleStatus,
+    host: &str,
+    transport: Transport,
+    purpose: Purpose,
+) -> String {
     let input = TargetInput {
         host: HostInput::parse(host).unwrap(),
         port: 22,
         transport,
         purpose,
     };
-    let checked = check_target(&input, &deps(doc), true).await.unwrap();
+    let checked = check_target(&input, &deps(status), true).await.unwrap();
     serde_json::to_string(&checked.report).unwrap()
 }
 
@@ -132,6 +141,58 @@ async fn a_typed_ts_net_name_is_echoed_but_nothing_else_of_the_tailnet() {
     )
     .await;
     for secret in RUNNING_SECRETS {
+        assert!(!json.contains(secret), "{secret} leaked: {json}");
+    }
+}
+
+/// The one place the report carries a full peer name: `tailscale-short-name` for a remote short name matched by name,
+/// with exactly the matched peer's own DNS name (spec §9.4 as amended). Nothing of other peers or other tailnets.
+#[tokio::test]
+async fn remote_short_name_suggests_only_the_matched_peers_own_name() {
+    let TailscaleStatus::Running(mut view) = parse_status(true, RUNNING) else {
+        panic!("running")
+    };
+    // Shared nodes from other tailnets, one with the same first label, listed before the own `nas`.
+    let mut other_nas = view.peers[0].clone();
+    other_nas.dns_name = "nas.other-tailnet.ts.net.".into();
+    other_nas.ips = vec!["100.101.102.198".parse().unwrap()];
+    let mut printer = view.peers[0].clone();
+    printer.dns_name = "printer.shared-tailnet.ts.net.".into();
+    printer.ips = vec!["100.101.102.199".parse().unwrap()];
+    view.peers.insert(0, other_nas);
+    view.peers.push(printer);
+    let json = report_json_for(
+        TailscaleStatus::Running(view),
+        "nas",
+        Transport::Tailscale,
+        Purpose::Remote,
+    )
+    .await;
+    let report: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let hint = report["hints"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|h| h["code"] == "tailscale-short-name")
+        .unwrap_or_else(|| panic!("{json}"));
+    assert_eq!(
+        hint["params"],
+        serde_json::json!({ "suggestion": "nas.example.ts.net" })
+    );
+    assert_eq!(report["tailscale"]["peer"], "nas");
+    assert_eq!(
+        report["addresses"],
+        serde_json::json!(["100.101.102.103", "fd7a:115c:a1e0::65"])
+    );
+    // The suggestion is the only occurrence of the tailnet name.
+    assert_eq!(json.matches("example.ts.net").count(), 1, "{json}");
+    for secret in RUNNING_SECRETS.iter().chain(&[
+        "other-tailnet",
+        "shared-tailnet",
+        "printer",
+        "100.101.102.198",
+        "100.101.102.199",
+    ]) {
         assert!(!json.contains(secret), "{secret} leaked: {json}");
     }
 }
