@@ -621,14 +621,27 @@ async fn run_status(program: &Path, arg0: &Path) -> ExecOutcome {
         .kill_on_drop(true);
     #[cfg(windows)]
     command.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
-    let Ok(mut child) = command.spawn() else {
-        return ExecOutcome::Failed(UnavailableWhy::Spawn);
+    // One deadline for the whole run: process creation, the bounded reads and the wait. Creation runs on the blocking
+    // pool, so a slow `CreateProcess`/`fork` (an on-access scan of the binary, a loaded machine) cannot hold the timer
+    // back; if it finishes after the deadline, the dropped `Child` is killed by `kill_on_drop`.
+    let deadline = Instant::now() + EXEC_TIMEOUT;
+    let spawned = tokio::time::timeout_at(
+        deadline,
+        tokio::task::spawn_blocking(move || command.spawn()),
+    )
+    .await;
+    let mut child = match spawned {
+        Ok(Ok(Ok(child))) => child,
+        Ok(_) => return ExecOutcome::Failed(UnavailableWhy::Spawn),
+        Err(_) => return ExecOutcome::Failed(UnavailableWhy::Timeout),
     };
     let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
-        let _ = child.kill().await;
+        stop(&mut child).await;
         return ExecOutcome::Failed(UnavailableWhy::Spawn);
     };
-    let outcome = tokio::time::timeout(EXEC_TIMEOUT, async {
+    // The readers live inside this future: on the deadline or the cap they are dropped with it, so nothing waits for
+    // an end of file that a killed (or a handle-holding) process may never deliver.
+    let outcome = tokio::time::timeout_at(deadline, async {
         let (out, ()) = tokio::try_join!(read_capped(stdout, MAX_STATUS_BYTES), drain(stderr))?;
         let status = child.wait().await.map_err(|_| UnavailableWhy::Spawn)?;
         Ok::<_, UnavailableWhy>((status.success(), out))
@@ -637,14 +650,23 @@ async fn run_status(program: &Path, arg0: &Path) -> ExecOutcome {
     match outcome {
         Ok(Ok((success, stdout))) => ExecOutcome::Exited { success, stdout },
         Ok(Err(why)) => {
-            let _ = child.kill().await;
+            stop(&mut child).await;
             ExecOutcome::Failed(why)
         }
         Err(_) => {
-            let _ = child.kill().await;
+            stop(&mut child).await;
             ExecOutcome::Failed(UnavailableWhy::Timeout)
         }
     }
+}
+
+/// How long a killed child is waited for before it is left to `kill_on_drop` and the runtime's reaper.
+const REAP_TIMEOUT: Duration = Duration::from_secs(1);
+
+/// Kills the child at once and reaps it within [`REAP_TIMEOUT`]; never waits for its pipes.
+async fn stop(child: &mut tokio::process::Child) {
+    let _ = child.start_kill();
+    let _ = tokio::time::timeout(REAP_TIMEOUT, child.wait()).await;
 }
 
 /// Reads at most `cap` bytes; one more means the output is too large. A read error is `Spawn` (the process could not
@@ -743,8 +765,8 @@ impl CliTailscale {
             return TailscaleStatus::Unavailable(UnavailableWhy::Flatpak);
         }
         let outcome = match &self.source {
-            Source::Candidates => match pick() {
-                Ok((program, candidate)) => run_status(&program, &candidate).await,
+            Source::Candidates => match pick(&candidates(), &default_allowed()) {
+                Ok(picked) => run_picked(picked).await,
                 Err(status) => return status,
             },
             #[cfg(debug_assertions)]
@@ -775,16 +797,24 @@ impl TailscaleSource for CliTailscale {
     }
 }
 
-/// The first usable candidate as (checked path to execute, candidate path for `argv[0]`); `NotInstalled` when none
-/// exists, `Unavailable(Spawn)` when some exist but none passes [`usable`].
-fn pick() -> Result<(PathBuf, PathBuf), TailscaleStatus> {
-    let allowed = default_allowed();
+/// A candidate that passed the checks: the checked path to execute and the candidate path for `argv[0]`.
+struct Picked {
+    program: PathBuf,
+    candidate: PathBuf,
+}
+
+/// The first usable candidate; `NotInstalled` when none exists, `Unavailable(Spawn)` when some exist but none passes
+/// the checks.
+fn pick(candidates: &[PathBuf], allowed: &[PathBuf]) -> Result<Picked, TailscaleStatus> {
     let mut present = false;
-    for candidate in candidates() {
-        if std::fs::symlink_metadata(&candidate).is_ok() {
+    for candidate in candidates {
+        if std::fs::symlink_metadata(candidate).is_ok() {
             present = true;
-            if let Some(program) = checked(&candidate, &allowed) {
-                return Ok((program, candidate));
+            if let Some(program) = checked(candidate, allowed) {
+                return Ok(Picked {
+                    program,
+                    candidate: candidate.clone(),
+                });
             }
         }
     }
@@ -793,6 +823,19 @@ fn pick() -> Result<(PathBuf, PathBuf), TailscaleStatus> {
     } else {
         TailscaleStatus::NotInstalled
     })
+}
+
+/// The production run of a picked candidate: the checked program, with the candidate as `argv[0]`.
+async fn run_picked(picked: Picked) -> ExecOutcome {
+    run_status(&picked.program, &picked.candidate).await
+}
+
+/// The production candidate path for one injected candidate and its allowed places (debug builds only, for the exec
+/// test): the same [`pick`] and [`run_picked`] that [`CliTailscale`] uses; `None` when the candidate fails the checks.
+#[cfg(debug_assertions)]
+pub async fn exec_candidate(candidate: &Path, allowed: &[PathBuf]) -> Option<ExecOutcome> {
+    let picked = pick(&[candidate.to_path_buf()], allowed).ok()?;
+    Some(run_picked(picked).await)
 }
 
 /// The debug fixture seam: the file as a successful run's stdout, with the same size cap.

@@ -26,10 +26,11 @@ pub use tailscale::{
     PeerView, TailnetView, TailscaleSource, TailscaleStatus, TailscaleView, UnavailableWhy,
     EXEC_TIMEOUT, MAX_STATUS_BYTES, MAX_STDERR_BYTES, STATUS_TTL,
 };
-/// Test-only surface (debug builds, like the DR19 seams): running an arbitrary absolute binary and the binary check
-/// with injected allowed places. Release builds expose neither.
+/// Test-only surface (debug builds, like the DR19 seams): running an arbitrary absolute binary, running one injected
+/// candidate through the production pick-and-run path, and the binary check with injected allowed places. Release
+/// builds expose none of them.
 #[cfg(debug_assertions)]
-pub use tailscale::{exec_status, usable_with, ExecOutcome};
+pub use tailscale::{exec_candidate, exec_status, usable_with, ExecOutcome};
 
 use plur1bus_desktop_net::{
     aggregate, canonical, is_tailnet, target_class, AddrClass, CLASSIFIER_ID,

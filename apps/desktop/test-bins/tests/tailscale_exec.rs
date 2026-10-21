@@ -4,7 +4,8 @@
 //! travels through the environment the exec clears. `exec_status` is a debug-only test surface, so this file is too.
 #![cfg(debug_assertions)]
 use plur1bus_desktop::transport::{
-    exec_status, CliTailscale, ExecOutcome, TailscaleSource, TailscaleStatus, UnavailableWhy,
+    exec_candidate, exec_status, CliTailscale, ExecOutcome, TailscaleSource, TailscaleStatus,
+    UnavailableWhy,
 };
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -181,4 +182,40 @@ async fn binary_seam_runs_the_fake_through_the_exec_path() {
             }
         }
     }
+}
+
+/// The production path `CliTailscale` takes for a candidate (pick, then run): the candidate is a symlink to the real
+/// binary under another name; the checked canonical program is what runs and `argv[0]` is the candidate path, as snap's
+/// dispatcher needs. Swapping the two would fail both assertions. Unix only: Windows refuses any reparse point on the
+/// way and runs the checked path itself, so there `argv[0]` and the program are the same path.
+#[cfg(unix)]
+#[tokio::test]
+async fn production_path_runs_the_checked_program_with_the_candidate_as_argv0() {
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    let dir = tempfile::tempdir().unwrap();
+    let base = std::fs::canonicalize(dir.path()).unwrap();
+    let real_dir = base.join("Cellar").join("tailscale");
+    std::fs::create_dir_all(&real_dir).unwrap();
+    let real = real_dir.join("fake-tailscale");
+    std::fs::copy(env!("CARGO_BIN_EXE_fake-tailscale"), &real).unwrap();
+    std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::write(real_dir.join("fake-tailscale.scenario"), "env").unwrap();
+    let bin_dir = base.join("bin");
+    std::fs::create_dir(&bin_dir).unwrap();
+    let candidate = bin_dir.join("tailscale");
+    symlink(&real, &candidate).unwrap();
+
+    let outcome = exec_candidate(&candidate, std::slice::from_ref(&real_dir))
+        .await
+        .expect("candidate passes the checks");
+    let (success, stdout) = exited(outcome);
+    assert!(success);
+    let doc: serde_json::Value = serde_json::from_slice(&stdout).unwrap();
+    assert_eq!(doc["argv"], serde_json::json!(["status", "--json"]));
+    assert_eq!(doc["argv0"].as_str(), candidate.to_str());
+    // The executed image is the canonical program, not the link (on macOS `current_exe` reports the path that was
+    // executed; on Linux it is resolved either way).
+    assert_eq!(doc["exe"].as_str(), real.to_str());
+    // A link outside the allowed places is not run at all.
+    assert!(exec_candidate(&candidate, &[]).await.is_none());
 }

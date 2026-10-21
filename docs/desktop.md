@@ -224,8 +224,10 @@ addresses. `CliTailscale` runs `status --json` only from the fixed absolute cand
 symlink and reparse-point checks; the checked path is the one executed), with a cleared environment, a 4 s timeout, an 8 MiB stdout cap, and caches the
 parsed view for 10 s; inside Flatpak it runs nothing. A matched `*.ts.net` or short name connects to the peer's
 Tailscale addresses without a DNS query. `TcpProber` connects to at most four addresses (3 s each, no bytes sent) and
-compares the local address with this device's Tailscale addresses. Only the state code, the matched peer's first
-`DNSName` label and its online flag reach the report; the status is never logged. Debug-only seams, ignored by release
+compares the local address with this device's Tailscale addresses. Of the status, only the state code, the matched
+peer's label (first `DNSName` label) and its online flag reach the report, plus, for `tailscale-short-name`, that
+peer's own DNS name as the suggestion; for a name match the report's addresses are the matched peer's (or this
+device's) Tailscale addresses, at most eight. The status is never logged. Debug-only seams, ignored by release
 builds: `PLUR1BUS_DESKTOP_TAILSCALE_STATUS=<file>` (a status document instead of the CLI) and
 `PLUR1BUS_DESKTOP_TAILSCALE_BIN=<path>` (a fake CLI, `test-bins` `fake-tailscale`, which reads its scenario from
 `fake-tailscale.scenario` beside itself). Tests use synthetic fixtures under `src-tauri/tests/fixtures/tailscale/` and
