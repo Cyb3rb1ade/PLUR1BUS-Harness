@@ -111,7 +111,12 @@ async function killChild(child: ChildProcess, signal: NodeJS.Signals): Promise<v
   await exited;
 }
 
-export const killCore = (core: RunningCore, signal: NodeJS.Signals): Promise<void> => killChild(core.child, signal);
+/** On Windows `core run` waits in a Rust wrapper instead of exec'ing Node. Kill
+ *  the actual ready.pid first, then reap the wrapper, so "core down" is real. */
+export async function killCore(core: RunningCore, signal: NodeJS.Signals): Promise<void> {
+  if (core.ready.pid !== core.child.pid) await killPid(core.ready.pid, signal);
+  await killChild(core.child, signal);
+}
 
 /** The engine's own warnings when a rerank did not succeed (verbatim prefixes from the pinned engine):
  *  lib/recall-pipeline.js — `recall-pipeline: rerank failed/timeout, falling back to unreranked: …` (throw or timeout);

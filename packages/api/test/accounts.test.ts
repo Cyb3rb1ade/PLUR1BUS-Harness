@@ -153,7 +153,7 @@ test("the routes that need no role are exactly the session self-service routes, 
 
 test("every route: unauthenticated is 401; a Viewer is refused on every route that needs a role (reads and writes)", async () => {
   const h = await setup();
-  const previous=h.core.impl; h.core.impl=async(method,params)=>method==="chat.list"?{sessions:[],truncated:false,nextCursor:null}:method==="chat.get"||method==="chat.events"||method==="chat.export"||method==="chat.model.get"?Promise.reject({error:"E_NOT_FOUND",reason:"not-found"}):previous(method,params);
+  const previous=h.core.impl; h.core.impl=async(method,params)=>method==="chat.list"?{sessions:[],truncated:false,nextCursor:null}:method==="breakglass.notices"?{notices:[]}:method==="chat.get"||method==="chat.events"||method==="chat.export"||method==="chat.model.get"?Promise.reject({error:"E_NOT_FOUND",reason:"not-found"}):previous(method,params);
   try {
     const { cookie } = await loginAs(h, "vera");
     for (const r of ROUTES.filter((x) => x.auth !== "none")) {
@@ -165,7 +165,8 @@ test("every route: unauthenticated is 401; a Viewer is refused on every route th
       const viewerMayRead = r.method === "GET" && ["agents.list", "tokens.list", "totp.status", "notices.list", "chats.list", "passkeys.list"].includes(r.id); // agent.list is open to all roles; my.read is "own" for all
       assert.equal(res.status, (r.id==="remote.trust.get"||typeof r.authz==="object" && r.authz.action==="chat:read" && !viewerMayRead) ? 404 : viewerMayRead ? 200 : 403, `viewer ${r.id}`);
     }
-    assert.equal(h.core.calls.filter((c) => c.method !== "agent.list" && !c.method.startsWith("chat.")).length, 0, "a refused request never reaches the core");
+    // notices.list is the viewer's own read (my.read) and is forwarded to the core's durable notices; nothing else a viewer is refused reaches it.
+    assert.equal(h.core.calls.filter((c) => c.method !== "agent.list" && c.method !== "breakglass.notices" && !c.method.startsWith("chat.")).length, 0, "a refused request never reaches the core");
   } finally { await h.close(); }
 });
 

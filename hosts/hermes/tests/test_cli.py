@@ -362,8 +362,19 @@ class WhichNoCwdTest(unittest.TestCase):
     def test_windows_tries_pathext_without_the_cwd(self) -> None:
         found = self._exe(self.bindir, "plur1bus.exe")
         self._exe(self.cwd, "plur1bus.exe")
-        self.assertEqual(os.path.normcase(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}", platform="win32", pathext=".com;.exe") or ""), os.path.normcase(found))
+        self.assertEqual(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}", platform="win32", pathext=".com;.exe"), os.path.realpath(found))
         self.assertIsNone(cli.which_no_cwd("plur1bus", path=".", platform="win32", pathext=".com;.exe"))
+
+    def test_windows_returns_the_filesystem_spelling_after_pathext_lookup(self) -> None:
+        found = self._exe(self.bindir, "plur1bus.exe")
+        candidate = os.path.join(self.bindir, "plur1bus.EXE")
+        # Model Windows' case-insensitive lookup on every host; realpath on Windows
+        # obtains the stored spelling through GetFinalPathNameByHandleW.
+        with mock.patch.object(cli.os.path, "isfile", side_effect=lambda p: p.lower() == found.lower()), \
+                mock.patch.object(cli.os, "access", return_value=True), \
+                mock.patch.object(cli.os.path, "realpath", return_value=found) as realpath:
+            self.assertEqual(cli.which_no_cwd("plur1bus", path=self.bindir, platform="win32", pathext=".EXE"), found)
+            realpath.assert_called_once_with(candidate)
 
     @requires_core
     def test_bind_does_not_pick_up_a_binary_from_the_current_directory(self) -> None:

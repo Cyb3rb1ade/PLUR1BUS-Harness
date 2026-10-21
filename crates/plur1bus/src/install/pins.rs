@@ -33,33 +33,83 @@ const NODE_SHA256: [(Target, &str); 5] = [
     ),
 ];
 
-fn test_internals() -> bool {
-    std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1")
+/// Whether this build lets `PLUR1BUS_ALLOW_TEST_INTERNALS=1` replace what it trusts (the release key, the Node and
+/// core pins) or redirect an update (`PLUR1BUS_UPDATE_TARGET_BIN`, `PLUR1BUS_TEST_UPDATE_KILL_AT`).
+///
+/// A debug build always does (that is what `cargo test` runs). A release build does so only when it carries no
+/// release key of its own: the unkeyed builds CI makes (`cargo test --release` in the release-smoke workflow) have no
+/// trust anchor to protect and use the seams to sign a local feed, while a build with a baked key, which is a shipped
+/// binary, ignores them whatever the environment says.
+pub fn trust_seams_allowed() -> bool {
+    seams_allowed(cfg!(debug_assertions), release_key_baked())
 }
 
-/// A test seam's value, read once per process and only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`.
-/// Lower-cased: only for hex digests.
+fn seams_allowed(debug_build: bool, release_key_baked: bool) -> bool {
+    debug_build || !release_key_baked
+}
+
+/// Whether a channel key was baked in at build time (an empty variable counts as none).
+fn release_key_baked() -> bool {
+    [
+        option_env!("PLUR1BUS_RELEASE_PUBKEY_STABLE"),
+        option_env!("PLUR1BUS_RELEASE_PUBKEY_BETA"),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|k| !k.trim().is_empty())
+}
+
+/// What the environment says about one test seam.
+#[derive(Debug, PartialEq, Eq)]
+enum Seam {
+    /// Not set, empty, or `PLUR1BUS_ALLOW_TEST_INTERNALS` is not `1`.
+    Off,
+    /// Set and requested, but this build does not honour test seams ([`trust_seams_allowed`]).
+    Refused,
+    /// The trimmed value.
+    Value(String),
+}
+
+fn classify(value: Option<String>, internals_requested: bool, trusted_build: bool) -> Seam {
+    let Some(v) = value
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+    else {
+        return Seam::Off;
+    };
+    match (internals_requested, trusted_build) {
+        (false, _) => Seam::Off,
+        (true, false) => Seam::Refused,
+        (true, true) => Seam::Value(v),
+    }
+}
+
+/// The seam `name`'s value, or `None` (a refused seam says so once on stderr: a shipped binary must not be steered by
+/// its environment, and a person who set the variable should know it did nothing).
+fn read_seam(name: &str) -> Option<String> {
+    let internals = std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1");
+    match classify(std::env::var(name).ok(), internals, trust_seams_allowed()) {
+        Seam::Value(v) => Some(v),
+        Seam::Off => None,
+        Seam::Refused => {
+            eprintln!(
+                "plur1bus: ignoring {name}: this build carries its own release key, so a test seam cannot replace what it trusts"
+            );
+            None
+        }
+    }
+}
+
+/// A test seam's value, read once per process and only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1` in a build that honours
+/// seams. Lower-cased: only for hex digests.
 fn seam(cell: &'static OnceLock<Option<String>>, name: &str) -> Option<&'static str> {
-    cell.get_or_init(|| {
-        test_internals()
-            .then(|| std::env::var(name).ok())
-            .flatten()
-            .map(|v| v.trim().to_ascii_lowercase())
-            .filter(|v| !v.is_empty())
-    })
-    .as_deref()
+    cell.get_or_init(|| read_seam(name).map(|v| v.to_ascii_lowercase()))
+        .as_deref()
 }
 
 /// A test seam's value, case preserved (a base64 minisign public key is case-sensitive, unlike a hex digest).
 fn seam_raw(cell: &'static OnceLock<Option<String>>, name: &str) -> Option<&'static str> {
-    cell.get_or_init(|| {
-        test_internals()
-            .then(|| std::env::var(name).ok())
-            .flatten()
-            .map(|v| v.trim().to_string())
-            .filter(|v| !v.is_empty())
-    })
-    .as_deref()
+    cell.get_or_init(|| read_seam(name)).as_deref()
 }
 
 /// The committed pin, ignoring the test seam.
@@ -130,7 +180,8 @@ pub fn release_base_url() -> Option<&'static str> {
 }
 
 /// The minisign public key `update --check` verifies `{channel}.json` against (HB10): the channel's baked key
-/// (`PLUR1BUS_RELEASE_PUBKEY_STABLE`/`_BETA`), or, under `PLUR1BUS_ALLOW_TEST_INTERNALS=1`,
+/// (`PLUR1BUS_RELEASE_PUBKEY_STABLE`/`_BETA`), or, under `PLUR1BUS_ALLOW_TEST_INTERNALS=1` in a build that honours
+/// test seams ([`trust_seams_allowed`]: never one with a baked key and no debug assertions),
 /// `PLUR1BUS_TEST_RELEASE_PUBKEY` in place of either. `None` in a dev build with no seam: the caller reports
 /// `verified: false` rather than refusing.
 pub fn release_pubkey_for(channel: &str) -> Option<&'static str> {
@@ -162,6 +213,27 @@ mod tests {
             assert_eq!(pinned_node_sha256(t), hash, "{name}");
             assert_eq!(hash.len(), 64);
         }
+    }
+
+    #[test]
+    fn a_shipped_build_with_its_own_key_ignores_the_test_seams() {
+        // A debug build (what `cargo test` runs) and an unkeyed release build (release-smoke) honour them.
+        assert!(seams_allowed(true, true));
+        assert!(seams_allowed(true, false));
+        assert!(seams_allowed(false, false));
+        // A release build with a baked key does not, whatever the environment says.
+        assert!(!seams_allowed(false, true));
+    }
+
+    #[test]
+    fn a_seam_needs_the_master_gate_and_a_build_that_honours_it() {
+        let key = Some(" Ab+/= \n".to_string());
+        assert_eq!(classify(key.clone(), false, true), Seam::Off);
+        assert_eq!(classify(key.clone(), false, false), Seam::Off);
+        assert_eq!(classify(key.clone(), true, false), Seam::Refused);
+        assert_eq!(classify(key, true, true), Seam::Value("Ab+/=".into()));
+        assert_eq!(classify(None, true, false), Seam::Off);
+        assert_eq!(classify(Some("  ".into()), true, false), Seam::Off);
     }
 
     #[test]

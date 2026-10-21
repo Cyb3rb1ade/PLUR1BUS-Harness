@@ -15,13 +15,13 @@ describe("selectMediaIndex", () => {
     assert.equal(r.kind, "disabled");
     assert.ok(r.port instanceof DisabledMediaIndex);
   });
-  it("engine with media -> engine adapter, host ports attached once", () => {
+  it("engine with media -> engine adapter; does not call the nonexistent attachHost", () => {
     const attached: unknown[] = [];
     const budget = { canContinue: async () => true };
     const r = selectMediaIndex({ engine: { media: media({ attachHost: (h: unknown) => { attached.push(h); } }) }, config: {}, ports: { ...ports, budget } });
     assert.equal(r.kind, "engine");
     assert.ok(r.port instanceof EngineMediaIndex);
-    assert.deepEqual(attached, [{ frames: null, audio: null, budget }]);
+    assert.deepEqual(attached, []);
   });
   it("engine media without attachHost is fine", () => {
     assert.equal(selectMediaIndex({ engine: { media: media() }, config: { enabled: true }, ports }).kind, "engine");

@@ -143,9 +143,6 @@ export function BoardView({
     const targetCol = columns.find((c) => c.id === targetColId);
     if (!targetCol) return;
 
-    // Snapshot for rollback
-    const snapshot = [...localCards];
-
     // Optimistic update
     const updated = optimisticallyMoveCard(
       localCards,
@@ -177,8 +174,11 @@ export function BoardView({
       // Success: refresh in background
       onRefresh();
     } catch (err: any) {
-      // Rollback on failure
-      setLocalCards(snapshot);
+      // Rollback on failure: put back only this card (moving it back to where it came from renumbers the columns it touched the same way
+      // the optimistic move did). A snapshot of the whole board would also undo moves of other cards that were made or confirmed meanwhile.
+      // The server's answer is the truth, so ask for it.
+      setLocalCards((current) => optimisticallyMoveCard(current, cardId, card.columnId, card.position));
+      onRefresh();
       let errorMsg = t("projects.error.generic");
       if (err?.errorCode === "E_PROJECT_WIP_LIMIT") {
         errorMsg = t("projects.error.wipLimit", {

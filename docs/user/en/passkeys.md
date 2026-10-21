@@ -1,6 +1,6 @@
 # Your account and passkeys
 
-For a native or VPS installation, open the **Your account** wizard step. Read the one-time proof locally from the private `run/api-bootstrap.token` file, enter a username and a password of at least 12 characters, then choose **Create account**. The proof expires after 15 minutes. Restarting the API before account creation rotates an expired proof. Successful creation consumes it permanently and removes the proof file; the reusable Owner token can no longer sign in.
+For a native or VPS installation, open the **Your account** wizard step. Read the one-time proof locally from the private `run/api-bootstrap.token` file, enter a username and a password of at least 12 characters, then choose **Create account**. The proof expires after 15 minutes. Restarting the API before account creation rotates an expired proof. Successful creation consumes it permanently and removes the proof file; the reusable Owner token can no longer sign in. The German version of this page is [../de/passkeys.md](../de/passkeys.md).
 
 The bundled desktop installer creates the Owner account and marks bootstrap completed; there is no proof in this variant.
 

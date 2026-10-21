@@ -18,7 +18,29 @@ test("person status is durable authority; last active Owner remains enabled and 
     assert.throws(() => store.setDisabled("owner-one", true, "owner-two", 5, () => { throw new Error("audit failed"); })); assert.equal(store.person("owner-one")?.disabled, false);
   } finally { store.close(); }
 });
-test.todo("KNOWN GAP: channel inbound ignores person.disabled; switchboard is owned by the parallel security package");
+test("channel inbound honours person.disabled: a disabled person reaches no turn through the switchboard, enabling restores access", async () => {
+  const { makeRig } = await import("../channels/switchboard-rig.ts");
+  const store = new AdminStore({ path: ":memory:", ownerId: "owner-one" });
+  // Exactly the wiring core.ts gives the switchboard: the admin store is the authority.
+  const rig = makeRig({ switchboard: { personActive: (id: string) => !store.person(id)?.disabled } });
+  try {
+    rig.secrets.put("channels.discord.token", "unit-test-token-0123456789");
+    rig.config.set("discord", { enabled: true });
+    await rig.switchboard.start(); await rig.clock.advance(0);
+    const { humanId } = rig.link("discord", "bot-1", "sender-1");
+    store.setRole(humanId, "member", () => {});
+    const a = rig.adapter();
+    await a.inbound({ text: "one", messageId: "m1" });
+    assert.equal(rig.provider.requests.length, 1);
+    store.setDisabled(humanId, true, "owner-one", 1, () => {});
+    await a.inbound({ text: "two", messageId: "m2" });
+    assert.equal(rig.provider.requests.length, 1, "no turn for a disabled person");
+    assert.deepEqual(a.sent.map((m) => m.text), ["echo:one"], "and no reply");
+    store.setDisabled(humanId, false, "owner-one", 2, () => {});
+    await a.inbound({ text: "three", messageId: "m3" });
+    assert.equal(rig.provider.requests.length, 2);
+  } finally { rig.close(); store.close(); }
+});
 
 test("disable/enable role matrix, agents denied, audit principals hashed and reason bounded", async () => {
   const { buildAdminSurface } = await import("../../src/rpc/admin-surface.ts"); const { guardMethods } = await import("../../src/rbac/guard.ts");

@@ -1,0 +1,71 @@
+# Memories
+
+The Memories page (`#/memories`) shows what an agent has stored, searches it and tells you whether the memory is healthy. The same page also has the tabs Dreams ([dreams.md](dreams.md)) and Media ([media-search.md](media-search.md)). The German version of this page is [../de/erinnerungen.md](../de/erinnerungen.md).
+
+The page shows the memory of one agent at a time. With more than one agent, an **Agent** select at the top chooses whose memory you see; your choice is kept while you stay on the page. Without an agent there is no memory to show, see [agents.md](agents.md). A small line under the title says whether live updates are on. If the live channel is not available, use **Refresh**.
+
+## Scopes
+
+Every memory card belongs to one of three scopes, shown as a badge:
+
+- **Agent-private** cards belong to this agent.
+- **Workspace** and **User** cards live in shared pools. Sharing a card with `memory share` (see below) makes a shared card in one of them.
+
+A shared card shows who shared it and from which source card.
+
+## Health
+
+The **Health** panel shows how ready the memory engine is: **Ready**, **Not ready** or **Degraded** with the reason, the process and its uptime, the state of the embedder and the reranker (ready, loading, warming up, failed, disabled), the schema of the store and whether a migration is needed, whether shared memory is supported, and the card counts per scope. **Archived (forgotten)** counts the cards that were forgotten. If your role may not read some part, the panel says so and shows the rest.
+
+## Search
+
+**Search memories** asks the memory the way an agent does. The search is semantic, so a short phrase often works better than a long one. Under the results, **Why these results** shows how the answer was built: the total time, the phases, the size cap, blocks that were clipped or dropped and the engine trace. It does not say which card produced which line.
+
+## Cards
+
+The list shows the cards of the chosen agent with a summary, the scope badge and the date. **Filter by topic** narrows it. The list loads 20 cards at a time and stops at 100; use the topic filter to reach older ones. A card opens in a detail view with the full text, **Id**, **Created**, **Origin**, **Epistemic status** and, for shared cards, **Shared by** and **Source card**. A card that was forgotten or never existed shows **Memory not found**.
+
+The page only reads. To change memory you use the command line, see below.
+
+## Reviews
+
+When someone proposes a correction to a shared memory, it waits under **Reviews** as **Pending**, with the text before and after and who proposed it. The page lists proposals but cannot accept or reject them; that is done on the command line.
+
+## Media
+
+The tab **Media** shows the index for images, videos and audio next to the text index: on or off, provider, model, the counts of indexed, pending, failed and unsupported items and the progress of the backfill. Owner and Admin can pause and resume it and start a re-index, which asks you to type a confirmation word first. Everyone else sees the state only. The settings are in [media-search.md](media-search.md).
+
+## On the command line
+
+```sh
+plur1bus memory add --agent main "Staging runs on the small database"
+plur1bus memory recall --agent main --joined "which database is staging"
+plur1bus memory list --agent main --since 7d
+plur1bus memory list --agent main --topic staging --limit 10
+plur1bus memory show --agent main <id>
+plur1bus memory correct --agent main <id> "Staging runs on the large database"
+plur1bus memory forget --agent main <id> --yes
+plur1bus memory share --agent main <id> --to workspace
+plur1bus memory state --agent main
+plur1bus memory propose --agent main <shared-id> "Corrected text" --note "Out of date"
+plur1bus memory proposals list --agent main --status pending
+plur1bus memory proposals accept --agent main <proposal-id>
+plur1bus memory proposals reject --agent main <proposal-id> --note "Not correct"
+```
+
+- `memory add` stores a memory for an agent, `memory recall` returns what is relevant to a query. `--joined` prints the blocks as one text.
+- `memory list` shows the cards of an agent: id, scope, who shared it and the summary. `--topic` cannot be combined with `--since` and `--until`. Both take epoch milliseconds or a relative value such as `30m`, `12h` or `7d`. Without a time flag the list covers all history.
+- `memory correct` writes a corrected version of a card. `memory forget` forgets a card and prints the tombstone it wrote; in a terminal it asks first, in a script you pass `--yes`.
+- `memory share --to` takes `workspace` or `user`. A card marked sensitive is not shared until a person confirms: a terminal asks, a script passes `--allow-sensitive` after the person agreed.
+- `memory state` prints the card counts per scope and the tombstones.
+- `memory propose` suggests a correction to a shared card instead of changing it. `memory proposals list` filters by `--status` (`pending`, `accepted`, `rejected` or `stale`); `accept` and `reject` settle a proposal, `reject` takes an optional `--note`.
+- Switching to another embedding model has its own page, [reembed.md](reembed.md).
+
+The memory commands other than `add` and `recall` are marked experimental in the command reference. Your role and your rights on the agent decide what you may do; the server refuses the rest.
+
+## Next
+
+- Dreams, the background clean-up of memory: [dreams.md](dreams.md)
+- Memory in images, video and audio: [media-search.md](media-search.md)
+- Change the embedding model: [reembed.md](reembed.md)
+- What stays on this computer: [privacy.md](privacy.md)

@@ -316,12 +316,17 @@ describe("core on the supervisor's configuration (B7)", () => {
   it("local-only installation, origins and agent pins apply live to the same Core instance", async () => {
     const s = await startOnSupervisor();
     const before = s.core.status();
+    const client=await s.client(), invalidations:unknown[]=[];
+    client.onNotification((method,params)=>{if(method==="chat.models.changed")invalidations.push(params);});
+    await client.call("events.subscribe",{names:["chat.models.changed"]});
     const inventory = JSON.parse(readFileSync(`${layout(s.home).run}/engine-models.json`, "utf8"));
     assert.equal(inventory.version, 1);
     assert.equal(inventory.pid, before.pid);
     assert.equal(inventory.instanceId, before.instanceId);
     assert.deepEqual(inventory.endpoints, [], "default disabled test Engine has no external endpoints");
     await s.push(c => { c.privacy.localOnly = true; c.privacy.localEndpoints = ["http://192.168.1.4:11434"]; c.agents.bernd!.privacy = {localOnly:true}; });
+    await until(()=>invalidations.length===1);
+    assert.deepEqual(Object.keys(invalidations[0] as object).sort(),["at","reason"]);
     assert.equal(s.core.status().config?.restartPending, false);
     assert.equal(s.core.status().pid, before.pid);
     assert.equal(s.core.status().instanceId, before.instanceId);

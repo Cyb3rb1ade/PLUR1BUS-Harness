@@ -81,6 +81,35 @@ test("real HTTP Operator sees direct-chat metadata only; Break-glass grants read
  const transcript=await rpc(admin,"session.get",params);assert.ok(transcript.result.messages.some((m:any)=>m.text==="confidential transcript"),JSON.stringify(transcript));
  const deniedWrite=await h.call(admin,`/api/v1/chats/${id}/archive`,"POST",{});assert.equal(deniedWrite.status,404);await deniedWrite.text();
 });
+test("real HTTP/core: break-glass has one registry — a REST grant lets the core read, a REST revoke ends it, an RPC grant is listed and revoked over REST, and the grant is audited and announced once",{timeout:30000},async t=>{
+ const h=await setup(t),alice=await h.login("alice"),admin=await h.login("admin");
+ const create=await h.call(alice,"/api/v1/chats","POST",{agentId:"bernd",title:"confidential title"});const id=(await create.json() as any).session.id;
+ const send=await h.call(alice,`/api/v1/chats/${id}/messages`,"POST",{text:"confidential transcript",wait:true});assert.equal(send.status,200);await send.text();
+ const rpc=async(cookie:string,method:string,params:object)=>{const r=await h.call(cookie,"/rpc","POST",{jsonrpc:"2.0",id:1,method,params});assert.equal(r.status,200);return r.json() as Promise<any>;};
+ const params={caller:{channel:"cli",accountId:"harness-api",userId:"admin"},sessionId:id,messages:10};
+ const readable=async()=>{const r=await rpc(admin,"session.get",params);return r.result?.messages?.some((m:any)=>m.text==="confidential transcript")===true;};
+ const granted=()=>h.audit.events.filter(e=>e.action==="break-glass.granted");
+ assert.equal(await readable(),false,"no grant: the core refuses");
+ // REST grant -> the core's own read honours it, one audit line, one notice.
+ const made=await h.call(admin,"/api/v1/breakglass","POST",{targetUserId:"alice",reason:"Investigate an explicit incident",ttlMinutes:5});assert.equal(made.status,201,await made.clone().text());const g=(await made.json() as any).grant;
+ assert.equal(await readable(),true,"a REST grant lets the core read");
+ assert.deepEqual(granted().map(e=>e.detail.grantId),[g.id]);
+ const pulled=await h.call(alice,"/api/v1/me/notices");assert.equal(pulled.status,200);assert.deepEqual((await pulled.json() as any).notices.map((n:any)=>[n.grantId,n.holderUserId]),[[g.id,"admin"]]);
+ assert.deepEqual((await rpc(alice,"breakglass.notices",{})).result.notices.map((n:any)=>n.grantId),[g.id],"the same notice over RPC");
+ // REST revoke -> the core refuses again.
+ const ended=await h.call(admin,"/api/v1/breakglass/revoke","POST",{grantId:g.id});assert.equal(ended.status,200,await ended.clone().text());await ended.text();
+ assert.equal(await readable(),false,"a REST revoke takes the read away");
+ // RPC grant -> listed over REST, revoked over REST.
+ const viaRpc=await rpc(admin,"breakglass.request",{targetUserId:"alice",reason:"Investigate an explicit incident",windowMinutes:5});assert.ok(viaRpc.result,JSON.stringify(viaRpc));
+ const listed=await h.call(admin,"/api/v1/breakglass");assert.equal(listed.status,200);assert.deepEqual((await listed.json() as any).grants.map((x:any)=>x.id),[viaRpc.result.id],"an RPC grant is visible over REST");
+ assert.equal(await readable(),true);
+ const endedRpc=await h.call(admin,"/api/v1/breakglass/revoke","POST",{grantId:viaRpc.result.id});assert.equal(endedRpc.status,200,"an RPC grant can be revoked over REST");await endedRpc.text();
+ assert.equal(await readable(),false);
+ // A grant the core refuses leaves no audit line and no notice.
+ const before=granted().length,noticesBefore=(await rpc(alice,"breakglass.notices",{})).result.notices.length;
+ const self=await h.call(admin,"/api/v1/breakglass","POST",{targetUserId:"admin",reason:"Investigate an explicit incident"});assert.equal(self.status,400);await self.text();
+ assert.equal(granted().length,before);assert.equal((await rpc(alice,"breakglass.notices",{})).result.notices.length,noticesBefore);
+});
 test("real HTTP keyset pagination merges persistent and RAM chats, binds owner and filters, and reports truncation",{timeout:30000},async t=>{
  const h=await setup(t),alice=await h.login("alice"),bob=await h.login("bob"),ids:string[]=[];
  for(let n=0;n<7;n++){const r=await h.call(alice,"/api/v1/chats","POST",{agentId:"bernd",title:`page needle ${n}`,memoryMode:n%2?"incognito":"remember"});assert.equal(r.status,201);ids.push((await r.json() as any).session.id);}
