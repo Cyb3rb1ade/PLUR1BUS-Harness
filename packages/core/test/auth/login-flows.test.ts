@@ -51,12 +51,14 @@ for (const method of ["loopback_ssh", "paste_callback"] as const) it(`headless $
 
 for (const paste of [false, true]) it(`state mismatch aborts without token exchange (${paste ? "paste" : "listener"})`, async t => {
   const m = await mockOAuth(); t.after(() => m.close());
-  const store = new InMemorySecretStore();
+  const store = new InMemorySecretStore(), controller = new AbortController();
   const wrong = async (url: string) => { const cb = new URL(await m.callback(url)); cb.searchParams.set("state", MARK.key); return cb.href; };
-  await assert.rejects(login({ profile: m.profile(), store, clock: new FakeClock(), http: createOAuthHttp({ egress: m.egress }), env: desktop, pasteCallback: paste,
-    openBrowser: async url => { const res = await fetch(await wrong(url)); assert.equal(res.status, 400); const body = await res.text(); assert.ok(!body.includes(MARK.key)); },
+  // Pasted text is the user's own input and fails the login. A forged request to the listener only gets the constant 400
+  // and leaves it open (login-callback-state.test.ts); here the login is cancelled afterwards.
+  await assert.rejects(login({ profile: m.profile(), store, clock: new FakeClock(), http: createOAuthHttp({ egress: m.egress }), env: desktop, pasteCallback: paste, signal: controller.signal,
+    openBrowser: async url => { const res = await fetch(await wrong(url)); assert.equal(res.status, 400); const body = await res.text(); assert.ok(!body.includes(MARK.key)); controller.abort(); },
     readCallback: info => wrong(info.authorizationUrl),
-  }), (e: any) => e.code === "state_mismatch" && !inspect(e).includes(MARK.key));
+  }), (e: any) => e.code === (paste ? "state_mismatch" : "login_timeout") && !inspect(e).includes(MARK.key));
   assert.equal(await store.get("auth/test"), undefined);
   assert.equal(m.requests.filter(r => r.path === "/token").length, 0);
 });

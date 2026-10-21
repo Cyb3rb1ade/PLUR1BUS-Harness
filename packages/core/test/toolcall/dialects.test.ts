@@ -7,7 +7,7 @@ import { compileDialect, compileCatalogue, fromRegisteredTool, restoreStrictArgu
 import { lookupQuirks, QUIRKS, type ProviderFamily } from "../../src/toolcall/quirks.ts";
 import { validateArguments, prepareCall, type Schema } from "../../src/toolcall/validation.ts";
 import type { ToolDefinition } from "../../../providers/src/types.ts";
-import { mulberry32, gap } from "./helpers.ts";
+import { mulberry32 } from "./helpers.ts";
 
 const closed = (properties: Record<string, unknown> = {}, required: string[] = []): Schema => ({ type: "object", additionalProperties: false, properties, ...(required.length ? { required } : {}) });
 const tool = (over: Partial<ToolDefinition> = {}): ToolDefinition => ({ name: "lookup", description: "Look something up", parameters: closed({ q: { type: "string" } }, ["q"]) as never, ...over });
@@ -36,7 +36,7 @@ describe("quirks table", () => {
     assert.throws(() => { (QUIRKS["anthropic"] as { maxTools: number }).maxTools = 9999; }, TypeError);
   });
 
-  it(gap("lookupQuirks", "any name that is not a table key (including 'constructor', '__proto__', 'toString') gets the conservative fallback", "inherited Object.prototype members are returned as the quirks object, so name, description and tool-count limits are not enforced and prepareCall throws a TypeError"), { todo: gap("lookupQuirks", "any name that is not a table key (including 'constructor', '__proto__', 'toString') gets the conservative fallback", "inherited Object.prototype members are returned as the quirks object, so name, description and tool-count limits are not enforced and prepareCall throws a TypeError") }, async () => {
+  it("any name that is not an own table key (including 'constructor', '__proto__', 'toString') gets the conservative fallback", async () => {
     for (const name of ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"]) {
       const q = lookupQuirks(name);
       assert.equal(q.maxTools, 4, `${name}: maxTools`);
@@ -44,6 +44,14 @@ describe("quirks table", () => {
       assert.throws(() => compileCatalogue(Array.from({ length: 5 }, (_, i) => tool({ name: `t${i}` })), "openai-chat", name), /too many tools/, `${name}: tool count`);
       assert.equal((await prepareCall("t", { type: "object" }, "{}", undefined, name)).ok, true, `${name}: prepareCall`);
     }
+  });
+
+  it("real table names are still resolved to their own entries, not the fallback", () => {
+    for (const name of Object.keys(QUIRKS)) {
+      assert.equal(lookupQuirks(name), QUIRKS[name], name);
+    }
+    assert.equal(lookupQuirks("openai-chat").maxTools, 128);
+    assert.equal(lookupQuirks("local-small").maxTools, 8);
   });
 });
 
@@ -388,5 +396,22 @@ describe("restoreStrictArguments", () => {
       assert.deepEqual(restored, "h" in args ? args : { ...args, h: null }, `seed=0x${SEED.toString(16)} case=${i}`);
       assert.deepEqual(validateArguments(original, restored), [], `seed=0x${SEED.toString(16)} case=${i}`);
     }
+  });
+});
+
+describe("properties named like Object.prototype members", () => {
+  it("strict mode keeps an optional '__proto__' property as an own, nullable property and lists it as required", () => {
+    const parameters = JSON.parse('{"type":"object","additionalProperties":false,"properties":{"__proto__":{"type":"string"},"constructor":{"type":"integer"},"q":{"type":"string"}},"required":["q"]}') as never;
+    const wire = compileDialect(tool({ parameters }), "openai-chat", { strict: true }).wire as { function: { parameters: { properties: Record<string, unknown>; required: string[] } } };
+    const { properties, required } = wire.function.parameters;
+    assert.deepEqual(Object.keys(properties).sort(), ["__proto__", "constructor", "q"]);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(properties, "__proto__")?.value, { type: ["string", "null"] });
+    assert.deepEqual(properties["constructor"], { type: ["integer", "null"] });
+    assert.deepEqual([...required].sort(), ["__proto__", "constructor", "q"]);
+  });
+
+  it("restoreStrictArguments only treats own schema properties as optional sentinels", () => {
+    const schema = JSON.parse('{"type":"object","properties":{"constructor":{"type":"string"},"q":{"type":"string"}},"required":["q"]}') as Schema;
+    assert.deepEqual(restoreStrictArguments(schema, { q: "x", constructor: null, other: null, toString: null }), { q: "x", other: null, toString: null });
   });
 });

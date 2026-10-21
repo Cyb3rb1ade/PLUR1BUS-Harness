@@ -124,7 +124,7 @@ Ein Auftrag durchläuft die Zustände `queued`, `running` und endet in `succeede
 ## Kosten und Grenzen
 
 - Cloud-Anbieter berechnen ihre Bilder selbst. Plur1bus rechnet nicht in Geld: es schätzt keine Kosten und zeigt keine an.
-- Ist das Budget erschöpft, schickt Plur1bus den Auftrag gar nicht erst an den Anbieter.
+- Ist das Budget erschöpft, schickt Plur1bus den Auftrag gar nicht erst an den Anbieter. Medien haben eigene Limits in Bildern und Videosekunden (siehe [budgets.md](budgets.md)); eine Anfrage nach mehr Bildern als übrig sind, wird ganz abgelehnt.
 - Referenz- und Maskenbilder werden vor dem Versand von Metadaten befreit, etwa Standort aus EXIF.
 - Lehnt ein Anbieter einen Auftrag inhaltlich ab, wird er nicht über einen anderen Anbieter umgangen und nicht automatisch
   wiederholt.
