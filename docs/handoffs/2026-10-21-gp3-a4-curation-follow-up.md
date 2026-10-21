@@ -39,10 +39,27 @@ together. Engine 1.17.0 is independent of RPC versioning.
 
 Local checks: strict old-pin RED (expected contract assertion), source 7/7;
 normal installed-pin curation + agent-principal RBAC 50/50; `pnpm typecheck`,
-`pnpm lint`, `pnpm docs:check` and `git diff --check` pass. The full workspace
-suite is running separately at handoff (`/tmp/memissues-a4-suite-serial.log`),
-without an overall-pass claim. An earlier parallel prep collided on the API
-build's `dist/bin.js` rename; the full command was restarted after prep completed.
+`pnpm lint`, `pnpm docs:check` and `git diff --check` pass. The full workspace run completed (`/tmp/memissues-a4-suite-serial.log`):
+18,184 tests / 17,954 pass / 10 fail / 50 skipped / 170 TODO. Web was 2,091 /
+2,088 pass / one old keyboard expectation failure / two TODO; Core was 9,902 /
+9,851 pass / nine macOS failures / 19 skipped / 23 TODO. The keyboard assertion
+is now extended and its final isolated case passes as described below; no new
+full-workspace or whole-Web pass is claimed after that correction.
+
+The nine macOS containment/rollback failures match A2's demonstrated main
+baseline: all relevant source, original tests and helpers are byte-identical
+to main `1dae60f2ae6d4f7b361cefa61e4717dfae00fa0b`. A2 ran the actual pre-fix RED
+against those matching-main blobs and passes 83/83 after the fix in #671.
+Controller integration of #671 is required; no duplicate fix or separate
+full-main run is claimed here. Proofs: `/tmp/memissues-a2-main-baseline.md`,
+`/tmp/memissues-a4-main-blob-proof.txt`.
+
+The new Curation tab sits between Dreams and Media. The existing keyboard
+expectation skipped that tab and failed deterministically (Light-group wait
+timeout after one Left from Media). Coverage now explicitly traverses
+Media -> Curation -> Dreams -> Memories, checking URL, selected state, tab stops
+and focus. The targeted case passed 1/1 immediately and again 1/1 after all
+whole Web suites stopped. This extends the assertions instead of weakening them.
 
 No Rust production surface, Engine pin or committed lockfile changed. #669
 uses `Refs #609` until the Controller pin and required acceptance complete.
