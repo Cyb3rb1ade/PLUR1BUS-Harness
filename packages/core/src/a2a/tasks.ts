@@ -1,5 +1,6 @@
 // Task lifecycle (A2A 0.3): submitted → working → input-required/auth-required → completed|failed|canceled|rejected.
-// In-memory store with a live cap, a stored cap and a TTL (a persistent store is a follow-up).
+// In-memory store with a live cap, a stored cap (shared fairly between peers), a TTL, and a per-task cap on the reply
+// and on the event log (a persistent store is a follow-up).
 import { randomUUID } from "node:crypto";
 import { artifactUpdate, statusUpdate } from "./events.ts";
 import { assignPushId, PushDispatcher, PushError, toTaskPush } from "./push.ts";
@@ -14,6 +15,24 @@ export const realScheduler: Scheduler = {
   set: (fn, ms) => { const t = setTimeout(fn, ms); t.unref(); return t; },
   clear: (h) => clearTimeout(h as NodeJS.Timeout),
 };
+
+/** Appended to a reply that hit `maxReplyBytes`. */
+export const REPLY_TRUNCATED_MARKER = "[reply truncated: size limit]";
+/** Event slots kept free for the closing sequence (reply tail, last artifact chunk, final status). */
+const FINAL_EVENT_RESERVE = 3;
+/** Event slots kept free for status transitions (working, input-required, ...) so reply chunks cannot crowd them out. */
+const STATUS_EVENT_RESERVE = 8;
+
+/** The longest prefix of `text` that is at most `maxBytes` UTF-8 bytes and does not end inside a character. */
+function clipUtf8(text: string, maxBytes: number): string {
+  if (maxBytes <= 0) return "";
+  const head = text.length > maxBytes ? text.slice(0, maxBytes) : text; // every UTF-16 unit is at least one byte
+  const buf = Buffer.from(head, "utf8");
+  if (buf.length <= maxBytes) return head;
+  let end = maxBytes;
+  while (end > 0 && (buf[end]! & 0xc0) === 0x80) end--; // back off a continuation byte to the start of its character
+  return buf.subarray(0, end).toString("utf8");
+}
 
 export class TaskError extends Error {
   readonly code: "not-found" | "not-cancelable" | "too-many" | "no-provider" | "unsupported" | "invalid";
@@ -36,6 +55,12 @@ export interface TaskStoreOptions {
   turns: A2aTurnPort;
   clock: () => number; scheduler?: Scheduler;
   maxLivePerPeer: number; maxStored: number; retentionMs: number; replyTimeoutMs: number; maxHistory: number;
+  /** Stored tasks a peer may hold when the store is full; a peer above it is the first to lose finished tasks. Default: `maxStored`. */
+  maxStoredPerPeer?: number;
+  /** UTF-8 bytes of a reply kept in memory (default 256 KiB). */
+  maxReplyBytes?: number;
+  /** Events one task's log holds (default 1024). */
+  maxEventsPerTask?: number;
   maxStreamConnectionsPerPeer?: number;
   onEvent?: (e: { type: "created" | "canceled" | "finished"; taskId: string; peerId: string; agentId: string; state: TaskState }) => void;
   push?: PushDispatcher;
@@ -45,6 +70,9 @@ export interface StartArgs {
   peerId: string; agentId: string; text: string; parts: A2aPart[]; messageId: string;
   contextId?: string; taskId?: string; push?: A2aPushConfig;
 }
+
+const DEFAULT_REPLY_BYTES = 256 * 1024;
+const DEFAULT_EVENTS = 1024;
 
 /** Push configs one task may hold; each one is a delivery on every terminal/paused transition. */
 const MAX_PUSH_CONFIGS_PER_TASK = 8;
@@ -67,10 +95,38 @@ export class TaskStore {
       // A peer that never answers input-required/auth-required would hold a live slot (and any stream) forever.
       if (RESUMABLE_STATES.has(r.state) && now - r.updatedAt >= this.#o.retentionMs) { r.reason = "canceled"; this.#finish(r, "canceled"); }
       if (TERMINAL_STATES.has(r.state) && now - r.updatedAt >= this.#o.retentionMs) {
-        this.#tasks.delete(id);
-        for (const [k, v] of this.#byMessage) if (v === id) this.#byMessage.delete(k);
+        this.#drop(r);
       }
     }
+  }
+
+  #drop(r: Rec): void {
+    this.#tasks.delete(r.id);
+    for (const [k, v] of this.#byMessage) if (v === r.id) this.#byMessage.delete(k);
+  }
+
+  /**
+   * Room for one more stored task. While the store has free slots anyone may take them (a peer can borrow beyond its fair
+   * share). When it is full, a peer at or above its share is refused; a peer below it reclaims a slot from the peer furthest
+   * above its own share by dropping that peer's oldest finished task. Running and paused tasks are never dropped, and nobody
+   * is pushed below their share, so one peer cannot lock the others out.
+   */
+  #admitStored(peerId: string): void {
+    if (this.#tasks.size < this.#o.maxStored) return;
+    const share = Math.max(1, this.#o.maxStoredPerPeer ?? this.#o.maxStored);
+    const count = new Map<string, number>(); const oldest = new Map<string, Rec>();
+    for (const r of this.#tasks.values()) {
+      count.set(r.peerId, (count.get(r.peerId) ?? 0) + 1);
+      if (TERMINAL_STATES.has(r.state)) { const o = oldest.get(r.peerId); if (!o || r.updatedAt < o.updatedAt) oldest.set(r.peerId, r); }
+    }
+    if ((count.get(peerId) ?? 0) >= share) throw new TaskError("too-many", "the task store is full");
+    let victim: Rec | undefined; let worst = 0;
+    for (const [p, c] of count) {
+      const over = c - share; const cand = oldest.get(p);
+      if (p !== peerId && cand && over > worst) { worst = over; victim = cand; }
+    }
+    if (!victim) throw new TaskError("too-many", "the task store is full");
+    this.#drop(victim);
   }
 
   #owned(id: string, peerId: string, agentId: string): Rec {
@@ -92,7 +148,7 @@ export class TaskStore {
 
     let live = 0; for (const r of this.#tasks.values()) if (r.peerId === a.peerId && !TERMINAL_STATES.has(r.state)) live++;
     if (live >= this.#o.maxLivePerPeer) throw new TaskError("too-many", "too many running tasks for this peer");
-    if (this.#tasks.size >= this.#o.maxStored) throw new TaskError("too-many", "the task store is full");
+    this.#admitStored(a.peerId);
 
     const id = randomUUID();
     const contextId = a.contextId ?? randomUUID();
@@ -133,7 +189,24 @@ export class TaskStore {
     const timer = this.#sched.set(() => { rec.reason = "timeout"; rec.controller.abort(new Error("timeout")); }, this.#o.replyTimeoutMs);
     try {
       let reply = "";
-      let firstChunk = true;
+      let replyBytes = 0;
+      let tail = ""; // reply text that found no room in the event log; flushed as one event
+      let sent = false; // an artifact chunk has gone out (decides `append`)
+      const maxReply = this.#o.maxReplyBytes ?? DEFAULT_REPLY_BYTES;
+      const flush = (last: boolean): void => {
+        if (tail === "" && !last) return;
+        this.#emit(rec, artifactUpdate(this.#view(rec, 0), rec.artifactId, tail, sent, last), false, last);
+        tail = ""; sent = true;
+      };
+      const push = (text: string): void => {
+        if (text === "") return;
+        reply += text; replyBytes += Buffer.byteLength(text);
+        rec.reply = reply;
+        if (tail === "" && this.#deltaRoom(rec)) {
+          this.#emit(rec, artifactUpdate(this.#view(rec, 0), rec.artifactId, text, sent, false), false);
+          sent = true;
+        } else tail += text;
+      };
       const signal = rec.controller.signal;
       const aborted = new Promise<never>((_, rej) => { signal.addEventListener("abort", () => rej(signal.reason), { once: true }); });
       aborted.catch(() => {});
@@ -147,11 +220,16 @@ export class TaskStore {
           if (n.done) break;
           const chunk = n.value;
           if (chunk.type === "delta") {
-            reply += chunk.text;
-            rec.reply = reply;
-            this.#emit(rec, artifactUpdate(this.#view(rec, 0), rec.artifactId, chunk.text, !firstChunk, false), false);
-            firstChunk = false;
+            const room = maxReply - replyBytes;
+            if (Buffer.byteLength(chunk.text) > room) {
+              // Cut, mark, and stop: the rest of the turn would only be thrown away, so end it instead of draining it.
+              push(clipUtf8(chunk.text, room)); push(REPLY_TRUNCATED_MARKER);
+              this.#o.turns.cancel(rec.sessionId);
+              break;
+            }
+            push(chunk.text);
           } else if (chunk.type === "pause") {
+            flush(false);
             rec.history.push({
               kind: "message", role: "agent", messageId: randomUUID(),
               parts: [{ kind: "text", text: chunk.message }], contextId: rec.contextId, taskId: rec.id,
@@ -174,7 +252,7 @@ export class TaskStore {
       rec.controller.signal.throwIfAborted();
       if (rec.state !== "working") return;
       rec.reply = reply;
-      if (!firstChunk) this.#emit(rec, artifactUpdate(this.#view(rec, 0), rec.artifactId, "", true, true), false);
+      if (sent || tail !== "") flush(true);
       rec.history.push({ kind: "message", role: "agent", messageId: randomUUID(), parts: [{ kind: "text", text: reply }], contextId: rec.contextId, taskId: rec.id });
       this.#finish(rec, "completed");
     } catch (e) {
@@ -209,7 +287,14 @@ export class TaskStore {
     for (const cfg of rec.push.values()) this.#o.push.deliver(cfg, view);
   }
 
-  #emit(rec: Rec, payload: A2aStreamEvent, terminal: boolean): void {
+  /** Whether the log has a slot for one more reply chunk (status transitions and the closing events keep their own). */
+  #deltaRoom(rec: Rec): boolean {
+    return rec.events.length < (this.#o.maxEventsPerTask ?? DEFAULT_EVENTS) - FINAL_EVENT_RESERVE - STATUS_EVENT_RESERVE;
+  }
+
+  /** `closing` events (terminal status, the last artifact chunk and the tail before it) may use the reserve; others are dropped when only the reserve is left. */
+  #emit(rec: Rec, payload: A2aStreamEvent, terminal: boolean, closing = terminal): void {
+    if (!closing && rec.events.length >= (this.#o.maxEventsPerTask ?? DEFAULT_EVENTS) - FINAL_EVENT_RESERVE) return;
     rec.events.push({ seq: rec.events.length, payload, terminal });
     for (const w of rec.waiters) w();
   }

@@ -67,8 +67,6 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 | packages/core/test/toolcall/results.test.ts:527 | idempotency key collides for scope 'a:b' + operation 'c' and scope 'a' + operation 'b:c' |
 | packages/core/test/toolcall/results.test.ts:536 | a cached approved result of another scope is served without a new approval |
 | packages/core/test/toolcall/dialects.test.ts:39 | names such as constructor and __proto__ bypass the conservative fallback |
-| packages/core/test/a2a/audit-b01.test.ts:208 | a turn reply and its event log are unbounded in memory |
-| packages/core/test/a2a/audit-b01.test.ts:209 | a full store of terminal tasks lets one peer block every other peer until retention passes (pinned by limits.test.ts) |
 | packages/core/test/agents-audit.test.ts:135 | re-creating an agent under the name of a deleted agent leaves it unusable |
 | packages/core/test/media-search/audit-c08.test.ts:177 | MediaIndexPort.remove and setCaption carry no scope, so the port cannot refuse a caller that does not own the medium |
 | packages/core/test/engine-config.test.ts:233 | a key from the harness secret store reaches the engine as a reference |
