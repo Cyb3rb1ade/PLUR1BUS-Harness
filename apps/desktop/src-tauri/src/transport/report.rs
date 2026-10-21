@@ -15,7 +15,9 @@ pub enum Severity {
 }
 
 /// One notice for the UI: a stable code of spec §8 and the text parameters of spec §7.2 (`host`, `address`,
-/// `addresses`, `peer`, `port`, `range`, `example`, `suggestion`).
+/// `addresses`, `peer`, `port`, `range`, `example`, `suggestion`). `note` names a text variant of spec §7.2:
+/// `cgnat` on `tailscale-peer-unknown` (add `transport.tailscale.peer-unknown.cgnat`) and `flatpak` on
+/// `tailscale-check-unavailable` (use `transport.tailscale.check-unavailable.flatpak`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Hint {

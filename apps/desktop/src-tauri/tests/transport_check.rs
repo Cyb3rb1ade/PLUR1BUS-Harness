@@ -384,7 +384,15 @@ async fn tailscale_with_a_public_target_reports_both_codes() {
     assert!(checked.report.needs_public_ack);
     let mut got = codes(&checked.report);
     got.sort_unstable();
-    assert_eq!(got, vec!["tailscale-not-tailnet-target", "target-public"]);
+    // T3: the Tailscale path always asks for the status (spec §5.1); the fake answers "not installed".
+    assert_eq!(
+        got,
+        vec![
+            "tailscale-not-installed",
+            "tailscale-not-tailnet-target",
+            "target-public"
+        ]
+    );
     let hint = checked
         .report
         .hints
@@ -400,16 +408,20 @@ async fn tailscale_with_a_public_target_reports_both_codes() {
 
 #[tokio::test]
 async fn tailscale_hint_only_when_neither_ts_net_name_nor_tailnet_address() {
-    // A tailnet address, a *.ts.net name and the direct path carry no such hint.
+    // A tailnet address, a *.ts.net name and the direct path carry no such hint. (T3: wherever the check runs, the
+    // fake's "not installed" state is reported as well.)
     let (_, got) = check("nas", Ok(vec!["100.101.102.103"]), Transport::Tailscale).await;
-    assert!(codes(&got.unwrap().report).is_empty());
+    assert_eq!(codes(&got.unwrap().report), vec!["tailscale-not-installed"]);
     let (_, got) = check(
         "nas.tail1234.ts.net",
         Ok(vec!["8.8.8.8"]),
         Transport::Tailscale,
     )
     .await;
-    assert_eq!(codes(&got.unwrap().report), vec!["target-public"]);
+    assert_eq!(
+        codes(&got.unwrap().report),
+        vec!["target-public", "tailscale-not-installed"]
+    );
     let (_, got) = check(
         "nas.corp.example",
         Ok(vec!["10.0.0.5"]),
@@ -418,7 +430,7 @@ async fn tailscale_hint_only_when_neither_ts_net_name_nor_tailnet_address() {
     .await;
     assert_eq!(
         codes(&got.unwrap().report),
-        vec!["tailscale-not-tailnet-target"]
+        vec!["tailscale-not-installed", "tailscale-not-tailnet-target"]
     );
     let (_, got) = check("vps.example", Ok(vec!["8.8.8.8"]), Transport::Direct).await;
     assert_eq!(codes(&got.unwrap().report), vec!["target-public"]);
@@ -609,9 +621,13 @@ async fn translator_and_mapped_forms_in_the_connect_set() {
     .await;
     assert_eq!(
         codes(&got.unwrap().report),
-        vec!["target-special", "tailscale-not-tailnet-target"]
+        vec![
+            "target-special",
+            "tailscale-not-installed",
+            "tailscale-not-tailnet-target"
+        ]
     );
-    // Mapped 100.64/10 is the IPv4 host itself: tailnet, no such hint.
+    // Mapped 100.64/10 is the IPv4 host itself: tailnet, no such hint (only the fake's "not installed" state).
     let (_, got) = check(
         "mapped.example",
         Ok(vec!["::ffff:100.64.0.1"]),
@@ -620,7 +636,7 @@ async fn translator_and_mapped_forms_in_the_connect_set() {
     .await;
     let checked = got.unwrap();
     assert_eq!(checked.report.category, Some(Category::Tailnet));
-    assert!(codes(&checked.report).is_empty());
+    assert_eq!(codes(&checked.report), vec!["tailscale-not-installed"]);
     assert_eq!(checked.report.addresses, vec!["100.64.0.1"]);
 }
 

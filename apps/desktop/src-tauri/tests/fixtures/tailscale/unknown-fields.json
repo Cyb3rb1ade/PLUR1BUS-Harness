@@ -1,0 +1,37 @@
+{
+  "Version": "9.99.0-synthetic-future",
+  "FutureTopLevel": { "nested": [1, 2, { "deep": true }] },
+  "BackendState": "Running",
+  "ClientVersion": { "RunningLatest": true },
+  "Self": {
+    "ID": "self-node",
+    "HostName": "workstation-host",
+    "DNSName": "workstation.example.ts.net.",
+    "TailscaleIPs": ["100.90.0.1"],
+    "Online": true,
+    "FutureSelfField": "ignored",
+    "Capabilities": ["https"]
+  },
+  "MagicDNSSuffix": "example.ts.net.",
+  "CurrentTailnet": {
+    "Name": "alice@example.com",
+    "MagicDNSSuffix": "example.ts.net",
+    "MagicDNSEnabled": true,
+    "FutureTailnetField": 7
+  },
+  "Peer": {
+    "peer-nas": {
+      "ID": "peer-nas-id",
+      "HostName": "nas-host",
+      "DNSName": "nas.example.ts.net.",
+      "TailscaleIPs": ["100.101.102.103", "not-an-ip"],
+      "Online": true,
+      "Tags": ["tag:server"],
+      "FuturePeerField": { "x": null },
+      "PrimaryRoutes": []
+    }
+  },
+  "User": {
+    "1001": { "ID": 1001, "LoginName": "alice@example.com", "DisplayName": "Alice Example", "ProfilePicURL": "" }
+  }
+}

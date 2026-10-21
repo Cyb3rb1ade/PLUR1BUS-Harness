@@ -218,7 +218,19 @@ vectors. `src-tauri/src/transport/` validates host input, resolves once through 
 category, hints and the exact address set to connect to (`check_target`, `gate`). It also keeps each remote
 connection's path in the sidecar `connection-transport.json`. That file is tolerant of unknown fields, read-only when
 written by a newer version, and moved aside as `.corrupt-<ms>-<uuid>` when corrupt. `connections.json` is never written.
-The Tailscale check, IPC, pinned connect and UI follow in later packages; until then nothing in the app calls this module.
+
+The Tailscale check (spec §5) runs inside `check_target` for the Tailscale path, `*.ts.net` names and tailnet
+addresses. `CliTailscale` runs `status --json` only from the fixed absolute candidates (never `PATH`; ownership, mode,
+symlink and reparse-point checks), with a cleared environment, a 4 s timeout, an 8 MiB stdout cap, and caches the
+parsed view for 10 s; inside Flatpak it runs nothing. A matched `*.ts.net` or short name connects to the peer's
+Tailscale addresses without a DNS query. `TcpProber` connects to at most four addresses (3 s each, no bytes sent) and
+compares the local address with this device's Tailscale addresses. Only the state code, the matched peer's first
+`DNSName` label and its online flag reach the report; the status is never logged. Debug-only seams, ignored by release
+builds: `PLUR1BUS_DESKTOP_TAILSCALE_STATUS=<file>` (a status document instead of the CLI) and
+`PLUR1BUS_DESKTOP_TAILSCALE_BIN=<path>` (a fake CLI, `test-bins` `fake-tailscale`, which reads its scenario from
+`fake-tailscale.scenario` beside itself). Tests use synthetic fixtures under `src-tauri/tests/fixtures/tailscale/` and
+never run a real `tailscale`. IPC, pinned connect and UI follow in later packages; until then nothing in the app calls
+this module.
 
 ### Scratch profile without keychain access
 

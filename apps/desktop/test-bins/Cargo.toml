@@ -16,6 +16,10 @@ path = "src/fake_container.rs"
 name = "fake-host"
 path = "src/fake_host.rs"
 
+[[bin]]
+name = "fake-tailscale"
+path = "src/bin/fake-tailscale.rs"
+
 [dependencies]
 sha2 = "=0.10.9"
 plur1bus-desktop-contract = { path = "../desktop-contract", version = "=0.1.0" }
