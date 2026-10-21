@@ -9,6 +9,12 @@ test('95% gate is per default model and never averages, fakes or accepts empty c
   assert.equal(hostEvalGate([{provider:'fixture',model:'default'},{provider:'other',model:'default'}],[report(20)]).passed,false);
   assert.equal(hostEvalGate([{provider:'fixture',model:'default'}],[report(19)]).passed,true);
   assert.equal(reportLabel({...report(19),successRate:1}), 'unknown');
+  // Freshness is a parameter: the 7-day default (runtime labels), disabled for PR-side replay of reviewed recordings.
+  const old={...report(20),generatedAt:new Date(Date.now()-30*86400000).toISOString()};
+  assert.equal(reportLabel(old),'unknown'); assert.equal(reportLabel(old,null),'supported');
+  assert.equal(hostEvalGate([{provider:'fixture',model:'default'}],[old]).passed,false);
+  assert.equal(hostEvalGate([{provider:'fixture',model:'default'}],[old],{maxAgeMs:null}).passed,true);
+  assert.equal(reportLabel({...report(20),generatedAt:new Date(Date.now()+86400000).toISOString()},null),'unknown');
   const escaped=report(20); escaped.scenarios[0]!.policyEscapes=1; escaped.policyEscapes=1; assert.equal(reportLabel(escaped),'limited tool use');
 });
 test('20 host scenarios exercise scratch files, policy refusals and approved fake host ports', async () => {

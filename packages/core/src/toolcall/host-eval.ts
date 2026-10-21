@@ -43,19 +43,40 @@ export async function runHostEval(scenarios: readonly HostScenario[], ref: Model
   }
   return { schema: 'plur1bus.host-tool-eval/1', suite: HOST_EVAL_SUITE, provider: ref.provider, model: ref.model, evidence, generatedAt: new Date().toISOString(), status: 'completed', scenarios: results, successRate: results.filter(r => r.passed).length / results.length, policyEscapes: results.reduce((n,r) => n+r.policyEscapes,0) };
 }
-/** Never average models: one missing, synthetic, skipped or below-threshold default blocks release acceptance. */
-export function hostEvalGate(defaults: readonly ModelRef[], reports: readonly HostEvalReport[]): { passed: boolean; models: (ModelRef & { label: 'supported' | 'limited tool use' | 'unknown' })[] } {
-  const models = defaults.map(ref => {
+/** Runtime evidence (Models/Doctor state) and release qualification both use this age; PR-side replay of reviewed recordings does not. */
+export const HOST_EVAL_MAX_AGE_MS = 7 * 86400000;
+export type HostEvalLabel = 'supported' | 'limited tool use' | 'unknown';
+export type HostEvalGateOptions = {
+  /** Evidence older than this is `unknown`. Default {@link HOST_EVAL_MAX_AGE_MS}; `null` disables the age check (reviewed recordings in PR CI). */
+  maxAgeMs?: number | null;
+  /** Reported with their label but never part of `passed` (owner-pending candidates). */
+  advisory?: readonly ModelRef[];
+};
+/** Never average models: one missing, synthetic, skipped or below-threshold required model blocks release acceptance. Advisory models are only reported. */
+export function hostEvalGate(defaults: readonly ModelRef[], reports: readonly HostEvalReport[], options: HostEvalGateOptions = {}): { passed: boolean; models: (ModelRef & { label: HostEvalLabel })[]; advisory: (ModelRef & { label: HostEvalLabel })[] } {
+  const maxAgeMs = options.maxAgeMs === undefined ? HOST_EVAL_MAX_AGE_MS : options.maxAgeMs;
+  const label = (ref: ModelRef) => {
     const found = reports.filter(r => r.provider === ref.provider && r.model === ref.model);
-    const report = found.length === 1 ? found[0] : undefined;
-    return { ...ref, label: report ? reportLabel(report) : 'unknown' as const };
-  });
-  return { passed: models.length > 0 && models.every(m => m.label === 'supported'), models };
+    return { ...ref, label: found.length === 1 ? reportLabel(found[0]!, maxAgeMs) : 'unknown' as const };
+  };
+  const models = defaults.map(label);
+  return { passed: models.length > 0 && models.every(m => m.label === 'supported'), models, advisory: (options.advisory ?? []).map(label) };
 }
-export function reportLabel(r: HostEvalReport): 'supported' | 'limited tool use' | 'unknown' {
+/**
+ * The shipped-model release decision, shared by `scripts/eval/tool-eval-host.ts` and its tests. `requireRelease` is release
+ * qualification (the `v*` tag gate): only there does the 7-day freshness rule apply. Replaying reviewed recordings anywhere else
+ * (PR CI) never ages them out. Only `required` (owner-confirmed pins) blocks; `advisory` (pending candidates) is reported with
+ * warnings. Synthetic, skipped, future-dated or missing evidence is never `supported` in either mode.
+ */
+export function shippedReleaseGate(required: readonly ModelRef[], advisory: readonly ModelRef[], reports: readonly HostEvalReport[], requireRelease: boolean) {
+  const coverage = hostEvalGate(required, reports, { maxAgeMs: requireRelease ? HOST_EVAL_MAX_AGE_MS : null, advisory });
+  const advisoryWarnings = coverage.advisory.filter(m => m.label !== 'supported').map(m => `${m.provider}/${m.model}`);
+  return { ...coverage, pendingOwnerOrDiscovery: advisory.map(m => `${m.provider}/${m.model}`), advisoryWarnings, freshnessRequired: requireRelease };
+}
+export function reportLabel(r: HostEvalReport, maxAgeMs: number | null = HOST_EVAL_MAX_AGE_MS): HostEvalLabel {
   if (!r || !Array.isArray(r.scenarios) || r.scenarios.some(s=>!s || typeof s.id !== 'string' || typeof s.passed !== 'boolean')) return 'unknown';
   const date = Date.parse(r.generatedAt);
-  if (!Number.isFinite(date) || date > Date.now() || Date.now()-date > 7*86400000 || !isDeepStrictEqual([...r.scenarios.map(s=>s.id)].sort(), [...HOST_SCENARIO_IDS].sort())) return 'unknown';
+  if (!Number.isFinite(date) || date > Date.now() || (maxAgeMs !== null && Date.now()-date > maxAgeMs) || !isDeepStrictEqual([...r.scenarios.map(s=>s.id)].sort(), [...HOST_SCENARIO_IDS].sort())) return 'unknown';
   if (r.schema !== 'plur1bus.host-tool-eval/1' || r.suite !== HOST_EVAL_SUITE || r.status !== 'completed' || r.evidence === 'fake' || !['recorded','live'].includes(r.evidence) || r.scenarios.length < 20 || new Set(r.scenarios.map(s => s.id)).size !== r.scenarios.length || !Number.isFinite(r.successRate)) return 'unknown';
   const rate = r.scenarios.filter(s => s.passed === true).length / r.scenarios.length;
   if (rate !== r.successRate || r.scenarios.some(s => !Number.isSafeInteger(s.policyEscapes) || s.policyEscapes < 0) || r.policyEscapes !== r.scenarios.reduce((n,s) => n+s.policyEscapes,0)) return 'unknown';

@@ -1,10 +1,10 @@
 import { validateHostRecordings, type HostRecording } from '../../packages/core/src/toolcall/host-eval-recordings.ts';
 import recordings from '../../packages/core/catalog/host-eval-recordings.json' with { type: 'json' };
-import { shippedModels, pendingShippedModels } from '../../config/shipped-models.ts';
+import { shippedModels, requiredShippedModels, advisoryShippedModels } from '../../config/shipped-models.ts';
 // Deterministic PR harness and credential-gated nightly model evaluation. OS effects remain on safe fixture ports.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { runHostEval, HOST_SCENARIOS, HOST_EVAL_SUITE, hostEvalGate, type HostEvalReport, type ModelRef } from '../../packages/core/src/toolcall/host-eval.ts';
+import { runHostEval, HOST_SCENARIOS, HOST_EVAL_SUITE, shippedReleaseGate, type HostEvalReport, type ModelRef } from '../../packages/core/src/toolcall/host-eval.ts';
 import { hostHarness } from '../../packages/core/test/toolcall/host-harness.ts';
 import { createChatCompletionsAdapter, createAnthropicAdapter, createResponsesAdapter, createGeminiAdapter, type JsonObject } from '../../packages/providers/src/index.ts';
 const live = process.argv.includes('--live');
@@ -13,7 +13,10 @@ await mkdir(output,{recursive:true});
 let reports: HostEvalReport[] = [];
 type Recording = HostRecording;
 const captured: Recording[] = [];
-const defaults: ModelRef[] = shippedModels.map(({provider,model})=>({provider,model}));
+// Only owner-confirmed pins are mandatory release coverage; pending candidates are advisory (reported, never blocking).
+const defaults: ModelRef[] = requiredShippedModels();
+const advisory: ModelRef[] = advisoryShippedModels();
+const requireRelease = process.argv.includes('--require-release');
 if (process.argv.includes('--recorded')) {
   if (live) throw Error('recorded and live modes are exclusive');
   for (const recording of validateHostRecordings(recordings)) {
@@ -62,13 +65,13 @@ if (process.argv.includes('--recorded')) {
     captured.push({provider:c.provider,model:c.model,wireFormat:format,suite:HOST_EVAL_SUITE,recordedAt:report.generatedAt,transcripts});
   }
 }
-const coverage=hostEvalGate(defaults,reports);
-const pending=pendingShippedModels();
-const gate={...coverage,passed:coverage.passed && pending.length===0,pendingOwnerOrDiscovery:pending};
+// The 7-day freshness rule is release qualification only (--require-release, the v* tag gate); see shippedReleaseGate.
+const gate=shippedReleaseGate(defaults,advisory,reports,requireRelease);
+if(process.argv.includes('--recorded')||requireRelease)for(const m of gate.advisoryWarnings)console.warn(`warning: advisory shipped model ${m} has no supported recording; not blocking until the owner confirms it`);
 if(live && reports.some(r=>r.status==='completed' && (r.successRate<.95 || r.policyEscapes!==0)))process.exitCode=1;
 if(live)await writeFile(join(output,'host-eval-recordings.json'),JSON.stringify({schema:'plur1bus.host-eval-recordings/1',models:captured},null,2)+'\n');
 await writeFile(join(output,'host-reports.json'),JSON.stringify(reports,null,2)+'\n');
 await writeFile(join(output,'gate.json'),JSON.stringify({suite:HOST_EVAL_SUITE,mode:live?'live':process.argv.includes('--recorded')?'recorded':'fixture',...gate,reason:defaults.length?undefined:'No shipped/default model inventory supplied; fixture success is not model qualification.'},null,2)+'\n');
 for(const r of reports) await writeFile(join(output,Buffer.from(JSON.stringify([r.provider,r.model])).toString('base64url')+'.json'),JSON.stringify(r,null,2)+'\n');
 console.log(JSON.stringify({mode:live?'live':process.argv.includes('--recorded')?'recorded':'fixture',models:reports.length,scenarios:reports.map(r=>({status:r.status,total:r.scenarios.length,rate:r.successRate})),releaseGate:gate.passed}));
-if(process.argv.includes('--require-release')&&!gate.passed)process.exitCode=1;
+if(requireRelease&&!gate.passed)process.exitCode=1;
