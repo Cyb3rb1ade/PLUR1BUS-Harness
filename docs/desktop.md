@@ -234,12 +234,14 @@ persist (newer version, unreadable, a failed write) a confirmation is held in me
 
 **Check-then-connect.** `pair_code` (with the required `transport` and `publicAck`) and `open_connection` re-run the
 check in Rust before any TCP connection to the harness: the UI's check is advisory. An open of a public target without a
-valid confirmation returns `transport-confirm-needed` and contacts nothing; a stored entry without a confirmation that
-meets a public target is reported as `target-changed-public`. Every client of the open is pinned to the checked
+valid confirmation returns `transport-confirm-needed` and contacts nothing, not even with the Tailscale probe; a stored
+entry without a confirmation that meets a public target is reported as `target-changed-public`. `open_connection`'s gate
+is `Transports::open_check`, and the reconnect decision is `events::transport_reconnect`, which the tests drive. Every client of the open is pinned to the checked
 addresses (`HarnessClient::with_pin`: reqwest `resolve_to_addrs` for HTTP and SSE; `websocket_connect` hands a TCP
 stream connected to a checked address to the WebSocket handshake), including the SPA proxy, ticket retries and the
 native status and trust streams; TLS keeps the host name for SNI and certificate checks. Every reconnect of the status
-or trust stream runs the check again and reconnects over its addresses; a DNS failure waits another backoff; a target
+or trust stream runs the check again (one shared re-check per connection, spec §5.4) and reconnects over its
+addresses; a DNS failure waits another backoff; a target
 that now needs a confirmation stops the loop, sets the tray's attention badge and emits `transport-attention` to the
 shell. No confirmation is ever given automatically.
 
@@ -259,7 +261,9 @@ reparse-point checks; the checked path is the one executed), with a cleared envi
 cap, and caches the parsed view for 10 s; inside Flatpak it runs nothing. A matched `*.ts.net` or short name connects
 to the peer's Tailscale addresses without a DNS query. `TcpProber` connects to at most four addresses (3 s each, no
 bytes sent) on every check-panel run and every open over a tailnet path, and compares the local address with this
-device's Tailscale addresses. Debug-only seams, ignored by release builds: `PLUR1BUS_DESKTOP_TAILSCALE_STATUS=<file>`
+device's Tailscale addresses. It runs only once the target passes the confirmation gate, and only to the matched
+peer's tailnet addresses or the private addresses inside the matched subnet route, never to a public address
+(`check_target_acked`). Debug-only seams, ignored by release builds: `PLUR1BUS_DESKTOP_TAILSCALE_STATUS=<file>`
 (a status document instead of the CLI) and `PLUR1BUS_DESKTOP_TAILSCALE_BIN=<path>` (a fake CLI, `test-bins`
 `fake-tailscale`, which reads its scenario from `fake-tailscale.scenario` beside itself); `check-release-seams.mjs`
 requires both in the debug executable and refuses them in the release one. Tests inject the resolver, the Tailscale
