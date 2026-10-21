@@ -5,7 +5,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { connect, createLogger, createRpcServer } from "@plur1bus/module-api";
+import { createLogger, createRpcServer, type CoreClient } from "@plur1bus/module-api";
+import { connect } from "../helpers/connect.ts";
 import { createPermissionNotifier, type PermissionNotifier } from "../../src/approvals/notify.ts";
 import { AGENT_PRINCIPAL, PERSON } from "./rpc-helpers.ts";
 import { askFor, rig, tick, type Rig } from "./service-helpers.ts";
@@ -21,8 +22,10 @@ it("approval.requested reaches the checked person once and never a subscription 
   const identity = new Promise<string>(resolve => { release = resolve; });
   const server = createRpcServer({ address, token, logger, methods: {}, hello: () => ({ rpc: "1.6.0", pid: process.pid, instanceId: "test" }), personOfConnection: () => identity });
   await server.listen();
-  const person = await connect({ address, token }), agent = await connect({ address, token });
-  t.after(async () => { release("christian"); await person.close(); await agent.close(); await server.close(); await logger.close(); await rm(dir, { recursive: true, force: true }); });
+  // Cleanup first: a refused connect must not leave the listening server holding the test process open (Windows refuses a pipe whose server pid the client was not told).
+  let person!: CoreClient, agent!: CoreClient;
+  t.after(async () => { release("christian"); await person?.close(); await agent?.close(); await server.close(); await logger.close(); await rm(dir, { recursive: true, force: true }); });
+  person = await connect({ address, token }); agent = await connect({ address, token });
 
   const seen = { person: [] as string[], agent: [] as string[] };
   person.onNotification(m => seen.person.push(m)); agent.onNotification(m => seen.agent.push(m));

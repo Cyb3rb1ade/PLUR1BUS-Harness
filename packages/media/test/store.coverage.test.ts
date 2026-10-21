@@ -110,7 +110,17 @@ test('get rethrows I/O errors that are not "missing", such as a file where the j
     const store = new OutputStore(root);
     await mkdir(root, { recursive: true });
     await writeFile(join(root, 'blocked'), 'not a directory');
-    await assert.rejects(store.get('blocked'), (e: unknown) => (e as NodeJS.ErrnoException).code === 'ENOTDIR');
+    // A path through a regular file is ENOTDIR on POSIX; Windows reports ENOENT for it, which get() rightly reads as "missing".
+    if (process.platform === 'win32') assert.equal(await store.get('blocked'), null);
+    else await assert.rejects(store.get('blocked'), (e: unknown) => (e as NodeJS.ErrnoException).code === 'ENOTDIR');
+  });
+});
+
+test('get rethrows I/O errors that are not "missing" on every platform, such as a directory where manifest.json should be', async () => {
+  await withRoot(async root => {
+    const store = new OutputStore(root);
+    await mkdir(join(root, 'job', 'manifest.json'), { recursive: true });
+    await assert.rejects(store.get('job'), (e: unknown) => (e as NodeJS.ErrnoException).code === 'EISDIR');
   });
 });
 

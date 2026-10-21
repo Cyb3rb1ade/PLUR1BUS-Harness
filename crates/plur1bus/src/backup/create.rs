@@ -117,6 +117,22 @@ fn exists_nofollow(p: &Path) -> bool {
     fs::symlink_metadata(p).is_ok()
 }
 
+/// Gives the private staged copy the permission bits of its source. The manifest records the bits of the file it hashes
+/// (`mode_of`), and a restore keeps the owner's: a skill script that is executable in the home must be recorded as such, or
+/// it comes back unusable. (`create_private` opens the copy 0600 whatever the source was.)
+#[cfg(unix)]
+fn copy_mode(source: &fs::Metadata, dst: &Path) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(
+        dst,
+        fs::Permissions::from_mode(source.permissions().mode() & 0o777),
+    )
+}
+#[cfg(not(unix))]
+fn copy_mode(_: &fs::Metadata, _: &Path) -> io::Result<()> {
+    Ok(())
+}
+
 /// Copies one file, retrying when it changed while being read (journals grow).
 fn copy_file_stable(src: &Path, dst: &Path, shown: &str) -> Result<(), BackupError> {
     for _ in 0..3 {
@@ -127,6 +143,7 @@ fn copy_file_stable(src: &Path, dst: &Path, shown: &str) -> Result<(), BackupErr
             io::copy(&mut r, &mut w)?;
             w.sync_all()?;
         }
+        copy_mode(&before, dst)?;
         let after = fs::metadata(src)?;
         if before.len() == after.len() && before.modified().ok() == after.modified().ok() {
             return Ok(());
@@ -297,6 +314,10 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
             Ok(m) if kind == Kind::File && m.is_file() => {
                 let dst = join_rel(&stage, &archive);
                 copy_file_stable(&live, &dst, target)?;
+                if target == "config.json" {
+                    // A secret VALUE kept in the config never reaches the archive (the live file is not touched).
+                    super::redact::redact_staged_config(&dst)?;
+                }
                 units.push(Unit {
                     archive,
                     target: target.into(),
@@ -361,7 +382,7 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
                 return Err(BackupError::new(
                     "snapshot-mismatch",
                     format!("{} differs from what the core staged", f.path),
-                ))
+                ));
             }
         }
     }

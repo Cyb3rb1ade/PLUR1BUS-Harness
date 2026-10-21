@@ -26,7 +26,7 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 | `GET` | `/api/v1/chats/{sessionId}` | `chats.get` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
 | `PATCH` | `/api/v1/chats/{sessionId}` | `chats.update` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
 | `GET` | `/api/v1/chats/{sessionId}/messages` | `chats.messages` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
-| `POST` | `/api/v1/chats/{sessionId}/messages` | `chats.submit` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/messages` | `chats.submit` | session or token | `chat:write` | yes | expensive | experimental · 1.0.0 |
 | `GET` | `/api/v1/chats/{sessionId}/events` | `chats.events` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
 | `POST` | `/api/v1/chats/{sessionId}/cancel` | `chats.cancel` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/chats/{sessionId}/archive` | `chats.archive` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
