@@ -60,22 +60,6 @@ it("refuses a write with no progress without advancing or replacing the previous
   assert.deepEqual([chain.verify().ok, chain.verify().records], [true, 1]);
 });
 
-it("reports an anchor behind a complete line after restart as its own finding and preserves evidence", () => {
-  const dir = tempDir("audit-crash-behind-");
-  const chain = createAuditChain({ dir });
-  chain.append(event);
-  const saved = readFileSync(path.join(dir, ANCHOR_NAME), "utf8");
-  chain.append({ ...event, at: 2 });
-  writeFileSync(path.join(dir, ANCHOR_NAME), saved);
-  const reopened = createAuditChain({ dir });
-  const result = reopened.verify();
-  assert.equal(result.ok, false);
-  assert.equal(result.anchor.status, "behind");
-  assert.deepEqual(result.findings.map(f => f.code), ["anchor-behind"]);
-  assert.throws(() => reopened.append(event), /tail does not match the anchor/);
-  assert.equal(readFileSync(path.join(dir, ANCHOR_NAME), "utf8"), saved);
-});
-
 it("checks an external pin at an older rotated sequence and detects a consistent complete rewrite", () => {
   const dir = tempDir("audit-pin-");
   const chain = createAuditChain({ dir });

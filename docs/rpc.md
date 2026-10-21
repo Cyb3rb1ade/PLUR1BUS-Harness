@@ -453,6 +453,13 @@ Authenticated own direct-chat get. Identity is derived from the current principa
     "lastEventSeq": {
       "type": "integer",
       "minimum": 0
+    },
+    "modelChanges": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
     }
   }
 }
@@ -8790,7 +8797,7 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
 
 **Served by:** core
 
-B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. An unreadable log directory is E_STORAGE. D2: an anchor behind the tail is an anchor-behind finding. An optional external pin checks the hash at that sequence, including rotated files, and detects a consistently rewritten chain against a value recorded elsewhere.
+B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE. An optional external pin (a sequence and hash recorded elsewhere) is checked under the same lock against the whole chain, rotated files included; pin-missing or pin-mismatch is a finding, and it detects a chain that was rewritten consistently.
 
 **params**
 
@@ -8880,7 +8887,7 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
             "ahead",
             "mismatch"
           ],
-          "description": "behind: the anchor trails the newest line by a write that crashed before the anchor moved (anchor-behind finding); ahead: the chain is shorter than the anchor."
+          "description": "behind: the anchor trails the newest line by a write that crashed before the anchor moved (not a finding); ahead: the chain is shorter than the anchor."
         },
         "seq": {
           "type": [
@@ -8915,7 +8922,6 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
               "anchor-missing",
               "anchor-invalid",
               "anchor-mismatch",
-              "anchor-behind",
               "truncated",
               "pin-missing",
               "pin-mismatch"
@@ -8945,6 +8951,176 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
       "type": "integer",
       "minimum": 0,
       "description": "All findings; findings carries the first 50."
+    },
+    "reanchors": {
+      "type": "array",
+      "description": "Era boundaries in the current chain: each audit.chain.reanchored event, written by `plur1bus audit reanchor` as the first line of a new chain. A note, never a finding; it does not make ok false. Absent from cores older than this field.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seq",
+          "file",
+          "line",
+          "at",
+          "suffix"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "at": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The event's timestamp (ms since the epoch)."
+          },
+          "suffix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^pre-reanchor-[0-9]{1,16}$",
+            "description": "The suffix of the set-aside files the event names; null when it names none or not a valid one."
+          }
+        }
+      }
+    },
+    "previousChains": {
+      "type": "array",
+      "description": "Chains a reanchor set aside as audit-chain*.pre-reanchor-<ms>, oldest first, each read only up to its first deviation. A deviation there is usually the reason for the reanchor and does not make ok false. Absent from cores older than this field.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "suffix",
+          "announced",
+          "files",
+          "records",
+          "lastSeq",
+          "lastHash",
+          "intact",
+          "firstBreak",
+          "anchor"
+        ],
+        "properties": {
+          "suffix": {
+            "type": "string",
+            "pattern": "^pre-reanchor-[0-9]{1,16}$"
+          },
+          "announced": {
+            "type": "boolean",
+            "description": "False when no reanchor event in the current chain names this suffix."
+          },
+          "files": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "records": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Lines read before the first deviation."
+          },
+          "lastSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastHash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "intact": {
+            "type": "boolean",
+            "description": "No deviation anywhere in the set and its own anchor matches (or trails by one write)."
+          },
+          "firstBreak": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "code",
+                  "file",
+                  "line",
+                  "seq"
+                ],
+                "properties": {
+                  "code": {
+                    "enum": [
+                      "line-malformed",
+                      "hash-mismatch",
+                      "seq-gap",
+                      "prefix-missing",
+                      "file-name-mismatch",
+                      "torn-tail"
+                    ]
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  },
+                  "seq": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  }
+                }
+              }
+            ],
+            "description": "The first deviation, or null when the set was read to its end."
+          },
+          "anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "seq"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "match",
+                  "behind",
+                  "absent",
+                  "invalid",
+                  "ahead",
+                  "mismatch"
+                ]
+              },
+              "seq": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -11459,6 +11635,16 @@ Usage per period (the current local day and month in the configured time zone) a
               "cacheWriteTokens": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "images": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Generated images (media units; absent from an older core)"
+              },
+              "videoSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
               }
             }
           },
@@ -11506,6 +11692,16 @@ Usage per period (the current local day and month in the configured time zone) a
                     "cacheWriteTokens": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "images": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Generated images (media units; absent from an older core)"
+                    },
+                    "videoSeconds": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
                     }
                   }
                 },
@@ -11543,6 +11739,14 @@ Usage per period (the current local day and month in the configured time zone) a
                         "minimum": 0
                       },
                       "cacheWriteTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "images": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "videoSeconds": {
                         "type": "integer",
                         "minimum": 0
                       }
@@ -11674,7 +11878,7 @@ The outgoing-network policy in force (B4): normalised host allowlist, ports, loo
 
 **Served by:** core
 
-Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.
 
 **params**
 
@@ -11713,7 +11917,9 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
         },
         "metric": {
           "enum": [
-            "tokens"
+            "tokens",
+            "images",
+            "videoSeconds"
           ]
         },
         "soft": {
@@ -15181,6 +15387,76 @@ Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving t
 }
 ```
 
+### `session.model.get`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Read the owned session model profile, effective default, revision and reasoning choice. Incognito stays in RAM. Same transcript authorization as session.get.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "defaultProfile",
+    "revision",
+    "reasoning"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "defaultProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reasoning": {
+      "$ref": "#/$defs/ChatReasoningChoice"
+    }
+  }
+}
+```
+
 ### `session.model.set`
 
 **Stability:** experimental · since 1.7.0
@@ -15645,6 +15921,13 @@ Get plus the transcript (the last `limit` messages, default 100) and the last ev
     "lastEventSeq": {
       "type": "integer",
       "minimum": 0
+    },
+    "modelChanges": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
     }
   }
 }
@@ -17610,6 +17893,38 @@ An extension's kind, state, version or overlays changed (install, uninstall, res
       "items": {
         "$ref": "#/$defs/ExtOverlay"
       }
+    }
+  }
+}
+```
+
+### `chat.models.changed`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Payload-free invalidation of chat model options after accepted privacy policy changes. Clients reread their authorized chat.model.get; no configuration, agent ID or credential is broadcast.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "x-server": "core",
+  "description": "Payload-free invalidation of chat model options after accepted privacy policy changes. Clients reread their authorized chat.model.get; no configuration, agent ID or credential is broadcast.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "at",
+    "reason"
+  ],
+  "properties": {
+    "at": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reason": {
+      "const": "privacy"
     }
   }
 }
@@ -21689,7 +22004,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
+  "description": "Experimental (1.5.0). A budget limit. Bounds count the metric: input + output tokens (output includes reported reasoning tokens), generated images, or seconds of generated video.",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -21719,7 +22034,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "tokens"
+        "tokens",
+        "images",
+        "videoSeconds"
       ]
     },
     "soft": {
@@ -21776,7 +22093,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "tokens"
+        "tokens",
+        "images",
+        "videoSeconds"
       ]
     },
     "soft": {
@@ -22533,7 +22852,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "tool.call",
     "tool.result",
     "turn.completed",
-    "turn.failed"
+    "turn.failed",
+    "session.model.changed"
   ]
 }
 ```

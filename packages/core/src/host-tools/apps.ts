@@ -122,6 +122,29 @@ function normaliseForDeny(target: string, home: string): string {
   return lead + out.join("/");
 }
 
+/** Extensions whose "open" runs code: Windows programs and scripts, macOS bundles and Terminal scripts, Linux launchers. */
+const LAUNCHABLE = /\.(?:exe|com|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|msi|msp|scr|pif|cpl|reg|jar|command|tool|app|workflow|action|pkg|mpkg|desktop|appimage)$/i;
+/** The only places a ".app" is accepted: bundles the operating system itself installs. */
+const SYSTEM_APP_DIRS = ["/Applications/", "/System/Applications/"];
+
+/** True when opening `target` would start a program instead of showing a document. */
+async function launchesProgram(ctx: HostContext, target: string, normalised: string): Promise<boolean> {
+  const trimmed = normalised.replace(/[\\/]+$/, "");
+  if (LAUNCHABLE.test(trimmed)) {
+    const bundle = /\.app$/i.test(trimmed);
+    // "open -a Safari" and /Applications/Safari.app are the point of the tool; a bundle anywhere else was put there by someone.
+    return !(bundle && SYSTEM_APP_DIRS.some((d) => trimmed.startsWith(d)));
+  }
+  // The path as given and as collapsed: a "x/../tool" that crosses a symlink resolves differently from its lexical form.
+  for (const candidate of new Set([target, normalised])) {
+    try {
+      const st = await ctx.fs.stat(candidate);
+      if (st.isFile && st.mode !== undefined && (st.mode & 0o111) !== 0) return true;
+    } catch { /* not there: the opener reports it */ }
+  }
+  return false;
+}
+
 export const appsOpenTool: HostTool = {
   name: "apps.open", capability: "apps.launch", riskClass: "medium",
   description: "Open an application, file or URL. URL schemes are limited to http, https and mailto.",
@@ -148,6 +171,10 @@ export const appsOpenTool: HostTool = {
       if (target.startsWith("-")) throw new HostFailure("invalid_input", "target must not start with '-'");
       if (denyHit(target, deny) || denyHit(normaliseForDeny(target, ctx.homedir), deny)) {
         throw new HostFailure("denied_by_denylist", "the target matches the credential deny-list");
+      }
+      // Opening a program starts it: that is shell.exec territory, whatever the apps.launch approval says.
+      if (await launchesProgram(ctx, target, normaliseForDeny(target, ctx.homedir))) {
+        throw new HostFailure("denied_by_denylist", "the target is a program or script; documents, folders, system applications and URLs can be opened");
       }
     }
     const fail = { code: "not_found", message: "the target could not be opened" } as const;

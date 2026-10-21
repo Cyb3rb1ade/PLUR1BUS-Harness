@@ -4,6 +4,10 @@
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 export const HELPER_SOURCE = `
 import { writeFileSync, symlinkSync, truncateSync } from 'node:fs';
@@ -117,4 +121,65 @@ export async function writeFakeHelper(): Promise<FakeHelper> {
   const script = join(root, 'helper.mjs');
   await writeFile(script, HELPER_SOURCE);
   return { script, cleanup: () => rm(root, { recursive: true, force: true }) };
+}
+
+// A real native helper for the one case a script cannot stand in for: an executable the adapter spawns directly, with no
+// arguments of its own. A `#!/bin/sh` wrapper is not an executable on Windows, and the adapter hands the child an empty
+// environment, so a copy of node cannot be pointed at a stub either. The helper is therefore a small std-only Rust program
+// compiled with the toolchain the repository already requires (scripts/check-toolchain.mjs), into a temp directory: no new
+// dependency and no binary in the repository. It speaks just enough of jsonl/1 for `generate`: it insists on being started
+// with exactly `--jsonl`, answers each generate with progress and a one-file result, ignores cancel, and exits on EOF.
+function nativeSource(png: Buffer): string {
+  return `
+use std::io::{BufRead, Write};
+const PNG: &[u8] = &[${[...png].join(', ')}];
+/** The JSON string that follows \`"key":\`, with escapes resolved. */
+fn string_after(line: &str, key: &str) -> Option<String> {
+    let at = line.find(&format!("\\"{}\\":\\"", key))? + key.len() + 4;
+    let mut out = String::new();
+    let mut chars = line[at..].chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => return Some(out),
+            '\\\\' => match chars.next()? {
+                'n' => out.push('\\n'),
+                't' => out.push('\\t'),
+                'r' => out.push('\\r'),
+                other => out.push(other),
+            },
+            other => out.push(other),
+        }
+    }
+    None
+}
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args != ["--jsonl"] { std::process::exit(64); }
+    let stdout = std::io::stdout();
+    for line in std::io::stdin().lock().lines() {
+        let Ok(line) = line else { break };
+        if line.contains("\\"op\\":\\"cancel\\"") || !line.contains("\\"op\\":\\"generate\\"") { continue; }
+        let (Some(id), Some(dir)) = (string_after(&line, "id"), string_after(&line, "outputDir")) else { std::process::exit(65) };
+        if std::fs::write(std::path::Path::new(&dir).join("0.png"), PNG).is_err() { std::process::exit(66); }
+        let mut out = stdout.lock();
+        let _ = writeln!(out, "{{\\"id\\":\\"{id}\\",\\"type\\":\\"progress\\",\\"fraction\\":0.5}}");
+        let _ = writeln!(out, "{{\\"id\\":\\"{id}\\",\\"type\\":\\"result\\",\\"files\\":[\\"0.png\\"],\\"seed\\":42}}");
+        let _ = out.flush();
+    }
+}
+`;
+}
+
+export interface NativeHelper { path: string; cleanup(): Promise<void> }
+/** Compiles the native helper into a fresh temp directory (media-coreml, or media-coreml.exe on Windows). Throws if rustc fails. */
+export async function buildNativeHelper(png: Buffer): Promise<NativeHelper> {
+  const root = await mkdtemp(join(tmpdir(), 'media-native-helper-'));
+  const cleanup = () => rm(root, { recursive: true, force: true });
+  try {
+    const source = join(root, 'media_coreml.rs');
+    const path = join(root, process.platform === 'win32' ? 'media-coreml.exe' : 'media-coreml');
+    await writeFile(source, nativeSource(png));
+    await execFileAsync('rustc', ['--edition', '2021', '-C', 'opt-level=0', '-C', 'debuginfo=0', '-o', path, source], { cwd: root, timeout: 90000, windowsHide: true });
+    return { path, cleanup };
+  } catch (e) { await cleanup(); throw e; }
 }

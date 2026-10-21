@@ -1,4 +1,4 @@
-import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from "node:crypto";
 import type { PairCodeStore } from "./pair-code.ts";
@@ -72,28 +72,68 @@ function validateDevice(v: unknown): v is Device {
 export class DeviceStore {
   private devices: Device[] = [];
   private storageFailed = false;
+  /** A revocation took effect in memory but could not be written yet: the next successful write carries it. */
+  private unflushed = false;
   private readonly connections = new Map<string, Set<() => void>>();
   private readonly challenges = new Map<string, number>();
   private readonly options: DeviceStoreOptions;
   constructor(options: DeviceStoreOptions) {
     this.options = options;
     if (!Number.isFinite(options.lastSeenIntervalMs ?? 60_000) || (options.lastSeenIntervalMs ?? 60_000) < 0) throw new DeviceError("invalid");
+    this.devices = this.readDisk(true) ?? [];
+  }
+  /** The file is the shared truth: null only when it does not exist yet. Anything unreadable, malformed or unsafe is a
+   *  storage error, never an empty list, so damage cannot turn into "nobody is revoked". */
+  private readDisk(secure: boolean): Device[] | null {
+    const file = this.options.file;
     let stat;
-    try { stat = lstatSync(options.file); }
+    try { stat = lstatSync(file); }
     catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") { DeviceStore.requireDirectoryAbove(file); return null; }
       throw new DeviceError("storage");
     }
     try {
       if (!stat.isFile() || stat.isSymbolicLink()) throw new Error();
-      options.securePath(options.file);
-      const state: unknown = JSON.parse(readFileSync(options.file, "utf8"));
+      if (secure) this.options.securePath(file);
+      const state: unknown = JSON.parse(readFileSync(file, "utf8"));
       const s = state as { version: number; devices: unknown[] };
       if (s?.version !== 1 || Object.keys(s).some(k => k !== "version" && k !== "devices") || !Array.isArray(s.devices) || !s.devices.every(validateDevice)) throw new Error();
       const devices = s.devices as Device[];
       if (new Set(devices.map(d => d.id)).size !== devices.length || new Set(devices.map(d => d.fingerprint)).size !== devices.length) throw new Error();
-      this.devices = structuredClone(devices);
+      return structuredClone(devices);
     } catch { throw new DeviceError("storage"); }
+  }
+  /** A missing file means "no devices yet" only when nothing above it is a regular file. POSIX says ENOTDIR for a path
+   *  below a file; Windows says ENOENT, which is indistinguishable from a missing file, so the nearest existing ancestor is checked. */
+  private static requireDirectoryAbove(file: string): void {
+    for (let dir = dirname(file); ; ) {
+      try {
+        if (!statSync(dir).isDirectory()) throw new DeviceError("storage");
+        return;
+      } catch (error) {
+        if (error instanceof DeviceError) throw error;
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new DeviceError("storage");
+        const up = dirname(dir);
+        if (up === dir) return;
+        dir = up;
+      }
+    }
+  }
+  /** Re-reads the file before every decision that must not rest on a stale copy. A revocation is never undone: a device
+   *  revoked on disk (by another instance) or in memory (not yet flushed) stays revoked, and its live connections close. */
+  private sync(): void {
+    const disk = this.readDisk(false);
+    if (!disk) return;
+    const mine = new Map(this.devices.map(d => [d.id, d]));
+    const merged = disk.map(d => { const m = mine.get(d.id); return m?.revoked && !d.revoked ? m : d; });
+    const ids = new Set(disk.map(d => d.id)); const prints = new Set(disk.map(d => d.fingerprint));
+    for (const d of this.devices) if (!ids.has(d.id) && !prints.has(d.fingerprint)) merged.push(d);
+    this.devices = merged;
+    for (const d of merged) if (d.revoked) this.closeAll(d.id);
+  }
+  private closeAll(id: string): void {
+    const live = this.connections.get(id); this.connections.delete(id);
+    for (const close of live ?? []) { try { close(); } catch { /* attempt every connection */ } }
   }
   list(): Device[] { return structuredClone(this.devices); }
   get(id: string): Device {
@@ -106,6 +146,7 @@ export class DeviceStore {
   recordPairing(input: PairDevice): Device {
     this.checkStorage();
     validatePair(input);
+    this.sync();
     const key = keyInfo(input.publicKey);
     const existing = this.devices.find(d => d.fingerprint === key.fingerprint);
     if (existing) throw new DeviceError(existing.revoked ? "revoked" : "conflict");
@@ -140,6 +181,7 @@ export class DeviceStore {
     const expires = this.challenges.get(challenge);
     this.challenges.delete(challenge);
     if (!expires || expires <= this.options.clock()) throw new DeviceError("denied");
+    this.sync();
     const key = keyInfo(input.publicKey);
     const d = this.devices.find(d => d.fingerprint === key.fingerprint);
     if (!d || d.revoked) throw new DeviceError("denied");
@@ -155,26 +197,35 @@ export class DeviceStore {
     live.add(input.close); this.connections.set(d.id, live);
     return () => { live.delete(input.close); if (!live.size) this.connections.delete(d.id); };
   }
+  /** Fail closed: once this is called for a known device, no handshake and no live connection of it survives in this
+   *  process, whatever the disk does. If the write fails the revocation still holds here (E_STORAGE is thrown so the
+   *  caller knows it is not durable yet); calling revoke() again retries the write. */
   revoke(id: string, actor: string): Device {
     this.checkStorage();
+    // An unreadable file must not stop a revocation: it takes effect from memory, and the damaged file is not overwritten.
+    let readable = true;
+    try { this.sync(); } catch { readable = false; }
     const d = this.get(id);
-    if (d.revoked) return d;
-    const next = { ...d, revoked: true, revokedAt: this.options.clock(), revokedBy: actor };
+    if (d.revoked && !this.unflushed) return d;
+    const next = d.revoked ? d : { ...d, revoked: true, revokedAt: this.options.clock(), revokedBy: actor };
     const devices = this.devices.map(device => device.id === id ? next : device);
-    this.audit("device.revoked", next, actor);
-    try { this.persist(devices); }
+    if (!d.revoked) this.audit("device.revoked", next, actor);
+    try { if (!readable) throw new DeviceError("storage"); this.persist(devices); }
     catch (error) {
+      // Before the rename nothing durable changed, but the key is blocked here at once. After it, persist() already
+      // refused everything and closed every connection.
+      if (!this.storageFailed) { this.devices = devices; this.unflushed = true; this.closeAll(id); }
       this.audit("device.revoke.failed", next, actor);
       throw error;
     }
     this.devices = devices;
-    const live = this.connections.get(id); this.connections.delete(id);
-    for (const close of live ?? []) { try { close(); } catch { /* attempt every connection */ } }
+    this.closeAll(id);
     return structuredClone(next);
   }
   rename(id: string, name: string, actor: string): Device {
     this.checkStorage();
     if (!text(name)) throw new DeviceError("invalid");
+    this.sync();
     const d = { ...this.get(id), name };
     this.change(this.devices.map(device => device.id === id ? d : device), "device.renamed", d, actor);
     return structuredClone(d);
@@ -208,6 +259,8 @@ export class DeviceStore {
         const directory = openSync(dir, "r");
         try { fsyncSync(directory); } finally { closeSync(directory); }
       }
+      // Every caller derives `devices` from this.devices, so a successful write also carries any unflushed revocation.
+      this.unflushed = false;
     } catch {
       // After rename, durability is uncertain: never authenticate against the stale in-memory state.
       if (renamed) {

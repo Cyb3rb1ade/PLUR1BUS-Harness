@@ -341,8 +341,11 @@ pub fn open_with_probe(store: Box<dyn TokenStore>) -> Box<dyn TokenStore> {
         .set(&account, &secret)
         .and_then(|()| store.get(&account))
         .is_ok_and(|v| v.is_some_and(|v| v.expose() == secret.expose()));
-    let removed = store.delete(&account).is_ok();
-    if result && removed {
+    // Cleaning up the probe entry is best effort. A working store whose probe delete failed
+    // (one-off error, locked item) is still the keychain: falling back to memory would make
+    // every persisted row unreadable, and pairing would then mark them `pairing_needed` for good.
+    let _ = store.delete(&account);
+    if result {
         store
     } else {
         Box::<MemoryStore>::default()

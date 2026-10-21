@@ -19,6 +19,7 @@ import { createMcpFetch } from "./http.ts";
 import { createAuthorizedFetch, type McpAuthProvider } from "./auth.ts";
 import type { McpClientPorts } from "./ports.ts";
 import { toolHeaderExtractor } from "./tool-headers.ts";
+import { sanitizeOutputSchema } from "./output-schema.ts";
 
 const SDK_TIMER_SLACK_MS = 5000;
 const MAX_NAME = 128;
@@ -210,8 +211,9 @@ export class McpConnection {
         catch { this.d.logger.warn("mcp.tool.excluded", { server: this.d.def.name, reason: "invalid-header-schema" }); continue; }
       }
       if (tool.outputSchema) {
-        // The schema walk also bounds composition depth and count, so compiling untrusted output schemas is finite.
-        try { toolHeaderExtractor(tool.outputSchema); this.outputValidators.set(tool.name, new AjvJsonSchemaValidator().getValidator(tool.outputSchema)); }
+        // The schema walk also bounds composition depth and count, so compiling untrusted output schemas is finite; the sanitizer
+        // removes the server-chosen regular expressions, so running them is finite too (see output-schema.ts).
+        try { toolHeaderExtractor(tool.outputSchema); this.outputValidators.set(tool.name, new AjvJsonSchemaValidator().getValidator(sanitizeOutputSchema(tool.outputSchema))); }
         catch { throw new McpClientError("protocol", "MCP output schema unsupported or invalid", { server: this.d.def.name }); }
       }
       this.tools.set(tool.name, tool); out.push(tool);
