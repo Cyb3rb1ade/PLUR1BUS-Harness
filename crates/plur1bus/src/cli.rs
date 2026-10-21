@@ -180,7 +180,7 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: BudgetCmd,
     },
-    /// [experimental] Audit trail: verify the hash-chained audit file (B5)
+    /// [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
     Audit {
         #[command(subcommand)]
         sub: AuditCmd,
@@ -1105,12 +1105,38 @@ pub enum SessionCmd {
         #[arg(long)]
         include_hidden: bool,
     },
+    /// [experimental] Read or change this session's model and reasoning level
+    Model {
+        #[command(subcommand)]
+        command: SessionModelCmd,
+    },
     /// [experimental] Archive a session (nothing is deleted)
     Archive { id: String },
 }
 
+#[derive(Subcommand, Debug)]
+pub enum SessionModelCmd {
+    /// [experimental] Read the model profile, default and reasoning level
+    Get { session: String },
+    /// [experimental] Preview and confirm a model or reasoning change
+    #[command(group(clap::ArgGroup::new("selection").args(["model", "reasoning"]).required(true).multiple(true)))]
+    Set {
+        session: String,
+        #[arg(long, value_name = "PROFILE")]
+        model: Option<String>,
+        #[arg(long, value_parser = ["default", "off", "minimal", "low", "medium", "high", "xhigh"])]
+        reasoning: Option<String>,
+        /// Confirm the cache and cost warning for scripts
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
 #[derive(clap::Args, Debug)]
 pub struct ChatArgs {
+    /// Reasoning level for this session (default leaves control to the provider)
+    #[arg(long, value_parser = ["default", "off", "minimal", "low", "medium", "high", "xhigh"])]
+    pub reasoning: Option<String>,
     /// Configured model profile for this session; warns and asks before switching
     #[arg(long, value_name = "PROFILE")]
     pub model: Option<String>,
@@ -1136,8 +1162,26 @@ pub enum AuditCmd {
     ///
     /// Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must
     /// be gapless across rotated files, and the anchor file must match the newest line. Asks the core
-    /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
+    /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result
+    /// also names the era boundary and checks the set-aside chain up to its first deviation.
     Verify,
+    /// [experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
+    ///
+    /// Writers refuse to append when the anchor is missing or invalid, when the chain is shorter than the anchor,
+    /// when its end does not match the anchor, or when its last line is not a chain line. This command repairs that
+    /// state under the same lock the writers use, also while the core is stopped: the chain files and the anchor are
+    /// renamed to `<name>.pre-reanchor-<ms>` (never deleted), and a new chain begins with an `audit.chain.reanchored`
+    /// event that records the old anchor, the old end, your reason (secrets redacted), the actor and the set-aside
+    /// files. It refuses with "nothing to repair" when writers accept the chain. Run it as the user that owns the home.
+    /// `--dry-run` shows the finding and changes nothing.
+    Reanchor {
+        /// Why the chain is repaired; recorded in the first event of the new chain (secrets are redacted)
+        #[arg(long, value_name = "TEXT", required_unless_present = "dry_run")]
+        reason: Option<String>,
+        /// Show what is wrong and what would be set aside; change nothing
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

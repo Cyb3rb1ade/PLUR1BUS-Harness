@@ -120,7 +120,7 @@ export const de: Record<keyof typeof en, string> = {
   "identity.approve": "Verknüpfung genehmigen",
   "identity.decline": "Verknüpfung ablehnen",
   "identity.unlinkBody":
-    "Diese Kanalidentität lösen? Ihre alten Kanal-Erinnerungen verlassen deine Union; kanonische Nutzer-Erinnerungen bleiben.",
+    "Diese Kanalidentität lösen? Die alten Kanal-Erinnerungen dieser Identität verlassen deine Union; kanonische Nutzer-Erinnerungen bleiben.",
   "identity.principals": "Meine Principal-Union",
   "identity.removeLabel": "Entfernen: {name}",
 };

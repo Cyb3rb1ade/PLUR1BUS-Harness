@@ -12,7 +12,7 @@ In den **Einstellungen > Sprache** (`/settings/voice`) sowie im ersten Einrichtu
 - **Profile Schnell (Fast) und Qualität (Quality):**
   - **Schnell:** Optimiert auf niedrige Latenz und kleinere Download-Größen. Ideal für schnelle Antworten auf Geräten mit begrenzten Ressourcen.
   - **Qualität:** Verwendet größere Modelle für präzisere Erkennung und natürlichere Stimmen. Für Englisch schlägt Plur1bus das Qualitätsprofil (Kokoro-Stimme) vor, um Stimmen mit Nur-Forschung-Einschränkungen zu vermeiden.
-- **Modelldetails und Downloadgrößen:** Die Modellübersicht zeigt jedes benötigte Modell für Spracherkennung (`asr`), Sprachausgabe (`tts`) und Sprecherkennung (`vad`) samt Dateigröße und Installationsstatus.
+- **Modelldetails und Downloadgrößen:** Die Modellübersicht zeigt jedes benötigte Modell für Spracherkennung (`asr`), Sprachausgabe (`tts`) und Erkennung von Sprechaktivität und Sprechpausen (`vad`) samt Dateigröße und Installationsstatus.
 - **Lizenzbestätigung:** Modelle mit besonderen Lizenzbedingungen (z. B. CC-BY-SA oder Forschungslizenzen) erfordern vor dem Download eine Bestätigung. Lizenznamen werden als reiner Text dargestellt.
 - **Nur-Forschung-Lizenzen:** Stimmen und Modelle, die auf nicht-kommerzielle Forschung beschränkt sind (z. B. Blizzard Challenge), sind deutlich mit einem Hinweis („Nur Forschung, keine kommerzielle Nutzung") gekennzeichnet. Die Ersteinrichtung wählt solche Stimmen niemals automatisch voraus.
 

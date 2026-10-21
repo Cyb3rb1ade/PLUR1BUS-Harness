@@ -5,7 +5,9 @@ import path from "node:path";
 import test from "node:test";
 import { createBufferedSink } from "../src/audit-queue.ts";
 import { createAuditChain } from "../src/rbac-bridge.ts";
+import { FakeClock } from "../src/clock.ts";
 import { addUser, FIXTURE_PASSWORD, jsonHeaders, loginAs, raw, start, write } from "./helpers.ts";
+import { miniCore } from "./mini-core.ts";
 
 const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 }, totp: { capacity: 1000, refillPerSec: 100 }, stream: { capacity: 1000, refillPerSec: 100 } };
 const tmp = () => mkdtempSync(path.join(tmpdir(), "plur1bus-chain-"));
@@ -15,10 +17,12 @@ const log = { error: (m: string) => { errors.push(m); } };
 test("the API's auth events land in the core's hash chain and the chain verifies; no secret is in the file", async () => {
   const dir = tmp();
   const chain = createAuditChain({ dir, lockTimeoutMs: 250 }); const buffered = createBufferedSink(chain, { log });
-  const h = await start({ rateClasses: wide, auditSink: buffered, breakGlassAudit: chain });
+  // Break-glass is the core's registry and writes the chain directly (unbuffered, fail-closed); the API's auth events are buffered.
+  const clock = new FakeClock(); const core = miniCore({ clock, auditSink: chain });
+  const h = await start({ rateClasses: wide, auditSink: buffered, breakGlassAudit: chain, clock, core });
   try {
-    await addUser(h, { id: "u-mia", username: "mia", role: "member" });
-    await addUser(h, { id: "u-adam", username: "adam", role: "admin" });
+    await addUser(h, { id: "u-mia", username: "mia", role: "member" }); core.addPerson("u-mia", "member");
+    await addUser(h, { id: "u-adam", username: "adam", role: "admin" }); core.addPerson("u-adam", "admin");
     await raw(h, { method: "POST", path: "/api/v1/session", headers: jsonHeaders(), body: JSON.stringify({ username: "mia", password: "wrong-fixture-pw" }) });
     const { cookie } = await loginAs(h, "mia");
     const made = await write(h, cookie, { path: "/api/v1/tokens", body: { name: "t", scopes: ["agent.*"] } });
@@ -32,15 +36,17 @@ test("the API's auth events land in the core's hash chain and the chain verifies
     for (const action of ["auth.login.failure", "auth.login.success", "auth.token.created", "auth.logout", "break-glass.granted"]) assert.ok(text.includes(`"action":"${action}"`), action);
     for (const secret of ["wrong-fixture-pw", FIXTURE_PASSWORD, made.json.token.slice(17)]) assert.ok(!text.includes(secret), "no secret in the chain");
     assert.deepEqual(errors, []);
-  } finally { await h.close(); rmSync(dir, { recursive: true, force: true }); }
+  } finally { await h.close(); core.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
 test("a tampered chain refuses new lines: auth events are dropped and logged, requests still answer, break-glass fails closed (503, no grant)", async () => {
   const dir = tmp(); errors.length = 0;
   const chain = createAuditChain({ dir, lockTimeoutMs: 250 }); const buffered = createBufferedSink(chain, { log, retryMs: 1, maxAttempts: 2 });
-  const h = await start({ rateClasses: wide, auditSink: buffered, breakGlassAudit: chain });
+  const clock = new FakeClock(); const core = miniCore({ clock, auditSink: chain });
+  const h = await start({ rateClasses: wide, auditSink: buffered, breakGlassAudit: chain, clock, core });
   try {
     await addUser(h, { id: "u-mia", username: "mia", role: "member" }); await addUser(h, { id: "u-adam", username: "adam", role: "admin" });
+    core.addPerson("u-mia", "member"); core.addPerson("u-adam", "admin");
     await loginAs(h, "mia"); await buffered.flush();
     assert.equal(chain.verify().ok, true);
     const active = path.join(dir, readdirSync(dir).find((f) => f === "audit-chain.jsonl")!);
@@ -54,5 +60,6 @@ test("a tampered chain refuses new lines: auth events are dropped and logged, re
     const g = await write(h, adam.cookie, { path: "/api/v1/breakglass", body: { targetUserId: "u-mia", reason: "Ticket 2: needs the chain to be intact" } });
     assert.deepEqual([g.status, g.json.reason], [503, "audit-unavailable"]);
     appendFileSync(active, "");
-  } finally { await h.close(); rmSync(dir, { recursive: true, force: true }); }
+    assert.deepEqual(core.notified, [], "no notice for a grant that does not exist");
+  } finally { await h.close(); core.close(); rmSync(dir, { recursive: true, force: true }); }
 });

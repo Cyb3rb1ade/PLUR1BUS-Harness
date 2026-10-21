@@ -60,22 +60,21 @@ test("revoking or renaming an unknown device is refused as not-found", t => {
   }
 });
 
-test("a failed durable revoke write leaves memory and disk consistent after a restart", t => {
+test("a failed durable revoke write blocks the key in this process at once, leaves the file untouched, and a retry makes it durable", t => {
   const f = fixture(); t.after(f.clean);
   const d = f.store.recordPairing(device);
   const before = readFileSync(f.file, "utf8");
   f.failure.armed = true;
   assert.throws(() => f.store.revoke(d.id, "alice"), (e: unknown) => e instanceof DeviceError && e.code === "storage");
-  assert.equal(f.store.get(d.id).revoked, false);
-  assert.deepEqual(f.store.get(d.id), d);
-  assert.equal(readFileSync(f.file, "utf8"), before);
+  assert.equal(f.store.get(d.id).revoked, true, "fail closed: the device is revoked in memory although the write failed");
+  assert.equal(readFileSync(f.file, "utf8"), before, "the file was not changed by the failed write");
   assert.deepEqual(JSON.parse(readFileSync(f.file, "utf8")).devices, [d]);
+  const challenge = f.store.challenge();
+  assert.throws(() => f.store.connect(handshake(f.store, challenge)), (e: unknown) => e instanceof DeviceError && e.code === "denied");
   f.failure.armed = false;
   const restarted = new DeviceStore(f.options);
-  assert.equal(restarted.get(d.id).revoked, false);
-  assert.deepEqual(restarted.get(d.id), f.store.get(d.id));
-  for (const store of [f.store, restarted]) {
-    const challenge = store.challenge();
-    assert.doesNotThrow(() => store.connect(handshake(store, challenge))());
-  }
+  assert.equal(restarted.get(d.id).revoked, false, "not durable yet: only the retry below survives a restart");
+  f.store.revoke(d.id, "alice");
+  assert.equal(new DeviceStore(f.options).get(d.id).revoked, true, "retrying the revoke writes it");
+  assert.equal(new DeviceStore(f.options).get(d.id).revokedBy, "alice");
 });

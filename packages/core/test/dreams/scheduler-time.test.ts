@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DreamStore } from "../../src/dreams/store.ts";
 import type { Phase } from "../../src/dreams/types.ts";
-import { DAY, gap, harness, HOUR, settle, T0, useTempDirs } from "./helpers.ts";
+import { DAY, harness, HOUR, settle, T0, useTempDirs } from "./helpers.ts";
 
 const dirs = useTempDirs();
 const MIN = 60_000;
@@ -253,8 +253,6 @@ describe("dreams scheduler: orphaned runs", () => {
   });
 });
 
-const runPhaseGap = gap("DreamScheduler.runPhase", "kein Lauf und keine Engine-Aufrufe für einen Agenten, der nicht mehr in der Registry steht", "Lauf 'completed' mit Engine-Aufrufen (nur dreams.* in methods.ts prüft requireAgent)");
-
 describe("dreams scheduler: who may dream", () => {
   it("an agent removed from the registry gets no cron run, no catch-up and no importance trigger; its rows stay", async () => {
     const h = harness(dirs, { agents: ["alpha", "beta"] });
@@ -333,7 +331,7 @@ describe("dreams scheduler: who may dream", () => {
     await h.sched.stop();
   });
 
-  it(runPhaseGap, async () => {
+  it("runPhase for an agent that left the registry runs nothing and makes no engine call (not only dreams.* checks the registry)", async () => {
     const h = harness(dirs, { agents: ["alpha", "beta"] });
     h.captures("beta", 3);
     await h.sched.start();

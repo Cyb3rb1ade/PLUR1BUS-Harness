@@ -84,6 +84,16 @@ pub struct UpdateSettings {
     pub later_until: Option<u64>,
     pub check_on_start: bool,
     pub last_check: Option<u64>,
+    /// Newest accepted feed of the current channel; older signed feeds are refused (anti-rollback).
+    pub last_seen: Option<LastSeen>,
+}
+/// Version and date of the newest signed feed accepted on a channel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LastSeen {
+    pub channel: Channel,
+    pub version: Version,
+    pub date: String,
 }
 impl Default for UpdateSettings {
     fn default() -> Self {
@@ -101,10 +111,38 @@ impl Default for UpdateSettings {
             later_until: None,
             check_on_start: true,
             last_check: None,
+            last_seen: None,
         }
     }
 }
 impl UpdateSettings {
+    /// Anti-rollback for signed feeds: a feed with a lower SemVer precedence, or the same version
+    /// with an older date, than the newest one seen on this channel is stale and refused. The
+    /// signature proves who published a feed, not that it is still the current one. A feed of
+    /// another channel is not comparable and replaces the record. Call only after `verify_feed`.
+    pub fn accept_feed(&mut self, release: &Release) -> Result<(), UpdateError> {
+        let date = chrono::NaiveDate::parse_from_str(&release.date, "%Y-%m-%d")
+            .map_err(|_| UpdateError::Schema)?;
+        if let Some(seen) = self
+            .last_seen
+            .as_ref()
+            .filter(|seen| seen.channel == release.channel)
+        {
+            let seen_date = chrono::NaiveDate::parse_from_str(&seen.date, "%Y-%m-%d")
+                .map_err(|_| UpdateError::Settings)?;
+            match precedence(&release.version, &seen.version) {
+                std::cmp::Ordering::Less => return Err(UpdateError::Manifest),
+                std::cmp::Ordering::Equal if date < seen_date => return Err(UpdateError::Manifest),
+                _ => {}
+            }
+        }
+        self.last_seen = Some(LastSeen {
+            channel: release.channel,
+            version: release.version.clone(),
+            date: release.date.clone(),
+        });
+        Ok(())
+    }
     /// Suppress this offer for 24 hours, or until the next app start.
     pub fn later(&mut self, now: u64) {
         self.later_until = Some(now.saturating_add(86400));

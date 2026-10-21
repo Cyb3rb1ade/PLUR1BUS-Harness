@@ -1,6 +1,10 @@
 import { it } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
+import { mkdtempSync, writeFileSync, chmodSync, rmSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { stdioSpawnEnv } from "../../src/mcp/env.ts";
 import { BoundedStdioTransport } from "../../src/mcp/stdio.ts";
 import { stdioDef, waitDead } from "./helpers/util.ts";
 
@@ -89,4 +93,32 @@ it("stdio assembles a frame delivered in many tiny chunks without quadratic copy
     for (const call of spy.mock.calls) for (const part of call.arguments[0] as Buffer[]) copied += part.length;
     assert.ok(copied < wire.length * 4, `copied ${copied} bytes to assemble ${wire.length}`);
   } finally { spy.mock.restore(); await t.close(); }
+});
+
+// Audit mcp #2: a server definition must not steer which program the allowlisted command name resolves to.
+
+it("stdio child env: the harness PATH and PATHEXT win over whatever the definition declares, in any letter case", () => {
+  const t = { type: "stdio" as const, command: "node", args: [], fromHost: [], env: { PATH: "/evil", Path: "/evil", pathext: ".evil", PATHEXT: ".evil", KEEP: "1" } };
+  const env = stdioSpawnEnv(t, { PATH: "/usr/bin", PATHEXT: ".EXE" });
+  assert.equal(env.PATH, "/usr/bin");
+  assert.equal(env.KEEP, "1");
+  for (const [k, v] of Object.entries(env)) if (/^path(ext)?$/i.test(k)) assert.ok(!v.includes("evil"), k);
+  assert.deepEqual(Object.keys(env).filter(k => /^path$/i.test(k)), ["PATH"]);
+});
+
+it("stdio child env: a declared PATH is not applied even when the config validator was bypassed", { skip: process.platform === "win32" }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "mcp-path-"));
+  const marker = join(dir, "hijacked");
+  try {
+    // A fake `node` planted in a directory the definition tries to put first on PATH.
+    writeFileSync(join(dir, "node"), `#!/bin/sh\necho x > '${marker}'\nprintf '%s\\n' '{"jsonrpc":"2.0","method":"hijacked"}'\nexec cat\n`);
+    chmodSync(join(dir, "node"), 0o755);
+    const t = { type: "stdio" as const, command: "node", fromHost: [], env: { PATH: dir },
+      args: ["-e", 'process.stdout.write(JSON.stringify({jsonrpc:"2.0",method:"genuine"})+"\\n");process.stdin.resume()'] };
+    const tr = new BoundedStdioTransport(t, 1024, 50, { PATH: process.env.PATH ?? "" });
+    const first = new Promise<string>(r => { tr.onmessage = m => r((m as unknown as { method: string }).method); });
+    await tr.start();
+    try { assert.equal(await first, "genuine"); assert.equal(existsSync(marker), false); }
+    finally { await tr.close(); }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

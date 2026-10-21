@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
 import { test } from "node:test";
 import { catalogues, t, type Key } from "../src/i18n.ts";
 import { AREAS, registerArea } from "../src/i18n/index.ts";
@@ -91,4 +92,28 @@ test("i18n: Key is strictly typed", () => {
   // @ts-expect-error unknown keys are compile errors
   const bad: Key = "no.such.key";
   assert.ok(bad);
+});
+
+// German text addresses the person with "du" throughout (owner decision, like docs/user/de), and does not gender. "Sie" that means a thing
+// or "they" ("Sie gilt nur für diese Freigabe") is correct German and not matched: only the forms of the polite address are.
+const FORMAL_ADDRESS = [
+  /\b\p{L}+(?:en|et|ten) Sie\b/u, // "Wählen Sie", "Sind Sie", "versuchen Sie", "Haben Sie"
+  /\b(?:wenn|dass|ob|falls|sobald|bevor|damit|weil|wie|bitte) Sie\b/u,
+  /\b(?:an|für|bei|mit|von|zu|auf|über|um|nach|vor|ohne|durch|gegen|aus) Sie\b/u,
+  /\bIh(?:r|re|ren|rem|rer|res|nen)\b/u, // "Ihr Konto", "Ihnen"
+  /(?:^|[.!?:;] )Sie (?:müssen|besitzen|möchten|sollten|dürfen|benötigen|haben|sind)\b/u, // "Sie müssen ... bestätigen."
+];
+const GENDERING = /\p{L}[:*_/]in(?:nen)?\b|\((?:in|innen)\)|\p{Ll}Innen\b|\p{Ll}-innen\b/u;
+
+test("i18n: German text uses du, never the polite Sie, and does not gender", async () => {
+  const dir = new URL("../src/i18n/", import.meta.url);
+  const files = readdirSync(dir).filter((f) => f.endsWith(".ts") && f !== "index.ts");
+  assert.ok(files.length >= 30, "the catalogue files are found");
+  for (const file of files) {
+    const de = ((await import(new URL(file, dir).href)) as { de: Record<string, string> }).de;
+    for (const [k, v] of Object.entries(de)) {
+      for (const re of FORMAL_ADDRESS) assert.ok(!re.test(v), `${file}: ${k} addresses the person with Sie: ${v}`);
+      assert.ok(!GENDERING.test(v), `${file}: ${k} genders: ${v}`);
+    }
+  }
 });
