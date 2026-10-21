@@ -249,6 +249,30 @@ async fn every_request_of_an_open_reaches_the_checked_address_only() {
             .websocket_connect("wss://other.test/ws")
             .await
             .is_err());
+        // So is another port of the same host: a listener there (on the pinned address) sees nothing.
+        let other = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let other_port = other.local_addr().unwrap().port();
+        let other_seen = Arc::new(AtomicUsize::new(0));
+        let counter = other_seen.clone();
+        let other_task = tokio::spawn(async move {
+            while let Ok((stream, _)) = other.accept().await {
+                counter.fetch_add(1, Ordering::SeqCst);
+                drop(stream);
+            }
+        });
+        assert!(client
+            .websocket_connect(format!("wss://harness.test:{other_port}/ws"))
+            .await
+            .is_err());
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(
+            other_seen.load(Ordering::SeqCst),
+            0,
+            "another port was contacted"
+        );
+        other_task.abort();
 
         // SSE: the native status stream until its first update.
         mock.control.set_status("ready", "unlocked");

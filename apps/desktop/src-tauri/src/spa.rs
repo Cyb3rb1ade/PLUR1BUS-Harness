@@ -127,17 +127,33 @@ impl SpaState {
         F: FnOnce(Connection) -> Fut,
         Fut: std::future::Future<Output = Option<crate::client::Ticket>>,
     {
-        let (connection, retry, proxy) = {
+        self.retry_navigation_pinned(origin, manual, |connection, _| issue_ticket(connection))
+            .await
+    }
+    /// [`Self::retry_navigation`] whose issuer also gets the active carrier's checked addresses (transport choice
+    /// spec §9.2), read together with the connection under the same lock.
+    pub async fn retry_navigation_pinned<F, Fut>(
+        &self,
+        origin: &Origin,
+        manual: bool,
+        issue_ticket: F,
+    ) -> Option<Url>
+    where
+        F: FnOnce(Connection, Option<crate::transport::ConnectPin>) -> Fut,
+        Fut: std::future::Future<Output = Option<crate::client::Ticket>>,
+    {
+        let (connection, retry, proxy, pin) = {
             let active = self.current.lock().unwrap();
             let active = active.as_ref().filter(|a| a.proxy.origin() == origin)?;
             (
                 active.connection.clone(),
                 retry_ticket(&active.retries, manual),
                 active.proxy.clone(),
+                active.proxy.pin(),
             )
         };
         let ticket = if retry {
-            issue_ticket(connection).await
+            issue_ticket(connection, pin).await
         } else {
             None
         };
@@ -240,15 +256,6 @@ impl SpaState {
         if let Some(probe) = probe {
             probe(stage, hresult);
         }
-    }
-    /// The checked addresses the active SPA carrier for `origin` is pinned to (transport choice spec §9.2).
-    pub fn active_pin(&self, origin: &Origin) -> Option<crate::transport::ConnectPin> {
-        self.current
-            .lock()
-            .unwrap()
-            .as_ref()
-            .filter(|a| a.proxy.origin() == origin)
-            .and_then(|a| a.proxy.pin())
     }
     /// Origin of the active SPA carrier, in every build profile.
     pub fn active_origin(&self) -> Option<Origin> {
@@ -565,9 +572,8 @@ fn schedule_retry(app: &tauri::AppHandle, origin: &Origin, manual: bool) {
     let origin = origin.clone();
     tauri::async_runtime::spawn(async move {
         let state = app.state::<SpaState>();
-        let connect = state.active_pin(&origin);
         let url = state
-            .retry_navigation(&origin, manual, |connection| async {
+            .retry_navigation_pinned(&origin, manual, |connection, connect| async {
                 let store = crate::commands::app_connection_store(&app);
                 match store {
                     Ok(store) => crate::commands::credential_action(

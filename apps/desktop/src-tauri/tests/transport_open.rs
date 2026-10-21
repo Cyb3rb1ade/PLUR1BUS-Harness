@@ -7,13 +7,14 @@ use futures_util::future::BoxFuture;
 use plur1bus_desktop::{
     client::HarnessClient,
     connections::{Connection, Kind, Origin, Store},
-    events::{EventStream, Reconnect},
+    events::{transport_reconnect, EventStream, TRANSPORT_ATTENTION},
     pair,
     secrets::{self, MemoryStore},
     transport::{
         parse_status, CheckDeps, ConnectPin, HostInput, LogSink, ProbeOutcome, Prober, PublicAck,
         Purpose, Recheck, ResolveError, Resolver, StoreMode, TailscaleSource, TailscaleStatus,
-        TargetInput, Transport, TransportEntry, TransportError, TransportStore, Transports,
+        TargetInput, Transport, TransportEntry, TransportError, TransportReport, TransportStore,
+        Transports,
     },
     tray::{Badge, Language, TrayState},
 };
@@ -52,13 +53,13 @@ impl Resolver for Scripted {
         _port: u16,
     ) -> BoxFuture<'a, Result<Vec<SocketAddr>, ResolveError>> {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        let hang = self.hang.load(Ordering::SeqCst);
-        let timeout = self.timeout.load(Ordering::SeqCst);
-        let answer = self.answer.lock().unwrap().clone();
         Box::pin(async move {
-            if hang {
-                std::future::pending::<()>().await;
+            // Held while `hang` is set.
+            while self.hang.load(Ordering::SeqCst) {
+                tokio::time::sleep(Duration::from_millis(5)).await;
             }
+            let timeout = self.timeout.load(Ordering::SeqCst);
+            let answer = self.answer.lock().unwrap().clone();
             if timeout {
                 return Err(ResolveError::Timeout);
             }
@@ -184,13 +185,15 @@ impl Fixture {
             .record_pairing(&self.tstore(), &row, transport, &checked.report);
         Ok(row)
     }
-    /// `open_connection`: check and gate before any harness contact, then validate and issue a ticket pinned.
+    /// `open_connection`: its gate (`Transports::open_check`, the production call) before any harness contact, then
+    /// validate and issue a ticket pinned.
     async fn open(&self, row: &mut Connection) -> Result<ConnectPin, String> {
-        let checked = self
+        let (listed, checked) = self
             .transports
-            .check_open(&self.tstore(), row, "open", false)
-            .await
-            .map_err(|e| e.code().to_owned())?;
+            .open_check(&self.store, &self.tstore(), row.id)
+            .await?;
+        assert_eq!(listed.origin, row.origin);
+        let (checked, _) = checked.expect("a remote row is checked");
         pair::validate_connection_pinned(row, &self.tokens, &self.store, Some(&checked.pin))
             .await
             .map_err(|e| e.public_message())?;
@@ -358,8 +361,9 @@ async fn a_reconnect_re_checks_and_stops_when_the_target_turned_public() {
         let tray = Mutex::new(TrayState::default());
         let lookups_before = f.resolver.calls.load(Ordering::SeqCst);
         let (_stop, receiver) = tokio::sync::watch::channel(false);
-        let (fr, row_ref, client_ref, attention_ref, tray_ref) =
-            (&f, &row, &client, &attention, &tray);
+        let earlier = std::sync::atomic::AtomicBool::new(true);
+        let (fr, row_ref, client_ref, attention_ref, tray_ref, earlier_ref) =
+            (&f, &row, &client, &attention, &tray, &earlier);
         let mut stream = EventStream::default();
         let run = stream.run_checked_with_timing(
             &client,
@@ -379,28 +383,34 @@ async fn a_reconnect_re_checks_and_stops_when_the_target_turned_public() {
             },
             || 0.5,
             |_| std::future::ready(()),
+            // The production decision of `native::recheck_events`; native only shows its outcome.
             move || async move {
-                match fr.transports.recheck(&fr.tstore(), row_ref, true).await {
-                    Recheck::Pinned(checked) => {
-                        Reconnect::Use(Box::new(client_ref.clone().with_pin(checked.pin)))
+                let (next, outcome) = transport_reconnect(
+                    &fr.transports,
+                    &fr.tstore(),
+                    row_ref,
+                    client_ref,
+                    earlier_ref,
+                )
+                .await;
+                if let Some(outcome) = outcome {
+                    outcome.apply(&mut tray_ref.lock().unwrap());
+                    if let Some(event) = outcome.event() {
+                        *attention_ref.lock().unwrap() = Some(event);
                     }
-                    Recheck::Attention(code) => {
-                        *attention_ref.lock().unwrap() = Some(code);
-                        tray_ref
-                            .lock()
-                            .unwrap()
-                            .set_confirm_needed(Transport::Direct);
-                        Reconnect::Stop
-                    }
-                    Recheck::Retry => Reconnect::Skip,
                 }
+                next
             },
         );
         tokio::time::timeout(Duration::from_secs(30), run)
             .await
             .unwrap();
         assert_eq!(connected.load(Ordering::SeqCst), 2);
-        assert_eq!(*attention.lock().unwrap(), Some("target-changed-public"));
+        assert_eq!(
+            *attention.lock().unwrap(),
+            Some(serde_json::json!({ "id": row.id, "code": "target-changed-public" }))
+        );
+        assert_eq!(TRANSPORT_ATTENTION, "transport-attention");
         assert_eq!(
             f.mock.control.accepted_connections(),
             *accepted_at_drop.lock().unwrap(),
@@ -748,6 +758,311 @@ async fn the_log_lines_of_checks_and_opens_carry_no_tailnet_data() {
                 .iter()
                 .any(|l| l.contains("codes=tailscale-peer-unknown")),
             "{lines:?}"
+        );
+    })
+    .await;
+}
+
+/// Records every address it is asked to probe. A loopback address gets a real TCP connect (so the mock harness counts
+/// it); any other answers as connected from this device's tailnet address without touching the network.
+#[derive(Clone, Default)]
+struct Recording(Arc<Mutex<Vec<Vec<SocketAddr>>>>);
+impl Prober for Recording {
+    fn probe<'a>(&'a self, addrs: &'a [SocketAddr]) -> BoxFuture<'a, ProbeOutcome> {
+        self.0.lock().unwrap().push(addrs.to_vec());
+        Box::pin(async move {
+            for addr in addrs {
+                if addr.ip().is_loopback() {
+                    let _ = tokio::net::TcpStream::connect(addr).await;
+                }
+            }
+            ProbeOutcome::Connected {
+                local: "100.90.0.1:50000".parse().unwrap(),
+                remote: addrs[0],
+            }
+        })
+    }
+}
+impl Recording {
+    fn seen(&self) -> Vec<Vec<SocketAddr>> {
+        self.0.lock().unwrap().clone()
+    }
+}
+
+/// A row of `connections.json` for the mock under `harness.test`, never paired (so the mock counts nothing yet).
+struct ProbeFixture {
+    mock: MockHandle,
+    port: u16,
+    transports: Transports,
+    prober: Recording,
+    dir: tempfile::TempDir,
+    store: Store,
+    row: Connection,
+}
+
+async fn probe_fixture(status: &[u8], answer: impl Fn(u16) -> Vec<SocketAddr>) -> ProbeFixture {
+    let mock = MockHarness::start_tls(
+        MockOptions {
+            bind: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
+            ..Default::default()
+        },
+        Identity::self_signed(),
+    )
+    .await
+    .unwrap();
+    let port = url::Url::parse(&mock.origin).unwrap().port().unwrap();
+    let prober = Recording::default();
+    let transports = Transports::new(
+        CheckDeps {
+            resolver: Scripted::new(answer(port)),
+            tailscale: Arc::new(Fixed(parse_status(true, status))),
+            prober: Arc::new(prober.clone()),
+        },
+        Capture::default().sink(),
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path());
+    let row = Connection::new(
+        "Remote desk".into(),
+        Kind::Remote,
+        Origin::parse(&format!("https://harness.test:{port}")).unwrap(),
+        "installation".into(),
+        "device".into(),
+        "hint".into(),
+    );
+    store.upsert(row.clone()).unwrap();
+    ProbeFixture {
+        mock,
+        port,
+        transports,
+        prober,
+        dir,
+        store,
+        row,
+    }
+}
+
+impl ProbeFixture {
+    fn tstore(&self) -> TransportStore {
+        TransportStore::open(self.dir.path())
+    }
+    async fn panel(&self, transport: Transport) -> TransportReport {
+        let (host, port) = HostInput::from_origin(&self.row.origin).unwrap();
+        let input = TargetInput {
+            host,
+            port,
+            transport,
+            purpose: Purpose::Remote,
+        };
+        let tstore = self.tstore();
+        self.transports
+            .check_for_window(
+                "shell",
+                self.transports
+                    .check_input(&input, Some((&tstore, &self.row))),
+            )
+            .await
+            .unwrap()
+    }
+}
+
+/// Review Important 1: a mixed answer [mock, public, online peer] must not get a probe to the public (or any
+/// non-tailnet) address, neither before the confirmation (no probe at all) nor after it (only the peer's tailnet
+/// address) — for the open gate, the reconnect re-check and the check panel.
+#[tokio::test]
+async fn the_probe_never_connects_to_a_public_or_non_tailnet_address() {
+    bounded(async {
+        let peer = |port| SocketAddr::new("100.101.102.103".parse().unwrap(), port);
+        let f = probe_fixture(include_bytes!("fixtures/tailscale/running.json"), |port| {
+            vec![
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port),
+                SocketAddr::new(IpAddr::V4(PUBLIC), port),
+                peer(port),
+            ]
+        })
+        .await;
+        // Before the confirmation: refused, and nothing probed.
+        assert_eq!(
+            f.transports
+                .open_check(&f.store, &f.tstore(), f.row.id)
+                .await
+                .unwrap_err(),
+            "transport-confirm-needed"
+        );
+        assert_eq!(
+            f.transports
+                .recheck_shared(&f.tstore(), &f.row, false)
+                .await,
+            Recheck::Attention("transport-confirm-needed")
+        );
+        let panel = f.panel(Transport::Direct).await;
+        assert!(panel.needs_public_ack);
+        assert_eq!(
+            panel.tailscale.as_ref().map(|t| t.state),
+            Some("tailscale-peer-online"),
+            "unprobed: nothing claims reachability"
+        );
+        assert_eq!(f.prober.seen(), Vec::<Vec<SocketAddr>>::new());
+        assert_eq!(f.mock.control.accepted_connections(), 0);
+
+        // After the confirmation: only the matched peer's tailnet address is probed.
+        f.transports
+            .set_transport(&f.tstore(), &f.row, Transport::Direct, true)
+            .await
+            .unwrap();
+        let (_, opened) = f
+            .transports
+            .open_check(&f.store, &f.tstore(), f.row.id)
+            .await
+            .unwrap();
+        let (checked, _) = opened.unwrap();
+        assert_eq!(
+            checked.report.tailscale.as_ref().map(|t| t.state),
+            Some("tailscale-ok")
+        );
+        assert_eq!(checked.pin.addrs.len(), 3, "the connect set is unchanged");
+        assert!(matches!(
+            f.transports
+                .recheck_shared(&f.tstore(), &f.row, false)
+                .await,
+            Recheck::Pinned(_)
+        ));
+        let panel = f.panel(Transport::Direct).await;
+        assert_eq!(
+            panel.tailscale.as_ref().map(|t| t.state),
+            Some("tailscale-ok")
+        );
+        let seen = f.prober.seen();
+        assert_eq!(seen, vec![vec![peer(f.port)]; 3]);
+        assert_eq!(f.mock.control.accepted_connections(), 0);
+        // A path the person is choosing anew has no confirmation yet: no probe.
+        let fresh = f.panel(Transport::Tailscale).await;
+        assert!(fresh.needs_public_ack);
+        assert_eq!(f.prober.seen().len(), 3);
+    })
+    .await;
+}
+
+/// The subnet-route variant: only the private addresses inside the matched router's route are probed.
+#[tokio::test]
+async fn a_subnet_route_probe_touches_only_the_private_addresses_inside_the_route() {
+    bounded(async {
+        let routed = |port| SocketAddr::new("192.168.10.5".parse().unwrap(), port);
+        let f = probe_fixture(
+            include_bytes!("fixtures/tailscale/subnet-router.json"),
+            |port| vec![SocketAddr::new(IpAddr::V4(PUBLIC), port), routed(port)],
+        )
+        .await;
+        f.tstore()
+            .set(f.row.id, TransportEntry::new(Transport::Tailscale))
+            .unwrap();
+        assert_eq!(
+            f.transports
+                .open_check(&f.store, &f.tstore(), f.row.id)
+                .await
+                .unwrap_err(),
+            "transport-confirm-needed"
+        );
+        f.panel(Transport::Tailscale).await;
+        assert_eq!(f.prober.seen(), Vec::<Vec<SocketAddr>>::new());
+        f.transports
+            .set_transport(&f.tstore(), &f.row, Transport::Tailscale, true)
+            .await
+            .unwrap();
+        let (_, opened) = f
+            .transports
+            .open_check(&f.store, &f.tstore(), f.row.id)
+            .await
+            .unwrap();
+        assert_eq!(
+            opened.unwrap().0.report.tailscale.unwrap().state,
+            "tailscale-subnet-route"
+        );
+        assert_eq!(f.prober.seen(), vec![vec![routed(f.port)]]);
+    })
+    .await;
+}
+
+/// Spec §5.4: the status and trust streams share one re-check per connection.
+#[tokio::test]
+async fn concurrent_reconnects_share_one_re_check() {
+    bounded(async {
+        let f = Fixture::new().await;
+        let row = f.pair(Transport::Direct, false).await.unwrap();
+        let before = f.resolver.calls.load(Ordering::SeqCst);
+        // The status stream's re-check is in flight (its lookup held); the trust stream's arrives meanwhile.
+        f.resolver.hang.store(true, Ordering::SeqCst);
+        let tstore = f.tstore();
+        let first = f.transports.recheck_shared(&tstore, &row, true);
+        let second = async {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            f.transports.recheck_shared(&f.tstore(), &row, true).await
+        };
+        let release = async {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            assert_eq!(f.resolver.calls.load(Ordering::SeqCst), before + 1);
+            f.resolver.hang.store(false, Ordering::SeqCst);
+        };
+        let (first, second, ()) = tokio::join!(first, second, release);
+        assert!(matches!(first, Recheck::Pinned(_)));
+        assert_eq!(first, second, "the second waiter takes the first's result");
+        assert_eq!(f.resolver.calls.load(Ordering::SeqCst), before + 1);
+        // Two callers at the same time: one lookup, one result for both.
+        f.resolver.hang.store(true, Ordering::SeqCst);
+        let (a, b, ()) = tokio::join!(
+            f.transports.recheck_shared(&tstore, &row, true),
+            f.transports.recheck_shared(&tstore, &row, true),
+            async {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                f.resolver.hang.store(false, Ordering::SeqCst);
+            }
+        );
+        assert_eq!(a, b);
+        assert_eq!(f.resolver.calls.load(Ordering::SeqCst), before + 2);
+        // The next reconnect checks again.
+        f.transports.recheck_shared(&f.tstore(), &row, true).await;
+        assert_eq!(f.resolver.calls.load(Ordering::SeqCst), before + 3);
+    })
+    .await;
+}
+
+/// Review Minor 2: a name that does not resolve keeps an unchanged path's entry (and its confirmation) as it is.
+#[tokio::test]
+async fn an_unresolved_set_keeps_the_confirmation_of_an_unchanged_path() {
+    bounded(async {
+        let f = Fixture::new().await;
+        let row = f.pair(Transport::Direct, false).await.unwrap();
+        f.resolver.set(Some(vec![f.public()]));
+        f.transports
+            .set_transport(&f.tstore(), &row, Transport::Direct, true)
+            .await
+            .unwrap();
+        let confirmed = f.tstore().get(row.id).unwrap();
+        assert!(confirmed.public_ack.is_some());
+        for timeout in [false, true] {
+            f.resolver.set(None);
+            f.resolver.timeout.store(timeout, Ordering::SeqCst);
+            let report = f
+                .transports
+                .set_transport(&f.tstore(), &row, Transport::Direct, false)
+                .await
+                .unwrap();
+            assert_eq!(report.category, None);
+            assert_eq!(
+                f.tstore().get(row.id),
+                Some(confirmed.clone()),
+                "unchanged path rewritten"
+            );
+        }
+        // A changed path is stored, without a confirmation.
+        f.transports
+            .set_transport(&f.tstore(), &row, Transport::Tailscale, false)
+            .await
+            .unwrap();
+        let entry = f.tstore().get(row.id).unwrap();
+        assert_eq!(
+            (entry.transport, entry.public_ack),
+            (Transport::Tailscale, None)
         );
     })
     .await;

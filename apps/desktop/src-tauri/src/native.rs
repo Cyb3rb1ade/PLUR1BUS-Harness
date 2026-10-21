@@ -281,7 +281,6 @@ async fn recheck_events(
     earlier_private: &AtomicBool,
 ) -> crate::events::Reconnect {
     use crate::events::Reconnect;
-    use crate::transport::Recheck;
     if row.kind != crate::connections::Kind::Remote {
         return Reconnect::Same;
     }
@@ -292,37 +291,22 @@ async fn recheck_events(
         return Reconnect::Skip;
     };
     let store = crate::transport::TransportStore::open(&dir);
-    let transport = store.effective(row).transport;
-    match transports
-        .recheck(&store, row, earlier_private.load(Ordering::SeqCst))
-        .await
-    {
-        Recheck::Pinned(checked) => {
-            earlier_private.store(
-                checked.report.category != Some(crate::transport::Category::Public),
-                Ordering::SeqCst,
-            );
-            let report = checked.report.clone();
-            publish_view(app, generation, move |view| {
-                view.set_transport(Some((transport, &report)));
-            });
-            Reconnect::Use(Box::new(client.clone().with_pin(checked.pin)))
-        }
-        Recheck::Attention(code) => {
-            let id = row.id;
-            let handle = app.clone();
-            publish_view(app, generation, move |view| {
-                view.set_confirm_needed(transport);
+    let (next, outcome) =
+        crate::events::transport_reconnect(&transports, &store, row, client, earlier_private).await;
+    if let Some(outcome) = outcome {
+        let handle = app.clone();
+        publish_view(app, generation, move |view| {
+            outcome.apply(view);
+            if let Some(event) = outcome.event() {
                 let _ = handle.emit_to(
                     tauri::EventTarget::webview_window("shell"),
-                    "transport-attention",
-                    serde_json::json!({ "id": id, "code": code }),
+                    crate::events::TRANSPORT_ATTENTION,
+                    event,
                 );
-            });
-            Reconnect::Stop
-        }
-        Recheck::Retry => Reconnect::Skip,
+            }
+        });
     }
+    next
 }
 
 /// Changes the tray view of the current event generation and shows it (header, badge, shell).

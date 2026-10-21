@@ -596,23 +596,9 @@ pub async fn open_connection(
     // Transport choice spec §7.1, §9.2: a remote connection is checked and gated before any harness contact; a public
     // target without a valid confirmation returns `transport-confirm-needed` and nothing connects. Metadata is read
     // without the credential owner, as listing does.
-    let listed = store
-        .load()
-        .map_err(|_| "storage")?
-        .into_iter()
-        .find(|c| c.id == request.id)
-        .ok_or("invalid")?;
-    let checked = if listed.kind == crate::connections::Kind::Remote {
-        let tstore = transport_store(&app)?;
-        let checked = transports
-            .check_open(&tstore, &listed, "open", false)
-            .await
-            .map_err(|e| e.code().to_owned())?;
-        let transport = tstore.effective(&listed).transport;
-        Some((checked, transport))
-    } else {
-        None
-    };
+    let (listed, checked) = transports
+        .open_check(&store, &transport_store(&app)?, request.id)
+        .await?;
     let report = checked.as_ref().map(|(c, _)| c.report.clone());
     let opened = checked.as_ref().map(|(c, t)| (c.report.clone(), *t));
     let connect = checked.map(|(c, _)| c.pin);

@@ -230,6 +230,12 @@ impl HarnessClient {
         let url = url::Url::parse(self.origin.as_str()).ok()?;
         Some(url.host_str()?.trim_matches(['[', ']']).to_owned())
     }
+    /// The origin's effective port.
+    fn origin_port(&self) -> Option<u16> {
+        url::Url::parse(self.origin.as_str())
+            .ok()?
+            .port_or_known_default()
+    }
     /// Trust from an explicitly confirmed OS pairing payload, never a typed pin field.
     pub async fn from_pairing_payload(
         origin: Origin,
@@ -375,7 +381,7 @@ impl HarnessClient {
     /// Opens a WebSocket to this client's origin with the prepared TLS policy. A pinned client connects the TCP
     /// stream to the first reachable checked address and hands it to the handshake, so the WebSocket library never
     /// resolves the host (transport choice spec §9.2); the request's host still drives SNI and certificate checks.
-    /// A request for any other host than the origin's is refused.
+    /// A request for any other host or port than the origin's is refused before any connection.
     pub async fn websocket_connect<R>(
         &self,
         request: R,
@@ -405,7 +411,7 @@ impl HarnessClient {
             Some("wss") => 443,
             _ => 80,
         });
-        if Some(&host) != self.origin_host().as_ref() {
+        if Some(&host) != self.origin_host().as_ref() || Some(port) != self.origin_port() {
             return Err(ClientError::Protocol);
         }
         let stream = match &self.connect {

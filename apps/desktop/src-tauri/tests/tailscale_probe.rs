@@ -36,7 +36,35 @@ fn ip(s: &str) -> IpAddr {
     s.parse().unwrap()
 }
 
-/// A tailnet whose `nas` peer lives on 127.0.0.1, so a real loopback connect stands in for the tailnet path.
+/// The tailnet address of the `nas` peer. Package T4 probes only a matched peer's tailnet addresses, so the real
+/// `TcpProber` reaches the loopback listener through [`LoopbackRelay`], which connects to 127.0.0.1 on the same port.
+const NAS: &str = "100.101.102.103";
+
+/// Runs the real [`TcpProber`] against 127.0.0.1 on each asked address's port (a loopback listener stands in for the
+/// tailnet path) and records what `check_target` asked it to probe.
+#[derive(Default)]
+struct LoopbackRelay(std::sync::Mutex<Vec<Vec<SocketAddr>>>);
+
+impl Prober for LoopbackRelay {
+    fn probe<'a>(&'a self, addrs: &'a [SocketAddr]) -> BoxFuture<'a, ProbeOutcome> {
+        self.0.lock().unwrap().push(addrs.to_vec());
+        Box::pin(async move {
+            let relayed: Vec<SocketAddr> = addrs
+                .iter()
+                .map(|a| SocketAddr::new(ip("127.0.0.1"), a.port()))
+                .collect();
+            match TcpProber::default().probe(&relayed).await {
+                ProbeOutcome::Connected { local, remote } => ProbeOutcome::Connected {
+                    local,
+                    remote: addrs[relayed.iter().position(|r| *r == remote).unwrap()],
+                },
+                other => other,
+            }
+        })
+    }
+}
+
+/// A tailnet whose `nas` peer is [`NAS`].
 fn loopback_tailnet(self_ips: &[&str]) -> TailscaleStatus {
     TailscaleStatus::Running(TailnetView {
         self_ips: self_ips.iter().map(|s| ip(s)).collect(),
@@ -45,7 +73,7 @@ fn loopback_tailnet(self_ips: &[&str]) -> TailscaleStatus {
         peers: vec![PeerView {
             dns_name: "nas.example.ts.net.".into(),
             host_name: "nas-host".into(),
-            ips: vec![ip("127.0.0.1")],
+            ips: vec![ip(NAS)],
             online: true,
             expired: false,
             routes: vec![],
@@ -54,10 +82,14 @@ fn loopback_tailnet(self_ips: &[&str]) -> TailscaleStatus {
 }
 
 fn deps(status: TailscaleStatus) -> CheckDeps {
+    deps_with(status, Arc::new(LoopbackRelay::default()))
+}
+
+fn deps_with(status: TailscaleStatus, prober: Arc<LoopbackRelay>) -> CheckDeps {
     CheckDeps {
         resolver: Arc::new(NoResolver),
         tailscale: Arc::new(Fixed(status)),
-        prober: Arc::new(TcpProber::default()),
+        prober,
     }
 }
 
@@ -110,10 +142,20 @@ async fn connect_reports_local_and_remote_and_sends_nothing() {
 async fn self_ip_loopback_is_ok_and_another_self_ip_is_route_mismatch() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
-    let checked = check_target(&target(port), &deps(loopback_tailnet(&["127.0.0.1"])), true)
-        .await
-        .unwrap();
+    let relay = Arc::new(LoopbackRelay::default());
+    let checked = check_target(
+        &target(port),
+        &deps_with(loopback_tailnet(&["127.0.0.1"]), relay.clone()),
+        true,
+    )
+    .await
+    .unwrap();
     assert_eq!(codes(&checked.report), vec!["tailscale-ok"]);
+    // Only the peer's tailnet address was probed.
+    assert_eq!(
+        *relay.0.lock().unwrap(),
+        vec![vec![SocketAddr::new(ip(NAS), port)]]
+    );
     let checked = check_target(
         &target(port),
         &deps(loopback_tailnet(&["100.64.0.9"])),

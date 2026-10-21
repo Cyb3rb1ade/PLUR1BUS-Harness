@@ -44,6 +44,84 @@ pub enum Reconnect {
     /// Stop: the target needs a confirmation the app never gives on its own.
     Stop,
 }
+/// The shell event a reconnect stopped for a confirmation raises (transport choice spec §9.2).
+pub const TRANSPORT_ATTENTION: &str = "transport-attention";
+
+/// What a reconnect's transport check means for the tray and the shell.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReconnectOutcome {
+    /// Reconnecting over a fresh check of this path: the tray shows its path and Tailscale notice.
+    Checked(
+        crate::transport::Transport,
+        crate::transport::TransportReport,
+    ),
+    /// Stopped: the target needs a confirmation the app never gives on its own.
+    Attention {
+        id: uuid::Uuid,
+        transport: crate::transport::Transport,
+        code: &'static str,
+    },
+}
+impl ReconnectOutcome {
+    pub fn apply(&self, view: &mut crate::tray::TrayState) {
+        match self {
+            Self::Checked(transport, report) => view.set_transport(Some((*transport, report))),
+            Self::Attention { transport, .. } => view.set_confirm_needed(*transport),
+        }
+    }
+    /// The `transport-attention` payload for the shell, for a stop.
+    pub fn event(&self) -> Option<serde_json::Value> {
+        match self {
+            Self::Checked(..) => None,
+            Self::Attention { id, code, .. } => Some(serde_json::json!({ "id": id, "code": code })),
+        }
+    }
+}
+
+/// The decision before a reconnect of a connection's status or trust stream (transport choice spec §9.2, §5.4): rows
+/// without a transport reconnect as before; a remote row runs the shared re-check and reconnects only over its
+/// addresses, waits another backoff when nothing resolves, and stops when the target needs a confirmation.
+/// `earlier_private` carries whether the previous check of this open found the target not public.
+pub async fn transport_reconnect(
+    transports: &crate::transport::Transports,
+    store: &crate::transport::TransportStore,
+    row: &crate::connections::Connection,
+    client: &HarnessClient,
+    earlier_private: &std::sync::atomic::AtomicBool,
+) -> (Reconnect, Option<ReconnectOutcome>) {
+    use crate::transport::Recheck;
+    use std::sync::atomic::Ordering;
+    if row.kind != crate::connections::Kind::Remote {
+        return (Reconnect::Same, None);
+    }
+    let transport = store.effective(row).transport;
+    match transports
+        .recheck_shared(store, row, earlier_private.load(Ordering::SeqCst))
+        .await
+    {
+        Recheck::Pinned(checked) => {
+            earlier_private.store(
+                checked.report.category != Some(crate::transport::Category::Public),
+                Ordering::SeqCst,
+            );
+            let outcome = ReconnectOutcome::Checked(transport, checked.report);
+            (
+                Reconnect::Use(Box::new(client.clone().with_pin(checked.pin))),
+                Some(outcome),
+            )
+        }
+        Recheck::Attention(code) => (
+            Reconnect::Stop,
+            Some(ReconnectOutcome::Attention {
+                id: row.id,
+                transport,
+                code,
+            }),
+        ),
+        Recheck::Retry => (Reconnect::Skip, None),
+    }
+}
+
 #[derive(Default)]
 pub struct EventStream {
     approval_sink: Option<ApprovalSink>,

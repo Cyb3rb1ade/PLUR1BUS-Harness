@@ -10,9 +10,10 @@
 
 use super::report::wire_name;
 use super::{
-    check_target, gate, CheckDeps, CheckedTarget, CliTailscale, Hint, HostInput, OsResolver,
-    PublicAck, Purpose, Severity, StoreMode, TargetInput, TcpProber, Transport, TransportEntry,
-    TransportError, TransportReport, TransportStore, TransportStoreError,
+    check_target, check_target_acked, gate, CheckDeps, CheckedTarget, CliTailscale, Hint,
+    HostInput, OsResolver, PublicAck, Purpose, Severity, StoreMode, TargetInput, TcpProber,
+    Transport, TransportEntry, TransportError, TransportReport, TransportStore,
+    TransportStoreError,
 };
 use crate::connections::{Connection, Origin};
 use plur1bus_desktop_net::CLASSIFIER_ID;
@@ -63,6 +64,8 @@ pub struct Transports {
     deps: CheckDeps,
     session: Mutex<BTreeMap<Uuid, SessionAck>>,
     windows: Mutex<BTreeMap<String, watch::Sender<u64>>>,
+    /// The re-check of each connection now in flight (spec §5.4).
+    inflight: Mutex<BTreeMap<Uuid, Arc<tokio::sync::OnceCell<Recheck>>>>,
     generation: AtomicU64,
     write_failed: AtomicBool,
     log: LogSink,
@@ -79,6 +82,7 @@ impl Transports {
             deps,
             session: Mutex::default(),
             windows: Mutex::default(),
+            inflight: Mutex::default(),
             generation: AtomicU64::new(0),
             write_failed: AtomicBool::new(false),
             log,
@@ -168,8 +172,8 @@ impl Transports {
     }
 
     /// The gate of an open or a reconnect (spec §7.1, §9.2): a fresh check of the row's effective path (probing a
-    /// tailnet path), then [`gate`] with the confirmation that counts. `earlier_private` says that the previous check of
-    /// this open found the target not public.
+    /// tailnet path only once the gate passes, spec §9.2), then [`gate`] with the confirmation that counts.
+    /// `earlier_private` says that the previous check of this open found the target not public.
     pub async fn check_open(
         &self,
         store: &TransportStore,
@@ -184,14 +188,14 @@ impl Transports {
                 return Err(e);
             }
         };
-        let mut checked = match check_target(&input, &self.deps, true).await {
+        let ack = self.ack(store, row);
+        let mut checked = match check_target_acked(&input, &self.deps, true, ack.as_ref()).await {
             Ok(checked) => checked,
             Err(e) => {
                 self.log(purpose, None, Some(e));
                 return Err(e);
             }
         };
-        let ack = self.ack(store, row);
         if let Err(e) = gate(&checked.report, ack.as_ref()) {
             if earlier_private || Self::stored_private(store, row) {
                 Self::mark_changed(&mut checked.report);
@@ -201,6 +205,56 @@ impl Transports {
         }
         self.log(purpose, Some(&checked.report), None);
         Ok(checked)
+    }
+
+    /// The check before a reconnect of the status or trust stream, shared (spec §5.4): while one re-check of a
+    /// connection runs, a second caller waits for it and takes its result instead of starting another lookup or
+    /// probe. The next reconnect after it starts a fresh check.
+    pub async fn recheck_shared(
+        &self,
+        store: &TransportStore,
+        row: &Connection,
+        earlier_private: bool,
+    ) -> Recheck {
+        let cell = lock(&self.inflight)
+            .entry(row.id)
+            .or_insert_with(|| Arc::new(tokio::sync::OnceCell::new()))
+            .clone();
+        let result = cell
+            .get_or_init(|| self.recheck(store, row, earlier_private))
+            .await
+            .clone();
+        let mut inflight = lock(&self.inflight);
+        if inflight.get(&row.id).is_some_and(|c| Arc::ptr_eq(c, &cell)) {
+            inflight.remove(&row.id);
+        }
+        result
+    }
+
+    /// The gate of `open_connection` (spec §7.1, §9.2): the row from `connections.json` and, for a remote row, its
+    /// fresh check and effective path, before any harness contact. A public target without a valid confirmation is
+    /// `transport-confirm-needed`; bundled and local rows have no transport.
+    pub async fn open_check(
+        &self,
+        connections: &crate::connections::Store,
+        store: &TransportStore,
+        id: Uuid,
+    ) -> Result<(Connection, Option<(CheckedTarget, Transport)>), String> {
+        let row = connections
+            .load()
+            .map_err(|_| "storage")?
+            .into_iter()
+            .find(|c| c.id == id)
+            .ok_or("invalid")?;
+        if row.kind != crate::connections::Kind::Remote {
+            return Ok((row, None));
+        }
+        let checked = self
+            .check_open(store, &row, "open", false)
+            .await
+            .map_err(|e| e.code().to_owned())?;
+        let transport = store.effective(&row).transport;
+        Ok((row, Some((checked, transport))))
     }
 
     /// The check before an events reconnect (spec §9.2).
@@ -266,21 +320,26 @@ impl Transports {
         result
     }
 
-    /// The advisory check of the shell's check panel (spec §7.1): always probing, so a tailnet path is verified. A
-    /// name that does not resolve is a notice here (the person may be offline or outside the VPN, spec §6.2); invalid
-    /// input stays an error. With `row`, the confirmation that counts for it decides whether a public target is
-    /// reported as having become public.
+    /// The advisory check of the shell's check panel (spec §7.1): it probes a tailnet path to verify it, but only
+    /// when the target passes the gate (a public target is probed only under a valid confirmation of this row's
+    /// unchanged path, and never at a public address). A name that does not resolve is a notice here (the person may
+    /// be offline or outside the VPN, spec §6.2); invalid input stays an error. With `row`, the confirmation that
+    /// counts for it decides whether a public target is reported as having become public.
     pub async fn check_input(
         &self,
         input: &TargetInput,
         row: Option<(&TransportStore, &Connection)>,
     ) -> Result<TransportReport, TransportError> {
-        let report = match check_target(input, &self.deps, true).await {
+        let ack = row.and_then(|(store, row)| {
+            (store.effective(row).transport == input.transport)
+                .then(|| self.ack(store, row))
+                .flatten()
+        });
+        let report = match check_target_acked(input, &self.deps, true, ack.as_ref()).await {
             Ok(checked) => {
                 let mut report = checked.report;
                 if let Some((store, row)) = row {
                     let unchanged = store.effective(row).transport == input.transport;
-                    let ack = self.ack(store, row);
                     if unchanged
                         && gate(&report, ack.as_ref()).is_err()
                         && Self::stored_private(store, row)
@@ -366,7 +425,22 @@ impl Transports {
         let report = match check_target(&input, &self.deps, false).await {
             Ok(checked) => checked.report,
             Err(e @ (TransportError::Unresolved | TransportError::DnsTimeout)) => {
-                unresolved(e, &input.host)
+                // Nothing was seen of the target: an unchanged path keeps its entry (and a valid confirmation) as
+                // it is; a changed path is stored without a confirmation.
+                let report = unresolved(e, &input.host);
+                self.log("set", Some(&report), None);
+                if !changed {
+                    return Ok(report);
+                }
+                return match self.persist(store, row, transport, None) {
+                    Ok(())
+                    | Err(
+                        TransportStoreError::ReadOnly
+                        | TransportStoreError::Io
+                        | TransportStoreError::TooLarge,
+                    ) => Ok(report),
+                    Err(e) => Err(e.code()),
+                };
             }
             Err(e) => {
                 self.log("set", None, Some(e));

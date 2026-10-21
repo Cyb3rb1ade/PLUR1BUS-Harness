@@ -173,6 +173,21 @@ pub async fn check_target(
     deps: &CheckDeps,
     probe: bool,
 ) -> Result<CheckedTarget, TransportError> {
+    check_target_acked(input, deps, probe, None).await
+}
+
+/// [`check_target`] with the confirmation that counts for this target. The probe (spec §5.2 step 5) is a TCP
+/// connection, so it runs only when `probe` is set **and** the target passes [`gate`] with `ack` (it is not public,
+/// or `ack` is valid under the current snapshot): no TCP connection to a public target before the confirmation
+/// (spec §9.2, package T4). Even then it connects only to the addresses the match makes Tailscale paths: the matched
+/// peer's tailnet addresses, or the private addresses inside the matched router's subnet route — never a public,
+/// special or not-connectable address.
+pub async fn check_target_acked(
+    input: &TargetInput,
+    deps: &CheckDeps,
+    probe: bool,
+    ack: Option<&PublicAck>,
+) -> Result<CheckedTarget, TransportError> {
     let port = input.port;
     let mut status = if input.transport == Transport::Tailscale || input.host.is_ts_net() {
         Some(deps.tailscale.status().await)
@@ -220,6 +235,8 @@ pub async fn check_target(
     }
     let category =
         aggregate(connect.iter().map(|(_, c)| *c)).ok_or(TransportError::NotConnectable)?;
+    let probe = probe
+        && (category != Category::Public || ack.is_some_and(|a| a.classifier == CLASSIFIER_ID));
     let host = input.host.to_string();
     let mut hints = Vec::new();
 
@@ -358,16 +375,20 @@ async fn tailscale_check(
         peer: peer.cloned(),
         online,
     };
-    let probed = |ok: &'static str, label: String| {
-        probed(
-            prober,
-            addrs,
-            &view.self_ips,
-            ok,
-            label,
-            host.clone(),
-            input.port,
-        )
+    let probed = |ok: &'static str, label: String, targets: Vec<SocketAddr>| {
+        let host = host.clone();
+        async move {
+            probed(
+                prober,
+                &targets,
+                &view.self_ips,
+                ok,
+                label,
+                host,
+                input.port,
+            )
+            .await
+        }
     };
     let mut out = TailscaleOutcome {
         view: state("tailscale-not-tailnet-target", None, None),
@@ -391,10 +412,23 @@ async fn tailscale_check(
         PeerMatch::Peer {
             label,
             online: true,
-            ..
+            ips: peer_ips,
         } => {
-            let code = if probe {
-                let (code, h) = probed("tailscale-ok", label.clone()).await;
+            // Only the matched peer's own tailnet addresses are probed.
+            let targets: Vec<SocketAddr> = addrs
+                .iter()
+                .filter(|sa| {
+                    matches!(
+                        target_class(sa.ip()),
+                        AddrClass::Connectable(Category::Tailnet)
+                    ) && peer_ips
+                        .iter()
+                        .any(|ip| canonical(*ip) == canonical(sa.ip()))
+                })
+                .copied()
+                .collect();
+            let code = if probe && !targets.is_empty() {
+                let (code, h) = probed("tailscale-ok", label.clone(), targets).await;
                 out.hints.push(h);
                 code
             } else {
@@ -408,8 +442,22 @@ async fn tailscale_check(
         }
         PeerMatch::SubnetRoute { label, online } => {
             out.via_route = true;
-            let (code, h) = if probe {
-                probed("tailscale-subnet-route", label.clone()).await
+            // Only the private addresses inside this router's routes are probed.
+            let targets: Vec<SocketAddr> = addrs
+                .iter()
+                .filter(|sa| {
+                    matches!(
+                        target_class(sa.ip()),
+                        AddrClass::Connectable(Category::Private)
+                    ) && matches!(
+                        tailscale::match_addrs(view, &input.host, &[sa.ip()]),
+                        PeerMatch::SubnetRoute { label: ref l, .. } if l == label
+                    )
+                })
+                .copied()
+                .collect();
+            let (code, h) = if probe && !targets.is_empty() {
+                probed("tailscale-subnet-route", label.clone(), targets).await
             } else {
                 let code = "tailscale-subnet-route";
                 (
