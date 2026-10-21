@@ -4,11 +4,14 @@
 
 use plur1bus_desktop_net::{
     canonical, cidr_first_public, classify, parse_address, parse_cidr, table, target_class,
-    AddrClass, Category, Cidr, CLASSIFIER_ID, IANA_IPV4_SPECIAL, IANA_IPV6_SPECIAL,
+    AddrClass, Category, CLASSIFIER_ID, IANA_IPV4_SPECIAL, IANA_IPV6_SPECIAL,
 };
 use serde::Deserialize;
 use std::collections::BTreeSet;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
+
+mod common;
+use common::{bits, from_bits, range};
 
 /// Located from this crate's manifest directory (`apps/desktop/net` → repository root), so the path is the same on
 /// every OS and is compiled into the test binary.
@@ -91,36 +94,6 @@ fn vectors() -> Vectors {
 
 fn parse(s: &str) -> IpAddr {
     parse_address(s, false).unwrap_or_else(|| panic!("parseable: {s:?}"))
-}
-
-fn bits(a: IpAddr) -> (u8, u128) {
-    match a {
-        IpAddr::V4(v4) => (4, u128::from(u32::from(v4))),
-        IpAddr::V6(v6) => (6, u128::from(v6)),
-    }
-}
-
-fn from_bits(family: u8, n: u128) -> IpAddr {
-    match family {
-        4 => IpAddr::V4(Ipv4Addr::from(
-            u32::try_from(n).expect("an IPv4 value fits 32 bits"),
-        )),
-        _ => IpAddr::V6(Ipv6Addr::from(n)),
-    }
-}
-
-/// The first and last address of a range, host bits ignored.
-fn range_of(c: &Cidr) -> (u8, u128, u128) {
-    let (family, n) = bits(c.addr);
-    let width: u32 = if family == 4 { 32 } else { 128 };
-    let host = width - u32::from(c.prefix);
-    let span = if host == 128 {
-        u128::MAX
-    } else {
-        (1u128 << host) - 1
-    };
-    let lo = n & !span;
-    (family, lo, lo | span)
 }
 
 fn class_name(c: AddrClass) -> &'static str {
@@ -225,6 +198,27 @@ fn parity_address_rows_shape() {
     }
 }
 
+/// Every cidr row carries the `firstPublic` key, a string or `null`. The typed row reads a missing key as `None`
+/// ("no public address"), so an omission would pass silently without this raw check.
+#[test]
+fn parity_cidr_rows_shape() {
+    let raw: serde_json::Value = serde_json::from_str(VECTORS).expect("valid JSON");
+    let rows = raw["cidrs"].as_array().expect("cidrs is an array");
+    assert!(!rows.is_empty());
+    for row in rows {
+        let obj = row.as_object().expect("a cidr row is an object");
+        assert!(obj["input"].is_string(), "{row}: input is a string");
+        let first = obj
+            .get("firstPublic")
+            .unwrap_or_else(|| panic!("{row}: the firstPublic key is present"));
+        assert!(
+            first.is_string() || first.is_null(),
+            "{row}: firstPublic is a string or null"
+        );
+        assert_eq!(obj.len(), 2, "{row}");
+    }
+}
+
 #[test]
 fn parity_parse_rejects() {
     let v = vectors();
@@ -301,10 +295,11 @@ fn cidr_first_public_is_public_and_minimal() {
     let mut answered = 0;
     for row in &v.cidrs {
         let c = parse_cidr(&row.input).unwrap_or_else(|| panic!("parseable cidr: {:?}", row.input));
-        let (family, lo, hi) = range_of(&c);
+        let v4 = c.addr.is_ipv4();
+        let (lo, hi) = range(&c);
         match cidr_first_public(&c) {
             None => assert!(
-                !classify(from_bits(family, lo)).public,
+                !classify(from_bits(v4, lo)).public,
                 "{:?}: none, so the first is not public",
                 row.input
             ),
@@ -315,8 +310,8 @@ fn cidr_first_public_is_public_and_minimal() {
                     "{:?}: the answer is public",
                     row.input
                 );
-                let (got_family, n) = bits(got);
-                assert_eq!(got_family, family, "{:?}: family", row.input);
+                let n = bits(got);
+                assert_eq!(got.is_ipv4(), v4, "{:?}: family", row.input);
                 assert!(
                     lo <= n && n <= hi,
                     "{:?}: the answer lies in the range",
@@ -324,7 +319,7 @@ fn cidr_first_public_is_public_and_minimal() {
                 );
                 if n > lo {
                     assert!(
-                        !classify(from_bits(family, n - 1)).public,
+                        !classify(from_bits(v4, n - 1)).public,
                         "{:?}: nothing public just below",
                         row.input
                     );

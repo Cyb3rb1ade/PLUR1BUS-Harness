@@ -5,37 +5,13 @@
 //! special cases), not read from the crate's internals.
 
 use plur1bus_desktop_net::{cidr_first_public, classify, parse_address, parse_cidr, table, Cidr};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr};
 
-fn bits(a: IpAddr) -> u128 {
-    match a {
-        IpAddr::V4(v4) => u128::from(u32::from(v4)),
-        IpAddr::V6(v6) => u128::from(v6),
-    }
-}
-
-fn from_bits(v4: bool, n: u128) -> IpAddr {
-    if v4 {
-        IpAddr::V4(Ipv4Addr::from(u32::try_from(n).expect("32 bits")))
-    } else {
-        IpAddr::V6(Ipv6Addr::from(n))
-    }
-}
-
-fn range(v4: bool, n: u128, prefix: u8) -> (u128, u128) {
-    let width: u32 = if v4 { 32 } else { 128 };
-    let host = width - u32::from(prefix);
-    let span = if host == 128 {
-        u128::MAX
-    } else {
-        (1u128 << host) - 1
-    };
-    (n & !span, (n & !span) | span)
-}
+mod common;
+use common::{bits, from_bits, range, Rng};
 
 fn block(cidr: &str) -> (u128, u128) {
-    let c = parse_cidr(cidr).unwrap_or_else(|| panic!("{cidr}"));
-    range(c.addr.is_ipv4(), bits(c.addr), c.prefix)
+    range(&parse_cidr(cidr).unwrap_or_else(|| panic!("{cidr}")))
 }
 
 /// The IPv4 non-public intervals: the IPv4 rows and limited broadcast (a special case, not a row).
@@ -107,25 +83,11 @@ fn oracle(v4: bool, lo: u128, hi: u128, ends: &[u128]) -> Option<u128> {
 /// Asserts `cidr_first_public` equals the oracle; returns whether the range has a public address.
 fn check(c: &Cidr, ends: &[u128]) -> bool {
     let v4 = c.addr.is_ipv4();
-    let (lo, hi) = range(v4, bits(c.addr), c.prefix);
+    let (lo, hi) = range(c);
     let got = cidr_first_public(c);
     let want = oracle(v4, lo, hi, ends).map(|n| from_bits(v4, n));
     assert_eq!(got, want, "{}/{}", c.addr, c.prefix);
     got.is_some()
-}
-
-struct Rng(u64);
-
-impl Rng {
-    fn next(&mut self) -> u64 {
-        self.0 ^= self.0 >> 12;
-        self.0 ^= self.0 << 25;
-        self.0 ^= self.0 >> 27;
-        self.0.wrapping_mul(0x2545_f491_4f6c_dd1d)
-    }
-    fn u128(&mut self) -> u128 {
-        (u128::from(self.next()) << 64) | u128::from(self.next())
-    }
 }
 
 #[test]
