@@ -597,7 +597,7 @@ export function createCore(o: CoreOptions): Core {
         logger,
         engineHasJob: (name) => eng.jobs.list().some((j) => j.name === name),
         onFailed: run => jobFailedToInbox(inboxPort, run),
-        onRecorded: run => { void delivery?.notify("system", run.job, undefined, run.outcome); },
+        onRecorded: run => { void delivery?.notify("system", run.job, undefined, run.outcome).catch(err => log.warn("delivery notify failed", { err })); },
       });
       systemJobs.register(createModelsScanJob(discovery, discSettings));
 
@@ -663,9 +663,8 @@ export function createCore(o: CoreOptions): Core {
           catch { text = (cfg().channels as unknown as Record<string, {locale?: string}>)[msg.channel]?.locale === 'de' ? 'Web-Fortsetzung nicht verfügbar. Bitte im eigenen DM verwenden; die Web-Adresse muss eingerichtet sein.' : 'Web continuation unavailable. Use your own DM; the Web address must be configured.'; }
           try { await send({ chatId: msg.chatId, text }); } catch { log.warn("channel.handoff.send.failed", { channel: msg.channel }); } return true;
         },
-        personActive: person => !people.person(person)?.disabled,
         ...(o.channels ?? {}),
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
@@ -1013,7 +1012,7 @@ export function createCore(o: CoreOptions): Core {
               return itemsFromEngineList(await eng.memory.list({ since: 0, limit: 100 }, principal, AGENT_CONTEXT_CLI));
             },
           },
-          scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)); } },
+          scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
         });
         if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
       } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }

@@ -30,7 +30,6 @@ export interface RouterDeps {
   redact?: (text: string) => string;
   command?: (msg: InboundMessage, person: string, send: Send) => Promise<boolean>;
   observed?: (msg: InboundMessage, person: string, sessionId: string) => void;
-  personActive?: (person: string) => boolean;
   behaviour?: (msg: InboundMessage) => ResolvedBehaviour;
 }
 export type Send = (msg: OutboundMessage) => Promise<void>;
@@ -107,7 +106,6 @@ export class ChannelRouter {
       return;
     }
 
-    if (this.#d.personActive && !this.#d.personActive(userId)) return;
     const { profile } = this.#d.behaviour?.(msg) ?? resolveBehaviour({}, msg);
     if (!permitsMessage(profile, { ...msg, addressed: msg.chatKind === "direct" || msg.addressed === true })) {
       this.#d.log.warn("channel.inbound.dropped", { channel: msg.channel, reason: "behaviour" }); return;

@@ -17,7 +17,6 @@ import type { ChannelLogger } from "./types.ts";
 export interface CoreHostDeps {
   command?: import("./router.ts").RouterDeps["command"];
   observed?: import("./router.ts").RouterDeps["observed"];
-  personActive?: (person: string) => boolean;
   layout: Layout;
   config: ConfigPort;
   secrets: SecretStore;
@@ -65,7 +64,6 @@ export function openChannelSwitchboard(d: CoreHostDeps): Switchboard {
     config: d.config,
     ...(d.observed ? { observed: d.observed } : {}),
     ...(d.command ? { command: d.command } : {}),
-    ...(d.personActive ? { personActive: d.personActive } : {}),
     secrets: channelSecrets(d.secrets),
     identity: d.identity,
     ...(d.personActive ? { personActive: d.personActive } : {}),
