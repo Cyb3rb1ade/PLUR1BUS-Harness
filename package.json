@@ -24,7 +24,7 @@
   "devDependencies": {
     "@plur1bus/config-schema": "workspace:*",
     "@plur1bus/module-api": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "24.13.6",
     "esbuild": "0.28.2",
     "typescript": "5.9.3"
   }
