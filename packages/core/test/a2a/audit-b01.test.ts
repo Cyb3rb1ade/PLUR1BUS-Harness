@@ -10,7 +10,7 @@ import { TaskError, TaskStore } from "../../src/a2a/tasks.ts";
 import { createProviderTurnPort, type A2aTurnPort, type TurnChunk } from "../../src/a2a/turn-port.ts";
 import { DEFAULT_LIMITS, type A2aStreamEvent } from "../../src/a2a/types.ts";
 import { FakeChatProvider } from "../../src/session/provider.ts";
-import { AGENTS, KEY_A, ManualScheduler, TestClock, peers, rig, rpc, sendMsg } from "./helpers.ts";
+import { AGENTS, KEY_A, KEY_B, ManualScheduler, TestClock, peers, rig, rpc, sendMsg } from "./helpers.ts";
 
 const never = (): Promise<never> => new Promise(() => {});
 const tick = (): Promise<void> => new Promise((r) => setImmediate(r));
@@ -204,9 +204,149 @@ describe("b01: push delivery", () => {
 
 void rig; void rpc;
 
-describe("b01: known gaps (see docs/a2a.md, Known limits)", () => {
-  it.todo("KNOWN GAP: a turn reply and its event log are unbounded in memory");
-  it.todo("KNOWN GAP: a full store of terminal tasks lets one peer block every other peer until retention passes (pinned by limits.test.ts)");
+describe("b01: a turn reply and its event log are bounded (docs/a2a.md, Limits)", () => {
+  const MARK = "[reply truncated: size limit]";
+  const bytes = (t: string): number => Buffer.byteLength(t);
+  const replyOf = (s: TaskStore, id: string): string => {
+    const t = s.get(id, "p1", "bernd");
+    const part = t.artifacts?.[0]?.parts[0] as { text: string } | undefined;
+    return part?.text ?? "";
+  };
+  async function drain(s: TaskStore, id: string): Promise<A2aStreamEvent[]> {
+    const out: A2aStreamEvent[] = []; for await (const e of s.subscribe(id, "p1", "bernd", 0)) out.push(e); return out;
+  }
+  const streamed = (evs: A2aStreamEvent[]): string => evs.flatMap((e) => (e.kind === "artifact-update" ? e.artifact.parts : []))
+    .map((p) => (p as { text: string }).text).join("");
+
+  it("a reply over the cap is cut, marked, completes, and the turn is cancelled instead of drained", async () => {
+    let pulled = 0; let cancelled = 0;
+    const port = new Port(async function* () { for (let i = 0; i < 1000; i++) { pulled++; yield { type: "delta", text: "0123456789" }; } });
+    port.cancel = () => { cancelled++; return true; };
+    const { s } = store(port, { maxReplyBytes: 100 });
+    const t = s.start(sa()); await s.settled(t.id);
+    const got = s.get(t.id, "p1", "bernd");
+    assert.equal(got.status.state, "completed");
+    const text = replyOf(s, t.id);
+    assert.ok(text.endsWith(MARK), text.slice(-60));
+    assert.equal(bytes(text), 100 + bytes(MARK));
+    assert.ok(text.startsWith("0123456789".repeat(10)));
+    assert.ok(pulled <= 11, `the turn kept producing after the cap (${pulled})`);
+    assert.equal(cancelled, 1);
+    const hist = got.history?.at(-1)?.parts[0] as { text: string };
+    assert.equal(hist.text, text);
+  });
+  it("a single delta far over the cap is clipped on a character boundary", async () => {
+    const port = new Port(async function* () { yield { type: "delta", text: "é".repeat(500) }; });
+    const { s } = store(port, { maxReplyBytes: 101 });
+    const t = s.start(sa()); await s.settled(t.id);
+    const text = replyOf(s, t.id);
+    assert.ok(text.endsWith(MARK));
+    const body = text.slice(0, -MARK.length);
+    assert.equal(body, "é".repeat(50)); // 100 of the 101 allowed bytes; no half character, no replacement character
+    assert.ok(!text.includes("\uFFFD"));
+  });
+  it("a reply within the cap is delivered whole and unmarked", async () => {
+    const port = new Port(async function* () { yield { type: "delta", text: "hello " }; yield { type: "delta", text: "world" }; });
+    const { s } = store(port, { maxReplyBytes: 11 });
+    const t = s.start(sa()); await s.settled(t.id);
+    assert.equal(replyOf(s, t.id), "hello world");
+  });
+  it("the event log stops growing at the cap but the stream still carries the whole reply, ending in the final status", async () => {
+    const port = new Port(async function* () { for (let i = 0; i < 500; i++) yield { type: "delta", text: "ab" }; });
+    const { s } = store(port, { maxEventsPerTask: 40, maxReplyBytes: 1_000_000 });
+    const t = s.start(sa()); await s.settled(t.id);
+    const evs = await drain(s, t.id);
+    assert.ok(evs.length <= 40, `event log held ${evs.length} events`);
+    assert.equal(streamed(evs), "ab".repeat(500));
+    assert.equal(replyOf(s, t.id), "ab".repeat(500));
+    const last = evs.at(-1)!;
+    assert.ok(last.kind === "status-update" && last.final === true && last.status.state === "completed");
+    const art = evs.filter((e) => e.kind === "artifact-update");
+    assert.ok(art.at(-1)!.kind === "artifact-update" && art.at(-1)!.lastChunk === true);
+    assert.ok(art.slice(1).every((e) => e.kind === "artifact-update" && e.append === true));
+  });
+  it("a live subscriber loses nothing while the log is capped", async () => {
+    const release: Array<() => void> = []; const gate = () => new Promise<void>((r) => release.push(r));
+    const port = new Port(async function* () { for (let i = 0; i < 60; i++) { await gate(); yield { type: "delta", text: `${i % 10}` }; } });
+    const { s } = store(port, { maxEventsPerTask: 24, maxReplyBytes: 1_000_000 });
+    const t = s.start(sa());
+    const collecting = drain(s, t.id);
+    for (let i = 0; i < 60; i++) { while (release.length === 0) await tick(); release.shift()!(); await tick(); }
+    const evs = await collecting;
+    assert.equal(streamed(evs), Array.from({ length: 60 }, (_, i) => `${i % 10}`).join(""));
+  });
+  it("a capped log still ends a task that is canceled mid-stream", async () => {
+    const port = new Port(async function* (signal) { for (let i = 0; i < 200; i++) yield { type: "delta", text: "x" }; await new Promise((_, rej) => signal.addEventListener("abort", () => rej(new Error("a")), { once: true })); });
+    const { s } = store(port, { maxEventsPerTask: 16 });
+    const t = s.start(sa()); await tick(); await tick();
+    s.cancel(t.id, "p1", "bernd");
+    const evs = await drain(s, t.id);
+    assert.ok(evs.length <= 16);
+    const last = evs.at(-1)!;
+    assert.ok(last.kind === "status-update" && last.final === true && last.status.state === "canceled");
+  });
+  it("the defaults are finite", () => {
+    assert.ok(DEFAULT_LIMITS.maxReplyBytes > 0 && Number.isFinite(DEFAULT_LIMITS.maxReplyBytes));
+    assert.ok(DEFAULT_LIMITS.maxEventsPerTask >= 64 && Number.isFinite(DEFAULT_LIMITS.maxEventsPerTask));
+  });
+  it("through the handler: message/send with an oversized reply answers a completed task with the marker", async () => {
+    const r = rig({ fake: { chunkSize: 4 }, opts: { limits: { maxReplyBytes: 32 } } });
+    const res = await rpc(r.h, "message/send", sendMsg("z".repeat(200), {}, { blocking: true }));
+    assert.equal(res.json.result.status.state, "completed");
+    const text = res.json.result.artifacts[0].parts[0].text as string;
+    assert.ok(text.endsWith(MARK)); assert.equal(bytes(text), 32 + bytes(MARK));
+  });
+});
+
+describe("b01: a full store is shared fairly between peers (docs/a2a.md, Limits)", () => {
+  const done = async function* (): AsyncGenerator<TurnChunk> { yield { type: "delta", text: "ok" }; };
+  const send = async (s: TaskStore, peerId: string): Promise<string> => { const t = s.start(sa({ peerId })); await s.settled(t.id); return t.id; };
+  const has = (s: TaskStore, id: string, peerId: string): boolean => { try { s.get(id, peerId, "bernd"); return true; } catch { return false; } };
+  const full = (e: unknown): boolean => e instanceof TaskError && e.code === "too-many";
+
+  it("a peer that filled the store with finished tasks does not lock out another peer", async () => {
+    const { s } = store(new Port(done), { maxLivePerPeer: 10, maxStored: 4, maxStoredPerPeer: 2 });
+    const a = [await send(s, "p1"), await send(s, "p1"), await send(s, "p1"), await send(s, "p1")]; // may borrow free slots
+    assert.equal(s.size, 4);
+    const b = await send(s, "p2"); // used to be refused until retention passed
+    assert.ok(has(s, b, "p2"));
+    assert.equal(s.size, 4);
+    assert.ok(!has(s, a[0]!, "p1"), "the offender's oldest finished task is reclaimed first");
+    assert.ok(has(s, a[1]!, "p1") && has(s, a[2]!, "p1") && has(s, a[3]!, "p1"));
+  });
+  it("reclaiming stops at the offender's fair share and never touches the newcomer's own tasks", async () => {
+    const { s } = store(new Port(done), { maxLivePerPeer: 10, maxStored: 4, maxStoredPerPeer: 2 });
+    const a = [await send(s, "p1"), await send(s, "p1"), await send(s, "p1"), await send(s, "p1")];
+    const b1 = await send(s, "p2"); const b2 = await send(s, "p2");
+    assert.ok(has(s, a[2]!, "p1") && has(s, a[3]!, "p1"), "p1 keeps its share of 2");
+    assert.ok(has(s, b1, "p2") && has(s, b2, "p2"));
+    assert.throws(() => s.start(sa({ peerId: "p2" })), full); // p2 is at its share and the store is full: refused, nobody else pays
+    assert.throws(() => s.start(sa({ peerId: "p1" })), full); // p1 is at its share too
+    assert.equal(s.size, 4);
+  });
+  it("a peer at its share is refused while the store is full, even when its own tasks are finished", async () => {
+    const { s } = store(new Port(done), { maxLivePerPeer: 10, maxStored: 2, maxStoredPerPeer: 1 });
+    const a = await send(s, "p1");
+    await send(s, "p2");
+    assert.throws(() => s.start(sa({ peerId: "p1" })), full);
+    assert.ok(has(s, a, "p1"));
+  });
+  it("live tasks are never evicted: a store full of one peer's running tasks still refuses", async () => {
+    const { s } = store(new Port(hang), { maxLivePerPeer: 10, maxStored: 3, maxStoredPerPeer: 1 });
+    const ids = [s.start(sa({ peerId: "p1" })).id, s.start(sa({ peerId: "p1" })).id, s.start(sa({ peerId: "p1" })).id];
+    assert.throws(() => s.start(sa({ peerId: "p2" })), full);
+    for (const id of ids) assert.ok(has(s, id, "p1"));
+  });
+  it("the default share is the stored cap divided by the number of peers (handler)", async () => {
+    const r = rig({ opts: { limits: { maxStoredTasks: 4 } } }); // two peers → share 2
+    const toA = async (t: string) => (await rpc(r.h, "message/send", sendMsg(t, {}, { blocking: true }))).json;
+    const toB = async (t: string) => (await rpc(r.h, "message/send", sendMsg(t, {}, { blocking: true }), { key: KEY_B, path: "/a2a/anna/" })).json;
+    for (const t of ["1", "2", "3", "4"]) assert.ok((await toA(t)).result.id);
+    assert.equal((await toA("5")).error.data.reason, "task-limit");
+    assert.ok((await toB("b1")).result.id);
+    assert.ok((await toB("b2")).result.id);
+    assert.equal((await toB("b3")).error.data.reason, "task-limit");
+  });
 });
 
 describe("b01: push delivery", () => {

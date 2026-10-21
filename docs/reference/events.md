@@ -206,6 +206,7 @@ Conventions:
 | `auth.denied` | api (audit) | reason, method, ip, action; also via, token at :274 | packages/api/src/server.ts:274, :303 |
 | `auth.csrf-refused` | api (audit) | route, ip | packages/api/src/server.ts:289 |
 | `auth.session.rotated` | api (audit) | route | packages/api/src/server.ts:298 |
+| `auth.session.evicted` | api (audit) | reason (`principal-cap`, `global-cap`), by | packages/api/src/server.ts (session store `onEvict`) |
 | `auth.login.failure` | api (audit) | via, reason, ip | packages/api/src/routes.ts:312, :320 |
 | `auth.login.success` | api (audit) | via, ip | packages/api/src/routes.ts:335, :360 |
 | `auth.totp.failure` | api (audit) | stage, ip | packages/api/src/routes.ts:352, :382, :390 |

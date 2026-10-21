@@ -270,3 +270,17 @@ test("over a real RPC server: the token appears in no log line, no error and no 
   for (const secret of [token, wrong, oversize, hashInviteToken(token)]) { assert.ok(!logs.includes(secret), "log"); assert.ok(!replies.join("\n").includes(secret), "replies"); }
   assert.equal(replies.filter(r => r.includes("E_INVITE_INVALID")).length, 3);
 });
+
+test("an invitation with a channel name the identity service refuses leaves no person behind", async t => {
+  const s = setup(t);
+  const before = s.identity.list({}).humans.length;
+  for (const channel of ["Telegram", "1web", "web chat", "web!"]) {
+    await assert.rejects(() => s.create({ channel }), refused("E_INVALID_PARAMS"), channel);
+  }
+  assert.equal(s.identity.list({}).humans.length, before, "no human without pairing and role");
+  assert.equal(((await s.call("user.invite.list")) as any).invites.length, 0);
+  // The counter-case: a well-formed channel name still creates the person and the invitation.
+  const ok = await s.create({ channel: "telegram" }) as any;
+  assert.ok(ok.userId);
+  assert.equal(s.identity.list({}).humans.length, before + 1);
+});

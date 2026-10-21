@@ -24,9 +24,17 @@ test('D110 records survive encrypted-file fallback restart; all files secured, n
     assert.ok(secured.length>0);await restarted.logout(info.id,principal);assert.deepEqual(await restarted.listCredentials(principal),[]);
   }finally{await auth.close();await restarted?.close();await local.close();await rm(dir,{recursive:true,force:true});}
 });
-for(const [flag,code] of [['state','state-mismatch'],['deny','access-denied']] as const)test('loopback '+code+' refuses storage',async()=>{
+test('loopback access-denied refuses storage',async()=>{
   const local=await localOpenAI();const {MemorySecrets}=await import('../fixtures/openai/server.ts');const store=new MemorySecrets();const auth=new AuthService({store,http:createOpenAIHttp({egress:{decide:async()=>{throw Error('DNS forbidden');}},fetch:local.transport}),clock:{now:()=>local.fake.now},audit:()=>{}});
-  try{const login=await auth.startLogin({principal});await local.authorize(login.authorizeUrl,u=>{if(flag==='state')u.searchParams.set('state','wrong');else{u.searchParams.delete('code');u.searchParams.set('error','access_denied');}});await assert.rejects(auth.awaitLogin(login.loginId,principal),{code});assert.deepEqual(await auth.listCredentials(principal),[]);}finally{await auth.close();await local.close();}
+  try{const login=await auth.startLogin({principal});await local.authorize(login.authorizeUrl,u=>{u.searchParams.delete('code');u.searchParams.set('error','access_denied');});await assert.rejects(auth.awaitLogin(login.loginId,principal),{code:'access-denied'});assert.deepEqual(await auth.listCredentials(principal),[]);}finally{await auth.close();await local.close();}
+});
+// The loopback listener now binds the login to its issued state: a wrong state is refused at the listener (400) instead of
+// consuming it, so the plan-level state-mismatch refusal is exercised through the PkcePort fixtures (auth.test.ts, rpc/auth-surface.test.ts).
+test('loopback wrong state is refused at the listener, stores nothing and leaves the login pending until cancelled',async()=>{
+  const local=await localOpenAI();const {MemorySecrets}=await import('../fixtures/openai/server.ts');const auth=new AuthService({store:new MemorySecrets(),http:createOpenAIHttp({egress:{decide:async()=>{throw Error('DNS forbidden');}},fetch:local.transport}),clock:{now:()=>local.fake.now},audit:()=>{}});
+  try{const login=await auth.startLogin({principal}),redirect=new URL(login.authorizeUrl.value()).searchParams.get('redirect_uri')!;let callback!:URL;await local.authorize(login.authorizeUrl,u=>{callback=u;u.searchParams.set('state','wrong');});
+    assert.equal(callback.searchParams.get('state'),'wrong');assert.equal((await fetch(callback)).status,400);assert.deepEqual(await auth.listCredentials(principal),[]);
+    assert.equal((await fetch(redirect,{headers:{origin:'https://foreign.invalid'}})).status,404);auth.cancelLogin(login.loginId,principal);await assert.rejects(auth.awaitLogin(login.loginId,principal),{code:'login-cancelled'});assert.deepEqual(await auth.listCredentials(principal),[]);}finally{await auth.close();await local.close();}
 });
 test('loopback Origin gate ignores a foreign origin, then cancellation closes its listener',async()=>{
   const local=await localOpenAI();const {MemorySecrets}=await import('../fixtures/openai/server.ts');const auth=new AuthService({store:new MemorySecrets(),http:createOpenAIHttp({egress:{decide:async()=>{throw Error('DNS forbidden');}},fetch:local.transport}),clock:{now:()=>local.fake.now},audit:()=>{}});

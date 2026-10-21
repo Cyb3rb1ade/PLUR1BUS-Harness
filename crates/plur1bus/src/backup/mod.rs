@@ -7,6 +7,7 @@
 pub mod archive;
 pub mod create;
 pub mod manifest;
+pub mod redact;
 pub mod restore;
 
 #[cfg(test)]

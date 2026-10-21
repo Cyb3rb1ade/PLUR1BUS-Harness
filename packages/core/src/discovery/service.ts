@@ -50,7 +50,10 @@ export interface DiscoveryServiceDeps {
   userAgent?: string;
   maxParallel?: number;
   onScanned?: (provider: string) => void;
-  /** privacy.localOnly: true when a model of this provider may not be used now; listed as locked, never hidden. */
+  /**
+   * privacy.localOnly: true when a model of this provider may not be used now. Its models stay listed as locked, and its
+   * catalog is never scanned (no request, no credential lookup): a scan would send the API key to a cloud host.
+   */
   modelLocked?: (provider: string, profile: ProfileInfo | undefined) => boolean;
 }
 
@@ -116,7 +119,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
   const changeListeners = new Set<(e: ModelsChanged) => void>();
 
   function scannable(): ProfileInfo[] {
-    return deps.profiles.list().filter((p) => p.discovery !== "manual");
+    return deps.profiles.list().filter((p) => p.discovery !== "manual" && deps.modelLocked?.(p.id, p) !== true);
   }
 
   async function scanProvider(provider: string, r: ScanRequest): Promise<ProviderScanResult> {
@@ -145,6 +148,22 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
 
     const settings = deps.settings();
     if (!settings.enabled) {
+      return {
+        provider,
+        result: "disabled",
+        new: [],
+        reappeared: [],
+        unavailable: [],
+        unchanged: 0,
+        duplicates: 0,
+        warnings: [],
+        nextScanAt: existingSt?.nextScanAt ?? null,
+      };
+    }
+
+    // privacy.localOnly: a locked (non-local) provider's catalog is not queried, whoever asks (scheduler, job, manual scan).
+    if (profile.discovery !== "manual" && deps.modelLocked?.(provider, profile) === true) {
+      deps.logger.debug("scan skipped: provider is locked by privacy.localOnly", { provider });
       return {
         provider,
         result: "disabled",

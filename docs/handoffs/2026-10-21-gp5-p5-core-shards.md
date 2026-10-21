@@ -145,5 +145,40 @@ or tracked generated output changes. After generation, the two real shared-reade
 A fresh worktree initially lacked TypeScript/generated RPC data; the genuine frozen install and generation
 resolved those prerequisites. No full package-suite or hosted/platform acceptance is claimed for this script change.
 
-Required-check migration still needs the green Windows baseline and refreshed open heads. The #621 semantic
-integration fix in the N1 handoff remains required before combined integration; #621 itself was not edited or merged.
+Historical N1 status (superseded by the refresh below): required-check migration needed the green Windows baseline
+and refreshed open heads; the #621 semantic integration fix was still open at that point.
+
+
+## P2 refresh after #741
+
+P2 #672 now contains merged #741 at `96e4c0eecc0fdda64412ac687641585605b81661`.
+P5 incorporates that exact head with a normal merge whose first parent is
+`9f571cb356ebf3372284c47eaf60afba47c139c6`; no main merge or history rewrite.
+The earlier #621 semantic-integration gate is superseded: its macOS browser behavior is now in P2 through #741.
+#621 remains Draft for the Controller to close after #672; this does not claim #621 merged to main.
+#742 remains untouched and Ready.
+
+The gate preserves P2's reliable required jobs (`docs-hygiene`, Ubuntu `unit`, `wsl`, Linux `web-browser` aggregate)
+and adds P5's selected `core-unit-shard` and exact-partition `core-unit` coverage. Performance jobs are wholly
+ungated: neither their status nor their duration delays `ci-gate`. `unit-os`, system/service/Python, sandbox,
+release scripts and golden documents retain P2's ungated policy. The sole explicit advisory dependency is the
+macOS browser matrix: completed success/failure/skipped is accepted; absent, cancelled or malformed results block.
+Its `proceed && web && macos` selection and strict browser-required setup remain intact. macOS/Windows retain
+full offline package tests; macOS browser execution moves to its explicit two-shard advisory job.
+Ubuntu excludes exactly Core from its original unit run and executes all Core files once across the three measured
+shards; no Core test or assertion was dropped, relaxed or turned into a skip.
+
+A focused RED run exposed two integration failures (18/20 passed): the P2 exact required-key assertion omitted
+P5's Core jobs, and its identical-unit-step assertion did not account for P5's intentional Ubuntu Core split.
+The updated contract requires all seven registered gate jobs and proves that every other unit step is identical,
+with the single explicit split replacing only Ubuntu's package-test command. GREEN: all 86 CI script tests pass,
+zero failures, skips or TODOs, including Core partition behavior and the eight macOS selection combinations plus
+advisory terminal/missing/cancelled outcomes. All 8 Python workflow tests pass from `hosts/hermes` using
+`python3 -m unittest tests.test_workflows` (discovery from the repository root lacks the package import context).
+The broader offline command above completes with 171 tests: 170 pass, zero failures/skips, one pre-existing
+audit-policy package-scope TODO. Toolchain, actionlint, hygiene, source quality, documentation links and diff checks pass. No full workspace rerun
+or hosted/platform result is claimed for this workflow merge; the historical full-suite limitations above remain.
+
+P5 and downstream P6 remain Draft. Green Windows baseline, refreshed open heads, Controller integration and a new
+P1 measurement after integration remain required. No Engine pin, lockfile, repository settings, CI run/log queries
+or polling changed; no #621/#741/#742 branch or PR body was edited.

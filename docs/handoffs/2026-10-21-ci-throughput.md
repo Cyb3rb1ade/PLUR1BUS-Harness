@@ -50,13 +50,13 @@ Engine-Pin, Lockfiles, Workflows, unbekannte Pfade und operative Shard-/Messmeta
 Gemeinsame Schemas lösen Rust, TypeScript, Browser und Python aus. Runtime-nahe Service-, Sandbox-, Python-/WSL-
 und Performance-Prüfungen bleiben bei Rust-/TypeScript-Änderungen ausgewählt. Plattformabhängige macOS-/Windows-
 Core-Abdeckung bleibt vollständig. Unabhängige Desktop-/Container-/Release-Workflows behalten ihre bisherigen Regeln.
-Ein Check wird nie wegen Fehler oder Abbruch als bewusst ausgelassen gewertet. Details und Top 20 stehen im P5-Handoff.
+Erforderliche Checks bleiben bei Fehler oder Abbruch blockierend; die aktuelle Advisory-Ausnahme steht im Refresh unten. Details und Top 20 stehen im P5-Handoff.
 
 ## Merge Queue und offene Owner-Frage
 
 `ci.yml` reagiert auf `merge_group.checks_requested`. Planung und finaler Gate laufen auf dem Queue-Commit;
 die Planung liest dafür keinen PR-Diff und keine PR-Metadaten. Jeder ausgewählte Job einschließlich aller Core-
-und Browser-Shards muss erfolgreich sein. Der Trigger aktiviert keine Queue und ändert den Watcher nicht.
+und Linux-Browser-Shards muss erfolgreich sein; die explizite macOS-Browser-Advisory folgt der unten beschriebenen Ausnahme. Der Trigger aktiviert keine Queue und ändert den Watcher nicht.
 
 Die Repository-API meldet `private=false`, `owner.type=User`. Laut
 [GitHub-Dokumentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)
@@ -137,8 +137,8 @@ P5 correction `9f571cb356ebf3372284c47eaf60afba47c139c6` is incorporated by a no
 it contains P2 `f09ec4b29fce8491b0c13ecc2df2ca3690efb98f`. Shared Rust fixtures/source parity
 select the real Core shards and partition check. Only the two performance diagnostic jobs accept
 `success|failure|skipped`; required checks still fail for failure, cancellation, missing or unexpected skips.
-Missing/cancelled performance results also fail. The #621 macOS-browser job remains outside this stack until
-the Controller applies both sides of the integration recipe in the [N1 handoff](2026-10-21-gp5-n1-ci-contracts.md).
+Historical N1 policy, superseded below: missing/cancelled performance results also failed, and the #621
+macOS-browser job was still outside the stack pending the [N1 integration recipe](2026-10-21-gp5-n1-ci-contracts.md).
 
 The post-integration preflight now requires corrected P1
 `93462118ecf007a93592709d1029c04647201cff`, corrected P2 and corrected P5 above.
@@ -159,3 +159,41 @@ The initial P6 integration run exposed the merge-group test's separate old asser
 checks advisory failure/skip acceptance while continuing to reject cancellation/missing outcomes and every
 required-check failure/skip/cancellation. Final rerun: 61/61 CI tests; broader 139 tests, 138 pass,
 zero failure/skip, one existing TODO. No test was removed or converted to a skip.
+
+
+## P2/P5 refresh after #741
+
+P6 normally merges refreshed P5 `6c5146c35bd41b561f278e3433fc7f76a0e4484f` onto first parent
+`0ca33483270fe68ef17b9311b5f737110f7e9a8f`. That P5 head normally merged P2
+`96e4c0eecc0fdda64412ac687641585605b81661`, including merged #741.
+The P2/P5 entries in `.github/ci/throughput-integrations.json` now require those exact new heads;
+P1 `93462118ecf007a93592709d1029c04647201cff`, P3 `e831e2cbef22b6fe157486e65e8524c9be4b9e8c`
+and P4 `a2eddba2768cad8436419ad0384148b5a3ff3b24` remain unchanged. An integration containing only
+old P2/P5 heads cannot qualify as current after evidence. Main `68f43bc646a90bc2cf5b7e19132b8dd8b794985a` still fails local preflight (`P1 is not integrated`);
+no hosted run/log data was requested and no after snapshot or measured gain is claimed.
+
+Current `ci-gate` requires P2 reliable jobs plus P5's selected Core shards and exact-partition aggregate.
+Performance diagnostics are wholly ungated and absent from `needs`; they cannot delay or fail the gate.
+The macOS browser matrix from #741 is the sole explicit advisory dependency: success/failure/skipped
+are accepted; missing, cancelled and malformed results block. Its proceed/web/macos selection, browser-required
+setup, Core exact-partition behavior and full offline macOS/Windows package coverage are preserved.
+The former #621 integration gate is superseded by #741's merge into P2; #621 is Draft for Controller closure
+after #672 and is not claimed merged to main. #742 remains untouched and Ready.
+
+The first P6 integration run exposed one semantic conflict despite a clean Git merge: its merge-group result
+table still treated performance jobs as registered advisories and rejected a completed macOS browser failure.
+The corrected result table uses the actual explicit `ADVISORY` registration, verifies every wholly ungated job
+is absent, and retains failure/skip/cancellation/missing rejection for every required job.
+
+P5 #710 and P6 #712 remain Draft. Required-check migration still needs green Windows baseline and refreshed open
+heads; main integration, repository/queue activation, P1 post-integration measurement and platform acceptance remain
+Controller/owner gates. This refresh changes no Engine pin, lockfile, repository settings or Controller behavior,
+performs no history rewrite, and makes no #621/#741/#742 branch or PR-body changes.
+
+
+Refresh validation: Node24.21 CI scripts 89/89 pass, zero failures/skips/TODOs; broader offline command 174 tests,
+173 pass, zero failures/skips and one existing audit-policy package-scope TODO. Python workflow tests 8/8 pass.
+Focused integration RED was 88/89 before correction. Toolchain, actionlint, hygiene, source-quality, documentation
+links and diff against refreshed P5 pass. The full merge diff against the old P6 inherits P2's pre-existing trailing
+blank line in `packages/core/test/logs/redaction-gaps.test.ts`; this refresh does not alter that unrelated test.
+Full workspace/platform acceptance is not rerun or claimed for this workflow merge.
