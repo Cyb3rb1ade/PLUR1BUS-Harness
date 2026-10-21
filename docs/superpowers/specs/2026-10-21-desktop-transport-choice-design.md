@@ -235,24 +235,29 @@ or any resolved address is `tailnet`. A `direct` target with only private or pub
    as CLI), `/usr/local/bin/tailscale`, `/opt/homebrew/bin/tailscale`;
    Windows `<FOLDERID_ProgramFiles>\Tailscale\tailscale.exe` (known-folder API, not the `%ProgramFiles%` variable);
    Linux `/usr/bin/tailscale`, `/usr/sbin/tailscale`, `/usr/local/bin/tailscale`, `/snap/bin/tailscale`.
-   A candidate is used only if it is a regular file (a symlink is followed only into `/Applications/Tailscale.app/`,
-   `/opt/homebrew/Cellar/tailscale/`, `/usr/local/Cellar/tailscale/` or `/snap/`), owned by root or the current user
-   and not group/other-writable (POSIX), or not a reparse point and inside Program Files (Windows). Inside a Flatpak
+   A candidate is used only if it is a regular file (a symlink, also a symlinked directory on the way, is followed only
+   into `/Applications/Tailscale.app/`, `/opt/homebrew/Cellar/tailscale/` or `/usr/local/Cellar/tailscale/`, plus one
+   exact pair for snap: the candidate `/snap/bin/tailscale` whose canonical path is exactly `/usr/bin/snap`), owned by
+   root or the current user and not group/other-writable (POSIX; checked on the canonical path), or not a reparse point,
+   on the file or any directory up to Program Files, and inside Program Files (Windows). POSIX runs the checked canonical
+   path with `argv[0]` set to the candidate path (snap dispatches on its basename); Windows runs the checked path. Inside a Flatpak
    sandbox (`FLATPAK_ID`) no host binary can be run: state `check-unavailable` with the Flatpak reason (Q-T6).
 2. **Run** `status --json`: `tokio::process::Command` with exactly these two arguments, stdin null, stdout capped at
    8 MiB, stderr capped at 4 KiB and used only to pick the state, `kill_on_drop`, Windows `CREATE_NO_WINDOW`, 4 s
-   timeout. The environment is cleared and refilled from an allow-list (`HOME`, `USER`, `LOGNAME`, `TMPDIR`, `LANG=C`
+   timeout. A stdout read error counts as a spawn failure. The environment is cleared and refilled from an allow-list (`HOME`, `USER`, `LOGNAME`, `TMPDIR`, `LANG=C`
    on POSIX; `SystemRoot`, `USERPROFILE`, `LOCALAPPDATA`, `ProgramData`, `TEMP` on Windows). No shell, never an
    argument derived from input. Same executor shape as `pair.rs`'s native attach.
-3. **Parse** into a minimal view (serde ignores everything else): `BackendState`, `Self.TailscaleIPs`,
+3. **Parse** into a minimal view (serde ignores everything else): `BackendState`, `Self.TailscaleIPs`, `Self.DNSName`,
    `MagicDNSSuffix`/`CurrentTailnet.MagicDNSSuffix`, and per peer `DNSName`, `HostName`, `TailscaleIPs`, `Online`,
    `PrimaryRoutes`, `Expired` (if present). The same fields as the harness's
    `packages/remote-access/src/tailscale.ts` (`detectTailscale`), so one fixture family serves both.
-4. **Match the target:** `*.ts.net` name → the peer whose `DNSName` (without trailing dot) equals it; a single-label
-   name → the peer whose first `DNSName` label equals it (MagicDNS short name); an address → the peer whose
-   `TailscaleIPs` contains it, else `Self` (`tailscale-self`), else an online peer whose `PrimaryRoutes` contains it
-   (`tailscale-subnet-route`). For a matched name the **connect set is the peer's `TailscaleIPs`** — no DNS query is
-   made, which avoids leaking the name and closes the rebinding window for tailnet names. Without a match the name
+4. **Match the target:** `*.ts.net` name → the peer whose `DNSName` (without trailing dot, any case) equals it; a
+   single-label name → only the peer whose `DNSName` is exactly `<name>.<MagicDNS suffix>` (MagicDNS short name; no
+   name match at all without a suffix, so the name goes to the resolver); the same two rules against `Self.DNSName`
+   give `tailscale-self`; an address → the peer whose `TailscaleIPs` contains it, else `Self` (`tailscale-self`), else
+   a peer that is online and not expired whose `PrimaryRoutes` contains it (`tailscale-subnet-route`). For a matched
+   name the **connect set is the peer's (or this device's) `TailscaleIPs`** — no DNS query is made, which avoids
+   leaking the name and closes the rebinding window for tailnet names. Without a match the name
    falls back to the system resolver (§6.1) with the matching notice.
 5. **Probe** (always on *Check connection*, and as the first step of every open/connect over a `tailnet` path): TCP
    connect to the connect set and port (3 s per address, at most 4 addresses, no bytes sent), then compare the
@@ -273,10 +278,19 @@ or any resolved address is `tailnet`. A `direct` target with only private or pub
 | needs login | `tailscale-needs-login` | notice | `NeedsLogin`, `NeedsMachineAuth` |
 | stopped | `tailscale-stopped` | notice | any other non-`Running` backend state (`tailscale down`) |
 | peer unknown | `tailscale-peer-unknown` | notice | no matching peer (for `100.64/10` the text names CGNAT) |
+| peer online | `tailscale-peer-online` | — (state only, no hint) | peer found and online, probe not run (nothing verified the path, so nothing claims reachability) |
 | peer offline | `tailscale-peer-offline` | notice | `Online: false` or `Expired: true` |
 | unreachable | `tailscale-unreachable` | notice | peer online, TCP probe refused or timed out |
 | route mismatch | `tailscale-route-mismatch` | notice | probe connected from a non-tailnet local address |
 | not a tailnet target | `tailscale-not-tailnet-target` | notice | „Über Tailscale“ chosen, but the target is neither a `*.ts.net` name nor any tailnet address |
+
+A subnet-route match suppresses `tailscale-not-tailnet-target` (the route is a Tailscale path); a
+`tailscale-route-mismatch` or `tailscale-unreachable` found by its probe is still shown. `tailscale-short-name`
+(info, §7.2) is added only for a remote target whose single-label name matched a peer by name; its `suggestion` is
+that peer's own `DNSName` (without trailing dot, LDH-validated), never text built from the input or this device's
+suffix. Text variants travel in the hint parameter `note`: `cgnat` on `tailscale-peer-unknown`
+(`transport.tailscale.peer-unknown.cgnat`), `flatpak` on `tailscale-check-unavailable`
+(`transport.tailscale.check-unavailable.flatpak`).
 
 None of them blocks. With „Über Tailscale“ and a failed check the person may still save and connect; the public
 notice (§7.2) then applies on its own terms, because the path is not verified.
@@ -399,7 +413,9 @@ The range text is also added to the web UI catalogues (`packages/web`, key `remo
 
 ## 8. Codes
 
-Stable kebab-case strings returned to the bundled shell; the UI translates them (`transport.*`, §7.2).
+Stable kebab-case strings returned to the bundled shell; the UI translates them (`transport.*`, §7.2). Hints carry
+text parameters (`host`, `address`, `addresses`, `peer`, `port`, `range`, `example`, `suggestion`) and `note`, which
+names a text variant (`cgnat`, `flatpak`; §5.3).
 
 | Code | Severity | Blocks? |
 |---|---|---|
@@ -410,7 +426,7 @@ Stable kebab-case strings returned to the bundled shell; the UI translates them 
 | `target-not-connectable` | error when no connectable address remains; notice for addresses dropped while others stay connectable (§4.3) | only when none remains (invalid input) |
 | `host-ipv4-noncanonical`, `host-invalid` | error | yes (invalid input, §4.4; `host-invalid` has no parameters) |
 | `range-public` | warning | no |
-| `tailscale-*` (§5.3) | info/notice | no |
+| `tailscale-*` (§5.3) | info/notice (`tailscale-peer-online` is a state without a hint) | no |
 | `transport-confirm-needed` | command error | until `connection_transport_set { publicAck: true }` |
 | `transport-check-busy` | command error | superseded check |
 | `transport-store-readonly` | notice | no (a public confirmation is then held for the session only, §3.2) |
@@ -453,7 +469,9 @@ remain authoritative for channel integrity on every path.
 The tailnet status lists every device, user and address of the tailnet. It is parsed into the minimal view in memory,
 used for one match, cached ≤ 10 s, never logged, never persisted, never put into a diagnostics bundle, never sent to the
 webview. The webview receives only the state code, the matched peer's label (first `DNSName` label) and its online
-flag. Logs record the check's category and codes, never resolved addresses or peer data. No telemetry.
+flag, and for `tailscale-short-name` that peer's own DNS name as the `suggestion`. For a name match the report's
+`addresses` are the matched peer's tailnet IPs (at most eight, §9.5), the target's own addresses as a DNS answer would
+be. Nothing of other peers, users or tailnets. Logs record the check's category and codes, never resolved addresses or peer data. No telemetry.
 
 ### 9.5 Tauri and IPC
 
