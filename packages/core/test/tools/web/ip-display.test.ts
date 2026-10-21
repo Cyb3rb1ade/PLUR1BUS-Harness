@@ -1,11 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { parseAddress, parseCidr, cidrContainsPublic } from "../../../src/tools/web/ip.ts";
-import { formatAddress } from "../../../src/tools/web/ip-display.ts";
+import { formatWitness } from "../../../src/tools/web/ip-display.ts";
 
-const show = (s: string) => formatAddress(parseAddress(s)!);
+const show = (s: string) => formatWitness(parseAddress(s)!);
 
-describe("ip-display: formatAddress", () => {
+describe("ip-display: formatWitness", () => {
   it("prints IPv4 as a dotted quad", () => {
     assert.equal(show("8.8.8.0"), "8.8.8.0");
     assert.equal(show("0.0.0.0"), "0.0.0.0");
@@ -24,7 +24,7 @@ describe("ip-display: formatAddress", () => {
     assert.equal(show("::1"), "::1");
   });
   it("renders the witness of a range: the IPv4 form for ranges that reach IPv4 through ::ffff:0:0/96, canonical IPv6 otherwise", () => {
-    const witness = (cidr: string) => formatAddress(cidrContainsPublic(parseCidr(cidr)!)!);
+    const witness = (cidr: string) => formatWitness(cidrContainsPublic(parseCidr(cidr)!)!);
     assert.equal(witness("::/0"), "1.0.0.0");
     assert.equal(witness("0.0.0.0/0"), "1.0.0.0");
     assert.equal(witness("2000::/3"), "2000::");

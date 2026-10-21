@@ -1,12 +1,12 @@
 import { h } from "preact";
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { View } from "../../../../view.ts";
 import { Card } from "../../../../components/card.ts";
 import { t, type Key } from "../../../../i18n.ts";
 import { getApi } from "../../../common/load.ts";
 // Classification is the shared snapshot of `ip.ts` (pure, no node imports), the same rules the API's 1staid row uses.
 import { cidrContainsPublic, parseCidr } from "../../../../../../core/src/tools/web/ip.ts";
-import { formatAddress } from "../../../../../../core/src/tools/web/ip-display.ts";
+import { formatRange, formatWitness } from "../../../../../../core/src/tools/web/ip-display.ts";
 
 export interface RemoteStatus {
   publish: "local" | "tailnet" | "network"; tls: "self-signed" | "company-ca"; publicOrigin?: string;
@@ -14,16 +14,22 @@ export interface RemoteStatus {
   noticeRequired: boolean; noticeItems: { code: string; text: string }[];
   status: { state: "local" | "ready" | "unavailable" | "not-started"; reason?: string };
 }
-/** One entry per valid, public-containing line of the subnet field (spec §4.5): a notice only, nothing is blocked. */
+/** One entry per valid, public-containing line of the subnet field (spec §4.5): a notice only, nothing is blocked. The range
+ *  is named the way the allow-list normalises it, so `8.8.8.8/24` and `8.8.8.0/24` are one notice, as in the Doctor row. */
 export function publicRanges(text: string): { range: string; example: string }[] {
   const out: { range: string; example: string }[] = []; const seen = new Set<string>();
   for (const line of text.split(/[\n,]/).slice(0, 64)) {
-    const range = line.trim(); if (!range || range.includes("[") || seen.has(range)) continue; seen.add(range);
-    const cidr = parseCidr(range); const witness = cidr && cidrContainsPublic(cidr);
-    if (witness) out.push({ range, example: formatAddress(witness) });
+    const typed = line.trim(); if (!typed || typed.includes("[")) continue;
+    const cidr = parseCidr(typed); const witness = cidr && cidrContainsPublic(cidr);
+    if (!cidr || !witness) continue;
+    const range = formatRange(cidr); if (seen.has(range)) continue; seen.add(range);
+    out.push({ range, example: formatWitness(witness) });
   }
   return out;
 }
+/** How long the notice waits after the last keystroke. Half-typed text is often a valid range (`192.168.0.0/1` has public
+ *  addresses), and a polite live region would read that out; the settled value is what matters. */
+export const NOTICE_SETTLE_MS = 600;
 export function RemoteControls({ remote, onSaved, certificateActivated = false }: { remote: RemoteStatus; onSaved(): void; certificateActivated?: boolean }): View {
   const [publish, setPublish] = useState(remote.publish); const [tls, setTls] = useState(remote.tls);
   const [origin, setOrigin] = useState(remote.publicOrigin ?? ""); const [address, setAddress] = useState(remote.bind.address ?? "127.0.0.1");
@@ -33,7 +39,9 @@ export function RemoteControls({ remote, onSaved, certificateActivated = false }
   const [companyReady, setCompanyReady] = useState(remote.tls === "company-ca"); const [certificateNotice, setCertificateNotice] = useState("");
   const [ack, setAck] = useState(false); const [publicBind, setPublicBind] = useState(remote.bind.allowPublicInterface === true);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const lock = useRef(false);
-  const publicNotices = publicRanges(subnets); const network = publish === "network"; const unrestricted = address === "0.0.0.0" || address === "::";
+  const typedNotices = useMemo(() => publicRanges(subnets), [subnets]); const [publicNotices, setPublicNotices] = useState(typedNotices);
+  useEffect(() => { const id = setTimeout(() => setPublicNotices(typedNotices), NOTICE_SETTLE_MS); return () => clearTimeout(id); }, [typedNotices]);
+  const network = publish === "network"; const unrestricted = address === "0.0.0.0" || address === "::";
   const numberPort = Number(port); const validPort = Number.isInteger(numberPort) && numberPort >= 1024 && numberPort <= 65535;
   const blocked = network && (!ack || !validPort || (unrestricted && !publicBind) || (tls === "company-ca" && !companyReady && !certificateActivated));
   async function upload() {

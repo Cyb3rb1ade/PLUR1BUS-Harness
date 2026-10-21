@@ -81,8 +81,8 @@ test.todo("KNOWN GAP: native Tailscale Serve, CA-verified edge and desktop pairi
 
 test("allowlistPublic classifies each range with the shared ip.ts rules and names the lowest public address", () => {
   assert.deepEqual(allowlistPublic(["0.0.0.0/0", "100.0.0.0/8", "8.8.8.0/24", "172.16.0.0/11", "::/0", "2000::/3", "64:ff9b::/96", "::ffff:8.8.8.0/120"]).map(r => [r.cidr, r.example]), [
-    ["0.0.0.0/0", "1.0.0.0"], ["100.0.0.0/8", "100.0.0.0"], ["8.8.8.0/24", "8.8.8.0"], ["172.16.0.0/11", "172.0.0.0"],
-    ["::/0", "1.0.0.0"], ["2000::/3", "2000::"], ["64:ff9b::/96", "64:ff9b::100:0"], ["::ffff:8.8.8.0/120", "8.8.8.0"]]);
+    ["0.0.0.0/0", "1.0.0.0"], ["100.0.0.0/8", "100.0.0.0"], ["8.8.8.0/24", "8.8.8.0"], ["172.0.0.0/11", "172.0.0.0"],
+    ["::/0", "1.0.0.0"], ["2000::/3", "2000::"], ["64:ff9b::/96", "64:ff9b::100:0"], ["8.8.8.0/24", "8.8.8.0"]]);
   assert.deepEqual(allowlistPublic(["10.0.0.0/8", "192.168.0.0/16", "fd00::/8", "192.0.2.0/24", "100.64.0.0/10", "::ffff:10.0.0.0/104", "2002:0a00::/24", "not-a-range", ""]), []);
   assert.deepEqual(allowlistPublic([]), []);
 });

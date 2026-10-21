@@ -4,4 +4,4 @@
 // same pattern as `rbac-bridge.ts`. Follow-up: a `@plur1bus/core/net` subpath export, then this file becomes a package import.
 export { IANA_SPECIAL_REGISTRY, cidrContainsPublic, parseCidr } from "../../core/src/tools/web/ip.ts";
 export type { Cidr, ParsedAddress } from "../../core/src/tools/web/ip.ts";
-export { formatAddress } from "../../core/src/tools/web/ip-display.ts";
+export { formatRange, formatWitness } from "../../core/src/tools/web/ip-display.ts";

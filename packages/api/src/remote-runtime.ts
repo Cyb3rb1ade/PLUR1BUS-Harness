@@ -6,7 +6,7 @@ import { networkInterfaces } from "node:os";
 import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { admitSocket, certPin, inspectCertificate, compileAllowlist, confirmSecurityNotice, parseRemoteConfig, detectServe, detectTailscale, firstAidChecks, noticeNeeded, planListeners, planServe, planServeOff, runServePlan, type ExecPort, type FirstAidEntry, type HostInterface, type NoticeAck, type RemoteConfig } from "../../remote-access/src/index.ts";
-import { cidrContainsPublic, formatAddress, parseCidr } from "./net-bridge.ts";
+import { cidrContainsPublic, formatRange, formatWitness, parseCidr } from "./net-bridge.ts";
 import type { ApiServer } from "./server.ts";
 import { RemoteCertificates, privateAtomicJson, readPrivateText, type RemoteTlsMaterial } from "./remote-certificates.ts";
 export interface RemoteBind {
@@ -20,7 +20,7 @@ export function allowlistPublic(subnets: readonly string[]): { cidr: string; exa
   const out: { cidr: string; example: string }[] = [];
   for (const cidr of subnets) {
     const range = parseCidr(cidr.trim()); const witness = range && cidrContainsPublic(range);
-    if (witness) out.push({ cidr: cidr.trim(), example: formatAddress(witness) });
+    if (range && witness) out.push({ cidr: formatRange(range), example: formatWitness(witness) });
   }
   return out;
 }
