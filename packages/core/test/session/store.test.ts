@@ -75,6 +75,8 @@ describe("session store", () => {
     assert.deepEqual(texts({ limit: 2, afterSeq: seqs[3]! }), ["q5", "a5"], "afterSeq: the newest of the later ones (q3 a3 q4 a4 q5 a5 → tail)");
     assert.deepEqual(texts({ limit: 4, afterSeq: seqs[1]! }), ["q4", "a4", "q5", "a5"], "afterSeq with a cut keeps the tail");
     assert.deepEqual(texts({ limit: 2, beforeSeq: seqs[6]! }), ["q3", "a3"], "beforeSeq: the newest below the bound (unchanged behaviour)");
+    assert.deepEqual(texts({ limit: 3, keep: "oldest" }), ["q1", "a1", "q2"], "keep oldest: forward order, the cut-off drops the newest (chat.get's legacy reading)");
+    assert.deepEqual(texts({ limit: 2, keep: "oldest", afterSeq: seqs[1]! }), ["q2", "a2"], "keep oldest with afterSeq");
   });
 
   it("archive-first: archive hides, keeps rows, erasure refuses until archived and leaves a content-free tombstone", () => {

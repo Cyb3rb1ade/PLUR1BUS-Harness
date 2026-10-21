@@ -454,8 +454,10 @@ export class SessionStore {
     return this.#all("SELECT * FROM events WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, afterSeq, Math.min(Math.max(limit, 1), 2000)).map(toEvent);
   }
 
-  listMessages(sessionId: string, o: { afterSeq?: number; beforeSeq?: number; limit?: number } = {}): MessageRecord[] {
+  listMessages(sessionId: string, o: { afterSeq?: number; beforeSeq?: number; limit?: number; keep?: "newest" | "oldest" } = {}): MessageRecord[] {
     const limit = Math.min(Math.max(o.limit ?? 10_000, 1), 100_000);
+    // `keep: "oldest"` is the forward-paging reading (chat.get's documented legacy order): a cut-off keeps the first `limit` messages after `afterSeq`.
+    if (o.keep === "oldest") return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq LIMIT ?", sessionId, o.beforeSeq ?? Number.MAX_SAFE_INTEGER, o.afterSeq ?? 0, limit).map(toMessage);
     // Ascending result, but a cut-off keeps the NEWEST `limit` messages (never the oldest): the readers want the tail of a long session.
     return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq DESC LIMIT ?", sessionId, o.beforeSeq ?? Number.MAX_SAFE_INTEGER, o.afterSeq ?? 0, limit).map(toMessage).reverse();
   }
