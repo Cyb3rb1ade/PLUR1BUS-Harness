@@ -220,6 +220,30 @@ describe("isInsideDir", () => {
     assert.equal(isInsideDir(path.join(d, "root"), path.join(d, "rootlink", "real")), true);
   });
 
+  it("canonicalizes existing parents of missing targets through aliases without allowing missing descendants of outside links", { skip: posixOnly }, () => {
+    const d = tmpDir();
+    mkdirSync(path.join(d, "root"));
+    mkdirSync(path.join(d, "outside"));
+    symlinkSync(path.join(d, "root"), path.join(d, "alias"));
+    symlinkSync(path.join(d, "outside"), path.join(d, "root", "escape"));
+    assert.equal(isInsideDir(path.join(d, "root"), path.join(d, "alias", "new", "file")), true);
+    assert.equal(isInsideDir(path.join(d, "alias"), path.join(d, "root", "new", "file")), true);
+    assert.equal(isInsideDir(path.join(d, "root"), path.join(d, "root", "escape", "new", "file")), false);
+  });
+
+  it("refuses a symlink cycle instead of treating a failed realpath as a missing target", { skip: posixOnly }, () => {
+    const d = tmpDir();
+    symlinkSync("cycle", path.join(d, "cycle"));
+    assert.equal(isInsideDir(d, path.join(d, "cycle")), false);
+    assert.equal(isInsideDir(d, path.join(d, "cycle", "new")), false);
+  });
+
+  it("refuses a path beneath a regular file instead of treating ENOTDIR as missing", () => {
+    const d = tmpDir();
+    writeFileSync(path.join(d, "file"), "existing");
+    assert.equal(isInsideDir(d, path.join(d, "file", "child")), false);
+  });
+
   it("a dangling symlink is judged by its own (unresolvable) path, not by what it points to", { skip: posixOnly }, () => {
     const d = tmpDir();
     mkdirSync(path.join(d, "root"));

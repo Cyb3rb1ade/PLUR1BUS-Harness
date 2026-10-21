@@ -3,7 +3,7 @@
 // Normalizes CRLF, discards whitespace-only cards, enforces <= 500 cards batch limit.
 // Idempotency keys are deterministic from (profile, sourceFile, cardHash), never from runId.
 // USER.md cards are reported as unresolved-user-scope unless an unambiguous user principal is provided.
-// Generates curated memories.md and USER.md markdown mirrors in l.workspaceDir(agentId) for imported cards,
+// Generates memory/KNOWLEDGE.md and USER.md markdown mirrors in l.workspaceDir(agentId) for imported cards,
 // routed through the conflict strategy (skip/rename/replace).
 // Errors from memory.import are tracked in errors[] and counted as rejected, never swallowed.
 // NEVER writes directly to LanceDB or imports external vector store libraries.
@@ -84,7 +84,7 @@ export interface HermesMemoryImportResult {
 }
 
 /**
- * Writes one curated mirror file (memories.md / USER.md) under the conflict strategy. Returns a reason when the file was
+ * Writes one curated mirror file (memory/KNOWLEDGE.md / USER.md) under the conflict strategy. Returns a reason when the file was
  * deliberately left alone because of a problem the caller reports (`target-unreadable`: the existing file cannot be read,
  * so with --conflict replace its content could not be backed up and overwriting it would lose it), else undefined.
  */

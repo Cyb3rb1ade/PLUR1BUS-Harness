@@ -61,18 +61,32 @@ export function copyAtomicSync(srcPath: string, destPath: string, mode = 0o600):
   writeAtomicSync(destPath, buf, mode);
 }
 
-export function isInsideDir(root: string, target: string): boolean {
-  let r = resolve(root);
-  let q = resolve(target);
-  try {
-    r = realpathSync(r);
-  } catch {
-    // ignore
+// Resolve the nearest existing ancestor, then append the missing suffix. Comparing a
+// real root against a lexical missing target would reject macOS /var aliases and
+// miss escapes through existing symlink parents of not-yet-created files.
+function canonicalWithMissingSuffix(path: string): string {
+  let current = resolve(path);
+  const missing: string[] = [];
+  for (;;) {
+    try { return join(realpathSync(current), ...missing); } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      const parent = dirname(current);
+      if (parent === current) return join(current, ...missing);
+      missing.unshift(basename(current));
+      current = parent;
+    }
   }
+}
+
+export function isInsideDir(root: string, target: string): boolean {
+  let r: string;
+  let q: string;
   try {
-    q = realpathSync(q);
+    r = canonicalWithMissingSuffix(root);
+    q = canonicalWithMissingSuffix(target);
   } catch {
-    // ignore
+    // A cycle, inaccessible parent or non-directory component is never containment.
+    return false;
   }
   if (process.platform === "win32" || process.platform === "darwin") {
     const rLower = r.toLowerCase();

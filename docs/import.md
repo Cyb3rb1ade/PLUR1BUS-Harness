@@ -829,4 +829,6 @@ ledger. It calls the Engine's `knowledge-update` job separately for each registe
 `{"job":"knowledge.update","args":{"agentId":"AGENT"}}`; omit args to sweep all agents. Engine contract
 1.17.0 is required; older pins report `skipped/engine-contract-unavailable`. The Engine alone consumes pending work and
 writes promotion receipts. `engine.schicht15.maxPromotionsPerRun` sets the cap (0 = unlimited, core restart, advanced).
-This job path avoids introducing a second knowledge writer or bypassing the D109 tool dispatcher with an agent tool.
+This model-free Engine job is the deliberate alternative to LLM synthesis: it integrates already classified pending
+memories deterministically and performs no LLM completion or new semantic summarization. This path avoids introducing
+a second knowledge writer or bypassing the D109 tool dispatcher with an agent tool.
