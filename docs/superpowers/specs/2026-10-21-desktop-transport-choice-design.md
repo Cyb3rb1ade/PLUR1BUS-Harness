@@ -261,7 +261,10 @@ or any resolved address is `tailnet`. A `direct` target with only private or pub
    falls back to the system resolver (§6.1) with the matching notice.
 5. **Probe** (always on *Check connection*, and as the first step of every open/connect over a `tailnet` path): TCP
    connect to the connect set and port (3 s per address, at most 4 addresses, no bytes sent), then compare the
-   socket's **local address** with `Self.TailscaleIPs`. Not in that set ⇒ `tailscale-route-mismatch` (CGNAT collision,
+   socket's **local address** with `Self.TailscaleIPs`. The probe is a TCP connection, so it runs only once the target
+   passes the confirmation gate (§2 T10: not public, or a valid `publicAck`), and only to the addresses the match makes
+   Tailscale paths — the matched peer's (or this device's) tailnet addresses, or the private addresses inside the
+   matched router's route; never a public or special address (package T4). Not in that set ⇒ `tailscale-route-mismatch` (CGNAT collision,
    subnet routes not accepted, another VPN wins the route). The probe tells reachability independently of what the
    CLI said.
 
@@ -396,6 +399,16 @@ confirmation for this app session only and the banner adds `transport.public.ses
 | `transport.path.tailscale` | Tailscale | Tailscale |
 | `transport.path.direct` | Direkt | Direct |
 | `transport.path.public` | Direkt · öffentlich | Direct · public |
+| `transport.path.public-confirmed` | Direkt · öffentlich bestätigt | Direct · public, confirmed |
+| `transport.path.tailscale-attention` | Tailscale getrennt | Tailscale disconnected |
+| `transport.detail` | Weg: {path} | Path: {path} |
+| `transport.change` | Weg ändern… | Change path… |
+| `transport.confirm-connect` | Bestätigen und verbinden | Confirm and connect |
+| `transport.tailscale.peer-online` | {peer} ist in deinem Tailnet und online; der Weg wurde nicht geprüft. | {peer} is in your tailnet and online; the path was not checked. |
+
+The last six rows (package T4) carry the wording of §7.1/§7.3 that had no key: the path line and chip of the connection
+detail and list, *Weg ändern…*, *Bestätigen und verbinden*, and the neutral line for the hint-less state
+`tailscale-peer-online` (§5.3; its wording is pending owner confirmation).
 
 The range text is also added to the web UI catalogues (`packages/web`, key `remote.allowlistPublic`).
 
