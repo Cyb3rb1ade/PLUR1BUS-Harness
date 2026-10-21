@@ -43,3 +43,32 @@ test("activation failure after consumption is audited and leaves no active or pe
   assert.equal(await accounts.findById("invited"), undefined); await accounts.createPending("invited", "alice", "not-a-credential");
   assert.ok(h.audit.events.some(e => e.action === "invitation.account.failed")); assert.equal(JSON.stringify(h.audit.events).includes(code), false);
 });
+
+test("F6: the invitation is spent only once the account can be activated; an activation failure leaves it redeemable", async t => {
+  const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) }); const core = fakeCore();
+  const methods: string[] = []; let consumed = false; const code = randomBytes(32).toString("base64url"), password = randomBytes(24).toString("base64url");
+  Object.assign(core, { serviceCall: async (method: string) => { methods.push(method); if (consumed) throw new Error("invalid invitation"); if (method === "user.invite.redeem") consumed = true; return { userId: "invited", role: "member" }; } });
+  const activate = accounts.activate.bind(accounts); const { ApiError } = await import("../src/errors.ts");
+  accounts.activate = async () => { throw new ApiError(503, "E_STORAGE", "account storage unavailable"); };
+  const h = await start({ accounts, core, rateClasses: { auth: { capacity: 100, refillPerSec: 100 }, read: { capacity: 100, refillPerSec: 100 }, write: { capacity: 100, refillPerSec: 100 } } }); t.after(async () => { await h.close(); accounts.close(); });
+  const redeem = () => raw(h, { method: "POST", path: "/api/v1/invitations/redeem", headers: jsonHeaders(), body: JSON.stringify({ code, username: "alice", password }) });
+  assert.equal((await redeem()).status, 503);
+  assert.equal(methods.includes("user.invite.redeem"), false, "the core was never asked to consume the invitation");
+  assert.equal(consumed, false); assert.equal(await accounts.findById("invited"), undefined, "no credentials left behind");
+  accounts.activate = activate;
+  assert.equal((await redeem()).status, 201, "the same invitation works on the retry");
+  assert.equal(consumed, true); assert.equal((await accounts.findById("invited"))?.username, "alice");
+});
+
+test("F6: if taking the account back out after a failed consumption itself fails, it is audited and the unspent invitation can only reach the same person", async t => {
+  const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) }); const core = fakeCore();
+  const code = randomBytes(32).toString("base64url"), password = randomBytes(24).toString("base64url");
+  Object.assign(core, { serviceCall: async (method: string) => { if (method === "user.invite.redeem") throw new Error("core unavailable"); return { userId: "invited", role: "member" }; } });
+  accounts.discardRegistration = async () => { throw new Error("storage"); };
+  const h = await start({ accounts, core, rateClasses: { auth: { capacity: 100, refillPerSec: 100 }, read: { capacity: 100, refillPerSec: 100 }, write: { capacity: 100, refillPerSec: 100 } } }); t.after(async () => { await h.close(); accounts.close(); });
+  const r = await raw(h, { method: "POST", path: "/api/v1/invitations/redeem", headers: jsonHeaders(), body: JSON.stringify({ code, username: "alice", password }) });
+  assert.equal(r.status, 400); assert.equal(r.json.error, "E_INVITE_INVALID");
+  assert.ok(h.audit.events.some(e => e.action === "invitation.account.failed" && (e.detail as { reason?: string }).reason === "revert-failed"));
+  const again = await raw(h, { method: "POST", path: "/api/v1/invitations/redeem", headers: jsonHeaders(), body: JSON.stringify({ code, username: "mallory", password }) });
+  assert.equal(again.status, 409, "a second registration for the same person is refused");
+});

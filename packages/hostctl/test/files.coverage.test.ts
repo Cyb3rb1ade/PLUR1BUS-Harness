@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, realpath, symlink, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpBase } from './helpers/tmp.ts';
 import { join } from 'node:path';
 import { files } from '../src/files.ts';
 import { configure } from '../src/config.ts';
@@ -16,9 +16,9 @@ const rejectionOf = async (p: Promise<unknown>) => { try { await p; return undef
 const codeOf = async (p: Promise<unknown>) => { const e = await rejectionOf(p); if (e instanceof HostctlError) return e.code; if ((e as Error)?.name === 'AbortError') return 'AbortError'; return (e as { code?: string })?.code; };
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'hostctl-files-'));
-  outside = await mkdtemp(join(tmpdir(), 'hostctl-files-outside-'));
-  home = await mkdtemp(join(tmpdir(), 'hostctl-files-home-'));
+  root = await mkdtemp(join(tmpBase(), 'hostctl-files-'));
+  outside = await mkdtemp(join(tmpBase(), 'hostctl-files-outside-'));
+  home = await mkdtemp(join(tmpBase(), 'hostctl-files-home-'));
   trash = vi.fn(async () => {});
   ops = files([{ id: 'fixture', path: root }], [], configure(), trash as never, home, {});
 });
