@@ -51,6 +51,8 @@ function text(v: unknown, field: string, max = MAX_FIELD): string {
   if (typeof v !== "string" || v.length === 0 || v.length > max || CONTROL.test(v)) throw bad(field, `${field} must be a non-empty string of at most ${max} characters without control characters`);
   return v;
 }
+/** Whether `v` is a channel name the service accepts: callers that create state before pairing check it first, so a refusal leaves nothing behind. */
+export const isChannelName = (v: unknown): v is string => typeof v === "string" && CHANNEL.test(v);
 function channelOf(v: unknown, field = "channel"): string {
   if (typeof v !== "string" || !CHANNEL.test(v)) throw bad(field, `${field} must match ${CHANNEL}`);
   return v;
@@ -262,6 +264,8 @@ export function createIdentityService(o: IdentityOptions) {
         if (activeLink(i)) { run("UPDATE pairings SET state = 'declined', resolved_at = ? WHERE id = ?", t, id); return { state: "declined", refuse: conflict(i) }; }
         requireHuman(r.human_id);
         const link = insertLink(r.human_id as string, i, "pairing_code", actor.user);
+        // A confirmed claim was a legitimate pairing, not an attempt: it frees its place in the person's claim limit (a declined one stays counted).
+        limiter.release(`claim:${digest(r.human_id as string)}`, SOURCE_LIMIT, Number(r.claimed_at));
         run("UPDATE pairings SET state = 'confirmed', resolved_at = ?, link_id = ? WHERE id = ?", t, link.id, id);
         return { state: "confirmed", link };
       });

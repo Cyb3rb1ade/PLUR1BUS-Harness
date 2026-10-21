@@ -35,3 +35,13 @@ Recurring → Delivery destinations lists only the authenticated person's linked
 The job editor offers only validated own targets. `deliveryTarget` is optional; empty disables delivery. Creating/editing still determines `runAs` normally. Editing another person's job cannot retain their target: select an own target or clear it. Every run and every send rechecks the active person, exact identity link, live transport allowlist and current agent-use rights. Removing a destination immediately prevents future delivery; an in-flight transport write cannot be recalled.
 
 `delivery.target.subscribe` can additionally attach a validated target to a Dreams phase (`source: dreams`, job `light`, `rem` or `deep`, explicit agentId) or a system job (`source: system`, exact job name, explicit agentId). System subscriptions require a current Owner/Admin. These emit a fixed completion status, never raw system detail or diary/private contents. No subscriptions are created by default. Remove the target to revoke its subscriptions. User-job delivery contains its assistant result, bound to that job's runAs.
+
+## System jobs: overlapping runs
+
+System jobs (`kind: system`: `models.scan`, `approvals.integrity`, `capabilities.recheck`) run only inside the core and are started by their own timer, at start, by `jobs.run` and by the CLI. Every job lists `singleton: true`; how that is enforced depends on the job:
+
+- **Registry lock (`exclusive`).** `approvals.integrity` and `capabilities.recheck` set `exclusive: true` in their spec. While one run is in flight, a further run of the same job is not started: it is recorded as `outcome: skipped`, `reason: already_running`, `runningRunId` = the run that holds the lock (one ledger row, like every skip; no `job-failed` notice). The lock is released when the run ends, also when it fails or throws. It is per job name, so different jobs always run side by side.
+- **Handler-side lock.** `models.scan` does not set `exclusive`: it is enforced per provider by the discovery service, so scans of different providers (and `jobs.run models.scan { provider }` next to the scheduler) stay parallel, and a second scan of one provider answers `already_running` per provider.
+- **Process-wide, no lock file.** The lock lives in memory. One core per home is already guaranteed by `state/core.lock` (a second core exits with `E_LOCKED`), and system jobs do not run in any other process, so a file lock would add nothing.
+
+Invalid `args` are rejected before the lock is looked at, so an invalid request is never recorded as a skip. A new system job that must not overlap sets `exclusive: true` (`SystemJobSpec` in `packages/core/src/system-jobs/index.ts`); one that needs a finer granularity enforces it itself and leaves it unset.

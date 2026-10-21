@@ -25,7 +25,7 @@ jobs:
       PLUR1BUS_MODELS_CACHE: ${{ github.workspace }}/.models-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -73,7 +73,7 @@ jobs:
       - run: pnpm bench
         timeout-minutes: 10
       - name: save model cache
-        if: ${{ always() && steps.models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
+        if: ${{ success() && steps.models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ github.workspace }}/.models-cache
@@ -91,7 +91,7 @@ jobs:
       PLUR1BUS_SEARXNG_LIVE_URL: ${{ vars.PLUR1BUS_SEARXNG_LIVE_URL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -176,7 +176,7 @@ jobs:
       PLUR1BUS_LIVE_MTPLX_RERANK_MODEL: ${{ vars.PLUR1BUS_LIVE_MTPLX_RERANK_MODEL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with: { version: 10.28.0 }
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -200,7 +200,7 @@ jobs:
       - name: M2 real Direct Chat and self-hosted adapter smoke
         run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 tests/nightly/m2-*.test.ts
       - name: save M2 model cache
-        if: ${{ always() && steps.m2-models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
+        if: ${{ success() && steps.m2-models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ github.workspace }}/.models-cache

@@ -29,9 +29,23 @@ test('HTTP timeouts surface as transport-failed, not as a login timeout', async 
   await assert.rejects(http.request({ method: 'GET', url: 'https://api.openai.com/v1/models' }), { code: 'transport-failed' });
 });
 
-// Binding the listener to the issued state would stop a stray local/cross-site GET from burning the single-use callback,
-// but the existing contract (store-and-errors: wrong state surfaces as state-mismatch) needs the first request consumed.
-test.todo('KNOWN GAP: a forged callback request consumes the one-shot loopback listener (login DoS, no credential exposure)');
+test('a forged callback request no longer consumes the one-shot loopback listener (no login DoS, no credential exposure)', async () => {
+  const local = await localOpenAI(); const store = new MemorySecrets(); const auth = new AuthService({ store, http: createOpenAIHttp({ egress: noEgress, fetch: local.transport }), clock: { now: () => local.fake.now }, audit: () => {} });
+  try {
+    const login = await auth.startLogin({ principal }); const url = new URL(login.authorizeUrl.value()); const redirect = url.searchParams.get('redirect_uri')!, state = url.searchParams.get('state')!;
+    // PKCE parameters of the authorize URL are untouched by the state binding.
+    assert.equal(url.searchParams.get('code_challenge_method'), 'S256'); assert.match(url.searchParams.get('code_challenge')!, /^[A-Za-z0-9_-]{43}$/); assert.ok(url.searchParams.get('nonce'));
+    for (const query of ['?state=wrong&code=forged-code', '?code=forged-code', '?state=' + state + '&state=' + state + '&code=forged-code']) {
+      const response = await fetch(redirect + query); const body = await response.text();
+      assert.equal(response.status, 400); assert.equal(body.includes('forged-code') || body.includes(state), false);
+    }
+    assert.deepEqual(await auth.listCredentials(principal), []); // nothing stored by forged requests
+    await local.authorize(login.authorizeUrl); // the genuine callback, delivered after the forged ones
+    const info = await auth.awaitLogin(login.loginId, principal); // the fake token endpoint only succeeds when code_verifier matches the challenge
+    assert.equal(info.needsLogin, false); assert.equal((await auth.listCredentials(principal)).length, 1);
+    await assert.rejects(fetch(redirect)); // listener closed after the valid callback
+  } finally { await auth.close(); await local.close(); }
+});
 
 test('service: completed but never-awaited logins do not exhaust the pending-login cap', async () => {
   const local = await localOpenAI(); const auth = new AuthService({ store: new MemorySecrets(), http: createOpenAIHttp({ egress: noEgress, fetch: local.transport }), clock: { now: () => local.fake.now }, audit: () => {} });

@@ -11829,6 +11829,16 @@ Usage per period (the current local day and month in the configured time zone) a
               "cacheWriteTokens": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "images": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Generated images (media units; absent from an older core)"
+              },
+              "videoSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
               }
             }
           },
@@ -11876,6 +11886,16 @@ Usage per period (the current local day and month in the configured time zone) a
                     "cacheWriteTokens": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "images": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Generated images (media units; absent from an older core)"
+                    },
+                    "videoSeconds": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
                     }
                   }
                 },
@@ -11913,6 +11933,14 @@ Usage per period (the current local day and month in the configured time zone) a
                         "minimum": 0
                       },
                       "cacheWriteTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "images": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "videoSeconds": {
                         "type": "integer",
                         "minimum": 0
                       }
@@ -12044,7 +12072,7 @@ The outgoing-network policy in force (B4): normalised host allowlist, ports, loo
 
 **Served by:** core
 
-Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.
 
 **params**
 
@@ -12083,7 +12111,9 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
         },
         "metric": {
           "enum": [
-            "tokens"
+            "tokens",
+            "images",
+            "videoSeconds"
           ]
         },
         "soft": {
@@ -22173,7 +22203,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
+  "description": "Experimental (1.5.0). A budget limit. Bounds count the metric: input + output tokens (output includes reported reasoning tokens), generated images, or seconds of generated video.",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -22203,7 +22233,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "tokens"
+        "tokens",
+        "images",
+        "videoSeconds"
       ]
     },
     "soft": {
@@ -22260,7 +22292,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "tokens"
+        "tokens",
+        "images",
+        "videoSeconds"
       ]
     },
     "soft": {

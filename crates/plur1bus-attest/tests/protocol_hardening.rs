@@ -423,16 +423,31 @@ fn clean_text_is_idempotent_and_bounded_for_random_input() {
     }
 }
 
-/// SICHERHEIT: `clean_text` removes `char::is_control()` (category Cc) only. Bidirectional overrides and isolates, zero-width
-/// characters and the byte order mark are category Cf: they pass through into the text the operating system shows in its
-/// confirmation dialog, where an override (U+202E) can visually reorder what the person is asked to approve. Stripping them
-/// changes what the dialog shows (a security behaviour), so it is not fixed here.
+/// SICHERHEIT: bidirectional overrides and isolates, zero-width characters and the byte order mark are category Cf, not Cc:
+/// without their own rule they would pass into the text the operating system shows in its confirmation dialog, where an
+/// override (U+202E) can visually reorder what the person is asked to approve. `clean_text` drops them.
 #[test]
-#[ignore = "KNOWN GAP: clean_text keeps Unicode format characters (bidi override U+202E, isolates, zero-width, BOM) in the OS dialog text"]
 fn clean_text_removes_bidi_overrides_and_invisible_format_characters() {
     for ch in [
-        '\u{202a}', '\u{202b}', '\u{202c}', '\u{202d}', '\u{202e}', '\u{2066}', '\u{2067}',
-        '\u{2068}', '\u{2069}', '\u{200b}', '\u{200e}', '\u{200f}', '\u{feff}',
+        '\u{202a}',
+        '\u{202b}',
+        '\u{202c}',
+        '\u{202d}',
+        '\u{202e}',
+        '\u{2066}',
+        '\u{2067}',
+        '\u{2068}',
+        '\u{2069}',
+        '\u{200b}',
+        '\u{200c}',
+        '\u{200d}',
+        '\u{200e}',
+        '\u{200f}',
+        '\u{2060}',
+        '\u{feff}',
+        '\u{00ad}',
+        '\u{061c}',
+        '\u{e0041}',
     ] {
         let cleaned = clean_text(&format!("Allow {ch}agent"));
         assert!(
@@ -440,7 +455,18 @@ fn clean_text_removes_bidi_overrides_and_invisible_format_characters() {
             "U+{:04X} survives into the dialog text: {cleaned:?}",
             ch as u32
         );
+        assert_eq!(
+            cleaned, "Allow agent",
+            "U+{:04X} changes the visible text",
+            ch as u32
+        );
     }
+}
+
+#[test]
+fn clean_text_keeps_umlauts_emoji_and_cjk() {
+    let text = "Prüfung für Größe \u{1f600} \u{1f44d}\u{1f3fd} 日本語のテキスト 한국어 العربية";
+    assert_eq!(clean_text(text), text);
 }
 
 // ---------- replies ----------
