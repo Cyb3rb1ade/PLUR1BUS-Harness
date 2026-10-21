@@ -18,6 +18,7 @@ use super::record::{
 use super::state::{self, write_private_atomic};
 use super::{iso8601, ExtError};
 use crate::paths::Layout;
+use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::Kind;
 use plur1bus_ext::normalise::{normalise_skill, SkillInput};
 use plur1bus_ext::refusal::{reason, Refusal};
@@ -73,6 +74,12 @@ fn ext_config(layout: &Layout) -> Result<ExtConfig, ExtError> {
         skill_bytes: bytes("skillBytes", plur1bus_ext::normalise::MAX_SKILL_BYTES),
         allow_unsigned: ext["allowUnsigned"].as_bool().unwrap_or(true),
     })
+}
+
+/// `extensions.allowUnsigned` of `config.json` (default `true`), read fresh for the package store, which applies the same
+/// policy as an inspection (X1-R21).
+pub(super) fn allow_unsigned_policy(layout: &Layout) -> Result<bool, ExtError> {
+    ext_config(layout).map(|c| c.allow_unsigned)
 }
 
 /// The spool and record of one inspection, removed on drop unless kept.
@@ -303,7 +310,7 @@ pub(crate) fn inspect_with(
     let replaces = st.items.get(&m.name).filter(|r| r.id == m.id).map(|r| {
         json!({
             "version": r.version,
-            "capabilityDiff": { "changed": changed_keys(&r.capabilities, &m.capabilities) }
+            "capabilityDiff": { "changed": changed_keys(&r.capabilities, &acknowledged_capabilities(m)) }
         })
     });
     let scripts: Vec<Value> = insp
@@ -331,7 +338,7 @@ pub(crate) fn inspect_with(
             .map_err(|e| invalid(reason::PACKAGE_INVALID, e.to_string()))?,
         trust: trust_json(&insp.trust),
         checks: serde_json::to_value(&insp.checks).unwrap_or(Value::Null),
-        capabilities: m.capabilities.clone(),
+        capabilities: acknowledged_capabilities(m),
         scripts: Value::Array(scripts),
         requires: m.requires.clone(),
         replaces,

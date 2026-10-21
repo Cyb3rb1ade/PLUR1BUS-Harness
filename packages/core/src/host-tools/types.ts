@@ -31,7 +31,8 @@ export interface HostFs {
   exists(path: string): Promise<boolean>;
   readFile(path: string): Promise<string>;
   readdir(path: string): Promise<string[]>;
-  stat(path: string): Promise<{ isFile: boolean; isDirectory: boolean; size: number }>;
+  /** `mode` is the POSIX permission bits where the platform has them. */
+  stat(path: string): Promise<{ isFile: boolean; isDirectory: boolean; size: number; mode?: number }>;
 }
 
 export interface HostClock {

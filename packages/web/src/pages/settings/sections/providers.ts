@@ -103,7 +103,7 @@ function LoginDialog({
         setCallbackPort(r.callbackPort);
         // Try to open authorization window automatically
         try {
-          if (r.authorizeUrl) globalThis.window?.open(r.authorizeUrl, "_blank");
+          if (r.authorizeUrl) globalThis.window?.open(r.authorizeUrl, "_blank", "noopener,noreferrer");
         } catch {
           // Popup blocked, user can click the link
         }

@@ -92,6 +92,8 @@ jobs:
       - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm lint
         env:
           NODE_OPTIONS: ${{ runner.os == 'macOS' && '--max-old-space-size=4096' || '' }}
+      - name: reasoning metadata schema and coverage hints
+        run: node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/check-reasoning-metadata.mjs
       - name: unit tests with file timings
         shell: bash
         run: |
@@ -727,13 +729,29 @@ jobs:
         env:
           PERF_RUNNER_LABEL: ${{ matrix.os }}
         run: node scripts/bench/startup.mjs --runs 30 --out startup-benchmark
+      # The excluded first start of the real-model run downloads and loads the default models; without a cache that happens on
+      # every run (the stall behind `core.status timed out`). The key follows the default-model catalog (engine-config.ts); the
+      # directory is inside the workspace because hashFiles() below only reads there. Saved only after a green run, so a
+      # half-downloaded cache is never stored.
+      - name: restore model cache
+        id: perf-models
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/.models-cache
+          key: perf-models-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('packages/core/src/engine-config.ts') }}
       - name: measure B8 with background model warming (advisory)
         env:
           PERF_RUNNER_LABEL: ${{ matrix.os }}
         shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/perf-models"
-          node scripts/bench/startup.mjs --runs 30 --real-models --models-cache "$RUNNER_TEMP/perf-models" --out startup-models
+          mkdir -p "$GITHUB_WORKSPACE/.models-cache"
+          node scripts/bench/startup.mjs --runs 30 --real-models --models-cache "$GITHUB_WORKSPACE/.models-cache" --out startup-models
+      - name: save model cache
+        if: ${{ success() && steps.perf-models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/.models-cache
+          key: ${{ steps.perf-models.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:

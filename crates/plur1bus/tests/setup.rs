@@ -89,6 +89,64 @@ fn setup_non_interactive_installs_everything_but_the_service() {
     );
 }
 
+/// One installer at a time: an `update` (or another `setup`) holding the update lock keeps `setup` out of the home
+/// until it is done, and a lock that is free again lets the same `setup` run as usual.
+#[cfg(unix)]
+#[test]
+fn setup_is_refused_while_an_update_or_another_setup_holds_the_lock() {
+    let e = Env::new();
+    std::fs::create_dir_all(e.home.join("update")).unwrap();
+    let held = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(e.home.join("update/update.lock"))
+        .unwrap();
+    held.try_lock().unwrap();
+    let (code, v) = e.setup(&["--non-interactive", "--no-service"]);
+    assert_eq!(code, 1, "{v:#}");
+    assert_eq!(ids(&v), STEP_IDS);
+    assert_eq!(status_of(&v, "state-root"), "failed", "{v:#}");
+    let first = step(&v, "state-root");
+    assert_eq!(first["reason"], "io", "{v:#}");
+    assert!(
+        first["detail"]["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("another setup, update or rollback")),
+        "{v:#}"
+    );
+    for s in &v["steps"].as_array().unwrap()[1..] {
+        assert_eq!(s["status"], "skipped", "{s}");
+        assert_eq!(s["reason"], "after-failure", "{s}");
+    }
+    assert!(!e.home.join("manifest.json").exists());
+    assert!(!e.home.join("runtime").exists(), "nothing was installed");
+
+    // Released, the same setup gets as far as its own steps (here: the wrong runtime digest fails the second one).
+    drop(held);
+    let core = payload();
+    let out = e
+        .cmd(&[
+            "--json",
+            "setup",
+            "--non-interactive",
+            "--no-service",
+            "--core-from",
+            core.to_str().unwrap(),
+        ])
+        .env("PLUR1BUS_TEST_NODE_SHA256", "0".repeat(64))
+        .output()
+        .unwrap();
+    let v = doc(&out);
+    assert_eq!(status_of(&v, "state-root"), "done", "{v:#}");
+    assert_eq!(
+        step(&v, "runtime.node")["reason"],
+        "digest-mismatch",
+        "{v:#}"
+    );
+}
+
 #[test]
 fn a_wrong_runtime_digest_fails_the_step_and_leaves_no_runtime_dir() {
     let e = Env::new();

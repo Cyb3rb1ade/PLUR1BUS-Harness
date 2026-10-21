@@ -92,6 +92,9 @@ fn build(path: &Path, f: &Fixture) {
     write_tar(path, &entries);
 }
 
+const TOMBSTONE_LINE: &str =
+    "{\"schemaVersion\":1,\"status\":\"committed\",\"memoryId\":\"forgotten-after-backup\"}\n";
+
 /// The live installation the restore replaces; `run/` and `logs/` must never be touched.
 fn old_home(home: &Path) {
     let w = |p: &str, c: &str| {
@@ -103,6 +106,8 @@ fn old_home(home: &Path) {
     w("state/lancedb/table.lance", "old-store");
     w("state/lancedb/extra-new-table", "post-backup data");
     w("state/memory/run-state.json", "old run-state");
+    // The engine's registry of what was forgotten (`<dirname of the store>/_tombstones`): not part of any backup.
+    w("state/_tombstones/bernd.jsonl", TOMBSTONE_LINE);
     w("agents/bernd/persona.md", "old persona");
     w("agents/anna/persona.md", "created after the backup");
     w("state/journal/bernd.jsonl", "old journal");
@@ -270,6 +275,16 @@ fn refused() -> Vec<Refusal> {
             Box::new(|a: &Path| {
                 let mut f = fixture();
                 f.manifest["storeTarget"] = json!("../outside");
+                build(a, &f);
+            }),
+        ),
+        (
+            "manifest-invalid",
+            "a store that is the tombstone registry (it would bring every forgotten memory back)",
+            Box::new(|a: &Path| {
+                let mut f = fixture();
+                f.manifest["storeTarget"] = json!("state/_tombstones");
+                f.manifest["units"][0]["target"] = json!("state/_tombstones");
                 build(a, &f);
             }),
         ),
@@ -468,6 +483,38 @@ fn a_restore_swaps_the_units_keeps_what_it_replaced_and_leaves_everything_else_a
     // Recorded in the audit log.
     let audit = fs::read_to_string(home.join("logs/audit.log")).unwrap();
     assert!(audit.contains("\"backup.restore\""), "{audit}");
+}
+
+#[test]
+fn a_restore_keeps_the_tombstone_registry_and_leaves_a_marker_for_the_next_core_start() {
+    let (_d, home, a) = setup();
+    old_home(&home);
+    build(&a, &fixture());
+    let out = cli(&home)
+        .args(["backup", "restore", "--yes"])
+        .arg(&a)
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let v = doc(&out);
+    // The registry is the record of what was forgotten: the restore neither replaces nor moves it.
+    assert_eq!(
+        fs::read_to_string(home.join("state/_tombstones/bernd.jsonl")).unwrap(),
+        TOMBSTONE_LINE
+    );
+    let pre = PathBuf::from(v["preRestore"].as_str().unwrap());
+    assert!(!pre.join("state/_tombstones").exists());
+    // The restored rows are the backup's: the next core start re-applies the committed tombstones to them first.
+    let marker: Value =
+        serde_json::from_slice(&fs::read(home.join("state/.restore-reapply-tombstones")).unwrap())
+            .unwrap();
+    assert_eq!(marker["schema"], "plur1bus.restore-reapply-tombstones/1");
+    assert!(marker["restoredAtMs"].as_u64().unwrap() > 0, "{marker}");
+    assert!(
+        !pre.join("state/.restore-reapply-tombstones").exists(),
+        "the marker belongs to the restored state, not to the displaced one"
+    );
 }
 
 #[cfg(unix)]

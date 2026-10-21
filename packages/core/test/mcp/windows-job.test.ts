@@ -21,3 +21,47 @@ describe("windows launcher environment", () => {
     assert.ok(script.indexOf("SetEnvironmentVariable") < script.indexOf("[McpJob]::Run"), "the strip happens before the server starts");
   });
 });
+
+// Audit mcp (suspected): CreateProcess searches the current directory before PATH for a bare name, so a `node.exe` planted
+// in a writable `cwd` would win over the real one. The command is resolved over PATH, never over the cwd, before the launcher
+// sees it. The lookup is injected, so this runs on every OS.
+describe("windows command resolution (no cwd planting)", () => {
+  const commandLine = (l: { args: string[] }): string => {
+    const script = Buffer.from(l.args.at(-1)!, "base64").toString("utf16le");
+    const m = /\$command=\[Text\.Encoding\]::UTF8\.GetString\(\[Convert\]::FromBase64String\('([^']*)'\)\)/.exec(script);
+    assert.ok(m, "the script reads a command line");
+    return Buffer.from(m[1]!, "base64").toString("utf8");
+  };
+  const lookup = (present: string[]) => { const seen: string[] = []; return { seen, exists: (p: string) => { seen.push(p); return present.includes(p); } }; };
+  const host = { Path: "C:\\Tools;C:\\Program Files\\nodejs", SystemRoot: "C:\\Windows" };
+
+  it("launches a bare command by the absolute path found on PATH, not by its bare name", () => {
+    const fs = lookup(["C:\\Program Files\\nodejs\\node.exe"]);
+    const l = windowsJobCommand("node", ["server.js"], host, [], fs.exists);
+    assert.equal(commandLine(l), '"C:\\Program Files\\nodejs\\node.exe" "server.js"');
+    assert.deepEqual(fs.seen, ["C:\\Tools\\node.exe", "C:\\Program Files\\nodejs\\node.exe"], "PATH order, first hit wins");
+  });
+  it("never looks in the working directory, even through relative or empty PATH entries", () => {
+    const fs = lookup(["C:\\work\\node.exe", ".\\node.exe", "node.exe", "C:\\Real\\node.exe"]);
+    const l = windowsJobCommand("node", [], { PATH: ";.;..\\bin;C:\\Real", SystemRoot: "C:\\Windows" }, [], fs.exists);
+    assert.equal(commandLine(l), '"C:\\Real\\node.exe"');
+    assert.deepEqual(fs.seen, ["C:\\Real\\node.exe"], "only absolute PATH entries are probed");
+  });
+  it("fails closed when the command is not on PATH, rather than leaving the search to CreateProcess", () => {
+    const fs = lookup(["C:\\work\\node.exe"]);
+    assert.throws(() => windowsJobCommand("node", [], host, [], fs.exists), /not found on PATH/);
+    assert.throws(() => windowsJobCommand("node", [], {}, [], fs.exists), /not found on PATH/);
+  });
+  it("passes an absolute path through, and a bare name with .exe is resolved the same way", () => {
+    const fs = lookup(["C:\\Tools\\server.exe"]);
+    assert.equal(commandLine(windowsJobCommand("C:\\Tools\\server.exe", ["a b"], host, [], () => false)), '"C:\\Tools\\server.exe" "a b"');
+    assert.equal(commandLine(windowsJobCommand("server.exe", [], host, [], fs.exists)), '"C:\\Tools\\server.exe"');
+  });
+  it("refuses a relative path with a separator (it would resolve against the cwd)", () => {
+    assert.throws(() => windowsJobCommand("bin\\node.exe", [], host, [], () => true), /absolute path or a bare/);
+    assert.throws(() => windowsJobCommand(".\\node.exe", [], host, [], () => true), /absolute path or a bare/);
+  });
+  it("still refuses scripts and batch files", () => {
+    assert.throws(() => windowsJobCommand("run.cmd", [], host, [], () => true), /native executable/);
+  });
+});
