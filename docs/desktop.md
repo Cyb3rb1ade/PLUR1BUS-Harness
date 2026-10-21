@@ -256,8 +256,9 @@ with its confirmation, and keeps submit disabled until a path is chosen and a re
 connection list shows a path chip and a Tailscale chip; the detail has *Weg ändern…* and the confirm-needed state with
 *Bestätigen und verbinden*. The tray header reads `PLUR1BUS — {connection} · {path} — {state}` and appends
 „Tailscale getrennt“ (and the attention badge) only for an actual disconnect (`tailscale-daemon-down`, `-stopped`,
-`-needs-login`, `-peer-offline`); the list's Tailscale chip follows the same rule, and other notices, such as an
-unprobed subnet route, show neither.
+`-needs-login`, `-peer-offline`); the list's Tailscale chip follows the same rule. `tailscale-unreachable` and
+`tailscale-route-mismatch` set the attention badge without that text; other notices, such as an unprobed subnet
+route, show neither.
 
 **Tailscale mechanism.** The check (spec §5) runs for the Tailscale path, `*.ts.net` names and tailnet addresses.
 `CliTailscale` runs `status --json` only from the fixed absolute candidates (never `PATH`; ownership, mode, symlink and

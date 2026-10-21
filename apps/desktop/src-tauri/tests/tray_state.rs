@@ -274,12 +274,34 @@ fn header_names_the_path_and_a_tailscale_notice_needs_attention() {
             "{code}"
         );
     }
-    // Notices that are no disconnect (an unprobed subnet route, an unknown peer, an unreachable path) do not say
-    // „getrennt“ and need no attention.
+    // A chosen path that does not work needs attention, but Tailscale is not disconnected: no „getrennt“.
+    for code in ["tailscale-unreachable", "tailscale-route-mismatch"] {
+        let mut broken = ready.clone();
+        broken.set_transport(Some((
+            Transport::Tailscale,
+            &report(Category::Tailnet, vec![notice(code)]),
+        )));
+        assert!(
+            !broken.tailscale_notice && broken.transport_attention,
+            "{code}"
+        );
+        assert_eq!(broken.badge(), Badge::Attention, "{code}");
+        assert_eq!(
+            Language::De.status(&broken, "NAS"),
+            "PLUR1BUS — NAS · Tailscale — Läuft",
+            "{code}"
+        );
+        assert_eq!(
+            Language::En.status(&broken, "NAS"),
+            "PLUR1BUS — NAS · Tailscale — Running",
+            "{code}"
+        );
+    }
+    // Other notices (an unprobed subnet route, an unknown peer, no Tailscale installed) do not say „getrennt“ and
+    // need no attention.
     for code in [
         "tailscale-subnet-route",
         "tailscale-peer-unknown",
-        "tailscale-unreachable",
         "tailscale-not-installed",
     ] {
         view.set_transport(Some((

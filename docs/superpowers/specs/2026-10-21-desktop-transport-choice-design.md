@@ -424,7 +424,8 @@ The range text is also added to the web UI catalogues (`packages/web`, key `devi
   „Tailscale“ / „direkt“ / „direkt, öffentlich“ (EN „Tailscale“ / „direct“ / „direct, public“), omitted for
   bundled/local. A Tailscale disconnect on the active connection (the same four codes as the list chip) appends
   „— Tailscale getrennt“ / „— Tailscale disconnected“ and sets the badge to *Attention* (same rule as a locked
-  secrets store); other Tailscale notices do neither.
+  secrets store). `tailscale-unreachable` and `tailscale-route-mismatch` (the chosen path does not work) set the
+  badge without that text; other Tailscale notices do neither.
 - **Tray connection switch:** built (package T4b, `tray.rs` `SwitchMenu`, opened through `Transports::open_gated`
   and `commands::connect_checked`, the same gate as *Open*). Each entry reads `{name} ({path})`.
 

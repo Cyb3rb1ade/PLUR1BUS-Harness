@@ -92,6 +92,9 @@ pub const TAILSCALE_DISCONNECTED: [&str; 4] = [
     "tailscale-needs-login",
     "tailscale-peer-offline",
 ];
+/// The hint codes of a Tailscale path that does not work although Tailscale runs (the probe failed, or the connection
+/// left through another interface): the attention badge, without „Tailscale getrennt“.
+pub const TAILSCALE_PATH_BROKEN: [&str; 2] = ["tailscale-unreachable", "tailscale-route-mismatch"];
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Badge {
     Running,
@@ -101,9 +104,9 @@ pub enum Badge {
 }
 impl TrayState {
     /// The active connection's path after a check (transport choice spec §7.3): its label, and whether Tailscale is
-    /// disconnected for it ([`TAILSCALE_DISCONNECTED`]: „Tailscale getrennt“ and the attention badge). Other Tailscale
-    /// notices, such as an unprobed subnet route, are no disconnect and set neither. `None` (bundled, local, no
-    /// connection) clears both.
+    /// disconnected for it ([`TAILSCALE_DISCONNECTED`]: „Tailscale getrennt“ and the attention badge). A chosen path
+    /// that does not work ([`TAILSCALE_PATH_BROKEN`]) sets the badge without that text. Other Tailscale notices, such
+    /// as an unprobed subnet route, set neither. `None` (bundled, local, no connection) clears both.
     pub fn set_transport(
         &mut self,
         checked: Option<(
@@ -121,7 +124,11 @@ impl TrayState {
                     .hints
                     .iter()
                     .any(|h| TAILSCALE_DISCONNECTED.contains(&h.code));
-                self.transport_attention = self.tailscale_notice;
+                self.transport_attention = self.tailscale_notice
+                    || report
+                        .hints
+                        .iter()
+                        .any(|h| TAILSCALE_PATH_BROKEN.contains(&h.code));
             }
             None => {
                 self.path = None;
