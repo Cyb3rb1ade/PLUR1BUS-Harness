@@ -128,3 +128,22 @@ Die Runner-Integration benutzt synthetische minimale Testdateien; Gate-/Classifi
 Ergebnisse beziehungsweise temporäre Git-Fixtures. Das sind keine Fake-Engine-Akzeptanzen. Keine neuen TODOs,
 keine Engine-Pin-/Lockfile-Änderung, keine zusätzlichen Abhängigkeiten, keine Modell-Akzeptanz und kein Polling
 laufender CI-Läufe. Die offenen Grenzen sind die lokale Paketvorbereitung und die noch fehlende P1-Messung nach Integration.
+
+## N1 follow-up: shared fixtures and advisory outcomes
+
+P2 correction `f09ec4b29fce8491b0c13ecc2df2ca3690efb98f` is incorporated by a normal feature merge.
+Both prior Core shard/partition assertions and new performance/plan-reference regressions are preserved.
+Shared Rust fixture paths and `crates/plur1bus/src/backup/restore.rs` now select TypeScript too, so Ubuntu's
+Core shards/partition gate run for their actual consumers. The two performance jobs stay advisory, while
+all shard/partition failures, cancellations and missing outcomes still fail `ci-gate`.
+
+Node24.21: 58/58 CI script tests and 8/8 Python workflow tests pass. The broader offline command in the
+[N1 handoff](2026-10-21-gp5-n1-ci-contracts.md) completes with 136 tests: 135 pass, zero failure/skip,
+one existing audit-policy TODO. Frozen `pnpm install --frozen-lockfile` and `pnpm gen` complete; no lock/pin
+or tracked generated output changes. After generation, the two real shared-reader Core test files pass
+(10 tests, zero failure/skip/TODO). Hygiene, source-quality, toolchain, docs links, actionlint and diff checks pass.
+A fresh worktree initially lacked TypeScript/generated RPC data; the genuine frozen install and generation
+resolved those prerequisites. No full package-suite or hosted/platform acceptance is claimed for this script change.
+
+Required-check migration still needs the green Windows baseline and refreshed open heads. The #621 semantic
+integration fix in the N1 handoff remains required before combined integration; #621 itself was not edited or merged.
