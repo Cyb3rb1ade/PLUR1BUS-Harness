@@ -22,7 +22,7 @@ export class AgentCreateSaga {
     const path = this.path(key, actor);
     if (!existsSync(path)) return undefined;
     const r = JSON.parse(readFileSync(path, "utf8")) as SagaRecord;
-    if (r.version !== 1 || r.key !== key || r.actor !== actor || !Number.isInteger(r.attempted) || r.attempted < 0 || r.attempted > 4 || !["running", "undoing", "complete", "compensated"].includes(r.state)) throw new RpcError("E_STORAGE", "invalid provisioning journal");
+    if (r.version !== 1 || r.key !== key || r.actor !== actor || !Number.isInteger(r.attempted) || r.attempted < 0 || r.attempted > 5 || !["running", "undoing", "complete", "compensated"].includes(r.state)) throw new RpcError("E_STORAGE", "invalid provisioning journal");
     return r;
   }
   markActivated(record: SagaRecord) { record.activated = true; this.save(record); }
