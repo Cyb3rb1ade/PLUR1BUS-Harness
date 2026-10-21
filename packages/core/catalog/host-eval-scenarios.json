@@ -253,13 +253,13 @@
   },
   {
     "id": "app-open",
-    "prompt": "Open the application demo.App (kind app) after my approval.",
+    "prompt": "Open the application DemoViewer (kind app) after my approval.",
     "human": "approve",
     "transcript": [
       {
         "name": "apps.open",
         "args": {
-          "target": "demo.App",
+          "target": "DemoViewer",
           "kind": "app"
         }
       }
@@ -269,7 +269,7 @@
         "call": {
           "name": "apps.open",
           "args": {
-            "target": "demo.App",
+            "target": "DemoViewer",
             "kind": "app"
           }
         },
@@ -319,13 +319,13 @@
   },
   {
     "id": "launch-declined",
-    "prompt": "Open the application demo.App (kind app) without my approval.",
+    "prompt": "Open the application DemoViewer (kind app) without my approval.",
     "human": "deny",
     "transcript": [
       {
         "name": "apps.open",
         "args": {
-          "target": "demo.App",
+          "target": "DemoViewer",
           "kind": "app"
         }
       }
@@ -335,7 +335,7 @@
         "call": {
           "name": "apps.open",
           "args": {
-            "target": "demo.App",
+            "target": "DemoViewer",
             "kind": "app"
           }
         },
