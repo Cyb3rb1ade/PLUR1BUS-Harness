@@ -108,6 +108,7 @@ import { createDreams, forgetRemovedAgent, itemsFromEngineList, type Dreams } fr
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
+import { createAuditNotices, createAuditNoticeLogReader } from "./audit/notices.ts";
 import { createAuditHealth, projectAuditStatus } from "./audit/health.ts";
 import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.ts";
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
@@ -605,7 +606,8 @@ export function createCore(o: CoreOptions): Core {
       });
 
       // B5: the hash-chained audit file (logs/audit-chain*.jsonl). The core's own writers tee into it besides audit.log.
-      auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p) });
+      let auditNotices: ReturnType<typeof createAuditNotices> | null = null;
+      auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p), onRefusal: code => auditNotices?.refused(code) });
       const chain = auditChain;
       const auditHealth = createAuditHealth({ dir: l.logs, clock, securePath: platform.securePath });
       const identityLog = createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock });
@@ -637,6 +639,30 @@ export function createCore(o: CoreOptions): Core {
         if (api !== undefined) return api;
         const who = await originalResolver(ctx, method, params); return who && who.kind === "person" && people.person(who.userId)?.disabled ? null : who ? people.resolve(who) : who;
       };
+      auditNotices = createAuditNotices({ port: inboxPort, clock,
+        owners: () => people.users().filter(u => !u.disabled && u.role === "owner").map(u => u.id) });
+      const auditNoticeLog = createAuditNoticeLogReader({ file: path.join(l.logs, "audit.log"), consume: auditNotices.record, onOversize: () => auditNotices?.refused("audit-unavailable") });
+      let auditCatchup: ReturnType<typeof setTimeout> | undefined;
+      const scanAuditNotices = (): void => {
+        if (shutdown.signal.aborted) return;
+        try {
+          if (auditNoticeLog.scan() && auditCatchup === undefined) {
+            auditCatchup = setTimeout(() => { auditCatchup = undefined; scanAuditNotices(); }, 0);
+            auditCatchup.unref();
+          }
+        } catch { log.warn("audit notice log observation unavailable"); }
+      };
+      const checkAuditNotices = (): void => {
+        if (shutdown.signal.aborted) return;
+        try { auditNotices?.observe(auditHealth.status()); }
+        catch { log.warn("audit notice observation unavailable"); }
+        scanAuditNotices();
+      };
+      checkAuditNotices();
+      const auditNoticeSweep = setInterval(checkAuditNotices, 30_000);
+      auditNoticeSweep.unref(); shutdown.signal.addEventListener("abort", () => {
+        clearInterval(auditNoticeSweep); clearTimeout(auditCatchup);
+      }, { once: true });
       const rbacAudit = o.rbac?.audit ?? teeAuditSinks(createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), chain);
       const notifier = createPermissionNotifier({
         subscriptions: () => server?.subscriptions() ?? [], notify: (m, p, opts) => server?.notify(m, p, opts),

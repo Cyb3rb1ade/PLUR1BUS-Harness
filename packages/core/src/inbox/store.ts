@@ -97,6 +97,9 @@ export class InboxStore {
         seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, user_id TEXT NOT NULL, dedupe_key TEXT NOT NULL,
         kind TEXT NOT NULL, severity TEXT NOT NULL, title_key TEXT NOT NULL, params TEXT NOT NULL, ref TEXT,
         created_at INTEGER NOT NULL, read_at INTEGER, dismissed_at INTEGER, UNIQUE(user_id, dedupe_key)) STRICT;
+      CREATE TABLE IF NOT EXISTS inbox_cooldowns (
+        user_id TEXT NOT NULL, cause TEXT NOT NULL, published_at INTEGER NOT NULL, entry_id TEXT NOT NULL,
+        PRIMARY KEY(user_id, cause)) STRICT;
       CREATE INDEX IF NOT EXISTS inbox_by_user ON inbox_entries(user_id, seq DESC);`);
   }
   close(): void { this.db.close(); }
@@ -117,6 +120,26 @@ export class InboxStore {
       const id = this.#id();
       this.db.prepare("INSERT INTO inbox_entries(id,user_id,dedupe_key,kind,severity,title_key,params,ref,created_at) VALUES (?,?,?,?,?,?,?,?,?)")
         .run(id, d.userId, d.dedupeKey, d.kind, d.severity, d.titleKey, JSON.stringify(d.params ?? {}), d.ref ? JSON.stringify(d.ref) : null, this.#clock());
+      this.#prune(d.userId);
+      return { id, created: true };
+    });
+  }
+
+  /** A rolling cooldown committed atomically with the entry, independent of dismissal/entry retention and process lifetime. */
+  publishRateLimited(d: InboxDraft, cooldownMs: number): { id: string; created: boolean } {
+    validate(d);
+    if (!Number.isSafeInteger(cooldownMs) || cooldownMs < 1) invalid("cooldownMs must be a positive safe integer");
+    return this.#tx(() => {
+      const now = this.#clock();
+      const last = this.db.prepare("SELECT published_at, entry_id FROM inbox_cooldowns WHERE user_id=? AND cause=?")
+        .get(d.userId, d.dedupeKey) as { published_at: number; entry_id: string } | undefined;
+      if (last && now - last.published_at < cooldownMs) return { id: last.entry_id, created: false };
+      this.#prune(d.userId);
+      const id = this.#id();
+      this.db.prepare("INSERT INTO inbox_entries(id,user_id,dedupe_key,kind,severity,title_key,params,ref,created_at) VALUES (?,?,?,?,?,?,?,?,?)")
+        .run(id, d.userId, `rate:${id}`, d.kind, d.severity, d.titleKey, JSON.stringify(d.params ?? {}), d.ref ? JSON.stringify(d.ref) : null, now);
+      this.db.prepare("INSERT INTO inbox_cooldowns(user_id,cause,published_at,entry_id) VALUES (?,?,?,?) ON CONFLICT(user_id,cause) DO UPDATE SET published_at=excluded.published_at,entry_id=excluded.entry_id")
+        .run(d.userId, d.dedupeKey, now, id);
       this.#prune(d.userId);
       return { id, created: true };
     });

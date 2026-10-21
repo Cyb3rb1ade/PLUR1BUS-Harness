@@ -179,6 +179,22 @@ describe("composition/inbox lateInboxPort", () => {
     assert.deepEqual(calls, [["publish", [notice1]], ["settle", [{ audience: "all" }, "system:1"]]]);
   });
 
+  it("forwards cooldownMs to the current service: the same cause can recur only after its cooldown", () => {
+    const { inbox, setNow } = open(tmp.make());
+    try {
+      const port = lateInboxPort(() => inbox.service);
+      const options = { cooldownMs: 3_600_000 };
+      port.publish(notice1, options);
+      inbox.service.dismiss("u", [inbox.service.list("u", {}).entries[0]!.id]);
+      setNow(5_000 + options.cooldownMs - 1);
+      port.publish(notice1, options);
+      assert.equal(inbox.service.count("u").total, 0, "dismissal must not bypass the forwarded cooldown");
+      setNow(5_000 + options.cooldownMs);
+      port.publish(notice1, options);
+      assert.equal(inbox.service.count("u").total, 1, "the same cause can publish at the cooldown boundary");
+    } finally { inbox.close(); }
+  });
+
   it("is a real inbox end to end: a published notice is readable, settling closes it", () => {
     const { inbox } = open(tmp.make());
     try {
