@@ -14,7 +14,7 @@ The page offers three fields. Lists need **one entry per line**, rather than com
 
 An empty host list allows no destination. `example.org` allows that exact name. `*.example.org` allows its subdomains, but not `example.org` itself. `*` allows any name; loopback destinations still need an explicit entry. Prefer the specific destinations your provider needs.
 
-For a local service at `http://127.0.0.1:11434`, for example, enter `127.0.0.1` as a host, add `11434` to the ports and enable `egress.allowLoopback`. Keep `443` in the port list if other allowed destinations need HTTPS on that port. A destination using `localhost` also needs that spelling allowed.
+For a local service at `127.0.0.1:11434`, for example, enter `127.0.0.1` as a host, add `11434` to the ports and enable `egress.allowLoopback`. Keep `443` in the port list if other allowed destinations need HTTPS on that port. A destination using `localhost` also needs that spelling allowed.
 
 Allowing a name does not bypass address checks: private network addresses and other blocked ranges remain blocked by the outgoing network filter; explicitly allowed loopback destinations have the exception described above. An invalid policy denies all destinations. The field does not accept a URL with credentials.
 

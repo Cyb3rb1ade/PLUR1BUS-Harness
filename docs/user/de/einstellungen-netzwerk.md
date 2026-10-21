@@ -14,7 +14,7 @@ Die Seite bietet drei Felder. Listen brauchen **einen Eintrag pro Zeile**, keine
 
 Die leere Hostliste erlaubt kein Ziel. `example.org` erlaubt genau diesen Namen. `*.example.org` erlaubt dessen Subdomains, aber nicht `example.org` selbst. `*` erlaubt beliebige Namen; Loopback-Ziele brauchen weiterhin einen ausdrücklichen Eintrag. Verwende möglichst die konkreten Ziele, die dein Anbieter braucht.
 
-Für einen lokalen Dienst auf `http://127.0.0.1:11434` trägst du beispielsweise `127.0.0.1` als Host und `11434` als zusätzlichen Port ein und schaltest `egress.allowLoopback` ein. Behalte `443` in der Portliste, falls andere erlaubte Ziele HTTPS auf diesem Port brauchen. Für ein Ziel mit `localhost` muss auch diese Schreibweise freigegeben sein.
+Für einen lokalen Dienst auf `127.0.0.1:11434` trägst du beispielsweise `127.0.0.1` als Host und `11434` als zusätzlichen Port ein und schaltest `egress.allowLoopback` ein. Behalte `443` in der Portliste, falls andere erlaubte Ziele HTTPS auf diesem Port brauchen. Für ein Ziel mit `localhost` muss auch diese Schreibweise freigegeben sein.
 
 Ein freigegebener Name hebt die Adressprüfung nicht auf: Private Netzwerkadressen und andere gesperrte Adressbereiche bleiben durch den ausgehenden Netzwerkfilter blockiert; für ausdrücklich freigegebene Loopback-Ziele gilt die genannte Ausnahme. Eine ungültige Richtlinie sperrt alle Ziele. Das Feld erlaubt keine URL mit Zugangsdaten.
 
