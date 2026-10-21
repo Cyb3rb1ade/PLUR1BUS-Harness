@@ -153,7 +153,11 @@ Per resolved address, in this order:
 a matching peer. An IPv4-mapped address (`::ffff:a.b.c.d`) is the IPv4 host and takes that address's category (mapped
 `100.64.0.0/10` is `tailnet`), whereas an address that only carries an IPv4 address through a translator (NAT64
 `64:ff9b::/96` and `64:ff9b:1::/48`, 6to4 `2002::/16`) is not that host, so one carrying `100.64.0.0/10` is `special`
-(it reaches the translator's network, not the tailnet; the vector file pins both).
+(it reaches the translator's network, not the tailnet; the vector file pins both). Otherwise a translator address
+takes the category its verdict reason (§4.2) gives: NAT64 `64:ff9b::/96` and 6to4 carrying `0.0.0.0/8` or
+`224.0.0.0/4` are not connectable (reasons `unspecified`, `multicast`), one carrying `255.255.255.255` is `special`
+(reason `reserved`; only the literal limited-broadcast address is not connectable), and `64:ff9b:1::/48` is `reserved`
+whatever it carries, so `special`. The vector file pins these rows as well.
 
 **Aggregate** over all connectable addresses: `public ≻ special ≻ private ≻ tailnet ≻ loopback`
 (highest wins), so **any public address makes the target public** (`target-mixed` when non-public addresses are
