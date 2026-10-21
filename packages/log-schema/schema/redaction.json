@@ -8,9 +8,9 @@
       "id": "secret",
       "kind": "registry",
       "section": "§4 rule 1",
-      "description": "Exact secret-store values and leases the process holds (ADR-005), plus their base64 and URL-encoded forms; the registry is in memory only.",
+      "description": "Exact secret-store values and leases the process holds (ADR-005), plus their base64, base64url, hex and URL-encoded forms (base64 and base64url with and without padding, hex in lower and upper case); the registry is in memory only. The minimum length is checked on the registered value, before the forms are derived.",
       "minLength": 8,
-      "encodings": ["raw", "base64", "url"]
+      "encodings": ["raw", "base64", "base64url", "hex", "url"]
     },
     {
       "id": "key",

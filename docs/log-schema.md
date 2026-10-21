@@ -903,8 +903,8 @@ D112 provider discovery metadata only; no credential values, URLs or provider bo
 The writer applies these rules in order (`secret`, `key`, `pattern`, `url`, `path`, `pii`) to `msg`, `attrs`, `err`, wrapped text and audit detail; a match is
 replaced by `[REDACTED:{rule}]`. Patterns use the subset common to ECMAScript and the Rust `regex` crate.
 
-- **`secret`** (registry, §4 rule 1): Exact secret-store values and leases the process holds (ADR-005), plus their base64 and URL-encoded forms; the registry is in memory only.
-  - minimum length 8, encodings: raw, base64, url
+- **`secret`** (registry, §4 rule 1): Exact secret-store values and leases the process holds (ADR-005), plus their base64, base64url, hex and URL-encoded forms (base64 and base64url with and without padding, hex in lower and upper case); the registry is in memory only. The minimum length is checked on the registered value, before the forms are derived.
+  - minimum length 8, encodings: raw, base64, base64url, hex, url
 - **`key`** (key-name, §4 rule 2): A JSON key, key=value pair or header whose name matches has its value replaced. A name matches when one of its delimited segments is a listed word, or (camelCase names) when it contains the word as a capitalised part. Plural token counts (input_tokens, outputTokens, max_tokens) are not credentials and do not match; `token` alone, access_token, accessToken and id_token_hint do.
   - names (flags `i`): `(?:^|[^a-z0-9])(?:authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key)(?:[^a-z0-9]|$)`
   - camelCase names (case-sensitive): `[a-z](?:Token|Secret|Password|Passwd|ApiKey|Cookie|Authorization|Ticket|Csrf|PrivateKey|SessionKey|Refresh|ClientSecret)(?:[A-Z]|$)`
