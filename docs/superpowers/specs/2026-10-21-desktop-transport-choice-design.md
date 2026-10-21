@@ -86,7 +86,7 @@ Rules (R10, downgrade and upgrade safety):
 - **Older builds** do not know the file and ignore it; `connections.json` stays byte-identical in every operation of
   this feature (tested). Nothing is migrated *inside* `connections.json`.
 - **Missing entry = derived default** (this is the whole migration): for a `remote` row whose origin host is a
-  `*.ts.net` name or a literal in a Tailscale range → `tailscale`; otherwise `direct`; `publicAck` absent. An existing
+  `*.ts.net` name or a literal in a Tailscale range → `tailscale`; otherwise (including an origin host that fails §4.4) `direct`; `publicAck` absent. An existing
   public direct connection therefore shows the banner once at its next open (owner question Q-T2).
 - **Entries are tolerant, the file is not a schema gate:** unknown fields inside an entry and unknown top-level keys
   are kept on write (as `settings.json` does). A `version` above 1 puts the store into **read-only** mode: the app uses
@@ -176,7 +176,7 @@ fails with `target-not-connectable`.
 The host field (SSH host, origin host) accepts: a DNS name (IDNA → punycode via the `url` crate, LDH labels, ≤ 253
 bytes, no trailing dot required), a canonical dotted-quad IPv4, an IPv6 literal with or without brackets, **no zone id**,
 and `localhost` (treated as loopback without DNS, RFC 6761). A string that parses only under the lenient `inet_aton`
-rules (`127.1`, `0x7f000001`, `017700000001`) is refused with `host-ipv4-noncanonical` — the OS resolver would turn
+rules (`127.1`, `0x7f000001`, `017700000001`), a dotted quad with a trailing dot (`1.2.3.4.`) or one written with full-width digits or dots is refused with `host-ipv4-noncanonical` — the OS resolver would turn
 it into an address the person did not write. This matches `Origin::parse`, which already refuses those spellings.
 Every other malformed string is refused with `host-invalid` (no parameters): empty or over 1024 bytes; white space,
 control characters, U+FEFF or `%` (zone ids, percent-encoding); a string with `[` or `:` that is not a strict IPv6
