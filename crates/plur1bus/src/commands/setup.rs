@@ -265,7 +265,7 @@ mod tests {
         let none = describe(&[step(json!({}), "linux")], None);
         assert!(none.contains("depend on a decision model"), "{none}");
         assert!(
-            none.contains("automatic skill choice (D69): no additional dynamic skill"),
+            none.contains("automatic skill choice (D69): the rule shortlist (top 3) is used"),
             "{none}"
         );
         assert_eq!(none.matches("to enable them").count(), 1, "{none}");
