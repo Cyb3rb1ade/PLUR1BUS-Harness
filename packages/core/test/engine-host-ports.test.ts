@@ -12,6 +12,7 @@ import { createSecretStore } from "../src/secrets/store.ts";
 import { createMemoryBackend } from "../src/secrets/memory-backend.ts";
 import { createMemoryAuditSink } from "../src/secrets/audit.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
+import { createEngineFetch, ENGINE_FETCH_TIMEOUT_MS, ENGINE_MODEL_DOWNLOAD_TIMEOUT_MS } from "../src/engine-host-ports.ts";
 
 function fixture(t: { after(fn: () => unknown): void }) {
   const l = layout(tempDir("p1b-engine-ports-")), config = defaults();
@@ -196,4 +197,26 @@ test("model GET redirect with harmless headers streams a large gzip/chunked resp
   assert.equal(chunks, 21 * 1024 * 1024);
   assert.equal(response.headers.get("content-encoding"), null);
   assert.equal(response.headers.get("content-length"), null);
+});
+
+test("model artifact downloads get a 30 minute deadline; other host fetches keep 5 minutes", async t => {
+  assert.equal(ENGINE_MODEL_DOWNLOAD_TIMEOUT_MS, 1_800_000);
+  assert.equal(ENGINE_FETCH_TIMEOUT_MS, 300_000);
+  const deadlines: number[] = [], seen: { url: string; modelDownload: unknown; timeoutMs: unknown }[] = [];
+  const realTimeout = AbortSignal.timeout.bind(AbortSignal);
+  AbortSignal.timeout = (ms: number) => { deadlines.push(ms); return realTimeout(ms); };
+  t.after(() => { AbortSignal.timeout = realTimeout; });
+  const egress = {
+    async request(url: string, o: { modelDownload?: unknown; timeoutMs?: unknown }) {
+      seen.push({ url, modelDownload: o.modelDownload, timeoutMs: o.timeoutMs });
+      return { status: 200, headers: {}, body: new Uint8Array(), url, redirects: [] } as any;
+    },
+  };
+  const fetchPort = createEngineFetch(egress as any);
+  const artifact = "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/model.onnx";
+  await fetchPort(artifact);
+  await fetchPort("https://api.example.com/v1/embeddings", { method: "POST", headers: { authorization: "Bearer k" }, body: "{}" });
+  await fetchPort(artifact + "?token=x");
+  assert.deepEqual(deadlines, [1_800_000, 300_000, 300_000]);
+  assert.deepEqual(seen.map(s => [s.modelDownload, s.timeoutMs]), [[true, 1_800_000], [false, 300_000], [false, 300_000]]);
 });

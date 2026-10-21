@@ -39,6 +39,12 @@ export interface HttpOptions {
   signal?: AbortSignal | undefined;
   /** Optional per-hop policy (the egress gate, B4): consulted before and after name resolution on every hop; throws to refuse. */
   gate?: { beforeResolve(url: URL): void; afterResolve(url: URL, pin: ResolvedAddress): void } | undefined;
+  /**
+   * Called for every redirect about to be followed, with the next URL (scheme and credentials already checked), before
+   * it is resolved or requested; `signal` fires with the call's deadline or the caller's abort. Throws to refuse the hop.
+   * Only plain GET/HEAD calls follow redirects, so only they ever reach it.
+   */
+  onRedirect?: ((next: URL, signal: AbortSignal) => Promise<void> | void) | undefined;
   /** Extra trusted CA (PEM) — for tests with a local TLS stub; production uses the system store. */
   tlsCa?: string | undefined;
   /** HTTP method. Default GET. Any other method (or a body) turns redirect following off: a 3xx is returned unread. */
@@ -316,6 +322,7 @@ export async function guardedRequest(rawUrl: string, options: HttpOptions): Prom
           throw new WebFailure("invalid-url", "redirect to an invalid URL");
         }
         url = parseTarget(url.href); // scheme / credentials re-checked; the host is re-resolved at the top of the loop
+        if (options.onRedirect) await raceAbort(Promise.resolve(options.onRedirect(url, ac.signal)), ac.signal);
         continue;
       }
       streaming = r.stream !== undefined;

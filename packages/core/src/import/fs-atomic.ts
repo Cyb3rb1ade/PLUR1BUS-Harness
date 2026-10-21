@@ -61,29 +61,22 @@ export function copyAtomicSync(srcPath: string, destPath: string, mode = 0o600):
   writeAtomicSync(destPath, buf, mode);
 }
 
-// A new destination has no realpath yet. Resolve its nearest existing ancestor
-// and append only the missing suffix, so aliases such as /var and /private/var
-// compare consistently while respecting resolvable symlinks in the path.
-function canonicalPath(target: string): string | undefined {
-  let current = resolve(target);
-  const missing: string[] = [];
-  for (;;) {
-    try {
-      return join(realpathSync.native(current), ...missing);
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") return undefined;
-      const parent = dirname(current);
-      if (parent === current) return undefined;
-      missing.unshift(basename(current));
-      current = parent;
-    }
+/** Real path of `p`; for a path that does not exist (yet) the real path of its nearest existing ancestor plus the missing
+ *  tail. A root and a target must be resolved the same way, or one of them keeps a symlinked prefix the other lost (macOS:
+ *  `/var` is `/private/var`, so a not-yet-created file under the temp dir would look outside it). A dangling symlink is
+ *  judged by its own name inside the real parent, not by where it points. */
+function realpathLoose(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    const parent = dirname(p);
+    return parent === p ? p : join(realpathLoose(parent), basename(p));
   }
 }
 
 export function isInsideDir(root: string, target: string): boolean {
-  const r = canonicalPath(root);
-  const q = canonicalPath(target);
-  if (r === undefined || q === undefined) return false;
+  const r = realpathLoose(resolve(root));
+  const q = realpathLoose(resolve(target));
   if (process.platform === "win32" || process.platform === "darwin") {
     const rLower = r.toLowerCase();
     const qLower = q.toLowerCase();

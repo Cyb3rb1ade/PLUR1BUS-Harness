@@ -16,6 +16,8 @@
 //! (EOF) plus the process being gone ([`Peer::alive`]), and counts as `Retryable { reason: "adopted-exit" }`. A
 //! restart uses the supervisor's own spawn spec.
 use super::adopt::Peer;
+#[cfg(unix)]
+use super::adopt::{signal_led_group, sweep_group};
 use super::logfile::RotatingFile;
 use super::state::{
     apply_policy, classify_exit_for, ChildState, CrashReason, ExitClass, Health, LastExit,
@@ -413,33 +415,48 @@ impl Gen {
             None => Ok(None),
         }
     }
-    /// SIGKILL / TerminateProcess, unless it has already exited. An adopted core only while the OS still names its
-    /// pid as the core socket's server ([`Peer::kill`]).
+    /// SIGKILL / TerminateProcess, unless it has already exited. Unix: to the core's whole process group (the core
+    /// leads one, `process_group(0)` in [`Monitor::spawn`]), so what the core started does not outlive it; the pid
+    /// alone when no group signal could be sent. An adopted core only while the OS still names its pid as the core
+    /// socket's server ([`Peer::kill_tree`]). Windows: the process alone (no job object).
     fn kill(&self) {
         if let Some(p) = &self.peer {
-            p.kill();
+            p.kill_tree();
             return;
         }
         if let Some(c) = relock(&self.process).as_mut() {
+            // Not yet reaped (the lock is held, so only this call could reap it): its pid is still the group's id and
+            // its leader. An exited one is swept by the waiter ([`sweep_group`]).
+            #[cfg(unix)]
+            if matches!(c.try_wait(), Ok(None)) {
+                signal_led_group(self.pid, libc::SIGKILL);
+            }
             let _ = c.kill();
         }
     }
-    /// SIGTERM, unless it has already exited. The process is not reaped while the lock is held, so the pid is
-    /// still ours.
+    /// SIGTERM, unless it has already exited: to the core's process group like [`Gen::kill`]. The process is not
+    /// reaped while the lock is held, so the pid is still ours.
     #[cfg(unix)]
     fn terminate(&self) {
         if let Some(p) = &self.peer {
-            p.terminate();
+            p.terminate_tree();
             return;
         }
         if let Some(c) = relock(&self.process).as_mut() {
-            if matches!(c.try_wait(), Ok(None)) {
+            if matches!(c.try_wait(), Ok(None)) && !signal_led_group(self.pid, libc::SIGTERM) {
                 // SAFETY: plain kill(2) on our own unreaped child.
                 unsafe {
                     libc::kill(self.pid as libc::pid_t, libc::SIGTERM);
                 }
             }
         }
+    }
+    /// Unix, a spawned core only: SIGKILL to what is left in the process group of the core that has just been reaped
+    /// (a child it started that outlived it: on a clean stop, after a crash or `kill -9`). Nothing for an adopted core
+    /// (not our child, its group is not ours to sweep) and nothing on Windows (no job object).
+    #[cfg(unix)]
+    fn sweep_tree(&self) -> bool {
+        self.peer.is_none() && sweep_group(self.pid)
     }
 }
 
@@ -1442,6 +1459,15 @@ fn waiter(shared: &Arc<Shared>, ctx: &Arc<Ctx>, gen: &Arc<Gen>) {
         }
         std::thread::sleep(WAITER_TICK);
     };
+    // The core is reaped: whatever it started that is still in its process group is ended before the exit is
+    // recorded, so a stop that returns, and a restart that follows, leave nothing of the old tree running.
+    #[cfg(unix)]
+    if gen.sweep_tree() {
+        shared.log.info(
+            &format!("{} left processes behind, killed", gen.role),
+            json!({ "pid": gen.pid }),
+        );
+    }
     let (code, signal) = match status {
         Some(s) => exit_parts(&s),
         None => (None, None),

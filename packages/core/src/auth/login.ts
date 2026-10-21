@@ -81,6 +81,9 @@ function callbackCode(raw: string, redirect: string, state: string): string {
   return codes[0];
 }
 
+const FAILED_LIMIT = 10;
+const FIXED_FAILURE = "Sign-in failed. Close this window and try again.";
+
 async function pkce(o: LoginOptions, method: LoginMethod, signal: AbortSignal): Promise<TokenResponse> {
   const p = o.profile, authorize = authorizeUrl(p), endpoint = tokenUrl(p);
   if (!authorize || !endpoint) throw error();
@@ -91,16 +94,30 @@ async function pkce(o: LoginOptions, method: LoginMethod, signal: AbortSignal): 
   // Attach a handler immediately: browser/UI ports can fail before the caller waits for a callback.
   void callback.catch(() => {});
   let consumed = false, redirect = "";
+  // Only a callback that carries the issued state may end the one-shot listener. Forged, stateless, duplicate-state and
+  // foreign-Host requests get a constant 400 (no echo) and leave the listener open until a genuine callback, abort or
+  // timeout; more than FAILED_LIMIT of them per second are answered 429. A genuine callback is never rate limited.
+  const wantedState = createHash("sha256").update(state).digest();
+  const failures: number[] = [];
   const server = createServer((req, res) => {
     res.setHeader("content-type", "text/html; charset=utf-8"); res.setHeader("cache-control", "no-store"); res.setHeader("referrer-policy", "no-referrer"); res.setHeader("content-security-policy", "default-src 'none'");
     if (consumed) { res.writeHead(410); res.end("Sign-in closed."); return; }
     if (req.method !== "GET" || new URL(req.url ?? "/", redirect).pathname !== "/auth/callback") { res.writeHead(404); res.end("Not found."); return; }
+    const raw = new URL(req.url!, redirect).href;
+    const states = new URL(raw).searchParams.getAll("state");
+    const genuine = req.headers.host === new URL(redirect).host && states.length === 1 && timingSafeEqual(createHash("sha256").update(states[0]!).digest(), wantedState);
+    if (!genuine) {
+      const now = Date.now();
+      while (failures.length > 0 && now - failures[0]! >= 1000) failures.shift();
+      failures.push(now);
+      if (failures.length > FAILED_LIMIT) { res.writeHead(429, { "retry-after": "1" }); res.end("Too many attempts."); return; }
+      res.writeHead(400); res.end(FIXED_FAILURE); return;
+    }
     consumed = true;
     try {
-      if (req.headers.host !== new URL(redirect).host) throw error();
-      const raw = new URL(req.url!, redirect).href; callbackCode(raw, redirect, state);
+      callbackCode(raw, redirect, state);
       res.writeHead(200); res.end("Sign-in complete. You may close this window.", () => resolveCallback(raw));
-    } catch (e) { res.writeHead(400); res.end("Sign-in failed. Close this window and try again.", () => rejectCallback(e)); }
+    } catch (e) { res.writeHead(400); res.end(FIXED_FAILURE, () => rejectCallback(e)); }
     server.close();
   });
   try {

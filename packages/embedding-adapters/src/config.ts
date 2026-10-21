@@ -320,6 +320,12 @@ export function resolveEmbeddingSettings(raw: unknown, path = "embedding"): Embe
   checkSecretTransport(baseURL, secretName, c);
   if (spec.needsUpstream && rec["pinnedUpstream"] === undefined) c.add("pinnedUpstream", `required for provider "${provider}" (the vector space is defined by the upstream model)`);
   if (pinnedUpstream !== undefined && !spec.needsUpstream) c.add("pinnedUpstream", `only applies to provider "openrouter"`);
+  // An input that fits maxInputTokens but not maxBatchTokens could never ride in a shared batch; the budget must hold at least one such input.
+  const effectiveInput = rec["maxInputTokens"] === undefined ? spec.maxInputTokens : maxInputTokens;
+  const effectiveBatch = rec["maxBatchTokens"] === undefined ? spec.maxBatchTokens : maxBatchTokens;
+  if (effectiveInput !== undefined && effectiveBatch !== undefined && effectiveBatch < effectiveInput) {
+    c.add("maxBatchTokens", `must be at least maxInputTokens (${effectiveInput}); raise it or lower maxInputTokens`);
+  }
   c.done();
 
   const maxBatchTokensResolved = maxBatchTokens ?? spec.maxBatchTokens;

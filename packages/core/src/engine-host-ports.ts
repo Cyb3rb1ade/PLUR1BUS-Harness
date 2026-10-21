@@ -8,6 +8,11 @@ const REQUEST_CAP = 20 * 1024 * 1024;
 // ONNX artifacts can exceed a gigabyte. They stay streamed and bounded; the engine also checks pinned artifact sizes.
 const RESPONSE_CAP = 2 * 1024 * 1024 * 1024;
 
+// Ordinary host fetches (provider calls, key probes) keep a short deadline. Model artifacts are multi-GiB streams on
+// arbitrary home connections: 30 minutes lets a cold start finish at roughly 5 Mbit/s for a 1 GiB file.
+export const ENGINE_FETCH_TIMEOUT_MS = 300_000;
+export const ENGINE_MODEL_DOWNLOAD_TIMEOUT_MS = 1_800_000;
+
 export interface EnginePortFailure { errorClass: "egress" | "key" | "download" | "provider"; code: string; host?: string }
 export interface EnginePortOptions { onFailure?: (failure: EnginePortFailure) => void }
 function observed(o: EnginePortOptions, failure: EnginePortFailure): void { try { o.onFailure?.(failure); } catch { /* diagnostics never change the operation */ } }
@@ -16,8 +21,10 @@ function observed(o: EnginePortOptions, failure: EnginePortFailure): void { try 
 export function createEngineFetch(egress: Pick<Egress, "request">, options: EnginePortOptions = {}): HostFetch {
   return async (input, init) => {
     const request = new Request(input, init);
+    const modelDownload = isModelArtifactRequest(request);
+    const timeoutMs = modelDownload ? ENGINE_MODEL_DOWNLOAD_TIMEOUT_MS : ENGINE_FETCH_TIMEOUT_MS;
     // Include request-body buffering in the deadline, not just the socket and response.
-    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(300_000)]);
+    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]);
     let body: Uint8Array | undefined;
     if (request.body) {
       const reader = request.body.getReader(), chunks: Uint8Array[] = [];
@@ -39,12 +46,11 @@ export function createEngineFetch(egress: Pick<Egress, "request">, options: Engi
     }
     const headersIn: Record<string, string> = {};
     request.headers.forEach((value, name) => { headersIn[name] = value; });
-    const modelDownload = isModelArtifactRequest(request);
     let result;
     try { result = await egress.request(request.url, {
       method: request.method as HttpMethod, headers: headersIn, ...(body ? { body } : {}),
       signal, redirect: request.redirect, userAgent: "PLUR1BUS/engine", accept: "*/*",
-      streamResponse: true, modelDownload, safeRedirectHeaders: true, maxBytes: RESPONSE_CAP, maxRequestBytes: REQUEST_CAP, timeoutMs: 300_000,
+      streamResponse: true, modelDownload, safeRedirectHeaders: true, maxBytes: RESPONSE_CAP, maxRequestBytes: REQUEST_CAP, timeoutMs,
     }); } catch (cause) {
       const code = (cause as { code?: string })?.code;
       const safeCode = ["egress-denied", "private-address", "timeout", "too-large", "tls-error", "not-found", "invalid-url", "network-error"].includes(code ?? "") ? code! : "provider-failed";

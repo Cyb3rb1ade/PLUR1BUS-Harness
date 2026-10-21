@@ -185,9 +185,10 @@ export function supervisorPid(h: string): number | null {
   return daemonStatus(h).supervisor?.pid ?? null;
 }
 
-/** The supervised core's status entry (`$defs/ChildStatus`), or null when no supervisor answers. */
+/** The supervised core's status entry (`$defs/ChildStatus`), or null when no supervisor answers. The supervisor also
+ *  monitors the loopback API (role `api`) and modules, so the core is found by its role, never by position. */
 export function coreChild(h: string): any | null {
-  return daemonStatus(h).children?.[0] ?? null;
+  return daemonStatus(h).children?.find((c: any) => c.role === "core") ?? null;
 }
 
 /** The supervised core's pid as the supervisor reports it, or null (no supervisor, or no core process right now). */

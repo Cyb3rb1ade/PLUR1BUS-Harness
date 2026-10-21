@@ -49,7 +49,9 @@ const reg = registerPlur1busTools(getModelContext(), tools); // no-op without We
   `device.*` by prefix; `agent.delete`, `agent.archive`, `agent.unarchive`, `agent.export`,
   `agent.rights.get|set`, `pairing.qr` and `session.list` by exact name. They change who may act for a
   person, or read other people's data (the owner-filtered session overview), and a browser agent has
-  no business with either. `agent.pause` and `agent.resume` stay exposed: a person may trigger them
+  no business with either. Every other person-only (`humanOnly`) method is refused by exact name too (`project.*` surface and card
+  writes, `media.*`, `channel.*`, `session.*`, `collab.*`, `chat.promote.*`, `model.licence.*`, `model.embedding.select`); the page's client is the
+  signed-in person, so an agent driving the page would act as that person. `agent.pause` and `agent.resume` stay exposed: a person may trigger them
   through an assistant, and RBAC decides who may.
 - `readOnlyHint` is true only for read methods. Every other tool waits for `confirm`, run inside
   `requestUserInteraction` when the browser offers it. Without `confirm` the tool refuses. A

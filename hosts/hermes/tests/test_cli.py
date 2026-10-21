@@ -352,7 +352,9 @@ class WhichNoCwdTest(unittest.TestCase):
     def test_an_absolute_path_entry_is_searched(self) -> None:
         found = self._exe(self.bindir, "plur1bus")
         self._exe(self.cwd, "plur1bus")
-        self.assertEqual(os.path.normcase(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}") or ""), os.path.normcase(found))
+        # On Windows which_no_cwd returns the canonical path (realpath expands 8.3 names such as RUNNER~1), so
+        # compare the canonical form of both sides.
+        self.assertEqual(os.path.normcase(os.path.realpath(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}") or "")), os.path.normcase(os.path.realpath(found)))
         self.assertIsNone(cli.which_no_cwd("plur1bus", path=self.cwd + "-nope"))
 
     def test_a_name_with_a_directory_part_is_refused(self) -> None:
