@@ -1,5 +1,5 @@
-// Candidate producer (ADR-009 C1): maps a memory port onto CandidateInput[]. The pinned engine has no
-// recall/query stats API, so tests drive a fake; production never invents those fields.
+// Candidate producer (ADR-009 C1 / A3): public cards and optional Engine 1.17
+// statistics. These legacy port cases retain missing fields without fabrication.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createCandidateSource, itemsFromEngineList, type CandidateMemoryItem } from "../../src/dreams/producer.ts";

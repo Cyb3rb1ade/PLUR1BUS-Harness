@@ -1,7 +1,7 @@
 // The candidate guards of ADR-009: dedupe (the table's UNIQUE), expiry, and the utility gate with a gate-by-gate
 // decision record. Pure: no clock, no store. The engine decides what to promote; this records why a candidate may not be.
 import { createHash } from "node:crypto";
-import type { CandidateRow } from "./types.ts";
+import type { CandidateInput, CandidateRow } from "./types.ts";
 
 export interface GateConfig { minScore: number; minRecallCount: number; minUniqueQueries: number }
 /** The calibrated defaults ADR-009 takes from its reference model: minScore 0.75, 3 recalls, 3 distinct queries. */
@@ -24,4 +24,14 @@ export function evaluate(c: Pick<CandidateRow, "expiresAt" | "recalls" | "unique
   ];
   const failed = gates.find((x) => !x.passed);
   return { promote: failed === undefined, rejectedBy: failed?.gate ?? null, gates, at: now };
+}
+
+/** Diagnostic fallback signals while the pinned Engine has no recall statistics.
+ *  This changes neither shortlist membership nor promotion eligibility. */
+export const DEFAULT_FALLBACK_GATES = { minAgeMs: 86_400_000, minImportance: 0.75, minRepetitions: 2 } as const;
+export function evaluateFallback(c: Pick<CandidateInput, "createdAt" | "importance" | "repetitions">, now: number) {
+  const age = typeof c.createdAt === "number" && Number.isFinite(c.createdAt) && c.createdAt >= 0 && now - c.createdAt >= DEFAULT_FALLBACK_GATES.minAgeMs;
+  const importance = typeof c.importance === "number" && Number.isFinite(c.importance) && c.importance >= DEFAULT_FALLBACK_GATES.minImportance;
+  const repetition = typeof c.repetitions === "number" && Number.isSafeInteger(c.repetitions) && c.repetitions >= DEFAULT_FALLBACK_GATES.minRepetitions;
+  return { eligible: age && (importance || repetition), age, importance, repetition };
 }

@@ -87,14 +87,37 @@ function installed(f: Fixture): string {
   return WIN ? join(f.home, "AppData", "Local", "PLUR1BUS", "bin", "plur1bus.exe") : join(f.home, ".local", "bin", "plur1bus");
 }
 
-/** Runs the platform's installer against the fixture. `extraPath` goes first on PATH (shims). */
-function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?: string) {
+/** A PowerShell shim that makes install.ps1 see `$args[0]` as the host architecture: it sets PROCESSOR_ARCHITECTURE
+ *  inside the PowerShell process, clears PROCESSOR_ARCHITEW6432 and then runs the installer (`$args[1]`) with the rest.
+ *  Setting them in the spawn environment is not reliable on Windows on ARM (the windows-11-arm leg installed the
+ *  win-arm64 binary despite PROCESSOR_ARCHITECTURE=x86 in the spawn environment), whereas a variable set inside the
+ *  process is what `$env:` reads. */
+const ARCH_SHIM = [
+  "$env:PROCESSOR_ARCHITECTURE = $args[0]",
+  "Remove-Item Env:PROCESSOR_ARCHITEW6432 -ErrorAction SilentlyContinue",
+  "$script = $args[1]",
+  "$rest = @($args | Select-Object -Skip 2)",
+  "& $script @rest",
+  "exit $LASTEXITCODE",
+  "",
+].join("\r\n");
+
+/** Runs the platform's installer against the fixture. `extraPath` goes first on PATH (shims). `hostArch` (Windows
+ *  only) runs install.ps1 as if PROCESSOR_ARCHITECTURE were that value (see ARCH_SHIM). */
+function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?: string, hostArch?: string) {
   const base: NodeJS.ProcessEnv = { ...process.env, PLUR1BUS_INSTALL_FEED: f.feed, PLUR1BUS_CHANNEL: "stable" };
   if (WIN) {
     // Only LOCALAPPDATA moves into the temp home; PowerShell itself also writes caches below it
     // (Microsoft\Windows\PowerShell), which is why the checks look only at the install root (`ours`).
     base.LOCALAPPDATA = join(f.home, "AppData", "Local");
-    const r = spawnSync(shell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", INSTALL_PS1, ...args], { encoding: "utf8", env: { ...base, ...env }, timeout: 60_000 });
+    let file = INSTALL_PS1;
+    let fileArgs = args;
+    if (hostArch !== undefined) {
+      file = join(f.root, "arch-shim.ps1");
+      writeFileSync(file, ARCH_SHIM);
+      fileArgs = [hostArch, INSTALL_PS1, ...args];
+    }
+    const r = spawnSync(shell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", file, ...fileArgs], { encoding: "utf8", env: { ...base, ...env }, timeout: 60_000 });
     return { status: r.status, stdout: r.stdout, stderr: r.stderr };
   }
   base.HOME = f.home;
@@ -175,7 +198,7 @@ describe(`one-line installer (${NAME}, ${shell})`, () => {
     try {
       let r;
       if (WIN) {
-        r = run(shell, f, FLAGS, { PROCESSOR_ARCHITECTURE: "x86", PROCESSOR_ARCHITEW6432: undefined });
+        r = run(shell, f, FLAGS, {}, undefined, "x86");
       } else {
         // A `uname` shim: a host outside the release matrix.
         const shim = join(f.root, "shim");
