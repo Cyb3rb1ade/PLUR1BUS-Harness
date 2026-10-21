@@ -1,5 +1,5 @@
 import { element } from "./dom.ts";
 
-export function chip(label: string, kind: "neutral" | "ok" = "neutral"): HTMLElement {
+export function chip(label: string, kind: "neutral" | "ok" | "warning" = "neutral"): HTMLElement {
   return element("span", `chip chip-${kind}`, label);
 }

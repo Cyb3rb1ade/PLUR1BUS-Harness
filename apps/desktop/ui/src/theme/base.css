@@ -190,3 +190,28 @@ p { color: var(--ink-2); line-height: 1.5; }
 .version-page dd { margin: 0 0 12px; overflow-wrap: anywhere; }
 .diagnostic-details { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; }
 .upgrade-progress [aria-current="step"] { font-weight: 700; }
+
+/* Transport choice (spec §7.1, §7.3): the path radio group, the check panel, the public banner and the path chips. */
+.transport-choice { display: grid; gap: 14px; min-width: 0; }
+.transport-options { display: grid; gap: 8px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.transport-question { margin-bottom: 6px; font-weight: 650; }
+.choice { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; min-width: 44px; cursor: pointer; }
+.choice input { width: 44px; height: 44px; flex: 0 0 44px; margin: 0; accent-color: var(--primary-bg); }
+.transport-option { border: 1px solid var(--control-line); border-radius: 12px; padding: 8px 14px 8px 8px; background: var(--surface); }
+.transport-option:has(input:checked) { border-color: var(--strong-line); background: var(--changed); }
+.choice-words { display: grid; gap: 2px; padding-top: 4px; min-width: 0; overflow-wrap: anywhere; }
+.choice-title { font-weight: 650; color: var(--ink); }
+.choice-help { color: var(--ink-2); font-size: 13px; }
+.transport-check { min-height: 1.5em; }
+.transport-check p { margin: 0 0 6px; overflow-wrap: anywhere; }
+.transport-recheck { justify-self: start; }
+.banner-warning { background: var(--warn-bg); color: var(--warn-ink); }
+.transport-public { display: grid; gap: 10px; margin-top: 0; overflow-wrap: anywhere; }
+.transport-public h3 { margin: 0; font-size: 16px; }
+.transport-public p { margin: 0; color: inherit; }
+.transport-public .choice-title { color: inherit; }
+.transport-public .button { justify-self: start; }
+.chip-warning { background: var(--warn-bg); color: var(--warn-ink); }
+.transport-line { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.transport-line .transport-detail { margin: 0; }
+.transport-change { display: grid; gap: 16px; }

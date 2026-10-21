@@ -8,6 +8,7 @@ async function openAddForm(page: import("playwright").Page) {
   await page.getByRole("button", { name: "Add remote", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Desk");
   await page.getByLabel("Harness origin").fill("https://harness.test");
+  await page.getByRole("radio", { name: "Direct" }).check();
   await page.getByLabel("First four characters").fill("ABCD");
   await page.getByLabel("Last four characters").fill("2345");
 }
