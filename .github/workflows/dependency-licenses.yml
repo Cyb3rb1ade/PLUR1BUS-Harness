@@ -1,0 +1,72 @@
+name: dependency-licenses
+on:
+  pull_request:
+    paths:
+      - '**/package.json'
+      - 'pnpm-lock.yaml'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '**/pyproject.toml'
+      - 'hosts/hermes/plur1bus/**'
+      - 'docs/dependency-*'
+      - 'scripts/audit-deps.mjs'
+      - 'scripts/test/audit-deps.test.mjs'
+      - 'scripts/ci/license-workflow.test.mjs'
+      - '.github/workflows/dependency-licenses.yml'
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dependency-licenses-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  dependency-licenses:
+    # Informational until the owner approves the outstanding licence decisions.
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: install pinned Rust metadata toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal && rustup default 1.95.0
+      - name: install pinned workspace dependencies
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "$GH_ENGINE_READ_TOKEN" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "$GH_ENGINE_READ_TOKEN" ] && echo 'https://github.com/') 'git@github.com:' 'ssh://git@github.com/'; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - name: collect licence report without suppressing incomplete ecosystems
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/dependency-licenses"
+          set +e
+          node scripts/audit-deps.mjs --json > "$RUNNER_TEMP/dependency-licenses/licenses.json" 2> "$RUNNER_TEMP/dependency-licenses/errors.txt"
+          code=$?
+          printf '%s\n' "$code" > "$RUNNER_TEMP/dependency-licenses/exit-code.txt"
+          printf 'Licence audit exit code: %s (advisory; inspect dependency-licenses artifact).\n' "$code" >> "$GITHUB_STEP_SUMMARY"
+          exit "$code"
+      - name: upload licence findings including failures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dependency-licenses
+          path: ${{ runner.temp }}/dependency-licenses
+          if-no-files-found: error
+          retention-days: 14
