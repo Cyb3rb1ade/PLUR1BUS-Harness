@@ -159,7 +159,8 @@ Each adapter writes only the parameters its wire carries and refuses any other w
 | chat_completions | `reasoning_effort` | `reasoning_effort: "<value>"` (OpenAI, xAI, Ollama, LM Studio, vLLM) |
 | chat_completions | `reasoning.effort` | `reasoning: { effort }` (OpenRouter) |
 | chat_completions | `chat_template_kwargs.enable_thinking` | `chat_template_kwargs: { enable_thinking }` (Qwen3 behind vLLM/SGLang) |
-| Anthropic Messages | `thinking.budget_tokens` | `thinking: { type: "enabled", budget_tokens }` (0 sends nothing; at least 1024; `max_tokens` lifted above it; no `thinking` on a request that continues a tool loop) |
+| Anthropic Messages | `thinking.budget_tokens` | `thinking: { type: "enabled", budget_tokens }` (0 sends nothing; at least 1024; `max_tokens` lifted above it; signed blocks are preserved on tool continuation) |
+| Anthropic Messages | `output_config.effort` | Stable top-level `output_config: { effort }`; curated supported models only, no beta header; `adaptiveThinking` explicitly enables the adaptive mode where needed |
 | Gemini | `thinkingConfig.thinkingBudget`, `thinkingConfig.thinkingLevel` | `generationConfig.thinkingConfig` |
 | Responses | `reasoning.effort` | `reasoning.effort` (`none`..`xhigh`); an explicit `providerOptions.responses.reasoningEffort` still wins |
 
@@ -188,9 +189,10 @@ failures (`rate_limit`, `overloaded`, `timeout`, `network`) fall through to the 
 
 ## Limits and follow-ups
 
-- Anthropic thinking-block signatures are not replayed (the neutral `ChatMessage` has no field for them), so extended
-  thinking across tool turns is not supported yet; `cacheCreationInputTokens` rides on an adapter-level `Usage`
-  extension because core types are untouched.
+- Anthropic signed thinking and redacted-thinking blocks are kept in WeakMap transport metadata during a turn.
+  Complete blocks are replayed unchanged for the same requested model, including through tool aliases; JSON,
+  logs, partial snapshots and session storage cannot serialize that metadata. Unsigned thinking continuation and
+  cross-model signature replay fail before I/O. `cacheCreationInputTokens` remains an adapter-level `Usage` extension.
 - `responseFormat` other than `text` is refused for Anthropic (no equivalent on the wire); `stop` is refused for Responses.
 - The fields the ChatGPT-plan backend refuses are taken from its documented behaviour and are **not verified against
   the live backend**; the auth engine (OAuth, account headers) is a separate component.

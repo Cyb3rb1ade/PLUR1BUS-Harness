@@ -39,6 +39,11 @@ function canonical(value: unknown, seen = new Set<object>()): string {
 export function idempotencyKey(scope: string, name: string, args: unknown): string {
   return createHash('sha256').update(canonical([scope, name, args])).digest('hex');
 }
+/** Joins scope and operation id injectively: '\\' and ':' inside a part are escaped, so ('a:b','c') and ('a','b:c') never share a key (and thus never a cached, approved result). */
+function scopedOperation(scope: string, operationId: string | undefined): string {
+  const esc = (part: string) => part.replace(/[\\:]/g, m => `\\${m}`);
+  return `${esc(scope)}:${esc(operationId ?? '')}`;
+}
 export interface BatchCall { name: string; arguments: unknown; parallelSafe: boolean; operationId?: string }
 export interface IdempotencyPort { run(key: string, execute: () => Promise<unknown>): Promise<unknown> }
 /** In-memory port coalesces concurrent/repeated calls; a durable port is required across process restarts. */
@@ -54,7 +59,7 @@ export async function executeBatch(scope: string, calls: readonly BatchCall[], e
   const out: unknown[] = []; let group: Promise<unknown>[] = [];
   const flush = async () => { out.push(...await Promise.all(group)); group = []; };
   const run = (call: BatchCall) => {
-    const key = idempotencyKey(`${scope}:${call.operationId ?? ''}`, call.name, call.arguments);
+    const key = idempotencyKey(scopedOperation(scope, call.operationId), call.name, call.arguments);
     return idempotency.run(key, async () => { try { return await execute(call, key); } catch { return { isError: true, error: { code: 'tool-failed', hint: 'Tool execution failed.' } }; } });
   };
   for (const call of calls) { if (call.parallelSafe) group.push(run(call)); else { await flush(); out.push(await run(call)); } }

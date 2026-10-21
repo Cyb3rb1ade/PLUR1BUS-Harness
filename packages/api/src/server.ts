@@ -30,8 +30,7 @@ import { MemoryTokenStore, MemoryTotpStore } from "./memory-stores.ts";
 import type { TokenStore, TotpStore, UserDirectory } from "./ports.ts";
 import { LoginChallenges } from "./challenge.ts";
 import { DEFAULT_RATE_CLASSES, RateLimiter, type RateClasses } from "./rate-limit.ts";
-import { createBreakGlass, type AuditSink, type BreakGlassNotice, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
-import { NoticeInbox } from "./notices.ts";
+import { authorize, type AuditSink, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
 import { redactFields } from "./redact.ts";
 import { createStaticServer } from "./static.ts";
 import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
@@ -66,12 +65,10 @@ export interface ApiServerOptions {
   tokens?: TokenStore;
   /** Where second-factor secrets live; the in-memory default forgets them at a restart (the standalone entry supplies the private durable adapter). */
   totp?: TotpStore; totpIssuer?: string;
-  /** Break-glass writes its own audit here and must not act unrecorded, so this is the unbuffered, fail-closed sink
-   *  (default: `audit`; with neither, there is no break-glass). */
+  /** The unbuffered, fail-closed sink for the API's own security-relevant writes (the bootstrap commit attempt, remote access
+   *  changes); default: `audit`. Break-glass is not one of them: its single registry, audit and notice live in the core, and
+   *  the REST routes forward to it. */
   breakGlassAudit?: AuditSink;
-  /** Tells the affected user about a grant over their cards, through whatever channel the host has (delivery is a
-   *  follow-up). The API's own inbox (`GET /me/notices`) is filled either way. A throwing hook is audited, the grant stands. */
-  notifyBreakGlass?: (notice: BreakGlassNotice) => void;
   /** The hash-chained audit log of the core, or any sink with the same `append`. Without one nothing is audited. */
   audit?: AuditSink;
   /** The built web app (`packages/web/dist`): served read-only at `/` and below, never under `/api`, with a CSP nonce per
@@ -162,12 +159,9 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const tokens = new TokenService({ store: o.tokens ?? new MemoryTokenStore(), clock });
   const totp = new TotpService({ store: o.totp ?? new MemoryTotpStore(), clock, issuer: o.totpIssuer ?? "PLUR1BUS Harness" });
   const challenges = o.sharedLoginChallenges ?? new LoginChallenges(clock);
-  const notices = new NoticeInbox(clock);
-  const noSink: AuditSink = { append() { throw new Error("no audit sink configured"); } };
-  const breakGlass = createBreakGlass({ audit: o.breakGlassAudit ?? o.audit ?? noSink, clock: () => clock.now(), host: "api", notify: (n) => { notices.add(n); o.notifyBreakGlass?.(n); } });
   const events = createEventsRoute({ core: o.core, sessions, initTimeoutMs: limits.handlerTimeoutMs, now: () => clock.now() });
   const perRequest = requestCore(o.core);
-  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
+  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
   const handlers = { ...buildHandlers(handlerDeps), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
@@ -181,7 +175,6 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   for (const spec of ROUTES) add(spec, handlers[spec.id]);
   for (const x of o.extraRoutes ?? []) add(x.spec, x.handler);
 
-  let sweeper: NodeJS.Timeout | undefined;
   let allowedHosts = new Set<string>(); let allowedOrigins = new Set<string>();
   const ws=createWsRoute({sessions,cookieName,clock,limiter,audit,resolve,allowedHost:host=>allowedHosts.has(host),allowedOrigin:origin=>allowedOrigins.has(origin)});
   add(WS_ROUTES[0]!,async i=>{const ticket=ws.issue(i.sessionId!);if(!ticket)throw errors.unauthenticated();return {body:ticket};});
@@ -235,8 +228,8 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     if (az === "authenticated" || az === "delegated") return { effect: "allow", reason: "role" };
     // "user": some user, to be named by the handler, which asks the registry again with the real target.
     const resource: Resource = az.resource === "self" ? { kind: "user", userId: rbac.userId } : az.resource === "user" ? { kind: "user", userId: "*" } : { kind: "system" };
-    // The registry honours the caller's live break-glass grants and audits their use; without one it is plain authorize().
-    return breakGlass.authorize(rbac, az.action, resource);
+    // Break-glass grants live in the core's one registry and cover memory reads there; no API route is one, so this is plain authorize().
+    return authorize(rbac, az.action, resource);
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -467,8 +460,6 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           allowedOrigins = new Set([...allowedHosts].map((h) => `${scheme}://${h}`));
           if(transport.origin){allowedHosts=new Set([transport.hostHeader!]);allowedOrigins=new Set([transport.origin]);}
           const hostPart = bindHost.includes(":") ? `[${bindHost}]` : bindHost;
-          // Grants also end when nobody asks: lapsed ones are swept (and audited) twice a minute.
-          sweeper = setInterval(() => { try { breakGlass.sweep(); } catch { /* the next sweep retries */ } }, 30_000); sweeper.unref();
           log.info("listening", { host: bindHost, port: a.port, tls });
           resolveListen({ host: bindHost, port: a.port, url: `${scheme}://${hostPart}:${a.port}` });
         });
@@ -476,7 +467,6 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     },
     close() {
       forgetConnection(); ws.close(); events.close();
-      if (sweeper) clearInterval(sweeper);
       return new Promise((resolveClose) => { server.close(() => resolveClose()); server.closeAllConnections(); });
     },
   };

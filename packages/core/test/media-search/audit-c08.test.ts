@@ -148,18 +148,18 @@ describe("c08: open items", () => {
     let attached: { frames: any; audio: any } | undefined;
     const noop = async () => { throw new Error("unused"); };
     const engine = { media: { index: noop, search: noop, remove: noop, setCaption: noop, status: noop, backfill: { start: noop, pause: noop, resume: noop, cancel: noop }, attachHost: (h: any) => { attached = h; } } };
-    const c = await composeMediaSearch({ home, config: () => cfg, engine, agents: { workspaceOf: () => home }, logger: { ...silentLogger, debug() {} } as any, store: null, budget: null, ...over } as never);
+    const c = await composeMediaSearch({ home, config: () => cfg, engine, hostFetchReady: true, agents: { workspaceOf: () => home }, logger: { ...silentLogger, debug() {} } as any, store: null, budget: null, ...over } as never);
     return { home, c, ports: () => attached! };
   };
   it("composition passes allowedRoots (media directories) to the ffmpeg ports and caption providers", async () => {
     let spawned = 0;
     // A stand-in binary: the test must not depend on ffmpeg being installed (createFfmpegPorts yields no ports without it).
     const bin = await mkdtemp(join(tmpdir(), "c08-bin-")); const fakeFfmpeg = join(bin, "ffmpeg"); await writeFile(fakeFfmpeg, "#!/bin/sh\n", { mode: 0o755 });
-    const { home, c, ports } = await composeWith({ ffmpeg: { ffmpegPath: fakeFfmpeg, spawn: (() => { spawned++; throw new Error("no spawn"); }) as never } }, { provider: "local" });
+    const { home, c } = await composeWith({ ffmpeg: { ffmpegPath: fakeFfmpeg, spawn: (() => { spawned++; throw new Error("no spawn"); }) as never } }, { provider: "local" });
     try {
       assert.equal(c.kind, "engine");
       const outside = join(home, "elsewhere.mp4"); await writeFile(outside, Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypmp42")]));
-      await assert.rejects(async () => { for await (const _ of ports().frames.frames({ path: outside }, { intervalSec: 1, sceneDetect: false, maxFrames: 1 })) void _; }, code("E_MEDIA_UNSUPPORTED_KIND"));
+      await assert.rejects(c.captions.resolve({ kind: "video", mime: "video/mp4", source: { path: outside } }), code("E_MEDIA_UNSUPPORTED_KIND"));
       assert.equal(spawned, 0);
       // the local caption provider refuses the same path before it loads any model
       await assert.rejects(c.captions.resolve({ kind: "image", mime: "image/png", source: { path: outside } }), code("E_MEDIA_UNSUPPORTED_KIND"));

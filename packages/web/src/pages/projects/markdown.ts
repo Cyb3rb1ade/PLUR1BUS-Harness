@@ -3,7 +3,8 @@
 import { h, type ComponentChildren } from "preact";
 import type { View } from "../../view.ts";
 
-function isSafeUrl(url: string): boolean {
+/** Where a link may point: http(s), mailto and in-page anchors. Everything else (javascript:, data:, vbscript:, ...) is never an href. */
+export function isSafeUrl(url: string): boolean {
   const trimmed = url.trim().toLowerCase();
   return (
     trimmed.startsWith("https://") ||

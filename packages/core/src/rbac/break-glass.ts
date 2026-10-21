@@ -86,6 +86,8 @@ export function createBreakGlass(o: BreakGlassOptions): BreakGlass {
     request(holder, req) {
       const targetUserId = typeof req?.targetUserId === "string" ? req.targetUserId : "";
       if (targetUserId === "") throw new BreakGlassError("invalid-target", "a target user is required");
+      // Break-glass is for people (the RPC rule is humanOnly too): an explicitly non-person principal is refused here as well. A principal without a kind is the library-level shape the policy already accepts.
+      if (holder?.kind !== undefined && holder.kind !== "person") throw new BreakGlassError("not-permitted", "break-glass is for people only");
       // Who may ask is the policy's call (breakglass.request: Owner/Admin, narrowed by token scopes), not this file's.
       if (authorize(holder, "breakglass.request", { kind: "user", userId: targetUserId }, { now: o.clock() }).effect !== "allow") {
         throw new BreakGlassError("not-permitted", "break-glass is not permitted for this principal");
@@ -119,6 +121,7 @@ export function createBreakGlass(o: BreakGlassOptions): BreakGlass {
     revoke(actor, grantId) {
       const g = grants.get(grantId);
       if (!g) throw new BreakGlassError("unknown-grant", "no such live grant");
+      if (actor?.kind !== undefined && actor.kind !== "person") throw new BreakGlassError("not-permitted", "break-glass is for people only");
       if (actor?.userId !== g.holderUserId && actor?.role !== "owner") throw new BreakGlassError("not-permitted", "only the holder or an Owner may revoke");
       try { record("break-glass.revoked", actor.userId, g.targetUserId, { grantId: g.id, holderUserId: g.holderUserId }); }
       catch { throw new BreakGlassError("audit-failed", "the revocation could not be audited"); }
