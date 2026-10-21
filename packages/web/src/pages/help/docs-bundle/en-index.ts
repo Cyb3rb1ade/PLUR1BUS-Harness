@@ -98,7 +98,7 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   },
   {
     "slug": "privacy",
-    "title": "Privacy and \"Local only\" mode"
+    "title": "Privacy and \"Only local models\" mode"
   },
   {
     "slug": "projects",

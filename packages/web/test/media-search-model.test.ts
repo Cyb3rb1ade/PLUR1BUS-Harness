@@ -122,7 +122,7 @@ describe("media search: settings draft", () => {
     assert.ok(problems.some((p) => p.code === "E_MEDIA_CAPABILITY"));
   });
   test("a problem code has a text; an unknown one falls back to the generic text", () => {
-    assert.match(problemText("E_MEDIA_PRIVACY"), /privacy pin/i);
+    assert.match(problemText("E_MEDIA_PRIVACY"), /only local models/i);
     assert.match(problemText("caption-required"), /captions/i);
     assert.match(problemText("E_NOT_A_CODE"), /went wrong/i);
   });
