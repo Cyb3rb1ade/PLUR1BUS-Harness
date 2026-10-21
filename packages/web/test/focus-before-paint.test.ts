@@ -43,7 +43,9 @@ describe("focus lands in the draw that shows the view", opts, () => {
       await page.evaluate(() => {
         const seen: Seen[] = [];
         (window as unknown as { __seen: Seen[] }).__seen = seen;
-        let last: Element | null = null;
+        // The composer of the chat that is already open is not an appearance: start from it, so a re-render of the old view
+        // (polling, the model switch) that runs before the hash change takes effect is not counted as a second composer.
+        let last: Element | null = document.querySelector("textarea");
         new MutationObserver(() => {
           const el = document.querySelector("textarea");
           if (el && el !== last) { last = el; seen.push({ key: "composer", focused: document.activeElement === el }); }
@@ -66,10 +68,13 @@ describe("focus lands in the draw that shows the view", opts, () => {
       await app.page.evaluate(() => {
         const seen: Seen[] = [];
         (window as unknown as { __seen: Seen[] }).__seen = seen;
+        // The "Set limit" heading is already on screen: only a heading that replaces it is the review step appearing, so a
+        // re-render of the open dialog before the Review click lands (validation text, a slow runner) is not recorded.
+        let lastKey = document.querySelector("dialog[open] .dialog-head h2")?.textContent ?? "";
         new MutationObserver(() => {
           const h = document.querySelector("dialog[open] .dialog-head h2");
           const key = h?.textContent ?? "";
-          if (h && key !== "" && seen[seen.length - 1]?.key !== key) seen.push({ key, focused: document.activeElement === h });
+          if (h && key !== "" && key !== lastKey) { lastKey = key; seen.push({ key, focused: document.activeElement === h }); }
         }).observe(document.body, { childList: true, subtree: true, characterData: true });
       });
       await dlg.getByRole("button", { name: "Review" }).click();
