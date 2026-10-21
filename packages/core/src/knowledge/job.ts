@@ -40,7 +40,15 @@ export function createKnowledgeUpdateJob(deps: KnowledgeJobDeps): SystemJobHandl
           if (context.signal.aborted) return { outcome: "abandoned", reason: "aborted", detail: results };
           // Recheck registration immediately before dispatch, including manual args.
           if (!deps.agents().includes(agentId)) continue;
-          const run = await deps.engine.jobs.run("knowledge-update", agentId, { trigger: context.trigger, signal: context.signal });
+          let run: Awaited<ReturnType<KnowledgeJobEngine["jobs"]["run"]>>;
+          try { run = await deps.engine.jobs.run("knowledge-update", agentId, { trigger: context.trigger, signal: context.signal }); }
+          catch {
+            // One agent the Engine refuses (for example one paused or archived between the check above and the dispatch)
+            // must not starve the others: record it as failed and go on with the next agent.
+            if (context.signal.aborted) return { outcome: "abandoned", reason: "aborted", detail: results };
+            results.push({ agentId, outcome: "failed", reason: "engine-job-threw" });
+            continue;
+          }
           if (!["completed", "skipped", "failed", "incomplete", "abandoned"].includes(run.outcome)) {
             return { outcome: "failed", reason: "engine-job-invalid-result", detail: results };
           }

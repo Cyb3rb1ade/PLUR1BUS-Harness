@@ -591,7 +591,7 @@ export function createCore(o: CoreOptions): Core {
         onFailed: run => jobFailedToInbox(inboxPort, run),
       });
       systemJobs.register(createModelsScanJob(discovery, discSettings));
-      systemJobs.register(createKnowledgeUpdateJob({ engine: eng, agents: () => registry.list(), now: clock }));
+      systemJobs.register(createKnowledgeUpdateJob({ engine: eng, agents: () => executionRegistry.list(), now: clock }));
       armKnowledgeUpdate(systemJobs, {
         now: clock,
         setTimer: (fn, ms) => {

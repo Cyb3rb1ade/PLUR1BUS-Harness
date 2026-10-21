@@ -82,3 +82,14 @@ test("unknown Engine outcomes cannot be recorded as completed maintenance",async
   assert.equal(result.outcome,"failed");
   assert.equal(result.reason,"engine-job-invalid-result");
 });
+test("an agent whose Engine run throws is recorded as failed and the sweep goes on with the next agent",async()=>{
+  const {createKnowledgeUpdateJob}=await load();
+  const calls:string[]=[];
+  const engine={jobs:{list:()=>[{name:"knowledge-update"}],run:async(_job:string,agent:string)=>{calls.push(agent);if(agent==="alpha")throw new Error("agent paused");return{runId:"r-"+agent,outcome:"completed"};}}};
+  const handler=createKnowledgeUpdateJob({engine,agents:()=>["alpha","beta"],now:()=>0});
+  const result=await handler.run({},{signal:new AbortController().signal,runId:"s",trigger:"cron"});
+  assert.deepEqual(calls,["alpha","beta"]);
+  assert.equal(result.outcome,"failed");
+  assert.equal(result.reason,"engine-job-failed");
+  assert.deepEqual(result.detail,[{agentId:"alpha",outcome:"failed",reason:"engine-job-threw"},{agentId:"beta",runId:"r-beta",outcome:"completed"}]);
+});
