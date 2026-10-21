@@ -91,8 +91,11 @@ remain separate operations, not OAuth flows through `login`.
 
 Every PKCE attempt creates random state and a 43-character verifier with SHA-256
 challenge. The listener binds **only `127.0.0.1`**, random port, callback path
-`/auth/callback`. Only one callback is accepted; wrong state aborts; state and code
-must occur exactly once. Paste checks the same origin/path/state/code and PKCE
+`/auth/callback`. Only a callback with exactly the issued `state` (compared as SHA-256 digests, constant time, `state`
+exactly once) ends the one-shot listener. A forged callback, one without `state`, one with a foreign `Host` header or
+repeated `state` parameters gets a constant `400` without echo and does not consume the listener, so it cannot abort the
+login; more than ten such failures per second get `429`. The listener stays open until a genuine callback, cancellation or the
+timeout. A pasted callback with the wrong state still aborts the login (`state_mismatch`). The code must occur exactly once. Paste checks the same origin/path/state/code and PKCE
 exchange. Success, timeout (default ten minutes), cancellation and errors close
 the listener. Browser error pages contain only fixed text and no callback details.
 Authorization URLs and user codes are explicit UI-port values, redacted under
