@@ -40,6 +40,9 @@ test("knowledge.update proves the installed contract gap or promotes a real capt
     const status = await client.call<any>("core.status");
     assert.match(status.contract, /^1\.\d+\.\d+$/);
     const ready = Number(status.contract.split(".")[1]) >= 17;
+    if (process.env.PLUR1BUS_REQUIRE_CURATED_ENGINE === "1" || process.env.PLUR1BUS_ENGINE_ACCEPTANCE_SOURCE) {
+      assert.ok(ready, `Controller-pin acceptance requires Engine contract >=1.17; got ${status.contract}`);
+    }
     const run = () => client.call<any>("jobs.run", { job: "knowledge.update", args: { agentId: "bernd" } });
     if (!ready) {
       const unavailable = await run();
