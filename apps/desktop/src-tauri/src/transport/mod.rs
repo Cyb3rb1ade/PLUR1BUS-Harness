@@ -321,7 +321,10 @@ pub async fn check_target_acked(
         classifier: CLASSIFIER_ID,
     };
     Ok(CheckedTarget {
-        pin: ConnectPin { host, addrs },
+        pin: ConnectPin {
+            host: input.host.pin_host(),
+            addrs,
+        },
         report,
     })
 }

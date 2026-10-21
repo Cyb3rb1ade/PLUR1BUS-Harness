@@ -90,6 +90,21 @@ impl HostInput {
         Ok((host, port))
     }
 
+    /// The host as a pin names it: exactly the host string the `url` crate writes for this host in an origin
+    /// (without brackets), which is what the client compares and overrides. For an IPv4-mapped IPv6 literal that is
+    /// `::ffff:102:304`, not Rust's `::ffff:1.2.3.4`.
+    pub fn pin_host(&self) -> String {
+        match self {
+            Self::Name(name) => name.clone(),
+            Self::Ip(IpAddr::V4(ip)) => url::Host::<String>::Ipv4(*ip).to_string(),
+            Self::Ip(IpAddr::V6(ip)) => url::Host::<String>::Ipv6(*ip)
+                .to_string()
+                .trim_matches(['[', ']'])
+                .to_owned(),
+            Self::Localhost => "localhost".to_owned(),
+        }
+    }
+
     /// Whether this is a `*.ts.net` name (case-insensitive, trailing dot allowed; spec §5.1).
     pub fn is_ts_net(&self) -> bool {
         match self {

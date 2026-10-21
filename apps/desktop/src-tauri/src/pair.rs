@@ -326,6 +326,10 @@ async fn pair_using_client_inner(
     if existing.as_ref().is_some_and(|c| c.origin != origin) {
         return Err(PairError::Invalid);
     }
+    // A remote harness off loopback is paired only over checked addresses (transport choice spec §9.2).
+    if kind == Kind::Remote && client.pin().is_none() && !origin.is_loopback() {
+        return Err(ClientError::Protocol.into());
+    }
     client.establish_pairing_trust(code).await?;
     let meta = client.meta().await?;
     if expected.is_some_and(|id| id != meta.installation_id)
@@ -485,21 +489,8 @@ pub async fn validate_connection_pinned(
     }
 }
 
-/// WP6 can drive this bounded primitive from its cancellable event loop.
-pub async fn sync_next_trust_event(
-    c: &mut Connection,
-    tokens: &dyn TokenStore,
-    store: &Store,
-) -> Result<(), PairError> {
-    let client = match HarnessClient::from_connection(c).await {
-        Ok(client) => client,
-        Err(e) => {
-            mark_failure(c, &e, tokens, store)?;
-            return Err(e.into());
-        }
-    };
-    sync_next_trust_event_with_client(c, client, tokens, store).await
-}
+/// WP6 can drive this bounded primitive from its cancellable event loop, with a client built for the open (pinned
+/// for a remote row).
 pub async fn sync_next_trust_event_with_client(
     c: &mut Connection,
     client: HarnessClient,

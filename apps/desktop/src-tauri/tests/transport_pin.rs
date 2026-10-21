@@ -4,11 +4,11 @@
 //! nothing may resolve the host a second time.
 use futures_util::{future::BoxFuture, SinkExt, StreamExt};
 use plur1bus_desktop::{
-    client::HarnessClient,
-    connections::Store,
+    client::{ClientError, HarnessClient},
+    connections::{Connection, CredentialProvenance, Kind, Origin, Store},
     events::EventStream,
     pair,
-    secrets::{self, MemoryStore},
+    secrets::{self, MemoryStore, SecretString, TokenStore},
     spa_proxy::SpaProxy,
     transport::{
         check_target, CheckDeps, ConnectPin, HostInput, ProbeOutcome, Prober, Purpose,
@@ -348,6 +348,241 @@ async fn a_pin_for_another_host_fails_closed() {
         assert!(paired.is_err());
         assert_eq!(mock.control.accepted_connections(), 0);
         assert_eq!(decoy.accepted.load(Ordering::SeqCst), 0);
+    })
+    .await;
+}
+
+fn remote_row(origin: &str) -> Connection {
+    Connection::new(
+        "Remote".into(),
+        Kind::Remote,
+        Origin::parse(origin).unwrap(),
+        "installation".into(),
+        "device".into(),
+        "hint".into(),
+    )
+}
+
+/// An address on loopback where nothing listens.
+fn closed_port() -> SocketAddr {
+    let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    listener.local_addr().unwrap()
+}
+
+/// A listener on loopback that only counts the connections it accepts.
+async fn counting() -> Decoy {
+    let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let addr = listener.local_addr().unwrap();
+    let accepted = Arc::new(AtomicUsize::new(0));
+    let seen = accepted.clone();
+    let task = tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            seen.fetch_add(1, Ordering::SeqCst);
+            drop(stream);
+        }
+    });
+    Decoy {
+        addr,
+        accepted,
+        task,
+    }
+}
+
+fn no_resolver() -> Arc<Switch> {
+    Arc::new(Switch {
+        first: Vec::new(),
+        later: Vec::new(),
+        flipped: AtomicBool::new(false),
+        calls: AtomicUsize::new(0),
+    })
+}
+
+/// An IPv4-mapped IPv6 literal pins in the spelling the client compares (the `url` crate's `::ffff:102:304`, not
+/// Rust's `::ffff:1.2.3.4`), so the pinned client builds and a request reaches the pinned address: here a closed
+/// loopback port, so the request fails with `Network`, never `Protocol`. Nothing leaves the machine.
+#[tokio::test]
+async fn an_ipv4_mapped_ipv6_origin_pins_in_the_clients_spelling() {
+    bounded(async {
+        let origin = "https://[::ffff:1.2.3.4]:7443";
+        let resolver = no_resolver();
+        let deps = CheckDeps {
+            resolver: resolver.clone(),
+            tailscale: Arc::new(NotInstalled),
+            prober: Arc::new(NoProbe),
+        };
+        let (host, port) = HostInput::from_origin(&Origin::parse(origin).unwrap()).unwrap();
+        assert_eq!(port, 7443);
+        let input = TargetInput {
+            host,
+            port,
+            transport: Transport::Direct,
+            purpose: Purpose::Remote,
+        };
+        let checked = check_target(&input, &deps, false).await.unwrap();
+        assert_eq!(checked.pin.host, "::ffff:102:304");
+        assert_eq!(resolver.calls.load(Ordering::SeqCst), 0);
+
+        let row = remote_row(origin);
+        let pin = ConnectPin {
+            host: checked.pin.host.clone(),
+            addrs: vec![closed_port()],
+        };
+        let client = HarnessClient::from_connection_pinned(&row, Some(pin))
+            .await
+            .unwrap();
+        for target in [
+            "wss://[::ffff:1.2.3.4]:7443/ws",
+            "wss://[::ffff:102:304]:7443/ws",
+        ] {
+            assert_eq!(
+                client.websocket_connect(target).await.err(),
+                Some(ClientError::Network),
+                "{target}"
+            );
+        }
+        // Another host is still refused before any connection.
+        assert_eq!(
+            client
+                .websocket_connect("wss://[::ffff:1.2.3.5]:7443/ws")
+                .await
+                .err(),
+            Some(ClientError::Protocol)
+        );
+    })
+    .await;
+}
+
+/// The pinned addresses are used as they are (their own port, and an IPv6 scope id a link-local answer carries), not
+/// rebuilt from the IP and the origin's port.
+#[tokio::test]
+async fn the_websocket_connects_to_the_pinned_socket_address_as_is() {
+    bounded(async {
+        let listener = counting().await;
+        let row = remote_row("https://harness.test:7443");
+        let pin = ConnectPin {
+            host: "harness.test".into(),
+            addrs: vec![listener.addr],
+        };
+        let client = HarnessClient::from_connection_pinned(&row, Some(pin))
+            .await
+            .unwrap();
+        // The listener closes at once, so the handshake fails after the connection.
+        assert_eq!(
+            client
+                .websocket_connect("wss://harness.test:7443/ws")
+                .await
+                .err(),
+            Some(ClientError::Network)
+        );
+        assert_eq!(listener.accepted.load(Ordering::SeqCst), 1);
+    })
+    .await;
+}
+
+/// A remote row off loopback is reached only through an open's checked addresses: every unpinned public path refuses
+/// it with `Protocol` before any connection (transport choice spec §9.2). The `.test` name resolves nowhere, so a
+/// lookup would show as `Network` instead.
+#[tokio::test]
+async fn unpinned_paths_refuse_a_remote_row() {
+    bounded(async {
+        let origin = "https://harness.test:7443";
+        let mut row = remote_row(origin);
+        row.credential_provenance = CredentialProvenance::MemoryOnly;
+        row.pairing_needed = false;
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path());
+        store.upsert(row.clone()).unwrap();
+        let tokens = MemoryStore::default();
+        tokens
+            .set(
+                &secrets::token_account(row.id),
+                &SecretString::new("device-token".into()),
+            )
+            .unwrap();
+        let protocol =
+            |e: pair::PairError| matches!(e, pair::PairError::Client(ClientError::Protocol));
+
+        assert_eq!(
+            HarnessClient::from_connection(&row).await.err(),
+            Some(ClientError::Protocol)
+        );
+        assert_eq!(
+            HarnessClient::from_connection_pinned(&row, None)
+                .await
+                .err(),
+            Some(ClientError::Protocol)
+        );
+        assert_eq!(
+            HarnessClient::from_pairing_payload(Origin::parse(origin).unwrap(), None, None)
+                .await
+                .err(),
+            Some(ClientError::Protocol)
+        );
+        assert!(protocol(
+            pair::validate_connection(&mut row, &tokens, &store)
+                .await
+                .unwrap_err()
+        ));
+        assert!(pair::session_ticket(&mut row, &tokens, &store)
+            .await
+            .err()
+            .is_some_and(protocol));
+        let other = tempfile::tempdir().unwrap();
+        let empty = Store::open(other.path());
+        assert!(protocol(
+            pair::pair_code(origin, "ABCD-EFGH", "Remote", &tokens, &empty, None)
+                .await
+                .unwrap_err()
+        ));
+        assert!(protocol(
+            pair::pair(
+                Origin::parse(origin).unwrap(),
+                "ABCD-EFGH",
+                "Remote",
+                Kind::Remote,
+                None,
+                None,
+                &tokens,
+                &empty,
+            )
+            .await
+            .unwrap_err()
+        ));
+        assert!(empty.load().unwrap().is_empty());
+    })
+    .await;
+}
+
+/// Loopback remote rows (the mock harness, an SSH forward) keep their unpinned path.
+#[tokio::test]
+async fn a_loopback_remote_row_stays_unpinned() {
+    bounded(async {
+        let mock = MockHarness::start_tls(
+            MockOptions {
+                bind: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
+                ..Default::default()
+            },
+            Identity::self_signed(),
+        )
+        .await
+        .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path());
+        let tokens = MemoryStore::default();
+        let connection = pair::pair_code(
+            &mock.origin,
+            &mock.control.create_pair_code(),
+            "Loopback",
+            &tokens,
+            &store,
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(connection.kind, Kind::Remote);
+        assert!(HarnessClient::from_connection(&connection).await.is_ok());
     })
     .await;
 }

@@ -252,6 +252,10 @@ impl HarnessClient {
         ca: Option<CertPin>,
         connect: Option<ConnectPin>,
     ) -> Result<Self, ClientError> {
+        // A pairing offer names a remote harness: off loopback it is reached only over checked addresses.
+        if connect.is_none() && !origin.is_loopback() {
+            return Err(ClientError::Protocol);
+        }
         let mut client = Self::new(origin, pin);
         client.connect = connect;
         client.ca = ca;
@@ -274,7 +278,8 @@ impl HarnessClient {
         Self::from_connection_inner(c, None, None).await
     }
     /// [`Self::from_connection`] whose every connection, including the CA fetch while preparing, goes to the checked
-    /// addresses of `connect` (`None`: unpinned, for loopback rows that have no transport).
+    /// addresses of `connect` (`None`: unpinned, for bundled, local and loopback rows; a remote row off loopback is
+    /// refused unpinned with `Protocol`, transport choice spec §9.2).
     pub async fn from_connection_pinned(
         c: &Connection,
         connect: Option<ConnectPin>,
@@ -286,6 +291,12 @@ impl HarnessClient {
         roots: Option<Vec<Vec<u8>>>,
         connect: Option<ConnectPin>,
     ) -> Result<Self, ClientError> {
+        if connect.is_none()
+            && c.kind == crate::connections::Kind::Remote
+            && !c.origin.is_loopback()
+        {
+            return Err(ClientError::Protocol);
+        }
         let mut client = Self::new(c.origin.clone(), c.cert_pin.clone());
         client.connect = connect;
         client.roots = roots;
@@ -401,16 +412,18 @@ impl HarnessClient {
         let request = request
             .into_client_request()
             .map_err(|_| ClientError::Protocol)?;
-        let uri = request.uri();
-        let host = uri
-            .host()
+        // Host and port as the `url` crate writes them, like the origin's: an IPv6 literal compares in one spelling
+        // (`[::ffff:1.2.3.4]` and `[::ffff:102:304]` are the same host).
+        let target =
+            url::Url::parse(&request.uri().to_string()).map_err(|_| ClientError::Protocol)?;
+        let host = target
+            .host_str()
             .ok_or(ClientError::Protocol)?
             .trim_matches(['[', ']'])
             .to_owned();
-        let port = uri.port_u16().unwrap_or(match uri.scheme_str() {
-            Some("wss") => 443,
-            _ => 80,
-        });
+        let port = target
+            .port_or_known_default()
+            .ok_or(ClientError::Protocol)?;
         if Some(&host) != self.origin_host().as_ref() || Some(port) != self.origin_port() {
             return Err(ClientError::Protocol);
         }
@@ -420,11 +433,12 @@ impl HarnessClient {
                     return Err(ClientError::Protocol);
                 }
                 let mut connected = None;
+                // The checked addresses as they are: they carry the origin's port (checked above) and an IPv6
+                // scope id, which a link-local answer needs.
                 for addr in &pin.addrs {
-                    let addr = std::net::SocketAddr::new(addr.ip(), port);
                     let attempt = tokio::time::timeout(
                         Duration::from_secs(10),
-                        tokio::net::TcpStream::connect(addr),
+                        tokio::net::TcpStream::connect(*addr),
                     )
                     .await;
                     if let Ok(Ok(stream)) = attempt {
