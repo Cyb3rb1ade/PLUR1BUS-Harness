@@ -27,7 +27,7 @@ test('every workflow job is either in the gate or deliberately ungated, and job 
   for (const files of [['docs/a.md'], ['packages/web/src/app.tsx'], ['crates/x/src/lib.rs'],
     ['packages/core/src/core.ts'], ['crates/plur1bus/tests/fixtures/fake-api.mjs'], ['clients/python/client.py'], ['packages/rpc-schema/schema/rpc.schema.json'],
     ['docs/errors.md'], ['.github/workflows/ci.yml'], ['pnpm-lock.yaml']]) {
-    const outputs = Object.fromEntries(Object.entries({ proceed: true, ...classify({ event: 'pull_request', files }) }).map(([k, v]) => [k, String(v)]));
+    const outputs = Object.fromEntries(Object.entries({ proceed: true, macos: true, ...classify({ event: 'pull_request', files }) }).map(([k, v]) => [k, String(v)]));
     const expected = selections(outputs);
     const needs = { changes: { result: 'success', outputs } };
     for (const job of gated) {
@@ -44,7 +44,7 @@ test('the ungated jobs can neither delay nor fail the gate', () => {
   const gateNeeds = /^    needs: \[([^\]]+)\]/m.exec(jobs['ci-gate'])[1];
   for (const job of UNGATED) assert(!new RegExp(`\\b${job}\\b`).test(gateNeeds), job);
   // A failing leg of an ungated job must not change the verdict, and a failing gated job must.
-  const outputs = Object.fromEntries(Object.entries({ proceed: true, ...classify({ event: 'push', files: [] }) }).map(([k, v]) => [k, String(v)]));
+  const outputs = Object.fromEntries(Object.entries({ proceed: true, macos: true, ...classify({ event: 'push', files: [] }) }).map(([k, v]) => [k, String(v)]));
   const needs = { changes: { result: 'success', outputs }, ...Object.fromEntries(Object.keys(selections(outputs)).map(job => [job, { result: 'success' }])) };
   assert.deepEqual(evaluateGate(needs), []);
   assert(evaluateGate({ ...needs, unit: { result: 'failure' } }).length > 0);

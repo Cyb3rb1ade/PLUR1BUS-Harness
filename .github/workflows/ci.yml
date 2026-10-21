@@ -114,6 +114,11 @@ jobs:
           export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
           pnpm test
         timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
+        env:
+          # macOS finds the system Chrome and would run packages/web's whole browser suite in-line (20+ min, so the step
+          # timed out before core ran). Off here by this explicit switch, never by dropping the Chrome path; the suites
+          # run in `web-browser-macos` below (docs/ci.md). Linux (no Chromium here) and Windows are unchanged.
+          PLUR1BUS_WEB_BROWSER: ${{ runner.os == 'macOS' && 'off' || '' }}
       - name: slowest 20 test files
         if: always() && needs.changes.outputs.ts-core == 'true'
         run: node scripts/release/timing-summary.mjs test-timings
@@ -145,7 +150,7 @@ jobs:
       - if: needs.changes.outputs.rust == 'true'
         run: cargo test --workspace --no-fail-fast
         timeout-minutes: 20
-  # Not gated: macOS (known failing package: packages/core) and Windows (slow) legs, named as before, `unit (macos-15)` etc.
+  # Not gated: macOS (Core qualification remains unproven) and Windows (slow) legs, named as before, `unit (macos-15)` etc.
   unit-os:
     name: unit (${{ matrix.os }})
     needs: changes
@@ -215,6 +220,11 @@ jobs:
           export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
           pnpm test
         timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
+        env:
+          # macOS finds the system Chrome and would run packages/web's whole browser suite in-line (20+ min, so the step
+          # timed out before core ran). Off here by this explicit switch, never by dropping the Chrome path; the suites
+          # run in `web-browser-macos` below (docs/ci.md). Linux (no Chromium here) and Windows are unchanged.
+          PLUR1BUS_WEB_BROWSER: ${{ runner.os == 'macOS' && 'off' || '' }}
       - name: slowest 20 test files
         if: always() && needs.changes.outputs.ts-core == 'true'
         run: node scripts/release/timing-summary.mjs test-timings
@@ -409,6 +419,55 @@ jobs:
           path: web-browser-shard-${{ matrix.shard }}.json
           if-no-files-found: error
           retention-days: 7
+  # The macOS half of the browser suite (the `unit (macos-15)` job turns it off with PLUR1BUS_WEB_BROWSER=off). Runs where
+  # the other macOS legs run (changes.macos: push to main, schedule, dispatch, label `ci:macos`, platform-sensitive
+  # paths), additionally requiring web=true. Explicit advisory ci-gate dependency: completed failures do not block,
+  # but the gate waits for the outcome. The required `web-browser` aggregate stays Linux-only. Two shards
+  # (macOS runner minutes are scarce, docs/ci.md); lockfile-matched Chromium like the Linux shards. The served-stack tests
+  # (real-transport, real-accounts, surfaces-e2e) need the Rust CLI and stay with the Linux shards: they skip here with a reason.
+  web-browser-macos:
+    name: web-browser (macos-15, ${{ matrix.shard }}/${{ matrix.total }})
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.web == 'true' && needs.changes.outputs.macos == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        total: [2]
+        shard: [1, 2]
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      PLUR1BUS_WEB_E2E_REQUIRED: "1"
+      PLUR1BUS_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.total }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gen && pnpm build
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: install lockfile-matched Chromium
+        run: pnpm --filter @plur1bus/web exec playwright install chromium
+      - name: web browser suites on macOS (axe, keyboard, contrast, responsive and zoom), this shard's files
+        run: pnpm --filter @plur1bus/web test
+        timeout-minutes: 45
   web-browser:
     needs: [changes, web-browser-build, web-browser-shard]
     if: always() && needs.changes.outputs.proceed == 'true' && needs.changes.outputs.web == 'true'
@@ -979,7 +1038,8 @@ jobs:
           node --test scripts/lint-hygiene.test.mjs scripts/check-doc-links.test.mjs scripts/check-docs-commands.test.mjs scripts/bundle-user-docs.test.mjs
           pnpm docs:check
 
-  # THE gate: the one check to wait for (docs/ci.md, CLAUDE.md). It needs only the reliable set (scripts/ci/gate.mjs:
+  # macOS browser is an explicit advisory dependency: wait for its outcome, accept completed failures/skips.
+  # THE gate: the one check to wait for (docs/ci.md, CLAUDE.md). Its required set is (scripts/ci/gate.mjs:
   # docs-hygiene, `unit` = ubuntu-24.04, wsl, and the `web-browser` aggregate over the browser build and every shard). Slow,
   # flaky or experimental jobs are deliberately not in `needs` (`unit-os`, system, service, python-host, sandbox, startup and
   # budget advisories, ...): the gate would otherwise wait for them. A non-macOS label event is a no-op run (`changes` sets
@@ -987,7 +1047,7 @@ jobs:
   # same head commit, and the concurrency group above keeps it from cancelling that run.
   ci-gate:
     name: ${{ (github.event.action == 'labeled' && github.event.label.name != 'ci:macos') && 'ci-gate (label no-op)' || 'ci-gate' }}
-    needs: [changes, docs-hygiene, unit, wsl, web-browser]
+    needs: [changes, docs-hygiene, unit, wsl, web-browser, web-browser-macos]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
