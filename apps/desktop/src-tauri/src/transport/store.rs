@@ -68,10 +68,24 @@ pub enum TransportStoreError {
     TooLarge,
 }
 
+impl TransportStoreError {
+    /// A stable code. Only `transport-store-readonly` is a spec §8 code the shell translates; the others are internal
+    /// command-error strings (no §8 code fits them), stable but not part of the UI catalogue.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::ReadOnly => "transport-store-readonly",
+            Self::NotRemote => "transport-store-not-remote",
+            Self::Connections => "transport-store-connections-unreadable",
+            Self::Io => "transport-store-io",
+            Self::TooLarge => "transport-store-too-large",
+        }
+    }
+}
+
 impl std::fmt::Display for TransportStoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            Self::ReadOnly => "transport-store-readonly",
+            Self::ReadOnly => "transport store: written by a newer app version, read-only",
             Self::NotRemote => "transport store: not a remote connection",
             Self::Connections => "transport store: connections.json is unreadable",
             Self::Io => "transport store: input/output error",
@@ -106,7 +120,16 @@ enum Loaded {
     Missing,
     Current(Sidecar),
     Newer,
+    /// Corrupt (not JSON, oversized, wrong types, bad version): the bytes read, for the move under the write lock.
+    Corrupt(Vec<u8>),
     /// Not readable, not a regular file, or a corrupt file that could not be moved aside.
+    Failed,
+}
+
+enum Quarantine {
+    Moved,
+    /// The file is no longer the corrupt bytes that were read (for example a good write replaced it).
+    Changed,
     Failed,
 }
 
@@ -136,17 +159,17 @@ impl TransportStore {
     }
 
     pub fn mode(&self) -> StoreMode {
-        match self.load() {
+        match self.read_settled() {
             Loaded::Newer => StoreMode::ReadOnlyNewer,
-            Loaded::Missing | Loaded::Current(_) | Loaded::Failed => StoreMode::ReadWrite,
+            _ => StoreMode::ReadWrite,
         }
     }
 
     /// The stored entry, if any. A newer, unreadable or corrupt sidecar has none.
     pub fn get(&self, id: Uuid) -> Option<TransportEntry> {
-        match self.load() {
+        match self.read_settled() {
             Loaded::Current(file) => file.connections.get(&id).cloned(),
-            Loaded::Missing | Loaded::Newer | Loaded::Failed => None,
+            _ => None,
         }
     }
 
@@ -207,13 +230,42 @@ impl TransportStore {
         self.dir.join(FILE)
     }
 
+    /// Called with the write lock held.
     fn load_for_write(&self) -> Result<Sidecar, TransportStoreError> {
-        match self.load() {
+        match self.settle() {
             Loaded::Missing => Ok(Sidecar::default()),
             Loaded::Current(file) => Ok(file),
             Loaded::Newer => Err(TransportStoreError::ReadOnly),
-            Loaded::Failed => Err(TransportStoreError::Io),
+            Loaded::Corrupt(_) | Loaded::Failed => Err(TransportStoreError::Io),
         }
+    }
+
+    /// A read without the write lock. A corrupt file is moved aside only under the lock, after a fresh read
+    /// ([`Self::settle`]), so a reader can never rename a good sidecar a writer has just persisted.
+    fn read_settled(&self) -> Loaded {
+        match self.load() {
+            Loaded::Corrupt(_) => {
+                let _guard = WRITE_OWNER.lock().unwrap_or_else(|e| e.into_inner());
+                self.settle()
+            }
+            other => other,
+        }
+    }
+
+    /// Reads the sidecar with the write lock held and moves a corrupt one aside. A file that changed between the read
+    /// and the move (another process wrote it) is read again, a bounded number of times.
+    fn settle(&self) -> Loaded {
+        for _ in 0..3 {
+            match self.load() {
+                Loaded::Corrupt(bytes) => match self.quarantine(&bytes) {
+                    Quarantine::Moved => return Loaded::Missing,
+                    Quarantine::Changed => continue,
+                    Quarantine::Failed => return Loaded::Failed,
+                },
+                other => return other,
+            }
+        }
+        Loaded::Failed
     }
 
     fn load(&self) -> Loaded {
@@ -228,24 +280,31 @@ impl TransportStore {
             return Loaded::Failed;
         };
         if bytes.len() > MAX_BYTES {
-            return self.quarantine();
+            return Loaded::Corrupt(bytes);
         }
         let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
-            return self.quarantine();
+            return Loaded::Corrupt(bytes);
         };
         match value.get("version").and_then(Value::as_u64) {
             Some(VERSION) => match serde_json::from_value::<Sidecar>(value) {
                 Ok(file) => Loaded::Current(file),
-                Err(_) => self.quarantine(),
+                Err(_) => Loaded::Corrupt(bytes),
             },
             Some(v) if v > VERSION => Loaded::Newer,
-            _ => self.quarantine(),
+            _ => Loaded::Corrupt(bytes),
         }
     }
 
-    /// Moves a corrupt sidecar aside as `connection-transport.json.corrupt-<ms>-<uuid>`; `connections.json` is never
-    /// touched.
-    fn quarantine(&self) -> Loaded {
+    /// Moves a corrupt sidecar aside as `connection-transport.json.corrupt-<ms>-<uuid>`, but only while it still holds
+    /// exactly the corrupt bytes that were read; `connections.json` is never touched. Called with the write lock
+    /// held, so no writer of this process can replace the file in between.
+    fn quarantine(&self, corrupt: &[u8]) -> Quarantine {
+        match read_capped(&self.path()) {
+            Ok(now) if now == corrupt => {}
+            Ok(_) => return Quarantine::Changed,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Quarantine::Changed,
+            Err(_) => return Quarantine::Failed,
+        }
         let ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -254,8 +313,8 @@ impl TransportStore {
             .dir
             .join(format!("{FILE}.corrupt-{ms}-{}", Uuid::now_v7()));
         match fs::rename(self.path(), target) {
-            Ok(()) => Loaded::Missing,
-            Err(_) => Loaded::Failed,
+            Ok(()) => Quarantine::Moved,
+            Err(_) => Quarantine::Failed,
         }
     }
 
@@ -318,18 +377,49 @@ fn read_capped(path: &Path) -> std::io::Result<Vec<u8>> {
 }
 
 /// Spec §3.2: a remote row whose origin host is a `*.ts.net` name or a literal in a Tailscale range uses
-/// Tailscale, every other row the direct path; no confirmation.
+/// Tailscale, every other row the direct path; no confirmation. A stored origin whose host fails spec §4.4 gets the
+/// direct path (the check then refuses it with `host-invalid`).
 fn derived_default(connection: &Connection) -> TransportEntry {
-    let (host, _) = HostInput::from_origin(&connection.origin);
     let tailscale = connection.kind == Kind::Remote
-        && match host {
-            HostInput::Name(_) => host.is_ts_net(),
-            HostInput::Ip(ip) => is_tailnet(ip),
-            HostInput::Localhost => false,
+        && match HostInput::from_origin(&connection.origin) {
+            Ok((host @ HostInput::Name(_), _)) => host.is_ts_net(),
+            Ok((HostInput::Ip(ip), _)) => is_tailnet(ip),
+            Ok((HostInput::Localhost, _)) | Err(_) => false,
         };
     TransportEntry::new(if tailscale {
         Transport::Tailscale
     } else {
         Transport::Direct
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The interleaving of review Minor 1: a reader saw corrupt bytes, then a writer replaced the file with a good
+    /// sidecar before the reader got the lock. The move must not happen.
+    #[test]
+    fn quarantine_skips_a_file_that_changed_since_it_was_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = TransportStore::open(dir.path());
+        fs::write(store.path(), b"{ corrupt").unwrap();
+        let Loaded::Corrupt(seen) = store.load() else {
+            panic!("expected a corrupt sidecar")
+        };
+        let good = br#"{"version":1,"connections":{}}"#;
+        fs::write(store.path(), good).unwrap();
+        assert!(matches!(store.quarantine(&seen), Quarantine::Changed));
+        assert_eq!(fs::read(store.path()).unwrap(), good);
+        assert!(matches!(store.read_settled(), Loaded::Current(_)));
+        // Gone in between: changed as well, nothing to move.
+        fs::remove_file(store.path()).unwrap();
+        assert!(matches!(store.quarantine(&seen), Quarantine::Changed));
+        // Still the bytes that were read: moved aside.
+        fs::write(store.path(), b"{ corrupt").unwrap();
+        assert!(matches!(store.quarantine(&seen), Quarantine::Moved));
+        assert!(!store.path().exists());
+        let copies = fs::read_dir(dir.path()).unwrap().count();
+        assert_eq!(copies, 1);
+    }
 }

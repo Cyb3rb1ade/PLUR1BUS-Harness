@@ -107,10 +107,12 @@ pub struct CheckDeps {
 /// Refusals and command errors (spec §8). Only invalid input refuses; everything else is a hint.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransportError {
-    /// No connectable address (unspecified, multicast, broadcast), or a host string that is not a valid host at all.
+    /// No connectable address remains (unspecified, multicast, broadcast).
     NotConnectable,
     /// An IPv4 address in a legacy `inet_aton` spelling (`127.1`, `0x7f000001`, `017700000001`).
     NonCanonicalIpv4,
+    /// A host string that is not a valid host at all (spec §4.4; see [`HostInput::parse`]).
+    HostInvalid,
     /// NXDOMAIN or no address.
     Unresolved,
     /// The resolver did not answer within [`LOOKUP_TIMEOUT`].
@@ -127,6 +129,7 @@ impl TransportError {
         match self {
             Self::NotConnectable => "target-not-connectable",
             Self::NonCanonicalIpv4 => "host-ipv4-noncanonical",
+            Self::HostInvalid => "host-invalid",
             Self::Unresolved => "target-unresolved",
             Self::DnsTimeout => "target-dns-timeout",
             Self::ConfirmNeeded => "transport-confirm-needed",
@@ -255,11 +258,16 @@ pub async fn check_target(
     })
 }
 
-/// Lets a connect go ahead unless the fresh report is public and there is no confirmation (spec §7.1, §8). A stored
-/// confirmation exists only for a target that was public when it was given (package T4 stores it that way), so a
-/// target that turned public later meets no confirmation here and needs a new one.
+/// Lets a connect go ahead unless the fresh report is public and there is no valid confirmation (spec §2 T10, §7.1,
+/// §8). A confirmation is valid only under the classifier snapshot of the report: after a snapshot update the person
+/// confirms again (fails closed). The resolved addresses play no part. The confirmation may come from the store or,
+/// while the store cannot persist it, from memory for the app session (spec §3.2; package T4).
+///
+/// A stored confirmation exists only for a target that was public when it was given (package T4 stores it that way
+/// and clears it on a host or transport change), so a target that turned public later meets no confirmation here.
 pub fn gate(report: &TransportReport, ack: Option<&PublicAck>) -> Result<(), TransportError> {
-    if report.needs_public_ack && ack.is_none() {
+    let valid = ack.is_some_and(|a| a.classifier == report.classifier);
+    if report.needs_public_ack && !valid {
         return Err(TransportError::ConfirmNeeded);
     }
     Ok(())

@@ -28,12 +28,15 @@ impl HostInput {
     /// one optional trailing dot), a canonical dotted-quad IPv4, an IPv6 literal with or without brackets and without
     /// a zone id, or `localhost`.
     ///
-    /// An IPv4 address in a legacy `inet_aton` spelling is refused with [`TransportError::NonCanonicalIpv4`] (the OS
-    /// resolver would turn it into an address the person did not write). Every other invalid string, including a zone
-    /// id, white space, `_` or an over-long label or name, is refused with [`TransportError::NotConnectable`]: spec §8
-    /// has no separate code for malformed host syntax.
+    /// An IPv4 address in a legacy `inet_aton` spelling (or one the IDNA mapping turns into an address, such as
+    /// full-width digits or `1.2.3.4.`) is refused with [`TransportError::NonCanonicalIpv4`]: the OS resolver would
+    /// turn it into an address the person did not write. Every other invalid string is refused with
+    /// [`TransportError::HostInvalid`]: empty or over 1024 bytes; white space, control characters, U+FEFF or `%` (zone
+    /// ids, percent-encoding); a `[`-prefixed or `:`-containing string that is not a strict IPv6 literal (`host:22`,
+    /// `[::1]:22`, `[192.168.1.1]`); a URL host error; a name that fails the LDH rules after IDNA. A canonical
+    /// unspecified, multicast or broadcast literal is valid syntax; [`super::check_target`] refuses it.
     pub fn parse(input: &str) -> Result<Self, TransportError> {
-        const INVALID: TransportError = TransportError::NotConnectable;
+        const INVALID: TransportError = TransportError::HostInvalid;
         // White space, control characters and `%` (a zone id, or percent-encoding the URL host parser would decode)
         // are refused before any parser sees the string; `parse_address` alone would trim white space.
         if input.is_empty()
@@ -75,24 +78,16 @@ impl HostInput {
         }
     }
 
-    /// The host and effective port of an already validated origin. `Origin::parse` has refused the legacy IPv4
-    /// spellings, user info, paths and zone ids; the host is taken as the URL parser normalised it.
-    pub fn from_origin(origin: &Origin) -> (Self, u16) {
-        let Ok(url) = url::Url::parse(origin.as_str()) else {
-            // Unreachable for a parsed `Origin`; an empty name fails the lookup instead of guessing a host.
-            return (Self::Name(String::new()), 0);
-        };
-        let port = url.port_or_known_default().unwrap_or(0);
-        let host = match url.host() {
-            Some(url::Host::Domain(d)) if d.strip_suffix('.').unwrap_or(d) == "localhost" => {
-                Self::Localhost
-            }
-            Some(url::Host::Domain(d)) => Self::Name(d.to_owned()),
-            Some(url::Host::Ipv4(a)) => Self::Ip(IpAddr::V4(a)),
-            Some(url::Host::Ipv6(a)) => Self::Ip(IpAddr::V6(a)),
-            None => Self::Name(String::new()),
-        };
-        (host, port)
+    /// The host and effective port of an origin, with the same §4.4 checks as [`HostInput::parse`] applied to the
+    /// host the URL parser normalised. `Origin::parse` admits names spec §4.4 does not (`_`, a label over 63 bytes, a
+    /// name over 253 bytes); such a stored origin is refused with [`TransportError::HostInvalid`].
+    pub fn from_origin(origin: &Origin) -> Result<(Self, u16), TransportError> {
+        let url = url::Url::parse(origin.as_str()).map_err(|_| TransportError::HostInvalid)?;
+        let host = Self::parse(url.host_str().ok_or(TransportError::HostInvalid)?)?;
+        let port = url
+            .port_or_known_default()
+            .ok_or(TransportError::HostInvalid)?;
+        Ok((host, port))
     }
 
     /// Whether this is a `*.ts.net` name (case-insensitive, trailing dot allowed; spec §5.1).

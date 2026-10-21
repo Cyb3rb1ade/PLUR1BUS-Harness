@@ -460,6 +460,7 @@ fn every_error_has_its_spec_code() {
     let cases = [
         (TransportError::NotConnectable, "target-not-connectable"),
         (TransportError::NonCanonicalIpv4, "host-ipv4-noncanonical"),
+        (TransportError::HostInvalid, "host-invalid"),
         (TransportError::Unresolved, "target-unresolved"),
         (TransportError::DnsTimeout, "target-dns-timeout"),
         (TransportError::ConfirmNeeded, "transport-confirm-needed"),
@@ -551,4 +552,113 @@ fn transport_and_purpose_wire_names() {
     assert_eq!(serde_json::to_value(Purpose::Ssh).unwrap(), "ssh");
     assert_eq!(serde_json::to_value(Purpose::SshJump).unwrap(), "ssh-jump");
     assert!(serde_json::from_value::<Transport>(serde_json::json!("Tailscale")).is_err());
+}
+
+#[tokio::test]
+async fn gate_refuses_an_ack_from_another_classifier_snapshot() {
+    let (_, got) = check("vps.example", Ok(vec!["8.8.8.8"]), Transport::Direct).await;
+    let public = got.unwrap().report;
+    let mut old = PublicAck::now();
+    old.classifier = "iana-special-2024-01-01".into();
+    assert_eq!(
+        gate(&public, Some(&old)),
+        Err(TransportError::ConfirmNeeded)
+    );
+    // An ack held in memory for the session (store read-only) goes through the same gate.
+    assert!(gate(&public, Some(&PublicAck::now())).is_ok());
+    // A non-public target never needs one, whatever the ack says.
+    let (_, got) = check("nas.corp.example", Ok(vec!["10.0.0.5"]), Transport::Direct).await;
+    assert!(gate(&got.unwrap().report, Some(&old)).is_ok());
+}
+
+#[tokio::test]
+async fn translator_and_mapped_forms_in_the_connect_set() {
+    // NAT64 carrying 0.0.0.0 and mapped 0.0.0.0 are not connectable and stay out of the pin.
+    let (_, got) = check(
+        "xlat.example",
+        Ok(vec!["64:ff9b::", "::ffff:0.0.0.0", "10.0.0.5"]),
+        Transport::Direct,
+    )
+    .await;
+    let checked = got.unwrap();
+    assert_eq!(checked.pin.addrs, vec![sock("10.0.0.5")]);
+    assert_eq!(checked.report.category, Some(Category::Private));
+    assert_eq!(
+        checked.report.hints[0]
+            .params
+            .get("addresses")
+            .map(String::as_str),
+        Some("64:ff9b::, 0.0.0.0")
+    );
+    // NAT64 carrying 100.64/10 reaches the translator's network: special, and not a tailnet target.
+    let (_, got) = check(
+        "nat64.example",
+        Ok(vec!["64:ff9b::6440:1"]),
+        Transport::Direct,
+    )
+    .await;
+    let checked = got.unwrap();
+    assert_eq!(checked.report.category, Some(Category::Special));
+    assert_eq!(codes(&checked.report), vec!["target-special"]);
+    assert_eq!(checked.pin.addrs, vec![sock("64:ff9b::6440:1")]);
+    let (_, got) = check(
+        "nat64.example",
+        Ok(vec!["64:ff9b::6440:1"]),
+        Transport::Tailscale,
+    )
+    .await;
+    assert_eq!(
+        codes(&got.unwrap().report),
+        vec!["target-special", "tailscale-not-tailnet-target"]
+    );
+    // Mapped 100.64/10 is the IPv4 host itself: tailnet, no such hint.
+    let (_, got) = check(
+        "mapped.example",
+        Ok(vec!["::ffff:100.64.0.1"]),
+        Transport::Tailscale,
+    )
+    .await;
+    let checked = got.unwrap();
+    assert_eq!(checked.report.category, Some(Category::Tailnet));
+    assert!(codes(&checked.report).is_empty());
+    assert_eq!(checked.report.addresses, vec!["100.64.0.1"]);
+}
+
+#[test]
+fn tailscale_status_debug_prints_no_names_or_addresses() {
+    use plur1bus_desktop::transport::{PeerView, TailnetView};
+    let peer = PeerView {
+        dns_name: "secret-nas.tail1234.ts.net.".into(),
+        host_name: "secret-nas".into(),
+        ips: vec!["100.101.102.103".parse().unwrap()],
+        online: true,
+        expired: false,
+        routes: vec![plur1bus_desktop_net::parse_cidr("192.168.77.0/24").unwrap()],
+    };
+    let view = TailnetView {
+        self_ips: vec!["100.99.98.97".parse().unwrap()],
+        magic_suffix: Some("tail1234.ts.net".into()),
+        peers: vec![peer.clone()],
+    };
+    let status = TailscaleStatus::Running(view.clone());
+    for text in [
+        format!("{peer:?}"),
+        format!("{view:?}"),
+        format!("{status:?}"),
+        format!("{status:#?}"),
+    ] {
+        for secret in [
+            "secret-nas",
+            "tail1234",
+            "100.101.102.103",
+            "100.99.98.97",
+            "192.168.77",
+        ] {
+            assert!(!text.contains(secret), "{secret} in {text}");
+        }
+    }
+    assert_eq!(
+        format!("{view:?}"),
+        "TailnetView { self_ips: 1, magic_suffix: true, peers: 1 }"
+    );
 }

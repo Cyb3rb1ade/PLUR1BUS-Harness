@@ -211,7 +211,7 @@ fn newer_version_is_read_only_and_untouched() {
         .set(a.id, TransportEntry::new(Transport::Direct))
         .unwrap_err();
     assert_eq!(err, TransportStoreError::ReadOnly);
-    assert_eq!(err.to_string(), "transport-store-readonly");
+    assert_eq!(err.code(), "transport-store-readonly");
     assert_eq!(store.remove(a.id), Err(TransportStoreError::ReadOnly));
     assert_eq!(store.gc(&[]), Err(TransportStoreError::ReadOnly));
     assert_eq!(fs::read(dir.path().join(SIDECAR)).unwrap(), body);
@@ -423,4 +423,66 @@ fn unreadable_connections_json_refuses_writes_and_keeps_it() {
     );
     assert!(corrupt_connections(dir.path()).is_empty());
     assert!(!dir.path().join(SIDECAR).exists());
+}
+
+#[test]
+fn stored_origin_failing_the_host_rules_defaults_to_direct() {
+    let dir = tempfile::tempdir().unwrap();
+    let odd = row(Kind::Remote, "https://nas_box.tail1234.ts.net");
+    seed(dir.path(), std::slice::from_ref(&odd));
+    let store = TransportStore::open(dir.path());
+    assert_eq!(store.effective(&odd).transport, Transport::Direct);
+}
+
+#[test]
+fn error_codes_are_stable() {
+    let cases = [
+        (TransportStoreError::ReadOnly, "transport-store-readonly"),
+        (TransportStoreError::NotRemote, "transport-store-not-remote"),
+        (
+            TransportStoreError::Connections,
+            "transport-store-connections-unreadable",
+        ),
+        (TransportStoreError::Io, "transport-store-io"),
+        (TransportStoreError::TooLarge, "transport-store-too-large"),
+    ];
+    for (err, code) in cases {
+        assert_eq!(err.code(), code);
+        assert!(err.to_string().starts_with("transport store: "), "{err}");
+    }
+}
+
+#[test]
+fn readers_never_move_aside_a_sidecar_a_writer_just_stored() {
+    // Readers race a writer over a corrupt sidecar. The corrupt file is moved aside under the write lock only, after
+    // a fresh read, so the writer's entry always survives.
+    for round in 0..40 {
+        let dir = tempfile::tempdir().unwrap();
+        let a = row(Kind::Remote, "https://harness.corp.example");
+        seed(dir.path(), std::slice::from_ref(&a));
+        fs::write(dir.path().join(SIDECAR), b"{ corrupt").unwrap();
+        let store = std::sync::Arc::new(TransportStore::open(dir.path()));
+        let start = std::sync::Arc::new(std::sync::Barrier::new(5));
+        let mut threads = Vec::new();
+        for _ in 0..4 {
+            let (store, start, a) = (store.clone(), start.clone(), a.clone());
+            threads.push(std::thread::spawn(move || {
+                start.wait();
+                for _ in 0..25 {
+                    let _ = store.effective(&a);
+                    let _ = store.mode();
+                }
+            }));
+        }
+        start.wait();
+        store.set(a.id, direct_acked()).unwrap();
+        for t in threads {
+            t.join().unwrap();
+        }
+        let got = store
+            .get(a.id)
+            .unwrap_or_else(|| panic!("round {round}: entry lost"));
+        assert!(got.public_ack.is_some(), "round {round}");
+        assert_eq!(corrupt_copies(dir.path()).len(), 1, "round {round}");
+    }
 }
