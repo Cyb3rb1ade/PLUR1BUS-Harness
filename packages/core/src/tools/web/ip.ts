@@ -232,7 +232,8 @@ export function classifyAddress(input: ParsedAddress): Verdict {
  * by the IPv4 address they carry, and calls everything outside 2000::/3 `reserved`. The shared vector file pins all of it.
  */
 export function classificationTable(): ReadonlyArray<{ readonly cidr: string; readonly reason: string }> {
-  return registered;
+  // A fresh frozen copy per call: a caller cannot change the table `classifyAddress` was built from.
+  return Object.freeze(registered.map((row) => Object.freeze({ cidr: row.cidr, reason: row.reason })));
 }
 
 // ---- cidrContainsPublic (spec §4.5) -------------------------------------------------------------------------------
@@ -259,6 +260,8 @@ const spanOf = (cidr: string, width: number): Span => spanFrom(parseCidr(cidr)!,
 const covers = (outer: Span, inner: Span, width: number): boolean =>
   outer.prefix <= inner.prefix && maskTo(inner.base, width, outer.prefix) === outer.base;
 
+// FAMILY_V4 and FAMILY_V6 restate what classifyAddress treats as non-public (the tables, 255.255.255.255, the complement
+// of 2000::/3, the embedded-IPv4 blocks): they must mirror classifyAddress; guarded by the ip-vectors sweeps.
 const FAMILY_V4: Family = {
   width: 32,
   closed: [...v4Ranges.map(([c]) => spanFrom(c, 32)), spanOf("255.255.255.255/32", 32)],

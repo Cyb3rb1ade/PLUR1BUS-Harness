@@ -58,6 +58,44 @@ const rangeOf = (c: Cidr): { lo: bigint; hi: bigint } => {
 };
 const isPublic = (a: ParsedAddress): boolean => classifyAddress(a).public;
 
+const cmpBig = (x: bigint, y: bigint): number => (x < y ? -1 : x > y ? 1 : 0);
+const blockOf = (cidr: string): { lo: bigint; hi: bigint } => rangeOf(parseCidr(cidr)!);
+
+/**
+ * Independent oracle for "lowest public address of [lo, hi]": a public run starts at the range start or right after a
+ * non-public interval, so test those candidates in order with `classifyAddress` and take the first public one.
+ * `ends` holds the last address of every non-public interval (a superset is harmless).
+ */
+function lowestPublicOracle(family: 4 | 6, lo: bigint, hi: bigint, ends: readonly bigint[]): bigint | undefined {
+  const candidates = [lo, ...ends.map((e) => e + 1n).filter((n) => n > lo && n <= hi)].sort(cmpBig);
+  return candidates.find((n) => isPublic(fromBig(family, n)));
+}
+
+const v4Rows = (): Array<{ lo: bigint; hi: bigint }> => [
+  ...classificationTable().filter((r) => !r.cidr.includes(":")).map((r) => blockOf(r.cidr)),
+  { lo: 0xffffffffn, hi: 0xffffffffn }, // limited broadcast: a special case in classifyV4, not a row
+];
+
+/**
+ * The last address of every interval the IPv6 classifier can end a non-public run at: the 12 IPv6 rows, the complement of
+ * 2000::/3 (::/3, 4000::/2, 8000::/1), the three embedded-IPv4 blocks, and every IPv4 non-public block lifted into each of
+ * them (mapped and NAT64 at +0, 6to4 shifted past the 16-bit prefix). Written down here, not read from ip.ts internals.
+ */
+function v6Ends(): bigint[] {
+  const base = (s: string): bigint => toBig(parse(s).bytes);
+  const lifts = [
+    { at: base("::ffff:0:0"), shift: 0n },
+    { at: base("64:ff9b::"), shift: 0n },
+    { at: base("2002::"), shift: 80n },
+  ];
+  const blocks = [
+    ...classificationTable().filter((r) => r.cidr.includes(":")).map((r) => blockOf(r.cidr)),
+    ...["::/3", "4000::/2", "8000::/1", "::ffff:0:0/96", "64:ff9b::/96", "2002::/16"].map(blockOf),
+    ...lifts.flatMap((l) => v4Rows().map((b) => ({ lo: l.at | (b.lo << l.shift), hi: l.at | (b.hi << l.shift) | ((1n << l.shift) - 1n) }))),
+  ];
+  return blocks.map((b) => b.hi);
+}
+
 /** The result is public, lies in the range and is the lowest such address (the one just below it is not public). */
 function assertFirstPublic(c: Cidr, got: ParsedAddress, label: string): void {
   assert.equal(isPublic(got), true, `${label}: result is public`);
@@ -75,6 +113,22 @@ describe("vectors: header", () => {
   it("vectors: registries equal IANA_SPECIAL_REGISTRY", () => {
     assert.deepEqual(vectors.registries.ipv4, IANA_SPECIAL_REGISTRY.ipv4);
     assert.deepEqual(vectors.registries.ipv6, IANA_SPECIAL_REGISTRY.ipv6);
+  });
+  it("vectors: classificationTable() hands out a frozen copy; mutating it does not change a second call", () => {
+    const first = classificationTable() as Array<{ cidr: string; reason: string }>;
+    assert.equal(Object.isFrozen(first), true);
+    assert.notEqual(classificationTable(), first, "a fresh array per call");
+    assert.throws(() => first.push({ cidr: "8.8.8.8/32", reason: "reserved" }), TypeError);
+    assert.throws(() => first.pop(), TypeError);
+    assert.throws(() => {
+      first[0]!.reason = "public";
+    }, TypeError);
+    assert.throws(() => {
+      first[0] = { cidr: "0.0.0.0/0", reason: "reserved" };
+    }, TypeError);
+    const second = classificationTable();
+    assert.deepEqual(second, vectors.table);
+    assert.equal(isPublic(parse("8.8.8.8")), true, "the classifier is unaffected too");
   });
   it("vectors: classificationTable() equals table row by row", () => {
     const code = classificationTable();
@@ -146,15 +200,12 @@ describe("vectors: cidrs", () => {
   });
 
   it("cidrContainsPublic never returns a non-public address: every IPv4 /8", () => {
-    const rows = classificationTable().filter((r) => !r.cidr.includes(":"));
-    const v4Blocks = [...rows.map((r) => rangeOf(parseCidr(r.cidr)!)), { lo: 0xffffffffn, hi: 0xffffffffn }];
+    const ends = v4Rows().map((b) => b.hi);
     for (let o = 0; o < 256; o++) {
       const c: Cidr = { family: 4, bytes: Uint8Array.of(o, 0, 0, 0), prefix: 8 };
       const got = cidrContainsPublic(c);
-      // Independent oracle: the lowest public address is the range start or the address right after a non-public block.
       const { lo, hi } = rangeOf(c);
-      const candidates = [lo, ...v4Blocks.map((b) => b.hi + 1n).filter((n) => n > lo && n <= hi)].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0));
-      const expected = candidates.find((n) => isPublic(fromBig(4, n)));
+      const expected = lowestPublicOracle(4, lo, hi, ends);
       if (expected === undefined) {
         assert.equal(got, null, `${o}.0.0.0/8`);
       } else {
@@ -175,11 +226,22 @@ describe("vectors: cidrs", () => {
       t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
-    const check = (c: Cidr): void => {
+    const ends = v6Ends();
+    // The result is exactly what the candidate-set oracle finds (same lowest public address, or none for both).
+    const check = (c: Cidr): boolean => {
+      const label = `${Buffer.from(c.bytes).toString("hex")}/${c.prefix}`;
       const got = cidrContainsPublic(c);
-      if (got === null) return;
+      const { lo, hi } = rangeOf(c);
+      const expected = lowestPublicOracle(6, lo, hi, ends);
+      if (expected === undefined) {
+        assert.equal(got, null, `${label}: no public address`);
+        return false;
+      }
+      assert.ok(got, `${label}: has a public address`);
       assert.equal(got.family, 6);
-      assertFirstPublic(c, got, `${Buffer.from(c.bytes).toString("hex")}/${c.prefix}`);
+      assert.equal(toBig(got.bytes), expected, `${label}: lowest public`);
+      assertFirstPublic(c, got, label);
+      return true;
     };
     let hits = 0;
     for (let i = 0; i < 4096; i++) {
@@ -187,20 +249,31 @@ describe("vectors: cidrs", () => {
       // Half of the samples are forced into 2000::/3, where the answers are not trivially "none".
       for (let k = 0; k < 4; k++) bytes[k] = Math.floor(next() * 256);
       if (i % 2 === 0) bytes[0] = (bytes[0]! & 0x1f) | 0x20;
-      const c: Cidr = { family: 6, bytes, prefix: 32 };
-      if (cidrContainsPublic(c)) hits++;
-      check(c);
+      if (check({ family: 6, bytes, prefix: 32 })) hits++;
     }
     assert.ok(hits > 1500, `the sweep reaches public space (${hits})`);
     for (let n = 0; n < 65536; n++) check({ family: 6, bytes: Uint8Array.of(n >> 8, n & 0xff, ...new Array<number>(14).fill(0)), prefix: 16 });
+
+    // Any prefix, host bits set: random bases, and bases within two addresses of every block edge (half of the samples).
+    let edgeHits = 0;
+    for (let i = 0; i < 8192; i++) {
+      let n: bigint;
+      if (i % 2 === 0) {
+        n = 0n;
+        for (let k = 0; k < 16; k++) n = (n << 8n) | BigInt(Math.floor(next() * 256));
+      } else {
+        const e = ends[Math.floor(next() * ends.length)]!;
+        n = (e + BigInt(Math.floor(next() * 5)) - 2n) & ((1n << 128n) - 1n);
+      }
+      if (check({ family: 6, bytes: fromBig(6, n).bytes, prefix: Math.floor(next() * 129) }) && i % 2 === 1) edgeHits++;
+    }
+    assert.ok(edgeHits > 500, `the edge samples reach public space (${edgeHits})`);
   });
 
-  it("vectors: a range inside one non-public row has no public address, for every table row", () => {
+  it("vectors: every table row, taken as a range, has no public address", () => {
     for (const row of classificationTable()) {
-      const c = parseCidr(row.cidr)!;
-      const got = cidrContainsPublic(c);
-      // ::/96 is the one row that contains no IPv4-mapped block; 64:ff9b:1::/48 and the others are plain blocks too.
-      assert.equal(got, null, row.cidr);
+      // Each row is a non-public block, and none of them holds an embedded-IPv4 block (::/96 ends before ::ffff:0:0/96).
+      assert.equal(cidrContainsPublic(parseCidr(row.cidr)!), null, row.cidr);
     }
   });
 });
@@ -219,7 +292,10 @@ describe("vectors: categories (read by the Rust crate; shape and spec 4.3 here)"
     const a = canonical(parse(input));
     const v = classifyAddress(a);
     if (v.reason === "unspecified" || v.reason === "multicast" || hex(a) === hex(parse("255.255.255.255"))) return "not-connectable";
+    // `a` is already canonical: an IPv4-mapped address is the IPv4 host (mapped 100.64.0.0/10 is tailnet).
     if (inside(a, TAILNET_V4) || inside(a, TAILNET_V6)) return "tailnet";
+    // Still shared-address-space here: NAT64 / 6to4 carrying 100.64.0.0/10. It reaches the translator's network, not the tailnet.
+    if (v.reason === "shared-address-space") return "special";
     if (v.reason === "loopback") return "loopback";
     if (v.reason === "private" || v.reason === "link-local") return "private";
     if (v.reason === "reserved" || v.reason === "cloud-metadata") return "special";
@@ -241,6 +317,28 @@ describe("vectors: categories (read by the Rust crate; shape and spec 4.3 here)"
   });
   it("vectors: category rows agree with spec 4.3 applied to classifyAddress", () => {
     for (const row of vectors.categories) assert.equal(category(row.input), row.category, row.input);
+  });
+  it("vectors: IPv4-mapped carrying 100.64.0.0/10 is tailnet, a translator carrying it is special (spec 4.3)", () => {
+    const pinned: Record<string, string> = {
+      // IPv4-mapped: the same host as the IPv4 address
+      "::ffff:100.64.0.1": "tailnet", "::ffff:6440:1": "tailnet", "::ffff:100.127.255.255": "tailnet",
+      "::ffff:100.63.255.255": "public", "::ffff:100.128.0.0": "public",
+      // NAT64 and 6to4 only carry the address through a translator
+      "64:ff9b::6440:0": "special", "64:ff9b::6440:1": "special", "64:ff9b::647f:ffff": "special",
+      "64:ff9b:1::6440:1": "special", "2002:6440:1::1": "special", "2002:647f:ffff::1": "special",
+      "64:ff9b::643f:ffff": "public", "64:ff9b::6480:0": "public", "2002:643f:ffff::1": "public", "2002:6480::1": "public",
+    };
+    for (const [input, want] of Object.entries(pinned)) {
+      assert.equal(vectors.categories.find((r) => r.input === input)?.category, want, `${input}: category row`);
+    }
+    // Every shared-address-space address row: an IPv4 host (native or mapped) is tailnet, anything else is a translator.
+    let seen = 0;
+    for (const row of vectors.addresses) {
+      if (row.reason !== "shared-address-space") continue;
+      seen++;
+      assert.equal(category(row.input), canonical(parse(row.input)).family === 4 ? "tailnet" : "special", row.input);
+    }
+    assert.ok(seen >= 8, `shared-address-space rows exist (${seen})`);
   });
 });
 
@@ -266,11 +364,16 @@ describe("vectors: required rows are present", () => {
       const { lo, hi } = rangeOf(c);
       const max = (1n << maxBits(c.family)) - 1n;
       const wanted = [lo, hi, ...(lo > 0n ? [lo - 1n] : []), ...(hi < max ? [hi + 1n] : [])].map((n) => fromBig(c.family, n));
-      const known = new Set(vectors.addresses.map((r) => hex(canonical(parse(r.input)))));
-      const knownRaw = new Set(vectors.addresses.map((r) => hex(parse(r.input))));
+      const ipv6Bytes = new Set(vectors.addresses.map((r) => hex(parse(r.input))));
       for (const w of wanted) {
-        // IPv4 is judged by its dotted form; an IPv6 row matches by its own bytes.
-        assert.ok(known.has(hex(w)) || knownRaw.has(hex(w)), `${row.cidr}: ${hex(w)} missing`);
+        // An IPv4 edge must appear as its literal dotted quad (not as a mapped or otherwise equivalent spelling);
+        // an IPv6 edge matches by its bytes, whatever the spelling.
+        if (w.family === 4) {
+          const dotted = Array.from(w.bytes).join(".");
+          assert.ok(have.has(dotted), `${row.cidr}: dotted ${dotted} missing`);
+        } else {
+          assert.ok(ipv6Bytes.has(hex(w)), `${row.cidr}: ${hex(w)} missing`);
+        }
       }
     }
   });
