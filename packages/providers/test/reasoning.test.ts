@@ -64,15 +64,20 @@ test("Anthropic: budget becomes thinking, max_tokens is lifted above the budget,
   invalid(() => buildAnthropicBody({ model: "c", messages: hi, reasoning: { vendorParam: "reasoning_effort", value: "high" } }, { stream: false, defaultMaxTokens: 4096 }), /not supported by the Anthropic Messages wire/);
 });
 
-test("Anthropic: a request that continues a tool loop goes without thinking (signatures are not carried yet)", () => {
+test("Anthropic: an unsigned thinking tool continuation is refused rather than silently dropping thinking", () => {
   const loop: ChatRequest["messages"] = [
-    { role: "user", content: "weather?" },
-    { role: "assistant", content: null, toolCalls: [{ id: "t1", name: "w", arguments: "{}" }] },
-    { role: "tool", toolCallId: "t1", content: "sunny" },
+    {role:"user",content:"weather?"},
+    {role:"assistant",content:null,toolCalls:[{id:"t1",name:"w",arguments:"{}"}]},
+    {role:"tool",toolCallId:"t1",content:"sunny"},
   ];
-  const b = buildAnthropicBody({ model: "c", messages: loop, tools: [{ name: "w" }], reasoning: { vendorParam: "thinking.budget_tokens", value: 2048 } }, { stream: false, defaultMaxTokens: 4096 });
-  assert.equal("thinking" in b, false);
-  assert.equal(b["max_tokens"], 4096);
+  invalid(()=>buildAnthropicBody({model:"c",messages:loop,reasoning:{vendorParam:"thinking.budget_tokens",value:2048}},{stream:false,defaultMaxTokens:4096}),/original signed thinking blocks/);
+});
+
+test("Anthropic stable effort uses output_config without a beta header or budget",()=>{
+ const body=buildAnthropicBody({model:"claude-opus-4-5",messages:hi,reasoning:{vendorParam:"output_config.effort",value:"high"}},{stream:false,defaultMaxTokens:4096});
+ assert.deepEqual(body.output_config,{effort:"high"});assert.equal("thinking" in body,false);
+ invalid(()=>buildAnthropicBody({model:"c",messages:hi,reasoning:{vendorParam:"output_config.effort",value:"banana"}},{stream:false,defaultMaxTokens:4096}),/effort must be/);
+ invalid(()=>buildAnthropicBody({model:"c",messages:hi,maxTokens:Number.MAX_SAFE_INTEGER,reasoning:{vendorParam:"thinking.budget_tokens",value:Number.MAX_SAFE_INTEGER}},{stream:false,defaultMaxTokens:4096}),/safe integer/);
 });
 
 test("Gemini: thinkingBudget (2.5) and thinkingLevel (3) inside generationConfig.thinkingConfig", () => {
@@ -89,4 +94,12 @@ test("Responses: the directive wins over the adapter default, an explicit provid
   assert.deepEqual(buildResponsesBody({ model: "o", messages: hi }, opts)["reasoning"], { effort: "low" });
   invalid(() => buildResponsesBody({ model: "o", messages: hi, reasoning: { vendorParam: "reasoning.effort", value: "turbo" } }, opts), /none, minimal, low, medium, high or xhigh/);
   invalid(() => buildResponsesBody({ model: "o", messages: hi, reasoning: { vendorParam: "thinking.budget_tokens", value: 2048 } }, opts), /not supported by the Responses wire/);
+});
+
+test("adaptive effort explicitly enables thinking and keeps a single bounded output maximum",()=>{
+ const directive=reasoningDirective("high",{kind:"effort",levels:["high"],vendorParam:"output_config.effort",adaptiveThinking:true,source:"table"});
+ assert.deepEqual(directive,{vendorParam:"output_config.effort",value:"high",adaptiveThinking:true});
+ const body=buildAnthropicBody({model:"claude-opus-4-6",messages:hi,maxTokens:2048,reasoning:directive},{stream:false,defaultMaxTokens:4096});
+ assert.deepEqual(body.thinking,{type:"adaptive"});assert.deepEqual(body.output_config,{effort:"high"});assert.equal(body.max_tokens,2048);
+ invalid(()=>buildAnthropicBody({model:"c",messages:hi,temperature:0.7,reasoning:directive},{stream:false,defaultMaxTokens:4096}),/sampling controls/);
 });

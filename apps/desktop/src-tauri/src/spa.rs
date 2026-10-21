@@ -440,11 +440,7 @@ pub async fn open_spa(
             }
             match policy::navigation(&origin, &upstream, url) {
                 NavDecision::Allow if policy::same_origin(url, &upstream) => {
-                    let mut mapped = url.clone();
-                    let local = Url::parse(origin.as_str()).unwrap();
-                    let _ = mapped.set_scheme(local.scheme());
-                    let _ = mapped.set_host(local.host_str());
-                    let _ = mapped.set_port(local.port());
+                    let mapped = policy::to_proxy(&origin, &upstream, url);
                     if let Some(window) = handle.get_webview_window("spa") {
                         let _ = window.navigate(mapped);
                     }
@@ -473,8 +469,11 @@ pub async fn open_spa(
                         }
                     }
                     NavDecision::Allow => {
+                        // Upstream targets are remapped onto the proxy like in-window
+                        // navigation; the SPA window never loads the upstream directly.
+                        let target = policy::to_proxy(popup_proxy.origin(), &popup_upstream, &url);
                         if let Some(window) = popup_handle.get_webview_window("spa") {
-                            let _ = window.navigate(url);
+                            let _ = window.navigate(target);
                         }
                     }
                     NavDecision::Block => {}

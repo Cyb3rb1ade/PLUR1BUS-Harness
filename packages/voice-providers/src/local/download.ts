@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { createWriteStream } from "node:fs";
+import type { Writable } from "node:stream";
 import { access, lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { dirname, join, sep } from "node:path";
@@ -38,6 +39,8 @@ export interface DownloadOptions {
   maxEntries?: number;
   /** Test seam for the final directory moves. */
   rename?: (from: string, to: string) => Promise<void>;
+  /** Test seam for the `.part` file writer (to provoke ENOSPC and open failures). */
+  openPart?: (path: string, flags: "a" | "w") => Writable;
 }
 
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024 * 1024;
@@ -231,28 +234,49 @@ async function fetchItem(model: CatalogModel, item: DownloadItem, index: number,
       if (Number.isFinite(len) && len > 0 && have + len > cap) { await res.body?.cancel().catch(() => {}); throw new VoiceProviderError("download_failed", `download of ${model.displayName} exceeds size limit`); }
       if (total === null && Number.isFinite(len) && len > 0) total = len + have;
       if (!res.body) throw new VoiceProviderError("download_failed", `download of ${model.displayName} failed (no body)`);
-      const out = createWriteStream(part, { flags: have > 0 ? "a" : "w" });
+      const out = (o.openPart ?? ((path, flags) => createWriteStream(path, { flags })))(part, have > 0 ? "a" : "w");
+      // A WriteStream error (ENOSPC, EACCES, ...) without a listener crashes the process, and a pending "drain" would
+      // never fire: capture it, race every wait against it, and fail the download cleanly.
+      let writeError: Error | null = null;
+      let rejectWrite!: (e: Error) => void;
+      const writeFailed = new Promise<never>((_, reject) => { rejectWrite = reject; });
+      writeFailed.catch(() => {});
+      out.on("error", (e: Error) => { writeError = e; rejectWrite(e); });
+      const endOut = (): Promise<void> => new Promise<void>((r) => {
+        if (out.destroyed || out.closed) { r(); return; }
+        out.once("close", () => r());
+        out.end();
+      });
       const reader = res.body.getReader();
       let received = have;
       try {
         for (;;) {
           if (o.signal?.aborted) throw abortedError("local");
-          const { value, done } = await reader.read();
+          const { value, done } = await Promise.race([reader.read(), writeFailed]);
           if (done) break;
           hash.update(value);
-          if (!out.write(value)) await new Promise<void>((r) => out.once("drain", () => r()));
+          if (!out.write(value)) await Promise.race([new Promise<void>((r) => out.once("drain", () => r())), writeFailed]);
           received += value.byteLength;
           if (received > cap) throw new VoiceProviderError("download_failed", `download of ${model.displayName} exceeds size limit`);
           progress(received);
         }
       } catch (e) {
-        await new Promise<void>((r) => out.end(() => r()));
         await reader.cancel().catch(() => {});
+        if (writeError) {
+          out.destroy();
+          await rm(part, { force: true }).catch(() => {});
+          throw new VoiceProviderError("download_failed", `download of ${model.displayName} failed (could not write to disk); the partial file was discarded`);
+        }
+        await endOut();
         if (e instanceof VoiceProviderError && e.code === "download_failed") await rm(part, { force: true });
         if (e instanceof VoiceProviderError) throw e;
         throw new VoiceProviderError("download_failed", `download of ${model.displayName} was interrupted; the partial file is kept so the next try resumes`);
       }
-      await new Promise<void>((r, j) => out.end((err?: Error | null) => (err ? j(err) : r())));
+      await endOut();
+      if (writeError) {
+        await rm(part, { force: true }).catch(() => {});
+        throw new VoiceProviderError("download_failed", `download of ${model.displayName} failed (could not write to disk); the partial file was discarded`);
+      }
       if (total !== null && received < total) throw new VoiceProviderError("download_failed", `download of ${model.displayName} ended early; the partial file is kept so the next try resumes`);
     }
   } else progress(have);

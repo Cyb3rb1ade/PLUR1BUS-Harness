@@ -65,6 +65,8 @@ pub struct Inspection {
     pub manifest: P1xManifest,
     /// The exact `p1x.json` bytes (the signed ones when the package is signed).
     pub manifest_raw: Vec<u8>,
+    /// The exact `p1x.json.minisig` bytes, `None` for an unsigned package.
+    pub signature_raw: Option<Vec<u8>>,
     pub trust: Trust,
     pub checks: Vec<CheckRow>,
     /// The derived script set (not the manifest's claim), sorted by path.
@@ -369,6 +371,7 @@ pub fn inspect_reader_kinds<R: Read + Seek>(
         size: audited.size,
         manifest: m,
         manifest_raw: raw,
+        signature_raw: minisig,
         trust,
         checks,
         scripts: derived,

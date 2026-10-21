@@ -37,6 +37,9 @@ describe("Help page (docs/user)", opts, () => {
 
   test("deep-linking to a page (#/help/operations) loads that page", async () => {
     await withApp({}, async ({ page }) => {
+      // The handbook page is its own lazy chunk. Hold it back so the table of contents (which is static) is on screen well before
+      // the article: the test must wait for the article itself, not assume it arrives together with the contents.
+      await page.route("**/operations-*.js", async (route) => { await new Promise((r) => setTimeout(r, 600)); await route.continue(); });
       await openRoute(page, "#/help/operations");
       await page.getByRole("heading", { name: "User Handbook", level: 1 }).waitFor();
 
@@ -48,6 +51,8 @@ describe("Help page (docs/user)", opts, () => {
       // Verify page content contains operations text
       const article = page.locator("#help-article");
       await page.waitForFunction(() => location.hash === "#/help/operations");
+      // The article loads after the contents: wait for the loading state to give way to the page, then check its text.
+      await page.locator('#help-article [data-state="loading"]').waitFor({ state: "detached" });
       assert.ok(await article.innerText().then((t) => t.includes("Operations") || t.includes("home")));
     });
   });
@@ -80,6 +85,37 @@ describe("Help page (docs/user)", opts, () => {
       assert.ok(await page.locator('.help-toc-link[href="#/help/chat-modelle"]').count() > 0);
       assert.ok(await page.locator('.help-toc-link[href="#/help/cloud-embeddings"]').count() > 0);
       assert.ok(await page.locator('.help-toc-link[href="#/help/import-rollback"]').count() > 0);
+    });
+  });
+
+  test("the other-language link of a page opens that page, for different and for equal slugs, and links back", async () => {
+    await withApp({}, async ({ page }) => {
+      for (const [from, toHref, deHeading, enHeading] of [
+        ["recurring-tasks", "#/help/de/wiederkehrende-aufgaben", "Wiederkehrende Aufgaben", "Recurring tasks"],
+        ["breakglass", "#/help/de/breakglass", "Break-Glass-Zugriff", "Break-glass access"],
+      ] as const) {
+        if (from === "recurring-tasks") await openRoute(page, `#/help/${from}`);
+        else await page.evaluate((h) => { location.hash = h; }, `#/help/${from}`);
+        const article = page.locator("#help-article");
+        await article.locator("h2").filter({ hasText: enHeading }).waitFor();
+        await article.locator(`a[href="${toHref}"]`).click();
+        await article.locator("h2").filter({ hasText: deHeading }).waitFor();
+        // The German page keeps its own table of contents and links back to the English one.
+        await page.locator(`.help-toc-link.active[href="${toHref}"]`).waitFor();
+        await article.locator(`a[href="#/help/${from}"]`).click();
+        await article.locator("h2").filter({ hasText: enHeading }).waitFor();
+      }
+    });
+  });
+
+  test("a German page opened from the English UI keeps its anchors and bare links in German", async () => {
+    await withApp({}, async ({ page }) => {
+      await openRoute(page, "#/help/de/quickstart");
+      const article = page.locator("#help-article");
+      await article.locator("h2").first().waitFor();
+      const bare = await article.locator('a[href^="#/help/"]').evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""));
+      assert.ok(bare.length > 0);
+      for (const href of bare) assert.ok(href.startsWith("#/help/de/") || href === "#/help/quickstart", href);
     });
   });
 

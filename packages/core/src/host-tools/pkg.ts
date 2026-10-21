@@ -39,6 +39,12 @@ async function pick(ctx: HostContext, requested?: string): Promise<{ manager: Ma
   return { manager, bin: BINS[manager][0]! };
 }
 
+/** A search term or package name goes into argv as a value; one that starts with "-" would be read as an option of the manager. */
+function notAnOption(value: string, name: string): string {
+  if (value.startsWith("-")) throw new HostFailure("invalid_input", `${name} must not start with '-'`);
+  return value;
+}
+
 function parseLines(text: string): string[] {
   return text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith("="));
 }
@@ -65,7 +71,7 @@ export const pkgSearchTool: HostTool = {
   },
   async run(input, ctx) {
     const o = asObject(input);
-    const query = requireString(o.query, "query", 1, 256);
+    const query = notAnOption(requireString(o.query, "query", 1, 256), "query");
     const { manager, bin } = await pick(ctx, typeof o.manager === "string" ? o.manager : undefined);
     const args =
       manager === "brew" ? ["search", query]
@@ -124,7 +130,7 @@ export const pkgInfoTool: HostTool = {
   },
   async run(input, ctx) {
     const o = asObject(input);
-    const name = requireString(o.name, "name", 1, 256);
+    const name = notAnOption(requireString(o.name, "name", 1, 256), "name");
     const { manager, bin } = await pick(ctx, typeof o.manager === "string" ? o.manager : undefined);
     const spec =
       manager === "brew" ? { program: bin, args: ["info", name] }

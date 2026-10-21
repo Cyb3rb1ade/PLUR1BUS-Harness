@@ -3,22 +3,35 @@ import test from "node:test";
 import { NoticeInbox } from "../src/notices.ts";
 import { FakeClock } from "../src/clock.ts";
 import type { AuditSink, BreakGlassNotice } from "../src/rbac-bridge.ts";
-import { addUser, jsonHeaders, loginAs, login, raw, start, write, type Harness } from "./helpers.ts";
+import { addUser as addApiUser, jsonHeaders, loginAs, login, raw, start, write, type Harness, type StartOptions } from "./helpers.ts";
+import { miniCore, type MiniCore } from "./mini-core.ts";
+
+// The REST contract of break-glass. The registry behind it is the core's (`miniCore`: the real registry, admin surface and RPC
+// guard); the API forwards, so audit, notice and the 503 on a failing audit are the core's. breakglass-core.test.ts is the
+// API -> core proof (a REST grant lets the core read, an RPC grant shows over REST).
 
 const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 }, totp: { capacity: 1000, refillPerSec: 100 }, stream: { capacity: 1000, refillPerSec: 100 } };
 const REASON = "Ticket 4711: the user asked support to recover a memory they deleted by mistake";
-const setup = async (o: Parameters<typeof start>[0] = {}) => {
-  const h = await start({ rateClasses: wide, ...o });
-  await addUser(h, { id: "u-adam", username: "adam", role: "admin" });
-  await addUser(h, { id: "u-adele", username: "adele", role: "admin" });
-  await addUser(h, { id: "u-mia", username: "mia", role: "member" });
-  await addUser(h, { id: "u-olga", username: "olga", role: "operator" });
-  await addUser(h, { id: "u-vera", username: "vera", role: "viewer" });
+/** `auditSink` and `notify` belong to the core here: where it audits break-glass, and what delivering a notice does. */
+const setup = async (o: StartOptions & { auditSink?: AuditSink; notify?: (n: BreakGlassNotice) => void } = {}) => {
+  const clock = new FakeClock();
+  const { notify, auditSink, ...rest } = o;
+  const core = miniCore({ clock, ...(auditSink ? { auditSink } : {}), ...(notify ? { notify } : {}) });
+  const h = await start({ rateClasses: wide, ...rest, clock, core });
+  const close = h.close; h.close = async () => { await close(); core.close(); };
+  const addUser = async (u: Parameters<typeof addApiUser>[1]) => { await addApiUser(h, u); core.addPerson(u.id, u.role); };
+  await addUser({ id: "u-adam", username: "adam", role: "admin" });
+  await addUser({ id: "u-adele", username: "adele", role: "admin" });
+  await addUser({ id: "u-mia", username: "mia", role: "member" });
+  await addUser({ id: "u-olga", username: "olga", role: "operator" });
+  await addUser({ id: "u-vera", username: "vera", role: "viewer" });
   return h;
 };
+const mini = (h: Harness) => h.core as MiniCore;
 const grant = (h: Harness, cookie: string, body: Record<string, unknown>) => write(h, cookie, { path: "/api/v1/breakglass", body });
 const list = (h: Harness, cookie: string) => raw(h, { path: "/api/v1/breakglass", headers: { cookie } });
-const events = (h: Harness, prefix = "break-glass") => h.audit.events.filter((e) => e.action.startsWith(prefix));
+/** What the core audited: break-glass lives in the core's chain, not in the API's. */
+const events = (h: Harness, prefix = "break-glass") => mini(h).audit.events.filter((e) => e.action.startsWith(prefix));
 
 test("only Owner and Admin can ask for break-glass; Operator, Member and Viewer cannot; a token cannot (cookie session only)", async () => {
   const h = await setup();
@@ -69,7 +82,7 @@ test("the grant is audited before it exists, with holder, target and reason; a s
   } finally { await h.close(); }
   const broken: AuditSink = { append() { throw new Error("audit-chain: lock timeout"); } };
   const notices: BreakGlassNotice[] = [];
-  const h2 = await setup({ breakGlassAudit: broken, notifyBreakGlass: (n) => notices.push(n) });
+  const h2 = await setup({ auditSink: broken, notify: (n) => notices.push(n) });
   try {
     const { cookie } = await loginAs(h2, "adam");
     const r = await grant(h2, cookie, { targetUserId: "u-mia", reason: REASON });
@@ -79,39 +92,41 @@ test("the grant is audited before it exists, with holder, target and reason; a s
   } finally { await h2.close(); }
 });
 
-test("with no audit sink at all there is no break-glass (fail closed)", async () => {
-  const h = await start({ rateClasses: wide, noAudit: true });
+test("the API's own audit sink is not break-glass's: the core audits the grant, so a grant needs no API sink and the API sink never sees it", async () => {
+  const h = await setup({ noAudit: true });
   try {
-    await addUser(h, { id: "u-adam", username: "adam", role: "admin" }); await addUser(h, { id: "u-mia", username: "mia", role: "member" });
     const { cookie } = await loginAs(h, "adam");
-    assert.equal((await grant(h, cookie, { targetUserId: "u-mia", reason: REASON })).status, 503);
+    const r = await grant(h, cookie, { targetUserId: "u-mia", reason: REASON });
+    assert.equal(r.status, 201);
+    assert.equal(events(h, "break-glass.granted").length, 1, "audited by the core");
+    assert.equal(h.audit.events.filter((e) => e.action.startsWith("break-glass")).length, 0, "not by the API");
   } finally { await h.close(); }
 });
 
-test("the affected user is notified: the grant is in their inbox at once, with who, why and until when; nobody else sees it; the hook is called too", async () => {
+test("the affected user is notified: the grant is in their inbox at once, with who, why and until when; nobody else sees it; the core's delivery runs too", async () => {
   const hook: BreakGlassNotice[] = [];
-  const h = await setup({ notifyBreakGlass: (n) => hook.push(n) });
+  const h = await setup({ notify: (n) => hook.push(n) });
   try {
     const adam = await loginAs(h, "adam"); const mia = await loginAs(h, "mia"); const vera = await loginAs(h, "vera");
     const g = (await grant(h, adam.cookie, { targetUserId: "u-mia", reason: REASON })).json.grant;
     const inbox = await raw(h, { path: "/api/v1/me/notices", headers: { cookie: mia.cookie } });
     assert.equal(inbox.status, 200); assert.equal(inbox.json.notices.length, 1);
-    assert.deepEqual(inbox.json.notices[0], { kind: "break-glass.granted", grantId: g.id, holderUserId: "u-adam", reason: REASON, at: inbox.json.notices[0].at, expiresAt: g.expiresAt });
+    assert.deepEqual(inbox.json.notices[0], { kind: "break-glass.granted", grantId: g.id, holderUserId: "u-adam", reason: REASON, expiresAt: g.expiresAt });
     assert.deepEqual((await raw(h, { path: "/api/v1/me/notices", headers: { cookie: vera.cookie } })).json.notices, []);
     assert.deepEqual((await raw(h, { path: "/api/v1/me/notices", headers: { cookie: adam.cookie } })).json.notices, [], "the holder gets no notice of their own grant");
     assert.deepEqual(hook.map((n) => [n.userId, n.holderUserId, n.grantId]), [["u-mia", "u-adam", g.id]]);
   } finally { await h.close(); }
 });
 
-test("a delivery hook that throws does not undo the grant; the failure is audited", async () => {
-  const h = await setup({ notifyBreakGlass: () => { throw new Error("smtp down"); } });
+test("a notice that cannot be delivered means no grant (the core's rule: no grant without a durable notice); the failure is audited", async () => {
+  const h = await setup({ notify: () => { throw new Error("smtp down"); } });
   try {
     const { cookie } = await loginAs(h, "adam");
     const r = await grant(h, cookie, { targetUserId: "u-mia", reason: REASON });
-    assert.equal(r.status, 201); assert.equal((await list(h, cookie)).json.grants.length, 1);
+    assert.deepEqual([r.status, r.json.error, r.json.reason], [503, "E_NOT_AVAILABLE", "notice-unavailable"]);
+    assert.ok(!r.text.includes("smtp"), "the delivery's own text is not forwarded");
+    assert.deepEqual((await list(h, cookie)).json.grants, [], "no live grant");
     assert.equal(events(h, "break-glass.notify-failed").length, 1);
-    const mia = await loginAs(h, "mia");
-    assert.equal((await raw(h, { path: "/api/v1/me/notices", headers: { cookie: mia.cookie } })).json.notices.length, 1, "the inbox still has it");
   } finally { await h.close(); }
 });
 

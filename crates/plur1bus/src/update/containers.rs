@@ -76,12 +76,22 @@ fn execute(out: &Out, layout: &Layout, args: &UpdateArgs) -> Result<(&'static st
             .clone();
         let current = state.services.clone();
         let current_version = state.version.clone();
-        // Crash recovery restores the CURRENT image if this manual rollback is interrupted.
-        state.previous = Some(current);
-        state.previous_version = Some(current_version);
+        // `previous` stays the rollback target until the target is up: a rollback that fails (the image is gone, the
+        // registry is down) must not cost the next attempt its target. Interrupted, recovery completes the rollback.
         state.pending = true;
         host::save(layout, &state)?;
-        host::manager(r.as_ref(), &state).upgrade_image("plur1bus-harness", &image)?;
+        if let Err(e) = host::manager(r.as_ref(), &state).upgrade_image("plur1bus-harness", &image)
+        {
+            // The stack put the current image back when the target would not start: nothing is pending then.
+            if runs_current_services(r.as_ref(), &state) {
+                state.pending = false;
+                host::save(layout, &state)?;
+            }
+            return Err(e);
+        }
+        // Now `previous` becomes the version that was just left (a rollback can be undone by another one).
+        state.previous = Some(current);
+        state.previous_version = Some(current_version);
         state.services = previous;
         state.version = version;
         state.pending = false;
@@ -183,24 +193,7 @@ fn execute(out: &Out, layout: &Layout, args: &UpdateArgs) -> Result<(&'static st
     host::save(layout, &state)?;
     if let Err(e) = host::manager(r.as_ref(), &state).upgrade_image("plur1bus-harness", &image) {
         // The stack attempted rollback; keep pending if it was unable to restore health.
-        if host::manager(r.as_ref(), &state)
-            .status()
-            .ok()
-            .is_some_and(|statuses| {
-                statuses.iter().any(|(name, status)| {
-                    name == "plur1bus-harness"
-                        && status.as_ref().is_some_and(|v| {
-                            v.owned
-                                && v.running
-                                && v.healthy
-                                && state.services.iter().any(|s| {
-                                    s.name == *name
-                                        && canonical_image(&s.image) == canonical_image(&v.image)
-                                })
-                        })
-                })
-            })
-        {
+        if runs_current_services(r.as_ref(), &state) {
             state.pending = false;
             host::save(layout, &state)?;
         }
@@ -220,6 +213,27 @@ fn execute(out: &Out, layout: &Layout, args: &UpdateArgs) -> Result<(&'static st
         "update.apply/1",
         json!({"mode":"container","outcome":"committed","version":state.version}),
     ))
+}
+/// Whether the harness is running, owned by this stack and healthy on the image the state records (`state.services`):
+/// what a failed image replacement leaves behind when the stack managed to put the old image back.
+fn runs_current_services(r: &dyn ContainerRuntime, state: &host::HostInstall) -> bool {
+    host::manager(r, state)
+        .status()
+        .ok()
+        .is_some_and(|statuses| {
+            statuses.iter().any(|(name, status)| {
+                name == "plur1bus-harness"
+                    && status.as_ref().is_some_and(|v| {
+                        v.owned
+                            && v.running
+                            && v.healthy
+                            && state.services.iter().any(|s| {
+                                s.name == *name
+                                    && canonical_image(&s.image) == canonical_image(&v.image)
+                            })
+                    })
+            })
+        })
 }
 /// Shared by a fresh host installation and the image updater; the guard remains the verifier.
 fn verify_bytes(

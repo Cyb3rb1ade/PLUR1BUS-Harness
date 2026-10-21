@@ -104,3 +104,19 @@ test("column order, archive filtering and paging invalidation survive mutations"
     assert.deepEqual(board.columns(empty.id), []);
   } finally { store.close(); }
 });
+test("url links are limited to http, https and mailto; other kinds keep any reference", () => {
+  const { store, board, projectId } = fixture();
+  try {
+    const column = board.columns(projectId)[0]!;
+    const card = board.createCard(projectId, { title: "Links", columnId: column.id }, actor);
+    const ok = [{ kind: "url" as const, id: "https://example.com/a?b=1#c" }, { kind: "url" as const, id: "HTTP://example.org" }, { kind: "url" as const, id: "mailto:team@example.org" }, { kind: "session" as const, id: "javascript:not-a-url" }];
+    assert.deepEqual(board.updateCard(projectId, card.id, { links: ok }, actor).links, ok);
+    for (const id of ["javascript:alert(1)", " JavaScript:alert(1)", "java\tscript:alert(1)", "data:text/html,x", "vbscript:x", "file:///etc/passwd", "ftp://example.org", "//evil.example", "/relative", "example.com", " https://example.org", "https://example.org ", "https://exa mple.org", "https://", "mailto:"]) {
+      assert.throws(() => board.updateCard(projectId, card.id, { links: [{ kind: "url", id }] }, actor), /invalid/, JSON.stringify(id));
+      assert.throws(() => board.createCard(projectId, { title: "Bad", columnId: column.id, links: [{ kind: "url", id }] }, actor), /invalid/, JSON.stringify(id));
+    }
+    // A refused update changes nothing: the earlier links and the card count are intact.
+    assert.deepEqual(board.getCard(projectId, card.id).links, ok);
+    assert.equal(board.cards(projectId, {}).cards.length, 1);
+  } finally { store.close(); }
+});
