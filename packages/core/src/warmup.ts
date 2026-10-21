@@ -22,6 +22,14 @@ import { AGENT_CONTEXT_CLI } from "./principal.ts";
 export const RECALL_WARMUP_TIMEOUT_MS = 30_000;
 /** Overall budget of the whole recall-path pass: N hung agents must not hold the engine at models-warming N times the per-agent budget. */
 export const RECALL_WARMUP_OVERALL_TIMEOUT_MS = 120_000;
+/**
+ * How long the harness waits for `models.warm()` before it stops waiting (10 minutes). A first-run download of the local
+ * models (about 600 MB) may legitimately take minutes, so this is a patience limit, not a kill: the engine's probe is
+ * not cancelled (warm() is not handed the deadline) and the engine keeps reporting `models-warming` until it ends. The
+ * engine exposes no download progress, so a stall cannot be told from a slow download; a hung provider no longer holds
+ * `recallWarmPending` (and so `engine.ready`'s recall-path wait) until shutdown.
+ */
+export const MODELS_WARMUP_TIMEOUT_MS = 600_000;
 /** The fixed, neutral query of the recall-path warm-up. */
 export const WARMUP_QUERY = "plur1bus recall warm-up";
 /** The neutral documents of the warm-up rerank. */
@@ -50,6 +58,8 @@ export interface WarmupOptions {
   recallPath?: RecallPathWarmup;
   /** Called once the warm-up is over, recall-path pass included (also after an abort, a rejection or a skipped pass). */
   onRecallDone?(): void;
+  /** How long to wait for models.warm() before giving up the wait, without cancelling it (default MODELS_WARMUP_TIMEOUT_MS). */
+  modelsTimeoutMs?: number;
   /** Per-agent timeout of the recall pass (default RECALL_WARMUP_TIMEOUT_MS). */
   recallTimeoutMs?: number;
   /** Overall timeout of the whole recall pass, agents and rerank together (default RECALL_WARMUP_OVERALL_TIMEOUT_MS). */
@@ -67,8 +77,18 @@ export function startWarmup(o: WarmupOptions): Warmup {
   const done = (async () => {
     try {
       // warm() never rejects for a provider failure; it rejects only once the engine is closed (MemoryOpError storage).
-      const models = await Promise.race([o.engine.models.warm({ signal }), aborted]);
+      // The deadline ends only this wait: warm() gets the shutdown/abort signal alone, so a slow first-run download goes on.
+      const timeoutMs = o.modelsTimeoutMs ?? MODELS_WARMUP_TIMEOUT_MS;
+      let timer: NodeJS.Timeout | undefined;
+      const patience = new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), timeoutMs); });
+      let models: E.ModelsStatus | null | "timeout";
+      try { models = await Promise.race([o.engine.models.warm({ signal }), aborted, patience]); } finally { clearTimeout(timer); }
       const ms = Math.round(performance.now() - t0);
+      if (models === "timeout") {
+        // Not a failure of the models: the engine still reports models-warming (or the result, once the probe ends).
+        o.logger.warn("models warm-up gave up waiting; the probe keeps running in the background", { ms, timeoutMs });
+        return;
+      }
       if (models === null) { o.logger.debug("models warm-up wait aborted", { ms }); return; }
       o.logger.info("models warm", { embedder: models.embedder.state, reranker: models.reranker.state, ms });
       // A failing status callback must neither skip the recall-path pass nor pass for "no result".

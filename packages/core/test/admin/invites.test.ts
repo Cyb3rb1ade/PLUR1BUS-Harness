@@ -41,8 +41,10 @@ function setup(t: { after(fn: () => void): void }) {
   const guarded = guardMethods(raw, { resolve: () => people.resolve(owner), audit: sink, now: () => now });
   const call = (m: string, p: any = {}, c = ctx()) => guarded[m]!(p, c);
   const create = (extra: Record<string, unknown> = {}) => call("user.invite.create", { displayName: "Alex", role: "member", channel: "web", origin: ORIGIN, ...extra });
-  t.after(() => { identity.close(); people.close(); lifecycle.close(); rmSync(root, { recursive: true, force: true }); });
-  return { root, people, identity, call, create, raw, audit, sink, tick: (ms: number) => { now += ms; }, setAuditDown: (v: boolean) => { auditDown = v; }, now: () => now };
+  // Stores a test reopens on these files close before the directory goes (Windows cannot remove an open SQLite file); after-hooks run in registration order.
+  const closers: Array<() => void> = [];
+  t.after(() => { for (const c of closers.reverse()) c(); identity.close(); people.close(); lifecycle.close(); rmSync(root, { recursive: true, force: true }); });
+  return { closeBeforeRemoval: (c: () => void) => { closers.push(c); }, root, people, identity, call, create, raw, audit, sink, tick: (ms: number) => { now += ms; }, setAuditDown: (v: boolean) => { auditDown = v; }, now: () => now };
 }
 
 test("a link carries 256 bits of randomness, is built on the origin's fragment and is returned once", async t => {
@@ -119,7 +121,7 @@ test("a 30-day link outlives the one-hour pairing code and survives a restart of
   const listed = (await s.call("user.invite.list") as any).invites[0];
   assert.equal(listed.state, "pending", "pairing code is long expired, the link is not");
   const reopened = new AdminStore({ path: join(s.root, "admin.sqlite"), ownerId: owner.userId });
-  t.after(() => reopened.close());
+  s.closeBeforeRemoval(() => reopened.close());
   assert.equal(reopened.invites()[0]!.id, made.id, "durable across reopen");
 });
 
@@ -202,7 +204,7 @@ test("the limit survives a restart of the store", async t => {
   const s = setup(t);
   for (let i = 0; i < 5; i++) await assert.rejects(s.raw["user.invite.redeem"]!({ token: "A".repeat(43) }, ctx("attacker")), invalid);
   const reopened = new AdminStore({ path: join(s.root, "admin.sqlite"), ownerId: owner.userId });
-  t.after(() => reopened.close());
+  s.closeBeforeRemoval(() => reopened.close());
   const left = reopened.db.prepare("SELECT locked_until FROM attempts WHERE key = ?").get("invite-redeem:src:attacker") as any;
   assert.ok(left.locked_until > s.now());
 });
@@ -269,4 +271,18 @@ test("over a real RPC server: the token appears in no log line, no error and no 
   assert.ok(logs.length > 0, "the server did log the calls");
   for (const secret of [token, wrong, oversize, hashInviteToken(token)]) { assert.ok(!logs.includes(secret), "log"); assert.ok(!replies.join("\n").includes(secret), "replies"); }
   assert.equal(replies.filter(r => r.includes("E_INVITE_INVALID")).length, 3);
+});
+
+test("an invitation with a channel name the identity service refuses leaves no person behind", async t => {
+  const s = setup(t);
+  const before = s.identity.list({}).humans.length;
+  for (const channel of ["Telegram", "1web", "web chat", "web!"]) {
+    await assert.rejects(() => s.create({ channel }), refused("E_INVALID_PARAMS"), channel);
+  }
+  assert.equal(s.identity.list({}).humans.length, before, "no human without pairing and role");
+  assert.equal(((await s.call("user.invite.list")) as any).invites.length, 0);
+  // The counter-case: a well-formed channel name still creates the person and the invitation.
+  const ok = await s.create({ channel: "telegram" }) as any;
+  assert.ok(ok.userId);
+  assert.equal(s.identity.list({}).humans.length, before + 1);
 });

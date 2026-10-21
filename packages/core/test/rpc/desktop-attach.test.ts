@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { generateKeyPairSync } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import { DeviceStore } from "../../../remote-access/src/device-store.ts";
 import { DesktopAttach } from "../../src/identity/desktop-attach.ts";
 
@@ -57,4 +57,27 @@ test("native pairing and private device services refuse agents, scopes, viewer a
       for(const name of ["admin.api.desktop.redeem","admin.api.desktop.token","admin.api.desktop.resolve"])await assert.rejects(raw[name]!({},context),e=>(e as any).error==="E_DENIED");
     }
   }finally{stop.abort();rmSync(dir,{recursive:true,force:true});}
+});
+
+test("the attach audit names neither the person nor the device in clear text, and hashes them like the identity audit", () => {
+  const dir = mkdtempSync(join(tmpdir(), "desktop-attach-audit-")); const now = 1000;
+  const events: any[] = [];
+  try {
+    const audit = { append(e: unknown) { events.push(e); } };
+    const devices = new DeviceStore({ file: join(dir,"devices.json"),clock:()=>now,audit,securePath:()=>{} });
+    const attach = new DesktopAttach({ file:join(dir,"attach.db"), devices, now:()=>now, audit, personVersion:()=>1, securePath:()=>{} });
+    const key = generateKeyPairSync("ed25519").publicKey.export({format:"der",type:"spki"}).toString("base64");
+    try {
+      const paired = attach.redeem(attach.issue("alice-person-id","desktop").code,"desktop","PC",key);
+      const sha = (v: string) => createHash("sha256").update(v).digest("hex");
+      const mine = events.filter(e => String(e.action).startsWith("device.attach."));
+      assert.deepEqual(mine.map(e => e.action), ["device.attach.opened", "device.attach.redeemed"]);
+      assert.equal(mine[0].actor.user, sha("alice-person-id"));
+      assert.equal(mine[1].actor.user, sha("alice-person-id"));
+      assert.equal(mine[1].target, sha(paired.device.id));
+      assert.equal(mine[0].actor.host, "desktop-attach", "the host is a fixed label, not an identifier");
+      const text = JSON.stringify(mine);
+      assert.ok(!text.includes("alice-person-id")); assert.ok(!text.includes(paired.device.id));
+    } finally { attach.close(); }
+  } finally { rmSync(dir,{recursive:true,force:true}); }
 });

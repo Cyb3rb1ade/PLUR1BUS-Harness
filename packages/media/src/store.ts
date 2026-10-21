@@ -15,21 +15,32 @@ export interface Manifest {
 }
 /** Additive observer hooks: called after a manifest is published or an output is deleted; failures never reach the store. */
 export interface OutputStoreListener { onPut?(manifest: Manifest): void; onDelete?(id: string): void }
+/** Default bound for waiting on a lock held by another put/delete/prune. */
+const LOCK_WAIT_MS = 5_000;
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 export class OutputStore {
-  readonly root: string; readonly options: { quotaBytes?: number; retentionMs?: number; embedMetadata?: boolean; maxVideoBytes?: number; videoProcessor?: VideoProcessor };
+  readonly root: string; readonly options: { quotaBytes?: number; retentionMs?: number; embedMetadata?: boolean; maxVideoBytes?: number; videoProcessor?: VideoProcessor; lockWaitMs?: number };
   readonly #listeners = new Set<OutputStoreListener>();
   /** Observe puts and deletes (e.g. media indexing); returns the unsubscribe function. */
   addListener(listener: OutputStoreListener): () => void { this.#listeners.add(listener); return () => { this.#listeners.delete(listener); }; }
   #notify(call: (l: OutputStoreListener) => void): void { for (const l of this.#listeners) { try { call(l); } catch { /* observers must not fail the store */ } } }
   constructor(root: string, options: OutputStore['options'] = {}) {
     this.root = root; this.options = options;
-    if ([options.quotaBytes, options.retentionMs, options.maxVideoBytes].some(v => v !== undefined && (!Number.isFinite(v) || v < 0))) throw new MediaError('unsupported_parameter');
+    if ([options.quotaBytes, options.retentionMs, options.maxVideoBytes, options.lockWaitMs].some(v => v !== undefined && (!Number.isFinite(v) || v < 0))) throw new MediaError('unsupported_parameter');
   }
   private async locked<T>(fn: () => Promise<T>): Promise<T> {
     await mkdir(this.root, { recursive: true, mode: 0o700 });
     const lock = join(this.root, '.lock');
-    try { await mkdir(lock); } catch { throw new MediaError('backend_unavailable'); }
+    // A held lock is waited for with capped exponential backoff; a lock that outlives the bound is a clear backend_unavailable.
+    const deadline = Date.now() + (this.options.lockWaitMs ?? LOCK_WAIT_MS); let delay = 5;
+    for (;;) {
+      try { await mkdir(lock); break; }
+      catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'EEXIST' || Date.now() >= deadline) throw new MediaError('backend_unavailable');
+        await new Promise(r => setTimeout(r, Math.min(delay, Math.max(1, deadline - Date.now()))));
+        delay = Math.min(delay * 2, 100);
+      }
+    }
     // Only stable codes leave the store: raw fs/parse/stream errors carry paths, URLs and fragments of remote or stored text.
     try { return await fn(); } catch (e) { throw e instanceof MediaError ? e : failure(e); } finally { await rm(lock, { recursive: true, force: true }); }
   }

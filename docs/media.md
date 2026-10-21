@@ -130,8 +130,10 @@ reference/mask hashes, seed, duration, origin and
 partial-result flag. Reference bytes and mask bytes are not duplicated into the
 manifest. Job persistence retains request bytes to enable polling recovery.
 Quota includes images and manifest bytes and is checked under an exclusive store
-lock. Quota refusal leaves no output directory. A put that finds the lock held fails fast with `backend_unavailable`
-instead of waiting, so two jobs finishing at the same moment may not both publish (not yet enforced: waiting for the lock). Only
+lock. Quota refusal leaves no output directory. A put, delete or prune that finds the lock held waits for it with
+capped exponential backoff (5 ms doubling to 100 ms) and gives up with `backend_unavailable` after `lockWaitMs`
+(default 5000 ms; `0` fails fast), so two jobs finishing at the same moment both publish, one after the other, while a lock that
+never goes away (for example left by a crashed process; `recoverStaging()` removes it) is a clear, bounded failure. Only
 stable error codes leave the store; raw file-system or parse errors are mapped to one. With metadata embedding off, `put()` stores the
 bytes after checking that they start with the magic bytes of the declared image format (`invalid_response` otherwise; the adapters also
 check provider output themselves). A job runner never waits on an adapter that missed the abort: the caller's signal wins and the job ends as `timeout` or `cancelled`. `prune()` removes expired jobs;

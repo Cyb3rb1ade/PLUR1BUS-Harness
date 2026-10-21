@@ -349,3 +349,32 @@ describe("the personal inbox is never an agent tool", () => {
     for (const method of methods) assert.equal(byName(tools, method), undefined);
   });
 });
+
+describe("person-only (humanOnly) families are never agent tools", () => {
+  const HUMAN_ONLY = [
+    "channel.crypto", "channel.disable", "channel.enable", "channel.get", "channel.list", "channel.set", "channel.status", "channel.test",
+    "collab.chain.cancel", "collab.session.replay", "collab.trace.get", "collab.trace.list",
+    "media.adapters.list", "media.caption.set", "media.edit", "media.generate", "media.index.pause", "media.index.reindex", "media.index.resume",
+    "media.job.cancel", "media.job.get", "media.job.list", "media.output.delete", "media.output.get", "media.output.list",
+    "media.preferences.get", "media.preferences.set",
+    "project.agent.add", "project.agent.remove", "project.archive", "project.card.archive", "project.card.assign", "project.card.create",
+    "project.card.unarchive", "project.card.unassign", "project.card.update", "project.create", "project.get", "project.list",
+    "project.member.add", "project.member.remove", "project.member.role", "project.update",
+    "session.archive", "session.cancel", "session.create", "session.events", "session.get", "session.resume", "session.submit",
+    "chat.promote.links", "chat.promote.preview", "chat.promote.commit",
+    "model.embedding.select", "model.licence.confirm", "model.licence.list", "model.licence.check",
+  ];
+  it("forbids every one of them, even on explicit inclusion, so no tool and no RPC call is made", async () => {
+    const call = fakeCall();
+    const tools = buildWebMcpTools({ capabilities: caps, schema: SCHEMA, include: HUMAN_ONLY, call, confirm: () => true });
+    for (const m of HUMAN_ONLY) { assert.equal(isForbiddenMethod(m), true, m); assert.equal(byName(tools, m), undefined, m); }
+    assert.deepEqual(selectMethods({ capabilities: caps, schema: SCHEMA, include: HUMAN_ONLY }).filter((m) => HUMAN_ONLY.includes(m)), []);
+    assert.deepEqual(call.calls, []);
+  });
+  it("does not block the agent-admitted neighbours (board move/comment/read, media search/status)", () => {
+    const neighbours = ["project.card.get", "project.card.list", "project.card.move", "project.card.comment.add", "project.card.comment.list", "media.search", "media.index.status"];
+    for (const m of neighbours) assert.equal(isForbiddenMethod(m), false, m);
+    const tools = buildWebMcpTools({ capabilities: caps, schema: SCHEMA, include: neighbours, call: fakeCall(), confirm: () => true });
+    for (const m of neighbours) assert.ok(byName(tools, m), m);
+  });
+});
