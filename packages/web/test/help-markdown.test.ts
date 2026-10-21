@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { h, type VNode } from "preact";
 import { parseMarkdown, renderMarkdown, resolveHref } from "../src/pages/help/markdown.ts";
-import { filterIndex, pickDoc, splitSub } from "../src/pages/help/route.ts";
+import { filterIndex, pickDoc, splitDocLang, splitSub, type DocLang } from "../src/pages/help/route.ts";
 import { DOCS_INDEX as EN_INDEX } from "../src/pages/help/docs-bundle/en-index.ts";
 import { DOCS_INDEX as DE_INDEX } from "../src/pages/help/docs-bundle/de-index.ts";
 
@@ -195,3 +196,75 @@ describe("help docs bundle indices", () => {
   });
 });
 
+
+describe("help language links", () => {
+  const hasDocIn = (l: DocLang, s: string): boolean => (l === "de" ? DE_INDEX : EN_INDEX).some((e) => e.slug === s);
+  const ctx = (uiLang: DocLang, docLang: DocLang) => ({ uiLang, docLang, hasDocIn });
+
+  test("splitDocLang reads an explicit language prefix and leaves bare slugs alone", () => {
+    assert.deepEqual(splitDocLang("de/wiederkehrende-aufgaben"), { lang: "de", slug: "wiederkehrende-aufgaben" });
+    assert.deepEqual(splitDocLang("en/breakglass"), { lang: "en", slug: "breakglass" });
+    assert.deepEqual(splitDocLang("breakglass"), { lang: null, slug: "breakglass" });
+    assert.deepEqual(splitDocLang("de"), { lang: null, slug: "de" });
+    assert.deepEqual(splitDocLang("de/"), { lang: null, slug: "de/" });
+    assert.deepEqual(splitDocLang("fr/x"), { lang: null, slug: "fr/x" });
+  });
+
+  test("a link to the other language names that language, for different and for equal slugs", () => {
+    // English UI, English page: the German version has another slug (recurring-tasks) or the same one (breakglass).
+    assert.equal(resolveHref("../de/wiederkehrende-aufgaben.md", ctx("en", "en"))?.href, "#/help/de/wiederkehrende-aufgaben");
+    assert.equal(resolveHref("../de/breakglass.md", ctx("en", "en"))?.href, "#/help/de/breakglass");
+    // German UI, German page: the English version.
+    assert.equal(resolveHref("../en/recurring-tasks.md", ctx("de", "de"))?.href, "#/help/en/recurring-tasks");
+    assert.equal(resolveHref("../en/breakglass.md", ctx("de", "de"))?.href, "#/help/en/breakglass");
+    // The UI's own language needs no prefix: the German UI opens a German page directly.
+    assert.equal(resolveHref("../de/freigaben.md", ctx("de", "en"))?.href, "#/help/freigaben");
+    assert.equal(resolveHref("../de/media.md", ctx("de", "de"))?.href, "#/help/media");
+  });
+
+  test("a bare link and an anchor stay in the language of the page they are on", () => {
+    assert.equal(resolveHref("inbox.md", ctx("de", "en"))?.href, "#/help/en/inbox");
+    assert.equal(resolveHref("posteingang.md#x", ctx("en", "de"))?.href, "#/help/de/posteingang#x");
+    assert.equal(resolveHref("posteingang.md", ctx("de", "de"))?.href, "#/help/posteingang");
+    assert.equal(resolveHref("inbox.md", ctx("en", "en"))?.href, "#/help/inbox");
+    assert.equal(resolveHref("#top", { ...ctx("en", "de"), slug: "freigaben" })?.href, "#/help/de/freigaben#top");
+    assert.equal(resolveHref("#top", { ...ctx("de", "de"), slug: "freigaben" })?.href, "#/help/freigaben#top");
+    // A bare link to a page the page's own language lacks reaches the English one, as for a bare slug in the route.
+    assert.equal(resolveHref("inbox.md", ctx("de", "de"))?.href, "#/help/en/inbox");
+  });
+
+  test("a link into a language that lacks the page, or to a developer document, is text", () => {
+    assert.equal(resolveHref("../de/inbox.md", ctx("en", "en")), null);
+    assert.equal(resolveHref("../en/posteingang.md", ctx("de", "de")), null);
+    assert.equal(resolveHref("nope.md", ctx("en", "en")), null);
+    // docs/media.md and docs/providers.md are developer documents; a handbook page of the same name is not their target.
+    assert.equal(resolveHref("../../media.md", ctx("en", "en")), null);
+    assert.equal(resolveHref("../../providers.md", { hasDoc: () => true }), null);
+    assert.equal(resolveHref("../../channels/email.md", ctx("en", "en")), null);
+  });
+
+  // The bundle modules import CSS and cannot load under plain node; the bundle is generated from docs/user (bundle-user-docs.ts --check).
+  const source = (l: DocLang, slug: string): string => readFileSync(new URL(`../../../docs/user/${l}/${slug}.md`, import.meta.url), "utf8");
+
+  test("every handbook page links to its other-language version, and the link reaches that page", () => {
+    for (const [docLang, index, other, otherIndex] of [
+      ["en", EN_INDEX, "de", DE_INDEX],
+      ["de", DE_INDEX, "en", EN_INDEX],
+    ] as const) {
+      for (const entry of index) {
+        const doc = { slug: entry.slug, content: source(docLang, entry.slug) };
+        const links = anchors(doc.content, { slug: doc.slug, hasDoc: () => true, ...ctx(docLang, docLang) });
+        const langLinks = links.filter((a) => String(a.props.href).startsWith(`#/help/${other}/`));
+        assert.equal(langLinks.length, 1, `${docLang}/${entry.slug} has exactly one link to the ${other} version`);
+        const { lang, slug } = splitDocLang(String(langLinks[0]?.props.href).slice("#/help/".length));
+        assert.equal(lang, other);
+        assert.ok(otherIndex.some((e) => e.slug === slug), `${docLang}/${entry.slug} links to ${other}/${slug}, which exists`);
+        // ... and the page there links back to this one.
+        assert.ok(source(other, slug).includes(`../${docLang}/${entry.slug}.md`), `${other}/${slug} links back to ${docLang}/${entry.slug}`);
+        // From the other UI language the same link is a plain slug of that language.
+        const own = anchors(doc.content, { slug: doc.slug, hasDoc: () => true, ...ctx(other, docLang) });
+        assert.ok(own.some((a) => a.props.href === `#/help/${slug}`), `${docLang}/${entry.slug} seen from the ${other} UI links to a plain ${slug}`);
+      }
+    }
+  });
+});

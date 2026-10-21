@@ -1,7 +1,7 @@
 // @plur1bus/embedding-adapters: unified remote embedding and rerank adapters (ADR-006, M2).
 // Not wired into core or the engine; see docs/embedding-adapters.md for the integration hook points.
 export type {
-  AdapterDeps, EmbedOptions, EmbeddingAdapter, EmbeddingIdentity, GetSecret, InputType, RerankAdapter, RerankOptions, RerankResult,
+  AdapterDeps, EmbedOptions, EmbeddingAdapter, EmbeddingIdentity, GetSecret, InputType, LocalOnlyPolicy, RerankAdapter, RerankOptions, RerankResult,
 } from "./types.ts";
 export { AdapterError, ADAPTER_ERROR_KINDS, isAdapterError, type AdapterErrorKind } from "./errors.ts";
 export {

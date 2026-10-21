@@ -1,6 +1,10 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { CallBudget } from '../budget/index.ts';
 import type { VoiceBudgetPort } from './ports.ts';
+import { join } from 'node:path';
+/** The one voice-usage database. The OpenAI voice runtime and the V2 provider pipeline both open it, so the daily seconds ceiling
+ * (agent/person, per day) is summed over both instead of each ledger granting the full limit on its own. */
+export const voiceUsagePath = (home: string) => join(home, 'state', 'voice-usage.sqlite');
 /** Separate authoritative voice-seconds ledger. The existing call-budget admits every opening and backend usage (tokens).
  * The legacy `voice_usage.cost` column stays (NOT NULL) and is written as 0: no money dimension since 2026-10-19. */
 export function voiceBudget(o: { path: string; budget: CallBudget; clock: () => number; dailySeconds: number; billingProvider?: string }) {
