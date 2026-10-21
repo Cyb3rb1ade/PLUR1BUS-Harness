@@ -9,6 +9,7 @@
 //    identical keys and placeholders in every area; both are checked by tests.
 //  - `Key` is the union of all keys of all areas, so `t("chat.send")` is checked by the compiler. An area's `de` should be
 //    typed `Record<keyof typeof en, string>` once it has keys, so a missing translation fails typecheck at the source.
+import type * as audit from "./audit.ts";
 import type * as activity from "./activity.ts";
 import type * as agents from "./agents.ts";
 import type * as approvals from "./approvals.ts";
@@ -72,6 +73,7 @@ type LazyAreaName =
   | "secrets"
   | "devices"
   | "logs"
+  | "audit"
   | "activity"
   | "sessions"
   | "voice"
@@ -85,7 +87,7 @@ type LazyAreaName =
 
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
-  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring", "homeHelpLibrary", "inbox", "breakglass", "modules", "libmedia",
+  "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "recurring", "homeHelpLibrary", "inbox", "breakglass", "modules", "libmedia",
 ];
 
 type AreaEn =
@@ -104,6 +106,7 @@ type AreaEn =
   | typeof secrets.en
   | typeof devices.en
   | typeof logs.en
+  | typeof audit.en
   | typeof activity.en
   | typeof sessions.en
   | typeof voice.en

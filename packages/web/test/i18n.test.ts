@@ -3,6 +3,7 @@ import { readdirSync } from "node:fs";
 import { test } from "node:test";
 import { catalogues, t, type Key } from "../src/i18n.ts";
 import { AREAS, registerArea } from "../src/i18n/index.ts";
+import * as audit from "../src/i18n/audit.ts";
 import * as activity from "../src/i18n/activity.ts";
 import * as agents from "../src/i18n/agents.ts";
 import * as approvals from "../src/i18n/approvals.ts";
@@ -40,6 +41,7 @@ registerArea("switchboard", switchboard);
 registerArea("devices", devices);
 registerArea("logs", logs);
 registerArea("activity", activity);
+registerArea("audit", audit);
 registerArea("sessions", sessions);
 registerArea("approvals", approvals);
 registerArea("voice", voice);
@@ -54,7 +56,7 @@ const placeholders = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map(
 test("i18n areas: core plus the page areas are registered", () => {
   assert.deepEqual(AREAS.map((a) => a.name), [
     "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette",
-    "shared", "setup", "agents", "settings", "users", "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring", "inbox", "breakglass", "modules",
+    "shared", "setup", "agents", "settings", "users", "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "recurring", "inbox", "breakglass", "modules",
   ]);
 });
 

@@ -3,6 +3,7 @@ export const en = {
   "logs.tabs": "Log views",
   "logs.tab.logs": "Logs",
   "logs.tab.activity": "Activity",
+  "logs.tab.audit": "Audit",
   "logs.tab.sessions": "Sessions",
   // log viewer: filters
   "logs.filters": "Log filters",
@@ -98,6 +99,7 @@ export const de: Record<keyof typeof en, string> = {
   "logs.tabs": "Protokollansichten",
   "logs.tab.logs": "Protokolle",
   "logs.tab.activity": "Aktivität",
+  "logs.tab.audit": "Audit",
   "logs.tab.sessions": "Sitzungen",
   "logs.filters": "Protokollfilter",
   "logs.f.stream": "Stream",
