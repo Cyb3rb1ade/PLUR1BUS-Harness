@@ -6,7 +6,7 @@ const selected = files => Object.entries(classify({ event: 'pull_request', files
   .filter(([, value]) => value).map(([name]) => name).sort();
 const full = ['documents', 'engine-pin', 'python', 'rust', 'ts-core', 'web', 'workflows'];
 for (const [name, files, expected] of [
-  ['documentation', ['docs/user/de/audit.md', 'README.md'], ['docs-only']],
+  ['documentation', ['docs/ci.md', 'README.md'], ['docs-only']],
   ['web only', ['packages/web/src/app.tsx'], ['web']],
   ['Rust only (web-browser-build compiles the CLI)', ['crates/plur1bus/src/main.rs'], ['rust', 'web']],
   ['Cargo manifest', ['Cargo.toml'], ['rust', 'web']],
@@ -31,7 +31,16 @@ for (const [name, files, expected] of [
   ['error table', ['docs/errors.md'], ['rust', 'ts-core']],
   ['OpenAPI document', ['docs/openapi.json'], ['rust', 'ts-core']],
   ['API surface', ['docs/api-surface.md'], ['rust', 'ts-core']],
-  ['other documents stay documentation', ['docs/ci.md', 'docs/user/de/audit.md', 'docs/adr/ADR-012-process-model-and-languages.md'], ['docs-only']],
+  ['other documents stay documentation', ['docs/ci.md', 'docs/adr/ADR-012-process-model-and-languages.md', 'docs/import.md', 'docs/superpowers/plans/x.md'], ['docs-only']],
+  ['operations guide (skill_freshness)', ['docs/operations.md'], ['rust']],
+  ['RBAC matrix document', ['docs/rbac.md'], ['ts-core']],
+  ['channel documents', ['docs/channels/signal.md'], ['ts-core']],
+  ['adapter documents', ['docs/embedding-adapters.md', 'docs/media-adapters.md'], ['ts-core']],
+  ['Zabbix template', ['docs/ops/zabbix/plur1bus-template.yaml'], ['ts-core']],
+  ['user documentation (web help test)', ['docs/user/de/audit.md'], ['web']],
+  ['user docs with a plain document', ['docs/user/en/audit.md', 'docs/ci.md'], ['web']],
+  ['bundled skill', ['skills/plur1bus-ops/SKILL.md'], ['rust', 'ts-core']],
+  ['bundled skill playbook with a code change', ['skills/plur1bus-ops/playbooks/repair.md', 'packages/web/src/app.tsx'], ['rust', 'ts-core', 'web']],
 ]) test(`affected suites: ${name}`, () => assert.deepEqual(selected(files), [...expected].sort()));
 
 test('an Engine pin change triggers every suite without claiming a workflow change', () => {
@@ -88,7 +97,7 @@ test('runtime Markdown and Markdown test fixtures retain their owning suites', (
     assert.deepEqual(selected(['docs/a.md', file]), ['ts-core', 'web']);
   }
   assert.deepEqual(selected(['crates/plur1bus-ext/tests/fixtures/skill-hash/SKILL.md']), ['rust', 'ts-core', 'web']);
-  assert.deepEqual(selected(['skills/plur1bus/SKILL.md']), ['documents', 'python', 'rust', 'ts-core', 'web']);
+  assert.deepEqual(selected(['skills/plur1bus/SKILL.md']), ['rust', 'ts-core']);
 });
 
 // These are concrete TypeScript readers, not Rust-only implementation inputs.

@@ -6,10 +6,19 @@ import { fileURLToPath } from 'node:url';
 import { changedFiles, plan, pythonMatrix } from './macos-plan.mjs';
 
 // Markdown is also executable prompt/template data and a test input. Only known documentary paths qualify.
-// Exception: generated or schema-mirroring documents that Rust and TypeScript tests read and compare (docs_consistency.rs,
-// cli_surface.rs, error_codes_sync.rs, the OpenAPI tests of packages/api, check-cli-exit-codes). They select both suites.
-const TEST_READ_DOCS = new Set(['docs/errors.md', 'docs/rpc.md', 'docs/cli.md', 'docs/openapi.json', 'docs/api-surface.md']);
-const documentary = file => (file.startsWith('docs/') && !TEST_READ_DOCS.has(file)) ||
+// Exception: documents and skill packages that tests read or compare. Each selects the suites that read it. Documents
+// outside this list stay documentation (accepted gap: crates/plur1bus-rpc/tests/error_codes_sync.rs scans every other
+// docs/**/*.md for error-code words; a push to main runs everything and catches it there).
+const TEST_READ = [
+  // generated or schema-mirroring: docs_consistency.rs, cli_surface.rs, error_codes_sync.rs, packages/api OpenAPI tests, check-cli-exit-codes
+  [/^docs\/(?:errors|rpc|cli|api-surface)\.md$|^docs\/openapi\.json$/, ['rust', 'ts-core']],
+  [/^docs\/operations\.md$/, ['rust']], // skill_freshness.rs
+  [/^docs\/(?:rbac|embedding-adapters|media-adapters)\.md$|^docs\/channels\/|^docs\/ops\/zabbix\//, ['ts-core']], // package tests
+  [/^docs\/user\//, ['web']], // packages/web help-markdown test
+  [/^skills\//, ['rust', 'ts-core']], // bundled skills: skill_freshness.rs, setup tests, error_codes_sync.rs, tests/system/setup.test.ts
+];
+const testRead = file => TEST_READ.find(([re]) => re.test(file))?.[1];
+const documentary = file => (file.startsWith('docs/') && !testRead(file)) ||
   /^(?:README|AGENTS|THIRD_PARTY|CONTRIBUTING|SECURITY|CHANGELOG|CODE_OF_CONDUCT|LICENSE|NOTICE)\.(?:md|markdown)$/i.test(file) ||
   /^(?:packages|modules)\/[^/]+\/(?:README|CHANGELOG)\.(?:md|markdown)$/i.test(file);
 
@@ -22,7 +31,8 @@ export function classify({ event, files, enginePinChanged = false }) {
   if (files.every(documentary)) { r['docs-only'] = true; return r; }
   for (const file of files) {
     if (documentary(file)) continue;
-    if (TEST_READ_DOCS.has(file)) { r.rust = true; r['ts-core'] = true; continue; }
+    const families = testRead(file);
+    if (families) { for (const k of families) r[k] = true; continue; }
     if (/^packages\/(?:rpc-schema|config-schema|log-schema|module-api)\//.test(file)) {
       for (const key of ['rust', 'ts-core', 'web', 'python']) r[key] = true;
     } else if (/^(?:crates\/|Cargo\.|rust-toolchain\.)/.test(file)) {

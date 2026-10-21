@@ -11,6 +11,10 @@ invalid manifest fails the plan; unknown paths and empty diffs select the full s
 | --- | --- |
 | Only `docs/**`, standard root documents or package/module README/CHANGELOG files | Documentation and hygiene |
 | `docs/errors.md`, `docs/rpc.md`, `docs/cli.md`, `docs/openapi.json`, `docs/api-surface.md` | Rust and TypeScript, as for code: `docs_consistency.rs`, `cli_surface.rs`, `error_codes_sync.rs`, the OpenAPI tests and `check-cli-exit-codes` read them |
+| `docs/operations.md` | Rust (`skill_freshness.rs` checks the commands it quotes) |
+| `docs/rbac.md`, `docs/channels/**`, `docs/embedding-adapters.md`, `docs/media-adapters.md`, `docs/ops/zabbix/**` | TypeScript (package tests read them) |
+| `docs/user/**` | Browser suite (the web help test renders them), plus documentation/hygiene |
+| `skills/**` | Rust and TypeScript (bundled skills: `skill_freshness.rs`, setup tests, `tests/system/setup.test.ts`) |
 | `packages/web/**` | Documentation/hygiene, TypeScript check, served-stack browser build, all four shards and exact-partition verification |
 | `crates/**`, `Cargo.toml`, Rust toolchain | Rust fmt/clippy/tests, runtime integrations, documentation/hygiene and the served-stack browser suite (`web-browser-build` compiles the CLI) |
 | `crates/**/fixtures/**` or `crates/plur1bus/src/backup/restore.rs` | Rust plus TypeScript (shared fixture/source parity readers), the browser suite, runtime integrations and documentation/hygiene |
@@ -20,6 +24,10 @@ invalid manifest fails the plan; unknown paths and empty diffs select the full s
 | `hosts/**` or `clients/python/**` | Python/Hermes, WSL and documentation/hygiene |
 | `packages/documents/**` | TypeScript/runtime checks plus golden rendering |
 | Engine pin, any Cargo lock, pnpm lock, workflow or unknown path | Full suite |
+
+The reader lists live in `TEST_READ` in `scripts/ci/changes.mjs`. Accepted gap: `error_codes_sync.rs` scans every other
+`docs/**/*.md` (except `docs/superpowers` and `docs/handoff`) for error-code words, so a documentation-only pull request
+that names an unknown code passes `ci-gate` and fails the Rust suite on the next push to `main`, which runs everything.
 
 The category outputs are `rust`, `ts-core`, `web`, `python`, `docs-only`, `workflows`, `engine-pin` and `documents`.
 The existing macOS label/path policy still selects the platform legs *within* each affected suite; it cannot turn a
