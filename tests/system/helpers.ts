@@ -39,7 +39,8 @@ export function cli(h: string, args: string[], opts: { json?: boolean; allowFail
     const out = execFileSync(BIN, all, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: CLI_TIMEOUT_MS, ...(opts.env ? { env: opts.env } : {}) });
     return opts.json === false ? out : JSON.parse(out);
   } catch (e: any) {
-    if (!opts.allowFail) throw new Error(`${all.join(" ")}: exit ${e.status}\n${e.stderr}`);
+    // With --json a failure is reported on stdout (a JSON error document) and stderr stays empty, so both go in.
+    if (!opts.allowFail) throw new Error(`${all.join(" ")}: exit ${e.status}${e.signal ? ` (${e.signal})` : ""}\nstderr: ${e.stderr}\nstdout: ${e.stdout}`);
     return { exit: e.status, stdout: e.stdout, stderr: e.stderr };
   }
 }

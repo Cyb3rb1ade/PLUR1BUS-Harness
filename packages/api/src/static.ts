@@ -4,10 +4,17 @@ import path from "node:path";
 const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_SEGMENT = 255;
 
+/** Windows resolves CON, PRN, AUX, NUL, COM1-9, LPT1-9 (also with the superscript digits) and CONIN$/CONOUT$ to a device
+ *  whatever follows the first dot (`nul.tar.gz`) and whatever spaces precede it (`con .txt`), in any case; opening one can
+ *  block a worker thread. */
+const RESERVED_DEVICE = /^(?:con|prn|aux|nul|com[1-9\u00b9\u00b2\u00b3]|lpt[1-9\u00b9\u00b2\u00b3]|conin\$|conout\$)$/i;
+export function isReservedDeviceName(segment: string): boolean { return RESERVED_DEVICE.test(segment.split(".")[0]!.replace(/ +$/, "")); }
+
 /** The URL path as safe path segments below the web root, or `undefined` when anything about it is not plain: percent
  *  escapes that do not decode, a decoded segment that is `..`, hidden (a leading dot), carries a separator, a NUL or a
  *  control character, a `%` left after decoding (double encoding), a drive or stream colon, or a trailing dot or space
- *  (Windows resolves both). Empty segments collapse, so `//x` never becomes root-relative. `/` is the app shell. */
+ *  (Windows resolves both), or a reserved Windows device name (see `isReservedDeviceName`; refused on every platform, so
+ *  the rules and the URL space are the same everywhere). Empty segments collapse, so `//x` never becomes root-relative. `/` is the app shell. */
 export function safeSegments(urlPath: string): string[] | undefined {
   if (typeof urlPath !== "string" || !urlPath.startsWith("/")) return undefined;
   const out: string[] = [];
@@ -17,6 +24,7 @@ export function safeSegments(urlPath: string): string[] | undefined {
     try { seg = decodeURIComponent(raw); } catch { return undefined; }
     if (seg.length > MAX_SEGMENT || seg === "." || seg === ".." || seg.startsWith(".")) return undefined;
     if (/[\\/\u0000-\u001f\u007f%:]/.test(seg) || /[. ]$/.test(seg)) return undefined;
+    if (isReservedDeviceName(seg)) return undefined;
     out.push(seg);
   }
   return out.length === 0 ? ["index.html"] : out;
