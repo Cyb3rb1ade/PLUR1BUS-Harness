@@ -89,6 +89,11 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
     "session.create": wrap(async (p: SessionCreateParams, owner) => {
       requireAgent(d.agents, p.agentId);
       const kind = p.kind ?? "direct";
+      // A chat key is `<channel>:<chatId>`. A caller only ever speaks for its own channel (ownerOf pins it), so it cannot bind a session to
+      // another channel's chat: otherwise a member could pre-claim a group's key before it has a session and the switchboard would then run
+      // the group's turns in the member's session (replaceActive cannot help there, there is nothing to replace). The switchboard itself
+      // creates its sessions on the store, not through this method.
+      if (p.chatKey !== undefined && (!p.chatKey.startsWith(`${p.caller.channel}:`) || p.chatKey.length === p.caller.channel.length + 1)) throw new SessionError("invalid", "chatKey must name the caller's own channel", "chat-key");
       // D92 §3.3: an incognito session lives in the memory-only store, exactly like chat.create's; its transcript never reaches the durable file.
       const target = p.memoryMode === "incognito" ? d.ephemeral?.().store ?? d.store : d.store;
       const session = target.createSession({
