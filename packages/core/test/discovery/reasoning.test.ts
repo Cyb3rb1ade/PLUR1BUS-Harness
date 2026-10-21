@@ -117,3 +117,11 @@ describe("wire fit and table validation", () => {
     ] } }), (e: Error) => /RE2-safe/.test(e.message) && /scale order/.test(e.message) && /budget needs/.test(e.message) && /vendorParam/.test(e.message));
   });
 });
+
+it("curated adaptive models turn thinking on with stable effort; Opus 4.5 keeps manual thinking",()=>{
+ for(const id of ["claude-opus-4-6","claude-sonnet-4-6","claude-opus-4-7","claude-opus-4-8"]){
+  const d=resolveReasoning({vendor:"anthropic",id},table);assert.equal(d.vendorParam,"output_config.effort");assert.equal(d.adaptiveThinking,true);
+ }
+ const older=resolveReasoning({vendor:"anthropic",id:"claude-opus-4-5"},table);
+ assert.equal(older.vendorParam,"thinking.budget_tokens");assert.equal(older.adaptiveThinking,undefined);
+});

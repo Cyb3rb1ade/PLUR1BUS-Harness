@@ -18,6 +18,7 @@ import {
   channelIdempotencyKey,
   cronIdempotencyKey,
   ImportLedger,
+  recordCreatedConfig,
   type ConflictStrategy,
 } from "../ledger.ts";
 import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
@@ -491,7 +492,10 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       if (!check.ok) {
         throw new ImportError("E_CONFIG_INVALID", "config-invalid", check.errors.join("; "));
       }
-      writeAtomicSync(l.configPath, `${JSON.stringify(rawConfig, null, 2)}\n`, 0o600);
+      const configText = `${JSON.stringify(rawConfig, null, 2)}\n`;
+      const hadConfig = existsSync(l.configPath);
+      writeAtomicSync(l.configPath, configText, 0o600);
+      recordCreatedConfig(ledger, hadConfig, configText);
     }
 
     // Compute counts

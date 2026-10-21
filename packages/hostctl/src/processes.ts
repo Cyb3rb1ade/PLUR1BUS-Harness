@@ -1,12 +1,14 @@
 import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import path from 'node:path';
 import { fail, integer, string } from './errors.ts';
+import { effectiveCommands, isShellProgram, removesRootBehind, shellCommands } from './command.ts';
 import type { HostctlConfig } from './config.ts';
 export interface RunContext { agentId: string; principal: string; sessionId?: string; signal: AbortSignal; surface?: 0 | 1 | 2 | 3 }
 export type Spawn = (program: string, args: string[], options: SpawnOptions) => ChildProcess;
 export interface ProcessOptions { spawn?: Spawn; killTree?: (child: ChildProcess) => Promise<void>; baseEnv?: NodeJS.ProcessEnv }
 interface Job { id: string; owner: string; session: string; child: ChildProcess; output: Buffer; truncated: boolean; timedOut: boolean; terminating: boolean; done: boolean; exitCode: number | null; timer: ReturnType<typeof setTimeout>; finished: Promise<void>; abort: () => void; signal: AbortSignal }
+/** How long output still in flight is read after the leader exited. */
+const DRAIN_MS = 250;
 const owner = (c: RunContext) => JSON.stringify([c.agentId, c.principal, c.sessionId ?? '']);
 const blockedEnv = /^SUDO_|^SSH_ASKPASS$|secret|token|password|credential|private|^NODE_OPTIONS$|^LD_|^DYLD_|^PYTHONPATH$|^BASH_ENV$|^ENV$|^PSModulePath$|^PERL5(?:OPT|LIB)$|^RUBY(?:OPT|LIB)$|^PYTHON(?:STARTUP|HOME)$|^NODE_PATH$|^_?JAVA_TOOL_OPTIONS$|^_JAVA_OPTIONS$|^JDK_JAVA_OPTIONS$|^CLASSPATH$|^GIT_SSH_COMMAND$|^GIT_EXTERNAL_DIFF$|^LESSOPEN$|^PROMPT_COMMAND$|^GCONV_PATH$/i;
 const dangerous = /(?:^|[\s/\\])(?:format(?:\.com)?|diskpart(?:\.exe)?|mkfs(?:\.[\w]+)?|sudo(?:\.exe)?|doas|pkexec|su|runas(?:\.exe)?|gsudo|expect|sshpass)(?:\s|$)|\brm\s+[^\n]*-[a-z]*r[a-z]*f[a-z]*\s+["']?\/(?:["']?(?:\s|$))|\breg(?:\.exe)?\s+(?:delete|load|restore)\b|HKEY_LOCAL_MACHINE|\\Device\\|\\\\\.\\/i;
@@ -27,11 +29,14 @@ export function processes(config: HostctlConfig, canon: (p: string, access: 'rea
     if (shell && !config.shell.allowed) fail('DENIED', 'Shell execution is disabled in tools.hostctl.shell.allowed.');
     const program = shell ? config.shell.default : string(a, 'program');
     // Explicit shell launchers must use proc.shell, otherwise shell.allowed could be bypassed accidentally.
-    if (!shell && /^(?:bash|zsh|sh|dash|fish|pwsh|powershell|cmd)(?:\.exe)?$/i.test(path.basename(program))) fail('DENIED', 'Use proc.shell for shell interpreters.');
+    if (!shell && isShellProgram(program)) fail('DENIED', 'Use proc.shell for shell interpreters.');
     if (a.args !== undefined && (!Array.isArray(a.args) || a.args.some(v => typeof v !== 'string' || v.includes('\0')))) fail('INVALID_ARGUMENT', 'args must be an array of strings.');
     const args = shell ? (program === 'pwsh' ? ['-NoProfile', '-NonInteractive', '-Command', string(a, 'command')] : ['-c', string(a, 'command')]) : (a.args ?? []) as string[];
     const command = [program, ...args].join(' ');
-    const rmRoot = /^rm(?:\.exe)?$/i.test(path.basename(program)) && args.some(a => /^\/+$/u.test(a) || /^[a-z]:[\\/]*$/i.test(a)) && args.some(a => a === '--recursive' || /^-[a-z]*[rR]/.test(a));
+    // What really starts: `env bash`, `nice -n 5 rm`, `busybox sh` start the program behind the wrapper.
+    const started = effectiveCommands(program, args);
+    if (!shell && started.some(c => isShellProgram(c.program))) fail('DENIED', 'Use proc.shell for shell interpreters.');
+    const rmRoot = removesRootBehind(started) || (shell && shellCommands(string(a, 'command')).some(c => removesRootBehind(effectiveCommands(c.program, c.args))));
     if (rmRoot || dangerous.test(command) || config.denyPatterns.some(p => command.toLowerCase().includes(p.toLowerCase()))) fail('DENIED', 'Dangerous command refused; use a bounded file operation instead.');
     const cwd = (await canon(string(a, 'cwd'), 'read')).canonical;
     const env: NodeJS.ProcessEnv = {}; const base = o.baseEnv ?? process.env;
@@ -39,7 +44,10 @@ export function processes(config: HostctlConfig, canon: (p: string, access: 'rea
     if (a.env !== undefined && (!a.env || typeof a.env !== 'object' || Array.isArray(a.env))) fail('INVALID_ARGUMENT', 'env must be an object.');
     for (const [key, value] of Object.entries((a.env ?? {}) as object)) {
       if (!config.env.allow.includes(key) || blockedEnv.test(key)) fail('DENIED', 'Environment key is not allowlisted.');
-      if (typeof value !== 'string' || value.includes('\0')) fail('INVALID_ARGUMENT', 'Environment values must be strings.'); env[key] = value;
+      if (typeof value !== 'string' || value.includes('\0')) fail('INVALID_ARGUMENT', 'Environment values must be strings.');
+      // Program lookup follows the child's PATH: a request that could set it would decide which `git` runs.
+      if (/^(?:PATH|PATHEXT)$/i.test(key)) fail('DENIED', 'PATH and PATHEXT come from the harness environment and cannot be set per request.');
+      env[key] = value;
     }
     const timeout = integer(a.timeoutMs, config.exec.timeoutMs, config.exec.timeoutMs); if (!timeout) fail('INVALID_ARGUMENT', 'timeoutMs must be positive.');
     ctx.signal.throwIfAborted(); const child = spawn(program, args, { cwd, env, shell: false, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -48,9 +56,23 @@ export function processes(config: HostctlConfig, canon: (p: string, access: 'rea
     jobs.set(j.id, j); j.timer.unref?.(); ctx.signal.addEventListener('abort', j.abort, { once: true });
     const append = (data: Buffer | string) => { const bytes = Buffer.from(data); const room = config.output.maxBytes - j.output.length; if (bytes.length > room) j.truncated = true; if (room > 0) j.output = Buffer.concat([j.output, bytes.subarray(0, room)]); };
     child.stdout?.on('data', append); child.stderr?.on('data', append);
-    const done = (code: number | null) => { if (j.done) return; j.done = true; j.exitCode = code; clearTimeout(j.timer); ctx.signal.removeEventListener('abort', j.abort); if (process.platform !== 'win32' && !j.terminating) { j.terminating = true; void stop(child).catch(() => {}); } finish(); };
+    let drain: ReturnType<typeof setTimeout> | undefined;
+    const done = (code: number | null) => {
+      if (j.done) return; j.done = true; j.exitCode = code; clearTimeout(j.timer); clearTimeout(drain); ctx.signal.removeEventListener('abort', j.abort);
+      if (process.platform !== 'win32' && !j.terminating) { j.terminating = true; void stop(child).catch(() => {}); }
+      // Nobody reads these any more; a descendant that still holds the other end must not keep this process's handles alive.
+      for (const stream of [child.stdout, child.stderr, child.stdin]) { try { stream?.destroy(); } catch { /* closed */ } }
+      finish();
+    };
     child.stdin?.on('error', () => {});
     child.once('error', () => done(-1)); child.once('close', code => done(code));
+    // "close" waits for every holder of the pipes. A descendant that inherited stdout and detached would keep the job running
+    // for ever, so the exit of the leader ends it: remaining output is drained briefly, the group is killed (POSIX), the pipes are closed.
+    child.once('exit', code => {
+      if (j.done) return;
+      if (process.platform !== 'win32' && !j.terminating) { j.terminating = true; void stop(child).catch(() => {}); }
+      drain = setTimeout(() => done(code), DRAIN_MS); drain.unref?.();
+    });
     if (ctx.signal.aborted) j.abort(); return j;
   };
   return {

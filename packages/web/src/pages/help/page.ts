@@ -8,7 +8,7 @@ import { registerArea } from "../../i18n/index.ts";
 import { area } from "../home/area.ts";
 import type { PageProps } from "../registry.ts";
 import { parseMarkdown, renderMarkdown } from "./markdown.ts";
-import { filterIndex, pickDoc, splitSub } from "./route.ts";
+import { filterIndex, pickDoc, splitDocLang, splitSub, type DocLang } from "./route.ts";
 import { DOCS_INDEX as EN_INDEX, loadDoc as loadEnDoc } from "./docs-bundle/en-index.ts";
 import { DOCS_INDEX as DE_INDEX, loadDoc as loadDeDoc } from "./docs-bundle/de-index.ts";
 import "../../styles/help.css";
@@ -20,15 +20,22 @@ type Load = { status: "loading" } | { status: "ready"; doc: Doc } | { status: "m
 
 export function HelpPage({ sub }: PageProps): View {
   // The UI language signal (not <html lang>, which is only set by an effect after render): a language switch re-renders this page.
-  const isDe = lang.value === "de";
-  const index = isDe ? DE_INDEX : EN_INDEX;
+  const uiLang: DocLang = lang.value === "de" ? "de" : "en";
 
-  // #/help/<slug>[#anchor]: the router hands over "slug#anchor". A slug the language lacks falls back to the English page.
-  const { slug: wanted, anchor } = splitSub(sub);
-  const picked = pickDoc(wanted, index, EN_INDEX);
+  // #/help/[<de|en>/]<slug>[#anchor]: the router hands over "slug#anchor". Without a language prefix the UI language decides and a
+  // slug it lacks falls back to the English page; with one (the "other language version" links) the page is that language's, or missing.
+  const { slug: rawWanted, anchor } = splitSub(sub);
+  const { lang: pinned, slug: wanted } = splitDocLang(rawWanted);
+  const readLang: DocLang = pinned ?? uiLang;
+  const isDe = readLang === "de";
+  const index = isDe ? DE_INDEX : EN_INDEX;
+  const picked = pickDoc(wanted, index, pinned ? [] : EN_INDEX);
   const selectedSlug = picked?.slug ?? wanted;
   const useFallback = picked?.useFallback ?? false;
   const loadDoc = isDe && !useFallback ? loadDeDoc : loadEnDoc;
+  // The language of the page on screen, and the prefix its table-of-contents links need to stay in it.
+  const shownLang: DocLang = useFallback ? "en" : readLang;
+  const tocPrefix = readLang === uiLang ? "" : `${readLang}/`;
 
   const [state, setState] = useState<Load>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -61,8 +68,9 @@ export function HelpPage({ sub }: PageProps): View {
   const rendered = useMemo(() => {
     if (!doc) return null;
     const known = (s: string): boolean => index.some((e) => e.slug === s) || EN_INDEX.some((e) => e.slug === s);
-    return renderMarkdown(parseMarkdown(doc.content), { slug: doc.slug, hasDoc: known });
-  }, [doc, index]);
+    const hasDocIn = (l: DocLang, s: string): boolean => (l === "de" ? DE_INDEX : EN_INDEX).some((e) => e.slug === s);
+    return renderMarkdown(parseMarkdown(doc.content), { slug: doc.slug, hasDoc: known, uiLang, docLang: shownLang, hasDocIn });
+  }, [doc, index, uiLang, shownLang]);
 
   return h(
     Page,
@@ -101,7 +109,7 @@ export function HelpPage({ sub }: PageProps): View {
                     h(
                       "a",
                       {
-                        href: `#/help/${item.slug}`,
+                        href: `#/help/${tocPrefix}${item.slug}`,
                         class: `help-toc-link ${isActive ? "active" : ""}`,
                         ...(isActive ? { "aria-current": "page" } : {}),
                       },

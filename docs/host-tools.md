@@ -33,7 +33,7 @@ Capability ids are taken from `packages/core/src/policy/capabilities.ts`. Risk c
 | `pkg.install` | dry-run plan only (D106 batch / D109 `pkg.change`) | plan `brew install <name>` | plan `winget install <name>` | plan `apt-get install` / `dnf install` / `pacman -S` | `pkg.change` | high |
 | `pkg.remove` | dry-run plan only | plan `brew uninstall` | plan `winget uninstall` | plan `apt-get remove` / `dnf uninstall` / `pacman -R` | `pkg.change` | high |
 | `apps.list` | installed applications | `/Applications` + `mdls` | Uninstall registry keys + Start Menu `.lnk` | `.desktop` files | `sys.read` | low |
-| `apps.open` | open app / file / URL; URL schemes `http` `https` `mailto` | `open` / `open -a` | `explorer.exe` | `xdg-open` | `sys.read` | low |
+| `apps.open` | open app / file / URL; URL schemes `http` `https` `mailto` | `open` / `open -a` | `explorer.exe` | `xdg-open` | `apps.launch` | medium |
 | `apps.running` | running GUI apps where the OS exposes them | `osascript` System Events | `tasklist /V` console / titled windows | `wmctrl -l` when present | `sys.read` | low |
 | `clipboard.read` | read clipboard; never log the content | `pbpaste` | PowerShell `Get-Clipboard` | `wl-paste` / `xclip` / `xsel` (first found) | `clipboard.read` | low |
 | `clipboard.write` | write via stdin, never argv; 64 KiB cap | `pbcopy` | PowerShell `Set-Clipboard` from stdin | `wl-copy` / `xclip` / `xsel` | `clipboard.read` | low |
@@ -72,8 +72,11 @@ carries a scheme, whatever `kind` says (`ssh:`, `vnc:`, `smb:`, `file:` fail wit
 letter before `:` is a Windows drive, not a scheme. File and app targets are checked against the deny-list both
 as given and after `~` expansion and `.` / `..` collapsing; symlinks are not resolved. Targets starting with `-`
 and an unknown `kind` are `invalid_input`. A non-zero exit of the opener is reported as `not_found`.
-It is registered as `sys.read` / `low`, which the policy table auto-allows, although opening an executable
-launches it: see Limits.
+It is registered as `apps.launch` / `medium` (policy `approval`, grant at most `once`). Targets that would start
+a program are refused with `denied_by_denylist`: launchable extensions (`.exe` `.com` `.bat` `.cmd` `.ps1` `.msi`
+`.vbs` `.js` `.hta` `.reg` `.jar` `.command` `.tool` `.app` `.pkg` `.desktop` `.AppImage` and similar) and regular files
+with an execute bit. A `.app` bundle is accepted only below `/Applications/` or `/System/Applications/`, and
+`kind: "app"` with a bare name (`Safari`) stays `open -a`. Windows `.lnk` Start Menu shortcuts stay openable.
 
 **Clipboard** content is never placed on argv, never interpolated into an error message, and never
 logged by this library. Writes above 64 KiB are `too_large`.
@@ -123,8 +126,10 @@ No network. System access in production code is `node:child_process` (fixed argv
 - Spawn failures and unexpected exceptions are reported without paths or OS text (`not_found`,
   `permission_denied`, otherwise `invalid_input` "the operation failed"). A non-zero exit of the clipboard and
   notification backends is `not_supported_on_platform`.
-- `apps.open` and `notify` run under `sys.read` (policy `allowed`, no approval). `apps.open` can launch an
-  executable or script, so this is an approval gap until it gets an approval-class capability.
+- A time limit or abort ends the child's process group (`taskkill /T` on Windows). After the leader exits, output in
+  flight is drained for 250 ms and the pipes are closed, so a detached descendant that inherited stdout cannot hold
+  the call open; it is not killed unless it stayed in the group.
+- `pkg.search` and `pkg.info` refuse a term that starts with `-` (`invalid_input`) instead of passing it to the manager as an option.
 - `notify` passes `--` before title and body to `notify-send`, and escapes PowerShell typographic double quotes.
 
 ## Follow-ups (not this PR)

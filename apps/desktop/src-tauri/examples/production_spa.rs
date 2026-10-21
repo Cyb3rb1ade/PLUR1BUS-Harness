@@ -1483,9 +1483,9 @@ fn main() {
     tokens.set(&token_account(conn.id), &token).unwrap();
     let retry_tokens = MemoryStore::default();
     retry_tokens.set(&token_account(conn.id), &token).unwrap();
-    let token_state = commands::ConnectionState(Arc::new(tokio::sync::Mutex::new(Some(Box::new(
-        retry_tokens,
-    )))));
+    let token_state = commands::ConnectionState::new(Arc::new(tokio::sync::Mutex::new(Some(
+        Box::new(retry_tokens),
+    ))));
     let connection = Arc::new(Mutex::new(conn));
     let store = Arc::new(Store::open(&PathBuf::from(
         std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").unwrap(),
