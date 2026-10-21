@@ -15,19 +15,19 @@ test('docs-only runs only docs/hygiene and deliberately omits every expensive jo
   assert.deepEqual(evaluateGate(needs(flags())), []);
 });
 
-test('the full matrix requires every listed job and accepts only complete success', () => {
+test('the full matrix requires complete success from every required job', () => {
   const outputs = flags({ rust: 'true', 'ts-core': 'true', web: 'true', python: 'true', documents: 'true', workflows: 'true', 'docs-only': 'false' });
   assert(Object.values(selections(outputs)).every(Boolean));
   assert.deepEqual(evaluateGate(needs(outputs)), []);
-  for (const job of Object.keys(selections(outputs))) for (const result of ['failure', 'cancelled', 'skipped', '', undefined]) {
+  for (const job of Object.keys(selections(outputs)).filter(job => !['perf-startup', 'perf-budgets'].includes(job))) for (const result of ['failure', 'cancelled', 'skipped', '', undefined]) {
     const input = needs(outputs);
     input[job] = result === undefined ? undefined : { result };
     assert(evaluateGate(input).length > 0, `${job}:${result}`);
   }
 });
 
-test('failure or cancellation is never accepted even for an omitted job', () => {
-  for (const job of Object.keys(selections(flags()))) for (const result of ['failure', 'cancelled']) {
+test('required-check failure or cancellation is rejected even for an omitted job', () => {
+  for (const job of Object.keys(selections(flags())).filter(job => !['perf-startup', 'perf-budgets'].includes(job))) for (const result of ['failure', 'cancelled']) {
     assert(evaluateGate(needs(flags(), { [job]: result })).length > 0, `${job}:${result}`);
   }
 });
@@ -56,6 +56,19 @@ test('an added job cannot silently bypass the gate', () => {
   const input = needs(flags());
   input['new-check'] = { result: 'failure' };
   assert(evaluateGate(input).some(error => error.includes('new-check')));
+});
+
+test('performance diagnostics accept completed advisory outcomes, but require a terminal result', () => {
+  for (const runtime of ['true', 'false']) for (const job of ['perf-startup', 'perf-budgets']) {
+    const outputs = flags({ 'ts-core': runtime });
+    for (const result of ['success', 'failure', 'skipped', 'cancelled', '', undefined, 'unknown']) {
+      const input = needs(outputs);
+      if (result === undefined) delete input[job];
+      else input[job] = { result };
+      const errors = evaluateGate(input);
+      assert.equal(errors.length === 0, ['success', 'failure', 'skipped'].includes(result), `${runtime}:${job}:${result}`);
+    }
+  }
 });
 
 test('Core shards and their exact-partition gate are required only for selected TypeScript suites', () => {

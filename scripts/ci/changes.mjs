@@ -21,7 +21,11 @@ export function classify({ event, files, enginePinChanged = false }) {
     if (documentary(file)) continue;
     if (/^packages\/(?:rpc-schema|config-schema|log-schema|module-api)\//.test(file)) {
       for (const key of ['rust', 'ts-core', 'web', 'python']) r[key] = true;
-    } else if (/^(?:crates\/|Cargo\.|rust-toolchain\.)/.test(file)) r.rust = true;
+    } else if (/^(?:crates\/|Cargo\.|rust-toolchain\.)/.test(file)) {
+      r.rust = true;
+      // Core/system tests share Rust-owned fixtures and check the restore marker's source parity.
+      if (/^crates\/.*\/fixtures\//.test(file) || file === 'crates/plur1bus/src/backup/restore.rs') r['ts-core'] = true;
+    }
     else if (file.startsWith('packages/web/')) r.web = true;
     else if (file.startsWith('packages/')) {
       r['ts-core'] = true;

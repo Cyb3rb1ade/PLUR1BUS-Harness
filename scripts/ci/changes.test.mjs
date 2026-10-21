@@ -79,6 +79,16 @@ test('runtime Markdown and Markdown test fixtures retain their owning suites', (
     assert.deepEqual(selected([file]), ['ts-core']);
     assert.deepEqual(selected(['docs/a.md', file]), ['ts-core']);
   }
-  assert.deepEqual(selected(['crates/plur1bus-ext/tests/fixtures/skill-hash/SKILL.md']), ['rust']);
+  assert.deepEqual(selected(['crates/plur1bus-ext/tests/fixtures/skill-hash/SKILL.md']), ['rust', 'ts-core']);
   assert.deepEqual(selected(['skills/plur1bus/SKILL.md']), ['documents', 'python', 'rust', 'ts-core', 'web']);
+});
+
+// These are concrete TypeScript readers, not Rust-only implementation inputs.
+test('shared Rust fixtures and Rust source parity inputs select both language suites', () => {
+  for (const file of ['crates/plur1bus-ext/tests/fixtures/skill-hash/expected.json',
+    'crates/plur1bus/tests/fixtures/fake-api.mjs', 'crates/future/fixtures/nested/vector.json',
+    'crates/plur1bus/src/backup/restore.rs']) {
+    assert.deepEqual(selected([file]), ['rust', 'ts-core'], file);
+    assert.deepEqual(selected(['docs/a.md', file]), ['rust', 'ts-core'], file);
+  }
 });

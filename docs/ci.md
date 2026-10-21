@@ -12,6 +12,7 @@ invalid manifest fails the plan; unknown paths and empty diffs select the full s
 | Only `docs/**`, standard root documents or package/module README/CHANGELOG files | Documentation and hygiene |
 | `packages/web/**` | Documentation/hygiene, TypeScript check, served-stack browser build, all four shards and exact-partition verification |
 | `crates/**`, `Cargo.toml`, Rust toolchain | Rust fmt/clippy/tests in the existing three-OS unit matrix, runtime integrations and documentation/hygiene |
+| `crates/**/fixtures/**` or `crates/plur1bus/src/backup/restore.rs` | Rust plus TypeScript (shared fixture/source parity readers), runtime integrations and documentation/hygiene |
 | Other `packages/**` or `tests/**` | TypeScript unit checks, runtime integrations and documentation/hygiene |
 | Shared RPC/config/log schemas or module API | Rust, TypeScript, browser, Python and documentation/hygiene |
 | `hosts/**` or `clients/python/**` | Python/Hermes, WSL and documentation/hygiene |
@@ -25,7 +26,8 @@ failed classifier into a successful skip. Main pushes, scheduled nightly and man
 all Core/browser shards. It uses the queue commit checked out by Actions and needs no PR diff, labels or PR metadata.
 
 The existing combined `unit` job keeps setup/build and checks only the selected language's tests: TypeScript changes
-omit Rust fmt/clippy/unit tests, Rust changes omit the TypeScript unit suite. Served-stack browser acceptance still
+omit Rust fmt/clippy/unit tests, Rust-only changes omit the TypeScript unit suite; shared Rust fixtures and the restore marker
+source select both. Served-stack browser acceptance still
 builds the current CLI on Ubuntu. Runtime/sandbox/service/Python/WSL and startup/budget jobs remain conservative for
 Rust or TypeScript runtime changes. They do not run for documentation or isolated web changes. Markdown under source templates, skill packages and test fixtures follows its owning suite; a `.md` suffix alone is not a documentation change. No test is removed,
 relaxed or converted to a skip. Independent `desktop.yml`, `container.yml`, `hermes-host.yml` and release workflows
@@ -34,8 +36,10 @@ retain their existing path rules. Their checks are not folded into this workflow
 ### Required check and failures
 
 `ci-gate` runs with `always()` after every job in `ci.yml`. It requires `changes` to succeed and all category outputs to
-be literal `true` or `false`. Every selected job must report `success`; `failure`, `cancelled`, `skipped`, an absent result
-or an unknown job fail the gate. An omitted job may be `skipped` or may have succeeded, but never failed or cancelled.
+be literal `true` or `false`. Every selected required job must report `success`; `failure`, `cancelled`, `skipped`, an absent result
+or an unknown job fail the gate. An omitted required job may be `skipped` or may have succeeded, but never failed or cancelled.
+The advisory `perf-startup` and `perf-budgets` jobs accept `success`, `failure` or `skipped`; an absent, malformed or
+`cancelled` result still fails the gate. Their diagnostic failures do not become branch-protection failures.
 The existing deliberate no-op for labels other than `ci:macos` remains a successful classification with explicit skips.
 
 ### Merge queue: owner activation (GP5 P6)
@@ -66,8 +70,8 @@ conditions against the skip policy and proves every declared job is a gate depen
 the existing informational Python Windows ARM leg is unchanged. Performance jobs still run their existing diagnostic
 commands and known-gap behavior; no numerical budget is promoted from advisory to a hard assertion.
 
-**Owner action after merge:** configure the `ci-gate` check from the `ci` workflow as the sole required check for this
-workflow, replacing individual matrix names. This PR does not change branch protection or repository rules. Controller
+**Required-check migration gate:** only after a green Windows baseline and refreshed heads for all open PRs, configure
+the `ci-gate` check from the `ci` workflow as the sole required check for this workflow, replacing individual matrix names. This PR does not change branch protection or repository rules. Controller
 merging and the current watcher remain unchanged; merge-queue setup belongs to P6.
 
 Local checks: `node --test scripts/ci/*.test.mjs` and
@@ -98,12 +102,11 @@ from those two; `ci.yml` always runs.
 
 ## Where the policy lives
 
-`scripts/ci/macos-plan.mjs` is the one place. Each workflow starts with a cheap ubuntu `plan` job that runs it and
-exposes `proceed` (false only for a `labeled` event of another label), `macos` (run the gated legs) and `python_matrix`.
-Jobs use `needs: plan`, and the matrices drop their macOS entries with
-`exclude: ${{ fromJSON(needs.plan.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}`
-(`python-host` takes its whole matrix from `python_matrix`). The script has tests, `scripts/ci/macos-plan.test.mjs`,
-which the `plan` job runs first.
+`scripts/ci/macos-plan.mjs` owns the platform policy. In `ci.yml`, the cheap Ubuntu `changes` job invokes it through
+`changes.mjs` and exposes `proceed` (false only for a `labeled` event of another label), `macos` and `python_matrix`.
+Its jobs use `needs: changes`; matrices use `needs.changes.outputs.macos`, and `python-host` reads
+`fromJSON(needs.changes.outputs.python_matrix)`. `desktop.yml` and `hermes-host.yml` retain their separate `plan` jobs
+and references to that job's outputs. The policy's tests are `scripts/ci/macos-plan.test.mjs`.
 
 Platform-sensitive paths (the `SENSITIVE` list in the script; edit it there only):
 `crates/**`, `Cargo.lock`, `packages/core/src/platform*`, `packages/core/src/**/acl*`, `packages/module-api/**`,
@@ -123,13 +126,13 @@ branch, so it starts working once this is merged.
 
 Add the `ci:macos` label to a PR to get the full macOS matrix before merging (for example when a change is
 platform-sensitive in a way the path list misses). A required status check on a gated job name (`system (macos-15)` and
-so on) would stay pending on a PR that skips it; configure the aggregate `ci-gate` instead of individual matrix names. This change does not inspect or modify current protection settings.
+so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-gate` only after the Windows baseline and open-head refresh gate above. This change does not inspect or modify current protection settings.
 
 ## Job map and failure semantics
 
 | Job | Gate |
 | --- | --- |
-| `plan` | Tested runner/label policy; a non-macOS label event deliberately runs no expensive matrix |
+| `changes` (`plan` in Desktop/Hermes workflows) | Tested runner/label policy; a non-macOS label event deliberately runs no expensive matrix |
 | `unit` | Toolchain, fixture drift, lint and selected language tests; Ubuntu Core tests run in the measured shards below, macOS/Windows keep all TypeScript packages |
 | `core-unit-shard`, `core-unit` | Three measured Ubuntu Core shards plus an exact-partition gate; failures, cancellation and missing manifests fail `ci-gate` |
 | `system` | Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command) |
