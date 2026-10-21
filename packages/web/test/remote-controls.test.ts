@@ -148,6 +148,17 @@ describe("remote controls: real REST contract", opts, () => {
         assert.deepEqual((remote.calls.find(c => c.method === "PATCH")!.body as { allowSubnets: string[] }).allowSubnets, ["8.8.8.0/24"]);
       });
     });
+    // Types `text` one character at a time with STEP_MS between keys, the whole loop running inside the page: the gaps are
+    // page timers (a hundred times shorter than the settle delay), so a slow runner or a slow browser channel cannot
+    // stretch a keystroke past it, while every prefix is still rendered on its own (an `await` per key).
+    const STEP_MS = 5;
+    const typeInPage = (field: import("playwright").Locator, text: string) => field.evaluate(async (el, [value, step]) => {
+      const area = el as HTMLTextAreaElement; area.focus(); area.value = "";
+      for (let i = 1; i <= (value as string).length; i++) {
+        area.value = (value as string).slice(0, i); area.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, step as number));
+      }
+    }, [text, STEP_MS] as const);
     test("typing a range character by character announces only the settled value, never a half-typed prefix", async () => {
       await withApp({}, async app => {
         remoteFixture(app); await openRoute(app.page, route);
@@ -161,10 +172,10 @@ describe("remote controls: real REST contract", opts, () => {
         });
         const announced = () => app.page.evaluate(() => (globalThis as unknown as { __announced: string[] }).__announced);
         // 192.168.0.0/1 and 192.168.0.0/1x are ranges with public addresses on the way to a private /16.
-        await field.pressSequentially("192.168.0.0/16", { delay: 30 });
+        await typeInPage(field, "192.168.0.0/16");
         await app.page.waitForTimeout(NOTICE_SETTLE_MS + 400);
         assert.deepEqual(await announced(), []); assert.deepEqual(await rows(app.page), []);
-        await field.fill(""); await field.pressSequentially("8.8.8.0/24", { delay: 30 });
+        await typeInPage(field, "8.8.8.0/24");
         await settled(app.page);
         assert.deepEqual(await rows(app.page).then(l => l.map(x => x.slice(0, x.indexOf(" contains")))), ["8.8.8.0/24"]);
         const log = await announced(); assert.ok(log.length > 0);
