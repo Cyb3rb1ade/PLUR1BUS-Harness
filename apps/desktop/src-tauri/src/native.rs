@@ -29,6 +29,17 @@ pub struct NativeState {
     #[cfg(debug_assertions)]
     pub fixture_autostart: AtomicBool,
     pub header: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
+    /// The rows of the tray's connection switch, loaded from `connections.json` on a debounced rebuild.
+    pub switch_rows: Mutex<Vec<crate::tray::SwitchRow>>,
+    /// The connections the menu last built offers; a switch event for any other id is ignored.
+    pub offered: Mutex<Vec<uuid::Uuid>>,
+    pub rebuild: crate::tray::Debounce,
+    /// The runtime controller's last status (for *Start/Stop harness*).
+    pub controller: Mutex<Option<crate::controller::HarnessStatus>>,
+    /// A tray start or stop is running.
+    pub harness_busy: AtomicBool,
+    /// A tray switch is running.
+    pub switching: AtomicBool,
 }
 impl NativeState {
     pub fn effective_harness(
@@ -699,32 +710,73 @@ pub(crate) fn navigate_shell(app: &tauri::AppHandle, route: &'static str) {
         eprintln!("SHELL_WINDOW_PRESENT_FAILED");
     }
 }
+/// `view` comes from the caller, which may hold the view lock (`retire_connection`): this never takes it.
 fn tray_menu(
     app: &tauri::AppHandle,
+    view: &TrayState,
 ) -> tauri::Result<(
     tauri::menu::Menu<tauri::Wry>,
     tauri::menu::MenuItem<tauri::Wry>,
 )> {
-    use tauri::menu::{Menu, MenuItem};
+    use crate::tray::{Control, HarnessOp};
+    use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
     let language = language(app);
-    let status = language.status(
-        &app.state::<NativeState>().view.lock().unwrap(),
-        language.text("no-connection"),
-    );
+    let state = app.state::<NativeState>();
+    let status = language.status(view, language.text("no-connection"));
     let header = MenuItem::with_id(app, "status", status, false, None::<&str>)?;
     let open = MenuItem::with_id(app, "open", language.text("open"), true, None::<&str>)?;
+    // Desktop spec §6.3, transport choice spec §7.3: one entry per connection, the active one checked.
+    let active = state.connection.lock().unwrap().as_ref().map(|row| row.id);
+    let switch = language.switch_menu(&state.switch_rows.lock().unwrap(), active, view.path);
+    let entries = switch
+        .entries
+        .iter()
+        .map(|entry| {
+            CheckMenuItem::with_id(
+                app,
+                entry.menu_id.as_str(),
+                &entry.text,
+                true,
+                entry.checked,
+                None::<&str>,
+            )
+        })
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let empty = switch
+        .empty
+        .map(|text| MenuItem::with_id(app, "switch-empty", text, false, None::<&str>))
+        .transpose()?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let more = switch
+        .more
+        .map(|text| MenuItem::with_id(app, "more", text, true, None::<&str>))
+        .transpose()?;
+    let mut switch_items: Vec<&dyn IsMenuItem<tauri::Wry>> = entries
+        .iter()
+        .map(|item| item as &dyn IsMenuItem<tauri::Wry>)
+        .collect();
+    if let Some(empty) = &empty {
+        switch_items.push(empty);
+    }
+    if let Some(more) = &more {
+        switch_items.extend([&separator as &dyn IsMenuItem<tauri::Wry>, more]);
+    }
+    let switch_menu = Submenu::with_id_and_items(app, "switch", switch.title, true, &switch_items)?;
+    let connections = MenuItem::with_id(app, "connections", switch.manage, true, None::<&str>)?;
+    *state.offered.lock().unwrap() = switch.offered();
+    let controls = harness_controls(app);
     let start = MenuItem::with_id(
         app,
-        "start-harness",
-        language.text("start-harness"),
-        false,
+        "harness-start",
+        language.control(HarnessOp::Start, controls.start),
+        controls.start == Control::Enabled,
         None::<&str>,
     )?;
     let stop = MenuItem::with_id(
         app,
-        "stop-harness",
-        language.text("stop-harness"),
-        false,
+        "harness-stop",
+        language.control(HarnessOp::Stop, controls.stop),
+        controls.stop == Control::Enabled,
         None::<&str>,
     )?;
     let runtime = MenuItem::with_id(
@@ -735,13 +787,6 @@ fn tray_menu(
         None::<&str>,
     )?;
     let update = MenuItem::with_id(app, "update", language.text("update"), true, None::<&str>)?;
-    let connections = MenuItem::with_id(
-        app,
-        "connections",
-        language.text("connections"),
-        true,
-        None::<&str>,
-    )?;
     let settings = MenuItem::with_id(
         app,
         "settings",
@@ -750,28 +795,220 @@ fn tray_menu(
         None::<&str>,
     )?;
     let quit = MenuItem::with_id(app, "quit", language.text("quit"), true, None::<&str>)?;
-    let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![&header, &open];
-    if app
-        .state::<NativeState>()
+    let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> =
+        vec![&header, &open, &switch_menu, &connections, &start, &stop];
+    if cfg!(target_os = "macos") {
+        items.push(&runtime);
+    }
+    items.extend([&update as &dyn IsMenuItem<tauri::Wry>, &settings, &quit]);
+    let menu = Menu::with_items(app, &items)?;
+    Ok((menu, header))
+}
+/// *Start/Stop harness* now (desktop spec §6.3): only for the active bundled connection whose runtime is reachable;
+/// an upgrade or rollback counts as a running operation.
+fn harness_controls(app: &tauri::AppHandle) -> crate::tray::HarnessControls {
+    let state = app.state::<NativeState>();
+    let kind = state
         .connection
         .lock()
         .unwrap()
         .as_ref()
-        .is_some_and(|row| row.kind == crate::connections::Kind::Bundled)
-    {
-        items.extend([&start as &dyn tauri::menu::IsMenuItem<tauri::Wry>, &stop]);
+        .map(|row| row.kind.clone());
+    let status = state.controller.lock().unwrap().clone();
+    let busy = state.harness_busy.load(Ordering::SeqCst)
+        || state.upgrade_overlay.lock().unwrap().is_some();
+    crate::tray::HarnessControls::of(kind.as_ref(), status.as_ref(), busy)
+}
+/// The connection list or the active connection changed: reload the switch rows and rebuild the tray menu once the
+/// burst is over (debounced). Called by the native commands after they change either, never with webview input.
+pub(crate) fn connections_changed(app: &tauri::AppHandle) {
+    let Some(state) = app.try_state::<NativeState>() else {
+        return;
+    };
+    let ticket = state.rebuild.schedule();
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(crate::tray::REBUILD_DEBOUNCE).await;
+        if !handle.state::<NativeState>().rebuild.is_latest(ticket) {
+            return;
+        }
+        let rows = load_switch_rows(&handle);
+        let gui = handle.clone();
+        if handle
+            .run_on_main_thread(move || {
+                let state = gui.state::<NativeState>();
+                if !state.rebuild.is_latest(ticket) {
+                    return;
+                }
+                if let Some(rows) = rows {
+                    *state.switch_rows.lock().unwrap() = rows;
+                }
+                let view = state.view.lock().unwrap().clone();
+                update_tray(&gui, &view);
+            })
+            .is_err()
+        {
+            eprintln!("TRAY_REBUILD_DISPATCH_FAILED");
+        }
+    });
+}
+/// The switch rows from `connections.json` and the transport store; `None` keeps the rows the menu has.
+fn load_switch_rows(app: &tauri::AppHandle) -> Option<Vec<crate::tray::SwitchRow>> {
+    let transports = app.try_state::<crate::transport::Transports>()?;
+    let dir = crate::commands::app_config_dir(app).ok()?;
+    let rows = crate::tray::SwitchRow::load(
+        &crate::connections::Store::open(&dir),
+        &transports,
+        &crate::transport::TransportStore::open(&dir),
+    );
+    if rows.is_err() {
+        eprintln!("TRAY_CONNECTIONS_FAILED");
     }
-    if cfg!(target_os = "macos") {
-        items.push(&runtime);
+    rows.ok()
+}
+fn on_menu_event(app: &tauri::AppHandle, id: &str) {
+    use crate::tray::{HarnessOp, TrayAction};
+    let offered = app.state::<NativeState>().offered.lock().unwrap().clone();
+    match TrayAction::parse(id, &offered) {
+        Some(TrayAction::Open) => focus(app),
+        Some(TrayAction::Switch(connection)) => switch_from_tray(app, connection),
+        Some(TrayAction::Connections) => navigate_shell(app, "#/connections"),
+        Some(TrayAction::HarnessStart) => harness_from_tray(app, HarnessOp::Start),
+        Some(TrayAction::HarnessStop) => harness_from_tray(app, HarnessOp::Stop),
+        Some(TrayAction::Settings) => navigate_shell(app, "#/settings/runtime"),
+        Some(TrayAction::Update) => navigate_shell(app, "#/settings/updates"),
+        Some(TrayAction::Quit) => {
+            request_quit(app);
+        }
+        None => {}
     }
-    items.extend([
-        &update as &dyn tauri::menu::IsMenuItem<tauri::Wry>,
-        &connections,
-        &settings,
-        &quit,
-    ]);
-    let menu = Menu::with_items(app, &items)?;
-    Ok((menu, header))
+}
+/// The shell event after a tray switch that opened or failed: the connection list refreshes and shows a failure on
+/// the connection.
+pub const TRAY_SWITCH: &str = "desktop-tray-switch";
+/// A switch from the tray (desktop spec §6.3) takes the open path of *Open* in the connection list, T4's gate first:
+/// a connection that needs a confirmation opens the shell on its confirm dialog, without any harness contact.
+fn switch_from_tray(app: &tauri::AppHandle, id: uuid::Uuid) {
+    let state = app.state::<NativeState>();
+    // A native check item toggles itself when clicked: show the active connection again until the open ends.
+    let view = state.view.lock().unwrap().clone();
+    update_tray(app, &view);
+    if state.switching.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        use crate::tray::SwitchOutcome;
+        let outcome = match (
+            handle.try_state::<crate::transport::Transports>(),
+            crate::commands::app_config_dir(&handle),
+        ) {
+            (Some(transports), Ok(dir)) => {
+                let owner = handle
+                    .state::<crate::commands::ConnectionState>()
+                    .inner()
+                    .clone();
+                let connect = handle.clone();
+                crate::tray::switch(
+                    &transports,
+                    &crate::connections::Store::open(&dir),
+                    &crate::transport::TransportStore::open(&dir),
+                    id,
+                    |row, checked| crate::commands::connect_checked(connect, owner, row, checked),
+                )
+                .await
+            }
+            _ => SwitchOutcome::Failed(id, "storage".into()),
+        };
+        handle
+            .state::<NativeState>()
+            .switching
+            .store(false, Ordering::SeqCst);
+        connections_changed(&handle);
+        let gui = handle.clone();
+        if handle
+            .run_on_main_thread(move || {
+                let route = outcome.route();
+                let (event, payload) = match &outcome {
+                    SwitchOutcome::Opened => {
+                        (TRAY_SWITCH, serde_json::json!({ "id": id, "error": null }))
+                    }
+                    SwitchOutcome::ConfirmNeeded(id) => (
+                        crate::events::TRANSPORT_ATTENTION,
+                        serde_json::json!({
+                            "id": id,
+                            "code": crate::transport::TransportError::ConfirmNeeded.code(),
+                        }),
+                    ),
+                    SwitchOutcome::Failed(id, code) => {
+                        eprintln!("TRAY_SWITCH_FAILED code={code}");
+                        (TRAY_SWITCH, serde_json::json!({ "id": id, "error": code }))
+                    }
+                    SwitchOutcome::Ignored => {
+                        eprintln!("TRAY_SWITCH_IGNORED");
+                        return;
+                    }
+                };
+                if let Some(route) = route {
+                    navigate_shell(&gui, route);
+                }
+                if gui
+                    .emit_to(tauri::EventTarget::webview_window("shell"), event, payload)
+                    .is_err()
+                {
+                    eprintln!("TRAY_SWITCH_EMIT_FAILED");
+                }
+            })
+            .is_err()
+        {
+            eprintln!("TRAY_SWITCH_DISPATCH_FAILED");
+        }
+    });
+}
+/// *Start/Stop harness* from the tray: the controller's start/stop path of `harness_start`/`harness_stop`, honoured
+/// only while the control is enabled now. The state reaches the tray through `publish_controller`.
+fn harness_from_tray(app: &tauri::AppHandle, op: crate::tray::HarnessOp) {
+    use crate::tray::HarnessOp;
+    if let Err(reason) = harness_controls(app).request(op) {
+        eprintln!("TRAY_HARNESS_REFUSED reason={}", reason.code());
+        return;
+    }
+    let state = app.state::<NativeState>();
+    if state.harness_busy.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let view = state.view.lock().unwrap().clone();
+    update_tray(app, &view);
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let runtime = handle.state::<crate::runtime_commands::RuntimeState>();
+        let result = match op {
+            HarnessOp::Start => {
+                crate::runtime_commands::start_harness(&handle, &runtime, None).await
+            }
+            HarnessOp::Stop => crate::runtime_commands::stop_harness(&handle, &runtime).await,
+        };
+        handle
+            .state::<NativeState>()
+            .harness_busy
+            .store(false, Ordering::SeqCst);
+        if let Err(code) = &result {
+            eprintln!("TRAY_HARNESS_FAILED code={code}");
+        }
+        let gui = handle.clone();
+        if handle
+            .run_on_main_thread(move || {
+                if result.is_err() {
+                    navigate_shell(&gui, "#/settings/runtime");
+                }
+                let view = gui.state::<NativeState>().view.lock().unwrap().clone();
+                update_tray(&gui, &view);
+            })
+            .is_err()
+        {
+            eprintln!("TRAY_HARNESS_DISPATCH_FAILED");
+        }
+    });
 }
 pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let preference = crate::commands::app_config_dir(app)
@@ -780,7 +1017,11 @@ pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         .unwrap_or_default()
         .locale;
     set_language(app, preference);
-    let (menu, header) = tray_menu(app)?;
+    if let Some(rows) = load_switch_rows(app) {
+        *app.state::<NativeState>().switch_rows.lock().unwrap() = rows;
+    }
+    let view = app.state::<NativeState>().view.lock().unwrap().clone();
+    let (menu, header) = tray_menu(app, &view)?;
     let state = app.state::<NativeState>();
     let (image, template) = tray_image(app, state.view.lock().unwrap().badge())?;
     tauri::tray::TrayIconBuilder::with_id("resident")
@@ -791,16 +1032,7 @@ pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             &state.view.lock().unwrap(),
             language(app).text("no-connection"),
         ))
-        .on_menu_event(|app, event| match event.id.as_ref() {
-            "open" => focus(app),
-            "connections" => navigate_shell(app, "#/connections"),
-            "settings" => navigate_shell(app, "#/settings/runtime"),
-            "update" => navigate_shell(app, "#/settings/updates"),
-            "quit" => {
-                request_quit(app);
-            }
-            _ => {}
-        })
+        .on_menu_event(|app, event| on_menu_event(app, event.id.as_ref()))
         .build(app)?;
     *state.header.lock().unwrap() = Some(header);
     Ok(())
@@ -894,7 +1126,7 @@ fn update_tray(app: &tauri::AppHandle, view: &TrayState) {
         }
     }
     if let Some(tray) = app.tray_by_id("resident") {
-        match tray_menu(app) {
+        match tray_menu(app, view) {
             Ok((menu, header)) => {
                 if header.set_text(&text).is_err() {
                     eprintln!("TRAY_TEXT_FAILED");
@@ -953,6 +1185,8 @@ pub(crate) fn publish_controller(app: &tauri::AppHandle, status: crate::controll
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         let state = handle.state::<NativeState>();
+        // *Start/Stop harness* follow the controller whatever connection is active.
+        *state.controller.lock().unwrap() = Some(status.clone());
         if state
             .connection
             .lock()

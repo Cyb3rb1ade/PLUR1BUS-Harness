@@ -40,9 +40,26 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         catch { /* The banner still offers the confirmation; Rust re-checks on every open. */ }
         paint();
     }
-    void transport.transportAttention?.(event => {
-        const row = data.connections.find(c => c.id === event.id);
-        if (row) void needConfirm(row, event.code);
+    /** A row by id from the shell's current list (this view may not have painted it yet), refreshed once if missing. */
+    async function rowFor(id: string): Promise<Connection | undefined> {
+        data = snapshot().data ?? data;
+        if (!data.connections.some(c => c.id === id)) { await refresh(); data = snapshot().data ?? data; }
+        return data.connections.find(c => c.id === id);
+    }
+    // A stopped reconnect, or a tray switch that needs a confirmation (desktop spec §6.3): the shell opens on this
+    // list and the connection shows its confirm panel.
+    void transport.transportAttention?.(async event => {
+        const row = await rowFor(event.id);
+        if (!row) return;
+        selected = row.id;
+        void needConfirm(row, event.code);
+    });
+    // A tray switch that opened (the list refreshes) or failed (its reason on the connection).
+    void transport.traySwitch?.(async event => {
+        if (!event.error) { void refresh(); return; }
+        const row = await rowFor(event.id);
+        if (row) selected = row.id;
+        fail(event.error);
     });
     function paired(result: Paired) { mode = "list"; repair = undefined; selected = result.connection.id; error = null; void refresh(); paint(); }
     function fail(e: unknown) { opened = false; error = e; void refresh(); paint(); }

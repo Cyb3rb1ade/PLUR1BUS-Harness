@@ -79,6 +79,8 @@ export type DesktopTransport = {
   transportCheck?(target: CheckTarget, transport: Transport, purpose: Purpose): Promise<TransportReport>;
   connectionTransportSet?(id: string, transport: Transport, publicAck: boolean): Promise<TransportReport>;
   transportAttention?(listener: (event: { id: string; code: string }) => void): Promise<() => void>;
+  /** After a switch from the tray menu: `error` is the open's code when it failed (desktop spec §6.3). */
+  traySwitch?(listener: (event: { id: string; error: string | null }) => void): Promise<() => void>;
   appInfo(): Promise<{ platform: Platform; locale: string; store_managed?:boolean; sandboxed?:boolean }>;
   settingsGet(): Promise<Settings>;
   settingsSet(value: Settings): Promise<Settings>;
@@ -134,6 +136,7 @@ export const nativeTransport: DesktopTransport = {
   transportCheck: (target, transport, purpose) => invoke("transport_check", { request: { target, transport, purpose } }),
   connectionTransportSet: (id, transport, publicAck) => invoke("connection_transport_set", { request: { id, transport, publicAck } }),
   transportAttention: listener => listen<{ id: string; code: string }>("transport-attention", event => listener(event.payload)),
+  traySwitch: listener => listen<{ id: string; error: string | null }>("desktop-tray-switch", event => listener(event.payload)),
   appInfo: () => invoke("app_info"),
   settingsGet: () => invoke("settings_get"),
   settingsSet: settings => invoke("settings_set", { request: { settings } }),

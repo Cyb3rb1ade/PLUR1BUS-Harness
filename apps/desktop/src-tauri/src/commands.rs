@@ -305,7 +305,7 @@ pub async fn connection_transport_set(
         .into_iter()
         .find(|c| c.id == request.id && c.kind == crate::connections::Kind::Remote)
         .ok_or("invalid")?;
-    transports
+    let result = transports
         .set_transport(
             &transport_store(&app)?,
             &row,
@@ -313,7 +313,10 @@ pub async fn connection_transport_set(
             request.public_ack,
         )
         .await
-        .map_err(str::to_owned)
+        .map_err(str::to_owned);
+    // The tray switch shows each connection's path.
+    crate::native::connections_changed(&app);
+    result
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -390,7 +393,9 @@ pub async fn connections_rename(
         .find(|c| c.id == request.id)
         .ok_or("invalid")?;
     row.name = request.name.trim().to_owned();
-    store.upsert(row).map_err(|_| "invalid".into())
+    store.upsert(row).map_err(|_| "invalid")?;
+    crate::native::connections_changed(window.app_handle());
+    Ok(())
 }
 #[tauri::command]
 pub async fn connections_remove(
@@ -402,7 +407,8 @@ pub async fn connections_remove(
     let store = connection_store(&window)?;
     let tstore = transport_store(window.app_handle())?;
     let app = window.app_handle().clone();
-    credential_action(&state, move |tokens, _| {
+    let changed = app.clone();
+    let result = credential_action(&state, move |tokens, _| {
         crate::native::retire_connection(&app, request.id);
         crate::pair::remove_connection(
             &store,
@@ -420,7 +426,9 @@ pub async fn connections_remove(
         }
         Ok(())
     })
-    .await
+    .await;
+    crate::native::connections_changed(&changed);
+    result
 }
 #[tauri::command]
 pub async fn pair_code(
@@ -527,6 +535,7 @@ pub async fn pair_code(
                 .unwrap()
                 .finish_pair(id);
         }
+        crate::native::connections_changed(window.app_handle());
     }
     result
 }
@@ -555,7 +564,7 @@ pub async fn pair_local(
     }
     let code = crate::secrets::SecretString::new(offer.code);
     let store = connection_store(&window)?;
-    credential_action(&state, move |tokens, runtime| {
+    let result = credential_action(&state, move |tokens, runtime| {
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let connection = runtime
             .block_on(crate::pair::pair(
@@ -574,7 +583,9 @@ pub async fn pair_local(
             token_store: tokens.kind(),
         })
     })
-    .await
+    .await;
+    crate::native::connections_changed(window.app_handle());
+    result
 }
 #[derive(Serialize)]
 pub struct Opened {
@@ -595,23 +606,43 @@ pub async fn open_connection(
     let app = window.app_handle().clone();
     // Transport choice spec §7.1, §9.2: a remote connection is checked and gated before any harness contact; a public
     // target without a valid confirmation returns `transport-confirm-needed` and nothing connects. Metadata is read
-    // without the credential owner, as listing does.
-    let (listed, checked) = transports
-        .open_check(&store, &transport_store(&app)?, request.id)
-        .await?;
+    // without the credential owner, as listing does. The tray switch takes the same path (desktop spec §6.3).
+    let owner = state.inner().clone();
+    let connect_app = app.clone();
+    let result = transports
+        .open_gated(
+            &store,
+            &transport_store(&app)?,
+            request.id,
+            |listed, checked| connect_checked(connect_app, owner, listed, checked),
+        )
+        .await;
+    crate::native::connections_changed(&app);
+    result
+}
+/// The harness contact of an open, after its gate ([`crate::transport::Transports::open_gated`]): `listed` is the row
+/// the gate checked, `checked` its check and path. Shared by `open_connection` and the tray switch.
+pub(crate) async fn connect_checked(
+    app: tauri::AppHandle,
+    state: ConnectionState,
+    listed: crate::connections::Connection,
+    checked: Option<(crate::transport::CheckedTarget, crate::transport::Transport)>,
+) -> Result<Opened, String> {
+    let store = app_connection_store(&app)?;
+    let id = listed.id;
     let report = checked.as_ref().map(|(c, _)| c.report.clone());
     let opened = checked.as_ref().map(|(c, t)| (c.report.clone(), *t));
     let connect = checked.map(|(c, _)| c.pin);
     credential_action(&state, move |tokens, runtime| {
         if app.try_state::<crate::native::NativeState>().is_some() {
-            crate::native::retire_connection(&app, request.id);
+            crate::native::retire_connection(&app, id);
         }
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let mut row = store
             .load()
             .map_err(|_| "storage")?
             .into_iter()
-            .find(|c| c.id == request.id)
+            .find(|c| c.id == id)
             .ok_or("invalid")?;
         // The row checked above, still the same target; a remote row is never opened unpinned.
         if row.origin != listed.origin

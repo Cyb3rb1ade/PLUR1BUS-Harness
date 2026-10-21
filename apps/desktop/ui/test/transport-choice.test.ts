@@ -304,3 +304,37 @@ test("without the fresh report the confirm panel never claims a changed address 
     await page.getByText("The address of public.harness.test has changed and is now public. Confirm this before the app connects.").waitFor();
   });
 });
+
+test("a tray switch that needs a confirmation opens the list on that connection's confirm panel", async () => {
+  await withShell(async page => {
+    await page.addInitScript(rows => { (window as any).__fixtureBoot = { rows }; }, [remote("lan", "https://nas.harness.test", "NAS"), remote("pub", "https://public.harness.test", "VPS")]);
+    await page.reload();
+    // Desktop spec §6.3: the native open path refused before any harness contact; the shell may still show home and
+    // has never painted the list when it is told, then the tray opens it on `#/connections`.
+    await page.evaluate(() => (window as any).testShell.fireAttention("pub", "transport-confirm-needed"));
+    await page.evaluate(() => { window.location.hash = "#/connections"; });
+    await page.getByRole("heading", { name: "VPS" }).waitFor();
+    const panel = page.locator(".transport-public");
+    await panel.getByText("public.harness.test points to an address on the public internet (9.9.9.9).", { exact: false }).waitFor();
+    assert.equal((await shell(page).calls()).filter(c => c[0] === "open").length, 0);
+    await panel.getByRole("button", { name: "Confirm and connect", exact: true }).click();
+    await page.getByText("Connection verified and selected.", { exact: false }).waitFor();
+    assert.deepEqual((await shell(page).calls()).filter(c => c[0] === "set"), [["set", "pub", "direct", true]]);
+  });
+});
+
+test("a tray switch shows a failure on its connection and refreshes the list after a success", async () => {
+  await withShell(async page => {
+    await page.addInitScript(rows => { (window as any).__fixtureBoot = { rows }; }, [remote("lan", "https://nas.harness.test", "NAS"), remote("desk", "https://desk.harness.test", "Desk")]);
+    await page.reload();
+    await page.getByRole("button", { name: "View connections" }).click();
+    await page.getByRole("heading", { name: "NAS" }).waitFor();
+    await page.evaluate(() => (window as any).testShell.fireTraySwitch("desk", "pairing-needed"));
+    await page.getByRole("heading", { name: "Desk" }).waitFor();
+    await page.getByText("This connection needs pairing before it can open.").first().waitFor();
+    assert.equal(await page.locator(".connections-side .chip", { hasText: "Active" }).count(), 0);
+    await page.evaluate(() => (window as any).testShell.fireTraySwitch("lan", null));
+    await page.locator(".connections-side .chip", { hasText: "Active" }).waitFor();
+    assert.equal(await page.locator(".connections-side .chip", { hasText: "Active" }).count(), 1);
+  });
+});

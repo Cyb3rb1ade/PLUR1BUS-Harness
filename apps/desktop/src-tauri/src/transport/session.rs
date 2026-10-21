@@ -257,6 +257,24 @@ impl Transports {
         Ok((row, Some((checked, transport))))
     }
 
+    /// The one open path (spec §7.1, §9.2; desktop spec §6.3): *Open* in the connection list and the tray switch both
+    /// run [`Self::open_check`] and then `connect` with exactly that row and check. A refusal of the gate
+    /// (`transport-confirm-needed` among them) returns before `connect` runs, so nothing contacts the harness.
+    pub async fn open_gated<T, F, Fut>(
+        &self,
+        connections: &crate::connections::Store,
+        store: &TransportStore,
+        id: Uuid,
+        connect: F,
+    ) -> Result<T, String>
+    where
+        F: FnOnce(Connection, Option<(CheckedTarget, Transport)>) -> Fut,
+        Fut: std::future::Future<Output = Result<T, String>>,
+    {
+        let (row, checked) = self.open_check(connections, store, id).await?;
+        connect(row, checked).await
+    }
+
     /// The check before an events reconnect (spec §9.2).
     pub async fn recheck(
         &self,

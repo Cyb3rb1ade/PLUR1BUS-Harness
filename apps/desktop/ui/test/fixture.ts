@@ -41,6 +41,7 @@ const transportCalls: unknown[][] = [];
 let transportStoreReadOnly = false;
 let transportCheckError: string | null = null;
 let attentionListener: ((event: { id: string; code: string }) => void) | null = null;
+let traySwitchListener: ((event: { id: string; error: string | null }) => void) | null = null;
 const hostOf = (origin: string) => { try { return new URL(origin).hostname.replace(/^\[|\]$/g, ""); } catch { return origin; } };
 const reportFor = (host: string): Report => transportReports[host] ?? privateReport();
 const viewFor = (row: import("../src/ipc.ts").Connection) => transportViews[row.id] ?? { transport: "direct" as const, publicAck: false, storeReadOnly: transportStoreReadOnly };
@@ -63,6 +64,7 @@ const transport: DesktopTransport = {
  async transportCheck(target,transport,purpose){transportCalls.push(["check",target,transport,purpose]);await gates.check;if(transportCheckError)throw transportCheckError;const host=target.kind==="origin"?hostOf(target.origin):target.kind==="host"?target.host:hostOf(rows.find(r=>r.id===target.id)?.origin??"");return reportFor(host);},
  async connectionTransportSet(id,transport,publicAck){transportCalls.push(["set",id,transport,publicAck]);const row=rows.find(r=>r.id===id);if(!row)throw "invalid";const view=viewFor(row);const needs=reportFor(hostOf(row.origin)).needsPublicAck;const kept=view.transport===transport&&view.publicAck;if(needs&&!publicAck&&!kept)throw "transport-confirm-needed";transportViews[id]={transport,publicAck:needs&&(publicAck||kept),storeReadOnly:transportStoreReadOnly};return reportFor(hostOf(row.origin));},
  async transportAttention(listener){attentionListener=listener;return ()=>{attentionListener=null;};},
+ async traySwitch(listener){traySwitchListener=listener;return ()=>{traySwitchListener=null;};},
   async appInfo() { await loaded; return { platform: boot?.platform ?? "mac", locale: boot?.locale ?? "en-US" }; },
   async settingsGet() { await loaded; if (boot?.failGet) throw new Error("fixture settings read failure"); return settings; },
   async settingsSet(value) {
@@ -143,6 +145,8 @@ Object.assign(window, { testShell: {
   setTransportCheckError:(value:string|null)=>{transportCheckError=value;},
   transportCalls:()=>transportCalls,
   fireAttention:(id:string,code:string)=>attentionListener?.({id,code}),
+  // The native tray switch: `connections_list` changes underneath, then the shell event (desktop spec §6.3).
+  fireTraySwitch:(id:string,error:string|null)=>{if(!error)active=id;traySwitchListener?.({id,error});},
   showTransportChoice:(purpose:import("../src/ipc.ts").Purpose,host:string,locale:"en"|"de"="en",storeReadOnly=false)=>{
     const model=createTransportModel(transport.transportCheck!.bind(transport),purpose,undefined,0);
     const form=document.createElement("main");form.className="content";
