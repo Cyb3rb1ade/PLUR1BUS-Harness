@@ -1,10 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, readFileSync, statSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { createFileAuditSink, sanitizeDetail } from "../../src/secrets/audit.ts";
 import { SecretError } from "../../src/secrets/types.ts";
+import { createAuditChain, ANCHOR_NAME, ACTIVE_NAME } from "../../src/audit/chain.ts";
 import { MARKER, secure } from "./helpers.ts";
 
 describe("secret audit", () => {
@@ -19,6 +20,19 @@ describe("secret audit", () => {
     assert.deepEqual([lines[0].at, lines[0].action, lines[0].target, lines[0].actor.user, lines[0].detail], [1234, "secret.set", "k", "me", { backend: "file" }]);
     assert.equal(lines[1].actor.user, "core");
     if (process.platform !== "win32") assert.equal(statSync(file).mode & 0o777, 0o600);
+  });
+  it("tees the same sanitized record into the chain, including a null list target", () => {
+    const dir = join(tempDir("p1b-aud-chain-"), "logs");
+    const sink = createFileAuditSink({ file: join(dir, "audit.log"), secure, clock: () => 1234 });
+    sink.record({ action: "secret.list", target: null, principal: { kind: "owner", id: "me" }, detail: { count: 2, value: MARKER } as never });
+    const chain = createAuditChain({ dir });
+    assert.deepEqual([chain.verify().ok, chain.verify().records], [true, 1]);
+    const rec = JSON.parse(readFileSync(join(dir, ACTIVE_NAME), "utf8")).rec;
+    assert.deepEqual(rec, JSON.parse(readFileSync(join(dir, "audit.log"), "utf8")));
+    assert.equal(JSON.stringify(rec).includes(MARKER), false);
+    unlinkSync(join(dir, ANCHOR_NAME));
+    assert.throws(() => sink.record({ action: "secret.reveal", target: "key", principal: { kind: "owner" } }), (e) => e instanceof SecretError && e.code === "audit-unavailable");
+    assert.equal(chain.verify().records, 1);
   });
   it("drops any detail key it does not know, and non-primitive values", () => {
     const d = sanitizeDetail({ backend: "file", value: MARKER, secret: MARKER, purpose: { nested: MARKER } } as never);

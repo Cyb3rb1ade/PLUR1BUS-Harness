@@ -257,6 +257,35 @@ test("D110 workflow lint rejects an offline job using a provider credential", ()
   const r = lintTree({ ".github/workflows/ci.yml": 'jobs:\n  offline:\n    env:\n      KEY: ${{ secrets.OPENAI_API_KEY }}\n' });
   assert.equal(r.status, 1); assert.match(r.stderr, /HYG-015/);
 });
+test("HYG-016 rejects tag, branch and unpinned action refs in workflows", () => {
+  const sha = "0123456789abcdef0123456789abcdef01234567";
+  for (const ref of ["actions/checkout@v4", "actions/checkout@v7.0.1", "dtolnay/rust-toolchain@stable", "actions/cache/save@main", "actions/checkout", "actions/checkout@0123abc", `actions/checkout@${sha.toUpperCase()}`, "docker://alpine:3.20", "docker://alpine@sha256:abc"]) {
+    for (const wrap of [(r) => `      - uses: ${r}\n`, (r) => `      - uses: "${r}" # pinned\n`, (r) => `        uses: ${r}\n`]) {
+      const r = lintTree({ ".github/workflows/x.yml": `jobs:\n  a:\n    steps:\n${wrap(ref)}` });
+      assert.equal(r.status, 1, ref);
+      assert.match(r.stderr, /\[HYG-016\] \.github\/workflows\/x\.yml:4:/);
+    }
+  }
+});
+test("HYG-016 accepts SHA pins, local actions, digest-pinned docker images and comments", () => {
+  const sha = "0123456789abcdef0123456789abcdef01234567", digest = "a".repeat(64);
+  const ok = lintTree({
+    ".github/workflows/x.yml": [
+      "jobs:",
+      "  a:",
+      "    uses: ./.github/workflows/y.yml",
+      "    steps:",
+      `      - uses: actions/checkout@${sha} # v7.0.1`,
+      `      - uses: actions/cache/save@${sha}`,
+      "      - uses: ./.github/actions/local",
+      `      - uses: docker://alpine@sha256:${digest}`,
+      "      # - uses: actions/checkout@v4",
+      "      - run: echo uses: actions/checkout@v4",
+      "",
+    ].join("\n"),
+  });
+  assert.equal(ok.status, 0, ok.stderr);
+});
 test('HYG-003 permits Rust test container mounts without per-file exceptions and still rejects commands', () => {
   const mounts = readFileSync(join(fixtureDir, 'HYG-003-mounts.txt'), 'utf8');
   const allowed = lintTree({ 'crates/example/tests/container.rs': mounts });

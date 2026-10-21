@@ -83,7 +83,12 @@ export interface HermesMemoryImportResult {
   errors: Array<{ sourceRef: string; reason: string }>;
 }
 
-function writeMirrorWithConflict(opts: {
+/**
+ * Writes one curated mirror file (memories.md / USER.md) under the conflict strategy. Returns a reason when the file was
+ * deliberately left alone because of a problem the caller reports (`target-unreadable`: the existing file cannot be read,
+ * so with --conflict replace its content could not be backed up and overwriting it would lose it), else undefined.
+ */
+export function writeMirrorWithConflict(opts: {
   targetPath: string;
   content: string;
   relTarget: string;
@@ -94,7 +99,7 @@ function writeMirrorWithConflict(opts: {
   replacedBackupDir?: string | undefined;
   ledger?: ImportLedger | undefined;
   l: Layout;
-}): void {
+}): "target-unreadable" | undefined {
   const { targetPath, content, relTarget, sourceRef, legacyContent, agentId, onConflict, replacedBackupDir, ledger, l } = opts;
   const canonicalKnowledge = relTarget === "workspace/memory/KNOWLEDGE.md";
   const workspace = l.workspaceDir(agentId);
@@ -117,15 +122,16 @@ function writeMirrorWithConflict(opts: {
         sha256: sha,
       });
     }
-    return;
+    return undefined;
   }
 
   // Target exists: check if content matches
   let existingContent = "";
+  let unreadable = false;
   try {
     existingContent = readFileSync(targetPath, "utf8");
   } catch {
-    existingContent = "";
+    unreadable = true;
   }
   const existingSha = createHash("sha256").update(existingContent).digest("hex");
   if (existingSha === sha) {
@@ -139,7 +145,7 @@ function writeMirrorWithConflict(opts: {
         sha256: sha,
       });
     }
-    return;
+    return undefined;
   }
 
   // Content differs: apply conflict strategy
@@ -155,10 +161,23 @@ function writeMirrorWithConflict(opts: {
         reason: "content-differs",
       });
     }
-    return;
+    return undefined;
   }
 
   if (onConflict === "replace") {
+    if (unreadable) {
+      // Never overwrite what cannot be read and so cannot be backed up (an empty backup would be a silent data loss).
+      ledger?.record({
+        entity: "file",
+        idempotencyKey: fileIdempotencyKey(agentId, relTarget, sha),
+        action: "conflict-skip",
+        sourceRef,
+        targetRef: relative(l.home, targetPath).replaceAll("\\", "/"),
+        sha256: sha,
+        reason: "target-unreadable",
+      });
+      return "target-unreadable";
+    }
     if (replacedBackupDir) {
       const rel = relative(l.home, targetPath).replaceAll("\\", "/");
       const bkp = join(replacedBackupDir, rel);
@@ -176,7 +195,7 @@ function writeMirrorWithConflict(opts: {
         sha256: sha,
       });
     }
-    return;
+    return undefined;
   }
 
   if (onConflict === "rename") {
@@ -203,7 +222,7 @@ function writeMirrorWithConflict(opts: {
           targetRef: relative(l.home, matchPath).replaceAll("\\", "/"),
           sha256: matchSha,
         });
-        return;
+        return undefined;
       }
     }
     let idx = 1;
@@ -225,6 +244,7 @@ function writeMirrorWithConflict(opts: {
       });
     }
   }
+  return undefined;
 }
 
 export async function importHermesMemories(opts: {
@@ -686,7 +706,7 @@ export async function importHermesMemories(opts: {
     if (existsSync(wsDir)) {
       if (successfulMemoryTexts.length > 0 && !memoryBatchFailed) {
         const mirrorContent = formatImportedKnowledge(successfulMemoryTexts.join("\n\n§\n\n") + "\n", "hermes-agent-memory-import");
-        writeMirrorWithConflict({
+        const mirrorProblem = writeMirrorWithConflict({
           targetPath: join(wsDir, "memory", "KNOWLEDGE.md"),
           content: mirrorContent,
           legacyContent: successfulMemoryTexts.join("\n\n§\n\n") + "\n",
@@ -698,11 +718,12 @@ export async function importHermesMemories(opts: {
           ledger,
           l,
         });
+        if (mirrorProblem) errors.push({ sourceRef: `${profileName}:memories/MEMORY.md`, reason: mirrorProblem });
       }
 
       if (successfulUserTexts.length > 0 && !userBatchFailed) {
         const userMirrorContent = successfulUserTexts.join("\n\n§\n\n") + "\n";
-        writeMirrorWithConflict({
+        const userMirrorProblem = writeMirrorWithConflict({
           targetPath: join(wsDir, "USER.md"),
           content: userMirrorContent,
           relTarget: "workspace/USER.md",
@@ -713,6 +734,7 @@ export async function importHermesMemories(opts: {
           ledger,
           l,
         });
+        if (userMirrorProblem) errors.push({ sourceRef: `${profileName}:memories/USER.md`, reason: userMirrorProblem });
       }
     }
   }

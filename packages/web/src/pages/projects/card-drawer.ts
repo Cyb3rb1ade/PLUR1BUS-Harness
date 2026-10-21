@@ -7,6 +7,7 @@ import { formatDateTime, t } from "../../i18n.ts";
 import { getApi } from "../common/load.ts";
 import { HandoffContent } from "./handoff-card.ts";
 import { canComment, canWriteCards } from "./model.ts";
+import { isSafeUrl } from "./markdown.ts";
 import type {
   BoardActivity,
   BoardActor,
@@ -410,7 +411,7 @@ export function CardDrawer({
                     { key: idx, class: "link-item" },
                     h("span", { class: "link-kind" }, link.kind),
                     ": ",
-                    link.kind === "url"
+                    link.kind === "url" && isSafeUrl(link.id)
                       ? h(
                           "a",
                           {

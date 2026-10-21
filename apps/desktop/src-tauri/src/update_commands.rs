@@ -16,6 +16,7 @@ pub struct Owner {
     started: bool,
     active_runs: bool,
     automatic_started: bool,
+    installing: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 impl Default for Owner {
     fn default() -> Self {
@@ -24,7 +25,30 @@ impl Default for Owner {
             started: false,
             active_runs: true,
             automatic_started: false,
+            installing: Default::default(),
         }
+    }
+}
+/// Marks an install in flight. The owner lock is held only briefly around it, so settings,
+/// reminders and checks stay responsive during the (up to 300 s) download.
+pub struct InstallToken(std::sync::Arc<std::sync::atomic::AtomicBool>);
+impl Drop for InstallToken {
+    fn drop(&mut self) {
+        self.0.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+impl Owner {
+    /// Claim the single install slot; `None` while another install is running.
+    pub fn begin_install(&self) -> Option<InstallToken> {
+        use std::sync::atomic::Ordering;
+        self.installing
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+            .then(|| InstallToken(self.installing.clone()))
+    }
+    /// Whether an install currently owns the slot.
+    pub fn installing(&self) -> bool {
+        self.installing.load(std::sync::atomic::Ordering::SeqCst)
     }
 }
 /// Check cached approved policy once a minute; unknown activity keeps automatic updates waiting.
@@ -59,7 +83,9 @@ pub(crate) fn auto_watch(window: WebviewWindow) {
             let mut owner = state.0.lock().await;
             owner.active_runs = busy;
             let result = snapshot(&settings, &owner, &root);
-            let auto = matches!(result.offer, Offer::AutoInstall) && result.install_available;
+            let auto = matches!(result.offer, Offer::AutoInstall)
+                && result.install_available
+                && !owner.installing();
             drop(owner);
             if auto && update_install(window.clone()).await.is_err() {
                 return;
@@ -113,22 +139,23 @@ fn now() -> u64 {
 fn dir(window: &WebviewWindow) -> Result<std::path::PathBuf, String> {
     commands::app_config_dir(window.app_handle())
 }
-fn snapshot(s: &UpdateSettings, o: &Owner, _root: &Path) -> Snapshot {
+fn offer_for(r: &Release, s: &UpdateSettings, active_runs: bool) -> Offer {
     use chrono::Timelike;
     let hour = chrono::Local::now().hour() as u8;
+    decide(
+        r,
+        &Version::parse(env!("CARGO_PKG_VERSION")).unwrap(),
+        s,
+        now(),
+        hour,
+        active_runs,
+    )
+}
+fn snapshot(s: &UpdateSettings, o: &Owner, _root: &Path) -> Snapshot {
     let offer = o
         .release
         .as_ref()
-        .map(|r| {
-            decide(
-                r,
-                &Version::parse(env!("CARGO_PKG_VERSION")).unwrap(),
-                s,
-                now(),
-                hour,
-                o.active_runs,
-            )
-        })
+        .map(|r| offer_for(r, s, o.active_runs))
         .unwrap_or(Offer::None);
     Snapshot {
         settings: s.into(),
@@ -282,10 +309,15 @@ pub async fn update_check(
     let bytes = get(url, 131072).await.map_err(error)?;
     let sig = get(sig_url, 8192).await.map_err(error)?;
     let sig = std::str::from_utf8(&sig).map_err(|_| error(UpdateError::Signature))?;
-    o.release = Some(verify_feed(&bytes, sig, &feed_key, s.channel).map_err(error)?);
+    let release = verify_feed(&bytes, sig, &feed_key, s.channel).map_err(error)?;
+    // A validly signed but older feed (cache, mirror, replay) must not replace what was seen.
+    s.accept_feed(&release).map_err(error)?;
+    save_settings(&root, &s).map_err(error)?;
+    o.release = Some(release);
     let result = snapshot(&s, &o, &root);
     publish(window.app_handle(), &result);
-    let auto = matches!(result.offer, Offer::AutoInstall) && result.install_available;
+    let auto =
+        matches!(result.offer, Offer::AutoInstall) && result.install_available && !o.installing();
     drop(o);
     if auto {
         update_install(window).await?;
@@ -373,19 +405,24 @@ pub async fn update_install(window: WebviewWindow) -> Result<(), String> {
         use tauri_plugin_updater::UpdaterExt;
         let root = dir(&window)?;
         let state = window.state::<UpdateState>();
-        let o = state.0.lock().await;
-        let s = load_settings(&root).map_err(error)?;
-        let release = o.release.as_ref().ok_or("update-not-checked")?;
-        if !matches!(
-            snapshot(&s, &o, &root).offer,
-            Offer::Show | Offer::AutoInstall
-        ) {
-            return Err("update-not-offered".into());
-        }
+        // Hold the owner lock only to decide and claim the install slot, never across the
+        // manifest fetch, the download or the restart.
+        let (release, _installing) = {
+            let o = state.0.lock().await;
+            let s = load_settings(&root).map_err(error)?;
+            let release = o.release.clone().ok_or("update-not-checked")?;
+            if !matches!(
+                offer_for(&release, &s, o.active_runs),
+                Offer::Show | Offer::AutoInstall
+            ) {
+                return Err("update-not-offered".into());
+            }
+            (release, o.begin_install().ok_or("update-not-offered")?)
+        };
         let endpoint = endpoint(release.channel, true).map_err(error)?;
         let manifest = verify_manifest(
             &get(endpoint.clone(), 131072).await.map_err(error)?,
-            release,
+            &release,
         )
         .map_err(error)?;
         let public = key(release.channel, true);
@@ -418,8 +455,18 @@ pub async fn update_install(window: WebviewWindow) -> Result<(), String> {
             .download(|_, _| {}, || {})
             .await
             .map_err(|_| error(UpdateError::Signature))?;
-        let automatic = matches!(snapshot(&s, &o, &root).offer, Offer::AutoInstall);
-        crate::upgrade_commands::approve(&root, release, automatic).map_err(error)?;
+        // The person may have held, skipped or postponed while the download ran: decide again
+        // with the current settings before anything is approved or installed.
+        let automatic = {
+            let o = state.0.lock().await;
+            let s = load_settings(&root).map_err(error)?;
+            match offer_for(&release, &s, o.active_runs) {
+                Offer::AutoInstall => true,
+                Offer::Show => false,
+                _ => return Err("update-not-offered".into()),
+            }
+        };
+        crate::upgrade_commands::approve(&root, &release, automatic).map_err(error)?;
         if update.install(bytes).is_err() {
             std::fs::remove_file(root.join("upgrades.json"))
                 .map_err(|_| error(UpdateError::Storage))?;

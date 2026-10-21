@@ -32,6 +32,21 @@ pub fn navigation(proxy: &Origin, conn: &Origin, url: &Url) -> NavDecision {
         NavDecision::Block
     }
 }
+/// Map an allowed upstream URL onto the local proxy origin; every other URL is returned unchanged.
+/// Used for in-window navigation and popups alike, so the SPA never loads the upstream directly
+/// (certificate pin, Rust-jar-only cookies and the proxy's headers only exist behind the proxy).
+pub fn to_proxy(proxy: &Origin, upstream: &Origin, url: &Url) -> Url {
+    if !same_origin(url, upstream) {
+        return url.clone();
+    }
+    let Ok(mut mapped) = Url::parse(proxy.as_str()) else {
+        return url.clone();
+    };
+    mapped.set_path(url.path());
+    mapped.set_query(url.query());
+    mapped.set_fragment(url.fragment());
+    mapped
+}
 /// Preferred custom-transport policy; production uses `navigation` with its port.
 pub fn spa_navigation(conn: &Origin, url: &Url) -> NavDecision {
     if (url.scheme() == "plur1bus-harness"

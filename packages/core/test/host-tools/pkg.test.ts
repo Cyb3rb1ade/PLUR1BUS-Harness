@@ -40,4 +40,18 @@ describe("pkg.*", () => {
     assert.ok(!rm.plan.args.includes("install"));
     assert.ok(exec.calls.every((c) => c.args[0] !== "install" && c.args[0] !== "uninstall" && c.args[0] !== "remove"));
   });
+
+  it("search and info refuse a term that the package manager would read as an option", async () => {
+    for (const platform of ["darwin", "linux", "win32"] as const) {
+      const { ctx, exec } = makeCtx(platform);
+      exec.calls.length = 0;
+      for (const [tool, input] of [["pkg.search", { query: "--version" }], ["pkg.search", { query: "-Syu" }], ["pkg.info", { name: "--help" }], ["pkg.info", { name: "-h" }]] as const) {
+        const r = await runHostTool(tool, input, ctx);
+        assert.equal(r.isError, true, `${platform} ${tool}`);
+        if (r.isError) assert.equal(r.error.code, "invalid_input");
+      }
+      assert.equal(exec.calls.length, 0, platform);
+      ok(await runHostTool("pkg.search", { query: "ripgrep -x" }, ctx));
+    }
+  });
 });

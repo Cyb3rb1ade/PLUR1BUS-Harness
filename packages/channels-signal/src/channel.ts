@@ -57,6 +57,10 @@ const QUOTE_MAX = 512;
 /** Notifications waiting for processing; more are dropped (a flooding peer must not grow memory without bound). */
 const QUEUE_MAX = 256;
 const MAX_ATTACHMENTS = 10;
+// The id goes verbatim to the daemon's `getAttachment`, which may resolve it as a file name under its attachment directory. So it is a
+// single path segment: base64url-style characters (plus `+` and `=`), never `/` or `\`, and a dot only as one short extension
+// (`abc123.png`), so neither `..` nor a leading-dot name can pass.
+const ATTACHMENT_ID = /^[A-Za-z0-9_+=-]{1,256}(?:\.[A-Za-z0-9]{1,16})?$/;
 const SAFE_MIME =
   /^(image\/(jpeg|png|webp|gif)|audio\/(ogg|mpeg|mp4|aac|wav|x-wav|flac)|video\/(mp4|webm)|application\/(pdf|octet-stream)|text\/plain)$/;
 const CAPABILITIES: ChannelCapabilities = {
@@ -797,7 +801,7 @@ export class SignalChannel implements Channel {
     if (list.length > MAX_ATTACHMENTS) throw new Error("too many attachments");
     let total = 0;
     for (const a of list) {
-      if (!a || typeof a.id !== "string" || !/^[A-Za-z0-9_+/=.-]{1,256}$/.test(a.id)) throw new Error("bad attachment");
+      if (!a || typeof a.id !== "string" || !ATTACHMENT_ID.test(a.id)) throw new Error("bad attachment");
       if (a.size !== undefined && (!Number.isSafeInteger(a.size) || a.size < 0 || a.size > this.#max))
         throw new Error("media size limit");
       const mime = (a.contentType ?? "application/octet-stream").toLowerCase().split(";")[0]!.trim();
