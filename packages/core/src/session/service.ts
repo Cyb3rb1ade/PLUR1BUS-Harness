@@ -26,6 +26,8 @@ export interface SessionServiceDeps {
   compaction?: CompactionConfig;
   prune?: PruneConfig;
   laya?: LayaDecisionPort;
+  /** Live `decision.confidence.pruning` floor for three-way pruning verdicts. */
+  pruneConfidence?: () => number;
   catalog?: ReadCatalog;
   /** Local resources owned by an archived session; observes committed archive/replacement only. */
   onSessionEnd?: (id: string) => void;
@@ -42,7 +44,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
   const maintenanceSignal = AbortSignal.any([d.signal,maintenanceAbort.signal]);
   const recovered = store.recoverRunningTurns().length;
   if (recovered > 0) d.logger.warn("session turns recovered as failed", { count: recovered });
-  const pruner = new ToolPruner(store, d.prune ?? defaultPrune(), { ...(d.laya ? { decide: d.laya } : {}), signal: maintenanceSignal, emit: (type, attrs) => d.logger.info(type, attrs) });
+  const pruner = new ToolPruner(store, d.prune ?? defaultPrune(), { ...(d.laya ? { decide: d.laya } : {}), ...(d.pruneConfidence ? { minConfidence: d.pruneConfidence } : {}), signal: maintenanceSignal, emit: (type, attrs) => d.logger.info(type, attrs) });
   const compactor = new Compactor(store, d.compaction ?? defaultCompaction(), {
     pruner,
     emit: (type, attrs) => d.logger.info(type, attrs),

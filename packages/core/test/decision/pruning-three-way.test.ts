@@ -35,6 +35,16 @@ test('unconfident three-way answers never hide tool outputs',async()=>{
   try{assert.equal(await pruner.run(s.id),0);assert.ok(pruner.view(s.id).every(p=>!p.hidden));}finally{store.close();}
 });
 
+test('the configured pruning confidence floor decides, not a fixed 0.7',async()=>{
+  const answer=(confidence:number)=>async(batch:readonly import('../../src/session/pruning.ts').ToolPair[])=>batch.map(p=>({ref:p.ref,relevant:false,reason:'decision-accepted',verdict:'drop' as const,confidence}));
+  for(const [floor,confidence,hidden] of [[.5,.6,1],[.5,.4,0],[.9,.8,0],[.9,.95,1]] as const){
+    const {store,s}=rig();const pruner=new ToolPruner(store,{...defaultPrune(),keepLastTurns:1},{decide:answer(confidence),minConfidence:()=>floor});
+    try{assert.equal(await pruner.run(s.id),hidden,`floor ${floor}, confidence ${confidence}`);}finally{store.close();}
+  }
+  const {store,s}=rig();const pruner=new ToolPruner(store,{...defaultPrune(),keepLastTurns:1},{decide:answer(.65)});
+  try{assert.equal(await pruner.run(s.id),0,'without a configured floor the 0.7 default applies');}finally{store.close();}
+});
+
 import { Compactor, defaultCompaction } from '../../src/session/compaction.ts';
 import { TurnRunner } from '../../src/session/turn-loop.ts';
 test('/compact --explain and explicit ref restore are local transcript commands without recall, capture or model calls',async()=>{

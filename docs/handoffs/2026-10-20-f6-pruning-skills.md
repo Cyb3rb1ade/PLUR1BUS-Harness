@@ -36,19 +36,25 @@ Wiederherstellung erkannt. Unveränderte binäre Altports haben keine
 nachträglich erfundenen Einsparungswerte.
 
 D69 behält Rechteprüfung, Keyword- und lokale Embedder-Vorstufe des vorhandenen
-LiveCapabilityIndex. Der gleiche DecisionClient wählt aus maximal 12 Kandidaten
-schrittweise eine ID oder `none` unter einer gemeinsamen Frist. Es werden nur
-Metadaten und ein begrenzter Aufgabenexcerpt übergeben, keine Skill-Anweisungen.
+LiveCapabilityIndex. Ohne Entscheidungsmodell, bei nicht verfügbarer Rolle,
+unsicherer Antwort (unter der konfigurierten `skills`-Schwelle) oder Zeitüberschreitung
+gilt wie vor dem Decision Service die Regel-Shortlist: Pins zuerst, dann die ersten
+drei Treffer (Owner-Entscheidung zu #638, 2026-10-21). Ein verfügbares Modell verfeinert
+nur: der gleiche DecisionClient bekommt aus maximal 12 Kandidaten **einen** Aufruf
+(statt drei sequentieller) innerhalb von `min(decision.timeoutMs, budgets.skills)`.
+Die Antwort ist eine Wahrscheinlichkeitsverteilung über die Kandidaten plus `none`;
+der Gewinner und jeder weitere Skill mit mindestens 0,2 bleiben erhalten (höchstens
+drei inklusive Pins), ein sicheres `none` fügt nichts hinzu. Es werden nur Metadaten
+und ein begrenzter Aufgabenexcerpt übergeben, keine Skill-Anweisungen.
 Block gewinnt gegen Pin; Pins belegen einen der höchstens drei Plätze.
-Unsicherheit/fehlendes Backend fügt keine automatische Auswahl hinzu, gültige
-Pins bleiben. Dadurch kann ein vormals rein lexikalisch injizierter Skill ohne
-geeignete Entscheidungsrolle entfallen; das ist die konservative D69-Auswahl.
+Die Pruning-Schwelle im Pruner ist nicht mehr fest 0,7, sondern die konfigurierte
+`decision.confidence.pruning` (Default 0,7).
 
 Anweisungen werden erst nach der Auswahl aus dem aktuellen Katalog gelesen und
 nur im dynamischen Suffix gerendert; Prefix-Hashes bleiben stabil. Änderungen
 an Blocklisten werden nach dem Await erneut beachtet. `skills.selected` enthält
 IDs, Herkunft und Konfidenz, keine Anweisungen oder Aufgabeninhalte. Voice nutzt
-die vorhandene `decisionService`-Featurefrist und Pins als Fallback.
+die vorhandene `decisionService`-Featurefrist und Pins plus Regel-Shortlist als Fallback.
 
 ## Prüfung und Review
 

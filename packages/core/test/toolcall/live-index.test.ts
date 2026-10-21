@@ -191,3 +191,26 @@ test('decision skill hook controls only the dynamic suffix after catalogue short
     assert.ok(prompts[1]!.segments.some(s=>s.zone==='volatile'&&s.text.includes('approved reporting workflow')));
   }finally{f.close();live.close();}
 });
+
+test('automatic skill choice: no decision model injects the rule shortlist top-3, a decision keeps only its subset in its own order', async () => {
+  const { defaults } = await import('@plur1bus/config-schema'); const { DecisionClient } = await import('../../src/decision/client.ts'); const { selectDecisionSkills } = await import('../../src/decision/skills.ts');
+  const { home, live } = setup(); const names = ['alpha', 'beta', 'gamma', 'delta'];
+  for (const n of names) { mkdirSync(join(home, 'skills', n), { recursive: true }); writeFileSync(join(home, 'skills', n, 'SKILL.md'), `---\nname: ${n}\ndescription: Create quarterly report ${n}\ncategory: docs.create\n---\nWorkflow ${n.toUpperCase()}.`); }
+  writeFileSync(join(home, 'skills', 'index.json'), JSON.stringify({ version: 1, skills: names.map(id => ({ id, enabled: true })) }));
+  let offered: { id: string; name: string; description: string }[] = []; let subset = false;
+  const none = new DecisionClient({ config: () => defaults(), backends: {} }); // no decision model
+  const wire = scriptedAdapter([{ text: 'done' }]);
+  const f = turnFixture(wire.adapter, { capabilities: live, selectSkills: async (req, candidates, signal) => {
+    offered = [...candidates];
+    if (subset) return [candidates[2]!.id, candidates[0]!.id];
+    return (await selectDecisionSkills(none, { query: 'Create quarterly report', candidates }, { agentId: req.agentId, signal })).map(s => s.id);
+  } }, home);
+  const injected = () => { const text = JSON.stringify(wire.requests.at(-1)); return names.filter(n => text.includes(`Workflow ${n.toUpperCase()}.`)); };
+  try {
+    const req = turnRequest({ messages: [{ role: 'user', text: 'Create quarterly report' }] });
+    await collect(f.provider, req); assert.equal(offered.length, 4);
+    assert.deepEqual(injected(), offered.slice(0, 3).map(c => c.name).sort((a, b) => names.indexOf(a) - names.indexOf(b)));
+    subset = true; await collect(f.provider, req);
+    assert.deepEqual(injected(), [offered[2]!.name, offered[0]!.name].sort((a, b) => names.indexOf(a) - names.indexOf(b)));
+  } finally { f.close(); live.close(); }
+});

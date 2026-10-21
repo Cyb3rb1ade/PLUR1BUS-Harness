@@ -122,7 +122,7 @@ and stricter D116 thresholds always win; reducing a service threshold never auth
 | D105 message triage | role JSON exists; F2 shared execution | 200 | 0 keeps existing validator; malformed/deadline → current core-only fallback |
 | D30 model routing | class-profile routing exists; F5 session policy | 200 | 0.7; retain fixed or already selected session model; no mid-session change without opt-in |
 | D33 tool-output pruning | port + heuristic exists; F2 adapter, F6 three-way result | 100 | 0.7; keep originals; timeout → compaction without pruning |
-| D69 skill injection | current skill pipeline exists; F6 decision selection | 100 | 0.7; no additional dynamic skill; explicit pins/blocks remain authoritative; max 3 per turn |
+| D69 skill injection | current skill pipeline exists; F6 decision selection | 100 | 0.7; rule shortlist top-3 (keyword and local-embedding stages, as before the decision service); a decision refines it with one call; explicit pins/blocks remain authoritative; max 3 per turn including pins |
 | D116 placement / level | design only; C3/F7 adapter | 200 | 0.7; category placement, confidentiality **confidential**; person override wins |
 | D116 zoom recall | design only; C4/F7 adapter | 150 per level | minimum 0.35, pick at 0.6; middle → two branches; below/deadline/none → existing parallel flat recall |
 | D33-like compaction choice | compaction exists; decision enhancement pending | 200 | 0.7; existing D23 summary; no destructive edit to append-only history |
@@ -130,7 +130,12 @@ and stricter D116 thresholds always win; reducing a service threshold never auth
 Pruning cannot alter user/assistant text, last K turns (3), pending follow-ups, restored outputs,
 approval/audit evidence or uncertain pairs. `keep` preserves bytes; `truncate` retains head/tail
 and a ref marker; `drop` retains a call/status/argument-hash stub. Originals stay retrievable.
-Skill selection writes only the dynamic suffix (ADR-010). Session routing records model and reason;
+Skill selection writes only the dynamic suffix (ADR-010). Without a decision model, with an unavailable role, an
+uncertain answer (below the configured `skills` floor) or a timeout, the rule shortlist (top 3, pins first) is injected
+exactly as before the decision service; a usable decision only refines it, in **one** call inside
+`min(decision.timeoutMs, budgets.skills)`: the answer is a probability distribution over the shortlist and `none`, the
+winner and every other skill with probability of at least 0.2 are kept (up to three including pins), and a confident `none` adds nothing.
+The pruning confidence floor is `decision.confidence.pruning`; the pruner applies the same configured value as the client. Session routing records model and reason;
 its tier list also defines failover. None of these decisions grants permissions or bypasses D109.
 
 ## Configuration and rollout

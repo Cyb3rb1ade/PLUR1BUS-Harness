@@ -3,12 +3,15 @@ import { createHash } from 'node:crypto';
 import type { SessionStore } from './store.ts';
 import type { EventRecord } from './types.ts';
 export interface PruneConfig { enabled: boolean; keepLastTurns: number; decider: 'laya' | 'heuristic' | 'off'; maxMs: number; batchSize: number }
+/** The floor when no configuration supplies one; equals the `decision.confidence.pruning` default. */
+export const DEFAULT_PRUNE_CONFIDENCE = 0.7;
 export const defaultPrune = (): PruneConfig => ({ enabled: true, keepLastTurns: 3, decider: 'laya', maxMs: 100, batchSize: 16 });
 export interface ToolPair { ref: string; turnId: string; call: EventRecord; result: EventRecord; text: string; hidden: boolean; restored: boolean; reason?: string }
 export interface Relevance { ref: string; relevant: boolean; reason: string; verdict?: 'keep' | 'truncate' | 'drop'; confidence?: number }
 /** Laya local CPU backend (D34). An absent/over-budget backend returns null; failures/timeouts retain everything. */
 export type LayaDecisionPort = (batch: readonly ToolPair[], task: string, signal: AbortSignal) => Promise<Relevance[] | null>;
-export interface PruneHooks { decide?: LayaDecisionPort; signal?: AbortSignal; emit?: (type: 'compaction.prune.hidden' | 'compaction.prune.restored', attrs: Record<string, unknown>) => void }
+/** `minConfidence` is the configured `decision.confidence.pruning` floor (read per run, so a live config change applies); a three-way verdict below it never hides anything. */
+export interface PruneHooks { decide?: LayaDecisionPort; minConfidence?: () => number; signal?: AbortSignal; emit?: (type: 'compaction.prune.hidden' | 'compaction.prune.restored', attrs: Record<string, unknown>) => void }
 /** Deterministic context view; estimates use these exact rendered characters, never stored output rewrites. */
 function prunedText(pair: ToolPair, mode: 'truncate' | 'drop'): string {
   const argsHash = createHash('sha256').update(JSON.stringify(pair.call.data.args ?? {})).digest('hex');
@@ -105,11 +108,12 @@ export class ToolPruner {
         if (!Array.isArray(answer) || answer.length !== batch.length || new Set(answer.map(a => a.ref)).size !== batch.length || answer.some(a => !batch.some(p => p.ref === a.ref) || typeof a.relevant !== 'boolean' || typeof a.reason !== 'string' || !a.reason.trim() || a.reason.length > 256)) continue;
         // Re-check all boundaries after the await. A new foreground turn makes this stale batch unusable.
         if (signal.aborted || this.#store.runningTurn(sessionId) || this.#store.lastEventSeq(sessionId) !== revision) return 0;
+        const floor = this.#hooks.minConfidence?.() ?? DEFAULT_PRUNE_CONFIDENCE;
         const freshBoundary = this.#boundary(sessionId);
         const visibility = new Set(this.#store.toolVisibility(sessionId).map(p => p.ref));
         for (const decision of answer) {
           const pair = batch.find(p => p.ref === decision.ref)!;
-          if (decision.verdict !== undefined && (!['keep','truncate','drop'].includes(decision.verdict) || typeof decision.confidence !== 'number' || !Number.isFinite(decision.confidence) || decision.confidence < .7 || decision.confidence > 1 || decision.verdict === 'keep')) continue;
+          if (decision.verdict !== undefined && (!['keep','truncate','drop'].includes(decision.verdict) || typeof decision.confidence !== 'number' || !Number.isFinite(decision.confidence) || decision.confidence < floor || decision.confidence > 1 || decision.verdict === 'keep')) continue;
           if (decision.relevant || this.#protected(sessionId, pair, freshBoundary) || visibility.has(pair.ref)) continue;
           proposed.push({ pair, reason: decision.reason, ...(decision.verdict && decision.confidence !== undefined ? {detail:{mode:decision.verdict as 'truncate'|'drop',confidence:decision.confidence,tokensSaved:Math.max(0,Math.ceil(pair.text.length/4)-Math.ceil(prunedText(pair,decision.verdict as 'truncate'|'drop').length/4))}}:{}) });
         }
