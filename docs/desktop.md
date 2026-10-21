@@ -210,6 +210,16 @@ The bounded SSE primitive re-pulls, persists and acknowledges the same document;
 WP6 supplies its continuous subscription/reconnect lifecycle. The WP4 UI itself
 is not continuously subscribed. CA upload/admin states remain D2.
 
+### Transport choice (groundwork)
+
+The [transport-choice spec](superpowers/specs/2026-10-21-desktop-transport-choice-design.md) is being built in
+packages. The std-only crate `apps/desktop/net` (`plur1bus-desktop-net`) classifies addresses against the shared IANA
+vectors. `src-tauri/src/transport/` validates host input, resolves once through an injected resolver, and returns the
+category, hints and the exact address set to connect to (`check_target`, `gate`). It also keeps each remote
+connection's path in the sidecar `connection-transport.json`. That file is tolerant of unknown fields, read-only when
+written by a newer version, and moved aside as `.corrupt-<ms>-<uuid>` when corrupt. `connections.json` is never written.
+The Tailscale check, IPC, pinned connect and UI follow in later packages; until then nothing in the app calls this module.
+
 ### Scratch profile without keychain access
 
 For a debug build, set `PLUR1BUS_DESKTOP_CONFIG_DIR` to an absolute temporary
