@@ -2,16 +2,26 @@ import { ERROR_CODES, type ErrorCode } from "@plur1bus/rpc-schema";
 
 /** The HTTP status each member of the closed `ErrorCode` enum answers with when nothing more specific is known. The
  *  enum is closed (ADR-016 §2), so conditions without a code of their own (a missing CSRF token, a rate limit, an
- *  oversized body) use the nearest code and a `reason`, never a new code. */
-const STATUS_OF_CODE: Record<string, number> = {
+ *  oversized body) use the nearest code and a `reason`, never a new code. The table is total: a new code in the enum
+ *  fails the type check here until it has a status, so none can fall back to a bare 500. Only `E_INTERNAL` and
+ *  `E_STORAGE` are the server's own fault; a refusal that the caller can fix is a 4xx. */
+const STATUS_OF_CODE: Record<ErrorCode, number> = {
   E_UNAUTHORIZED: 401, E_DENIED: 403, E_NOT_FOUND: 404, E_AGENT_UNKNOWN: 404, E_MODULE_UNKNOWN: 404,
   E_INVALID_PARAMS: 400, E_CONFIG_INVALID: 400, E_CONFLICT: 409, E_LOCKED: 423, E_APPROVAL_REQUIRED: 403,
   E_CORE_UNAVAILABLE: 503, E_NOT_AVAILABLE: 503, E_RPC_VERSION: 502, E_STORAGE: 500, E_INTERNAL: 500,
   E_MEDIA_CAPABILITY: 422, E_MEDIA_LICENSE: 403, E_MEDIA_PRIVACY: 403, E_MEDIA_UNAVAILABLE: 503, E_MEDIA_DIMENSION: 422, E_MEDIA_UNSUPPORTED_KIND: 422,
+  // Agents: a name that is taken is a conflict; invalid or excessive delegation and missing secrets are well-formed requests the core cannot carry out.
+  E_AGENT_EXISTS: 409, E_AGENT_RIGHTS: 422, E_AGENT_SECRETS_MISSING: 422,
+  // Projects and inbox: a full column conflicts with the board's state; a cursor that does not parse is a bad parameter.
+  E_PROJECT_WIP_LIMIT: 409, E_INBOX_CURSOR: 400,
+  // Invitations: the same 400 the redeem route already answers with, for every way a token can be unusable.
+  E_INVITE_INVALID: 400,
+  // Voice: licence refusals as the media ones (403), a rejected budget a 422, an engine without voice a 503 like the media index.
+  E_VOICE_BUDGET: 422, E_VOICE_LICENSE: 403, E_VOICE_LICENCE: 403, E_VOICE_UNAVAILABLE: 503,
 };
 
 export function statusOfCode(code: ErrorCode): number {
-  return STATUS_OF_CODE[code] ?? 500;
+  return STATUS_OF_CODE[code] ?? 500; // the fallback is for a value that is not in the enum at run time
 }
 
 export interface ApiErrorOptions { reason?: string; headers?: Record<string, string> }

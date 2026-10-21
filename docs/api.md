@@ -223,6 +223,23 @@ answer as an unreachable core. `agents.list` takes an object with an `agents` ar
 `agentId`; any other answer is a 502 with `reason: core-error`, and the core cannot override the `schema` id. The core's own text is
 never forwarded.
 
+An `/rpc` call that the core refuses with a code of the closed `ErrorCode` enum keeps that code, the status comes from one
+total table (`statusOfCode`, `src/errors.ts`; the type check fails for a new code without a status, and
+`hardening-openapi.test.ts` fails for any code that would fall back to a bare 500) and the text is a fixed one per code:
+
+| Status | Codes |
+|---|---|
+| 400 | `E_INVALID_PARAMS`, `E_CONFIG_INVALID`, `E_INBOX_CURSOR`, `E_INVITE_INVALID` |
+| 401 | `E_UNAUTHORIZED` |
+| 403 | `E_DENIED`, `E_APPROVAL_REQUIRED`, `E_MEDIA_LICENSE`, `E_MEDIA_PRIVACY`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE` |
+| 404 | `E_NOT_FOUND`, `E_AGENT_UNKNOWN`, `E_MODULE_UNKNOWN` |
+| 409 | `E_CONFLICT`, `E_AGENT_EXISTS`, `E_PROJECT_WIP_LIMIT` |
+| 422 | `E_AGENT_RIGHTS`, `E_AGENT_SECRETS_MISSING`, `E_VOICE_BUDGET`, `E_MEDIA_CAPABILITY`, `E_MEDIA_DIMENSION`, `E_MEDIA_UNSUPPORTED_KIND` |
+| 423 | `E_LOCKED` |
+| 502 | `E_RPC_VERSION` (from the core, it and `E_UNAUTHORIZED` reach the caller as 502 `E_CORE_UNAVAILABLE`, reason `core-handshake`) |
+| 503 | `E_CORE_UNAVAILABLE`, `E_NOT_AVAILABLE`, `E_MEDIA_UNAVAILABLE`, `E_VOICE_UNAVAILABLE` |
+| 500 | `E_INTERNAL`, `E_STORAGE` (the core's own failures reach the caller as 502 `E_CORE_UNAVAILABLE`, reason `core-error`) |
+
 ### Behaviour worth knowing
 
 - **Audit queue.** Auth events are queued (default 2000) and written in order from the event loop; each gets a few retries.
@@ -244,8 +261,6 @@ Each is a test marked `KNOWN GAP`; none is fixed because the fix changes behavio
 
 - **Global session cap** (`hardening-session.test.ts`): any signed-in account can fill the 64 sessions and evict everyone else's,
   the owner's included. A per-principal limit would fix it.
-- **No HTTP status for six core codes** (`hardening-openapi.test.ts`): `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`,
-  `E_INVITE_INVALID` and the voice codes (`E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE`, `E_VOICE_UNAVAILABLE`) fall back to 500. No route returns them yet.
 
 ## Browser RPC and events
 

@@ -14,8 +14,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { ERROR_CODES } from "@plur1bus/rpc-schema";
-import { statusOfCode } from "../src/errors.ts";
+import { ERROR_CODES, type ErrorCode } from "@plur1bus/rpc-schema";
+import { fromCoreError, statusOfCode } from "../src/errors.ts";
 import { buildOpenApi } from "../src/openapi.ts";
 import { ROUTES, type RouteSpec } from "../src/routes.ts";
 import { totpCodeAt } from "../src/totp.ts";
@@ -76,9 +76,26 @@ test("the Error schema's code list is the closed ErrorCode enum it says it is", 
   assert.deepEqual([...listed].sort(), [...ERROR_CODES].sort(), `missing: ${ERROR_CODES.filter((c) => !listed.includes(c)).join(", ")}`);
 });
 
-test("KNOWN GAP: every closed error code has its own HTTP status, none falls back to a bare 500", { todo: "KNOWN GAP: statusOfCode has no entry for E_PROJECT_WIP_LIMIT, E_INBOX_CURSOR, E_INVITE_INVALID, E_VOICE_*; see SICHERHEIT in the PR" }, () => {
+test("every closed error code has its own HTTP status, none falls back to a bare 500", () => {
   const unmapped = ERROR_CODES.filter((c) => statusOfCode(c) === 500 && c !== "E_INTERNAL" && c !== "E_STORAGE");
   assert.deepEqual(unmapped, [], "a core refusal that is the caller's fault would reach the client as a 500");
+});
+
+test("the status of every code is a deliberate 4xx/5xx, the previously unmapped codes answer as documented, and a core refusal keeps its code and mapped status", () => {
+  for (const c of ERROR_CODES) { const s = statusOfCode(c); assert.ok(Number.isInteger(s) && s >= 400 && s <= 599, `${c} -> ${s}`); }
+  const want: Record<string, number> = {
+    E_AGENT_EXISTS: 409, E_AGENT_RIGHTS: 422, E_AGENT_SECRETS_MISSING: 422, E_PROJECT_WIP_LIMIT: 409, E_INBOX_CURSOR: 400, E_INVITE_INVALID: 400,
+    E_VOICE_BUDGET: 422, E_VOICE_LICENSE: 403, E_VOICE_LICENCE: 403, E_VOICE_UNAVAILABLE: 503,
+  };
+  for (const [c, status] of Object.entries(want)) {
+    assert.equal(statusOfCode(c as ErrorCode), status, c);
+    const e = fromCoreError(Object.assign(new Error("host path /srv/secret"), { error: c, reason: "probe" }));
+    assert.deepEqual([e.status, e.error, e.reason], [status, c, "probe"], c);
+    assert.equal(e.message.includes("/srv/secret"), false, `${c}: the core's text is not forwarded`);
+  }
+  // The server-fault codes keep their handling: the core's own failure is a 502 for the caller, never its 500.
+  for (const c of ["E_INTERNAL", "E_STORAGE"]) { const e = fromCoreError(Object.assign(new Error("x"), { error: c })); assert.deepEqual([e.status, e.error], [502, "E_CORE_UNAVAILABLE"], c); }
+  assert.equal(statusOfCode("E_NOT_FOUND"), 404); assert.equal(statusOfCode("E_UNAUTHORIZED"), 401); assert.equal(statusOfCode("E_CONFLICT"), 409);
 });
 
 // ---- real answers against the document -----------------------------------------------------------------------------

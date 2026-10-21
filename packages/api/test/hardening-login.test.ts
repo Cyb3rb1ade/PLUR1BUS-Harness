@@ -80,7 +80,7 @@ test("a hash that is stronger in one parameter and weaker in another is rehashed
   const r = await new PasswordLogin({ users, clock }).check("mixed", FIXTURE_PASSWORD); assert.equal(r.ok && r.rehashed, true);
   const after = parsePhc((await users.findByUsername("mixed"))!.passwordHash)!;
   assert.deepEqual([after.memoryKiB, after.passes, after.parallelism], [65_536, ARGON2_PARAMS.passes, 1]);
-  assert.equal(await verifyPassword((await users.findByUsername("mixed"))!.passwordHash, FIXTURE_PASSWORD), true);
+  assert.equal(await verifyPassword((await users.findByUsername("mixed"))!.passwordHash!, FIXTURE_PASSWORD), true);
 });
 
 test("a stronger hash is not rewritten at all: the stored record and its version stay as they were", async () => {
