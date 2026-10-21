@@ -161,8 +161,8 @@ retry connection errors and timeouts; SDK `timeout` default 10 000 ms per attemp
 
 - Images and Box are **"Dreamer-ready"**: for prototyping, not production; request format, answers and limits may change
   between releases (§16.1).
-- Pricing: `jev-1.13.0` and `jev-1.14.0` list $0.042 per million input tokens (input only); each image is billed as
-  input tokens at the normal input price; images have no separate rate limit. The harness records tokens, never money.
+- Usage: `jev-1.13.0` and `jev-1.14.0` count input tokens only; each image is counted as input tokens; images have no
+  separate rate limit. The harness records tokens, never money.
 - Data: the Privacy Policy states a "commitment not to train models on user data"; the DPA keeps customer personal data
   "for as long as necessary taking into account the purpose of the Processing" (no period), names no processing region,
   uses EU SCCs (Modules 2/3) and the UK Addendum, Irish law and supervisory authority, sub-processors at
@@ -835,7 +835,7 @@ broken service degrades to unchecked delivery, never to lost images); `x-stabili
 ### 16.2 Cost
 
 Up to 3 generations instead of 1 (the dominant cost; the budget's image limits bound it) plus up to 3·n checks (image
-tokens of unknown size, $0.042/Mtok list price, recorded as tokens only). Defaults keep it bounded: 2 retries, early exit,
+tokens of unknown size, recorded as tokens only). Defaults keep it bounded: 2 retries, early exit,
 no retries after an unchecked run, per-run admission.
 
 ### 16.3 Latency
