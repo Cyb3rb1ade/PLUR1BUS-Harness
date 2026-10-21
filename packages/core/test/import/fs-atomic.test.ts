@@ -3,6 +3,8 @@
 // target, a failure leaves the old target and no temp file behind, and containment is by whole path segment.
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { _testFsAtomicHooks, cleanEmptyDirs, copyAtomicSync, isInsideDir, writeAtomicSync } from "../../src/import/fs-atomic.ts";
@@ -220,20 +222,20 @@ describe("isInsideDir", () => {
     assert.equal(isInsideDir(path.join(d, "root"), path.join(d, "rootlink", "real")), true);
   });
 
-  it("canonicalizes existing parents of missing targets through aliases without allowing missing descendants of outside links", { skip: posixOnly }, () => {
+  it("canonicalizes existing parents of missing targets through aliases without allowing missing descendants of outside links", () => {
     const d = tmpDir();
     mkdirSync(path.join(d, "root"));
     mkdirSync(path.join(d, "outside"));
-    symlinkSync(path.join(d, "root"), path.join(d, "alias"));
-    symlinkSync(path.join(d, "outside"), path.join(d, "root", "escape"));
+    symlinkSync(path.join(d, "root"), path.join(d, "alias"), process.platform === "win32" ? "junction" : "dir");
+    symlinkSync(path.join(d, "outside"), path.join(d, "root", "escape"), process.platform === "win32" ? "junction" : "dir");
     assert.equal(isInsideDir(path.join(d, "root"), path.join(d, "alias", "new", "file")), true);
     assert.equal(isInsideDir(path.join(d, "alias"), path.join(d, "root", "new", "file")), true);
     assert.equal(isInsideDir(path.join(d, "root"), path.join(d, "root", "escape", "new", "file")), false);
   });
 
-  it("refuses a symlink cycle instead of treating a failed realpath as a missing target", { skip: posixOnly }, () => {
+  it("refuses a symlink cycle instead of treating a failed realpath as a missing target", () => {
     const d = tmpDir();
-    symlinkSync("cycle", path.join(d, "cycle"));
+    symlinkSync(path.join(d, "cycle"), path.join(d, "cycle"), process.platform === "win32" ? "junction" : "dir");
     assert.equal(isInsideDir(d, path.join(d, "cycle")), false);
     assert.equal(isInsideDir(d, path.join(d, "cycle", "new")), false);
   });
@@ -242,6 +244,26 @@ describe("isInsideDir", () => {
     const d = tmpDir();
     writeFileSync(path.join(d, "file"), "existing");
     assert.equal(isInsideDir(d, path.join(d, "file", "child")), false);
+  });
+
+  it("refuses a missing descendant when realpath reports ENOENT beneath a regular file", (t) => {
+    const d = tmpDir();
+    const file = path.join(d, "file");
+    const target = path.join(file, "child");
+    writeFileSync(file, "not a directory");
+    const original = fs.realpathSync;
+    t.mock.method(fs, "realpathSync", (value: Parameters<typeof original>[0]) => {
+      if (String(value) === target) throw Object.assign(new Error("missing descendant"), { code: "ENOENT" });
+      return original(value);
+    });
+    syncBuiltinESMExports();
+    try {
+      assert.equal(isInsideDir(d, target), false);
+      assert.equal(readFileSync(file, "utf8"), "not a directory");
+    } finally {
+      t.mock.restoreAll();
+      syncBuiltinESMExports();
+    }
   });
 
   it("a dangling symlink is judged by its own (unresolvable) path, not by what it points to", { skip: posixOnly }, () => {

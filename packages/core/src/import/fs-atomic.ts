@@ -12,6 +12,7 @@ import {
   realpathSync,
   renameSync,
   rmdirSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -68,7 +69,13 @@ function canonicalWithMissingSuffix(path: string): string {
   let current = resolve(path);
   const missing: string[] = [];
   for (;;) {
-    try { return join(realpathSync(current), ...missing); } catch (error) {
+    try {
+      const canonical = realpathSync(current);
+      if (missing.length > 0 && !statSync(canonical).isDirectory()) {
+        throw Object.assign(new Error("Missing path suffix requires a directory ancestor"), { code: "ENOTDIR" });
+      }
+      return join(canonical, ...missing);
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       const parent = dirname(current);
       if (parent === current) return join(current, ...missing);

@@ -26,3 +26,8 @@ With the exact private Engine installed frozen/offline, Node24.21 on macOS, both
 9. a failure while restoring a deleted file leaves the home as it was for that file and the retry restores it
 
 After the two production fixes and two further fail-closed regressions: `/tmp/memissues-a2-containment-green.log`, 83/83 pass. Complete import+knowledge: `/tmp/memissues-a2-import-knowledge-final.log`, 1,154 tests /1,148 pass /0 fail /4 skips /2 TODOs. No original assertion was weakened or removed. Other PRs that retain the identical main blobs still need #671's fixes on macOS; no integration merge was performed here.
+
+
+Portability follow-up: the new alias/escape and cycle regressions run without platform skips. They create directory links with absolute targets, selecting junctions on Windows and `dir` symlinks elsewhere. No native Windows run is claimed; the existing baseline skips are unchanged.
+
+The final portable follow-up also checks that a missing suffix is appended only beneath a real directory. A real-file fixture with only `realpath` ENOENT reporting injected failed RED (30/31), then passed with the directory-ancestor guard. Final macOS safety run: **84/84**, zero skips/TODOs (`/tmp/memissues-a2-portability-safety-final.log`). Complete final import+knowledge: **1,155 /1,149 pass /0 fail /4 existing skips /2 existing TODOs** (`/tmp/memissues-a2-portability-import-final.log`). Actual private Engine typecheck, hygiene and source-quality checks passed. The earlier full-Core/workspace counts describe the pre-portability run; no later full green run is claimed.
