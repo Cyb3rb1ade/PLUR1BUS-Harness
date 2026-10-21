@@ -3829,9 +3829,10 @@
             "baseDbPathOverride": {
               "type": "string",
               "maxLength": 4096,
+              "pattern": "^(?:[ \\t\\r\\n]*$|/|[A-Za-z]:[\\\\/]|\\\\\\\\)",
               "x-restart": "core",
               "x-tier": "advanced",
-              "description": "Testing/advanced only; default <home>/state/lancedb"
+              "description": "Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default."
             }
           },
           "additionalProperties": true

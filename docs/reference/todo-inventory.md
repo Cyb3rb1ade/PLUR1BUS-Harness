@@ -41,7 +41,7 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 
 | Modul | Anzahl |
 |---|---|
-| @plur1bus/core | 24 |
+| @plur1bus/core | 21 |
 | @plur1bus/api | 6 |
 | @plur1bus/remote-access | 4 |
 | @plur1bus/embedding-adapters | 2 |
@@ -51,7 +51,7 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 | apps/desktop | 10 |
 | tests/acceptance | 4 |
 | scripts/release | 1 |
-| **Summe (statisch)** | **56** |
+| **Summe (statisch)** | **53** |
 
 ### @plur1bus/core
 
@@ -60,9 +60,6 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 | packages/core/test/privacy/live-policy.test.ts:62 | settle reembed tokens and cost from actual provider usage after the approved Engine 1.15 host network port is wired (currently estimated) |
 | packages/core/test/privacy/live-policy.test.ts:65 | automatically schedule engine-only restart with restartPending and Web/CLI hint when a live privacy transition needs Engine hot reconfiguration |
 | packages/core/test/system-jobs/audit-c05.test.ts:108 | a second concurrent run of a singleton job runs the handler twice (no handler lock) |
-| packages/core/test/config-load-hardening.test.ts:79 | core.recall.softBudgetMs above hardBudgetMs is accepted (needs the same cross-field rule in crates/plur1bus-config, else core and supervisor disagree) |
-| packages/core/test/config-load-hardening.test.ts:80 | numbers without maximum (logs.keep, core.recall.capChars, session.compaction.*Tokens, media dimensions) and arrays/strings without maxItems/maxLeng... |
-| packages/core/test/config-load-hardening.test.ts:81 | engine.baseDbPathOverride has no minLength/absolute-path constraint in the schema (engine-config.ts only ignores blank values) |
 | packages/core/test/import/hermes-cards-own-store.test.ts:271 | a run without --adopt-store after a reembed take-over imports the parked cards without duplicate linking (no store named, the plain import); the do... |
 | packages/core/test/toolcall/results.test.ts:527 | idempotency key collides for scope 'a:b' + operation 'c' and scope 'a' + operation 'b:c' |
 | packages/core/test/toolcall/results.test.ts:536 | a cached approved result of another scope is served without a new approval |

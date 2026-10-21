@@ -136,6 +136,14 @@ for (const [soft, hard] of [[400, 600], [600, 600], [601, 600], [50, 100], [100,
 }
 emit("cross-field-cases.json", crossFieldCases);
 
+// engine.baseDbPathOverride (absolute path or blank): the same pattern runs in ajv here and in the Rust regex engine there.
+const engineValues = ["/var/lib/plur1bus/lancedb", "/", "C:\\data\\lancedb", "c:/data/lancedb", "\\\\server\\share\\lancedb", "/ä/ö", "", "   ", "\t\n", "lancedb", "./lancedb", "../lancedb", "~/lancedb", " /abs", "\t/abs", "file:///tmp/lancedb", "C:", "C:lancedb", "\u00a0", "\ufeff", "/a\nb"];
+const enginePathCases = engineValues.map((value) => {
+  const config = { schemaVersion: 1, engine: { baseDbPathOverride: value } };
+  return { name: `engine.baseDbPathOverride = ${JSON.stringify(value)}`, config, valid: validate(config).ok };
+});
+emit("engine-path-cases.json", enginePathCases);
+
 const tierKeys = [
   "$schema", "schemaVersion", "core.logLevel", "core.recall.capChars", "supervisor.graceMs",
   "logs.keep", "agents", "agents.bernd", "agents.bernd.displayName", "embedding.useClass",

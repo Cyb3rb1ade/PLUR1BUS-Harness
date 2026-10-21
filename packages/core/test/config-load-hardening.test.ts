@@ -127,6 +127,30 @@ describe("config schema bounds", () => {
   });
 });
 
-describe("config validation gaps (KNOWN GAP)", () => {
-  it.todo("KNOWN GAP: engine.baseDbPathOverride has no minLength/absolute-path constraint in the schema (engine-config.ts only ignores blank values)");
+describe("engine.baseDbPathOverride", () => {
+  // The core hands the value to the engine as is (engine-config.ts ignores only a blank one), so anything else that is not an absolute
+  // path would put the database relative to whatever directory the core happens to run in. The same pattern is checked by
+  // crates/plur1bus-config through fixtures/engine-path-cases.json.
+  const withOverride = (value: unknown) => { const c: any = defaults(); c.engine.baseDbPathOverride = value; return c; };
+
+  it("absolute paths and blank values are accepted", () => {
+    for (const v of ["/var/lib/plur1bus/lancedb", "/", "C:\\data\\lancedb", "c:/data/lancedb", "\\\\server\\share\\lancedb", "/ä/ö", "", "   ", "\t\n"]) assert.equal(validateConfig(withOverride(v)).ok, true, JSON.stringify(v));
+  });
+
+  it("a relative, home-relative, padded or non-path value is refused with the key named", () => {
+    for (const v of ["lancedb", "./lancedb", "../lancedb", "~/lancedb", " /abs", "\t/abs", "file:///tmp/lancedb", "C:", "C:lancedb", "\u00a0", "\ufeff", 5, null, ["/x"], {}]) {
+      const r = validateConfig(withOverride(v));
+      assert.equal(r.ok, false, JSON.stringify(v));
+      assert.ok(!r.ok && r.errors.some(e => e.startsWith("/engine/baseDbPathOverride")), JSON.stringify(r));
+    }
+  });
+
+  it("a config file with a relative override does not load, with the path of the value in the message", () => {
+    const p = file();
+    writeFileSync(p, JSON.stringify({ schemaVersion: 1, engine: { baseDbPathOverride: "state/lancedb" } }));
+    for (const load of [loadConfig, readConfigFile]) assert.throws(() => load(p), (e: any) => e instanceof ConfigInvalid && e.errors.some((s: string) => s.startsWith("/engine/baseDbPathOverride")));
+    const ok = file();
+    writeFileSync(ok, JSON.stringify({ schemaVersion: 1, engine: { baseDbPathOverride: "/tmp/p1b-lancedb", recallMinScore: 0.3 } }));
+    assert.equal(loadConfig(ok).config.engine.baseDbPathOverride, "/tmp/p1b-lancedb");
+  });
 });

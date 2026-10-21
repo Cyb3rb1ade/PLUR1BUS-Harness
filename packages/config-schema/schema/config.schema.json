@@ -920,7 +920,7 @@
       "description": "Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
       "type": "object", "default": {}, "x-restart": "core", "x-tier": "advanced",
       "properties": {
-        "baseDbPathOverride": { "type": "string", "maxLength": 4096, "x-restart": "core", "x-tier": "advanced", "description": "Testing/advanced only; default <home>/state/lancedb" }
+        "baseDbPathOverride": { "type": "string", "maxLength": 4096, "pattern": "^(?:[ \\t\\r\\n]*$|/|[A-Za-z]:[\\\\/]|\\\\\\\\)", "x-restart": "core", "x-tier": "advanced", "description": "Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default." }
       },
       "additionalProperties": true
     },

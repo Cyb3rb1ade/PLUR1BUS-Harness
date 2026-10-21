@@ -45,7 +45,7 @@ Legende: `–` bedeutet im Schema kein `default` bzw. keine `x-restart`-Angabe. 
 | embedding.acceptedNcLicence | boolean | false | core | Whether the owner has accepted the model's non-commercial licence terms. | …json:101 |
 | embedding.acceptedNcLicenceAt | string, date-time | – | core | Date-time when the non-commercial licence was accepted. | …json:102 |
 | engine | object (pass-through) | {} | core | Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5). | …json:105 |
-| engine.baseDbPathOverride | string | – | core | Testing/advanced only; default <home>/state/lancedb | …json:109 |
+| engine.baseDbPathOverride | string | – | core | Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default. | …json:109 |
 | providers | object (reserved, M2 D15) | {} | live | Reserved namespace for model-provider configuration. | …json:113 |
 | oauth | object (reserved, M2 D16) | {} | live | Reserved namespace for OAuth configuration. | …json:114 |
 | decision | object (reserved, M2 D18) | {} | live | Reserved namespace for decision model configuration. | …json:115 |
