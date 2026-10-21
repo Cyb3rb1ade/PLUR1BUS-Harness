@@ -62,6 +62,10 @@ export function buildVectors() {
     mut("attrs:forged-untrusted-false", "attrs_invalid", () => { const r = structuredClone(CATALOGUE.events.find((e) => e.event === "process.output.line").examples[0]); r.attrs.untrusted = false; return r; }),
     mut("attrs:absent-but-required", "attrs_invalid", (r) => { delete r.attrs; }),
     mut("stream:audit-action-in-a-diagnostic-record", "wrong_stream", (r) => { r.event = "ext.install"; }),
+    ...["anchor-missing", "anchor-invalid", "chain-shorter-than-anchor", "tail-anchor-mismatch", "tail-malformed", "sequence-exhausted", "rotation-target-exists", "lock-timeout"].map(reason =>
+      amut(`audit:chain-refused:${reason}`, "ok", r => { r.chain = "refused"; r.chainReason = reason; })),
+    amut("audit:chain-unknown-state", "schema", r => { r.chain = "ok"; }),
+    amut("audit:chain-unknown-reason", "schema", r => { r.chainReason = "content-is-not-a-code"; }),
     amut("audit:v1-line-without-v", "ok", (r) => { delete r.v; }),
     amut("audit:legacy-detail-with-extra-keys-is-tolerated", "ok", (r) => { r.detail.futureKey = 1; }),
     amut("audit:diagnostic-record-is-not-an-audit-line", "schema", () => JSON.parse(JSON.stringify(base))),
