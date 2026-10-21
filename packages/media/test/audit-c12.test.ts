@@ -1,7 +1,7 @@
 // Module audit (agent c12): each test pins one finding. See the commit messages for the fix.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, mkdir, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createAdapter, CoreMLAdapter, FileJobPersistence, JobRunner, MediaError, OutputStore, adapterConfigsFromSettings, requestedUnits } from '../src/index.ts';
@@ -162,11 +162,34 @@ test('a Core ML model name cannot point outside the models directory', async () 
   assert.doesNotThrow(() => new CoreMLAdapter({ id: 'coreml-local', model: 'sd-split_einsum.v2', helperPath: '/bin/helper' }));
 });
 
-// --- known gaps (conflict with an existing test) -------------------
-test('KNOWN GAP: two jobs finishing at the same moment both publish (put() fails fast on a held lock instead of waiting)', { todo: 'tests/lifecycle "quota concurrency cannot overcommit" asserts exactly one of two unlimited-quota puts succeeds; the lock needs an in-process queue plus bounded retry, which contradicts that test' }, async () => {
+// --- publish lock: a held lock is waited for, boundedly ------------------------------------------------------------------
+test('two jobs finishing at the same moment both publish: put() waits for the lock instead of failing fast', async () => {
   const root = await mkdtemp(join(tmpdir(), 'media-audit-lock-')); const store = new OutputStore(root);
-  const outcomes = await Promise.allSettled([store.put('a', { prompt: 'x' }, result), store.put('b', { prompt: 'x' }, result)]);
-  assert.equal(outcomes.filter(o => o.status === 'fulfilled').length, 2);
+  const outcomes = await Promise.allSettled([store.put('a', { prompt: 'x' }, result), store.put('b', { prompt: 'x' }, result), store.put('c', { prompt: 'x' }, result)]);
+  assert.deepEqual(outcomes.map(o => o.status), ['fulfilled', 'fulfilled', 'fulfilled']);
+  assert.deepEqual((await Promise.all(['a', 'b', 'c'].map(id => store.get(id)))).map(m => m?.id), ['a', 'b', 'c']);
+});
+
+test('put() publishes once a lock held by someone else is released within the wait bound', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'media-audit-lock-')); const store = new OutputStore(root, { lockWaitMs: 2_000 });
+  await mkdir(join(root, '.lock')); setTimeout(() => { void rm(join(root, '.lock'), { recursive: true }); }, 60);
+  assert.equal((await store.put('late', { prompt: 'x' }, result)).id, 'late');
+});
+
+test('put() on a lock that never goes away fails with backend_unavailable after the wait bound, not forever', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'media-audit-lock-')); const store = new OutputStore(root, { lockWaitMs: 80 });
+  await mkdir(join(root, '.lock')); const started = Date.now();
+  await assert.rejects(store.put('stuck', { prompt: 'x' }, result), code('backend_unavailable'));
+  const waited = Date.now() - started; assert.ok(waited >= 70 && waited < 2_000, `waited ${waited} ms`);
+  assert.equal(await store.get('stuck'), null);
+  assert.throws(() => new OutputStore(root, { lockWaitMs: -1 }), code('unsupported_parameter'));
+});
+
+test('without contention put() does not wait and leaves no lock behind', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'media-audit-lock-')); const store = new OutputStore(root, { lockWaitMs: 1 });
+  await store.put('solo', { prompt: 'x' }, result); await store.put('duo', { prompt: 'x' }, result);
+  assert.deepEqual((await readdir(root)).sort(), ['duo', 'solo']);
+  await assert.rejects(store.put('solo', { prompt: 'x' }, result), code('unsupported_parameter'));
 });
 
 test('put() refuses bytes that are not the declared image format when metadata embedding is off', async () => {
