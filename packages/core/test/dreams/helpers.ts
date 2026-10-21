@@ -26,13 +26,15 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-/** Registers an afterEach hook in the calling scope; every directory made through `make()` is removed after each test. */
+/** Registers an afterEach hook in the calling scope; every directory made through `make()` is removed after each test.
+ *  Whatever was handed to `onCleanup()` (an open store) runs first, newest first: Windows cannot remove an open SQLite file. */
 export function useTempDirs(prefix = "p1b-dreams-") {
-  const made: string[] = [];
+  const made: string[] = []; const closers: Array<() => void> = [];
   afterEach(() => {
+    for (const close of closers.splice(0).reverse()) { try { close(); } catch { /* already closed by the test */ } }
     for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
-  return { make(): string { const dir = mkdtempSync(path.join(tmpdir(), prefix)); made.push(dir); return dir; } };
+  return { make(): string { const dir = mkdtempSync(path.join(tmpdir(), prefix)); made.push(dir); return dir; }, onCleanup(close: () => void): void { closers.push(close); } };
 }
 
 /** The exact title of a documented-behaviour deviation: used as test name and as the `todo` reason. */
@@ -87,10 +89,11 @@ export interface Harness {
   captures(agentId: string, n: number): void;
 }
 
-export function harness(dirs: { make(): string }, o: { agents?: string[]; over?: Partial<SchedulerOptions>; start?: number; engine?: ScriptedEngine } = {}): Harness {
+export function harness(dirs: { make(): string; onCleanup?(close: () => void): void }, o: { agents?: string[]; over?: Partial<SchedulerOptions>; start?: number; engine?: ScriptedEngine } = {}): Harness {
   const dir = dirs.make();
   const clock = new FakeClock(o.start ?? T0);
   const store = new DreamStore(path.join(dir, "dreams.db"));
+  dirs.onCleanup?.(() => store.close());
   const engine = o.engine ?? new ScriptedEngine();
   const events: DreamEvent[] = []; const warnings: string[] = [];
   const agents = o.agents ?? ["alpha"];
