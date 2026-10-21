@@ -26,8 +26,8 @@ export function evaluate(c: Pick<CandidateRow, "expiresAt" | "recalls" | "unique
   return { promote: failed === undefined, rejectedBy: failed?.gate ?? null, gates, at: now };
 }
 
-/** Fallback shortlist signals while the pinned Engine has no recall statistics.
- *  This never authorizes promotion: the recall utility gates above remain mandatory. */
+/** Diagnostic fallback signals while the pinned Engine has no recall statistics.
+ *  This changes neither shortlist membership nor promotion eligibility. */
 export const DEFAULT_FALLBACK_GATES = { minAgeMs: 86_400_000, minImportance: 0.75, minRepetitions: 2 } as const;
 export function evaluateFallback(c: Pick<CandidateInput, "createdAt" | "importance" | "repetitions">, now: number) {
   const age = typeof c.createdAt === "number" && Number.isFinite(c.createdAt) && c.createdAt >= 0 && now - c.createdAt >= DEFAULT_FALLBACK_GATES.minAgeMs;

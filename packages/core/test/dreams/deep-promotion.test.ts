@@ -38,7 +38,7 @@ describe('A3 real producer with Engine 1.17 contract fixture', () => {
     assert.deepEqual(h.engine.calls.map((c) => c.job), ['consolidate-daily', 'auto-accept-stale', 'gc-run']);
     assert.equal(h.store.listCandidates('alpha', 'promoted').length, 0);
     const decision = h.store.listCandidates('alpha')[0]!.decision as { fallback?: { eligible: boolean }; promote: boolean };
-    assert.equal(decision.fallback?.eligible, true, 'source age and distinct repeated private cards retain a shortlist without inventing recalls');
+    assert.equal(decision.fallback?.eligible, true, 'records age and distinct source repetition without changing promotion eligibility');
     assert.equal(decision.promote, false);
   });
 
