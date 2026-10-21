@@ -1,6 +1,6 @@
 # Dein Konto und Passkeys
 
-Bei einer nativen oder VPS-Installation öffnest du den Wizard-Schritt **Dein Konto**. Lies den Einmal-Nachweis lokal aus der privaten Datei `run/api-bootstrap.token`, gib einen Benutzernamen und ein Passwort mit mindestens zwölf Zeichen ein und wähle **Konto erstellen**. Der Nachweis gilt 15 Minuten. Ein Neustart der API vor der Kontoerstellung erneuert einen abgelaufenen Nachweis. Die erfolgreiche Erstellung verbraucht ihn dauerhaft und entfernt die Datei; der wiederverwendbare Owner-Token erlaubt danach keine Anmeldung mehr.
+Bei einer nativen oder VPS-Installation öffnest du den Wizard-Schritt **Dein Konto**. Lies den Einmal-Nachweis lokal aus der privaten Datei `run/api-bootstrap.token`, gib einen Benutzernamen und ein Passwort mit mindestens zwölf Zeichen ein und wähle **Konto erstellen**. Der Nachweis gilt 15 Minuten. Ein Neustart der API vor der Kontoerstellung erneuert einen abgelaufenen Nachweis. Die erfolgreiche Erstellung verbraucht ihn dauerhaft und entfernt die Datei; der wiederverwendbare Owner-Token erlaubt danach keine Anmeldung mehr. Die englische Version dieser Seite ist [../en/passkeys.md](../en/passkeys.md).
 
 Bei der gebündelten Desktop-Variante erstellt der Installer das Owner-Konto und markiert den Bootstrap als abgeschlossen. Dort gibt es keinen Nachweis.
 

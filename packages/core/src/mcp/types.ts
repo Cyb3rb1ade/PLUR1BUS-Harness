@@ -113,6 +113,8 @@ export interface McpLogger {
 export interface McpPolicy {
   /** ADR-014 §7. Empty by default: no stdio server can start. */
   allowedCommands: readonly string[];
+  /** Entries of `allowedCommands`, spelled exactly as there, that may also run inline code (`node -e`, `sh -c`, ...). Empty by default. */
+  inlineCodeCommands?: readonly string[];
   idleTimeoutMs: number;
   maxResultBytes: number;
 }

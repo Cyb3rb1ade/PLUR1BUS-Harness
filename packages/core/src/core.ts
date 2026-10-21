@@ -25,6 +25,7 @@ import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreSta
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
 import { BACKUP_METHODS } from "./backup-ops.ts";
+import { reapplyTombstonesAfterRestore, type LoadEngineReapply } from "./restore-reapply.ts";
 import { createMigrationDriver, type MigrationDriver } from "./embedding-migrate/driver.ts";
 import { createEnginePort } from "./embedding-migrate/engine-port.ts";
 import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
@@ -177,6 +178,8 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** Test seam: the engine's tombstone re-apply a backup restore's marker asks for (restore-reapply.ts); default: the engine's `lib/tombstone-reapply.js`, when it has one. */
+  tombstoneReapply?: LoadEngineReapply;
   /** Legacy injected provider seam, adapted through composition; absent, configured provider definitions supply the pipeline. */
   chatProvider?: ChatProvider;
   composition?: CompositionOptions;
@@ -479,12 +482,15 @@ export function createCore(o: CoreOptions): Core {
         }
       };
       const host = createHarnessHost({
-        layout: l, logger, config, engineConfig, agents: executionRegistry, events, clock,
+        layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
         mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
         canMutateConfig: () => cs.source === "supervisor",
       });
       o.inspectHost?.(host);
+      // A backup restore left rows that may hold memories forgotten since: re-apply the committed tombstones before the engine
+      // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
+      await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
       const eng = lifecycleEngine(bindEngine(host, engineConfig, o.testInternals ? engineInternals : undefined), lifecycle); engine = eng;
       assertEngineContract(eng);
@@ -675,7 +681,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.

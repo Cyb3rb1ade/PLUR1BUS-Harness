@@ -79,7 +79,7 @@ export class McpRegistry {
     this.logger = o.logger;
     this.hostEnv = o.hostEnv ?? process.env;
     // RULING: the command allowlist defaults to empty, so no stdio server can start until it is configured.
-    this.policy = { allowedCommands: o.policy?.allowedCommands ?? [], idleTimeoutMs: o.policy?.idleTimeoutMs ?? DEFAULT_IDLE_MS, maxResultBytes: o.policy?.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES };
+    this.policy = { allowedCommands: o.policy?.allowedCommands ?? [], inlineCodeCommands: o.policy?.inlineCodeCommands ?? [], idleTimeoutMs: o.policy?.idleTimeoutMs ?? DEFAULT_IDLE_MS, maxResultBytes: o.policy?.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES };
   }
 
   /** Validates and registers a server. Starts nothing (ADR-014 §2). */

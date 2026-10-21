@@ -167,8 +167,8 @@ export const de: Record<keyof typeof en, string> = {
 
   // Board View & Columns
   "projects.board.empty": "Keine Karten gefunden",
-  "projects.board.emptyHint": "Erstellen Sie eine Karte oder passen Sie die Filter an.",
-  "projects.board.noSelection": "Wählen Sie ein Projekt aus, um das Board anzuzeigen",
+  "projects.board.emptyHint": "Erstelle eine Karte oder passe die Filter an.",
+  "projects.board.noSelection": "Wähle ein Projekt aus, um das Board anzuzeigen",
   "projects.column.wipLimit": "WIP: {current}/{limit}",
   "projects.column.wipLimitReached": "WIP-Limit erreicht ({current}/{limit})",
   "projects.column.addCard": "Karte hinzufügen",
@@ -181,7 +181,7 @@ export const de: Record<keyof typeof en, string> = {
   "projects.column.title": "Spaltentitel",
   "projects.column.wipLimitField": "WIP-Limit (optional)",
   "projects.column.targetColumn": "Zielspalte für Karten",
-  "projects.column.targetColumnHint": "Wählen Sie, wohin die Karten dieser Spalte verschoben werden sollen.",
+  "projects.column.targetColumnHint": "Wähle, wohin die Karten dieser Spalte verschoben werden sollen.",
 
   // Cards
   "projects.card.title": "Titel",
@@ -249,8 +249,8 @@ export const de: Record<keyof typeof en, string> = {
   "projects.a11y.moveRight": "Karte nach rechts verschieben",
   "projects.a11y.moveUp": "Karte nach oben verschieben",
   "projects.a11y.moveDown": "Karte nach unten verschieben",
-  "projects.a11y.keyboardHint": "Nutzen Sie die Pfeiltasten oder Verschieben-Schaltflächen zur Kartensortierung.",
-  "projects.column.hasCards": "Diese Spalte enthält {count} Karte(n). Wählen Sie eine Zielspalte; die Karten werden dorthin verschoben, bevor die Spalte gelöscht wird.",
-  "projects.column.hasCardsNoTarget": "Diese Spalte enthält {count} Karte(n), und es gibt keine andere Spalte, in die sie verschoben werden könnten. Legen Sie zuerst eine weitere Spalte an.",
+  "projects.a11y.keyboardHint": "Nutze die Pfeiltasten oder Verschieben-Schaltflächen zur Kartensortierung.",
+  "projects.column.hasCards": "Diese Spalte enthält {count} Karte(n). Wähle eine Zielspalte; die Karten werden dorthin verschoben, bevor die Spalte gelöscht wird.",
+  "projects.column.hasCardsNoTarget": "Diese Spalte enthält {count} Karte(n), und es gibt keine andere Spalte, in die sie verschoben werden könnten. Lege zuerst eine weitere Spalte an.",
   "projects.card.priorityChange": "Priorität ändern",
 };

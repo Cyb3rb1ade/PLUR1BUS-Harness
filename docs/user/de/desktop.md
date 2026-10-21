@@ -1,6 +1,6 @@
 # Desktop-Pakete und Migration
 
-Direkte Installer gibt es online und offline. Offline-Releasepakete enthalten das Harness-Image für die jeweilige Architektur und die Standardmodelle; CI-Platzhalter können weder den Harness noch Offline-Inferenz ausführen. Store und Flatpak sind ausschließlich online. Vor einer Runtime-Installation fragt die App nach und zeigt den Lizenzhinweis.
+Direkte Installer gibt es online und offline. Offline-Releasepakete enthalten das Harness-Image für die jeweilige Architektur und die Standardmodelle; CI-Platzhalter können weder den Harness noch Offline-Inferenz ausführen. Store und Flatpak sind ausschließlich online. Vor einer Runtime-Installation fragt die App nach und zeigt den Lizenzhinweis. Die englische Version dieser Seite ist [../en/desktop.md](../en/desktop.md).
 
 Dem echten Harness-Image fehlen derzeit noch mehrere Desktop-Verträge für Pairing, Sitzungen und kalte Snapshots. Ein laufender Daemon beweist keinen funktionierenden Desktop-Login oder eine sichere Store-Migration. Ersetze Daten einer nativen oder Stub-Installation nicht von Hand. Bewahre die ursprüngliche Installation und ein geprüftes M8-Backup auf. Produktiver Import und Rollback mit dem echten Image bleiben bis zum vollständigen Gate und den Abbruchtests nicht verfügbar.
 

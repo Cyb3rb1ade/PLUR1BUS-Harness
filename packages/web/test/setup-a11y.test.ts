@@ -61,12 +61,18 @@ describe("setup wizard: a11y", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
+      // Tabs to the button and presses Enter. The button has to be there and enabled first: the wizard disables it while it saves ("Working…"),
+      // and a disabled button is skipped by Tab. If Tab does not arrive at it, fail here, not with a timeout at some later wait.
       const press = async (name: RegExp): Promise<void> => {
+        await page.waitForFunction((src) => Array.from(document.querySelectorAll("button")).some((b) => !b.disabled && new RegExp(src).test(b.textContent ?? "")), name.source);
         for (let i = 0; i < 40; i++) {
-          if (await page.evaluate((src) => new RegExp(src).test(document.activeElement?.textContent ?? "") && document.activeElement?.tagName === "BUTTON", name.source)) break;
+          if (await page.evaluate((src) => new RegExp(src).test(document.activeElement?.textContent ?? "") && document.activeElement?.tagName === "BUTTON", name.source)) {
+            await page.keyboard.press("Enter");
+            return;
+          }
           await page.keyboard.press("Tab");
         }
-        await page.keyboard.press("Enter");
+        assert.fail(`${name} was not reached by Tab within 40 presses (focus is on ${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 120))})`);
       };
       await stepHeading(page, "Your account").waitFor();
       await page.locator("main h1").focus();
