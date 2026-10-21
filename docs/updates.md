@@ -9,11 +9,21 @@ covers what surrounds that flow. Error reasons: [errors.md](errors.md#update-rea
 
 ```bash
 plur1bus update --check                     # what would change; writes nothing
-plur1bus update --plan                      # the whole plan in words (see below); writes nothing
+plur1bus update --plan                      # the whole plan in words (see below); writes nothing and settles nothing
 plur1bus update --yes                       # apply (the plan is printed first; --yes is required without a terminal)
 plur1bus update --from update.tar.zst --yes # apply an offline bundle
 plur1bus update --rollback
 ```
+
+`--check` and `--plan` only read: neither settles an interrupted update, neither takes the lock below, and neither
+remembers a key list the feed announces (an `update` that applies does). An offline bundle is unpacked to read it and
+removed again.
+
+**One run at a time.** `update`, `update --rollback`, the recovery that `daemon start` runs and `setup` hold
+`<home>/update/update.lock` (an advisory file lock, released when the process ends, so a killed run leaves nothing to
+clean up) from the first step to the last. A second `update` or `update --rollback` is refused with
+`update-in-progress`; a second `setup` fails its `state-root` step; a `daemon start` leaves an interrupted update to the
+run that holds the lock. The container updater has its own `container.lock`.
 
 ## The plan
 
@@ -63,7 +73,8 @@ offers.
 - **compatible**, **incompatible**, or **unknown** (no cached manifest, or the release does not say which module API it
   speaks and the add-on depends on it). Unknown never blocks and never disables.
 - An enabled **incompatible** add-on is **disabled for the new version** after the swap and before the daemon starts
-  (the same switch as `plur1bus ext disable`), and recorded in `<home>/update/addons.json`. A rollback puts it back. A
+  (the same switch as `plur1bus ext disable`), and recorded in `<home>/update/addons.json`. A rollback puts it back, and
+  disables again what the rolled-back update had re-enabled (the version that is back judged it incompatible). A
   later update that finds a recorded add-on compatible again re-enables it once the new version is healthy (best
   effort: if the enable is refused it stays recorded and is listed in the result).
 - An add-on marked **required** that would be incompatible aborts the update (`addon-incompatible`) unless `--force`.

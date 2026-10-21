@@ -119,8 +119,11 @@ export function createVoiceV2(d: VoiceV2Deps) {
         idle: async () => { await current?.idle(); await Promise.allSettled([...reports]); }, close,
         async setLanguage(language, profile) {
           if (closed || changing || route.kind !== 'local' || !local) throw new Error('voice-language-unavailable'); changing = true;
-          try { await current!.idle(); await local.setLanguage(language, { signal, ...(profile ? { profile } : {}) }); signal.throwIfAborted(); await current!.close(); signal.throwIfAborted();
-            const vad = local.leaseVad(); try { current = await createTalkSession({ asr: local.asr, tts: local.tts, agent, ...pin, profile: cfgProfile, metrics, signal, language, sampleRate: request.sampleRate ?? 16000, vad, ...(client.transcript ? { transcript: client.transcript } : {}), receive: chunk => client.receive(chunk), stopPlayback: () => client.stopPlayback(), event: e => { if (e.type !== 'voice.closed' || !changing) client.event(e); } }); } catch (e) { vad.release(); throw e; }
+          // Build the replacement first and only then close the old session: if it cannot be created, the old one stays live.
+          try { await current!.idle(); await local.setLanguage(language, { signal, ...(profile ? { profile } : {}) }); signal.throwIfAborted();
+            const vad = local.leaseVad(); let next: TalkSession;
+            try { next = await createTalkSession({ asr: local.asr, tts: local.tts, agent, ...pin, profile: cfgProfile, metrics, signal, language, sampleRate: request.sampleRate ?? 16000, vad, ...(client.transcript ? { transcript: client.transcript } : {}), receive: chunk => client.receive(chunk), stopPlayback: () => client.stopPlayback(), event: e => { if (e.type !== 'voice.closed' || !changing) client.event(e); } }); } catch (e) { vad.release(); throw e; }
+            const old = current!; current = next; await old.close(); signal.throwIfAborted();
             client.event({ type: 'voice.language_changed' });
           } finally { changing = false; }
         } };

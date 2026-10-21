@@ -397,3 +397,76 @@ fn macos_cancel_and_auth_denial_are_access_denied_without_keychain_access() {
         );
     }
 }
+/// A working keychain whose delete fails: set/get succeed, deleting reports a platform error.
+struct DeleteFails(MemoryStore);
+impl TokenStore for DeleteFails {
+    fn get(&self, a: &str) -> Result<Option<SecretString>, TokenError> {
+        self.0.get(a)
+    }
+    fn set(&self, a: &str, v: &SecretString) -> Result<(), TokenError> {
+        self.0.set(a, v)
+    }
+    fn delete(&self, _: &str) -> Result<(), TokenError> {
+        Err(TokenError::Unavailable("delete failed".into()))
+    }
+    fn kind(&self) -> StoreKind {
+        StoreKind::Keychain
+    }
+}
+#[test]
+fn a_failed_probe_delete_does_not_replace_a_working_keychain_with_memory() {
+    let backing = MemoryStore::default();
+    let existing = SecretString::new(uuid::Uuid::now_v7().to_string());
+    backing.set("device-existing", &existing).unwrap();
+    let store = open_with_probe(Box::new(DeleteFails(backing)));
+    assert_eq!(store.kind(), StoreKind::Keychain);
+    // Rows persisted earlier stay readable through the returned store.
+    assert_eq!(
+        store.get("device-existing").unwrap().unwrap().expose(),
+        existing.expose()
+    );
+}
+#[test]
+fn a_probe_whose_get_fails_still_falls_back_to_memory() {
+    struct GetFails;
+    impl TokenStore for GetFails {
+        fn get(&self, _: &str) -> Result<Option<SecretString>, TokenError> {
+            Err(TokenError::Unavailable("locked".into()))
+        }
+        fn set(&self, _: &str, _: &SecretString) -> Result<(), TokenError> {
+            Ok(())
+        }
+        fn delete(&self, _: &str) -> Result<(), TokenError> {
+            Ok(())
+        }
+        fn kind(&self) -> StoreKind {
+            StoreKind::Keychain
+        }
+    }
+    assert_eq!(
+        open_with_probe(Box::new(GetFails)).kind(),
+        StoreKind::MemoryOnly
+    );
+}
+#[test]
+fn a_healthy_keychain_probe_stays_keychain() {
+    struct Healthy(MemoryStore);
+    impl TokenStore for Healthy {
+        fn get(&self, a: &str) -> Result<Option<SecretString>, TokenError> {
+            self.0.get(a)
+        }
+        fn set(&self, a: &str, v: &SecretString) -> Result<(), TokenError> {
+            self.0.set(a, v)
+        }
+        fn delete(&self, a: &str) -> Result<(), TokenError> {
+            self.0.delete(a)
+        }
+        fn kind(&self) -> StoreKind {
+            StoreKind::Keychain
+        }
+    }
+    assert_eq!(
+        open_with_probe(Box::new(Healthy(MemoryStore::default()))).kind(),
+        StoreKind::Keychain
+    );
+}

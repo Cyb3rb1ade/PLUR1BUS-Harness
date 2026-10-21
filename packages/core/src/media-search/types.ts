@@ -1,5 +1,4 @@
-// Binding contract for the media index (contract: ~/plur1bus-merge/briefs/media-search-contract.md, "Engine API (ME1) = core port
-// MediaIndexPort (ME2)"). The engine (ME1) ships the same shape as `media.*`; this file is the host-side port. Do not widen it.
+// Harness media port. Engine 1.19 differs; engine-adapter.ts owns that translation.
 
 export type MediaKind = "image" | "video" | "audio";
 export type CaptionSource = "prompt" | "user" | "auto";
@@ -17,6 +16,8 @@ export interface MediaIndexRequest {
   mediaId: string; kind: MediaKind; mime: string;
   source: { path: string } | { bytes: Uint8Array };
   caption?: string; captionSource?: CaptionSource;
+  /** Trusted host duration for the #603 reservation seam; never forwarded to the Engine. */
+  encodingVideoSeconds?: number;
   scope: Scope;
 }
 export interface MediaSearchRequest {

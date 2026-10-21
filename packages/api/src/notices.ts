@@ -5,9 +5,9 @@ export interface Notice {
   kind: "break-glass.granted"; grantId: string; holderUserId: string; reason: string; at: number; expiresAt: number;
 }
 
-/** What the affected user can read about a break-glass grant over their own cards (ADR-007 §Privacy, M3 acceptance 4).
- *  Delivery to the user's channels (push, mail, chat) is a hook on the server (`notifyBreakGlass`) and a follow-up; this
- *  inbox is the pull side that exists without it: per user, newest first, bounded, in memory. */
+/** A per-user, bounded, in-memory notice list (ADR-007 §Privacy, M3 acceptance 4). Since break-glass has one registry, the
+ *  core's, the server no longer fills one of these: `GET /me/notices` reads the core's durable notices (`breakglass.notices`).
+ *  Kept as an exported helper for hosts that embed the API and want a local pull list of their own. */
 export class NoticeInbox {
   readonly #clock: Clock; readonly #max: number; readonly #maxUsers: number;
   readonly #byUser = new Map<string, Notice[]>();

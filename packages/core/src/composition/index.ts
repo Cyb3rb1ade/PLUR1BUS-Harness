@@ -74,6 +74,7 @@ export interface CompositionOptions {
   tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media' | 'documents'>>;
 }
 export interface CompositionDeps {
+  mediaHostFetchReady?: boolean;
   supervised?: boolean;
   systemJobs?: import('../system-jobs/index.ts').SystemJobs;
   resolveCollaborationPerson?: (id: string) => import("../rbac/types.ts").Principal | null;
@@ -215,7 +216,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => mediaSurface.close());
     // The media index is shared like the engine: its cloud tiers (media embedding, captioning) are pinned off while the
     // installation or any agent is local-only (the existing privacy-pin refusal, E_MEDIA_PRIVACY reason privacy-pin).
-    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget, privacyPinned: () => localOnlyShared(d.config()), ...(d.inbox ? { emit: (name, payload) => { d.logger.info(name, payload); mediaToInbox(d.inbox!, name, payload); } } : {}) }); disposers.push(() => mediaSearch.close());
+    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, hostFetchReady: d.mediaHostFetchReady === true, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget, privacyPinned: () => localOnlyShared(d.config()), ...(d.inbox ? { emit: (name, payload) => { d.logger.info(name, payload); mediaToInbox(d.inbox!, name, payload); } } : {}) }); disposers.push(() => mediaSearch.close());
     const profiles = options.providers?.profiles ?? (d.provider ? { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: legacyAdapter(d.provider) }] } : auth?.profiles ?? {});
     // privacy.localOnly: a chat/role provider is local when its endpoint is loopback or listed in privacy.localEndpoints.
     // No base_url means the vendor's cloud default; a managed OpenAI login is always cloud. The in-process test provider
@@ -313,10 +314,11 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       return testModel(p.model, profiles, selected => (options.createTurnProvider ?? createTurnProvider)({
         profiles: selected, profile: 'probe', profileForClass: () => 'probe', registry: new ToolRegistry(), budget,
         principal: () => budgetPrincipal, grants, approval: { async request() { throw new Error('tools-disabled'); } },
+        localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider,
         log: () => {}, resultStore: { async put() { throw new Error('tools-disabled'); } }, maxTokens: 16, maxRounds: 1,
         system: ['Reply with OK. Do not call tools.'],
         router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {} },
-      }), budgetPrincipal, Object.keys(d.config().agents)[0] ?? 'model-test', AbortSignal.any([ctx.signal, d.signal]));
+      }), budgetPrincipal, Object.keys(d.config().agents)[0] ?? 'model-test', AbortSignal.any([ctx.signal, d.signal]), { localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider });
     }, ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
       await collab?.shutdown();

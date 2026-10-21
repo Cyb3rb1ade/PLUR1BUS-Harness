@@ -77,3 +77,21 @@ test("incognito: the real session service routes session.model.set to the epheme
     assert.deepEqual(sessions.store.modelProfile(remembered.id), { profile: "second", revision: 1 });
   } finally { await sessions.close(); rmSync(root, { recursive: true, force: true }); }
 });
+
+test("model changes are atomic durable events with actor/time; incognito events stay only in memory", () => {
+ const root=mkdtempSync(join(tmpdir(),"p1b-model-event-")),path=join(root,"sessions.sqlite");
+ let disk=new SessionStore({path,clock:()=>12345});const ram=new SessionStore({path:":memory:",clock:()=>12345});
+ try {
+  const s=disk.createSession({kind:"direct",agentId:"bernd",owner});
+  disk.setModelProfile(s.id,"second",0,"high");
+  assert.throws(()=>disk.setModelProfile(s.id,"other",0,"low"));
+  disk.close();disk=new SessionStore({path});
+  const events=disk.listEvents(s.id).filter(e=>e.type==="session.model.changed");
+  assert.equal(events.length,1);assert.equal(events[0]!.turnId,null);assert.equal(events[0]!.at,12345);
+  assert.deepEqual(events[0]!.data,{profile:"second",model:"second",reasoning:"high",person:owner,revision:1,afterMessageSeq:0});
+  const hidden=ram.createSession({kind:"direct",agentId:"bernd",owner,memoryMode:"incognito"});
+  ram.setModelProfile(hidden.id,"second",0,"low");
+  assert.equal(ram.listEvents(hidden.id).filter(e=>e.type==="session.model.changed").length,1);
+  assert.equal(disk.getSession(hidden.id),null);assert.deepEqual(disk.listEvents(hidden.id),[]);
+ }finally{disk.close();ram.close();rmSync(root,{recursive:true,force:true});}
+});

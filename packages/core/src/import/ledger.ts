@@ -80,6 +80,20 @@ export function storeIdempotencyKey(sourcePath: string): string {
   return `store:${hash}`;
 }
 
+/**
+ * Records the `config.json` an import apply wrote, so rollback can tell the file it created from one the user edited
+ * afterwards (docs/import.md §5.5, `kept-modified`). Only a config the import created is recorded: one that existed
+ * before is restored from the snapshot, not removed. `hadConfig` is whether the file existed just before this write; a
+ * resumed run that rewrites the config it created itself in an earlier attempt records the new hash too.
+ */
+export function recordCreatedConfig(ledger: ImportLedger | undefined, hadConfig: boolean, content: string): void {
+  if (!ledger) return;
+  const createdEarlier = ledger.entries().some((e) => e.entity === "file" && e.action === "created" && e.targetRef === "config.json");
+  if (hadConfig && !createdEarlier) return;
+  const sha = createHash("sha256").update(content).digest("hex");
+  ledger.record({ entity: "file", idempotencyKey: `file:config:config.json:${sha}`, action: "created", targetRef: "config.json", sha256: sha });
+}
+
 export class ImportLedger {
   readonly filePath: string;
   readonly runId: string;

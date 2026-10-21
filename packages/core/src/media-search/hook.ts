@@ -17,8 +17,10 @@ export const INDEX_FAILED_EVENT = "media.index.failed";
 export interface MediaIndexHookOptions {
   port: () => MediaIndexPort;
   captions: CaptionService;
+  captionForScope?: (scope: Scope) => CaptionService;
   config: () => MediaHookConfig;
   scopeOf: (record: MediaRecord) => Scope | Promise<Scope>;
+  admit?: (record: MediaRecord, scope: Scope) => void | Promise<void>;
   events: MediaEvents;
   counters: MediaCounters;
   logger: MediaHookLogger;
@@ -92,11 +94,12 @@ export function createMediaIndexHook(o: MediaIndexHookOptions): MediaIndexHook {
     try {
       const port = usablePort();
       if (!port) return;
+      const scope = await o.scopeOf(record);
+      await o.admit?.(record, scope);
       let caption: { text: string; source: "prompt" | "user" | "auto" } | null = null;
       try {
-        caption = await o.captions.resolve({ kind: record.kind, mime: record.mime, source: record.source, ...(withPrompt && record.prompt ? { prompt: record.prompt } : {}), ...(record.userCaption ? { userCaption: record.userCaption } : {}) });
+        caption = await (o.captionForScope?.(scope) ?? o.captions).resolve({ kind: record.kind, mime: record.mime, source: record.source, ...(withPrompt && record.prompt ? { prompt: record.prompt } : {}), ...(record.userCaption ? { userCaption: record.userCaption } : {}) });
       } catch (e) { fail("caption", record.mediaId, record.kind, e); }
-      const scope = await o.scopeOf(record);
       const removedBefore = st.removed;
       const call = port.index({ mediaId: record.mediaId, kind: record.kind, mime: record.mime, source: record.source, scope, ...(caption ? { caption: caption.text, captionSource: caption.source } : {}) });
       let res: Awaited<typeof call>;
