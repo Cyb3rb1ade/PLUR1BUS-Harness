@@ -3063,7 +3063,8 @@
                               "tool.result",
                               "turn.completed",
                               "turn.failed",
-                              "session.model.changed"
+                              "session.model.changed",
+                              "decision.completed"
                             ]
                           },
                           "data": {
@@ -3882,7 +3883,8 @@
                               "tool.result",
                               "turn.completed",
                               "turn.failed",
-                              "session.model.changed"
+                              "session.model.changed",
+                              "decision.completed"
                             ]
                           },
                           "data": {
@@ -4250,7 +4252,8 @@
                               "tool.result",
                               "turn.completed",
                               "turn.failed",
-                              "session.model.changed"
+                              "session.model.changed",
+                              "decision.completed"
                             ]
                           },
                           "data": {

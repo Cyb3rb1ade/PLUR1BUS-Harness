@@ -72,7 +72,7 @@ export type TurnRouterEvent = RouterEvent
   | { type: 'provider.cross_billing_refused'; profile: string; from: Served & { billing: BillingClass }; to: Served & { billing: BillingClass } };
 export interface TurnProviderOptions {
   requireTriage?: boolean;
-  triageTimeoutMs?: number;
+  triageTimeoutMs?: number | (() => number);
   classifyMessage?: (request: ChatRequest, signal: AbortSignal) => Promise<TriageDecision>;
   profileForAgent?: (agent: string) => string | undefined;
   onExecution?: (execution: import('../skill-mining/evidence.ts').WorkflowExecution) => void;
@@ -173,7 +173,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       resolved = await messageTriage.decide(text, JSON.stringify([req.agentId, principal, req.sessionId]), (_message, signal) => {
         if (!o.classifyMessage) throw Error('decision role unavailable');
         return o.classifyMessage(req, signal);
-      }, { signal, timeoutMs: o.triageTimeoutMs ?? 200, ...(req.taskBoundary ? { task: req.taskBoundary } : {}), onFallback: () => { void stage('triage-fallback', signal, o.log, () => undefined); } });
+      }, { signal, timeoutMs: typeof o.triageTimeoutMs === 'function' ? o.triageTimeoutMs() : o.triageTimeoutMs ?? 200, ...(req.taskBoundary ? { task: req.taskBoundary } : {}), onFallback: () => { void stage('triage-fallback', signal, o.log, () => undefined); } });
       try { o.onDecision?.(resolved); } catch { /* telemetry cannot invalidate an admitted decision */ } return resolved.decision;
     });
     const decision = req.turnProfile ? await req.turnProfile.run('decisionService', decisionWork, triage(''), signal) : await decisionWork(signal);

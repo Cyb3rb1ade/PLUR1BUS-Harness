@@ -11860,6 +11860,175 @@ Returns every installed extension and subscribes this connection to ext.changed.
 }
 ```
 
+### `decision.status`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin aggregate decision health: selected and installed backends, counts, bounded latency window and error rate. Contains no prompts, transcripts, candidate names or model prose. F2 installs only the existing role backend.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "backend",
+    "installed",
+    "requests",
+    "failures",
+    "errorRate",
+    "p50Ms",
+    "p95Ms",
+    "backends"
+  ],
+  "properties": {
+    "backend": {
+      "enum": [
+        "role",
+        "laya",
+        "kev",
+        "jev",
+        "auto"
+      ]
+    },
+    "installed": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "role",
+          "laya",
+          "kev",
+          "jev"
+        ]
+      }
+    },
+    "requests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failures": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errorRate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "p50Ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "p95Ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "backends": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requests",
+          "failures"
+        ],
+        "properties": {
+          "requests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failures": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `decision.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin bounded decision probe for one agent. Fixed synthetic parity choice, no caller prompt, tools, memory or transcript writes. Uses the production role router with budget, current privacy and auth. Returns aggregate outcome only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "durationMs",
+    "outcome"
+  ],
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "durationMs": {
+      "type": "number",
+      "minimum": 0
+    },
+    "outcome": {
+      "enum": [
+        "accepted",
+        "unavailable",
+        "timeout",
+        "invalid",
+        "low-confidence",
+        "privacy",
+        "cancelled"
+      ]
+    },
+    "backend": {
+      "enum": [
+        "role",
+        "laya",
+        "kev",
+        "jev"
+      ]
+    }
+  }
+}
+```
+
 ### `admin.engine.test`
 
 **Stability:** experimental · since 1.6.0
@@ -23737,7 +23906,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "tool.result",
     "turn.completed",
     "turn.failed",
-    "session.model.changed"
+    "session.model.changed",
+    "decision.completed"
   ]
 }
 ```

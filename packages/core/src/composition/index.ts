@@ -1,3 +1,6 @@
+import { DecisionClient } from '../decision/client.ts';
+import { decisionPruningPort } from '../decision/pruning.ts';
+import { toWireEvent } from '../session/methods.ts';
 import { SkillMining } from '../skill-mining/miner.ts';
 import { SkillReview, UnavailableSkillProposals } from '../skill-mining/review.ts';
 import { WorkflowEvidence } from '../skill-mining/evidence.ts';
@@ -255,7 +258,20 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       reasoning: reasoningFor, config: () => d.config(),
       ...(d.chatModels?.catalog ? { catalog: d.chatModels.catalog } : {}), ...(d.chatModels?.endpoint ? { endpoint: d.chatModels.endpoint } : {}),
     };
-    const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, d.config);
+    let decisions = new DecisionClient({ config: d.config, backends: {} });
+    const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, d.config, {
+      onClient: client => { decisions = client; },
+      emit: (context, event) => {
+        // Raw state and model prose never enter telemetry. Incognito uses the volatile store.
+        d.logger.info('decision.completed', { ...event });
+        if (!context.sessionId || !context.turnId) return;
+        const service = sessions.forSession(context.sessionId);
+        const session = service.store.getSession(context.sessionId);
+        if (!session || session.agentId !== context.agentId || session.owner !== context.principal) return;
+        const stored = service.store.appendEvent(context.turnId, 'decision.completed', { ...event });
+        d.notify('session.event', { agentId: session.agentId, event: toWireEvent(stored) }, { optIn: true });
+      },
+    });
     const maintenance = sessionMaintenance(d.home, cfg);
     // D105: a configured decision role is required for every foreground message (failure/timeout = default profile, core set only);
     // without modelRoles.decision the rule triage selects the shortlist as before.
@@ -287,7 +303,13 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       disposers.push(() => gate.close());
       coding = { collab, gate, worktrees: options.projectWorktrees ?? { root: agentId => d.agents.workspaceOf(agentId) ?? null } };
     }
-    sessions = openSessionService({ ...maintenance, dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => {
+    sessions = openSessionService({ ...maintenance, laya: decisionPruningPort(decisions, (pair, signal) => {
+      const service = sessions.forSession(pair.call.sessionId);
+      const session = service.store.getSession(pair.call.sessionId);
+      if (!session) throw new Error('pruning-session-unavailable');
+      // Background request has no running turn; trace remains aggregate without transcript data.
+      return { sessionId: session.id, agentId: session.agentId, principal: session.owner, signal, chat: { sessionId: session.id, agentId: session.agentId, principal: session.owner, role: 'decision', incognito: session.memoryMode === 'incognito', signal, summaries: [], memory: '', messages: [] } };
+    }), dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => {
       void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err }));
       const cur = d.permissions.current();
       if (cur) {
@@ -307,7 +329,12 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     if (promotions) disposers.push(() => promotions.close());
     let closed = false;
     const opened = sessions;
-    return { budget, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...(promotions ? promotionMethods(promotions) : {}), ...(coding ? codingMethods(coding) : {}), "models.test": async (p: { model: string }, ctx) => {
+    return { budget, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
+      if (!d.agents.has(p.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'Unknown agent');
+      const principal = deriveUserPrincipal(authenticatedPrincipal(ctx).userId);
+      const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, signal: AbortSignal.any([ctx.signal, d.signal]) });
+      return { ok: result.ok && result.value.id === 'even', durationMs: result.elapsedMs, outcome: result.ok ? (result.value.id === 'even' ? 'accepted' : 'invalid') : result.reason, ...(result.ok ? { backend: result.backend } : {}) };
+    }, ...(promotions ? promotionMethods(promotions) : {}), ...(coding ? codingMethods(coding) : {}), "models.test": async (p: { model: string }, ctx) => {
       if (!budget) throw new RpcError('E_NOT_AVAILABLE', 'Model budget unavailable');
       const person = authenticatedPrincipal(ctx).userId;
       const budgetPrincipal = deriveUserPrincipal(person);

@@ -353,6 +353,8 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<AdminReembedStatusParams, AdminReembedStatusResult>(name, f)
         }
         "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
+        "decision.status" => pair::<DecisionStatusParams, DecisionStatusResult>(name, f),
+        "decision.test" => pair::<DecisionTestParams, DecisionTestResult>(name, f),
         "models.test" => pair::<ModelsTestParams, ModelsTestResult>(name, f),
         "admin.engine.test" => pair::<AdminEngineTestParams, AdminEngineTestResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),

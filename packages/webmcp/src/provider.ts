@@ -86,7 +86,7 @@ const FORBIDDEN_EXACT = new Set([
   // seven writes stays open (owner decision pending).
   "model.embedding.select", "model.licence.confirm", "model.licence.list", "model.licence.check",
 ]);
-const FORBIDDEN_PREFIX = ["inbox.", "project.column.","supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth.", "grant.", "approval.", "user.", "breakglass.", "device."];
+const FORBIDDEN_PREFIX = ["decision.", "inbox.", "project.column.","supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth.", "grant.", "approval.", "user.", "breakglass.", "device."];
 const FORBIDDEN_SUFFIX = [".auth", ".adopt", ".shutdown"];
 
 export function isForbiddenMethod(method: string): boolean {
