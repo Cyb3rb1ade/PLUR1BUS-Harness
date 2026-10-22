@@ -97,6 +97,8 @@ fn tail(dir: &Path) -> io::Result<Tail> {
             let mut f = create_private(&evidence, false)?;
             f.write_all(&bytes[end..])?;
             f.sync_all()?;
+            // The evidence and its directory entry are durable before the interrupted write is truncated away.
+            sync_directory(dir)?;
             OpenOptions::new()
                 .write(true)
                 .open(&p)?
@@ -344,7 +346,19 @@ fn write_anchor(dir: &Path, seq: u64, hash: &str) -> io::Result<()> {
     writeln!(a, "{}", json!({"v": 1, "seq": seq, "hash": hash}))?;
     a.sync_all()?;
     drop(a);
-    fs::rename(&tmp, dir.join(ANCHOR))
+    fs::rename(&tmp, dir.join(ANCHOR))?;
+    // Active-file creation and the anchor replacement are durable before the chain lock is released.
+    sync_directory(dir)
+}
+
+/// POSIX directory fsync makes creation and rename durable. Windows directory-entry durability needs a native host
+/// capability that std does not offer (D2 known gap, docs/audit-chain.md).
+fn sync_directory(dir: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    File::open(dir)?.sync_all()?;
+    #[cfg(windows)]
+    let _ = dir;
+    Ok(())
 }
 
 /// Rotates when the active file is full, then writes one line chained to `start`, fsyncs it and moves the anchor.
@@ -362,6 +376,7 @@ fn write_line(dir: &Path, start: &Tail, rec: &Value) -> io::Result<Tail> {
                 return Err(invalid("rotation target exists"));
             }
             fs::rename(&active, target)?;
+            sync_directory(dir)?;
         }
     }
     let seq = start.seq + 1;

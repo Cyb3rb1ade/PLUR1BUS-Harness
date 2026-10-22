@@ -70,6 +70,9 @@ export function extractCommands(md) {
 }
 
 const STOP = new Set(["|", ">", ">>", "&&", ";", "||", "2>&1"]);
+// The global options of the root command (crates/plur1bus/src/cli.rs, `global = true`; docs/cli.md lists them under `plur1bus`).
+// clap accepts them before the subcommand too (`plur1bus --json container status`), so they are skipped there; true = takes a value.
+const GLOBAL_FLAGS = new Map([["--home", true], ["--json", false], ["--color", true]]);
 export function checkCommand(text, commands) {
   const toks = [];
   for (const t of text.split(/\s+/).slice(1)) {
@@ -78,13 +81,23 @@ export function checkCommand(text, commands) {
   }
   let path = "";
   let i = 0;
+  const skipGlobals = () => {
+    for (;;) {
+      const [flag] = (toks[i] ?? "").split("=", 1);
+      if (!GLOBAL_FLAGS.has(flag)) return;
+      // `--home <dir>` consumes the next token unless it is written `--home=<dir>`; a missing value is left to the flag check below.
+      i += GLOBAL_FLAGS.get(flag) && !toks[i].includes("=") && i + 1 < toks.length && !toks[i + 1].startsWith("-") ? 2 : 1;
+    }
+  };
+  skipGlobals();
   while (i < toks.length && /^[a-z0-9][a-z0-9-]*$/.test(toks[i])) {
     const next = path ? `${path} ${toks[i]}` : toks[i];
     if (!commands.has(next)) break;
     path = next;
     i++;
+    skipGlobals();
   }
-  const flags = new Set(["--home", "--json", "--help", "--version", "-h", "-V"]);
+  const flags = new Set([...GLOBAL_FLAGS.keys(), "--help", "--version", "-h", "-V"]);
   const command = commands.get(path);
   for (const f of command?.flags ?? []) flags.add(f);
   const hasChildren = [...commands.keys()].some((k) => k !== path && (path === "" ? k !== "" : k.startsWith(`${path} `)));

@@ -3947,13 +3947,228 @@
           "additionalProperties": true
         },
         "decision": {
-          "description": "Reserved namespace for decision model configuration.",
+          "description": "Decision service contract (ADR-015). Selection does not install or activate an unavailable backend.",
           "type": "object",
           "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "backend": {
+              "description": "Preferred backend. role preserves the existing decision model role; auto selects only installed and eligible backends.",
+              "enum": [
+                "role",
+                "laya",
+                "kev",
+                "jev",
+                "auto"
+              ],
+              "default": "role",
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "timeoutMs": {
+              "description": "Overall request deadline in milliseconds, including all fallback attempts. The caller may impose a shorter deadline.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000,
+              "default": 200,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "budgets": {
+              "description": "Maximum milliseconds per use case, also bounded by timeoutMs and the remaining caller budget.",
+              "type": "object",
+              "default": {},
+              "additionalProperties": false,
+              "properties": {
+                "triage": {
+                  "description": "Maximum triage decision time in milliseconds.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60000,
+                  "default": 200,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "routing": {
+                  "description": "Maximum routing decision time in milliseconds.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60000,
+                  "default": 200,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "pruning": {
+                  "description": "Maximum pruning decision time in milliseconds.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60000,
+                  "default": 100,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "skills": {
+                  "description": "Maximum skills decision time in milliseconds.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60000,
+                  "default": 100,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "placement": {
+                  "description": "Maximum placement decision time in milliseconds.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60000,
+                  "default": 200,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "zoom": {
+                  "description": "Maximum zoom decision time in milliseconds.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60000,
+                  "default": 150,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "compaction": {
+                  "description": "Maximum compaction decision time in milliseconds.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60000,
+                  "default": 200,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              },
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "confidence": {
+              "description": "Minimum calibrated confidence per use case. An uncertain answer invokes the conservative consumer fallback.",
+              "type": "object",
+              "default": {},
+              "additionalProperties": false,
+              "properties": {
+                "triage": {
+                  "description": "Minimum confidence for triage. Consumer safety rules and stricter D116 thresholds still apply.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "routing": {
+                  "description": "Minimum confidence for routing. Consumer safety rules and stricter D116 thresholds still apply.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0.7,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "pruning": {
+                  "description": "Minimum confidence for pruning. Consumer safety rules and stricter D116 thresholds still apply.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0.7,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "skills": {
+                  "description": "Minimum confidence for skills. Consumer safety rules and stricter D116 thresholds still apply.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0.7,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "placement": {
+                  "description": "Minimum confidence for placement. Consumer safety rules and stricter D116 thresholds still apply.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0.7,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "zoom": {
+                  "description": "Minimum confidence for zoom. Consumer safety rules and stricter D116 thresholds still apply.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0.35,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "compaction": {
+                  "description": "Minimum confidence for compaction. Consumer safety rules and stricter D116 thresholds still apply.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0.7,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              },
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "classProfiles": {
+              "description": "Existing D105 model-class to provider-profile mapping. Session stability and explicit model overrides are owned by the caller.",
+              "type": "object",
+              "default": {},
+              "additionalProperties": false,
+              "properties": {
+                "small": {
+                  "description": "Provider profile for the small model class.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "medium": {
+                  "description": "Provider profile for the medium model class.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "large": {
+                  "description": "Provider profile for the large model class.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "frontier": {
+                  "description": "Provider profile for the frontier model class.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              },
+              "x-restart": "live",
+              "x-tier": "advanced"
+            }
+          },
           "x-restart": "live",
-          "x-tier": "advanced",
-          "x-reserved": "M2 (D18)",
-          "additionalProperties": true
+          "x-tier": "advanced"
         },
         "modelProfiles": {
           "description": "Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order.",
