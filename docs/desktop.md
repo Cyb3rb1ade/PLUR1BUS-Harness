@@ -210,6 +210,100 @@ The bounded SSE primitive re-pulls, persists and acknowledges the same document;
 WP6 supplies its continuous subscription/reconnect lifecycle. The WP4 UI itself
 is not continuously subscribed. CA upload/admin states remain D2.
 
+### Transport choice
+
+The [transport-choice spec](superpowers/specs/2026-10-21-desktop-transport-choice-design.md) gives every remote
+connection a path, „Über Tailscale“ or „Direkt“. The choice selects checks and notices; it never relaxes TLS, pins,
+pairing or host keys (spec §9.1).
+
+**Classification and check.** The std-only crate `apps/desktop/net` (`plur1bus-desktop-net`) classifies addresses
+against the shared IANA vectors. `src-tauri/src/transport/` validates host input (spec §4.4: `host-invalid`,
+`host-ipv4-noncanonical`), resolves once through the OS resolver (5 s, at most 32 addresses, no DoH, no proxy), and
+returns the category, hints and the exact address set to connect to (`check_target`); `gate` turns a public target
+without a valid confirmation into `transport-confirm-needed`. An existing remote connection whose stored origin host
+fails the §4.4 rules (`Origin::parse` admitted, for example, `_` or a label over 63 bytes) now refuses to open with
+`host-invalid`; remove it and add it again with a valid host name.
+
+**Storage.** Each remote connection's path lives in the sidecar `connection-transport.json` beside `connections.json`
+(`{ transport, publicAck? }`, `publicAck = { atMs, classifier }`, never addresses). The file is tolerant of unknown
+fields, read-only when written by a newer version (`transport.store.newer`), moved aside as `.corrupt-<ms>-<uuid>`
+when corrupt, and it never writes `connections.json`. A missing entry is the derived default (`*.ts.net` or a tailnet
+literal: Tailscale, otherwise direct, no confirmation). Removing a connection removes its entry after the keychain and
+the metadata. A confirmation is stored only when a fresh check finds the target public; an unchanged path keeps a valid
+one; a path change clears it; a confirmation from another classifier snapshot counts as none. While the store cannot
+persist (newer version, unreadable, a failed write) a confirmation is held in memory for the app session only
+(`transport.public.session`), and a path change is refused (`transport-store-readonly`).
+
+**Check-then-connect.** `pair_code` (with the required `transport` and `publicAck`) and `open_connection` re-run the
+check in Rust before any TCP connection to the harness: the UI's check is advisory. An open of a public target without a
+valid confirmation returns `transport-confirm-needed` and contacts nothing, not even with the Tailscale probe; a stored
+entry without a confirmation that meets a public target is reported as `target-changed-public`. `open_connection`'s gate
+is `Transports::open_check`, and the reconnect decision is `events::transport_reconnect`, which the tests drive. Every client of the open is pinned to the checked
+addresses (`HarnessClient::with_pin`: reqwest `resolve_to_addrs` for HTTP and SSE; `websocket_connect` hands a TCP
+stream connected to a checked address to the WebSocket handshake), including the SPA proxy, ticket retries and the
+native status and trust streams; TLS keeps the host name for SNI and certificate checks. Every reconnect of the status
+or trust stream runs the check again (one shared re-check per connection, spec §5.4) and reconnects over its
+addresses; a DNS failure waits another backoff; a target
+that now needs a confirmation stops the loop, sets the tray's attention badge and emits `transport-attention` to the
+shell. No confirmation is ever given automatically.
+
+**IPC and UI.** `transport_check` (`{ target: origin | host | connection, transport, purpose }`) and
+`connection_transport_set` (`{ id, transport, publicAck }`) are shell-only commands with closed requests. One check runs
+per window; a newer one supersedes it (`transport-check-busy`). `connections_list` carries `transports` (path, valid
+confirmation, store read-only) and `transportStore`. The add-remote form has the required radio group (no
+preselection) between origin and code, the check panel (600 ms after input, a polite live region), the public banner
+with its confirmation, and keeps submit disabled until a path is chosen and a required confirmation is ticked. The
+connection list shows a path chip and a Tailscale chip; the detail has *Weg ändern…* and the confirm-needed state with
+*Bestätigen und verbinden*. The tray header reads `PLUR1BUS — {connection} · {path} — {state}` and appends
+„Tailscale getrennt“ (and the attention badge) only for an actual disconnect (`tailscale-daemon-down`, `-stopped`,
+`-needs-login`, `-peer-offline`); the list's Tailscale chip follows the same rule. `tailscale-unreachable` and
+`tailscale-route-mismatch` set the attention badge without that text; other notices, such as an unprobed subnet
+route, show neither.
+
+**Tailscale mechanism.** The check (spec §5) runs for the Tailscale path, `*.ts.net` names and tailnet addresses.
+`CliTailscale` runs `status --json` only from the fixed absolute candidates (never `PATH`; ownership, mode, symlink and
+reparse-point checks; the checked path is the one executed), with a cleared environment, a 4 s timeout, an 8 MiB stdout
+cap, and caches the parsed view for 10 s; inside Flatpak it runs nothing. A matched `*.ts.net` or short name connects
+to the peer's Tailscale addresses without a DNS query. `TcpProber` connects to at most four addresses (3 s each, no
+bytes sent) on every check-panel run, every open and every status or trust stream reconnect over a tailnet path, and
+compares the local address with this
+device's Tailscale addresses. It runs only once the target passes the confirmation gate, and only to the matched
+peer's tailnet addresses or the private addresses inside the matched subnet route, never to a public address
+(`check_target_acked`). Debug-only seams, ignored by release builds: `PLUR1BUS_DESKTOP_TAILSCALE_STATUS=<file>`
+(a status document instead of the CLI) and `PLUR1BUS_DESKTOP_TAILSCALE_BIN=<path>` (a fake CLI, `test-bins`
+`fake-tailscale`, which reads its scenario from `fake-tailscale.scenario` beside itself); `check-release-seams.mjs`
+requires both in the debug executable and refuses them in the release one. Tests inject the resolver, the Tailscale
+source and the prober, use synthetic fixtures under `src-tauri/tests/fixtures/tailscale/` and never run a real
+`tailscale`.
+
+**Privacy.** Of the status, only the state code, the matched peer's label (first `DNSName` label) and its online flag
+reach the report, plus, for `tailscale-short-name`, that peer's own DNS name as the suggestion; for a name match the
+report's addresses are the matched peer's (or this device's) Tailscale addresses, at most eight. The status is never
+persisted or logged: a check writes one line through an injected sink (stderr in the app) with its purpose, category,
+hint codes and refusal code only (`TRANSPORT_CHECK purpose=open category=public codes=target-changed-public
+result=transport-confirm-needed`); `tests/transport_open.rs` captures these lines over the `running.json` fixture and
+asserts that no peer name, user, address or identifier appears.
+
+### Tray menu: switch connection, start/stop harness
+
+The tray (macOS menubar, Windows notification area) reads: status header, *Open PLUR1BUS*, a *Connections* submenu
+(„Verbindung wechseln“), *Manage connections…*, *Start harness*, *Stop harness*, *Start runtime* (macOS), *Update…*,
+*Settings…*, *Quit* (`native.rs` `tray_menu`, model in `tray.rs`). The submenu has one check item per connection in
+`connections.json` order, `{name} ({path})` with the header's path words (bundled and local rows show the name only),
+the connection open now checked; at most 20 entries, then *More…* (`#/connections`). The open connection is always
+listed: past the 20th row it takes the 20th place. Menu ids are generated by the app (`connection:<uuid>`), and a
+switch is honoured only for an id the last built menu offered; the menu is rebuilt, debounced (150 ms), after the
+native commands change the connection list, a path or the open connection, never from webview input. A switch takes
+the open path of *Open* in the connection list (`Transports::open_gated`: T4's gate, then `commands::connect_checked`):
+a connection that needs a confirmation opens the shell on *Verbindungen* with its confirm panel (`transport-attention`)
+and nothing contacts the harness; a failure opens the list with the error on that connection (`desktop-tray-switch`);
+a connection no longer in `connections.json` is ignored. *Start/Stop harness* are enabled only for the open bundled
+connection whose runtime is reachable, and call the controller path of `harness_start`/`harness_stop` (no command of
+their own). Native menus have no tooltips, so a disabled item carries its reason after the label („Harness starten —
+Runtime nicht erreichbar“; also *wechsle zur gebündelten Verbindung*, *nicht installiert*, *Vorgang läuft*, *läuft
+bereits*, *läuft nicht*). Debug fixture mode (`PLUR1BUS_DESKTOP_CONFIG_DIR` set) builds no tray; a manual tray pass
+needs a normal profile.
+
 ### Scratch profile without keychain access
 
 For a debug build, set `PLUR1BUS_DESKTOP_CONFIG_DIR` to an absolute temporary

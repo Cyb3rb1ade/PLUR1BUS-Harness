@@ -193,6 +193,130 @@ pub struct ConnectionList {
     pub connections: Vec<crate::connections::Connection>,
     pub active: Option<uuid::Uuid>,
     pub token_store: Option<crate::secrets::StoreKind>,
+    /// The path of every remote connection (transport choice spec §3.2, §7.3); bundled and local rows have none.
+    pub transports: std::collections::BTreeMap<uuid::Uuid, crate::transport::TransportView>,
+    /// Whether `connection-transport.json` can be written (`read-only-newer`: `transport.store.newer`).
+    pub transport_store: crate::transport::StoreMode,
+}
+/// The app's transport state: the real seams, and its check lines on stderr beside the other diagnostic codes.
+pub fn transports() -> crate::transport::Transports {
+    crate::transport::Transports::production(std::sync::Arc::new(|line: &str| eprintln!("{line}")))
+}
+fn transport_store(app: &tauri::AppHandle) -> Result<crate::transport::TransportStore, String> {
+    Ok(crate::transport::TransportStore::open(&app_config_dir(
+        app,
+    )?))
+}
+/// What to check (transport choice spec §7.1): an origin being added, a bare host (SSH, later packages), or an
+/// existing remote connection under a path the person may be changing.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase", tag = "kind")]
+pub enum CheckTarget {
+    Origin { origin: String },
+    Host { host: String, port: u16 },
+    Connection { id: uuid::Uuid },
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct TransportCheckRequest {
+    pub target: CheckTarget,
+    pub transport: crate::transport::Transport,
+    pub purpose: crate::transport::Purpose,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct TransportSetRequest {
+    pub id: uuid::Uuid,
+    pub transport: crate::transport::Transport,
+    pub public_ack: bool,
+}
+/// A bare host target from IPC: the host string validated by spec §4.4 (`host-invalid`, `host-ipv4-noncanonical`), a
+/// port that can be connected to.
+pub fn host_target(host: &str, port: u16) -> Result<(crate::transport::HostInput, u16), String> {
+    if port == 0 {
+        return Err("invalid".into());
+    }
+    let host = crate::transport::HostInput::parse(host).map_err(|e| e.code().to_owned())?;
+    Ok((host, port))
+}
+/// The advisory check of the shell's check panel (spec §7.1, §5.4): one per window, a newer one supersedes it
+/// (`transport-check-busy`). Only a host string (validated, spec §4.4), a port, enums and a connection id cross IPC.
+#[tauri::command]
+pub async fn transport_check(
+    window: WebviewWindow,
+    transports: tauri::State<'_, crate::transport::Transports>,
+    request: TransportCheckRequest,
+) -> Result<crate::transport::TransportReport, String> {
+    check(&window, "transport_check")?;
+    use crate::transport::{HostInput, TargetInput, TransportError};
+    let app = window.app_handle();
+    let store = app_connection_store(app)?;
+    let tstore = transport_store(app)?;
+    let row = match &request.target {
+        CheckTarget::Connection { id } => Some(
+            store
+                .load()
+                .map_err(|_| "storage")?
+                .into_iter()
+                .find(|c| c.id == *id && c.kind == crate::connections::Kind::Remote)
+                .ok_or("invalid")?,
+        ),
+        _ => None,
+    };
+    let (host, port) = match &request.target {
+        CheckTarget::Origin { origin } => {
+            let origin =
+                crate::connections::Origin::parse(origin).map_err(|_| "insecure-origin")?;
+            HostInput::from_origin(&origin).map_err(|e| e.code())?
+        }
+        CheckTarget::Host { host, port } => host_target(host, *port)?,
+        CheckTarget::Connection { .. } => {
+            let row = row.as_ref().ok_or("invalid")?;
+            HostInput::from_origin(&row.origin).map_err(|e| e.code())?
+        }
+    };
+    let input = TargetInput {
+        host,
+        port,
+        transport: request.transport,
+        purpose: request.purpose,
+    };
+    transports
+        .check_for_window(
+            window.label(),
+            transports.check_input(&input, row.as_ref().map(|row| (&tstore, row))),
+        )
+        .await
+        .map_err(|e: TransportError| e.code().to_owned())
+}
+/// *Weg ändern…* and *Bestätigen und verbinden* (spec §7.1, §8): stores the path of a remote connection after a fresh
+/// check; `publicAck` is stored only when that check finds the target public.
+#[tauri::command]
+pub async fn connection_transport_set(
+    window: WebviewWindow,
+    transports: tauri::State<'_, crate::transport::Transports>,
+    request: TransportSetRequest,
+) -> Result<crate::transport::TransportReport, String> {
+    check(&window, "connection_transport_set")?;
+    let app = window.app_handle().clone();
+    let row = app_connection_store(&app)?
+        .load()
+        .map_err(|_| "storage")?
+        .into_iter()
+        .find(|c| c.id == request.id && c.kind == crate::connections::Kind::Remote)
+        .ok_or("invalid")?;
+    let result = transports
+        .set_transport(
+            &transport_store(&app)?,
+            &row,
+            request.transport,
+            request.public_ack,
+        )
+        .await
+        .map_err(str::to_owned);
+    // The tray switch shows each connection's path.
+    crate::native::connections_changed(&app);
+    result
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -213,6 +337,10 @@ pub struct PairCodeRequest {
     pub code: String,
     pub repair_id: Option<uuid::Uuid>,
     pub link_id: Option<u64>,
+    /// The path the person chose (spec §7.1, required, no preselection).
+    pub transport: crate::transport::Transport,
+    /// The person ticked the public-address confirmation; honoured only when Rust's fresh check needs it.
+    pub public_ack: bool,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -229,14 +357,24 @@ pub struct Paired {
 pub async fn connections_list(
     window: WebviewWindow,
     state: tauri::State<'_, ConnectionState>,
+    transports: tauri::State<'_, crate::transport::Transports>,
 ) -> Result<ConnectionList, String> {
     check(&window, "connections_list")?;
     // Listing never acquires credentials and never waits for the credential owner.
     let store = connection_store(&window)?;
+    let connections = store.load().map_err(|_| "storage")?;
+    let tstore = transport_store(window.app_handle())?;
+    let views = connections
+        .iter()
+        .filter(|c| c.kind == crate::connections::Kind::Remote)
+        .map(|c| (c.id, transports.view(&tstore, c)))
+        .collect();
     Ok(ConnectionList {
-        connections: store.load().map_err(|_| "storage")?,
+        connections,
         active: store.active().map_err(|_| "storage")?,
         token_store: state.store_kind(),
+        transports: views,
+        transport_store: tstore.mode(),
     })
 }
 #[tauri::command]
@@ -255,7 +393,9 @@ pub async fn connections_rename(
         .find(|c| c.id == request.id)
         .ok_or("invalid")?;
     row.name = request.name.trim().to_owned();
-    store.upsert(row).map_err(|_| "invalid".into())
+    store.upsert(row).map_err(|_| "invalid")?;
+    crate::native::connections_changed(window.app_handle());
+    Ok(())
 }
 #[tauri::command]
 pub async fn connections_remove(
@@ -265,8 +405,10 @@ pub async fn connections_remove(
 ) -> Result<(), String> {
     check(&window, "connections_remove")?;
     let store = connection_store(&window)?;
+    let tstore = transport_store(window.app_handle())?;
     let app = window.app_handle().clone();
-    credential_action(&state, move |tokens, _| {
+    let changed = app.clone();
+    let result = credential_action(&state, move |tokens, _| {
         crate::native::retire_connection(&app, request.id);
         crate::pair::remove_connection(
             &store,
@@ -274,18 +416,30 @@ pub async fn connections_remove(
             tokens.as_deref(),
             crate::secrets::open_for_removal().as_ref(),
         )
-        .map_err(|e| e.public_message())
+        .map_err(|e| e.public_message())?;
+        // Spec §3.2: keychain, then metadata, then the sidecar entry.
+        match app.try_state::<crate::transport::Transports>() {
+            Some(transports) => transports.forget(&tstore, request.id),
+            None => {
+                let _ = tstore.remove(request.id);
+            }
+        }
+        Ok(())
     })
-    .await
+    .await;
+    crate::native::connections_changed(&changed);
+    result
 }
 #[tauri::command]
 pub async fn pair_code(
     window: WebviewWindow,
     state: tauri::State<'_, ConnectionState>,
+    transports: tauri::State<'_, crate::transport::Transports>,
     request: PairCodeRequest,
 ) -> Result<Paired, String> {
     check(&window, "pair_code")?;
     let store = connection_store(&window)?;
+    let tstore = transport_store(window.app_handle())?;
     // A link always creates a new connection. An existing connection can never be repaired or
     // replaced by an external offer, and the renderer cannot substitute the offer's trust.
     let offer = match request.link_id {
@@ -301,6 +455,17 @@ pub async fn pair_code(
         Some(_) => return Err("invalid".into()),
         None => None,
     };
+    // Transport choice spec §7.1: the UI's check is advisory; Rust re-runs it before any TCP connection to the
+    // harness and pairs over exactly the checked addresses.
+    let origin = match &offer {
+        Some(crate::deeplink::DeepLink::Pair { origin, .. }) => origin.clone(),
+        _ => crate::connections::Origin::parse(&request.origin).map_err(|_| "insecure-origin")?,
+    };
+    let checked = transports
+        .check_pair(&origin, request.transport, request.public_ack)
+        .await
+        .map_err(|e| e.code().to_owned())?;
+    let connect = checked.pin.clone();
     let code = crate::secrets::SecretString::new(request.code);
     let app = window.app_handle().clone();
     let result = credential_action(&state, move |tokens, runtime| {
@@ -314,10 +479,14 @@ pub async fn pair_code(
                     origin, pin, ca, ..
                 }) = offer
                 {
-                    let client =
-                        crate::client::HarnessClient::from_pairing_payload(origin, pin, ca)
-                            .await
-                            .map_err(crate::pair::PairError::from)?;
+                    let client = crate::client::HarnessClient::from_pairing_payload_pinned(
+                        origin,
+                        pin,
+                        ca,
+                        Some(connect),
+                    )
+                    .await
+                    .map_err(crate::pair::PairError::from)?;
                     crate::pair::pair_using_client(
                         client,
                         code.expose(),
@@ -330,13 +499,14 @@ pub async fn pair_code(
                     )
                     .await
                 } else {
-                    crate::pair::pair_code(
+                    crate::pair::pair_code_pinned(
                         &request.origin,
                         code.expose(),
                         &request.name,
                         tokens.as_ref(),
                         &store,
                         request.repair_id,
+                        Some(connect),
                     )
                     .await
                 }
@@ -348,7 +518,15 @@ pub async fn pair_code(
         })
     })
     .await;
-    if result.is_ok() {
+    if let Ok(paired) = &result {
+        // After the connection row exists (spec §3.2); a store that cannot persist holds a confirmation for this
+        // session instead.
+        let _ = transports.record_pairing(
+            &tstore,
+            &paired.connection,
+            request.transport,
+            &checked.report,
+        );
         if let Some(id) = request.link_id {
             window
                 .state::<crate::deeplink::LinkState>()
@@ -357,6 +535,7 @@ pub async fn pair_code(
                 .unwrap()
                 .finish_pair(id);
         }
+        crate::native::connections_changed(window.app_handle());
     }
     result
 }
@@ -385,7 +564,7 @@ pub async fn pair_local(
     }
     let code = crate::secrets::SecretString::new(offer.code);
     let store = connection_store(&window)?;
-    credential_action(&state, move |tokens, runtime| {
+    let result = credential_action(&state, move |tokens, runtime| {
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let connection = runtime
             .block_on(crate::pair::pair(
@@ -404,37 +583,79 @@ pub async fn pair_local(
             token_store: tokens.kind(),
         })
     })
-    .await
+    .await;
+    crate::native::connections_changed(window.app_handle());
+    result
 }
 #[derive(Serialize)]
 pub struct Opened {
     pub selected: bool,
     pub spa_available: bool,
+    /// The fresh check of a remote connection's open (its notices for the page; spec §7.1).
+    pub transport: Option<crate::transport::TransportReport>,
 }
 #[tauri::command]
 pub async fn open_connection(
     window: WebviewWindow,
     state: tauri::State<'_, ConnectionState>,
+    transports: tauri::State<'_, crate::transport::Transports>,
     request: ConnectionIdRequest,
 ) -> Result<Opened, String> {
     check(&window, "open_connection")?;
     let store = connection_store(&window)?;
     let app = window.app_handle().clone();
+    // Transport choice spec §7.1, §9.2: a remote connection is checked and gated before any harness contact; a public
+    // target without a valid confirmation returns `transport-confirm-needed` and nothing connects. Metadata is read
+    // without the credential owner, as listing does. The tray switch takes the same path (desktop spec §6.3).
+    let owner = state.inner().clone();
+    let connect_app = app.clone();
+    let result = transports
+        .open_gated(
+            &store,
+            &transport_store(&app)?,
+            request.id,
+            |listed, checked| connect_checked(connect_app, owner, listed, checked),
+        )
+        .await;
+    crate::native::connections_changed(&app);
+    result
+}
+/// The harness contact of an open, after its gate ([`crate::transport::Transports::open_gated`]): `listed` is the row
+/// the gate checked, `checked` its check and path. Shared by `open_connection` and the tray switch.
+pub(crate) async fn connect_checked(
+    app: tauri::AppHandle,
+    state: ConnectionState,
+    listed: crate::connections::Connection,
+    checked: Option<(crate::transport::CheckedTarget, crate::transport::Transport)>,
+) -> Result<Opened, String> {
+    let store = app_connection_store(&app)?;
+    let id = listed.id;
+    let report = checked.as_ref().map(|(c, _)| c.report.clone());
+    let opened = checked.as_ref().map(|(c, t)| (c.report.clone(), *t));
+    let connect = checked.map(|(c, _)| c.pin);
     credential_action(&state, move |tokens, runtime| {
         if app.try_state::<crate::native::NativeState>().is_some() {
-            crate::native::retire_connection(&app, request.id);
+            crate::native::retire_connection(&app, id);
         }
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let mut row = store
             .load()
             .map_err(|_| "storage")?
             .into_iter()
-            .find(|c| c.id == request.id)
+            .find(|c| c.id == id)
             .ok_or("invalid")?;
-        let validated = runtime.block_on(crate::pair::validate_connection(
+        // The row checked above, still the same target; a remote row is never opened unpinned.
+        if row.origin != listed.origin
+            || row.kind != listed.kind
+            || (row.kind == crate::connections::Kind::Remote) != connect.is_some()
+        {
+            return Err("invalid".into());
+        }
+        let validated = runtime.block_on(crate::pair::validate_connection_pinned(
             &mut row,
             tokens.as_ref(),
             &store,
+            connect.as_ref(),
         ));
         if let Err(error) = validated {
             if row.kind != crate::connections::Kind::Bundled
@@ -463,7 +684,10 @@ pub async fn open_connection(
         }
         let monitor = if app.try_state::<crate::native::NativeState>().is_some() {
             let client = runtime
-                .block_on(crate::client::HarnessClient::from_connection(&row))
+                .block_on(crate::client::HarnessClient::from_connection_pinned(
+                    &row,
+                    connect.clone(),
+                ))
                 .map_err(|e| crate::pair::PairError::Client(e).public_message())?;
             let token = crate::secrets::load_token_or_pairing_needed(tokens.as_ref(), row.id)
                 .map_err(|_| "pairing-needed")?;
@@ -476,16 +700,18 @@ pub async fn open_connection(
             &mut row,
             tokens.as_ref(),
             &store,
+            connect.as_ref(),
         ))?;
         if let Some((client, token)) = monitor {
             // Spawn while entered into the async runtime; token remains native-only.
             runtime.block_on(async {
-                crate::native::start_events(&app, row.clone(), client, token);
+                crate::native::start_events(&app, row.clone(), client, token, opened.as_ref());
             });
         }
         Ok(Opened {
             selected: true,
             spa_available: true,
+            transport: report,
         })
     })
     .await

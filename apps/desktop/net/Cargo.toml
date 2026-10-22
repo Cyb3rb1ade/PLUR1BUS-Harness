@@ -1,0 +1,14 @@
+[package]
+name = "plur1bus-desktop-net"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+license = "MIT"
+publish = false
+description = "IP address parsing and classification for the desktop transport choice; agrees with packages/core/src/tools/web/ip.ts"
+
+# std only: this crate has no [dependencies] on purpose (desktop transport choice spec §4, package T1).
+# serde/serde_json only read the shared vector file in the parity tests.
+[dev-dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.150"

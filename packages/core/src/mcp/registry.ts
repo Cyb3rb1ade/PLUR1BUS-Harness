@@ -9,6 +9,7 @@ import type { McpClientPorts } from "./ports.ts";
 import { SecretBearerAuthProvider, type McpAuthProvider } from "./auth.ts";
 import type { Egress } from "../egress/index.ts";
 import type { SecretStore } from "../secrets/index.ts";
+import type { LogWriter } from "../logs/writer.ts";
 import { McpClientError } from "./errors.ts";
 import { makeProvenance, wrapToolResult } from "./provenance.ts";
 import { createRedactor, isSensitiveName, type Redactor } from "./redact.ts";
@@ -21,6 +22,8 @@ export interface RegistryOptions {
   policy?: Partial<McpPolicy>;
   clock?: Clock;
   logger: McpLogger;
+  /** D111 writer: a stdio server's stderr is written through it as `process.output.line` (stream `stderr`) instead of `mcp.server.stderr`. */
+  output?: LogWriter;
   /** The environment `fromHost` variables are copied from. Defaults to the process environment. */
   hostEnv?: NodeJS.ProcessEnv;
   ports?: (server: McpServerDefinition) => McpClientPorts;
@@ -254,6 +257,7 @@ export class McpRegistry {
       ...(e.protocolVersion ? { knownVersion: e.protocolVersion } : {}),
       ...(this.options.ports ? { ports: this.options.ports(e.def) } : {}),
       ...(this.options.egress ? { egress: this.options.egress } : {}),
+      ...(this.options.output ? { output: this.options.output } : {}),
       ...this.authFor(e),
       onState: state => { e.connectionState = state; this.emit({ server: e.def.name, state }); },
       onNotification: (method, params) => this.emit({ server: e.def.name, method, params: this.safeData(e, params) }),

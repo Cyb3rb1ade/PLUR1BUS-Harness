@@ -70,6 +70,8 @@ export interface AuditChainOptions {
   securePath?: (p: string) => void;
   maxBytes?: number;
   lockTimeoutMs?: number;
+  /** Content-free best-effort observer; its errors never replace an append failure. */
+  onRefusal?: (code: string) => void;
 }
 export interface AuditPin { seq: number; hash: string }
 export type ChainRecord = Omit<AuditEvent, "target"> & { target: string | null };
@@ -400,22 +402,35 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
     dir,
     append(e: ChainRecord): void {
       assertRecordable(e);
-      withLock(() => {
-        let st = tailState();
-        // Fail closed when the chain is not what the anchor remembers: appending would paper over the tampering.
-        const verdict = judge(st, readAnchor(anchorPath));
-        if (verdict.kind === "refuse") throw new Error(`audit-chain: ${verdict.why}; refusing to append`);
-        if (verdict.kind === "advance") {
-          // The extra line chains to the anchor's hash; the line the anchor pinned must still be that line.
-          if (!lineBeforeTailHashes(st.prev)) throw new Error("audit-chain: tail does not match the anchor; refusing to append");
-          // RULING: the one recoverable crash state (see `judge`). The anchor is pulled up to the line it missed, and that is
-          // recorded in the chain itself, ahead of the event being appended, so the recovery is visible to every later verify.
-          const from = st.seq - 1;
-          writeAnchor({ seq: st.seq, hash: st.hash });
-          st = writeLine(st, { at: Date.now(), actor: actorOfThisProcess(), action: ANCHOR_ADVANCED_ACTION, target: ANCHOR_NAME, detail: { fromSeq: from, toSeq: st.seq, writer: "core" } });
-        }
-        writeLine(st, e);
-      });
+      try {
+        withLock(() => {
+          let st = tailState();
+          // Fail closed when the chain is not what the anchor remembers: appending would paper over the tampering.
+          const verdict = judge(st, readAnchor(anchorPath));
+          if (verdict.kind === "refuse") throw new Error(`audit-chain: ${verdict.why}; refusing to append`);
+          if (verdict.kind === "advance") {
+            // The extra line chains to the anchor's hash; the line the anchor pinned must still be that line.
+            if (!lineBeforeTailHashes(st.prev)) throw new Error("audit-chain: tail does not match the anchor; refusing to append");
+            // RULING: the one recoverable crash state (see `judge`). The anchor is pulled up to the line it missed, and that is
+            // recorded in the chain itself, ahead of the event being appended, so the recovery is visible to every later verify.
+            const from = st.seq - 1;
+            writeAnchor({ seq: st.seq, hash: st.hash });
+            st = writeLine(st, { at: Date.now(), actor: actorOfThisProcess(), action: ANCHOR_ADVANCED_ACTION, target: ANCHOR_NAME, detail: { fromSeq: from, toSeq: st.seq, writer: "core" } });
+          }
+          writeLine(st, e);
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        const code = message.includes("anchor is missing") ? "anchor-missing"
+          : message.includes("anchor is invalid") ? "anchor-invalid"
+          : message.includes("shorter than its anchor") ? "chain-shorter-than-anchor"
+          : message.includes("tail does not match") ? "tail-anchor-mismatch"
+          : message.includes("last line is not a chain line") ? "tail-malformed"
+          : message.includes("rotation target exists") ? "rotation-target-exists"
+          : message.includes("lock timeout") ? "lock-timeout" : "audit-unavailable";
+        try { o.onRefusal?.(code); } catch { /* Observer failure cannot hide the original append refusal. */ }
+        throw error;
+      }
     },
     rotate(): string | null { return withLock(rotateLocked); },
     verify(pin?: AuditPin): VerifyResult {

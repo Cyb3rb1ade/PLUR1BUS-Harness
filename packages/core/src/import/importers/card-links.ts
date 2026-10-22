@@ -108,6 +108,21 @@ export function readPriorCardLinks(importsDir: string): Map<string, PriorCardLin
 }
 
 /**
+ * Whether a not rolled-back import run of this home parked cards of a source (ledger entity "memory", action
+ * "pending-reembed", sourceRef starting with `sourcePrefix`, e.g. "hermes:"). A later run that names no store still has to
+ * treat that home like one with a store of its own: the parked cards belong in the store only once it is in the harness
+ * vector space.
+ */
+export function hasLiveParkedCards(importsDir: string, sourcePrefix: string): boolean {
+  for (const { text } of liveRunLedgers(importsDir)) {
+    for (const e of ledgerEntries(text)) {
+      if (e?.entity === "memory" && e?.action === "pending-reembed" && typeof e?.sourceRef === "string" && e.sourceRef.startsWith(sourcePrefix)) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * The store-ledger key of the last store swapped into state/lancedb by a not rolled-back import run of this home (ledger
  * entity "store", action "adopted" or "replace", targetRef "state/lancedb"), or null when no run took a store over.
  * Tells whether the harness store IS a given source store (taken over earlier), as opposed to some other store.

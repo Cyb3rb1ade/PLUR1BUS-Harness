@@ -85,8 +85,8 @@ export class OutputLines {
   close(): void { if (this.closed) return; this.consume(this.decoder.end()); if (this.bytes) this.emitLine(); this.summary(); this.closed = true; }
 }
 /** Wrap an existing child's streams; stdout can be omitted for MCP protocol streams. Does not spawn or alter env.
- *  MCP stdio spawn lives in `packages/core/src/mcp/` (out of this remainder's allowed paths): KNOWN GAP — wrap there
- *  or at the composition that holds the child streams; owner: should MCP-stdio stderr be wrapped without touching mcp/? */
+ *  MCP stdio spawn lives in `packages/core/src/mcp/`: `McpConnection` feeds a stdio server's stderr (never its protocol stdout)
+ *  through `OutputLines` itself (`RegistryOptions.output`, wired in `composition/`), so it does not use this helper. */
 export async function wrapOutput(
   writer: LogWriter,
   streams: { stdout?: AsyncIterable<Buffer>; stderr?: AsyncIterable<Buffer> },

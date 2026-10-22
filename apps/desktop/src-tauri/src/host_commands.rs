@@ -453,17 +453,20 @@ pub async fn approval_decide(
             .unwrap()
             .clone()
             .ok_or("E_NOT_AVAILABLE")?;
-        // Only the explicitly identified desktop mock supports this provisional API.
+        // Only the explicitly identified desktop mock supports this provisional API. A remote row is refused before
+        // any request: its requests go only over an open's checked addresses (transport choice spec §9.2).
+        if row.kind != crate::connections::Kind::Bundled
+            || crate::bridge::endpoint(row.kind.clone(), &row.origin).is_none()
+        {
+            return Err("E_DENIED".into());
+        }
         let client = runtime
             .block_on(crate::client::HarnessClient::from_connection(&row))
             .map_err(|_| "E_NOT_AVAILABLE")?;
         let meta = runtime
             .block_on(client.meta())
             .map_err(|_| "E_NOT_AVAILABLE")?;
-        if row.kind != crate::connections::Kind::Bundled
-            || crate::bridge::endpoint(row.kind.clone(), &row.origin).is_none()
-            || !meta.capabilities.iter().any(|c| c == "test.mock")
-        {
+        if !meta.capabilities.iter().any(|c| c == "test.mock") {
             return Err("E_DENIED".into());
         }
         let token = crate::secrets::load_token_or_pairing_needed(

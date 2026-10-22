@@ -86,16 +86,16 @@ pub(crate) async fn resolve(
     owner: &mut RuntimeOwner,
     selected: Option<&str>,
 ) -> Result<Arc<Controller>, String> {
-    resolve_with_inventory(window, owner, selected, false).await
+    resolve_with_inventory(window.app_handle(), owner, selected, false).await
 }
 pub(crate) async fn resolve_uninstall(
     window: &WebviewWindow,
     owner: &mut RuntimeOwner,
 ) -> Result<Arc<Controller>, String> {
-    resolve_with_inventory(window, owner, None, true).await
+    resolve_with_inventory(window.app_handle(), owner, None, true).await
 }
 async fn resolve_with_inventory(
-    window: &WebviewWindow,
+    app: &tauri::AppHandle,
     owner: &mut RuntimeOwner,
     selected: Option<&str>,
     cleanup: bool,
@@ -127,7 +127,7 @@ async fn resolve_with_inventory(
         }
         return Ok(c.clone());
     }
-    let dir = commands::app_config_dir(window.app_handle())?.join("bundled");
+    let dir = commands::app_config_dir(app)?.join("bundled");
     let record = if cleanup
         && std::fs::symlink_metadata(dir.join("installed.json"))
             .is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
@@ -189,13 +189,8 @@ async fn resolve_with_inventory(
         ),
     };
     let c = Arc::new(
-        Controller::new(runtime, embedded().clone(), dir).with_resource_dir(
-            window
-                .app_handle()
-                .path()
-                .resource_dir()
-                .map_err(|_| "storage")?,
-        ),
+        Controller::new(runtime, embedded().clone(), dir)
+            .with_resource_dir(app.path().resource_dir().map_err(|_| "storage")?),
     );
     if cleanup {
         c.uninstall_inventory().map_err(|e| e.code())?;
@@ -353,7 +348,7 @@ pub async fn bundle_install(
         state.0.lock().await.cancellation = None;
         return Err(e);
     }
-    if let Err(e) = write_target(&window, &c) {
+    if let Err(e) = write_target(&app, &c) {
         state.0.lock().await.cancellation = None;
         return Err(e);
     }
@@ -404,6 +399,8 @@ pub async fn bundle_install(
             .as_ref()
             .map(|c| native_watch(window.app_handle(), c.clone()));
     }
+    drop(owner);
+    crate::native::connections_changed(window.app_handle());
     paired
 }
 #[derive(Deserialize)]
@@ -418,18 +415,26 @@ pub async fn harness_start(
     request: StartRequest,
 ) -> Result<(), String> {
     commands::check(&window, "harness_start")?;
-    let c = resolve(&window, &mut *state.0.lock().await, None).await?;
-    if let Some(gib) = request.memory_gib {
+    start_harness(window.app_handle(), &state, request.memory_gib).await
+}
+/// The controller's start path, shared by `harness_start` and the tray's *Start harness* (desktop spec §6.3).
+pub(crate) async fn start_harness(
+    app: &tauri::AppHandle,
+    state: &RuntimeState,
+    memory_gib: Option<u8>,
+) -> Result<(), String> {
+    let c = resolve_with_inventory(app, &mut *state.0.lock().await, None, false).await?;
+    if let Some(gib) = memory_gib {
         c.set_memory(gib).await
     } else {
         c.start().await
     }
     .map_err(|e| e.code())?;
-    write_target(&window, &c)?;
-    sync_origins(window.app_handle(), c.clone()).await?;
+    write_target(app, &c)?;
+    sync_origins(app, c.clone()).await?;
     let mut owner = state.0.lock().await;
     if owner.watch.is_none() {
-        owner.watch = Some(native_watch(window.app_handle(), c));
+        owner.watch = Some(native_watch(app, c));
     }
     Ok(())
 }
@@ -439,15 +444,25 @@ pub async fn harness_stop(
     state: tauri::State<'_, RuntimeState>,
 ) -> Result<(), String> {
     commands::check(&window, "harness_stop")?;
+    stop_harness(window.app_handle(), &state).await
+}
+/// The controller's stop path, shared by `harness_stop` and the tray's *Stop harness* (desktop spec §6.3). The watch
+/// ends with the stop, so the stopped state goes to the tray here.
+pub(crate) async fn stop_harness(
+    app: &tauri::AppHandle,
+    state: &RuntimeState,
+) -> Result<(), String> {
     let c = {
         let mut owner = state.0.lock().await;
-        let c = resolve(&window, &mut owner, None).await?;
+        let c = resolve_with_inventory(app, &mut owner, None, false).await?;
         if let Some(task) = owner.watch.take() {
             task.abort();
         }
         c
     };
-    c.stop().await.map_err(|e| e.code().into())
+    c.stop().await.map_err(|e| e.code())?;
+    crate::native::publish_controller(app, c.status().await);
+    Ok(())
 }
 #[tauri::command]
 pub async fn harness_status(
@@ -485,9 +500,9 @@ pub async fn harness_logs_tail(
         .map_err(|e| e.code().into())
 }
 
-fn write_target(window: &WebviewWindow, c: &Controller) -> Result<(), String> {
+fn write_target(app: &tauri::AppHandle, c: &Controller) -> Result<(), String> {
     #[cfg(not(debug_assertions))]
-    let _ = window;
+    let _ = app;
     let installed = c
         .installed()
         .map_err(|e| e.code())?
@@ -495,7 +510,7 @@ fn write_target(window: &WebviewWindow, c: &Controller) -> Result<(), String> {
     #[cfg(debug_assertions)]
     if std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some() {
         return crate::install::target_json::write(
-            &commands::app_config_dir(window.app_handle())?.join("forwarder"),
+            &commands::app_config_dir(app)?.join("forwarder"),
             &installed,
         )
         .map_err(|e| e.code().into());

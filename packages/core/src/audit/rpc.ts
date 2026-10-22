@@ -3,10 +3,10 @@ import { RpcError } from "../rpc/errors.ts";
 import type { Handler } from "../rpc/server.ts";
 import type { AuditChain, AuditPin } from "./chain.ts";
 
-export function buildAuditMethods(d: { chain: AuditChain }): Record<string, Handler> {
+export function buildAuditMethods(d: { chain: AuditChain; verified?: (ok: boolean) => void }): Record<string, Handler> {
   return {
     "audit.verify": async (params) => {
-      try { return d.chain.verify((params as { pin?: AuditPin }).pin); }
+      try { const result = d.chain.verify((params as { pin?: AuditPin }).pin); d.verified?.(result.ok); return result; }
       catch (e) {
         // The log directory cannot be read or the writer lock never came free: say so, never claim the chain is fine.
         throw new RpcError("E_STORAGE", "the audit chain could not be read", { reason: "audit-unreadable", detail: e instanceof Error ? e.message : String(e) });

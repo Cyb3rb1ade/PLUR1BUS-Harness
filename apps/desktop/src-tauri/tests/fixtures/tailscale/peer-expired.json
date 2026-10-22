@@ -1,0 +1,31 @@
+{
+  "Version": "1.90.0-synthetic",
+  "BackendState": "Running",
+  "Self": {
+    "ID": "self-node",
+    "HostName": "workstation-host",
+    "DNSName": "workstation.example.ts.net.",
+    "TailscaleIPs": ["100.90.0.1"],
+    "Online": true
+  },
+  "MagicDNSSuffix": "example.ts.net",
+  "CurrentTailnet": {
+    "Name": "alice@example.com",
+    "MagicDNSSuffix": "example.ts.net",
+    "MagicDNSEnabled": true
+  },
+  "Peer": {
+    "peer-nas": {
+      "ID": "peer-nas-id",
+      "HostName": "nas-host",
+      "DNSName": "nas.example.ts.net.",
+      "UserID": 1001,
+      "TailscaleIPs": ["100.101.102.103"],
+      "Online": true,
+      "Expired": true
+    }
+  },
+  "User": {
+    "1001": { "ID": 1001, "LoginName": "alice@example.com", "DisplayName": "Alice Example" }
+  }
+}

@@ -11,6 +11,8 @@ import { openDialog } from "../src/components/dialog.ts";
 import { mountApprovals } from "../src/approvals-window.ts";
 import { openQuitDialog } from "../src/views/quit-dialog.ts";
 import { openSheet } from "../src/components/sheet.ts";
+import { createTransportModel } from "../src/models/transport-model.ts";
+import { transportChoice } from "../src/views/transport-choice.ts";
 
 let settings: Settings = { theme: "system", locale: "system" };
 let failNextSave = false;
@@ -29,6 +31,20 @@ let failConnections=boot?.failConnections??false;
 let releaseConnections: (()=>void)|undefined;
 const connectionGate = boot?.deferConnections ? new Promise<void>(resolve=>{releaseConnections=resolve;}) : Promise.resolve();
 const calls = { pair: 0, remove: 0, open: 0, decide: 0, install: 0, logs: 0 };
+// Transport choice fixtures (spec §7.1): reports by host, the stored path per connection, every IPC call.
+type Report = import("../src/ipc.ts").TransportReport;
+const privateReport = (): Report => ({ category: "private", addresses: ["192.168.1.20"], hints: [], tailscale: null, needsPublicAck: false, classifier: "iana-special-2025-10-09" });
+const publicReport = (host: string, code: string): Report => ({ category: "public", addresses: code === "target-mixed" ? ["192.168.1.20", "9.9.9.9"] : ["9.9.9.9"], hints: [{ code, severity: "warning", params: { host, addresses: "9.9.9.9" } }], tailscale: null, needsPublicAck: true, classifier: "iana-special-2025-10-09" });
+const transportReports: Record<string, Report> = { "public.harness.test": publicReport("public.harness.test", "target-public"), "mixed.harness.test": publicReport("mixed.harness.test", "target-mixed") };
+const transportViews: Record<string, import("../src/ipc.ts").TransportView> = {};
+const transportCalls: unknown[][] = [];
+let transportStoreReadOnly = false;
+let transportCheckError: string | null = null;
+let attentionListener: ((event: { id: string; code: string }) => void) | null = null;
+let traySwitchListener: ((event: { id: string; error: string | null }) => void) | null = null;
+const hostOf = (origin: string) => { try { return new URL(origin).hostname.replace(/^\[|\]$/g, ""); } catch { return origin; } };
+const reportFor = (host: string): Report => transportReports[host] ?? privateReport();
+const viewFor = (row: import("../src/ipc.ts").Connection) => transportViews[row.id] ?? { transport: "direct" as const, publicAck: false, storeReadOnly: transportStoreReadOnly };
 let renameError: string | null = null;
 const updateProgressListeners = new Set<(progress: import("../src/models/update-model.ts").UpdateProgress) => void>();
 const gates: Record<string, Promise<void> | undefined> = {};
@@ -41,12 +57,16 @@ const transport: DesktopTransport = {
  async bridgeSettings(enabled){return {enabled:enabled??true,memoryOnly:true,secretsLocked:true};},
  async autostartGet(){return autostart;},
  async autostartSet(value){autostartCalls.push(value);if(autostartFail)throw new Error("injected autostart error");autostart=value;return autostart;},
- async connectionsList(){await connectionGate;if(failConnections)throw "storage";return {connections:rows,active,tokenStore:"memory-only"};},
-async connectionsRename(id,name){if(renameError)throw renameError;rows=rows.map(row=>row.id===id?{...row,name}:row);},
+ async connectionsList(){await connectionGate;if(failConnections)throw "storage";return {connections:rows,active,tokenStore:"memory-only",transports:Object.fromEntries(rows.filter(row=>row.kind==="remote").map(row=>[row.id,{...viewFor(row),storeReadOnly:transportStoreReadOnly}])),transportStore:transportStoreReadOnly?"read-only-newer":"read-write"};},
+ async connectionsRename(id,name){if(renameError)throw renameError;rows=rows.map(row=>row.id===id?{...row,name}:row);},
  async connectionsRemove(id){calls.remove++;await gates.remove;rows=rows.filter(row=>row.id!==id);},
- async pairCode(request){calls.pair++;await gates.pair;if(pairingError)throw pairingError;const connection={id:request.repairId??"fixture-row",name:request.name,origin:request.origin,kind:"remote" as const,installationId:"fixture-installation",deviceId:"fixture-device",tokenHint:"hint",certPin:null,caPin:null,nextCertPin:null,nextCaPin:null,observedCertPin:null,pairingNeeded:false};rows=[connection];return {connection,tokenStore:"memory-only"};},
+ async pairCode(request){calls.pair++;transportCalls.push(["pair",request.transport,request.publicAck]);await gates.pair;if(pairingError)throw pairingError;if(request.transport!=="tailscale"&&request.transport!=="direct")throw "invalid";const needs=reportFor(hostOf(request.origin)).needsPublicAck;if(needs&&!request.publicAck)throw "transport-confirm-needed";const connection={id:request.repairId??"fixture-row",name:request.name,origin:request.origin,kind:"remote" as const,installationId:"fixture-installation",deviceId:"fixture-device",tokenHint:"hint",certPin:null,caPin:null,nextCertPin:null,nextCaPin:null,observedCertPin:null,pairingNeeded:false};transportViews[connection.id]={transport:request.transport,publicAck:needs,storeReadOnly:transportStoreReadOnly};rows=[connection];return {connection,tokenStore:"memory-only"};},
  async pairLocal(){if(pairingError)throw pairingError;throw "denied";},
- async openConnection(id){calls.open++;await gates.open;if(pairingError)throw pairingError;active=id;return {selected:true,spa_available:false};},
+ async openConnection(id){calls.open++;transportCalls.push(["open",id]);await gates.open;if(pairingError)throw pairingError;const row=rows.find(r=>r.id===id);const report=row&&row.kind==="remote"?reportFor(hostOf(row.origin)):null;if(row&&report?.needsPublicAck&&!viewFor(row).publicAck)throw "transport-confirm-needed";active=id;return {selected:true,spa_available:false,transport:report};},
+ async transportCheck(target,transport,purpose){transportCalls.push(["check",target,transport,purpose]);await gates.check;if(transportCheckError)throw transportCheckError;const host=target.kind==="origin"?hostOf(target.origin):target.kind==="host"?target.host:hostOf(rows.find(r=>r.id===target.id)?.origin??"");return reportFor(host);},
+ async connectionTransportSet(id,transport,publicAck){transportCalls.push(["set",id,transport,publicAck]);const row=rows.find(r=>r.id===id);if(!row)throw "invalid";const view=viewFor(row);const needs=reportFor(hostOf(row.origin)).needsPublicAck;const kept=view.transport===transport&&view.publicAck;if(needs&&!publicAck&&!kept)throw "transport-confirm-needed";transportViews[id]={transport,publicAck:needs&&(publicAck||kept),storeReadOnly:transportStoreReadOnly};return reportFor(hostOf(row.origin));},
+ async transportAttention(listener){attentionListener=listener;return ()=>{attentionListener=null;};},
+ async traySwitch(listener){traySwitchListener=listener;return ()=>{traySwitchListener=null;};},
   async appInfo() { await loaded; return { platform: boot?.platform ?? "mac", locale: boot?.locale ?? "en-US" }; },
   async settingsGet() { await loaded; if (boot?.failGet) throw new Error("fixture settings read failure"); return settings; },
   async settingsSet(value) {
@@ -125,6 +145,22 @@ Object.assign(window, { testShell: {
   setQuitFailure: (value: boolean) => { failQuit = value; },
   openQuit: () => openQuitDialog({choice:"keep-running",canStopHarness:false}, { confirm: async choice => { if (failQuit) throw new Error("injected rejection"); (window as any).testShell.quitDecisions.push(choice); }, cancel: async () => { (window as any).testShell.quitDecisions.push("cancel"); } }),
   setPairingError:(value:string|null)=>{pairingError=value;},
+  setTransportReport:(host:string,report:Report|null)=>{if(report)transportReports[host]=report;else delete transportReports[host];},
+  setTransportView:(id:string,view:import("../src/ipc.ts").TransportView)=>{transportViews[id]=view;},
+  setTransportStoreReadOnly:(value:boolean)=>{transportStoreReadOnly=value;},
+  setTransportCheckError:(value:string|null)=>{transportCheckError=value;},
+  transportCalls:()=>transportCalls,
+  fireAttention:(id:string,code:string)=>attentionListener?.({id,code}),
+  // The native tray switch: `connections_list` changes underneath, then the shell event (desktop spec §6.3).
+  fireTraySwitch:(id:string,error:string|null)=>{if(!error)active=id;traySwitchListener?.({id,error});},
+  showTransportChoice:(purpose:import("../src/ipc.ts").Purpose,host:string,locale:"en"|"de"="en",storeReadOnly=false)=>{
+    const model=createTransportModel(transport.transportCheck!.bind(transport),purpose,undefined,0);
+    const form=document.createElement("main");form.className="content";
+    form.append(transportChoice((key,values)=>translate(locale,key,values),model,{idPrefix:"fixture-transport",storeReadOnly}));
+    shellRoot.replaceChildren(form);
+    model.setTarget({kind:"host",host,port:22},host);
+    (window as any).testShell.choiceModel=model;
+  },
   setConnections:async(value:import("../src/ipc.ts").Connection[])=>{rows=value;if("refreshConnections" in shell)await (shell as any).refreshConnections();},
   storedConnections:()=>rows,
   releaseConnections:()=>releaseConnections?.(),

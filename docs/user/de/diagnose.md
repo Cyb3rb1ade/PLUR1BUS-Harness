@@ -25,7 +25,7 @@ Darf deine Rolle eine Karte nicht sehen, sagt die Karte das, und der Rest wird w
 
 ## Die Seite Protokolle
 
-Die Seite hat drei Tabs.
+Die Seite hat vier Tabs.
 
 ### Protokolle
 
@@ -45,11 +45,15 @@ Werte, die nicht erscheinen dürfen, etwa Secrets, schwärzt der Server und kenn
 
 Der Tab zeigt die jüngste Aktivität in einfachen Worten, gruppiert nach heute, gestern, früher in dieser Woche und älter: Agentenläufe, Träume, Modell-Scans, Backups, Anmeldungen und Break-glass-Zugriff, jeweils mit dem, der es getan hat. **Im Protokoll öffnen** springt zum passenden Eintrag im Tab Protokolle. **Zeitraum** bietet 24 Stunden, 7 Tage, 30 Tage oder alles, und **Mehr anzeigen** lädt weitere Einträge. Lässt sich eines der beiden Protokolle nicht lesen, sagt der Tab, dass einige Einträge fehlen. Der Feed und die Audit-Prüfung sind für Owner und Admins. **Agentenaktivität** über dem Feed zeigt den Zustandsverlauf eines Agenten, gefiltert nach **Agenten-ID** und Zeit; andere Rollen sehen das auch, mit einem Hinweis statt des Feeds.
 
-Die Karte **Audit-Kette** prüft, dass das Audit-Protokoll nicht verändert oder abgeschnitten wurde. **Geprüft** heißt, dass keine Änderung gefunden wurde, und zeigt, wie viele Einträge und Dateien geprüft wurden. **Fehlgeschlagen** listet die Befunde auf. **Erneut prüfen** wiederholt die Prüfung.
+Die Karte **Audit-Kette** prüft die aktuelle Kette gegen ihren vorhandenen Anker. **Geprüft** heißt, dass dabei keine Abweichung gefunden wurde, und zeigt, wie viele Einträge und Dateien geprüft wurden. **Fehlgeschlagen** listet die Befunde auf. **Erneut prüfen** wiederholt die Prüfung. Wer Kette und Anker passend umschreiben kann, kann diese Prüfung umgehen; frühere Ären und Grenzen erklärt [audit.md](audit.md).
 
 ### Sitzungen
 
 Der Tab listet deine eigenen direkten Chats mit Titel, Agent und Daten, nie den Nachrichtentext. Du kannst suchen, nach Agent, Status und letzter Aktivität filtern und sortieren. Ein Transkript lässt sich nur über Break-glass-Zugriff lesen; der wird protokolliert und der betroffenen Person mitgeteilt, siehe [breakglass.md](breakglass.md). Der Tab steht Owner, Admins, Operatoren und Viewern offen. Owner, Admins und Operatoren sehen auch die Chats anderer Personen, mit Besitzer, Modell und Nutzung.
+
+### Audit
+
+Owner und Admin sehen hier den zwischengespeicherten Betriebszustand der Audit-Kette und Metadaten vorgemerkter Zeilen. **Kette prüfen** startet eine ausdrückliche Prüfung mit getrennten Ergebnissen für die aktuelle Kette und frühere Ären. Der Betriebszustand allein bestätigt keine vollständige Integrität. Reanchor bleibt ein lokaler CLI-Schritt; Ablauf und Grenzen stehen in [audit.md](audit.md).
 
 ## Auf der Kommandozeile
 

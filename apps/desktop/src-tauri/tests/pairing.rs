@@ -312,3 +312,105 @@ async fn repairing_local_connection_preserves_kind() {
     .unwrap();
     assert_eq!(repaired.kind, Kind::Local);
 }
+
+struct NoLookup;
+impl plur1bus_desktop::transport::Resolver for NoLookup {
+    fn lookup<'a>(
+        &'a self,
+        _host: &'a str,
+        _port: u16,
+    ) -> futures_util::future::BoxFuture<
+        'a,
+        Result<Vec<std::net::SocketAddr>, plur1bus_desktop::transport::ResolveError>,
+    > {
+        panic!("an IP literal is never resolved")
+    }
+}
+struct NoTailscale;
+impl plur1bus_desktop::transport::TailscaleSource for NoTailscale {
+    fn status(
+        &self,
+    ) -> futures_util::future::BoxFuture<'_, plur1bus_desktop::transport::TailscaleStatus> {
+        panic!("a direct loopback target runs no Tailscale check")
+    }
+}
+struct NoProbe;
+impl plur1bus_desktop::transport::Prober for NoProbe {
+    fn probe<'a>(
+        &'a self,
+        _addrs: &'a [std::net::SocketAddr],
+    ) -> futures_util::future::BoxFuture<'a, plur1bus_desktop::transport::ProbeOutcome> {
+        panic!("pairing never probes")
+    }
+}
+
+/// Transport choice T4: `pair_code` with `transport` and `publicAck`. The request round-trips, Rust's own check gates
+/// and pins the pairing, the sidecar entry is written after the row exists (the confirmation only where the check
+/// needs it), and `connections.json` is byte-identical to what the pre-feature writer produces for the same row.
+#[tokio::test]
+async fn pair_code_with_a_path_writes_the_sidecar_and_leaves_connections_json_unchanged() {
+    use plur1bus_desktop::commands::PairCodeRequest;
+    use plur1bus_desktop::transport::{CheckDeps, Transport, TransportStore, Transports};
+    use std::sync::Arc;
+    let m = MockHarness::start(MockOptions::default()).await.unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path());
+    let tokens = MemoryStore::default();
+    for public_ack in [false, true] {
+        let request: PairCodeRequest = serde_json::from_value(serde_json::json!({
+            "origin": m.origin, "name": "Desk", "code": m.control.create_pair_code(),
+            "repairId": null, "linkId": null, "transport": "direct", "publicAck": public_ack,
+        }))
+        .unwrap();
+        assert_eq!(request.transport, Transport::Direct);
+        assert_eq!(request.public_ack, public_ack);
+        let transports = Transports::new(
+            CheckDeps {
+                resolver: Arc::new(NoLookup),
+                tailscale: Arc::new(NoTailscale),
+                prober: Arc::new(NoProbe),
+            },
+            Arc::new(|_: &str| {}),
+        );
+        let origin = Origin::parse(&request.origin).unwrap();
+        let checked = transports
+            .check_pair(&origin, request.transport, request.public_ack)
+            .await
+            .unwrap();
+        assert!(!checked.report.needs_public_ack);
+        let row = pair::pair_code_pinned(
+            &request.origin,
+            &request.code,
+            &request.name,
+            &tokens,
+            &store,
+            request.repair_id,
+            Some(checked.pin),
+        )
+        .await
+        .unwrap();
+        let tstore = TransportStore::open(dir.path());
+        transports
+            .record_pairing(&tstore, &row, request.transport, &checked.report)
+            .unwrap();
+        let sidecar: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(dir.path().join("connection-transport.json")).unwrap(),
+        )
+        .unwrap();
+        // A loopback target needs no confirmation: a ticked box stores none.
+        assert_eq!(
+            sidecar["connections"][row.id.to_string()],
+            serde_json::json!({ "transport": "direct" })
+        );
+        // The pre-feature writer, same rows: identical bytes.
+        let before = tempfile::tempdir().unwrap();
+        let reference = Store::open(before.path());
+        for row in store.load().unwrap() {
+            reference.upsert(row).unwrap();
+        }
+        assert_eq!(
+            std::fs::read(dir.path().join("connections.json")).unwrap(),
+            std::fs::read(before.path().join("connections.json")).unwrap()
+        );
+    }
+}

@@ -54,8 +54,8 @@ The IANA registries were read on 2026-10-21 (§4.1).
 | T6 | Public = ? | **Positively global** (default deny), exactly `ip.ts`'s `public: true`. Non-public addresses are split for the UI into `loopback`, `tailnet`, `private`, `special`; `unspecified`, multicast and limited broadcast are not connectable. | "Public unless private": would warn about documentation and benchmark ranges as if they were internet hosts. |
 | T7 | Check-then-connect | The app resolves once, classifies, and **connects only to exactly the checked addresses** (reqwest `resolve_to_addrs`, a pre-connected TCP stream for WebSocket, pre-resolved `SocketAddr`s for russh). Every new open or reconnect repeats the full check. | Check the name, let the HTTP client resolve again: a DNS rebinding window between check and connect. |
 | T8 | Tailscale check | **`tailscale status --json`** run from a **fixed absolute path** (per-OS candidate list, ownership checks), fixed argv, no shell, cleared environment, 4 s timeout, 8 MiB cap; plus a **TCP probe** whose **local address** must be one of this device's Tailscale IPs. `*.ts.net` names are resolved from the **peer list**, not from DNS. | The LocalAPI directly: three transports (Unix socket, a Windows named pipe under `ProtectedPrefix`, a macOS loopback port with a "sameuserproof" token in the app-group container), all undocumented and version-specific; `tailscale ping <ip>`: would put user input into argv. |
-| T9 | Notices vs. blocks | Notices and one explicit confirmation; **the only refusals are invalid input** (non-canonical IPv4 spelling, unspecified/multicast/broadcast, no connectable address). A failed Tailscale check never blocks. | Blocking public targets: contradicts the owner decision. |
-| T10 | Confirmation memory | The confirmation for a public direct target is stored per connection/host as `publicAck { atMs, classifier }` **without addresses**; it stays valid while the host is unchanged. A target that **becomes** public later (it was private when created) needs a **new** confirmation before the app connects. | Asking at every open: banner blindness. Never asking again: misses a DNS change to a public address. |
+| T9 | Notices vs. blocks | Notices and one explicit confirmation; **the only refusals are invalid input** (non-canonical IPv4 spelling `host-ipv4-noncanonical`, malformed host syntax `host-invalid` (§4.4), unspecified/multicast/broadcast, no connectable address). A failed Tailscale check never blocks. | Blocking public targets: contradicts the owner decision. |
+| T10 | Confirmation memory | The confirmation for a public direct target is stored per connection/host as `publicAck { atMs, classifier }` **without addresses**; it stays valid while the host is unchanged. A target that **becomes** public later (it was private when created) needs a **new** confirmation before the app connects. An ack counts only under the classifier snapshot it names: after a snapshot update the person confirms again. A change of the resolved address set needs no new confirmation; a host/origin change or a switch to „Über Tailscale“ clears it (§7.1). | Asking at every open: banner blindness. Never asking again: misses a DNS change to a public address. |
 
 ## 3. Data model and storage
 
@@ -66,6 +66,9 @@ Transport   = "tailscale" | "direct"
 Category    = "loopback" | "tailnet" | "private" | "special" | "public"        // §4.3
 PublicAck   = { atMs: u64, classifier: "iana-special-2025-10-09" }             // what was confirmed, never where
 ```
+
+A `PublicAck` is valid only while its `classifier` equals the current snapshot id (§4.1); an ack from an older
+snapshot counts as none, so the person re-confirms once after a snapshot update (T10).
 
 ### 3.2 `connection-transport.json` (remote connections)
 
@@ -83,11 +86,15 @@ Rules (R10, downgrade and upgrade safety):
 - **Older builds** do not know the file and ignore it; `connections.json` stays byte-identical in every operation of
   this feature (tested). Nothing is migrated *inside* `connections.json`.
 - **Missing entry = derived default** (this is the whole migration): for a `remote` row whose origin host is a
-  `*.ts.net` name or a literal in a Tailscale range → `tailscale`; otherwise `direct`; `publicAck` absent. An existing
+  `*.ts.net` name or a literal in a Tailscale range → `tailscale`; otherwise (including an origin host that fails §4.4) `direct`; `publicAck` absent. An existing
   public direct connection therefore shows the banner once at its next open (owner question Q-T2).
 - **Entries are tolerant, the file is not a schema gate:** unknown fields inside an entry and unknown top-level keys
   are kept on write (as `settings.json` does). A `version` above 1 puts the store into **read-only** mode: the app uses
   derived defaults, writes nothing and says so once ("Weg-Einstellungen stammen aus einer neueren App-Version").
+- **Confirmation while the store cannot persist** (read-only on a newer version, or a sidecar that cannot be read or
+  written): a public confirmation is held **in memory for the app session only** — not persisted, cleared on a
+  host/origin or transport change like a stored one, and shown with a notice that it will not be remembered
+  (§7.1, `transport.public.session`). Without this, a downgraded build could never open a public direct connection.
 - **Corrupt file** (not JSON, oversized, wrong types): only the sidecar is renamed to
   `connection-transport.json.corrupt-<ms>-<uuid>`; connections stay; defaults apply.
 - **Garbage collection:** entries whose id is not in `connections.json` (for example removed by an older build) are
@@ -150,7 +157,16 @@ Per resolved address, in this order:
 | `public: true` | `public` | yes |
 
 `100.64.0.0/10` is also carrier-grade NAT space; `tailnet` is a *candidate* only until the Tailscale check (§5) finds
-a matching peer. **Aggregate** over all connectable addresses: `public ≻ special ≻ private ≻ tailnet ≻ loopback`
+a matching peer. An IPv4-mapped address (`::ffff:a.b.c.d`) is the IPv4 host and takes that address's category (mapped
+`100.64.0.0/10` is `tailnet`), whereas an address that only carries an IPv4 address through a translator (NAT64
+`64:ff9b::/96` and `64:ff9b:1::/48`, 6to4 `2002::/16`) is not that host, so one carrying `100.64.0.0/10` is `special`
+(it reaches the translator's network, not the tailnet; the vector file pins both). Otherwise a translator address
+takes the category its verdict reason (§4.2) gives: NAT64 `64:ff9b::/96` and 6to4 carrying `0.0.0.0/8` or
+`224.0.0.0/4` are not connectable (reasons `unspecified`, `multicast`), one carrying `255.255.255.255` is `special`
+(reason `reserved`; only the literal limited-broadcast address is not connectable), and `64:ff9b:1::/48` is `reserved`
+whatever it carries, so `special`. The vector file pins these rows as well.
+
+**Aggregate** over all connectable addresses: `public ≻ special ≻ private ≻ tailnet ≻ loopback`
 (highest wins), so **any public address makes the target public** (`target-mixed` when non-public addresses are
 present too). Not-connectable addresses are dropped from the connect set and reported; if none remains the check
 fails with `target-not-connectable`.
@@ -160,8 +176,14 @@ fails with `target-not-connectable`.
 The host field (SSH host, origin host) accepts: a DNS name (IDNA → punycode via the `url` crate, LDH labels, ≤ 253
 bytes, no trailing dot required), a canonical dotted-quad IPv4, an IPv6 literal with or without brackets, **no zone id**,
 and `localhost` (treated as loopback without DNS, RFC 6761). A string that parses only under the lenient `inet_aton`
-rules (`127.1`, `0x7f000001`, `017700000001`) is refused with `host-ipv4-noncanonical` — the OS resolver would turn
+rules (`127.1`, `0x7f000001`, `017700000001`), a dotted quad with a trailing dot (`1.2.3.4.`) or one written with full-width digits or dots is refused with `host-ipv4-noncanonical` — the OS resolver would turn
 it into an address the person did not write. This matches `Origin::parse`, which already refuses those spellings.
+Every other malformed string is refused with `host-invalid` (no parameters): empty or over 1024 bytes; white space,
+control characters, U+FEFF or `%` (zone ids, percent-encoding); a string with `[` or `:` that is not a strict IPv6
+literal (`host:22`, `[::1]:22`, `[192.168.1.1]`); a URL host error; a name that fails the LDH rules after IDNA. The same
+checks apply to the host of a stored origin (`Origin::parse` is more lenient: `_`, long labels), which then also gets
+`host-invalid`. A canonical unspecified, multicast or broadcast literal is valid syntax and is refused by the check
+with `target-not-connectable` (§4.3).
 
 ### 4.5 Ranges (CIDR)
 
@@ -213,28 +235,36 @@ or any resolved address is `tailnet`. A `direct` target with only private or pub
    as CLI), `/usr/local/bin/tailscale`, `/opt/homebrew/bin/tailscale`;
    Windows `<FOLDERID_ProgramFiles>\Tailscale\tailscale.exe` (known-folder API, not the `%ProgramFiles%` variable);
    Linux `/usr/bin/tailscale`, `/usr/sbin/tailscale`, `/usr/local/bin/tailscale`, `/snap/bin/tailscale`.
-   A candidate is used only if it is a regular file (a symlink is followed only into `/Applications/Tailscale.app/`,
-   `/opt/homebrew/Cellar/tailscale/`, `/usr/local/Cellar/tailscale/` or `/snap/`), owned by root or the current user
-   and not group/other-writable (POSIX), or not a reparse point and inside Program Files (Windows). Inside a Flatpak
+   A candidate is used only if it is a regular file (a symlink, also a symlinked directory on the way, is followed only
+   into `/Applications/Tailscale.app/`, `/opt/homebrew/Cellar/tailscale/` or `/usr/local/Cellar/tailscale/`, plus one
+   exact pair for snap: the candidate `/snap/bin/tailscale` whose canonical path is exactly `/usr/bin/snap`), owned by
+   root or the current user and not group/other-writable (POSIX; checked on the canonical path), or not a reparse point,
+   on the file or any directory up to Program Files, and inside Program Files (Windows). POSIX runs the checked canonical
+   path with `argv[0]` set to the candidate path (snap dispatches on its basename); Windows runs the checked path. Inside a Flatpak
    sandbox (`FLATPAK_ID`) no host binary can be run: state `check-unavailable` with the Flatpak reason (Q-T6).
 2. **Run** `status --json`: `tokio::process::Command` with exactly these two arguments, stdin null, stdout capped at
    8 MiB, stderr capped at 4 KiB and used only to pick the state, `kill_on_drop`, Windows `CREATE_NO_WINDOW`, 4 s
-   timeout. The environment is cleared and refilled from an allow-list (`HOME`, `USER`, `LOGNAME`, `TMPDIR`, `LANG=C`
+   timeout. A stdout read error counts as a spawn failure. The environment is cleared and refilled from an allow-list (`HOME`, `USER`, `LOGNAME`, `TMPDIR`, `LANG=C`
    on POSIX; `SystemRoot`, `USERPROFILE`, `LOCALAPPDATA`, `ProgramData`, `TEMP` on Windows). No shell, never an
    argument derived from input. Same executor shape as `pair.rs`'s native attach.
-3. **Parse** into a minimal view (serde ignores everything else): `BackendState`, `Self.TailscaleIPs`,
+3. **Parse** into a minimal view (serde ignores everything else): `BackendState`, `Self.TailscaleIPs`, `Self.DNSName`,
    `MagicDNSSuffix`/`CurrentTailnet.MagicDNSSuffix`, and per peer `DNSName`, `HostName`, `TailscaleIPs`, `Online`,
    `PrimaryRoutes`, `Expired` (if present). The same fields as the harness's
    `packages/remote-access/src/tailscale.ts` (`detectTailscale`), so one fixture family serves both.
-4. **Match the target:** `*.ts.net` name → the peer whose `DNSName` (without trailing dot) equals it; a single-label
-   name → the peer whose first `DNSName` label equals it (MagicDNS short name); an address → the peer whose
-   `TailscaleIPs` contains it, else `Self` (`tailscale-self`), else an online peer whose `PrimaryRoutes` contains it
-   (`tailscale-subnet-route`). For a matched name the **connect set is the peer's `TailscaleIPs`** — no DNS query is
-   made, which avoids leaking the name and closes the rebinding window for tailnet names. Without a match the name
+4. **Match the target:** `*.ts.net` name → the peer whose `DNSName` (without trailing dot, any case) equals it; a
+   single-label name → only the peer whose `DNSName` is exactly `<name>.<MagicDNS suffix>` (MagicDNS short name; no
+   name match at all without a suffix, so the name goes to the resolver); the same two rules against `Self.DNSName`
+   give `tailscale-self`; an address → the peer whose `TailscaleIPs` contains it, else `Self` (`tailscale-self`), else
+   a peer that is online and not expired whose `PrimaryRoutes` contains it (`tailscale-subnet-route`). For a matched
+   name the **connect set is the peer's (or this device's) `TailscaleIPs`** — no DNS query is made, which avoids
+   leaking the name and closes the rebinding window for tailnet names. Without a match the name
    falls back to the system resolver (§6.1) with the matching notice.
 5. **Probe** (always on *Check connection*, and as the first step of every open/connect over a `tailnet` path): TCP
    connect to the connect set and port (3 s per address, at most 4 addresses, no bytes sent), then compare the
-   socket's **local address** with `Self.TailscaleIPs`. Not in that set ⇒ `tailscale-route-mismatch` (CGNAT collision,
+   socket's **local address** with `Self.TailscaleIPs`. The probe is a TCP connection, so it runs only once the target
+   passes the confirmation gate (§2 T10: not public, or a valid `publicAck`), and only to the addresses the match makes
+   Tailscale paths — the matched peer's (or this device's) tailnet addresses, or the private addresses inside the
+   matched router's route; never a public or special address (package T4). Not in that set ⇒ `tailscale-route-mismatch` (CGNAT collision,
    subnet routes not accepted, another VPN wins the route). The probe tells reachability independently of what the
    CLI said.
 
@@ -251,18 +281,29 @@ or any resolved address is `tailnet`. A `direct` target with only private or pub
 | needs login | `tailscale-needs-login` | notice | `NeedsLogin`, `NeedsMachineAuth` |
 | stopped | `tailscale-stopped` | notice | any other non-`Running` backend state (`tailscale down`) |
 | peer unknown | `tailscale-peer-unknown` | notice | no matching peer (for `100.64/10` the text names CGNAT) |
+| peer online | `tailscale-peer-online` | — (state only, no hint) | peer found and online, probe not run (nothing verified the path, so nothing claims reachability) |
 | peer offline | `tailscale-peer-offline` | notice | `Online: false` or `Expired: true` |
 | unreachable | `tailscale-unreachable` | notice | peer online, TCP probe refused or timed out |
 | route mismatch | `tailscale-route-mismatch` | notice | probe connected from a non-tailnet local address |
 | not a tailnet target | `tailscale-not-tailnet-target` | notice | „Über Tailscale“ chosen, but the target is neither a `*.ts.net` name nor any tailnet address |
+
+A subnet-route match suppresses `tailscale-not-tailnet-target` (the route is a Tailscale path); a
+`tailscale-route-mismatch` or `tailscale-unreachable` found by its probe is still shown. `tailscale-short-name`
+(info, §7.2) is added only for a remote target whose single-label name matched a peer by name; its `suggestion` is
+that peer's own `DNSName` (without trailing dot, LDH-validated), never text built from the input or this device's
+suffix. Text variants travel in the hint parameter `note`: `cgnat` on `tailscale-peer-unknown`
+(`transport.tailscale.peer-unknown.cgnat`), `flatpak` on `tailscale-check-unavailable`
+(`transport.tailscale.check-unavailable.flatpak`).
 
 None of them blocks. With „Über Tailscale“ and a failed check the person may still save and connect; the public
 notice (§7.2) then applies on its own terms, because the path is not verified.
 
 ### 5.4 Caching and limits
 
-The parsed status is cached in memory for 10 s (one CLI run while the person types); at most one CLI run and one
-probe in flight; a newer check supersedes an older one. Nothing is persisted.
+The parsed status is cached in memory for 10 s (one CLI run while the person types); at most one CLI run in flight, and
+one probe in flight per window and per connection (a window's newer check supersedes its older one; the reconnects of
+one connection share one re-check). The probe of an open (from the shell or the tray switch) may overlap a panel check
+or a reconnect re-check; every probe still passes the gate and the target filter of §5.2. Nothing is persisted.
 
 ### 5.5 Without Tailscale
 
@@ -310,7 +351,8 @@ confirmation in a dialog). Changing the host/origin or switching to „Über Tai
 **Open / connect:** if the fresh check is public and there is no valid `publicAck` (or the target was private when
 confirmed and is public now), the command returns `transport-confirm-needed`; the page shows the banner with the
 reason, *Bestätigen und verbinden*, *Abbrechen*, and *Weg ändern…*. Tailscale notices appear on the page and in the
-tray but do not stop the attempt.
+tray but do not stop the attempt. While the transport store cannot persist (§3.2), *Bestätigen und verbinden* holds the
+confirmation for this app session only and the banner adds `transport.public.session`.
 
 ### 7.2 Texts (du; `ui/src/i18n/{de,en}.json`, keys `transport.*`)
 
@@ -333,6 +375,8 @@ tray but do not stop the attempt.
 | `transport.special` | {address} ist eine Sonderadresse (zum Beispiel für Dokumentation oder Tests) und im Internet nicht erreichbar. | {address} is a special-purpose address (for example for documentation or testing) and is not reachable on the internet. |
 | `transport.error.target-not-connectable` | {address} ist keine Zieladresse. | {address} is not a destination address. |
 | `transport.error.host-ipv4-noncanonical` | Schreibe die IPv4-Adresse in der Form a.b.c.d. | Write the IPv4 address as a.b.c.d. |
+| `transport.error.host-invalid` | Das ist weder ein gültiger Rechnername noch eine IP-Adresse. | This is neither a valid host name nor an IP address. |
+| `transport.public.session` | Die Bestätigung gilt nur bis zum Beenden der App, weil die Weg-Einstellungen gerade nicht gespeichert werden können. | This confirmation lasts only until you quit the app, because path settings cannot be saved right now. |
 | `transport.unresolved` | {host} lässt sich nicht auflösen. Bist du im richtigen Netz oder VPN? | {host} cannot be resolved. Are you on the right network or VPN? |
 | `transport.dns-timeout` | Die Namensauflösung für {host} hat zu lange gedauert. | Resolving {host} took too long. |
 | `transport.via-jump` | {host} wird vom Sprung-Host aufgelöst und hier nicht geprüft. | {host} is resolved by the jump host and not checked here. |
@@ -357,24 +401,41 @@ tray but do not stop the attempt.
 | `transport.path.tailscale` | Tailscale | Tailscale |
 | `transport.path.direct` | Direkt | Direct |
 | `transport.path.public` | Direkt · öffentlich | Direct · public |
+| `transport.path.public-confirmed` | Direkt · öffentlich bestätigt | Direct · public, confirmed |
+| `transport.path.tailscale-attention` | Tailscale getrennt | Tailscale disconnected |
+| `transport.detail` | Weg: {path} | Path: {path} |
+| `transport.change` | Weg ändern… | Change path… |
+| `transport.confirm-connect` | Bestätigen und verbinden | Confirm and connect |
+| `transport.tailscale.peer-online` | {peer} ist in deinem Tailnet und online; der Weg wurde nicht geprüft. | {peer} is in your tailnet and online; the path was not checked. |
 
-The range text is also added to the web UI catalogues (`packages/web`, key `remote.allowlistPublic`).
+The last six rows (package T4) carry the wording of §7.1/§7.3 that had no key: the path line and chip of the connection
+detail and list, *Weg ändern…*, *Bestätigen und verbinden*, and the neutral line for the hint-less state
+`tailscale-peer-online` (§5.3; its wording is pending owner confirmation).
+
+The range text is also added to the web UI catalogues (`packages/web`, key `devices.remote.allowlistPublic`).
 
 ### 7.3 Connection list and tray
 
 - **List** (`views/connections.ts`): next to the existing kind chip a path chip — „Tailscale“, „Direkt“, or
   „Direkt · öffentlich“ (warning tone **and** text, never colour alone); a second chip for an active Tailscale notice
-  („Tailscale getrennt“). Bundled/local rows show no path chip.
+  („Tailscale getrennt“) only when Tailscale is actually disconnected for it (`tailscale-daemon-down`,
+  `tailscale-stopped`, `tailscale-needs-login`, `tailscale-peer-offline`); other notices, such as an unprobed
+  `tailscale-subnet-route`, get no chip. Bundled/local rows show no path chip.
 - **Tray header** (`tray.rs` `Language::status`): `PLUR1BUS — {connection} · {path} — {state}`; `{path}` is
   „Tailscale“ / „direkt“ / „direkt, öffentlich“ (EN „Tailscale“ / „direct“ / „direct, public“), omitted for
-  bundled/local. A Tailscale notice on the active connection appends „— Tailscale getrennt“ / „— Tailscale
-  disconnected“ and sets the badge to *Attention* (same rule as a locked secrets store).
-- **Tray connection switch:** not built on `main` (plan, *Tray finding*). When it is built, each entry reads
-  `{name} ({path})`.
+  bundled/local. A Tailscale disconnect on the active connection (the same four codes as the list chip) appends
+  „— Tailscale getrennt“ / „— Tailscale disconnected“ and sets the badge to *Attention* (same rule as a locked
+  secrets store). `tailscale-unreachable` and `tailscale-route-mismatch` (the chosen path does not work) set the
+  badge without that text; other Tailscale notices do neither.
+- **Tray connection switch:** built (package T4b, `tray.rs` `SwitchMenu`, opened through `Transports::open_gated`
+  and `commands::connect_checked`, the same gate as *Open*). Each entry reads `{name} ({path})`; at most 20 entries,
+  the open connection always among them (it takes the 20th place when it would fall later), then *More…*.
 
 ## 8. Codes
 
-Stable kebab-case strings returned to the bundled shell; the UI translates them (`transport.*`, §7.2).
+Stable kebab-case strings returned to the bundled shell; the UI translates them (`transport.*`, §7.2). Hints carry
+text parameters (`host`, `address`, `addresses`, `peer`, `port`, `range`, `example`, `suggestion`) and `note`, which
+names a text variant (`cgnat`, `flatpak`; §5.3).
 
 | Code | Severity | Blocks? |
 |---|---|---|
@@ -382,12 +443,13 @@ Stable kebab-case strings returned to the bundled shell; the UI translates them 
 | `target-special` | notice | no |
 | `target-unresolved`, `target-dns-timeout` | notice when adding, error when connecting | only because nothing can be connected |
 | `target-via-jump` | info | no |
-| `target-not-connectable`, `host-ipv4-noncanonical` | error | yes (invalid input) |
+| `target-not-connectable` | error when no connectable address remains; notice for addresses dropped while others stay connectable (§4.3) | only when none remains (invalid input) |
+| `host-ipv4-noncanonical`, `host-invalid` | error | yes (invalid input, §4.4; `host-invalid` has no parameters) |
 | `range-public` | warning | no |
-| `tailscale-*` (§5.3) | info/notice | no |
+| `tailscale-*` (§5.3) | info/notice (`tailscale-peer-online` is a state without a hint) | no |
 | `transport-confirm-needed` | command error | until `connection_transport_set { publicAck: true }` |
 | `transport-check-busy` | command error | superseded check |
-| `transport-store-readonly` | notice | no |
+| `transport-store-readonly` | notice | no (a public confirmation is then held for the session only, §3.2) |
 
 ## 9. Security
 
@@ -427,7 +489,10 @@ remain authoritative for channel integrity on every path.
 The tailnet status lists every device, user and address of the tailnet. It is parsed into the minimal view in memory,
 used for one match, cached ≤ 10 s, never logged, never persisted, never put into a diagnostics bundle, never sent to the
 webview. The webview receives only the state code, the matched peer's label (first `DNSName` label) and its online
-flag. Logs record the check's category and codes, never resolved addresses or peer data. No telemetry.
+flag, and for `tailscale-short-name` that peer's own DNS name as the `suggestion`. For a name match the report's
+`addresses` are the matched peer's (or this device's, §5.2 step 4) tailnet IPs (at most eight, §9.5), the target's
+own addresses as a DNS answer would be. Nothing of other peers, users or tailnets. Logs record the check's category
+and codes, never resolved addresses or peer data. No telemetry.
 
 ### 9.5 Tauri and IPC
 

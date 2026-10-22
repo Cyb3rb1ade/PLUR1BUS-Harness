@@ -261,6 +261,7 @@ mod fixture {
         let app = tauri::Builder::default()
             .manage(native::NativeState::default())
             .manage(SpaState::default())
+            .manage(plur1bus_desktop::commands::transports())
             .manage(commands::ConnectionState::new(Arc::new(
                 tokio::sync::Mutex::new(Some(Box::new(MemoryStore::default()))),
             )))

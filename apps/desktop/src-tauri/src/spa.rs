@@ -127,17 +127,33 @@ impl SpaState {
         F: FnOnce(Connection) -> Fut,
         Fut: std::future::Future<Output = Option<crate::client::Ticket>>,
     {
-        let (connection, retry, proxy) = {
+        self.retry_navigation_pinned(origin, manual, |connection, _| issue_ticket(connection))
+            .await
+    }
+    /// [`Self::retry_navigation`] whose issuer also gets the active carrier's checked addresses (transport choice
+    /// spec §9.2), read together with the connection under the same lock.
+    pub async fn retry_navigation_pinned<F, Fut>(
+        &self,
+        origin: &Origin,
+        manual: bool,
+        issue_ticket: F,
+    ) -> Option<Url>
+    where
+        F: FnOnce(Connection, Option<crate::transport::ConnectPin>) -> Fut,
+        Fut: std::future::Future<Output = Option<crate::client::Ticket>>,
+    {
+        let (connection, retry, proxy, pin) = {
             let active = self.current.lock().unwrap();
             let active = active.as_ref().filter(|a| a.proxy.origin() == origin)?;
             (
                 active.connection.clone(),
                 retry_ticket(&active.retries, manual),
                 active.proxy.clone(),
+                active.proxy.pin(),
             )
         };
         let ticket = if retry {
-            issue_ticket(connection).await
+            issue_ticket(connection, pin).await
         } else {
             None
         };
@@ -338,16 +354,19 @@ pub fn retire(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 /// Open the actual SPA only after an authenticated fresh ticket and prepared trust policy.
+/// `connect` is the open's checked addresses (transport choice spec §9.2) for every request of this SPA session:
+/// the ticket, the proxy's HTTP and WebSocket traffic and later ticket retries.
 pub async fn open_spa(
     app: &tauri::AppHandle,
     conn: &mut Connection,
     tokens: &dyn TokenStore,
     store: &Store,
+    connect: Option<&crate::transport::ConnectPin>,
 ) -> Result<(), String> {
-    let ticket = crate::pair::session_ticket(conn, tokens, store)
+    let ticket = crate::pair::session_ticket_pinned(conn, tokens, store, connect)
         .await
         .map_err(|e| e.public_message())?;
-    let client = HarnessClient::from_connection(conn)
+    let client = HarnessClient::from_connection_pinned(conn, connect.cloned())
         .await
         .map_err(|e| crate::pair::PairError::Client(e).public_message())?;
     let proxy = SpaProxy::new(conn, client).await.map_err(|_| "network")?;
@@ -554,7 +573,7 @@ fn schedule_retry(app: &tauri::AppHandle, origin: &Origin, manual: bool) {
     tauri::async_runtime::spawn(async move {
         let state = app.state::<SpaState>();
         let url = state
-            .retry_navigation(&origin, manual, |connection| async {
+            .retry_navigation_pinned(&origin, manual, |connection, connect| async {
                 let store = crate::commands::app_connection_store(&app);
                 match store {
                     Ok(store) => crate::commands::credential_action(
@@ -563,10 +582,11 @@ fn schedule_retry(app: &tauri::AppHandle, origin: &Origin, manual: bool) {
                             let tokens = tokens.as_ref().ok_or("pairing-needed")?;
                             let mut connection = connection;
                             runtime
-                                .block_on(crate::pair::session_ticket(
+                                .block_on(crate::pair::session_ticket_pinned(
                                     &mut connection,
                                     tokens.as_ref(),
                                     &store,
+                                    connect.as_ref(),
                                 ))
                                 .map_err(|e| e.public_message())
                         },

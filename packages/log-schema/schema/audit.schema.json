@@ -17,7 +17,9 @@
     "session",
     "task",
     "surface",
-    "store_ref"
+    "store_ref",
+    "chain",
+    "chainReason"
   ],
   "type": "object",
   "additionalProperties": false,
@@ -98,6 +100,27 @@
       "type": "string",
       "maxLength": 128,
       "description": "D109 mirror lines: row id and chain value of the authoritative store row (R2)."
+    },
+    "chain": {
+      "type": "string",
+      "enum": [
+        "refused"
+      ],
+      "description": "The shared chain declined this audit.log line; it may be in the pending journal."
+    },
+    "chainReason": {
+      "type": "string",
+      "enum": [
+        "anchor-missing",
+        "anchor-invalid",
+        "chain-shorter-than-anchor",
+        "tail-anchor-mismatch",
+        "tail-malformed",
+        "sequence-exhausted",
+        "rotation-target-exists",
+        "lock-timeout"
+      ],
+      "description": "Fixed refusal code emitted by audit_chain.rs; contains no record details."
     }
   },
   "$defs": {
