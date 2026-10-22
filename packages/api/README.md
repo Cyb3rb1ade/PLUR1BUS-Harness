@@ -17,8 +17,8 @@ Plan: `docs/superpowers/plans/2026-10-06-m3-api-foundation.md`. Surface map and 
   `Sec-Fetch-Site` that are not the API's own are refused.
 - **Headers** on every response (errors and malformed requests included): CSP `default-src 'none'; frame-ancestors 'none'`,
   `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cache-Control: no-store`, HSTS over TLS.
-- **Limits**: token buckets per IP (before a session) and per principal (after), per route class `auth`/`read`/`write`
-  (429 + `Retry-After`); 64 KiB request bodies (413); header, request and handler timeouts (431/408/504).
+- **Limits**: token buckets per IP (before a session) and per principal (after), per route class `auth`/`read`/`write`/`expensive`
+  (429 + `Retry-After`), a global cap on concurrent model-backed work, 64 sessions per account and 1024 in all; 64 KiB request bodies (413); header, request and handler timeouts (431/408/504).
 - **Errors** are the CLI's `error/1` document with a member of the closed `ErrorCode` enum and a `reason`.
 - Tokens, cookies and CSRF tokens never reach a log line (`test/log-marker.test.ts`).
 

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 // Agent creation is serialised per core, with Config Schema as the sole settings validator.
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -27,7 +27,12 @@ export interface AgentCreationDeps {
   ready?(id: string): void;
   removeConfig?(id: string, expected: HarnessConfig["agents"][string]): Promise<void>;
   clearRights?(id: string): void;
+  /** Lifecycle tombstone of a deleted agent. Its name is free again: the old incarnation is retired (data moved to a unique archive directory, config entry and rights dropped) and the tombstone cleared. Needs `setDeleted`. */
+  isDeleted?(id: string): boolean;
+  /** `true` restores the tombstone (archived and deleted), `false` gives the name a fresh, usable lifecycle row. */
+  setDeleted?(id: string, deleted: boolean): void;
 }
+interface Retired { archive: string; config?: HarnessConfig["agents"][string] }
 const obj = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
 /** References are checked against the instance both in the wizard and immediately before the Config-owner commit. */
 export function agentReferenceErrors(config: HarnessConfig, settings: Record<string, any>): WizardError[] {
@@ -39,6 +44,30 @@ export function agentReferenceErrors(config: HarnessConfig, settings: Record<str
 export function agentCreation(d: AgentCreationDeps) {
   let chain: Promise<unknown> = Promise.resolve();
   const serial = <T>(fn: () => Promise<T>): Promise<T> => { const job = chain.then(fn); chain = job.catch(() => {}); return job; };
+  /** A deleted agent's name can be taken by a new agent when the deleted state, its removal from the config and the tombstone reset can all be done. */
+  const reusable = (id: string) => d.isDeleted?.(id) === true && !!d.setDeleted && (!Object.hasOwn(d.config().agents, id) || !!d.removeConfig);
+  const archiveName = (id: string, tag: string) => `.deleted-${id}-${createHash("sha256").update(tag).digest("hex").slice(0, 12)}`;
+  /** Retires the previous incarnation of a deleted name. Nothing is erased: the data directory moves to `agents/.deleted-<id>-<unique>` (a dot name no agent id can have),
+   *  the old rights and config entry are dropped (they would hand the new agent to the old agent's people) and the tombstone is cleared. Idempotent, so a crash can be repeated. */
+  const retire = async (id: string, retired: Retired) => {
+    const root = d.layout.agentDir(id), dest = join(d.layout.agents, retired.archive);
+    mkdirSync(d.layout.agents, { recursive: true, mode: 0o700 });
+    if (existsSync(root) && !existsSync(dest)) renameSync(root, dest);
+    if (retired.config && Object.hasOwn(d.config().agents, id)) await d.removeConfig!(id, retired.config);
+    d.clearRights?.(id);
+    d.setDeleted!(id, false);
+  };
+  /** Reverses `retire` when the creation that triggered it failed: the old incarnation is back and deleted, as before. */
+  const unretire = async (id: string, retired: Retired) => {
+    const root = d.layout.agentDir(id), dest = join(d.layout.agents, retired.archive);
+    d.setDeleted!(id, true);
+    if (retired.config && !Object.hasOwn(d.config().agents, id)) await d.set(id, retired.config);
+    if (existsSync(dest) && !existsSync(root)) renameSync(dest, root);
+  };
+  const retiredFor = (id: string, tag: string): Retired => {
+    const old = Object.hasOwn(d.config().agents, id) ? d.config().agents[id] : undefined;
+    return { archive: archiveName(id, tag), ...(old ? { config: old } : {}) };
+  };
   const check = (payload: unknown, who: Principal, imported = false) => {
     const p = obj(payload) ? payload : {}, errors: WizardError[] = [];
     const add = (step: WizardError["step"], field: string, message: string, code = "E_INVALID_PARAMS") => errors.push({ step, field, message, code });
@@ -46,7 +75,7 @@ export function agentCreation(d: AgentCreationDeps) {
     // The name is the Config Schema's agents-map key, not a parallel identifier rule.
     const nameSchema = CONFIG_SCHEMA.properties.agents.propertyNames;
     if (!id || !new RegExp(nameSchema.pattern).test(id)) add("identity", "name", "invalid agent name");
-    else if (Object.hasOwn(d.config().agents, id) || existsSync(d.layout.agentDir(id))) add("identity", "name", "agent already exists", "E_AGENT_EXISTS");
+    else if ((Object.hasOwn(d.config().agents, id) || existsSync(d.layout.agentDir(id))) && !reusable(id)) add("identity", "name", "agent already exists", "E_AGENT_EXISTS");
     // A person ID is a rights recipient; an agent of the same name would make that person ungrantable and ambiguous.
     else if (d.people().includes(id)) add("identity", "name", "name belongs to a person", "E_AGENT_EXISTS");
     const config = Object.fromEntries(Object.entries(p).filter(([k]) => k !== "name" && k !== "rights" && k !== "idempotencyKey"));
@@ -77,10 +106,11 @@ export function agentCreation(d: AgentCreationDeps) {
   };
   const commit = async (v: ReturnType<typeof check>, who: Principal, files: AgentFile[] = []) => {
     if (v.errors.length) { const error = v.errors[0]!; throw new RpcError(error.code, error.message, { detail: error.field }); }
-    if (Object.hasOwn(d.config().agents, v.id) || existsSync(d.layout.agentDir(v.id))) throw new RpcError("E_AGENT_EXISTS", "agent name or data directory already exists");
+    const reuse = reusable(v.id);
+    if ((Object.hasOwn(d.config().agents, v.id) || existsSync(d.layout.agentDir(v.id))) && !reuse) throw new RpcError("E_AGENT_EXISTS", "agent name or data directory already exists");
     mkdirSync(d.layout.agents, { recursive: true, mode: 0o700 });
     const stage = mkdtempSync(join(d.layout.agents, ".create-")), root = d.layout.agentDir(v.id);
-    let moved = false, registered = false;
+    let moved = false, registered = false, retired: Retired | undefined;
     try {
       mkdirSync(join(stage, "workspace"), { recursive: true, mode: 0o700 });
       for (const file of files) {
@@ -91,6 +121,7 @@ export function agentCreation(d: AgentCreationDeps) {
       if (v.config.persona !== undefined && !existsSync(join(stage, "SOUL.md"))) writeFileSync(join(stage, "SOUL.md"), v.config.persona, { mode: 0o600 });
       // Intent is recorded before writes, completion after registration. Neither contains submitted text/secret values.
       d.audit.append({ at: d.clock(), actor: { user: who.userId, host: "rpc" }, action: "agent.create", target: v.id, detail: {} });
+      if (reuse) { retired = retiredFor(v.id, randomUUID()); await retire(v.id, retired); }
       renameSync(stage, root); moved = true;
       await d.set(v.id, { ...v.config, createdAt: new Date(d.clock()).toISOString() }); registered = true;
       for (const [person, right] of Object.entries(v.rights)) d.setRight(v.id, person, right);
@@ -104,17 +135,22 @@ export function agentCreation(d: AgentCreationDeps) {
       if (!applied && moved) { try { applied = Object.hasOwn(d.config().agents, v.id); } catch { applied = true; } }
       if (applied) { d.pause(v.id); throw new RpcError("E_STORAGE", "agent registration requires recovery", { ids: { agentId: v.id } }); }
       if (moved) rmSync(root, { recursive: true, force: true });
+      if (retired) { try { await unretire(v.id, retired); } catch { d.pause(v.id); throw new RpcError("E_STORAGE", "agent registration requires recovery", { ids: { agentId: v.id } }); } }
       if (e instanceof RpcError) throw e;
       throw new RpcError("E_STORAGE", "agent registration unavailable");
     } finally { rmSync(stage, { recursive: true, force: true }); }
   };
   const saga = new AgentCreateSaga(d.layout.state);
   const stepsFor = (record: SagaRecord) => {
-    const v = record.payload as { config: HarnessConfig["agents"][string]; rights: Record<string, AgentRight> };
+    const v = record.payload as { config: HarnessConfig["agents"][string]; rights: Record<string, AgentRight>; retire?: { config?: HarnessConfig["agents"][string] } };
     const id = record.agentId, root = d.layout.agentDir(id);
     if (!new RegExp(CONFIG_SCHEMA.properties.agents.propertyNames.pattern).test(id) || !obj(v) || !obj(v.config) || !obj(v.rights)) throw new RpcError("E_STORAGE", "invalid provisioning intent");
     if (!d.reserve || !d.release || !d.removeConfig || !d.clearRights) throw new RpcError("E_NOT_AVAILABLE", "reversible agent provisioning unavailable");
+    // A deleted name is retired before anything of the new agent exists. The step exists only in journals that asked for it, so the indexes of older journals do not move.
+    const retired: Retired | undefined = v.retire === undefined ? undefined : { archive: archiveName(id, record.key), ...(obj(v.retire.config) ? { config: v.retire.config } : {}) };
+    if (retired && (!d.setDeleted || (retired.config && !d.removeConfig))) throw new RpcError("E_NOT_AVAILABLE", "reversible agent provisioning unavailable");
     return [
+      ...(retired ? [{ name: "retire", apply: () => retire(id, retired), undo: () => unretire(id, retired) }] : []),
       { name: "engine", apply: () => d.reserve!(id), undo: () => d.release!(id) },
       { name: "files", apply: async () => {
         mkdirSync(join(root, "workspace"), { recursive: true, mode: 0o700 });
@@ -150,7 +186,7 @@ export function agentCreation(d: AgentCreationDeps) {
     if (previous?.state === "complete") return { agentId: previous.agentId, replayed: true };
     const v = check(payload, who);
     if (v.errors.length) { const e = v.errors[0]!; throw new RpcError(e.code, e.message, { detail: e.field }); }
-    const record: SagaRecord = { version: 1, key, actor: who.userId, digest, agentId: v.id, attempted: 0, state: "running", payload: { config: { ...v.config, createdAt: new Date(d.clock()).toISOString() }, rights: v.rights } };
+    const record: SagaRecord = { version: 1, key, actor: who.userId, digest, agentId: v.id, attempted: 0, state: "running", payload: { config: { ...v.config, createdAt: new Date(d.clock()).toISOString() }, rights: v.rights, ...(reusable(v.id) ? { retire: { ...(Object.hasOwn(d.config().agents, v.id) ? { config: d.config().agents[v.id] } : {}) } } : {}) } };
     const steps = stepsFor(record);
     d.audit.append({ at: d.clock(), actor: { user: who.userId, host: "rpc" }, action: "agent.create", target: v.id, detail: { idempotency: true } });
     try { await saga.provision(record, steps); }
@@ -170,7 +206,7 @@ export function agentCreation(d: AgentCreationDeps) {
       catch { throw new RpcError("E_INVALID_PARAMS", "invalid export JSON", { detail: "bundle" }); }
       if (!obj(config) || !Array.isArray(cards) || cards.length > 500 || cards.some(c => !obj(c) || typeof c.text !== "string" || typeof c.id !== "string" || !["agent-private", "workspace", "user"].includes(c.scope))) throw new RpcError("E_INVALID_PARAMS", "invalid export content", { detail: "bundle" });
       let name = bundle.agentId;
-      const taken = (id: string) => Object.hasOwn(d.config().agents, id) || existsSync(d.layout.agentDir(id));
+      const taken = (id: string) => (Object.hasOwn(d.config().agents, id) || existsSync(d.layout.agentDir(id))) && !reusable(id);
       if (taken(name) && onConflict === "rename") { let n = 2; do { name = `${bundle.agentId.slice(0, 58)}-${n++}`; } while (taken(name) && n < 10000); }
       // Strip old creation timestamps; export config is otherwise validated intact, including optional voice/skills settings.
       delete config.createdAt;

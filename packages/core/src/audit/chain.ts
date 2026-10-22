@@ -13,6 +13,7 @@ import { hostname, userInfo } from "node:os";
 import path from "node:path";
 import { acquireExclusiveLock } from "@plur1bus/module-api";
 import type { AuditEvent, AuditSink } from "../rbac/audit.ts";
+import { redactAuditDetail } from "./redact-detail.ts";
 
 export const GENESIS_HASH = "0".repeat(64);
 export const ACTIVE_NAME = "audit-chain.jsonl";
@@ -361,7 +362,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
     let st = start;
     if (existsSync(active) && statSync(active).size >= maxBytes) { rotateLocked(); st = tailState(); }
     const seq = st.seq + 1;
-    const line = JSON.stringify({ seq, prev: st.hash, rec: { at: e.at, actor: e.actor, action: e.action, target: e.target, detail: e.detail } });
+    const line = JSON.stringify({ seq, prev: st.hash, rec: { at: e.at, actor: e.actor, action: e.action, target: e.target, detail: redactAuditDetail(e.detail) } });
     const fd = openSync(active, "a", 0o600);
     try {
       secure(active);
