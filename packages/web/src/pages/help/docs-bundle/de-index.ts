@@ -93,6 +93,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Hilfe und Benutzerhandbuch"
   },
   {
+    "slug": "host-tools",
+    "title": "Lokale Host-Tools und Sandbox-Status"
+  },
+  {
     "slug": "import-rollback",
     "title": "Import rückgängig machen (Import-Rollback)"
   },
@@ -195,6 +199,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "extensions": return import("./de/extensions.ts").then(m => m.doc);
     case "freigaben": return import("./de/freigaben.ts").then(m => m.doc);
     case "hilfe": return import("./de/hilfe.ts").then(m => m.doc);
+    case "host-tools": return import("./de/host-tools.ts").then(m => m.doc);
     case "import-rollback": return import("./de/import-rollback.ts").then(m => m.doc);
     case "lange-gespraeche": return import("./de/lange-gespraeche.ts").then(m => m.doc);
     case "media": return import("./de/media.ts").then(m => m.doc);

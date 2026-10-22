@@ -10579,6 +10579,7 @@
       "additionalProperties": false,
       "required": ["provider", "id", "displayName", "kind", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides"],
       "properties": {
+        "toolUse": { "enum": ["supported", "limited tool use", "unknown"], "description": "D97 host-eval status; missing, stale, fake or incomplete evidence is unknown." },
         "provider": { "type": "string" },
         "id": { "type": "string" },
         "displayName": { "type": "string" },

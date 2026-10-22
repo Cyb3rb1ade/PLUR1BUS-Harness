@@ -816,6 +816,37 @@ jobs:
       - name: kernel sandbox adversarial probes (explicit skip when unavailable)
         run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 packages/core/test/tools/sandbox/sandbox.test.ts
 
+  host-tool-eval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - name: generate RPC schema types
+        run: node packages/rpc-schema/src/build.mjs
+      - name: deterministic host tool/policy scenarios (safe fake OS ports)
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/tool-eval-host.ts
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: always()
+        with: { name: host-tool-eval-fixture, path: artifacts/tool-eval/ }
+
   # Independent advisory job. Existing jobs/gates are intentionally untouched.
   perf-startup:
     needs: changes

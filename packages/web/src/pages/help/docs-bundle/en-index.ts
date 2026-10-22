@@ -73,6 +73,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Home page"
   },
   {
+    "slug": "host-tools",
+    "title": "Local host tools and sandbox status"
+  },
+  {
     "slug": "import-rollback",
     "title": "Undoing an import (import rollback)"
   },
@@ -190,6 +194,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "general-settings": return import("./en/general-settings.ts").then(m => m.doc);
     case "help": return import("./en/help.ts").then(m => m.doc);
     case "home": return import("./en/home.ts").then(m => m.doc);
+    case "host-tools": return import("./en/host-tools.ts").then(m => m.doc);
     case "import-rollback": return import("./en/import-rollback.ts").then(m => m.doc);
     case "inbox": return import("./en/inbox.ts").then(m => m.doc);
     case "invitations": return import("./en/invitations.ts").then(m => m.doc);

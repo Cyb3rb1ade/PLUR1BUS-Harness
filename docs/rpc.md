@@ -24112,6 +24112,14 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "overrides"
   ],
   "properties": {
+    "toolUse": {
+      "enum": [
+        "supported",
+        "limited tool use",
+        "unknown"
+      ],
+      "description": "D97 host-eval status; missing, stale, fake or incomplete evidence is unknown."
+    },
     "provider": {
       "type": "string"
     },
