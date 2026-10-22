@@ -67,7 +67,21 @@ export interface CandidateRow {
   state: CandidateState; decision: unknown;
 }
 
-export interface CandidateInput { content: string; partition?: string; recalls?: number; uniqueQueries?: number; score?: number }
+export interface CandidateInput {
+  content: string; partition?: string; recalls?: number; uniqueQueries?: number; score?: number;
+  /** Current source identity; never reconstruct an Engine id from a ledger content hash. */
+  memoryId?: string; createdAt?: number; importance?: number; repetitions?: number; lastRecalledAt?: number | null;
+}
+
+/** Engine 1.17.0 (A1): a receipt is authoritative only for this agent and requested id. */
+export interface CandidatePromotionResult {
+  agentId: string;
+  items: { id: string; outcome: "promoted" | "skipped"; reason: string }[];
+}
+export interface CandidateRecallStats {
+  agentId: string;
+  items: { id: string; recalls: number; distinctQueries: number; lastRecalledAt: number | null }[];
+}
 
 /** What the scheduler needs of the engine: the job registry, nothing else (ADR-009 "Delivery"). */
 export interface DreamEngine {
@@ -84,10 +98,12 @@ export interface DreamJobRun {
   counts?: Record<string, number>; diary?: { written: boolean; reason?: string };
 }
 
-/** The producer of the candidate shortlist (ADR-009 C1). The pinned engine (1.12.0) has no recall/query stats
- *  API, so a fake engine in tests drives this port; production wiring maps Engine.memory.list agent-private
- *  content (and an optional score) without inventing recalls or uniqueQueries. Absent: the candidate guards stay inert. */
-export interface CandidateSource { pull(agentId: string): Promise<CandidateInput[]> | CandidateInput[] }
+/** Agent-private shortlist and optional Engine 1.17 promotion port. Older pinned contracts
+ *  keep maintenance live and promotion closed; missing recall statistics are never invented. */
+export interface CandidateSource {
+  pull(agentId: string): Promise<CandidateInput[]> | CandidateInput[];
+  promote?(agentId: string, ids: readonly string[]): Promise<CandidatePromotionResult>;
+}
 
 export interface DreamEvent {
   name: "run.started" | "run.finished" | "breaker.opened" | "breaker.closed" | "trigger.importance" | "reconciled";

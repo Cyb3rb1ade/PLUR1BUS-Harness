@@ -7623,7 +7623,9 @@
           "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+            "images": { "type": "integer", "minimum": 0, "description": "Generated images (media units; absent from an older core)" },
+            "videoSeconds": { "type": "integer", "minimum": 0, "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)" }
           }
         },
                   "agents": {
@@ -7638,7 +7640,9 @@
           "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+            "images": { "type": "integer", "minimum": 0, "description": "Generated images (media units; absent from an older core)" },
+            "videoSeconds": { "type": "integer", "minimum": 0, "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)" }
           }
         },
                         "models": {
@@ -7649,7 +7653,8 @@
                             "properties": {
                               "model": { "type": "string" },
                               "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
+                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+                              "images": { "type": "integer", "minimum": 0 }, "videoSeconds": { "type": "integer", "minimum": 0 }
                             }
                           }
                         }
@@ -7697,7 +7702,7 @@
       },
       "budget.set": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.",
+        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.",
         "params": {
           "type": "object", "additionalProperties": false,
           "minProperties": 1,
@@ -7709,7 +7714,7 @@
                 "scope": { "enum": ["global", "agent"] },
                 "agentId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Required for scope agent, refused for global" },
                 "period": { "enum": ["day", "month"] },
-                "metric": { "enum": ["tokens"] },
+                "metric": { "enum": ["tokens", "images", "videoSeconds"] },
                 "soft": { "type": ["integer", "null"], "minimum": 0 },
                 "hard": { "type": ["integer", "null"], "minimum": 0 }
               }
@@ -9397,7 +9402,7 @@
       },
       "secret.set": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).",
+        "description": "Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. A value of fewer than 8 characters is accepted, but the log redactor does not mask values that short, so the result then carries a `warning`. Owner only; every call is audited (M2, ADR-005).",
         "params": {
           "type": "object", "additionalProperties": false,
           "required": ["name", "value"],
@@ -9407,7 +9412,7 @@
             "description": { "type": "string", "maxLength": 200, "description": "What the secret is for (one line of plain text, at most 200 characters, never the value); the agent's `secret_names` tool shows it. Absent: a replacement keeps the stored description. Empty: removes it." }
           }
         },
-        "result": { "$ref": "#/$defs/SecretMeta" }
+        "result": { "$ref": "#/$defs/SecretSetOutcome" }
       },
       "secret.get": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
@@ -10088,11 +10093,11 @@
       }
     },
     "BudgetLimit": {
-      "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
+      "description": "Experimental (1.5.0). A budget limit. Bounds count the metric: input + output tokens (output includes reported reasoning tokens), generated images, or seconds of generated video.",
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens", "images", "videoSeconds"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
@@ -10101,7 +10106,7 @@
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard", "used", "state"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens", "images", "videoSeconds"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 },
         "used": { "type": "integer", "minimum": 0 }, "state": { "enum": ["ok", "soft", "hard"] }
       }
@@ -10684,6 +10689,30 @@
         "updatedAt": { "type": "string" },
         "updatedBy": { "type": "string", "description": "Person ID of the last writer, when known; never a secret value." },
         "description": { "type": "string", "maxLength": 200, "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value." }
+      }
+    },
+    "SecretSetOutcome": {
+      "description": "Experimental (1.5.0). What `secret.set` returns: the same fields as SecretMeta, plus a `warning` when the value is too short for the log redactor to mask. Never the value.",
+      "x-stability": "experimental", "x-since": "1.5.0",
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "backend", "createdAt", "updatedAt"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$" },
+        "backend": { "$ref": "#/$defs/SecretBackend" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string", "description": "Person ID of the last writer, when known; never a secret value." },
+        "description": { "type": "string", "maxLength": 200, "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value." },
+        "warning": {
+          "type": "object", "additionalProperties": false,
+          "required": ["code", "minMaskedChars", "message"],
+          "description": "Present when the stored value has fewer characters than the redactor masks: the value was stored, but it could appear unmasked in a log line.",
+          "properties": {
+            "code": { "const": "short-value-unmasked" },
+            "minMaskedChars": { "type": "integer", "minimum": 1, "description": "The shortest value the log redactor masks (8)." },
+            "message": { "type": "string", "description": "English text for clients without a message catalogue; the code is the stable part." }
+          }
+        }
       }
     },
     "SecretStatus": {

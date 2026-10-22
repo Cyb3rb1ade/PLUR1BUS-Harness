@@ -1144,9 +1144,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
-            "secret.set" => {
-                check_pair::<types::SecretSetParams, types::SecretMeta>(name, fixture, &root_schema)
-            }
+            "secret.set" => check_pair::<types::SecretSetParams, types::SecretSetOutcome>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "secret.get" => check_pair::<types::SecretGetParams, types::SecretGetResult>(
                 name,
                 fixture,

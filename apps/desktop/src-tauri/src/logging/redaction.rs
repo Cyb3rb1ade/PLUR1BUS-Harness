@@ -15,6 +15,21 @@ use zeroize::Zeroizing;
 
 pub const REDACTION_RULES_JSON: &str = include_str!("redaction.json");
 const MAX_INPUT: usize = 3 * 1024 * 1024;
+/// Upper bound of stored variants one registration adds (raw, 4 base64, 2 percent, form, 2 hex).
+const FORMS_PER_SECRET: usize = 10;
+
+fn hex_encode(bytes: &[u8], upper: bool) -> String {
+    bytes
+        .iter()
+        .map(|b| {
+            if upper {
+                format!("{b:02X}")
+            } else {
+                format!("{b:02x}")
+            }
+        })
+        .collect()
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RedactionError {
@@ -24,8 +39,9 @@ pub enum RedactionError {
     Resolver,
 }
 
-/// Exact secret values and encodings, in Rust memory only. Values shorter than eight chars are ignored.
-/// Dropped entries are zeroized. Bounded to 8192 stored encoding variants; each input is at most 4096 bytes.
+/// Exact secret values and their derived forms, in Rust memory only: raw, base64 and base64url (each padded and
+/// unpadded), percent-encoded (upper and lower case), form-encoded and hex (lower and upper case). Values shorter than
+/// eight chars are ignored (checked before deriving); replacement is longest first. Dropped entries are zeroized. Bounded to 8192 stored encoding variants; each input is at most 4096 bytes.
 #[derive(Default)]
 pub struct SecretRegistry {
     values: RwLock<Vec<Zeroizing<String>>>,
@@ -63,7 +79,7 @@ impl SecretRegistry {
         if values.iter().any(|v| v.as_str() == value) {
             return Ok(());
         }
-        if values.len() + 8 > 8192 {
+        if values.len() + FORMS_PER_SECRET > 8192 {
             return Err(RedactionError::RegistryLimit);
         }
         let percent: String = value
@@ -98,6 +114,8 @@ impl SecretRegistry {
             percent,
             percent_lower,
             form,
+            hex_encode(value.as_bytes(), false),
+            hex_encode(value.as_bytes(), true),
         ] {
             if !values.iter().any(|v| v.as_str() == item) {
                 values.push(Zeroizing::new(item));

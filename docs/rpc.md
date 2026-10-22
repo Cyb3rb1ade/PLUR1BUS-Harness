@@ -11612,6 +11612,16 @@ Usage per period (the current local day and month in the configured time zone) a
               "cacheWriteTokens": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "images": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Generated images (media units; absent from an older core)"
+              },
+              "videoSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
               }
             }
           },
@@ -11659,6 +11669,16 @@ Usage per period (the current local day and month in the configured time zone) a
                     "cacheWriteTokens": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "images": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Generated images (media units; absent from an older core)"
+                    },
+                    "videoSeconds": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
                     }
                   }
                 },
@@ -11696,6 +11716,14 @@ Usage per period (the current local day and month in the configured time zone) a
                         "minimum": 0
                       },
                       "cacheWriteTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "images": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "videoSeconds": {
                         "type": "integer",
                         "minimum": 0
                       }
@@ -11827,7 +11855,7 @@ The outgoing-network policy in force (B4): normalised host allowlist, ports, loo
 
 **Served by:** core
 
-Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.
 
 **params**
 
@@ -11866,7 +11894,9 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
         },
         "metric": {
           "enum": [
-            "tokens"
+            "tokens",
+            "images",
+            "videoSeconds"
           ]
         },
         "soft": {
@@ -14846,7 +14876,7 @@ Sets the caption of a medium (source `user`); the caption is a memory entry of t
 
 **Served by:** core
 
-Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
+Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. A value of fewer than 8 characters is accepted, but the log redactor does not mask values that short, so the result then carries a `warning`. Owner only; every call is audited (M2, ADR-005).
 
 **params**
 
@@ -14881,7 +14911,7 @@ Creates or replaces a secret, with an optional description; leases on the old va
 
 ```json
 {
-  "$ref": "#/$defs/SecretMeta"
+  "$ref": "#/$defs/SecretSetOutcome"
 }
 ```
 
@@ -21951,7 +21981,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
+  "description": "Experimental (1.5.0). A budget limit. Bounds count the metric: input + output tokens (output includes reported reasoning tokens), generated images, or seconds of generated video.",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -21981,7 +22011,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "tokens"
+        "tokens",
+        "images",
+        "videoSeconds"
       ]
     },
     "soft": {
@@ -22038,7 +22070,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "tokens"
+        "tokens",
+        "images",
+        "videoSeconds"
       ]
     },
     "soft": {
@@ -24503,6 +24537,72 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "string",
       "maxLength": 200,
       "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value."
+    }
+  }
+}
+```
+
+### `SecretSetOutcome`
+
+```json
+{
+  "description": "Experimental (1.5.0). What `secret.set` returns: the same fields as SecretMeta, plus a `warning` when the value is too short for the log redactor to mask. Never the value.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "backend",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "backend": {
+      "$ref": "#/$defs/SecretBackend"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    },
+    "updatedBy": {
+      "type": "string",
+      "description": "Person ID of the last writer, when known; never a secret value."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value."
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "minMaskedChars",
+        "message"
+      ],
+      "description": "Present when the stored value has fewer characters than the redactor masks: the value was stored, but it could appear unmasked in a log line.",
+      "properties": {
+        "code": {
+          "const": "short-value-unmasked"
+        },
+        "minMaskedChars": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The shortest value the log redactor masks (8)."
+        },
+        "message": {
+          "type": "string",
+          "description": "English text for clients without a message catalogue; the code is the stable part."
+        }
+      }
     }
   }
 }

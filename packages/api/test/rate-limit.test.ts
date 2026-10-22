@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FakeClock } from "../src/clock.ts";
-import { DEFAULT_RATE_CLASSES, RateLimiter } from "../src/rate-limit.ts";
+import { ConcurrencyLimit, DEFAULT_RATE_CLASSES, RateLimiter } from "../src/rate-limit.ts";
 
 const classes = { auth: { capacity: 2, refillPerSec: 0.5 }, read: { capacity: 3, refillPerSec: 1 }, write: { capacity: 1, refillPerSec: 1 } };
 
@@ -57,8 +57,8 @@ test("a nonsensical class is refused at construction", () => {
   assert.throws(() => new RateLimiter(new FakeClock(), { ...classes, read: { capacity: 1, refillPerSec: 0 } }));
 });
 
-test("the six route classes include rpc alongside auth, read, write, stream and totp; a configuration that names only the first three still gets the defaults for the others", () => {
-  assert.deepEqual(Object.keys(DEFAULT_RATE_CLASSES).sort(), ["auth", "read", "rpc", "stream", "totp", "write"]);
+test("the seven route classes include rpc and expensive alongside auth, read, write, stream and totp; a configuration that names only the first three still gets the defaults for the others", () => {
+  assert.deepEqual(Object.keys(DEFAULT_RATE_CLASSES).sort(), ["auth", "expensive", "read", "rpc", "stream", "totp", "write"]);
   const clock = new FakeClock(); const rl = new RateLimiter(clock, classes);
   let ok = 0; while (rl.take("stream", "ip:1").ok) ok++;
   assert.equal(ok, DEFAULT_RATE_CLASSES.stream.capacity);
@@ -84,4 +84,25 @@ test("classes do not share buckets: draining totp for a key leaves its read and 
   const rl = new RateLimiter(new FakeClock(), classes);
   while (rl.take("totp", "user:1").ok) { /* drain */ }
   assert.equal(rl.take("read", "user:1").ok, true); assert.equal(rl.take("auth", "user:1").ok, true);
+});
+
+test("a scaled bucket is an upper bound that is wider in capacity and refill, and its eviction judges fullness by its own size", () => {
+  const clock = new FakeClock(); const rl = new RateLimiter(clock, classes, 2);
+  rl.take("write", "x");
+  let ok = 0; while (rl.take("write", "ip:gw", 10).ok) ok++;
+  assert.equal(ok, 10, "capacity 1 x 10");
+  clock.advance(150); // 1.5 tokens: full by the unscaled capacity (1), far from full by its own (10)
+  rl.take("write", "y"); // the key cap is reached: an eviction pass runs
+  assert.equal(rl.take("write", "ip:gw", 10).ok, true, "refill 1/s x 10 gave it 1.5 tokens");
+  assert.equal(rl.take("write", "ip:gw", 10).ok, false, "the bucket survived the eviction pass instead of being reset to full");
+});
+
+test("the concurrency limit hands out at most max slots, a release frees one, and releasing twice frees only one", () => {
+  const c = new ConcurrencyLimit(2);
+  const a = c.tryAcquire()!; const b = c.tryAcquire()!;
+  assert.equal(typeof a, "function"); assert.equal(typeof b, "function"); assert.equal(c.tryAcquire(), undefined); assert.equal(c.active, 2);
+  a(); a(); assert.equal(c.active, 1);
+  assert.ok(c.tryAcquire()); assert.equal(c.tryAcquire(), undefined);
+  assert.throws(() => new ConcurrencyLimit(0)); assert.throws(() => new ConcurrencyLimit(1.5));
+  b();
 });

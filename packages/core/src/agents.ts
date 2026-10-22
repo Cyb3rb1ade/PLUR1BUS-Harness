@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_SCHEMA, type HarnessConfig } from "@plur1bus/config-schema";
 import { RpcError } from "./rpc/errors.ts";
@@ -16,7 +16,10 @@ export function scaffoldFiles(l: Layout, id: string): void {
   mkdirSync(l.workspaceDir(id), { recursive: true, mode: 0o700 });
   for (const t of TEMPLATES) {
     const target = join(l.agentDir(id), t);
-    // "wx" is create-exclusive and never follows a link planted at the target (a dangling symlink also counts as existing).
+    // Anything already at the target stays, a dangling symlink included. lstat does not follow it. "wx" alone is not enough on
+    // Windows: CreateFile(CREATE_NEW) follows a dangling symlink and creates the file it points to, outside the agent directory.
+    try { lstatSync(target); continue; } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
+    // "wx" stays as the create-exclusive guard against a link planted between the check and the write (POSIX never follows it).
     try { writeFileSync(target, readFileSync(new URL(t, TEMPLATE_DIR), "utf8").replaceAll("{{agentId}}", () => id), { mode: 0o600, flag: "wx" }); }
     catch (e) { if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e; }
   }
