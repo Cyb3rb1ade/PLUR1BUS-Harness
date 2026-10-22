@@ -40,7 +40,7 @@ plur1bus session show <ID>
 - **Denkstufen (ab der nächsten Version):** Die Skala ist Standard, aus, minimal, niedrig, mittel, hoch und sehr hoch. Ein Modell bietet nur einige davon an. Wird deine Wahl nicht angeboten, wird die nächstliegende unterstützte Stufe genutzt, und der Chat sagt das, nie stillschweigend. Ein Modell ohne Reasoning-Einstellung ignoriert die Wahl, und der Anbieter entscheidet. Ein Modellwechsel allein behält die gewählte Stufe.
 - **Kosten:** Reasoning-Tokens werden als Ausgabe-Tokens abgerechnet, eine höhere Stufe kann also pro Antwort mehr Tokens brauchen. Bei Modellen mit Token-Budget zeigt der Chat, wie viele Ausgabe-Tokens das Nachdenken höchstens hinzufügt; Preise zeigt Plur1bus nie. Die erste Antwort nach einem Wechsel kann mehr kosten, weil der Cache neu aufgebaut wird.
 - **Nur für Menschen:** Das Wechseln des Chat-Modells ist Personen vorbehalten. Agenten und WebMCP-Werkzeuge können es nicht ändern.
-- **Nur lokal (ab der nächsten Version):** Gilt „Nur lokal“ für den Agenten, werden Cloud-Profile als gesperrt gelistet und abgelehnt ([datenschutz.md](datenschutz.md)).
+- **Nur lokale Modelle (ab der nächsten Version):** Gilt „Nur lokale Modelle“ für den Agenten, werden Cloud-Profile als gesperrt gelistet und abgelehnt ([datenschutz.md](datenschutz.md)).
 - **Nicht gemerkt:** Ein solcher Chat speichert nichts im Gedächtnis. Sein Verlauf sowie seine Modell- und Reasoning-Wahl bleiben nur im Arbeitsspeicher und werden nicht auf die Festplatte geschrieben.
 
 ## Fehlermeldungen
@@ -48,10 +48,10 @@ plur1bus session show <ID>
 - `E_NOT_AVAILABLE` mit reason `model-profile-unavailable`: Das Profil ist nicht konfiguriert. Prüfe die Profilnamen in [providers.md](providers.md).
 - `E_DENIED` mit reason `agent-principal`: Ein Agent oder Werkzeug wollte das Modell des Chats ändern; das darf nur eine Person.
 - `E_CONFLICT`: Die Wahl wurde zwischenzeitlich anderswo geändert. Ab der nächsten Version sind die reasons `stale-model-preview` (sieh dir den aktuellen Stand an und wähle neu) und `session-busy` (eine Antwort läuft noch).
-- Ab der nächsten Version: `E_DENIED` mit reason `local-only` (das Profil ist cloudbasiert, während „Nur lokal“ gilt), `E_NOT_AVAILABLE` mit reason `model-unavailable` und `E_INVALID_PARAMS` bei einer Denkstufe, die nicht auf der Skala liegt.
+- Ab der nächsten Version: `E_DENIED` mit reason `local-only` (das Profil ist cloudbasiert, während „Nur lokale Modelle“ gilt), `E_NOT_AVAILABLE` mit reason `model-unavailable` und `E_INVALID_PARAMS` bei einer Denkstufe, die nicht auf der Skala liegt.
 
 ## Weiter
 
 - Modell-Profile und Anbieter verwalten: [providers.md](providers.md)
-- Datenschutz und Nur lokal: [datenschutz.md](datenschutz.md)
+- Datenschutz und „Nur lokale Modelle“: [datenschutz.md](datenschutz.md)
 - Lange Unterhaltungen verwalten: [Lange Gespräche](lange-gespraeche.md)

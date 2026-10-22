@@ -1,1 +1,1 @@
-{"jsonrpc": "2.0", "id": 22, "error": {"code": -32000, "message": "the privacy pin forbids a cloud media provider", "data": {"error": "E_MEDIA_PRIVACY", "reason": "privacy-pin"}}}
+{"jsonrpc": "2.0", "id": 22, "error": {"code": -32000, "message": "“Only local models” forbids a cloud media provider", "data": {"error": "E_MEDIA_PRIVACY", "reason": "privacy-pin"}}}

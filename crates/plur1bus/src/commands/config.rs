@@ -243,6 +243,13 @@ fn describe(v: &Value, supervised: bool) -> String {
     for m in strs(&v["restart"]["modules"]) {
         s.push_str(&format!("restarts module {m}\n"));
     }
+    for w in strs(&v["warnings"]) {
+        if w == "audit-chain-unavailable" {
+            s.push_str("warning: audit-chain-unavailable — saved; the audit hash chain refused the audit rows (they are in audit.log and wait in logs/audit-chain.pending.jsonl); run `plur1bus audit verify`\n");
+        } else {
+            s.push_str(&format!("warning: {w}\n"));
+        }
+    }
     s.trim_end().to_string()
 }
 

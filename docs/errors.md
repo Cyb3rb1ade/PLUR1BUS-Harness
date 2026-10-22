@@ -57,7 +57,7 @@ the core sent. The last two are raised by the CLI itself.
 | `E_STORAGE` | 1 | A storage operation failed; `ids` may carry the ids needed to recover a half-finished step. |
 | `E_MEDIA_CAPABILITY` | 1 | The media index's provider or model cannot handle the modality (for example OpenAI embeddings in the media index). |
 | `E_MEDIA_LICENSE` | 1 | The licence of the media model has not been confirmed (for example a non-commercial licence). |
-| `E_MEDIA_PRIVACY` | 1 | The privacy pin is set and a cloud provider is configured for the media index; no request was sent. |
+| `E_MEDIA_PRIVACY` | 1 | “Only local models” is on and a cloud provider is configured for the media index; no request was sent. |
 | `E_MEDIA_UNAVAILABLE` | 1 | The media model is not installed, its key is missing, or the engine has no media index. |
 | `E_MEDIA_DIMENSION` | 1 | The query and the indexed documents differ in dimension, or the model does not support the configured dimension. |
 | `E_MEDIA_UNSUPPORTED_KIND` | 1 | The medium cannot be processed (decoder or frame extractor missing, format unknown). |

@@ -14,6 +14,7 @@ export const WEB_CORE_METHODS = new Set([
   "core.status", "agent.list", "agent.status", "agent.activity.list", "agent.pause", "agent.resume", "agent.archive", "agent.unarchive", "agent.export", "agent.delete", "agent.rights.get", "agent.rights.set",
   "inbox.count", "inbox.list", "inbox.markRead", "inbox.dismiss", "session.list", "session.get", "session.create", "session.submit", "session.cancel", "session.archive", "session.resume", "session.events",
   "project.list", "project.get", "project.create", "project.update", "project.card.list", "project.card.create", "project.card.update", "project.card.move",
+  "memory.curation.list", "memory.curation.resolve",
   "memory.list", "memory.show", "memory.forget", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.decide", "approval.cancel",
   "breakglass.list", "breakglass.notices", "breakglass.request", "breakglass.revoke", "identity.list", "identity.link.request", "identity.link.remove", "user.list", "user.role.set", "user.disable", "user.enable", "user.invite.create", "user.invite.list", "user.invite.revoke",
   "device.list", "device.rename", "device.revoke", "pairing.qr", "media.search", "media.index.status", "media.index.reindex", "media.caption.set", "media.output.get", "media.output.list",

@@ -172,6 +172,8 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "session.get": rule("admin.sessions.transcript", system),
   "session.resume": rule("admin.sessions.transcript", system),
   "session.events": rule("admin.sessions.transcript", system),
+  "memory.curation.list": { ...rule("agent.manage", agent), humanOnly: true },
+  "memory.curation.resolve": { ...rule("agent.manage", agent), humanOnly: true },
   "memory.list": rule("admin.memory.read", system),
   "memory.show": rule("admin.memory.read", system),
   "session.create": rule("admin.sessions.write", system),
