@@ -51,18 +51,21 @@ pub enum Recheck {
     Retry,
 }
 
-/// A confirmation that lives in memory for this app session only (spec §3.2), valid while origin and transport are
-/// the ones it was given for.
-struct SessionAck {
+/// A choice that lives in memory for this app session only (spec §3.2): the transport the person picked (at pairing
+/// or in *Weg ändern…*) and its confirmation, kept because the store could not write them. While it exists and the
+/// row's origin is the one it was given for, it wins over the stored entry and the derived default in every reader
+/// ([`Transports::effective`]); a successful write, a removed row or an origin change drops it.
+#[derive(Clone)]
+struct SessionHold {
     origin: Origin,
     transport: Transport,
-    ack: PublicAck,
+    ack: Option<PublicAck>,
 }
 
 /// The shell's transport state (Tauri managed state; the IPC commands are thin wrappers around it).
 pub struct Transports {
     deps: CheckDeps,
-    session: Mutex<BTreeMap<Uuid, SessionAck>>,
+    session: Mutex<BTreeMap<Uuid, SessionHold>>,
     windows: Mutex<BTreeMap<String, watch::Sender<u64>>>,
     /// The re-check of each connection now in flight (spec §5.4).
     inflight: Mutex<BTreeMap<Uuid, Arc<tokio::sync::OnceCell<Recheck>>>>,
@@ -103,6 +106,7 @@ impl Transports {
 
     /// A remote row's target under `transport`, or its effective transport.
     fn target(
+        &self,
         store: &TransportStore,
         row: &Connection,
         transport: Option<Transport>,
@@ -111,34 +115,42 @@ impl Transports {
         Ok(TargetInput {
             host,
             port,
-            transport: transport.unwrap_or_else(|| store.effective(row).transport),
+            transport: transport.unwrap_or_else(|| self.effective(store, row).transport),
             purpose: Purpose::Remote,
         })
     }
 
-    /// The confirmation that counts for a remote row: the stored one if it is valid under the current snapshot, else
-    /// this session's for the same origin and transport, else a stored one from an older snapshot (which [`gate`]
-    /// treats as none).
-    pub fn ack(&self, store: &TransportStore, row: &Connection) -> Option<PublicAck> {
-        let entry = store.effective(row);
-        if entry
-            .public_ack
-            .as_ref()
-            .is_some_and(|a| a.classifier == CLASSIFIER_ID)
-        {
-            return entry.public_ack;
-        }
+    /// The session hold of a remote row, if it is still valid: a host/origin change drops it like a stored entry.
+    fn held(&self, row: &Connection) -> Option<SessionHold> {
         let mut session = lock(&self.session);
         match session.get(&row.id) {
-            Some(s) if s.origin == row.origin && s.transport == entry.transport => {
-                return Some(s.ack.clone())
+            Some(h) if row.kind == crate::connections::Kind::Remote && h.origin == row.origin => {
+                Some(h.clone())
             }
             Some(_) => {
                 session.remove(&row.id);
+                None
             }
-            None => {}
+            None => None,
         }
-        entry.public_ack
+    }
+
+    /// The entry every reader of the path uses (list, open, reconnect, check, pairing): this session's hold when the
+    /// store could not write the person's choice, otherwise the stored entry or the derived default. Nothing may read
+    /// [`TransportStore::effective`] directly, or a choice that could not be saved would silently fall back.
+    pub fn effective(&self, store: &TransportStore, row: &Connection) -> TransportEntry {
+        let mut entry = store.effective(row);
+        if let Some(hold) = self.held(row) {
+            entry.transport = hold.transport;
+            entry.public_ack = hold.ack;
+        }
+        entry
+    }
+
+    /// The confirmation that counts for a remote row: this session's for the held path, else the stored one (which
+    /// [`gate`] treats as none under an older classifier snapshot).
+    pub fn ack(&self, store: &TransportStore, row: &Connection) -> Option<PublicAck> {
+        self.effective(store, row).public_ack
     }
 
     /// Whether a confirmation given now can only last for this session (store from a newer version, unreadable, or
@@ -149,7 +161,7 @@ impl Transports {
 
     pub fn view(&self, store: &TransportStore, row: &Connection) -> TransportView {
         TransportView {
-            transport: store.effective(row).transport,
+            transport: self.effective(store, row).transport,
             public_ack: self
                 .ack(store, row)
                 .is_some_and(|a| a.classifier == CLASSIFIER_ID),
@@ -158,8 +170,11 @@ impl Transports {
     }
 
     /// A stored entry without a confirmation was written while the target was not public.
-    fn stored_private(store: &TransportStore, row: &Connection) -> bool {
-        store.get(row.id).is_some_and(|e| e.public_ack.is_none())
+    fn stored_private(&self, store: &TransportStore, row: &Connection) -> bool {
+        match self.held(row) {
+            Some(hold) => hold.ack.is_none(),
+            None => store.get(row.id).is_some_and(|e| e.public_ack.is_none()),
+        }
     }
 
     /// Renames the public warning of a target that has become public (spec §7.2 `transport.public.changed`).
@@ -181,7 +196,7 @@ impl Transports {
         purpose: &str,
         earlier_private: bool,
     ) -> Result<CheckedTarget, TransportError> {
-        let input = match Self::target(store, row, None) {
+        let input = match self.target(store, row, None) {
             Ok(input) => input,
             Err(e) => {
                 self.log(purpose, None, Some(e));
@@ -197,7 +212,7 @@ impl Transports {
             }
         };
         if let Err(e) = gate(&checked.report, ack.as_ref()) {
-            if earlier_private || Self::stored_private(store, row) {
+            if earlier_private || self.stored_private(store, row) {
                 Self::mark_changed(&mut checked.report);
             }
             self.log(purpose, Some(&checked.report), Some(e));
@@ -253,7 +268,7 @@ impl Transports {
             .check_open(store, &row, "open", false)
             .await
             .map_err(|e| e.code().to_owned())?;
-        let transport = store.effective(&row).transport;
+        let transport = self.effective(store, &row).transport;
         Ok((row, Some((checked, transport))))
     }
 
@@ -288,7 +303,7 @@ impl Transports {
         {
             Ok(checked) => Recheck::Pinned(checked),
             Err(TransportError::ConfirmNeeded) => {
-                Recheck::Attention(if earlier_private || Self::stored_private(store, row) {
+                Recheck::Attention(if earlier_private || self.stored_private(store, row) {
                     "target-changed-public"
                 } else {
                     "transport-confirm-needed"
@@ -349,7 +364,7 @@ impl Transports {
         row: Option<(&TransportStore, &Connection)>,
     ) -> Result<TransportReport, TransportError> {
         let ack = row.and_then(|(store, row)| {
-            (store.effective(row).transport == input.transport)
+            (self.effective(store, row).transport == input.transport)
                 .then(|| self.ack(store, row))
                 .flatten()
         });
@@ -357,10 +372,10 @@ impl Transports {
             Ok(checked) => {
                 let mut report = checked.report;
                 if let Some((store, row)) = row {
-                    let unchanged = store.effective(row).transport == input.transport;
+                    let unchanged = self.effective(store, row).transport == input.transport;
                     if unchanged
                         && gate(&report, ack.as_ref()).is_err()
-                        && Self::stored_private(store, row)
+                        && self.stored_private(store, row)
                     {
                         Self::mark_changed(&mut report);
                     }
@@ -412,6 +427,8 @@ impl Transports {
     }
 
     /// After a pairing: stores the chosen path and, for a public target, the confirmation the pairing was gated with.
+    /// When the store cannot write it, the choice is held for this session (see [`SessionHold`]), so a caller may
+    /// ignore the error: the chosen path is already the effective one.
     pub fn record_pairing(
         &self,
         store: &TransportStore,
@@ -426,8 +443,9 @@ impl Transports {
     /// *Weg ändern…* and *Bestätigen und verbinden* (spec §7.1): a fresh check of `transport`; a confirmation is
     /// stored only when that check says the target is public. A transport change clears an earlier confirmation; an
     /// unchanged transport keeps a valid one. A public target without a confirmation is refused with
-    /// `transport-confirm-needed` and nothing is written. While the store cannot persist, a confirmation is held for
-    /// this session, and a transport change is refused (`transport-store-readonly`).
+    /// `transport-confirm-needed` and nothing is written. While the store cannot write, the chosen transport and its
+    /// confirmation are held for this session; only a store from a newer version refuses a transport change
+    /// (`transport-store-readonly`).
     pub async fn set_transport(
         &self,
         store: &TransportStore,
@@ -435,11 +453,15 @@ impl Transports {
         transport: Transport,
         public_ack: bool,
     ) -> Result<TransportReport, &'static str> {
-        let changed = transport != store.effective(row).transport;
-        if changed && self.cannot_persist(store) {
+        let changed = transport != self.effective(store, row).transport;
+        // Only a newer store is refused outright (spec §8); a store that merely cannot be written keeps the choice
+        // for this session ([`SessionHold`]).
+        if changed && store.mode() == StoreMode::ReadOnlyNewer {
             return Err(TransportStoreError::ReadOnly.code());
         }
-        let input = Self::target(store, row, Some(transport)).map_err(|e| e.code())?;
+        let input = self
+            .target(store, row, Some(transport))
+            .map_err(|e| e.code())?;
         let report = match check_target(&input, &self.deps, false).await {
             Ok(checked) => checked.report,
             Err(e @ (TransportError::Unresolved | TransportError::DnsTimeout)) => {
@@ -492,7 +514,8 @@ impl Transports {
         }
     }
 
-    /// Writes the entry; when that fails, a confirmation is held for this session instead (spec §3.2).
+    /// Writes the entry; when that fails, the chosen transport and its confirmation are held for this session instead
+    /// (spec §3.2), so the choice stays in effect and `write_failed` tells the UI the store is unwritable.
     fn persist(
         &self,
         store: &TransportStore,
@@ -515,21 +538,20 @@ impl Transports {
                 if matches!(e, TransportStoreError::Io | TransportStoreError::TooLarge) {
                     self.write_failed.store(true, Ordering::SeqCst);
                 }
-                let mut session = lock(&self.session);
-                match ack {
-                    Some(ack) => {
-                        session.insert(
-                            row.id,
-                            SessionAck {
-                                origin: row.origin.clone(),
-                                transport,
-                                ack,
-                            },
-                        );
-                    }
-                    None => {
-                        session.remove(&row.id);
-                    }
+                if matches!(
+                    e,
+                    TransportStoreError::ReadOnly
+                        | TransportStoreError::Io
+                        | TransportStoreError::TooLarge
+                ) {
+                    lock(&self.session).insert(
+                        row.id,
+                        SessionHold {
+                            origin: row.origin.clone(),
+                            transport,
+                            ack,
+                        },
+                    );
                 }
                 Err(e)
             }

@@ -1067,3 +1067,90 @@ async fn an_unresolved_set_keeps_the_confirmation_of_an_unchanged_path() {
     })
     .await;
 }
+
+/// A sidecar path that is a directory: the store is `Failed` (reads give the derived default, every write fails with
+/// `Io`), the way an unwritable app config directory behaves.
+fn break_sidecar(f: &Fixture) {
+    let sidecar = f.dir.path().join("connection-transport.json");
+    let _ = std::fs::remove_file(&sidecar);
+    std::fs::create_dir(&sidecar).unwrap();
+    assert_eq!(f.tstore().mode(), StoreMode::Failed);
+}
+
+/// What list (`view`), the open gate and a reconnect decision see as the row's transport.
+async fn effective_everywhere(f: &Fixture, row: &Connection) -> Vec<Transport> {
+    let tstore = f.tstore();
+    let listed = f.transports.view(&tstore, row).transport;
+    let (_, opened) = f
+        .transports
+        .open_check(&f.store, &tstore, row.id)
+        .await
+        .unwrap();
+    let (_, opened) = opened.expect("a remote row is checked");
+    let client = HarnessClient::new(row.origin.clone(), None);
+    let earlier = std::sync::atomic::AtomicBool::new(false);
+    let (_, outcome) = transport_reconnect(&f.transports, &tstore, row, &client, &earlier).await;
+    let reconnect = match outcome {
+        Some(plur1bus_desktop::events::ReconnectOutcome::Checked(t, _)) => t,
+        _ => panic!("unexpected reconnect outcome"),
+    };
+    vec![listed, opened, reconnect]
+}
+
+#[tokio::test]
+async fn a_pairing_choice_the_store_cannot_write_stays_in_effect_for_the_session() {
+    bounded(async {
+        let f = Fixture::new().await;
+        // The test host is an ordinary name: the derived default is Direct. The store is unwritable from the start.
+        std::fs::create_dir(f.dir.path().join("connection-transport.json")).unwrap();
+        let row = f.pair(Transport::Tailscale, false).await.unwrap();
+        assert_eq!(f.tstore().get(row.id), None);
+        assert_eq!(f.tstore().effective(&row).transport, Transport::Direct);
+        let view = f.transports.view(&f.tstore(), &row);
+        assert_eq!(view.transport, Transport::Tailscale);
+        assert!(view.store_read_only);
+        assert_eq!(
+            effective_everywhere(&f, &row).await,
+            vec![Transport::Tailscale; 3]
+        );
+        // A removed row takes its hold with it.
+        f.transports.forget(&f.tstore(), row.id);
+        assert_eq!(
+            f.transports.effective(&f.tstore(), &row).transport,
+            Transport::Direct
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn a_changed_choice_the_store_cannot_write_stays_in_effect_and_a_later_write_clears_it() {
+    bounded(async {
+        let f = Fixture::new().await;
+        let row = f.pair(Transport::Direct, false).await.unwrap();
+        break_sidecar(&f);
+        f.transports
+            .set_transport(&f.tstore(), &row, Transport::Tailscale, false)
+            .await
+            .unwrap();
+        assert_eq!(f.tstore().effective(&row).transport, Transport::Direct);
+        assert_eq!(
+            effective_everywhere(&f, &row).await,
+            vec![Transport::Tailscale; 3]
+        );
+        assert!(f.transports.view(&f.tstore(), &row).store_read_only);
+        // The store can be written again: the choice is stored and the hold is gone.
+        std::fs::remove_dir(f.dir.path().join("connection-transport.json")).unwrap();
+        f.transports
+            .set_transport(&f.tstore(), &row, Transport::Direct, false)
+            .await
+            .unwrap();
+        assert_eq!(f.tstore().get(row.id).unwrap().transport, Transport::Direct);
+        assert_eq!(
+            effective_everywhere(&f, &row).await,
+            vec![Transport::Direct; 3]
+        );
+        assert!(!f.transports.view(&f.tstore(), &row).store_read_only);
+    })
+    .await;
+}

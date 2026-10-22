@@ -97,7 +97,7 @@ pub async fn transport_reconnect(
     if row.kind != crate::connections::Kind::Remote {
         return (Reconnect::Same, None);
     }
-    let transport = store.effective(row).transport;
+    let transport = transports.effective(store, row).transport;
     match transports
         .recheck_shared(store, row, earlier_private.load(Ordering::SeqCst))
         .await
