@@ -43,13 +43,21 @@ pub fn run(out: &Out, layout: &Layout, cmd: SecretCmd) {
                 "secret.set",
                 set_params(&name, &value, description.as_deref()),
             );
-            out.ok("secret.set/1", &v, || {
-                format!(
-                    "stored {} in the {}",
-                    v["name"].as_str().unwrap_or(&name),
-                    backend_label(&v["backend"])
-                )
-            });
+            out.ok("secret.set/1", &v, || render_set(&v, &name));
+        }
+        SecretCmd::Describe { name, text, clear } => {
+            let description = if clear {
+                ""
+            } else {
+                text.as_deref().unwrap_or_default()
+            };
+            let v = call(
+                out,
+                layout,
+                "secret.describe",
+                json!({ "name": name, "description": description }),
+            );
+            out.ok("secret.describe/1", &v, || render_meta(&v));
         }
         SecretCmd::Get { name, reveal } => {
             let v = call(
@@ -69,6 +77,23 @@ pub fn run(out: &Out, layout: &Layout, cmd: SecretCmd) {
             out.ok("secret.rm/1", &v, || format!("removed {name}"));
         }
     }
+}
+
+/// The line `set` prints, plus a note when the core answers with a `warning` (a value too short for the log redactor to
+/// mask, #652). The value was stored either way; `--json` carries the core's `warning` object unchanged.
+fn render_set(v: &Value, name: &str) -> String {
+    let mut text = format!(
+        "stored {} in the {}",
+        v["name"].as_str().unwrap_or(name),
+        backend_label(&v["backend"])
+    );
+    if v["warning"]["code"] == "short-value-unmasked" {
+        let min = v["warning"]["minMaskedChars"].as_u64().unwrap_or(8);
+        text.push_str(&format!(
+            "\nnote: the value has fewer than {min} characters. It was stored, but the log redactor does not mask values this short, so it could appear in a log line."
+        ));
+    }
+    text
 }
 
 /// The `secret.set` params: `description` is sent only when given, so a rotation without `--description` keeps the stored one.
@@ -261,6 +286,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn describe_cli_accepts_text_or_clear_and_never_both() {
+        use crate::cli::Cli;
+        use clap::Parser;
+        assert!(Cli::try_parse_from([
+            "plur1bus",
+            "secret",
+            "describe",
+            "billing",
+            "Production account"
+        ])
+        .is_ok());
+        assert!(
+            Cli::try_parse_from(["plur1bus", "secret", "describe", "billing", "--clear"]).is_ok()
+        );
+        assert!(Cli::try_parse_from(["plur1bus", "secret", "describe", "billing"]).is_err());
+        assert!(Cli::try_parse_from([
+            "plur1bus", "secret", "describe", "billing", "text", "--clear"
+        ])
+        .is_err());
+    }
+
+    #[test]
     fn value_strips_one_trailing_newline_only() {
         assert_eq!(parse_value(b"abc\n".to_vec()).unwrap(), "abc");
         assert_eq!(parse_value(b"abc\r\n".to_vec()).unwrap(), "abc");
@@ -281,6 +328,26 @@ mod tests {
             assert!(!e.contains('x') || e.contains("longer"), "{e}");
         }
         assert_eq!(parse_value(vec![b'x'; 64 * 1024]).unwrap().len(), 64 * 1024);
+    }
+
+    #[test]
+    fn set_prints_a_note_only_for_a_short_value() {
+        let plain = json!({"name":"k","backend":"file","createdAt":"a","updatedAt":"b"});
+        assert_eq!(
+            render_set(&plain, "k"),
+            "stored k in the encrypted file store"
+        );
+        let short = json!({"name":"k","backend":"file","createdAt":"a","updatedAt":"b",
+            "warning":{"code":"short-value-unmasked","minMaskedChars":8,"message":"m"}});
+        let text = render_set(&short, "k");
+        assert!(
+            text.starts_with("stored k in the encrypted file store\nnote: "),
+            "{text}"
+        );
+        assert!(
+            text.contains("fewer than 8 characters") && text.contains("does not mask"),
+            "{text}"
+        );
     }
 
     #[test]

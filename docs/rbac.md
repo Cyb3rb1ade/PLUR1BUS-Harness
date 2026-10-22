@@ -95,6 +95,12 @@ exec sandbox from writing to it; a signature check of the helper (macOS code sig
 session (UI automation) could in principle click an OS dialog itself; the `ui.control` capability is T2 and `os.privilege` /
 `remote.control` are T3 for that reason.
 
+**Secrets and the same threat.** `secret.set`, `secret.get` with `reveal` and `secret.delete` (owner only, `secrets.reveal` and `secrets.write`) also
+check the connection's trust level: below T1 they are refused and audited. An agent that holds `run/core.token` is T1, exactly like `plur1bus secret get
+--reveal` and the web UI, so for it the plaintext of a secret is not behind the OS confirmation that a T2 approval needs. The core cannot tell the two apart
+until the CLI can be attested; the one-line change then is `MIN_SECRET_SURFACE` in `packages/core/src/secrets/types.ts`. Until then keep the exec sandbox
+away from `run/` and `state/`, as for the approval chain key.
+
 ## Privacy (ADR-007 §Privacy)
 
 * `user`-scope cards: only the owning user. Owner and Admin can read **another** user's cards only through break-glass;
@@ -106,9 +112,11 @@ session (UI automation) could in principle click an OS dialog itself; the `ui.co
 
 `createBreakGlass({ audit, notify, clock })` is the stateful side; `authorize` stays pure and receives the grants.
 
+There is exactly one registry per installation: the core's (`core.ts` creates it, `requireNotification: true`). The Harness API holds none: `POST /breakglass`, `GET /breakglass`, `POST /breakglass/revoke` and `GET /me/notices` forward to `breakglass.request|list|revoke|notices` as the caller, so a grant made over REST is the one a core read consults and a grant made over RPC shows over REST (D116: reason, notice and audit chain are not weakened by the second path). The core sweeps lapsed grants every 30 seconds in addition to every list, read and request.
+
 | Rule | Value |
 |---|---|
-| Who may request | `breakglass.request`: Owner, Admin (narrowed by token scopes) |
+| Who may request | `breakglass.request`: Owner, Admin (narrowed by token scopes); people only, the library also refuses a principal whose kind is not `person` (request and revoke) |
 | Reason | mandatory, 10–500 characters after trimming |
 | Lifetime | integer ms, default 15 min, 1 min ≤ ttl ≤ 60 min (a violation is an error, not a clamp) |
 | Scope | one holder, one target user, **read only** |
@@ -127,6 +135,8 @@ through untouched. A refusal is `E_DENIED` with the reason code, a missing or fa
 (`no-principal`, `resolver-failed`), and both are audited (`rbac.denied`, `rbac.unauthenticated`; allowed calls are not).
 `createCore({ rbac: { resolve, audit } })` sets the resolver; the default maps the token-authenticated local connection to
 the installation owner (RULING R8), so today's behaviour is unchanged until the M3 Harness API supplies sessions.
+
+Caller-taking memory ops (`memory.forget`, `correct`, `share`, `state`, `propose`, `proposals.list|accept|reject`) additionally bind `params.caller` to the authenticated person (`E_DENIED`, reason `caller-not-linked`), as `memory.list|show` and `session.*` do; the installation owner keeps its OS caller.
 
 Secured now: `memory.forget` (→ `memory.forget` on the agent), `agent.status` (→ `agent.read`), `jobs.run`,
 `models.setOverride` and `models.removeManual` (→ `models.write`), `logs.query`, `logs.tail` and `logs.levels` (→ `logs.query`, Owner/Admin only, D4/D111), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
@@ -223,6 +233,7 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `admin.migrate` | system | ✔ | ✔ | – | – | – |
 | `admin.embedding.probe` | system | ✔ | ✔ | – | – | – |
 | `admin.embedding.serve` | system | ✔ | ✔ | – | – | – |
+| `admin.engine.test` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.plan` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.run` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.status` | system | ✔ | ✔ | – | – | – |
@@ -281,7 +292,7 @@ Three actions cover the media search surface. Everything is denied by default: a
 | media.index.pause, media.index.resume, media.index.reindex | media.index.operate | Owner and Admin, people only | Agents are denied with `agent-principal`. `reindex` needs `confirm: true` |
 | media.caption.set | media.caption.write | Owner, Admin, Operator, Member, people only | Agents are denied with `agent-principal`; the handler also needs edit rights on the medium (`editable`: `agent.use` on the agent that made it, from the owner file under `<home>/media/owners`), otherwise `E_DENIED reason=not-editable`; an unreadable medium is `E_NOT_FOUND` |
 
-The `E_MEDIA_*` codes (capability, licence, privacy pin, availability, dimension, unsupported kind) are not RBAC outcomes; they report that the media index itself cannot do what was asked (see [errors.md](errors.md)).
+The `E_MEDIA_*` codes (capability, licence, “Only local models”, availability, dimension, unsupported kind) are not RBAC outcomes; they report that the media index itself cannot do what was asked (see [errors.md](errors.md)).
 
 ## F39–F42/F44 administration backend
 
@@ -296,7 +307,7 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `agent.delete` | `admin.agent.delete` | Owner, Admin; archived, typed display name and actor-bound export offer required; engine erasure currently unavailable |
 | `agent.rights.get`, `agent.rights.set` | `admin.agent.rights` | Owner, Admin |
 | `user.list`, `user.invite.list` | `admin.users.read` | Owner, Admin |
-| `user.role.set`, `user.invite.create`, `user.invite.revoke` | `admin.users.write` | Owner, Admin; ownership changes Owner only, last Owner protected |
+| `user.role.set`, `user.invite.create`, `user.invite.revoke` | `admin.users.write` | Owner, Admin; ownership changes Owner only, last Owner protected; `user.role.set` and invitations never create a second Owner (ADR-007: exactly one; no ownership transfer operation exists yet) |
 | `user.invite.redeem` | none (no principal yet) | Any connection that passed the core handshake; the one-time token is the credential, failures are rate-limited and uniform ([invites.md](invites.md)) |
 | `breakglass.request`, `breakglass.revoke` | `admin.breakglass.write` | Owner, Admin; library also enforces request/revoke rules |
 | `breakglass.list` | `admin.breakglass.read` | Owner, Admin; holder's grants only |
@@ -307,7 +318,7 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `session.get`, `session.resume`, `session.events` | `admin.sessions.transcript` | All five; own session or live audited Break-Glass grant |
 | `session.model.set` | `admin.sessions.write` | Human Owner, Admin, Operator, Member; own idle direct session and `agent.use`; never WebMCP |
 | `chat.model.get` | `chat:read` | Owner, Admin, Operator, Member, Viewer; own direct chat (identity from the authenticated person) and `agent.read` |
-| `chat.model.set` | `chat:write` | Human Owner, Admin, Operator, Member; own idle direct chat and `agent.use`; a profile locked by "Nur lokal" is `E_DENIED` `local-only`; never WebMCP |
+| `chat.model.set` | `chat:write` | Human Owner, Admin, Operator, Member; own idle direct chat and `agent.use`; a profile locked by "Nur lokale Modelle" is `E_DENIED` `local-only`; never WebMCP |
 | `session.create`, `session.submit`, `session.cancel`, `session.archive` | `admin.sessions.write` | Owner, Admin, Operator, Member; own session and `agent.use` required |
 | `memory.list`, `memory.show` | `admin.memory.read` | All five; optional `targetUserId` requires `agent.read` and live library `memory.user.read` authorization |
 | `pairing.qr` | `admin.pairing.read` | Owner, Admin; existing payload only, no code issuance |
@@ -445,9 +456,36 @@ Remote trust challenge and acknowledgement use the additive human-only `remote.d
 | `admin.api.device.prove` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
 | `admin.api.device.announce` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
 
+### Secret metadata and lease read view (Phase E, 2026-10-18)
+
+`secret.describe` adds a human-only `settings.write` guard and `secret.grants.list` a human-only `settings.read` guard.
+The store's principal gate additionally restricts both to the owner; Admin passing the coarse settings permission still
+cannot use them. WebMCP forbids the entire `secret.` namespace. No grant writer or agent lease route exists. Configuration
+references are not grants. See [secret metadata and access](secrets.md).
 ### Model role probe (Phase A, 2026-10-18)
+
+`admin.engine.test` requires `settings.write` and a human Owner/Admin principal, including the existing device scope
+checks. It is excluded from WebMCP and never exposes provider errors, URLs or key values. The Web API's reviewed RPC
+bridge explicitly permits this method under those same Core rules; no standalone admin REST route is added.
 
 `models.test` requires `settings.write` (Owner/Admin) and an explicit human principal at the RPC guard. Token scopes can
 only narrow access. It is forbidden as a WebMCP tool. The handler takes only a model identifier; prompt, output cap, tool
 set, memory and timeout are server-owned. It selects one configured candidate without fallback and admits the request
 through the same budget/router and adapter egress as ordinary model calls. It creates no session or transcript.
+
+### A4: human memory curation
+
+`memory.curation.list` and `memory.curation.resolve` are **humanOnly** and require
+`agent.manage` on the exact requested agent. Owner/Admin may operate the queue;
+a Member needs an explicit `manage` grant for that agent. A grant on a different
+agent is insufficient. Agent principals are denied even when their role is Owner
+or their object grants contain `manage`. Operator/Viewer receive no role-wide
+access. The handler derives Engine identity from the authenticated connection,
+not request text; the closed params reject `caller` and target-human overrides.
+
+The explicit object grant is the current proxy for “own human”, matching the
+private diary boundary. A new active relationship binding is D116 C3 and is not
+introduced here. Engine ACLs additionally filter individual queue records. Keep
+and drop use the Engine's mandatory curation audit. Both RPCs are exposed on the
+human web route and forbidden over WebMCP, including explicit include lists.
+`memory.proposals.*` remains D31 shared-card correction proposals, not curation.

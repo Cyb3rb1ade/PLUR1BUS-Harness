@@ -4,7 +4,7 @@ import { chmodSync, closeSync, mkdirSync, openSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const BUDGET_SCHEMA_VERSION = 1;
+export const BUDGET_SCHEMA_VERSION = 2;
 
 const MIGRATIONS: Record<number, string> = {
   1: `
@@ -47,6 +47,28 @@ const MIGRATIONS: Record<number, string> = {
       ts INTEGER NOT NULL,
       PRIMARY KEY (kind, scope, agent, period, metric, period_key)
     );
+  `,
+  // Media units (owner decision 2026-10-19): limits in images and video seconds, and both counts on every usage event.
+  // Additive: SQLite cannot widen a CHECK in place, so budget_limit is rebuilt with every row kept; usage_event gains
+  // two integer columns that are 0 on every older row. No content column is added.
+  2: `
+    CREATE TABLE budget_limit_v2 (
+      scope TEXT NOT NULL CHECK (scope IN ('global', 'agent')),
+      agent TEXT NOT NULL,
+      period TEXT NOT NULL CHECK (period IN ('day', 'month')),
+      metric TEXT NOT NULL CHECK (metric IN ('cost', 'tokens', 'images', 'videoSeconds')),
+      soft INTEGER CHECK (soft IS NULL OR soft >= 0),
+      hard INTEGER CHECK (hard IS NULL OR hard >= 0),
+      CHECK (soft IS NOT NULL OR hard IS NOT NULL),
+      CHECK (soft IS NULL OR hard IS NULL OR soft <= hard),
+      CHECK ((scope = 'global' AND agent = '') OR (scope = 'agent' AND agent <> '')),
+      PRIMARY KEY (scope, agent, period, metric)
+    );
+    INSERT INTO budget_limit_v2 (scope, agent, period, metric, soft, hard) SELECT scope, agent, period, metric, soft, hard FROM budget_limit;
+    DROP TABLE budget_limit;
+    ALTER TABLE budget_limit_v2 RENAME TO budget_limit;
+    ALTER TABLE usage_event ADD COLUMN images INTEGER NOT NULL DEFAULT 0 CHECK (images >= 0);
+    ALTER TABLE usage_event ADD COLUMN video_seconds INTEGER NOT NULL DEFAULT 0 CHECK (video_seconds >= 0);
   `,
 };
 

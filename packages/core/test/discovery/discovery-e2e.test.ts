@@ -245,7 +245,15 @@ describe("model discovery end-to-end", () => {
       // Verify ledger has completed records, both with trigger "manual"
       const ledgerPath = join(layout(home).systemJobs, "ledger.jsonl");
       const ledgerLines = readFileSync(ledgerPath, "utf8").trim().split("\n").filter(Boolean);
-      const completedRows = ledgerLines.map((l) => JSON.parse(l)).filter((r) => r.phase === "finished");
+      const finishedRows = ledgerLines.map((l) => JSON.parse(l)).filter((r) => r.phase === "finished");
+      const completedRows = finishedRows.filter((r) => r.job === "models.scan");
+      // A2 also records the independent startup knowledge job in this shared ledger.
+      for (const row of finishedRows.filter((r) => r.job !== "models.scan")) {
+        assert.equal(row.job, "knowledge.update");
+        assert.equal(typeof row.runId, "string");
+        assert.equal(row.trigger, "cron");
+        assert.ok(["completed", "skipped"].includes(row.outcome));
+      }
       assert.equal(completedRows.length, 2);
       for (const row of completedRows) {
         assert.equal(row.job, "models.scan");

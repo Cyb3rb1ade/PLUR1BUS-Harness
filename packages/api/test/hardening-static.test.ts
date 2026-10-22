@@ -96,8 +96,23 @@ test("safeSegments: the documented rules, one by one, with the Windows ones incl
   assert.deepEqual(safeSegments(`/${"a".repeat(255)}`), ["a".repeat(255)]);
 });
 
-test("KNOWN GAP: Windows reserved device names (CON, NUL, AUX, COM1, LPT1, with or without an extension) are not rejected as path segments", { todo: "KNOWN GAP: safeSegments lets CON/NUL/AUX/COMn/LPTn through; on Windows opening one can block a worker thread; see SICHERHEIT in the PR" }, () => {
-  for (const name of ["con", "CON", "nul.js", "AUX.txt", "com1.js", "LPT9", "prn.css", "CONIN$", "conout$"]) assert.equal(safeSegments(`/${name}`), undefined, name);
+test("Windows reserved device names are refused as path segments on every platform: CON, PRN, AUX, NUL, COM1-9, LPT1-9, CONIN$, CONOUT$, any case, with or without an extension, in any segment", () => {
+  const names = ["con", "CON", "Con", "prn", "aux", "nul", "NUL.js", "AUX.txt", "com1.js", "com5", "COM9", "lpt1", "LPT9", "prn.css", "CONIN$", "conout$", "con.tar.gz", "nul.", "con .txt", "COM\u00b9", "lpt\u00b2.js"];
+  for (const n of names) assert.equal(safeSegments(`/${n}`), undefined, n);
+  for (const n of names.filter((x) => !/[. ]$/.test(x))) assert.equal(safeSegments(`/assets/${encodeURIComponent(n)}/app.js`), undefined, `a directory named ${n}`);
+  assert.equal(safeSegments("/%63on"), undefined, "an encoded letter does not hide it");
+  assert.equal(safeSegments("/NUL%2ejs"), undefined, "nor does an encoded dot");
+});
+
+test("names that merely start with or contain a device name stay servable (console, contact, icon, com10, lpt0, nul-x, auxiliary, com)", async () => {
+  for (const n of ["console.js", "contact.html", "icon.png", "com10.js", "com0.js", "lpt0.css", "nul-x.js", "auxiliary.css", "com.js", "prn_1.txt", "xcon.js", "a.con", "a.nul.js", "conin.js", "conout.js"]) assert.deepEqual(safeSegments(`/${n}`), [n], n);
+  const f = fixture(); writeFileSync(path.join(f.root, "console.js"), INSIDE); writeFileSync(path.join(f.root, "nul"), "x"); writeFileSync(path.join(f.root, "con.js"), "x");
+  try {
+    const srv = createStaticServer(f.root);
+    assert.equal((await srv.read("/console.js"))?.body.toString(), INSIDE);
+    assert.equal(await srv.read("/con.js"), undefined, "a file that exists under a device name is not served either");
+    assert.equal(await srv.read("/nul"), undefined);
+  } finally { f.cleanup(); }
 });
 
 // ---- content types, caching, ranges, limits ------------------------------------------------------------------------

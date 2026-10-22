@@ -11,13 +11,22 @@ import { ApiError } from "../src/errors.ts";
 import { memoryAuditSink } from "../src/rbac-bridge.ts";
 import type { Handler, RouteSpec } from "../src/routes.ts";
 import { MemoryUserDirectory } from "../src/memory-stores.ts";
+import { FakeClock } from "../src/clock.ts";
 import { addUser, fakeCore, jsonHeaders, login, loginAs, OWNER_TOKEN, raw, start, write, type Harness, type StartOptions } from "./helpers.ts";
+import { miniCore, type MiniCore } from "./mini-core.ts";
 
 type Any = any;
 const cleanups: Array<() => Promise<void> | void> = [];
 afterEach(async () => { for (const c of cleanups.splice(0).reverse()) await c(); });
 
 async function up(o: StartOptions = {}): Promise<Harness> { const h = await start(o); cleanups.push(() => h.close()); return h; }
+/** A harness whose core is `miniCore`: the break-glass routes forward to the core's registry, so they need one that answers. */
+async function upWithCore(o: StartOptions & { auditSink?: import("../src/rbac-bridge.ts").AuditSink; notify?: Parameters<typeof miniCore>[0]["notify"] } = {}): Promise<Harness & { mini: MiniCore }> {
+  const clock = new FakeClock(); const { auditSink, notify, ...rest } = o;
+  const mini = miniCore({ clock, ...(auditSink ? { auditSink } : {}), ...(notify ? { notify } : {}) });
+  const h = await start({ ...rest, clock, core: mini }); cleanups.push(() => { mini.close(); }); cleanups.push(() => h.close());
+  return Object.assign(h, { mini });
+}
 function tmp(prefix: string): string { const d = mkdtempSync(join(tmpdir(), prefix)); cleanups.push(() => rmSync(d, { recursive: true, force: true })); return d; }
 
 /** One request as raw text over a plain socket; resolves with everything the server sent until it closed. */
@@ -427,7 +436,7 @@ describe("authentication: session", () => {
   });
 
   it("authorization resources: self, user and system are all evaluated", async () => {
-    const h = await up(); await addUser(h, { id: "a1", username: "adam", role: "admin" }); await addUser(h, { id: "m1", username: "mia", role: "member" });
+    const h = await upWithCore(); await addUser(h, { id: "a1", username: "adam", role: "admin" }); await addUser(h, { id: "m1", username: "mia", role: "member" });
     const admin = (await loginAs(h, "adam")).cookie; const member = (await loginAs(h, "mia")).cookie;
     assert.equal((await raw(h, { path: "/api/v1/tokens", headers: { cookie: member } })).status, 200, "self");
     assert.equal((await raw(h, { path: "/api/v1/breakglass", headers: { cookie: admin } })).status, 200, "user");
@@ -722,44 +731,52 @@ describe("clientError handling", () => {
 describe("break-glass wiring", () => {
   const reason = "needed to fix a support case";
 
-  async function twoUsers(h: Harness) {
+  async function twoUsers(h: Harness & { mini: MiniCore }) {
     await addUser(h, { id: "a1", username: "adam", role: "admin" }); await addUser(h, { id: "m1", username: "mia", role: "member" });
+    h.mini.addPerson("a1", "admin"); h.mini.addPerson("m1", "member");
     return { adam: (await loginAs(h, "adam")).cookie, mia: (await loginAs(h, "mia")).cookie };
   }
 
-  it("a grant is audited, told to the affected user through the inbox and the host hook", async () => {
-    const hooked: unknown[] = [];
-    const h = await up({ notifyBreakGlass: (n) => { hooked.push(n); } });
+  it("a grant is audited by the core and told to the affected user through the core's inbox and its delivery", async () => {
+    const delivered: unknown[] = [];
+    const h = await upWithCore({ notify: (n) => { delivered.push(n); } });
     const { adam, mia } = await twoUsers(h);
     const r = await write(h, adam, { path: "/api/v1/breakglass", body: { targetUserId: "m1", reason } });
     assert.equal(r.status, 201, r.text);
-    assert.equal(hooked.length, 1);
+    assert.equal(delivered.length, 1);
     const notices = await raw(h, { path: "/api/v1/me/notices", headers: { cookie: mia } });
     assert.equal(notices.json.notices.length, 1); assert.equal(notices.json.notices[0].holderUserId, "a1");
-    assert.ok(h.audit.events.some((e: Any) => e.action === "break-glass.granted"));
+    assert.ok(h.mini.audit.events.some((e: Any) => e.action === "break-glass.granted"));
   });
 
-  it("works without a host hook, and a throwing hook does not undo the grant", async () => {
-    const plain = await up(); const p = await twoUsers(plain);
+  it("works with the core's plain delivery, and a throwing delivery means no grant", async () => {
+    const plain = await upWithCore(); const p = await twoUsers(plain);
     assert.equal((await write(plain, p.adam, { path: "/api/v1/breakglass", body: { targetUserId: "m1", reason } })).status, 201);
-    const throwing = await up({ notifyBreakGlass: () => { throw new Error("mail down"); } }); const t = await twoUsers(throwing);
-    assert.equal((await write(throwing, t.adam, { path: "/api/v1/breakglass", body: { targetUserId: "m1", reason } })).status, 201);
+    const throwing = await upWithCore({ notify: () => { throw new Error("mail down"); } }); const t = await twoUsers(throwing);
+    const r = await write(throwing, t.adam, { path: "/api/v1/breakglass", body: { targetUserId: "m1", reason } });
+    assert.equal(r.status, 503); assert.equal(r.json.reason, "notice-unavailable");
+    assert.deepEqual((await raw(throwing, { path: "/api/v1/breakglass", headers: { cookie: t.adam } })).json.grants, []);
   });
 
-  it("the break-glass sink is the dedicated one when given, else the shared audit, else there is no break-glass", async () => {
+  it("break-glass is audited by the core only: the API's own sinks (dedicated or shared, or none) neither see nor gate it", async () => {
     const own = memoryAuditSink();
-    const a = await up({ breakGlassAudit: own }); const ua = await twoUsers(a);
+    const a = await upWithCore({ breakGlassAudit: own }); const ua = await twoUsers(a);
     assert.equal((await write(a, ua.adam, { path: "/api/v1/breakglass", body: { targetUserId: "m1", reason } })).status, 201);
-    assert.ok(own.events.some((e: Any) => e.action === "break-glass.granted"));
-    assert.ok(!a.audit.events.some((e: Any) => e.action === "break-glass.granted"));
+    assert.ok(a.mini.audit.events.some((e: Any) => e.action === "break-glass.granted"));
+    assert.ok(!own.events.some((e: Any) => e.action.startsWith("break-glass")), "not in the dedicated API sink");
+    assert.ok(!a.audit.events.some((e: Any) => e.action.startsWith("break-glass")), "not in the shared API sink");
 
-    const shared = await up(); const us = await twoUsers(shared);
-    assert.equal((await write(shared, us.adam, { path: "/api/v1/breakglass", body: { targetUserId: "m1", reason } })).status, 201);
-    assert.ok(shared.audit.events.some((e: Any) => e.action === "break-glass.granted"));
+    const none = await upWithCore({ noAudit: true }); const un = await twoUsers(none);
+    assert.equal((await write(none, un.adam, { path: "/api/v1/breakglass", body: { targetUserId: "m1", reason } })).status, 201, "no API sink does not stop the core");
+    assert.ok(none.mini.audit.events.some((e: Any) => e.action === "break-glass.granted"));
+  });
 
-    const none = await up({ noAudit: true }); const un = await twoUsers(none);
-    const r = await write(none, un.adam, { path: "/api/v1/breakglass", body: { targetUserId: "m1", reason } });
-    assert.equal(r.status, 503); assert.equal(r.json.reason, "audit-unavailable");
+  it("a core that does not answer break-glass means 503 and no grant anywhere", async () => {
+    const h = await up(); await addUser(h, { id: "a1", username: "adam", role: "admin" }); await addUser(h, { id: "m1", username: "mia", role: "member" });
+    const adam = (await loginAs(h, "adam")).cookie;
+    const r = await write(h, adam, { path: "/api/v1/breakglass", body: { targetUserId: "m1", reason } });
+    assert.equal(r.status, 503, r.text);
+    assert.equal(h.audit.events.filter((e: Any) => e.action.startsWith("break-glass")).length, 0);
   });
 });
 

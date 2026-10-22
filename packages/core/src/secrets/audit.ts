@@ -2,10 +2,12 @@ import { closeSync, fsyncSync, mkdirSync, openSync, writeSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import path from "node:path";
 import type { SecurePath } from "@plur1bus/module-api";
+import { createAuditChain, teeAuditSinks, type ChainRecord } from "../audit/chain.ts";
+import { createSecretRedaction } from "./redaction.ts";
 import { SecretError, type SecretPrincipal } from "./types.ts";
 
 export type AuditAction =
-  | "secret.set" | "secret.get" | "secret.reveal" | "secret.delete" | "secret.list"
+  | "secret.describe" | "secret.set" | "secret.get" | "secret.reveal" | "secret.delete" | "secret.list"
   | "secret.lease" | "secret.lease.read" | "secret.lease.revoke" | "secret.denied";
 
 /** Only these keys, only primitives: the audit detail cannot carry a value even by mistake. */
@@ -31,20 +33,27 @@ const actorOf = (p: SecretPrincipal) => ({
   host: hostname(),
 });
 
+/** The sink also learns the secret values this process holds (`registerSecret`), so `reason` and `purpose` cannot carry one. */
+export interface FileAuditSink extends AuditSink { registerSecret(value: string): void }
+
 /** `logs/audit.log`: the same line shape as crates/plur1bus/src/audit.rs (`{ at, actor, action, target, detail }`), one
- *  `O_APPEND` write per line, fsynced, private to the user. */
-export function createFileAuditSink(o: { file: string; secure: SecurePath; clock?: () => number }): AuditSink {
+ *  `O_APPEND` write per line, fsynced, private to the user. `detail` goes through the D111 redactor once, before the
+ *  record reaches either file, so the chain and this legacy copy hold the same redacted line. */
+export function createFileAuditSink(o: { file: string; secure: SecurePath; clock?: () => number }): FileAuditSink {
   const clock = o.clock ?? Date.now;
+  const redaction = createSecretRedaction();
+  const redactor = redaction.redactor();
+  const legacy = { append(rec: ChainRecord) {
+    mkdirSync(path.dirname(o.file), { recursive: true, mode: 0o700 });
+    const fd = openSync(o.file, "a", 0o600);
+    try { o.secure(o.file); writeSync(fd, `${JSON.stringify(rec)}\n`); fsyncSync(fd); } finally { closeSync(fd); }
+  } };
+  const sink = teeAuditSinks(createAuditChain({ dir: path.dirname(o.file), securePath: p => { o.secure(p); } }), legacy);
   return {
+    registerSecret: value => redaction.register(value),
     record(e) {
       try {
-        mkdirSync(path.dirname(o.file), { recursive: true, mode: 0o700 });
-        const fd = openSync(o.file, "a", 0o600);
-        try {
-          o.secure(o.file);
-          writeSync(fd, `${JSON.stringify({ at: clock(), actor: actorOf(e.principal), action: e.action, target: e.target, detail: sanitizeDetail(e.detail) })}\n`);
-          fsyncSync(fd);
-        } finally { closeSync(fd); }
+        sink.append({ at: clock(), actor: actorOf(e.principal), action: e.action, target: e.target, detail: redactor.value(sanitizeDetail(e.detail)) });
       } catch { throw new SecretError("audit-unavailable", "the audit log cannot be written; no secret was released or changed"); }
     },
   };

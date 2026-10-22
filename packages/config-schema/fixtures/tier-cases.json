@@ -2276,7 +2276,7 @@
                         "x-tier": "basic"
                       },
                       "privacyAck": {
-                        "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                        "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                         "type": "object",
                         "additionalProperties": false,
                         "required": [
@@ -2418,7 +2418,7 @@
                             "x-tier": "advanced"
                           },
                           "privacyAck": {
-                            "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                            "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                             "type": "object",
                             "additionalProperties": false,
                             "required": [
@@ -2539,7 +2539,7 @@
                   "x-tier": "basic"
                 },
                 "privacyAck": {
-                  "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                  "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
@@ -2697,7 +2697,7 @@
                       "x-tier": "advanced"
                     },
                     "privacyAck": {
-                      "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                      "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                       "type": "object",
                       "additionalProperties": false,
                       "required": [
@@ -3509,6 +3509,20 @@
           "additionalProperties": false,
           "default": {},
           "properties": {
+            "webHandoffBaseUrl": {
+              "type": "string",
+              "default": "",
+              "maxLength": 2048,
+              "description": "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment.",
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$"
+            },
             "logLevel": {
               "description": "Minimum severity written to the core log.",
               "enum": [
@@ -3735,7 +3749,7 @@
               "additionalProperties": false,
               "properties": {
                 "privacyAck": {
-                  "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                  "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
@@ -3784,7 +3798,7 @@
               "additionalProperties": false,
               "properties": {
                 "privacyAck": {
-                  "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                  "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
@@ -3836,6 +3850,23 @@
           "x-restart": "core",
           "x-tier": "advanced",
           "properties": {
+            "schicht15": {
+              "description": "Curated knowledge promotion settings passed to the Engine.",
+              "type": "object",
+              "additionalProperties": true,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "properties": {
+                "maxPromotionsPerRun": {
+                  "description": "Maximum memories promoted by one knowledge-update run; 0 means unlimited.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                }
+              }
+            },
             "baseDbPathOverride": {
               "type": "string",
               "x-restart": "core",
@@ -4452,7 +4483,7 @@
           }
         },
         "egress": {
-          "description": "Outgoing network policy (B4). Default deny: nothing is reachable until a host is listed. https only (plain http only to a listed loopback host when allowLoopback is on); private, link-local and metadata addresses are refused after name resolution whatever is listed.",
+          "description": "Outgoing network policy (B4). Ordinary traffic defaults to deny until a host is listed; named model-catalog file downloads use modelDownloads. https only (plain http only to a listed loopback host when allowLoopback is on); private, link-local and metadata addresses are refused after name resolution whatever is listed.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
@@ -4487,6 +4518,41 @@
               },
               "x-restart": "live",
               "x-tier": "advanced"
+            },
+            "modelDownloads": {
+              "description": "Named exception for credential-free GET/HEAD model artifact downloads. Ordinary provider/web traffic stays under allowHosts. Remove a host or disable to block subsequent downloads; DNS pinning and private-address refusal always apply.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "properties": {
+                "enabled": {
+                  "description": "Permit the named public model-catalog download policy. Turn off for an offline installation.",
+                  "type": "boolean",
+                  "default": true,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "allowHosts": {
+                  "description": "Exact catalogue/CDN hosts admitted for engine model files; no wildcards or inference endpoints.",
+                  "type": "array",
+                  "uniqueItems": true,
+                  "maxItems": 2,
+                  "default": [
+                    "huggingface.co",
+                    "us.aws.cdn.hf.co"
+                  ],
+                  "items": {
+                    "enum": [
+                      "huggingface.co",
+                      "us.aws.cdn.hf.co"
+                    ]
+                  },
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              }
             },
             "allowLoopback": {
               "description": "Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused.",

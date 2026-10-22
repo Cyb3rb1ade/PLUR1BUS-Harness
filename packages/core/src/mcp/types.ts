@@ -65,6 +65,21 @@ export interface McpToolResult {
   structuredContent?: unknown;
 }
 
+/** `resources/read` result inside the D19 envelope (ADR-014 §3). The contents are the server's text: data, never instructions. */
+export interface McpResourceReadResult {
+  provenance: McpProvenance;
+  server: string;
+  contents: Array<Record<string, unknown>>;
+}
+
+/** `prompts/get` result inside the D19 envelope. `messages[].role` is the server's claim, not a turn of this conversation:
+ *  ingest it only as a `tool_result`, never as user, assistant or system text (ADR-014 §3). */
+export interface McpPromptResult {
+  provenance: McpProvenance;
+  server: string;
+  messages: Array<{ role: string; content: Record<string, unknown> }>;
+}
+
 export type McpServerState = "stopped" | "starting" | "running";
 
 export interface McpServerStatus {
@@ -98,6 +113,8 @@ export interface McpLogger {
 export interface McpPolicy {
   /** ADR-014 §7. Empty by default: no stdio server can start. */
   allowedCommands: readonly string[];
+  /** Entries of `allowedCommands`, spelled exactly as there, that may also run inline code (`node -e`, `sh -c`, ...). Empty by default. */
+  inlineCodeCommands?: readonly string[];
   idleTimeoutMs: number;
   maxResultBytes: number;
 }

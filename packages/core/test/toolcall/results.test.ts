@@ -524,7 +524,7 @@ describe("executeBatch and the approval policy (SICHERHEIT)", () => {
     assert.deepEqual(r1, r2); assert.equal(refused.asks.length, 1, "the owner is not asked again after a refusal unless the operationId changes");
   });
 
-  it(gap("executeBatch (idempotency key)", "distinct (scope, operationId) pairs get distinct keys", "scope 'a:b' + operationId 'c' and scope 'a' + operationId 'b:c' share one key"), { todo: gap("executeBatch (idempotency key)", "distinct (scope, operationId) pairs get distinct keys", "scope 'a:b' + operationId 'c' and scope 'a' + operationId 'b:c' share one key") }, async () => {
+  it(gap("executeBatch (idempotency key)", "distinct (scope, operationId) pairs get distinct keys", "scope 'a:b' + operationId 'c' and scope 'a' + operationId 'b:c' share one key"), async () => {
     const keys: string[] = [];
     const record = async (_c: BatchCall, key: string) => { keys.push(key); };
     await executeBatch("a:b", [{ name: "n", arguments: {}, parallelSafe: true, operationId: "c" }], record, new MemoryIdempotency());
@@ -533,7 +533,7 @@ describe("executeBatch and the approval policy (SICHERHEIT)", () => {
     assert.notEqual(keys[0], keys[1]);
   });
 
-  it(gap("executeBatch (cross-scope cache)", "a call in another scope is decided by its own policy and approval", "a cached, approved result of scope 'alice:s1'+op 'x' is served to scope 'alice'+op 's1:x' without any approval"), { todo: gap("executeBatch (cross-scope cache)", "a call in another scope is decided by its own policy and approval", "a cached, approved result of scope 'alice:s1'+op 'x' is served to scope 'alice'+op 's1:x' without any approval") }, async () => {
+  it(gap("executeBatch (cross-scope cache)", "a call in another scope is decided by its own policy and approval", "a cached, approved result of scope 'alice:s1'+op 'x' is served to scope 'alice'+op 's1:x' without any approval"), async () => {
     const { ran, asks, executorFor } = rig(["alice"]);
     const shared = new MemoryIdempotency();
     // First scope: approved and executed.
@@ -543,5 +543,18 @@ describe("executeBatch and the approval policy (SICHERHEIT)", () => {
     // Expected: mallory is evaluated on her own (refused). Observed: nothing in her scope is evaluated if the keys collide.
     assert.equal(r.isError, true);
     assert.equal(r.error?.code, "tool-not-approved");
+    assert.deepEqual(ran, ["payload"], "mallory's call was never executed");
+    assert.deepEqual(asks.map(x => x.agentId), ["alice", "mallory"], "mallory was asked on her own");
+  });
+
+  it("the same scope and operationId (both containing ':' or a backslash) still hit the cache without a new approval", async () => {
+    const { ran, asks, executorFor } = rig(["alice"]);
+    const shared = new MemoryIdempotency();
+    await executeBatch("alice:s1", [net("payload", "x:y")], executorFor("alice"), shared);
+    const [r] = await executeBatch("alice:s1", [net("payload", "x:y")], executorFor("alice"), shared) as [{ isError: boolean }];
+    assert.equal(r.isError, false); assert.deepEqual(ran, ["payload"]); assert.equal(asks.length, 1);
+    await executeBatch("a\\", [net("p", "b")], executorFor("alice"), shared);
+    await executeBatch("a\\", [net("p", "b")], executorFor("alice"), shared);
+    assert.equal(asks.length, 2, "backslash scopes cache normally too");
   });
 });

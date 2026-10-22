@@ -6,14 +6,18 @@ use plur1bus_rpc::{capabilities, RpcError};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 
-fn fixed_point<T: Serialize + DeserializeOwned>(v: &Value, raw: &[u8]) {
-    // Both entry points: from a parsed Value and straight from bytes (different serde_json code paths).
-    let from_bytes = serde_json::from_slice::<T>(raw);
+fn fixed_point<T: Serialize + DeserializeOwned>(v: &Value) {
     let Ok(t) = serde_json::from_value::<T>(v.clone()) else {
         return;
     };
+    // The byte path (`from_slice`, a different serde_json code path) must decide like `from_value`. It is fed the bytes of
+    // the parsed `Value`, not the raw input: a raw input may repeat a key, which `Value` collapses (last one wins, the way
+    // `Client` reads every line: `from_slice::<Value>` then `from_value`) while a derived struct read straight from bytes
+    // refuses it as `duplicate field`. That difference is by design (`fuzz_lines.rs` pins last-wins), not an inconsistency
+    // of the wire types, so it must not be part of this check.
+    let bytes = serde_json::to_vec(v).expect("a Value serialises");
     assert!(
-        from_bytes.is_ok(),
+        serde_json::from_slice::<T>(&bytes).is_ok(),
         "from_slice rejects what from_value accepts"
     );
     let first = serde_json::to_value(&t).expect("a parsed wire type serialises");
@@ -40,14 +44,14 @@ pub fn run(data: &[u8]) {
         let _ = capabilities(&text, &features);
     }
     match sel % 9 {
-        0 => fixed_point::<Request>(&v, rest),
-        1 => fixed_point::<Response>(&v, rest),
-        2 => fixed_point::<Notification>(&v, rest),
-        3 => fixed_point::<ErrorObject>(&v, rest),
-        4 => fixed_point::<Id>(&v, rest),
-        5 => fixed_point::<Capabilities>(&v, rest),
-        6 => fixed_point::<JournalLine>(&v, rest),
-        7 => fixed_point::<CoreStatus>(&v, rest),
-        _ => fixed_point::<ExtInspection>(&v, rest),
+        0 => fixed_point::<Request>(&v),
+        1 => fixed_point::<Response>(&v),
+        2 => fixed_point::<Notification>(&v),
+        3 => fixed_point::<ErrorObject>(&v),
+        4 => fixed_point::<Id>(&v),
+        5 => fixed_point::<Capabilities>(&v),
+        6 => fixed_point::<JournalLine>(&v),
+        7 => fixed_point::<CoreStatus>(&v),
+        _ => fixed_point::<ExtInspection>(&v),
     }
 }

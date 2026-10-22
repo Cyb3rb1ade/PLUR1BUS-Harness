@@ -79,3 +79,4 @@
 .chat-menu .btn { white-space: normal; max-inline-size: 100%; }
 .promotion-fields { min-inline-size: 0; }
 .promotion-fields select, .promotion-fields input, .promotion-fields textarea { min-inline-size: 0; max-inline-size: 100%; }
+.chat-channel-text { white-space: pre-wrap; overflow-wrap: anywhere; }

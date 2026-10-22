@@ -57,7 +57,7 @@ the core sent. The last two are raised by the CLI itself.
 | `E_STORAGE` | 1 | A storage operation failed; `ids` may carry the ids needed to recover a half-finished step. |
 | `E_MEDIA_CAPABILITY` | 1 | The media index's provider or model cannot handle the modality (for example OpenAI embeddings in the media index). |
 | `E_MEDIA_LICENSE` | 1 | The licence of the media model has not been confirmed (for example a non-commercial licence). |
-| `E_MEDIA_PRIVACY` | 1 | The privacy pin is set and a cloud provider is configured for the media index; no request was sent. |
+| `E_MEDIA_PRIVACY` | 1 | “Only local models” is on and a cloud provider is configured for the media index; no request was sent. |
 | `E_MEDIA_UNAVAILABLE` | 1 | The media model is not installed, its key is missing, or the engine has no media index. |
 | `E_MEDIA_DIMENSION` | 1 | The query and the indexed documents differ in dimension, or the model does not support the configured dimension. |
 | `E_MEDIA_UNSUPPORTED_KIND` | 1 | The medium cannot be processed (decoder or frame extractor missing, format unknown). |
@@ -122,6 +122,7 @@ not lost: `plur1bus media job <id>` shows it.
 | `release-version-invalid` | A version that is not a semantic version (`major.minor.patch`, optional `-pre-release`) cannot be ordered against the other. |
 | `prerelease-on-stable` | The release is a pre-release and this install follows the stable channel; `--channel beta` follows pre-releases. |
 | `guard-unreadable`, `addons-unreadable`, `state-unreadable` | A file under `<home>/update/` does not parse; it is never treated as empty. |
+| `update-in-progress` | Another `update`, `update --rollback` or `setup` holds `<home>/update/update.lock` (or an interrupted update's process is still alive); nothing was changed, run it again when the other one has finished. `update --plan`, `--check` and `update status` never take the lock. |
 | `addon-incompatible` | A required add-on would be incompatible with the new version; `--force` disables it and updates anyway. |
 | `addon-disable-failed` | (Outcome `rolled-back`.) An add-on could not be disabled after the swap; the update was rolled back. |
 | `bundle-unreadable`, `bundle-invalid`, `archive-unsupported`, `archive-unsafe-entry`, `channel-mismatch` | An offline bundle (`--from`) is missing, lacks `manifest.json`, `manifest.json.minisig` or an artefact, is not a `.tar.zst`/`.zip`, holds an entry that is not a plain file or directory (traversal, absolute name, link, duplicate), or is for another channel. |
@@ -168,6 +169,18 @@ are no new top-level error codes. Messages contain no key material or pairing co
 The central RBAC gate additionally returns `E_UNAUTHORIZED` for a missing
 principal and `E_DENIED` for forbidden role/kind/token scope, using the existing
 RBAC reasons. Repeating a completed revocation is idempotent.
+
+## Audit chain repair (`plur1bus audit reanchor`)
+
+Existing `E_*` codes with these additive `reason` values; there are no new top-level error codes. See [audit-chain.md](audit-chain.md#recovery).
+
+| Reason | Error | Exit | Meaning |
+|---|---|---|---|
+| `nothing-to-repair` | `E_NOT_AVAILABLE` | 2 | Writers accept the chain and its anchor (or there is no `logs/` directory); also the one state a writer heals itself, an anchor one complete line behind. Nothing was changed. |
+| `reason-empty` | `E_INVALID_PARAMS` | 2 | `--reason` is empty after trimming (it is required unless `--dry-run`). |
+| `not-owner` | `E_UNAUTHORIZED` | 1 | `logs/` does not belong to the calling OS user or is writable by group or others. Nothing was changed. |
+| `audit-chain-locked` | `E_LOCKED` | 3 | Another process holds the chain lock for longer than 5 seconds (a running core that is writing). Try again. |
+| `audit-reanchor-failed` | `E_STORAGE` | 1 | A file could not be renamed or written. The old files are put back under their names. |
 
 ## CLI-Exit-Codes
 
@@ -234,3 +247,7 @@ The first collection (#423) found the inconsistencies below. All of them are fix
   `chat` prints one document per turn, so with several lines on stdin only the failed turns carry `error`.
   The exit stays 1; without `--json` nothing changes. A success is unchanged, in particular the documents the desktop
   app parses (`1staid.check/1`, `admin.smoke/1`, `daemon.status`, `state.snapshot/1`).
+
+### D106 sandbox adapter diagnostics (2026-10-15 Draft)
+
+Sandbox failure uses the existing tool error envelope (`tool-failed`); the host adapter may supply `sourceCode: sandbox-unavailable`, and exec retains its existing `spawn-failed` diagnostic inside the adapter failure. These are tool-local diagnostics, not new RPC error codes. Missing isolation never changes into a successful unsandboxed result. The trusted Rust limits launcher exits 125 on setup failure; the CLI exit-code checker already documents that code.

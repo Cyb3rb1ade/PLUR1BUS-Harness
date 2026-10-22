@@ -15,12 +15,13 @@ export type ReasoningLevel = typeof REASONING_LEVELS[number];
  * - `reasoning.effort`: OpenRouter's `reasoning` object on `/chat/completions`, and the Responses API's `reasoning`.
  * - `chat_template_kwargs.enable_thinking`: on/off toggle of Qwen3 / DeepSeek hybrid models behind vLLM or SGLang.
  * - `thinking.budget_tokens`: Anthropic extended thinking (0 = thinking off).
+ * - `output_config.effort`: stable top-level Anthropic effort on curated supported models.
  * - `thinkingConfig.thinkingBudget`: Gemini 2.5 thinking budget in tokens (0 = off where the model allows it).
  * - `thinkingConfig.thinkingLevel`: Gemini 3 thinking level.
  */
 export const REASONING_VENDOR_PARAMS = [
   "reasoning_effort", "reasoning.effort", "chat_template_kwargs.enable_thinking", "thinking.budget_tokens",
-  "thinkingConfig.thinkingBudget", "thinkingConfig.thinkingLevel",
+  "thinkingConfig.thinkingBudget", "thinkingConfig.thinkingLevel", "output_config.effort",
 ] as const;
 export type ReasoningVendorParam = typeof REASONING_VENDOR_PARAMS[number];
 
@@ -35,6 +36,8 @@ export interface ReasoningDescriptor {
   /** The level the provider uses when nothing is sent. */
   default?: ReasoningLevel;
   vendorParam?: ReasoningVendorParam;
+  /** Curated Anthropic models that need explicit adaptive thinking with effort. */
+  adaptiveThinking?: true;
   /** `effort` / `toggle`: the wire value per level (e.g. `off` -> "none" or false). Absent level = the level's own name. */
   values?: Partial<Record<ReasoningLevel, string | boolean>>;
   /** `budget`: token bounds; levels map onto them (see `budgetFor`). */
@@ -46,7 +49,7 @@ export interface ReasoningDescriptor {
 }
 
 /** What one request asks the adapter to write. */
-export interface ReasoningDirective { vendorParam: ReasoningVendorParam; value: string | number | boolean }
+export interface ReasoningDirective { vendorParam: ReasoningVendorParam; value: string | number | boolean; adaptiveThinking?: true }
 
 export const NO_REASONING: ReasoningDescriptor = Object.freeze({ kind: "none", levels: [], source: "unknown", note: "reasoning-unknown" }) as ReasoningDescriptor;
 
@@ -91,11 +94,12 @@ export function reasoningDirective(level: ReasoningLevel, d: ReasoningDescriptor
     return { vendorParam: d.vendorParam, value: budgetFor(level, d.budget) };
   }
   if (d.kind === "toggle") return { vendorParam: d.vendorParam, value: (d.values?.[level] as boolean | undefined) ?? level !== "off" };
-  return { vendorParam: d.vendorParam, value: d.values?.[level] ?? level };
+  return { vendorParam: d.vendorParam, value: d.values?.[level] ?? level, ...(d.adaptiveThinking ? {adaptiveThinking:true as const}:{}) };
 }
 
 /** Adapter guard: the directive's parameter must be one this wire can write, with a value of the right type. */
 export function checkReasoningDirective(r: ReasoningDirective, allowed: readonly ReasoningVendorParam[], wire: string): string | null {
+  if(r.adaptiveThinking !== undefined && (r.adaptiveThinking !== true || r.vendorParam !== "output_config.effort"))return "adaptiveThinking requires Anthropic output_config.effort";
   if (!allowed.includes(r.vendorParam)) return `reasoning parameter ${r.vendorParam} is not supported by the ${wire} wire`;
   const numeric = r.vendorParam === "thinking.budget_tokens" || r.vendorParam === "thinkingConfig.thinkingBudget";
   const boolean = r.vendorParam === "chat_template_kwargs.enable_thinking";

@@ -3,7 +3,7 @@
 // Normalizes CRLF, discards whitespace-only cards, enforces <= 500 cards batch limit.
 // Idempotency keys are deterministic from (profile, sourceFile, cardHash), never from runId.
 // USER.md cards are reported as unresolved-user-scope unless an unambiguous user principal is provided.
-// Generates curated memories.md and USER.md markdown mirrors in l.workspaceDir(agentId) for imported cards,
+// Generates memory/KNOWLEDGE.md and USER.md markdown mirrors in l.workspaceDir(agentId) for imported cards,
 // routed through the conflict strategy (skip/rename/replace).
 // Errors from memory.import are tracked in errors[] and counted as rejected, never swallowed.
 // NEVER writes directly to LanceDB or imports external vector store libraries.
@@ -14,6 +14,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
+import { assertKnowledgeTarget, formatImportedKnowledge, writeImportedKnowledge } from "../../knowledge/file.ts";
 import type { Layout } from "../../paths.ts";
 import {
   cardIdempotencyKey,
@@ -82,22 +83,35 @@ export interface HermesMemoryImportResult {
   errors: Array<{ sourceRef: string; reason: string }>;
 }
 
-function writeMirrorWithConflict(opts: {
+/**
+ * Writes one curated mirror file (memory/KNOWLEDGE.md / USER.md) under the conflict strategy. Returns a reason when the file was
+ * deliberately left alone because of a problem the caller reports (`target-unreadable`: the existing file cannot be read,
+ * so with --conflict replace its content could not be backed up and overwriting it would lose it), else undefined.
+ */
+export function writeMirrorWithConflict(opts: {
   targetPath: string;
   content: string;
   relTarget: string;
   sourceRef: string;
+  legacyContent?: string;
   agentId: string;
   onConflict: ConflictStrategy;
   replacedBackupDir?: string | undefined;
   ledger?: ImportLedger | undefined;
   l: Layout;
-}): void {
-  const { targetPath, content, relTarget, sourceRef, agentId, onConflict, replacedBackupDir, ledger, l } = opts;
+}): "target-unreadable" | undefined {
+  const { targetPath, content, relTarget, sourceRef, legacyContent, agentId, onConflict, replacedBackupDir, ledger, l } = opts;
+  const canonicalKnowledge = relTarget === "workspace/memory/KNOWLEDGE.md";
+  const workspace = l.workspaceDir(agentId);
+  if (canonicalKnowledge) assertKnowledgeTarget(workspace, l.home);
+  const writeTarget = (bytes: string) => {
+    if (canonicalKnowledge) writeImportedKnowledge(workspace, bytes, l.home);
+    else writeAtomicSync(targetPath, bytes, 0o600);
+  };
   const sha = createHash("sha256").update(content).digest("hex");
 
   if (!existsSync(targetPath)) {
-    writeAtomicSync(targetPath, content, 0o600);
+    writeTarget(content);
     if (ledger) {
       ledger.record({
         entity: "file",
@@ -108,15 +122,16 @@ function writeMirrorWithConflict(opts: {
         sha256: sha,
       });
     }
-    return;
+    return undefined;
   }
 
   // Target exists: check if content matches
   let existingContent = "";
+  let unreadable = false;
   try {
     existingContent = readFileSync(targetPath, "utf8");
   } catch {
-    existingContent = "";
+    unreadable = true;
   }
   const existingSha = createHash("sha256").update(existingContent).digest("hex");
   if (existingSha === sha) {
@@ -130,7 +145,7 @@ function writeMirrorWithConflict(opts: {
         sha256: sha,
       });
     }
-    return;
+    return undefined;
   }
 
   // Content differs: apply conflict strategy
@@ -146,17 +161,30 @@ function writeMirrorWithConflict(opts: {
         reason: "content-differs",
       });
     }
-    return;
+    return undefined;
   }
 
   if (onConflict === "replace") {
+    if (unreadable) {
+      // Never overwrite what cannot be read and so cannot be backed up (an empty backup would be a silent data loss).
+      ledger?.record({
+        entity: "file",
+        idempotencyKey: fileIdempotencyKey(agentId, relTarget, sha),
+        action: "conflict-skip",
+        sourceRef,
+        targetRef: relative(l.home, targetPath).replaceAll("\\", "/"),
+        sha256: sha,
+        reason: "target-unreadable",
+      });
+      return "target-unreadable";
+    }
     if (replacedBackupDir) {
       const rel = relative(l.home, targetPath).replaceAll("\\", "/");
       const bkp = join(replacedBackupDir, rel);
       mkdirSync(dirname(bkp), { recursive: true, mode: 0o700 });
       writeAtomicSync(bkp, existingContent, 0o600);
     }
-    writeAtomicSync(targetPath, content, 0o600);
+    writeTarget(content);
     if (ledger) {
       ledger.record({
         entity: "file",
@@ -167,7 +195,7 @@ function writeMirrorWithConflict(opts: {
         sha256: sha,
       });
     }
-    return;
+    return undefined;
   }
 
   if (onConflict === "rename") {
@@ -179,20 +207,22 @@ function writeMirrorWithConflict(opts: {
       const matchPath = join(dir, name);
       let existing: Buffer;
       try {
-        existing = readSourceFileSafe(matchPath, Buffer.byteLength(content));
+        existing = readSourceFileSafe(matchPath, Math.max(Buffer.byteLength(content), Buffer.byteLength(legacyContent ?? "")));
       } catch {
         continue;
       }
-      if (createHash("sha256").update(existing).digest("hex") === sha) {
+      const matchSha = createHash("sha256").update(existing).digest("hex");
+      const legacySha = canonicalKnowledge && legacyContent !== undefined ? createHash("sha256").update(legacyContent).digest("hex") : null;
+      if (matchSha === sha || matchSha === legacySha) {
         ledger?.record({
           entity: "file",
-          idempotencyKey: fileIdempotencyKey(agentId, relative(l.workspaceDir(agentId), matchPath), sha),
+          idempotencyKey: fileIdempotencyKey(agentId, relative(l.workspaceDir(agentId), matchPath), matchSha),
           action: "matched-existing",
           sourceRef,
           targetRef: relative(l.home, matchPath).replaceAll("\\", "/"),
-          sha256: sha,
+          sha256: matchSha,
         });
-        return;
+        return undefined;
       }
     }
     let idx = 1;
@@ -201,6 +231,7 @@ function writeMirrorWithConflict(opts: {
       idx++;
       renamePath = join(dir, `${base}.imported-${idx}${ext}`);
     }
+    if (canonicalKnowledge) assertKnowledgeTarget(workspace, l.home);
     writeAtomicSync(renamePath, content, 0o600);
     if (ledger) {
       ledger.record({
@@ -213,6 +244,7 @@ function writeMirrorWithConflict(opts: {
       });
     }
   }
+  return undefined;
 }
 
 export async function importHermesMemories(opts: {
@@ -314,7 +346,7 @@ export async function importHermesMemories(opts: {
             idempotencyKey: key,
             text,
             sourceRef: `hermes:${profileName}:${file}#${i + 1}${runSuffix}`,
-            targetRef: `agents/${agentId}/workspace/${file === "memories/MEMORY.md" ? "memories.md" : "USER.md"}`,
+            targetRef: `agents/${agentId}/workspace/${file === "memories/MEMORY.md" ? "memory/KNOWLEDGE.md" : "USER.md"}`,
           });
         }
       });
@@ -409,7 +441,7 @@ export async function importHermesMemories(opts: {
               skippedDuplicateCount++;
               cardResults.push({ idempotencyKey: c.idempotencyKey, outcome: "matched-existing", reason: "duplicate-in-batch" });
             } else {
-              await recordLinked(c, hit, principal, `agents/${agentId}/workspace/memories.md`);
+              await recordLinked(c, hit, principal, `agents/${agentId}/workspace/memory/KNOWLEDGE.md`);
             }
           }
           const batch = fullBatch.filter((c) => !linked.has(c.idempotencyKey));
@@ -673,11 +705,12 @@ export async function importHermesMemories(opts: {
     const wsDir = l.workspaceDir(agentId);
     if (existsSync(wsDir)) {
       if (successfulMemoryTexts.length > 0 && !memoryBatchFailed) {
-        const mirrorContent = successfulMemoryTexts.join("\n\n§\n\n") + "\n";
-        writeMirrorWithConflict({
-          targetPath: join(wsDir, "memories.md"),
+        const mirrorContent = formatImportedKnowledge(successfulMemoryTexts.join("\n\n§\n\n") + "\n", "hermes-agent-memory-import");
+        const mirrorProblem = writeMirrorWithConflict({
+          targetPath: join(wsDir, "memory", "KNOWLEDGE.md"),
           content: mirrorContent,
-          relTarget: "workspace/memories.md",
+          legacyContent: successfulMemoryTexts.join("\n\n§\n\n") + "\n",
+          relTarget: "workspace/memory/KNOWLEDGE.md",
           sourceRef: "memories/MEMORY.md",
           agentId,
           onConflict,
@@ -685,11 +718,12 @@ export async function importHermesMemories(opts: {
           ledger,
           l,
         });
+        if (mirrorProblem) errors.push({ sourceRef: `${profileName}:memories/MEMORY.md`, reason: mirrorProblem });
       }
 
       if (successfulUserTexts.length > 0 && !userBatchFailed) {
         const userMirrorContent = successfulUserTexts.join("\n\n§\n\n") + "\n";
-        writeMirrorWithConflict({
+        const userMirrorProblem = writeMirrorWithConflict({
           targetPath: join(wsDir, "USER.md"),
           content: userMirrorContent,
           relTarget: "workspace/USER.md",
@@ -700,6 +734,7 @@ export async function importHermesMemories(opts: {
           ledger,
           l,
         });
+        if (userMirrorProblem) errors.push({ sourceRef: `${profileName}:memories/USER.md`, reason: userMirrorProblem });
       }
     }
   }

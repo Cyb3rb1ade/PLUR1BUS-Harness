@@ -10,6 +10,28 @@ after(teardown);
 const opts = { skip: browserSkip };
 
 describe("setup wizard: flow", opts, () => {
+  test("shipped defaults are provider-specific, available and owner-confirmed; limited alternatives remain selectable", async () => {
+    await withApp({}, async app => {
+      seed(app.server.rpc, [
+        {provider:'anthropic',id:'claude-sonnet-5-5',kind:'chat',status:'available'},
+        {provider:'anthropic',id:'limited-alternative',kind:'chat',status:'available',toolUse:'limited tool use'},
+        {provider:'openai',id:'gpt-6-astra',kind:'chat',status:'available'},
+      ]);
+      await open(app); await next(app.page);
+      await app.page.getByLabel('Display name').fill('Hal'); await next(app.page);
+      const models=app.page.getByLabel('Chat model', {exact:true});
+      await app.page.waitForFunction(()=> (document.querySelector('#setup-model') as HTMLSelectElement)?.value === 'anthropic/claude-sonnet-5-5');
+      await models.selectOption('anthropic/limited-alternative');
+      assert.equal(await models.inputValue(),'anthropic/limited-alternative');
+      await app.page.getByLabel('Provider',{exact:true}).selectOption('openai');
+      assert.equal(await models.inputValue(),'');
+      await models.selectOption('openai/gpt-6-astra');
+      assert.equal(await models.inputValue(),'openai/gpt-6-astra');
+      await app.page.getByLabel('Provider',{exact:true}).selectOption('anthropic');
+      assert.equal(await models.inputValue(),'anthropic/claude-sonnet-5-5');
+    });
+  });
+
   test("all seven steps, exact config.set params, summary with a link to the chat", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);

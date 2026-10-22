@@ -6,7 +6,7 @@ needs, is generated into [api-surface.md](api-surface.md) and [openapi.json](ope
 behind it.
 
 The API is the only listening TCP surface, loopback only. It is a peer client of the core (local RPC), not part of the core
-process. It reuses the core's pure RBAC (`authorize`, the policy table, the break-glass registry) and the core's hash-chained
+process. It reuses the core's pure RBAC (`authorize`, the policy table) and the core's hash-chained
 audit log; see *Follow-ups* for how that import is done today.
 
 ## Ways in
@@ -27,8 +27,9 @@ stolen token cannot mint another one or switch off a second factor. The core's R
 Argon2id through `node:crypto` (no dependency), as a PHC string `$argon2id$v=19$m=19456,t=2,p=1$<salt>$<tag>`: 19 MiB, 2
 passes, 1 lane, 16-byte salt, 32-byte tag. ADR-007 defers the parameters to ADR-005, which states none; these are the OWASP
 minimum for Argon2id and are a decision to confirm. A stored hash is only trusted inside bounds (8 MiB to 256 MiB, 1 to 10
-passes, 1 to 4 lanes), so a planted record cannot make a login allocate gigabytes. After a good login a hash made with other
-parameters is replaced by one made with the current ones.
+passes, 1 to 4 lanes), so a planted record cannot make a login allocate gigabytes. After a good login a hash that is weaker than the current
+parameters in at least one of memory, passes or lanes is replaced by one made with the per-parameter maximum of the stored and
+the current ones; a hash that is equal or stronger is left alone, so a login never downgrades a record.
 
 - **Constant work.** An unknown name, a disabled account and an account without a password each cost one Argon2id
   verification against a dummy hash, and answer exactly like a wrong password (`401`, `reason: invalid-credentials`).
@@ -42,7 +43,7 @@ parameters is replaced by one made with the current ones.
 Cookie `plur1bus_session` (`__Host-plur1bus_session` over TLS): `HttpOnly`, `SameSite=Strict`, `Path=/`, `Secure` over TLS,
 no `Domain`. The value is 256 random bits; the server keeps only its SHA-256, in memory.
 
-- **Expiry.** Idle 30 min (each use pushes it out) and absolute 12 h; at most 64 live sessions, the oldest goes first.
+- **Expiry.** Idle 30 min (each use pushes it out) and absolute 12 h; at most 64 live sessions per account (a further login ends that account's own oldest one, never somebody else's) and 1024 in all (then the oldest session of the account holding the most goes). Both evictions are audited as `auth.session.evicted`.
 - **Fixation.** A cookie the login request carries is ended and never becomes the logged-in session; the new value is always
   fresh. The same holds for the TOTP step.
 - **Rights are read per request.** The role and object rights come from the user directory on every request, never from the
@@ -118,8 +119,18 @@ in whole seconds, `reason: rate-limited`.
 | `write` | 30 | 5 per s | writes |
 | `stream` | 6 | 1 per 5 s | opening `/events` |
 | `rpc` | 60 | 10 per s | `/rpc` |
+| `expensive` | 10 | 1 per 6 s | model-backed work, per person or token: the chat submit (`POST /api/v1/chats/{sessionId}/messages`) and, through `/rpc`, `session.submit`, `jobs.run`, `dreams.run`, `voice.realtime.start`, `media.generate`, `media.edit` |
 
-Forwarding headers (`X-Forwarded-For` and the like) are not trusted; the address is the socket's.
+Model-backed work also holds one slot of a global concurrency cap (default 8, `ApiServerOptions.expensiveConcurrency`) from the
+moment it is admitted until its response, a chat stream included, has ended. A refused call is `429`, `reason: rate-limited`,
+`Retry-After: 2`, and is audited as `auth.rate-limited` with `class: expensive`.
+
+Forwarding headers (`X-Forwarded-For` and the like) are not trusted; the address is the socket's. Behind `tailscale serve`
+(`remote.publish: tailnet`) that address is always `127.0.0.1`, so there it only bounds everybody together: the address bucket is
+ten times wider, a login also draws on a bucket per account name (`auth` class, so five wrong passwords for one name stop that
+name and no other), and signed-in requests are limited per principal or token. Tailscale's identity headers
+(`Tailscale-User-Login` and the like) are deliberately not used: the backend port is reachable by every local process, so the
+header proves nothing there, and the code base has no mechanism that binds it to `tailscaled`.
 
 ## Headers and the web app
 
@@ -133,20 +144,30 @@ Every response, errors and malformed requests included, carries `X-Content-Type-
   font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`. `<N>` is
   128 fresh random bits per response. It reaches the page at delivery time: every `<script>` and `<style>` tag without a
   nonce gets one and `__CSP_NONCE__` is replaced, so `packages/web` is not touched. No `unsafe-inline`, no `unsafe-eval`.
-- Paths are cleaned (dot segments, encodings, backslashes, NUL, dotfiles, drive and stream colons, trailing dot or space) and
+- Paths are cleaned (dot segments, encodings, backslashes, NUL, dotfiles, drive and stream colons, trailing dot or space, and the reserved Windows device names `CON`, `PRN`, `AUX`, `NUL`,
+  `COM1` to `COM9`, `LPT1` to `LPT9`, `CONIN$` and `CONOUT$` in any case and with any extension, on every platform) and
   symlinks must resolve inside the root. A path whose last segment has no extension is a client-side route and gets the shell;
   a missing file or anything under `/api` is a JSON `404`. Static requests pass the same Host, Origin and rate gates.
 
 ## Break-glass
 
-`POST /breakglass {"targetUserId","reason","ttlMinutes"?}` (Owner, Admin; cookie session only) on core's registry. The reason
-is mandatory (10 to 500 characters), the window is 1 to 60 minutes (15 by default), and the grant exists only after its audit
-entry was written: with no audit sink, or one that fails, the answer is `503 audit-unavailable` and there is no grant. The
-affected user can read the grant (who, why, until when) at `GET /me/notices`, and `notifyBreakGlass` is called for delivery
-over other channels (a throwing hook is audited, the grant stands). Grants end by themselves; lapsed ones are swept and
-audited twice a minute and on every list. `GET /breakglass` lists the caller's live grants; `POST /breakglass/revoke
-{"grantId"}` ends one (its holder or an Owner). A live grant is honoured by every `authorize` the dispatcher makes, and each
-use is audited; the memory routes that would use it are not built yet.
+There is one registry, the core's (D116, ADR-007 §Privacy): the grant, its audit line, the affected user's durable notice and the
+read that honours the grant (`memory.list`/`memory.show` with `targetUserId`, `session.get`) all live there. The REST routes
+check the shape of a request and forward it to the core as the caller (`breakglass.request`, `breakglass.list`,
+`breakglass.revoke`, `breakglass.notices`); the API keeps no registry, audit, notice or hook of its own, so a grant made over
+REST is the one a core read consults, and a grant made over RPC (the web UI does) shows in `GET /breakglass` and can be revoked
+here.
+
+`POST /breakglass {"targetUserId","reason","ttlMinutes"?}` (Owner, Admin; cookie session only). The reason is mandatory
+(10 to 500 characters by default, the core's `breakglass` configuration), the window is 1 to 60 minutes (15 by default), and
+the grant exists only after its audit entry was written and the notice stored: when the core cannot audit, the answer is `503
+audit-unavailable`; when it cannot store the notice, `503 notice-unavailable`; either way there is no grant and nobody was told.
+The affected user can read the grant (who, why, until when) at `GET /me/notices`, which is the core's notice list (the core
+records no issue time, so a notice has none); live delivery is the core's `breakglass.notice` event. Grants end by themselves; the
+core audits the lapse (`break-glass.expired`) on every list, read and request, and twice a minute. `GET /breakglass` lists the
+caller's live grants; `POST /breakglass/revoke {"grantId"}` ends one (its holder or an Owner). The installation owner is `owner`
+here and `local-owner` in the core; the routes translate. No API route is a memory read, so the dispatcher's own `authorize`
+needs no grant.
 
 ## Audit
 
@@ -158,11 +179,12 @@ caller typed (a failed login records a stable hash of it).
 |---|---|
 | `auth.login.success`, `auth.login.failure` | a login (`detail.via`: owner-token, password, password+totp, password+backup) |
 | `auth.logout`, `auth.logout-all`, `auth.session.rotated` | session ends or changes cookie |
+| `auth.session.evicted` | a session was forced out by a cap: `detail.reason` is `principal-cap` (the account's own oldest session, at 64 per account) or `global-cap` (the oldest session of the account holding the most, at 1024 in all); `detail.by` is the account whose new session caused it |
 | `auth.token.created`, `auth.token.revoked`, `auth.token.used-denied` | token lifecycle; a refused token (throttled) |
 | `auth.totp.enabled`, `auth.totp.disabled`, `auth.totp.failure`, `auth.totp.backup-used` | second factor |
 | `auth.rate-limited`, `auth.csrf-refused` | throttled to one per actor and target per minute |
 | `auth.denied` | a refused write (method other than GET) |
-| `break-glass.granted`, `.used`, `.expired`, `.revoked`, `.notify-failed` | written by core's registry |
+| `break-glass.granted`, `.used`, `.expired`, `.revoked`, `.notify-failed` | written by core's registry (the only one) |
 
 Auth events are queued and written off the request path (core shares the chain's OS lock, and a contended append would stop
 the event loop); a few retries, then the event is counted and logged by action name only. Break-glass writes the chain
@@ -172,7 +194,7 @@ requests keep answering and break-glass refuses.
 ## Running it
 
 `plur1bus-api --home <path> [--host <loopback>] [--port <n>] [--web-root <dir>]`. `createApiServer` takes `users`
-(`UserDirectory`), `tokens` (`TokenStore`), `totp` (`TotpStore`), `audit`, `breakGlassAudit`, `notifyBreakGlass`, `webRoot`,
+(`UserDirectory`), `tokens` (`TokenStore`), `totp` (`TotpStore`), `audit`, `breakGlassAudit` (the unbuffered sink for the API's own security writes; not break-glass), `webRoot`,
 `lockout` and the limits. **Historical foundation limitation (superseded by durable accounts and native attach):** the original entry wired no user store; only the compatibility owner token logged in, and tokens and second-factor
 secrets live in memory and are lost at a restart.
 
@@ -212,15 +234,45 @@ answer as an unreachable core. `agents.list` takes an object with an `agents` ar
 `agentId`; any other answer is a 502 with `reason: core-error`, and the core cannot override the `schema` id. The core's own text is
 never forwarded.
 
+The REST routes that pass a core refusal on (`agents.list`, `chats.*`, the desktop-attach routes, `remote.*`, the
+`remote.pairing.*` and `remote.trust.*` routes, and the break-glass routes for every refusal they do not map themselves) turn a
+refusal with a code of the closed `ErrorCode` enum into an `ApiError` (`fromCoreError`, `src/errors.ts`). The code is kept, the
+status comes from one total table (`statusOfCode`; `hardening-openapi.test.ts` fails for any code without its own status and
+for any status entry that is not in the enum, so none falls back to a bare 500) and the text is a fixed one per code. No route
+returns the ten codes `E_AGENT_EXISTS`, `E_AGENT_RIGHTS`, `E_AGENT_SECRETS_MISSING`, `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`,
+`E_INVITE_INVALID`, `E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE` and `E_VOICE_UNAVAILABLE` yet; the table and its tests
+fix the status they will get once one does.
+
+`POST /rpc` does not use this table. `rpcFailure` (`src/rpc-route.ts`) answers every application error with HTTP 200 and a
+JSON-RPC `error` object: the code is `error.data.error` (and `error.data.reason`), the JSON-RPC number is -32602 for
+`E_INVALID_PARAMS` and -32000 otherwise unless the core named one, and the message comes from a small fixed table. Only the
+layers in front of the route (session, CSRF, rate limit, body size) use HTTP statuses.
+
+The status table of the REST routes:
+
+| Status | Codes |
+|---|---|
+| 400 | `E_INVALID_PARAMS`, `E_CONFIG_INVALID`, `E_INBOX_CURSOR`, `E_INVITE_INVALID` |
+| 401 | `E_UNAUTHORIZED` |
+| 403 | `E_DENIED`, `E_APPROVAL_REQUIRED`, `E_MEDIA_LICENSE`, `E_MEDIA_PRIVACY`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE` |
+| 404 | `E_NOT_FOUND`, `E_AGENT_UNKNOWN`, `E_MODULE_UNKNOWN` |
+| 409 | `E_CONFLICT`, `E_AGENT_EXISTS`, `E_PROJECT_WIP_LIMIT` |
+| 422 | `E_AGENT_RIGHTS`, `E_AGENT_SECRETS_MISSING`, `E_VOICE_BUDGET`, `E_MEDIA_CAPABILITY`, `E_MEDIA_DIMENSION`, `E_MEDIA_UNSUPPORTED_KIND` |
+| 423 | `E_LOCKED` |
+| 502 | `E_RPC_VERSION` (from the core, it and `E_UNAUTHORIZED` reach the caller as 502 `E_CORE_UNAVAILABLE`, reason `core-handshake`) |
+| 503 | `E_CORE_UNAVAILABLE`, `E_NOT_AVAILABLE`, `E_MEDIA_UNAVAILABLE`, `E_VOICE_UNAVAILABLE` |
+| 500 | `E_INTERNAL`, `E_STORAGE` (the core's own failures reach the caller as 502 `E_CORE_UNAVAILABLE`, reason `core-error`) |
+
 ### Behaviour worth knowing
 
 - **Audit queue.** Auth events are queued (default 2000) and written in order from the event loop; each gets a few retries.
   When the queue is full the *new* event is dropped (the oldest stay), counted in `dropped` and logged once per burst. Events
   still queued when the process is killed (`SIGKILL`) are lost; a sink that throws after a partial write can produce a
   duplicate line. Break-glass does not use the queue.
-- **Rate limits per address.** The key is the socket address, which on loopback is always `127.0.0.1`: every local client
-  shares one `auth` bucket, so a local process can keep it empty and make the owner's login answer 429 until it refills.
-  The account lock is the real defence against guessing; the bucket is a cost brake.
+- **Rate limits per address.** The key is the socket address, which on loopback is always `127.0.0.1`: without a gateway every
+  local client shares one `auth` bucket, so a local process can keep it empty and make the owner's login answer 429 until it
+  refills. The account lock is the real defence against guessing; the bucket is a cost brake. In tailnet mode (all clients
+  behind `tailscale serve`) the address bucket is only an upper bound, see *Rate limits*.
 - **Core link.** There is no back-off: the next request simply tries again. The connect timeout is 1 s; a call (the handshake
   included) uses the default of 30 s, so a core that accepts the socket and never answers holds the shared pending connection
   that long; requests end earlier with 504/503. `close()` during a connect closes the late connection.
@@ -231,14 +283,7 @@ never forwarded.
 
 Each is a test marked `KNOWN GAP`; none is fixed because the fix changes behaviour.
 
-- **Global session cap** (`hardening-session.test.ts`): any signed-in account can fill the 64 sessions and evict everyone else's,
-  the owner's included. A per-principal limit would fix it.
-- **Stronger password hashes are replaced** (`hardening-login.test.ts`): `needsRehash` rewrites any hash whose parameters differ
-  from the current ones, a stronger hash included.
-- **No HTTP status for six core codes** (`hardening-openapi.test.ts`): `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`,
-  `E_INVITE_INVALID` and the voice codes (`E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE`, `E_VOICE_UNAVAILABLE`) fall back to 500. No route returns them yet.
-- **Windows device names** (`hardening-static.test.ts`): `CON`, `NUL`, `AUX`, `COM1`, `LPT1` (with or without an extension) are
-  not refused as path segments; on Windows opening one can block a thread-pool worker. Not verified on Windows.
+None is open in the hardening tests at the moment (`hardening-*.test.ts` has no `KNOWN GAP` left).
 
 ## Browser RPC and events
 
@@ -254,7 +299,7 @@ SSE subscriptions preserve audience metadata on the API-only local wire. Only th
 
 There are at most eight simultaneous streams per person. Heartbeats are comment lines every 25 seconds. Each connection has a 1 MiB queued-output cap; oversized individual events close the feed. Logout, revocation, eviction, rotation and expiry close affected streams; streams do not renew idle expiry. `rightsChanged` closes the person's streams and invalidates replay. A directory change also ends a stream at its next heartbeat. Local delegated RPC peers are bounded at 128 and idle peers are retired after five minutes.
 
-Config calls go to the real supervisor. It asks the core for the authenticated person's current role on each call, and config writes check all changed `x-write-roles` nodes, including descendants of parent replacements. Changed `x-audit` nodes produce durable `audit.config.set` records with personId and old/new values; inherited `x-sensitive` values and credential-named fields are redacted. Audit failure refuses the write. Records are written before the config rename and carry `phase: prepare` plus the intended targetRevision; a later I/O failure can leave an intent record without that revision becoming live. Dry runs create no audit records. Changes to providers/endpoints remove old privacy acknowledgments; new acknowledgments use the actual writer id. Changing provider definitions conservatively invalidates old acknowledgments for all functions. The concrete config annotations from merged PR #426 are enforced and covered by five-role schema tests and the real supervisor acceptance test.
+Config calls go to the real supervisor. It asks the core for the authenticated person's current role on each call, and config writes check all changed `x-write-roles` nodes, including descendants of parent replacements. Changed `x-audit` nodes produce durable `audit.config.set` records with personId and old/new values; inherited `x-sensitive` values and credential-named fields are redacted. A failure to write `audit.log` refuses the write; the records join the audit hash chain (`docs/audit-chain.md`) with the same line as `audit.log`. A chain that only refuses the records (anchor, integrity, lock timeout) does not block the write: the result carries `warnings: ["audit-chain-unavailable"]`, the rows go to `audit.log` with `chain: "refused"` and wait in `logs/audit-chain.pending.jsonl` until the chain accepts them again. Records are written before the config rename and carry `phase: prepare` plus the intended targetRevision; a later I/O failure can leave an intent record without that revision becoming live. Dry runs create no audit records. Changes to providers/endpoints remove old privacy acknowledgments; new acknowledgments use the actual writer id. Changing provider definitions conservatively invalidates old acknowledgments for all functions. The concrete config annotations from merged PR #426 are enforced and covered by five-role schema tests and the real supervisor acceptance test.
 
 Local trust still ends at the OS-user boundary: another process with the same user's file access can read the API credential, and possession of a cookie cannot prove a physical human initiated an action. Delegation does not raise surface trust or attest the browser. Account-password persistence and the invitation-to-account provisioning adapter are existing host responsibilities; the standalone API remains Owner-token-only unless a UserDirectory is supplied. See the [transport handoff](handoff/2026-10-14-web-transport.md) for validation and Owner questions.
 
@@ -262,7 +307,7 @@ Local trust still ends at the OS-user boundary: another process with the same us
 
 The standalone API stores credentials in `<home>/state/api/accounts.db` (SQLite WAL, schema version 1; directory 0700, database 0600). It stores normalized unique usernames, unique Core person links, Argon2id PHC hashes, TOTP secrets and backup hashes, personal token hashes, credential versions and timestamps. Role, object rights and `disabled` always come from Core; missing people fail closed.
 
-`POST /api/v1/invitations/redeem` takes `{code, username, password}` without a session. `code` is the shareable invitation token, not a channel pairing code. Origin/Fetch-Site, body and per-IP/global authentication rate limits apply. Invalid, expired, revoked and consumed codes answer identically with HTTP 400 `E_INVITE_INVALID`. Only after validation can HTTP 409 `E_CONFLICT` reveal an account collision. Invalid usernames/passwords use HTTP 400 `E_INVALID_PARAMS` and reasons `username`/`password`; usernames are NFC/trim/lowercase, 3–64 ASCII letters/digits/dot/underscore/hyphen, excluding owner/admin/root/system. Passwords require 12 characters, at most 1024 UTF-8 bytes, and must differ from the username. HTTP 201 creates the account without logging in. Storage failures return `E_STORAGE` with fixed text, never paths or SQLite details.
+`POST /api/v1/invitations/redeem` takes `{code, username, password}` without a session. `code` is the shareable invitation token, not a channel pairing code. Origin/Fetch-Site, body and per-IP/global authentication rate limits apply. Invalid, expired, revoked and consumed codes answer identically with HTTP 400 `E_INVITE_INVALID`. Only after validation can HTTP 409 `E_CONFLICT` reveal an account collision. Invalid usernames/passwords use HTTP 400 `E_INVALID_PARAMS` and reasons `username`/`password`; usernames are NFC/trim/lowercase, 3–64 ASCII letters/digits/dot/underscore/hyphen, excluding owner/admin/root/system. Passwords require 12 characters, at most 1024 UTF-8 bytes, and must differ from the username. HTTP 201 creates the account without logging in. The invitation is spent last: the account is activated first, so a storage failure leaves the invitation redeemable, and a consumption that fails afterwards takes the account back out (audited as `invitation.account.failed`, reasons `activation-failed`, `revert-failed`, `pending-cleanup-failed`). Storage failures return `E_STORAGE` with fixed text, never paths or SQLite details.
 
 `POST /api/v1/accounts/bootstrap` creates the one password account linked to `local-owner`. It requires an authenticated bootstrap session, one-time CSRF and `{proof, username, password}` containing the current bootstrap token again. A password account named "owner" is never a bootstrap alias.
 

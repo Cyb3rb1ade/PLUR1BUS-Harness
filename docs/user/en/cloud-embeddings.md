@@ -46,7 +46,7 @@ An existing memory store is tied to the model that built it. Do not change `engi
 - **Privacy confirmation is required:** every embedding endpoint outside loopback (`localhost`, `127.0.0.0/8`, `::1`) needs `memory.embedding.privacyAck` for exactly that provider and endpoint. Changing the provider or address makes an old confirmation invalid. From the next release the reranker needs its own `memory.reranker.privacyAck`, bound to the provider.
 - **Keys never go into the configuration:** a plaintext `apiKey` or a `baseUrl` with a user name or password is refused. Use `apiKeyEnv`. The spelling `baseURL` is refused as well, because the engine would ignore it and call its default endpoint.
 - **No silent fallback:** a `fallback` model is refused. If the hosted service is unreachable, indexing and recall report the error; they never switch to another model or vector space, which would corrupt search results.
-- **Local only:** from the next release, `privacy.localOnly` refuses a cloud embedding or reranker endpoint ([privacy.md](privacy.md)).
+- **Only local models:** from the next release, `privacy.localOnly` refuses a cloud embedding or reranker endpoint ([privacy.md](privacy.md)).
 
 ## Error messages
 
@@ -60,5 +60,5 @@ An existing memory store is tied to the model that built it. Do not change `engi
 ## Next
 
 - Migrate an existing store to a new embedding model: [reembed.md](reembed.md)
-- Privacy and Local only: [privacy.md](privacy.md)
+- Privacy and "Only local models": [privacy.md](privacy.md)
 - Configure model providers and profiles: [providers.md](providers.md)

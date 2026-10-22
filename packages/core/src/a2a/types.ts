@@ -105,6 +105,12 @@ export interface A2aLimits {
   /** Failed authentications per minute per remote address before it is refused outright. */
   failedAuthPerMinute: number;
   maxLiveTasksPerPeer: number; maxStoredTasks: number; retentionMs: number; replyTimeoutMs: number;
+  /** Stored tasks one peer may hold once the store is full (its fair share). Default: `maxStoredTasks` / number of peers, at least 1. */
+  maxStoredTasksPerPeer?: number;
+  /** UTF-8 bytes of one task's reply kept in memory; the rest is cut and the reply ends in a marker. */
+  maxReplyBytes: number;
+  /** Stream events one task's log holds; past it, reply text is coalesced into one tail event instead of one event per chunk. */
+  maxEventsPerTask: number;
   maxHistoryLength: number;
   maxStreamConnectionsPerPeer: number;
   pushMaxAttempts: number;
@@ -114,6 +120,7 @@ export const DEFAULT_LIMITS: A2aLimits = {
   maxBodyBytes: 1024 * 1024, maxTextBytes: 64 * 1024, maxParts: 16, maxFileBytes: 256 * 1024, maxDataBytes: 64 * 1024,
   peerRatePerMinute: 60, addressRatePerMinute: 240, failedAuthPerMinute: 10,
   maxLiveTasksPerPeer: 8, maxStoredTasks: 1000, retentionMs: 60 * 60_000, replyTimeoutMs: 120_000,
+  maxReplyBytes: 256 * 1024, maxEventsPerTask: 1024,
   maxHistoryLength: 20,
   maxStreamConnectionsPerPeer: 8,
   pushMaxAttempts: 3,

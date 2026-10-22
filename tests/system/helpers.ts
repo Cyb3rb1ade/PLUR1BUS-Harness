@@ -39,7 +39,8 @@ export function cli(h: string, args: string[], opts: { json?: boolean; allowFail
     const out = execFileSync(BIN, all, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: CLI_TIMEOUT_MS, ...(opts.env ? { env: opts.env } : {}) });
     return opts.json === false ? out : JSON.parse(out);
   } catch (e: any) {
-    if (!opts.allowFail) throw new Error(`${all.join(" ")}: exit ${e.status}\n${e.stderr}`);
+    // With --json a failure is reported on stdout (a JSON error document) and stderr stays empty, so both go in.
+    if (!opts.allowFail) throw new Error(`${all.join(" ")}: exit ${e.status}${e.signal ? ` (${e.signal})` : ""}\nstderr: ${e.stderr}\nstdout: ${e.stdout}`);
     return { exit: e.status, stdout: e.stdout, stderr: e.stderr };
   }
 }
@@ -111,7 +112,12 @@ async function killChild(child: ChildProcess, signal: NodeJS.Signals): Promise<v
   await exited;
 }
 
-export const killCore = (core: RunningCore, signal: NodeJS.Signals): Promise<void> => killChild(core.child, signal);
+/** On Windows `core run` waits in a Rust wrapper instead of exec'ing Node. Kill
+ *  the actual ready.pid first, then reap the wrapper, so "core down" is real. */
+export async function killCore(core: RunningCore, signal: NodeJS.Signals): Promise<void> {
+  if (core.ready.pid !== core.child.pid) await killPid(core.ready.pid, signal);
+  await killChild(core.child, signal);
+}
 
 /** The engine's own warnings when a rerank did not succeed (verbatim prefixes from the pinned engine):
  *  lib/recall-pipeline.js — `recall-pipeline: rerank failed/timeout, falling back to unreranked: …` (throw or timeout);
@@ -180,9 +186,10 @@ export function supervisorPid(h: string): number | null {
   return daemonStatus(h).supervisor?.pid ?? null;
 }
 
-/** The supervised core's status entry (`$defs/ChildStatus`), or null when no supervisor answers. */
+/** The supervised core's status entry (`$defs/ChildStatus`), or null when no supervisor answers. The supervisor also
+ *  monitors the loopback API (role `api`) and modules, so the core is found by its role, never by position. */
 export function coreChild(h: string): any | null {
-  return daemonStatus(h).children?.[0] ?? null;
+  return daemonStatus(h).children?.find((c: any) => c.role === "core") ?? null;
 }
 
 /** The supervised core's pid as the supervisor reports it, or null (no supervisor, or no core process right now). */

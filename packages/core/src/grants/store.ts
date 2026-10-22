@@ -7,13 +7,15 @@
 //  - revoked / consumed in the chain wins over a row that says otherwise; `lastUsedAt` is taken from the chain only.
 // `list`/`get` therefore never return a grant the chain does not vouch for.
 import { createHash } from "node:crypto";
+import { realpathSync } from "node:fs";
+import { homedir } from "node:os";
 import type { DatabaseSync } from "node:sqlite";
 import { ApprovalChain, ApprovalChainError, type ChainEntry } from "../approvals/chain.ts";
 import { transaction } from "../approvals/db.ts";
 import { CAPABILITIES, DEFAULTS, GRANT_SCOPES, scopeRank, type GrantScope, type SurfaceTrust } from "../policy/capabilities.ts";
-import { grantExpiry, type Clock, type Grant, type GrantMatch, type GrantSource } from "../policy/decide.ts";
+import { grantExpiry, maxScopeFor, requiredSurface, type Clock, type Grant, type GrantMatch, type GrantSource } from "../policy/decide.ts";
 import type { PolicyAudit, PolicyAuditAction } from "../policy/audit.ts";
-import { checkSyntax, isPathRefusal } from "../policy/paths-index.ts";
+import { checkSyntax, grantReachesSystemTree, isPathRefusal } from "../policy/paths-index.ts";
 
 /** A use is chained at most this often per grant: `always` expiry (90 days) needs no finer granularity, the chain stays small. */
 export const USE_RECORD_GRANULARITY_MS = 60 * 60_000;
@@ -81,6 +83,8 @@ export interface GrantStoreOptions {
   audit?: PolicyAudit;
   /** used / expired / suspended only; created and revoked stay with the RPC handlers so they are not double-notified. */
   notify?: GrantLifecycleNotify;
+  /** The person's home directory for the §3 "a grant on home is T3 and at most task" rule. Defaults to `os.homedir()`. */
+  home?: string;
 }
 
 interface GrantRow {
@@ -112,12 +116,14 @@ export class GrantStore implements GrantSource {
   readonly #chain: ApprovalChain;
   readonly #clock: Clock;
   readonly #audit: PolicyAudit | undefined;
+  readonly #home: string | undefined;
   #notify: GrantLifecycleNotify | undefined;
   readonly #emitted = new Set<string>();
 
   constructor(o: GrantStoreOptions) {
     this.maxGrantDays = o.maxGrantDays ?? (() => 90);
     this.#audit = o.audit;
+    this.#home = o.home;
     this.#db = o.db;
     this.#chain = o.chain;
     this.#clock = o.clock;
@@ -240,6 +246,18 @@ export class GrantStore implements GrantSource {
     });
   }
 
+  /**
+   * Spec §3: does a path grant on `path` reach a home directory, a drive root, `/`, `/Users`, `C:\Users` or a system tree? Such a grant
+   * is T3 and at most `task` (see `maxScopeFor`/`requiredSurface` with the `systemTree` flag). The home is compared by its spelling and by
+   * its real path, so a home that is a link is still recognised.
+   */
+  reachesSystemTree(path: string, recursive: boolean): boolean {
+    const home = this.#home ?? homedir();
+    let real: string | undefined;
+    try { real = realpathSync.native(home); } catch { /* an unresolvable home is compared by its spelling */ }
+    return grantReachesSystemTree(path, recursive, { homes: real !== undefined && real !== home ? [home, real] : [home] });
+  }
+
   // ---- write side ----
 
   create(i: CreateGrantInput): StoredGrant {
@@ -277,6 +295,12 @@ export class GrantStore implements GrantSource {
       // be stored as a grant that silently never matches (or, for "/", looks like a grant over everything).
       const rest = m.path.split(/[\\/]/).slice(1);
       if (rest.length === 0 || rest.some((seg) => seg === "" || seg === ".")) bad("invalid-grant", "grant path must be canonical (no root-only path, trailing or doubled separator, or '.' segment)");
+      // §3: home, drive roots, `/`, `/Users`, `C:\Users` and system trees are never roots; a grant that reaches one is T3 and at most `task`.
+      if (this.reachesSystemTree(m.path, m.recursive)) {
+        const flags = { outsideRoots: true, denyListHit: false, systemTree: true };
+        if (scopeRank(i.scope) > scopeRank(maxScopeFor(def!, flags))) bad("ceiling-exceeded", `a grant on a home, drive root or system tree is at most ${maxScopeFor(def!, flags)}`);
+        if (i.surface < requiredSurface(def!, i.scope, flags)) bad("surface-too-low", "a grant on a home, drive root or system tree needs a decision from T3");
+      }
     }
     const now = this.#clock.now();
     const id = i.id ?? `grt_${createHash("sha256").update(`${now}:${Math.random()}:${process.pid}`).digest("hex").slice(0, 24)}`;
