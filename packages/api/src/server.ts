@@ -29,9 +29,8 @@ import { PasswordLogin, type LockoutPolicy } from "./login.ts";
 import { MemoryTokenStore, MemoryTotpStore } from "./memory-stores.ts";
 import type { TokenStore, TotpStore, UserDirectory } from "./ports.ts";
 import { LoginChallenges } from "./challenge.ts";
-import { DEFAULT_RATE_CLASSES, RateLimiter, type RateClasses } from "./rate-limit.ts";
-import { createBreakGlass, type AuditSink, type BreakGlassNotice, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
-import { NoticeInbox } from "./notices.ts";
+import { ConcurrencyLimit, DEFAULT_EXPENSIVE_CONCURRENCY, DEFAULT_RATE_CLASSES, EXPENSIVE_RPC_METHODS, RateLimiter, SHARED_ADDRESS_SCALE, type RateClasses } from "./rate-limit.ts";
+import { authorize, type AuditSink, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
 import { redactFields } from "./redact.ts";
 import { createStaticServer } from "./static.ts";
 import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
@@ -66,12 +65,10 @@ export interface ApiServerOptions {
   tokens?: TokenStore;
   /** Where second-factor secrets live; the in-memory default forgets them at a restart (the standalone entry supplies the private durable adapter). */
   totp?: TotpStore; totpIssuer?: string;
-  /** Break-glass writes its own audit here and must not act unrecorded, so this is the unbuffered, fail-closed sink
-   *  (default: `audit`; with neither, there is no break-glass). */
+  /** The unbuffered, fail-closed sink for the API's own security-relevant writes (the bootstrap commit attempt, remote access
+   *  changes); default: `audit`. Break-glass is not one of them: its single registry, audit and notice live in the core, and
+   *  the REST routes forward to it. */
   breakGlassAudit?: AuditSink;
-  /** Tells the affected user about a grant over their cards, through whatever channel the host has (delivery is a
-   *  follow-up). The API's own inbox (`GET /me/notices`) is filled either way. A throwing hook is audited, the grant stands. */
-  notifyBreakGlass?: (notice: BreakGlassNotice) => void;
   /** The hash-chained audit log of the core, or any sink with the same `append`. Without one nothing is audited. */
   audit?: AuditSink;
   /** The built web app (`packages/web/dist`): served read-only at `/` and below, never under `/api`, with a CSP nonce per
@@ -84,7 +81,7 @@ export interface ApiServerOptions {
   /** A PEM key and certificate: the listener is then HTTPS, the cookie `Secure`, HSTS is sent. */
   tls?: { key: string | Buffer; cert: string | Buffer };
   logger?: ApiLogger; clock?: Clock;
-  limits?: Partial<ApiLimits>; rateClasses?: RateClasses; sessionLimits?: SessionLimits; lockout?: Partial<LockoutPolicy>;
+  limits?: Partial<ApiLimits>; rateClasses?: RateClasses; /** Most model-backed operations (chat turn, job or dream run, realtime voice) running at once, installation-wide. Default 8. */ expensiveConcurrency?: number; sessionLimits?: SessionLimits; lockout?: Partial<LockoutPolicy>;
   /** Test seam: routes served besides the table, to prove what the dispatcher does with a route that declares nothing. */
   extraRoutes?: ReadonlyArray<{ spec: RouteSpec; handler: Handler }>;
 }
@@ -157,17 +154,22 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const sessions = o.sharedSessions ?? new SessionStore(clock, o.sessionLimits ?? DEFAULT_SESSION_LIMITS);
   const forgetConnection = sessions.onEnd(forgetWebConnection);
   const limiter = new RateLimiter(clock, o.rateClasses ?? DEFAULT_RATE_CLASSES);
+  const expensiveSlots = new ConcurrencyLimit(o.expensiveConcurrency ?? DEFAULT_EXPENSIVE_CONCURRENCY);
+  // Behind `tailscale serve` every tailnet client arrives from 127.0.0.1 (forwarding headers stay ignored on purpose), so the
+  // address tells clients apart no better than a constant: its bucket is only an upper bound, and the login name and the
+  // principal carry the real limits.
+  const sharedAddress = o.remote?.publish === "tailnet";
+  const ipScale = sharedAddress ? SHARED_ADDRESS_SCALE : 1;
   const audit = createAuditEmitter({ sink: o.audit, clock, log });
+  // A session forced out by a cap is not a logout: it is recorded against the person who lost it, with who caused it.
+  const forgetEvictions = sessions.onEvict(e => audit.emit("auth.session.evicted", e.session.principal.id, `user:${e.session.principal.id}`, { reason: e.reason, by: e.by.id }));
   const login = o.users ? new PasswordLogin({ users: o.users, clock, ...(o.lockout ? { policy: o.lockout } : {}) }) : undefined;
   const tokens = new TokenService({ store: o.tokens ?? new MemoryTokenStore(), clock });
   const totp = new TotpService({ store: o.totp ?? new MemoryTotpStore(), clock, issuer: o.totpIssuer ?? "PLUR1BUS Harness" });
   const challenges = o.sharedLoginChallenges ?? new LoginChallenges(clock);
-  const notices = new NoticeInbox(clock);
-  const noSink: AuditSink = { append() { throw new Error("no audit sink configured"); } };
-  const breakGlass = createBreakGlass({ audit: o.breakGlassAudit ?? o.audit ?? noSink, clock: () => clock.now(), host: "api", notify: (n) => { notices.add(n); o.notifyBreakGlass?.(n); } });
   const events = createEventsRoute({ core: o.core, sessions, initTimeoutMs: limits.handlerTimeoutMs, now: () => clock.now() });
   const perRequest = requestCore(o.core);
-  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
+  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
   const handlers = { ...buildHandlers(handlerDeps), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
@@ -181,9 +183,8 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   for (const spec of ROUTES) add(spec, handlers[spec.id]);
   for (const x of o.extraRoutes ?? []) add(x.spec, x.handler);
 
-  let sweeper: NodeJS.Timeout | undefined;
   let allowedHosts = new Set<string>(); let allowedOrigins = new Set<string>();
-  const ws=createWsRoute({sessions,cookieName,clock,limiter,audit,resolve,allowedHost:host=>allowedHosts.has(host),allowedOrigin:origin=>allowedOrigins.has(origin)});
+  const ws=createWsRoute({sessions,cookieName,clock,limiter,ipScale,audit,resolve,allowedHost:host=>allowedHosts.has(host),allowedOrigin:origin=>allowedOrigins.has(origin)});
   add(WS_ROUTES[0]!,async i=>{const ticket=ws.issue(i.sessionId!);if(!ticket)throw errors.unauthenticated();return {body:ticket};});
   add(WS_ROUTES[1]!,async()=>({status:426,body:{error:"E_NOT_AVAILABLE",reason:"upgrade-required"}}));
 
@@ -235,14 +236,14 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     if (az === "authenticated" || az === "delegated") return { effect: "allow", reason: "role" };
     // "user": some user, to be named by the handler, which asks the registry again with the real target.
     const resource: Resource = az.resource === "self" ? { kind: "user", userId: rbac.userId } : az.resource === "user" ? { kind: "user", userId: "*" } : { kind: "system" };
-    // The registry honours the caller's live break-glass grants and audits their use; without one it is plain authorize().
-    return breakGlass.authorize(rbac, az.action, resource);
+    // Break-glass grants live in the core's one registry and cover memory reads there; no API route is one, so this is plain authorize().
+    return authorize(rbac, az.action, resource);
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const t0 = process.hrtime.bigint();
     const ip = (req.socket.remoteAddress ?? "unknown").replace(/^::ffff:/, "");
-    let routeId = "-"; let principalId: string | undefined; let status = 500;
+    let routeId = "-"; let principalId: string | undefined; let status = 500; let releaseSlot: (() => void) | undefined;
     const rateLimited = (scope: string, cls: string, retryAfterSec: number): never => {
       audit.emit("auth.rate-limited", principalId ?? "anonymous", scope, { class: cls, route: routeId, ip });
       throw errors.rateLimited(retryAfterSec);
@@ -264,19 +265,23 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       if (referer !== undefined && req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS" && !refererAllowed(referer)) throw errors.forbidden("referer");
       const site = req.headers["sec-fetch-site"];
       if (site !== undefined && site !== "same-origin" && site !== "none") throw errors.forbidden("cross-site");
-      let methods = byPath.get(path); let pathParams: Record<string,string> = {};
+      let methods = byPath.get(path); let pathParams: Record<string,string> = {}; let badPath: ApiError | undefined;
       if(!methods) for(const [pattern,candidate] of byPath) {
         if(!pattern.includes("{"))continue;
         const names:string[]=[];
         const regex=new RegExp("^"+pattern.replace(/\{([a-zA-Z]+)\}/g,(_m,name)=>{names.push(name);return "([^/]+)";})+"$");
         const matched=regex.exec(path);if(!matched)continue;
-        pathParams=Object.fromEntries(names.map((name,index)=>[name,decodeURIComponent(matched[index+1]!)]));methods=candidate;break;
+        // A malformed percent escape is the client's mistake: 400, after the address bucket, never an unhandled URIError.
+        try{pathParams=Object.fromEntries(names.map((name,index)=>[name,decodeURIComponent(matched[index+1]!)]));methods=candidate;}
+        catch{badPath=errors.badRequest("path","the request path has an invalid percent-encoding");}
+        break;
       }
       const route = methods?.get(req.method ?? "");
       const cls = route?.spec.rate ?? "read";
       if (route?.spec.id === "invitation.redeem") { const global = limiter.take("auth", "invitation:global"); if (!global.ok) rateLimited("invitation:global", "auth", global.retryAfterSec); }
-      const ipVerdict = limiter.take(cls, `ip:${ip}`);
+      const ipVerdict = limiter.take(cls, `ip:${ip}`, ipScale);
       if (!ipVerdict.ok) rateLimited(`ip:${ip}`, cls, ipVerdict.retryAfterSec);
+      if (badPath) throw badPath;
       if (!methods) {
         // Not an API route: the app shell and its assets, if a web root is configured. Public by design (the sign-in page
         // must load before anyone is signed in), read-only, files below the root only, and never anything under /api.
@@ -375,6 +380,11 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         throw errors.undeclared();
       }
 
+      // Model-backed work (ADR-004): the class bucket above is per principal; this slot is the installation-wide cap. It is held
+      // until the response, a chat stream included, is finished (`finally`).
+      const takeSlot = (): void => { releaseSlot = expensiveSlots.tryAcquire(); if (!releaseSlot) rateLimited("expensive:concurrency", "expensive", 2); };
+      if (spec.rate === "expensive") takeSlot();
+
       if (spec.id === "web.events") {
         if (target.includes("?")) throw errors.badRequest("query", "event credentials and filters cannot be in a URL");
         status = 200;
@@ -393,6 +403,12 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         catch (e) { if (spec.id !== "web.rpc") throw e; status = 200; send(res, 200, rpcFailure(null, { error: "E_INVALID_PARAMS", code: -32700, reason: "parse-error" })); return; }
       } else if (declared !== undefined && declared !== "0") {
         await readBody(req, bodyLimit); // counted against the limit, then ignored
+      }
+      if (spec.id === "web.rpc" && EXPENSIVE_RPC_METHODS.has((body as { method?: unknown } | null)?.method as string)) {
+        const scope = rateKey ?? `principal:${principalId}`;
+        const v = limiter.take("expensive", scope);
+        if (!v.ok) rateLimited(scope, "expensive", v.retryAfterSec);
+        takeSlot();
       }
 
       let timer: NodeJS.Timeout | undefined;
@@ -428,6 +444,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       status = err.status;
       send(res, err.status, errorBody(err), err.headers);
     } finally {
+      releaseSlot?.();
       log.info("request", { method: req.method, route: routeId, status, ip, principal: principalId, ms: Number((process.hrtime.bigint() - t0) / 1_000_000n) });
     }
   }
@@ -467,16 +484,13 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           allowedOrigins = new Set([...allowedHosts].map((h) => `${scheme}://${h}`));
           if(transport.origin){allowedHosts=new Set([transport.hostHeader!]);allowedOrigins=new Set([transport.origin]);}
           const hostPart = bindHost.includes(":") ? `[${bindHost}]` : bindHost;
-          // Grants also end when nobody asks: lapsed ones are swept (and audited) twice a minute.
-          sweeper = setInterval(() => { try { breakGlass.sweep(); } catch { /* the next sweep retries */ } }, 30_000); sweeper.unref();
           log.info("listening", { host: bindHost, port: a.port, tls });
           resolveListen({ host: bindHost, port: a.port, url: `${scheme}://${hostPart}:${a.port}` });
         });
       });
     },
     close() {
-      forgetConnection(); ws.close(); events.close();
-      if (sweeper) clearInterval(sweeper);
+      forgetConnection(); forgetEvictions(); ws.close(); events.close();
       return new Promise((resolveClose) => { server.close(() => resolveClose()); server.closeAllConnections(); });
     },
   };

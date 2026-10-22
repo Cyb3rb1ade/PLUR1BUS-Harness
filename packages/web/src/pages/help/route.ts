@@ -10,6 +10,16 @@ export function splitSub(sub: string | undefined): { slug: string; anchor: strin
 
 type Entry = { slug: string; title: string };
 
+export type DocLang = "de" | "en";
+
+/** `#/help/de/wiederkehrende-aufgaben` pins a page to one language's handbook, whatever the UI language is. This is how the
+ *  "German/English version of this page" links work: the two versions often have different slugs, and some have the same one
+ *  (`breakglass`), so a bare slug cannot name the other language. No prefix: the UI language decides (see `pickDoc`). */
+export function splitDocLang(slug: string): { lang: DocLang | null; slug: string } {
+  const m = /^(de|en)\/(.+)$/.exec(slug);
+  return m?.[1] && m[2] ? { lang: m[1] as DocLang, slug: m[2] } : { lang: null, slug };
+}
+
 /** Which handbook page to show: the requested slug in the UI language; when that language has no such page, the English one
  *  (German pages carry German file names, so `#/help/approvals` in a German UI is the English page); otherwise the first page. */
 export function pickDoc(slug: string, index: readonly Entry[], fallback: readonly Entry[]): { slug: string; useFallback: boolean } | null {

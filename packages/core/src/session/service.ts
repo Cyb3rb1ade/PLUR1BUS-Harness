@@ -26,6 +26,8 @@ export interface SessionServiceDeps {
   compaction?: CompactionConfig;
   prune?: PruneConfig;
   laya?: LayaDecisionPort;
+  /** Live `decision.confidence.pruning` floor for three-way pruning verdicts. */
+  pruneConfidence?: () => number;
   catalog?: ReadCatalog;
   /** Local resources owned by an archived session; observes committed archive/replacement only. */
   onSessionEnd?: (id: string) => void;
@@ -42,7 +44,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
   const maintenanceSignal = AbortSignal.any([d.signal,maintenanceAbort.signal]);
   const recovered = store.recoverRunningTurns().length;
   if (recovered > 0) d.logger.warn("session turns recovered as failed", { count: recovered });
-  const pruner = new ToolPruner(store, d.prune ?? defaultPrune(), { ...(d.laya ? { decide: d.laya } : {}), signal: maintenanceSignal, emit: (type, attrs) => d.logger.info(type, attrs) });
+  const pruner = new ToolPruner(store, d.prune ?? defaultPrune(), { ...(d.laya ? { decide: d.laya } : {}), ...(d.pruneConfidence ? { minConfidence: d.pruneConfidence } : {}), signal: maintenanceSignal, emit: (type, attrs) => d.logger.info(type, attrs) });
   const compactor = new Compactor(store, d.compaction ?? defaultCompaction(), {
     pruner,
     emit: (type, attrs) => d.logger.info(type, attrs),
@@ -71,7 +73,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
-  const methods = buildSessionMethods({ storeFor: id => service.forSession(id).store, modelProfiles: () => d.provider()?.modelProfiles?.() ?? [], store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
+  const methods = buildSessionMethods({ runtimeFor: id => { const r = service.forSession(id); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, ephemeral: () => { const r = service.ephemeral(); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, storeFor: id => service.forSession(id).store, modelProfiles: () => d.provider()?.modelProfiles?.() ?? [], defaultProfile: id => d.provider()?.defaultModelProfile?.(id), store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
   let volatile: SessionService | undefined;
   const service: SessionService = {
     ephemeral: () => volatile ??= openSessionService({ ...d, dbPath: ":memory:" }),

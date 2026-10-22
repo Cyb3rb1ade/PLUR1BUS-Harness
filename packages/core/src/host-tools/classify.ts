@@ -10,5 +10,5 @@ export async function classifyHostTool(tool: HostTool, args: unknown, o: { roots
   const raw = typeof a.cwd === 'string' ? a.cwd : tool.name === 'apps.open' && a.kind !== 'app' && a.kind !== 'url' && typeof a.target === 'string' && !/^[a-z][a-z0-9+.-]*:/i.test(a.target) ? a.target : undefined;
   if (raw === undefined) return { flags: { outsideRoots: true, denyListHit: false }, access };
   const c = await canonicalisePath(raw, { roots: o.roots, deny: o.deny, access, requireRoot: false, ...(o.roots[0] ? { cwd: o.roots[0].path } : {}) });
-  return c.ok ? { flags: { outsideRoots: c.rootId === null, denyListHit: false }, targets: [c.canonical], access } : { flags: { outsideRoots: true, denyListHit: true }, access };
+  return c.ok ? { flags: { outsideRoots: c.rootId === null, denyListHit: false, ...(c.systemTree ? { systemTree: true } : {}) }, targets: [c.canonical], access } : { flags: { outsideRoots: true, denyListHit: true }, access };
 }

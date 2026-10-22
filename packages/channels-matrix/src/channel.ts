@@ -766,6 +766,7 @@ export class MatrixChannel implements Channel {
       }
       try {
         await this.#host.receive({
+          accountId: this.#cfg.userId,
           channel: message.channel,
           chatId: message.chatId,
           chatKind: message.chatKind,

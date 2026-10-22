@@ -6,7 +6,7 @@
 //! the rule that `hostBridge` and `mcpApps` exist only when the manifest says so, whether an upgrade that asks for a new right
 //! changes the hash a person's consent is tied to, a SemVer matrix, a seeded mutation run that must never panic, and the
 //! boundaries (limit − 1, limit, limit + 1) of the archive caps with archives written by `zip::ZipWriter`.
-use plur1bus_ext::compat::capability_hash;
+use plur1bus_ext::compat::{acknowledgment_hash, capability_hash};
 use plur1bus_ext::manifest::{
     parse_manifest, valid_name, valid_publisher, P1xManifest, MAX_MANIFEST_BYTES, P1X_SCHEMA_JSON,
 };
@@ -636,12 +636,10 @@ fn adding_host_bridge_or_mcp_apps_in_an_upgrade_always_changes_the_hash() {
 
 /// SICHERHEIT. `declared_rights` also lists `remote:<url>` (an MCP server's endpoint) and `provider:<baseUrl>`; both come from
 /// manifest properties OUTSIDE `capabilities` (`remote.url`, `provider.baseUrl`). The consent a person gave is tied to
-/// `capability_hash(m.capabilities)` (`plur1bus::ext::commit::capabilities_hash(&record.capabilities)`, and `record.capabilities`
-/// is `m.capabilities`, `crates/plur1bus/src/ext/stage.rs`). So an upgrade that keeps `capabilities` and only changes the URL path
-/// on the already-allowed host gets a new declared right without a new acknowledgment. Fixing it changes what the acknowledgment
-/// covers (a security behaviour), so it is not changed here.
+/// `acknowledgment_hash(m)`, the hash of `acknowledged_capabilities(m)`: `m.capabilities` plus those endpoints
+/// (`plur1bus::ext::commit::capabilities_hash(&record.capabilities)` hashes the same block, because the records store it). So an
+/// upgrade that keeps `capabilities` and only changes the URL path on the already-allowed host no longer keeps the consent.
 #[test]
-#[ignore = "KNOWN GAP (SICHERHEIT): an upgrade that only changes remote.url or provider.baseUrl declares a new right but keeps the consent hash"]
 fn an_upgrade_that_only_changes_the_remote_or_provider_url_asks_for_consent_again() {
     let remote = |url: &str| {
         let mut v = base();
@@ -686,12 +684,107 @@ fn an_upgrade_that_only_changes_the_remote_or_provider_url_asks_for_consent_agai
             "the upgrade declares a new right: {before:?} → {after:?}"
         );
         assert_ne!(
-            capability_hash(&old.capabilities),
-            capability_hash(&new.capabilities),
+            acknowledgment_hash(&old),
+            acknowledgment_hash(&new),
             "the new right {:?} is declared but the consent hash is the same",
             after.difference(&before).collect::<Vec<_>>()
         );
     }
+}
+
+/// The counterpart: what stays the same keeps its consent. The same endpoint (a new version, new files) hashes the same, and a
+/// manifest without `remote` or `provider` hashes exactly as `capability_hash(capabilities)` did, so no recorded acknowledgment is
+/// invalidated by this change.
+#[test]
+fn an_unchanged_endpoint_or_no_endpoint_keeps_the_consent_hash() {
+    let remote = |url: &str, version: &str| {
+        let mut v = base();
+        v["name"] = json!("crm");
+        v["id"] = json!("demo/crm");
+        v["kind"] = json!("mcp-server");
+        v["version"] = json!(version);
+        v["remote"] = json!({ "url": url, "auth": "none" });
+        v["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["mcp.example.org"] });
+        caps(&v)
+    };
+    let (a, b) = (
+        remote("https://mcp.example.org/v1", "1.0.0"),
+        remote("https://mcp.example.org/v1", "1.1.0"),
+    );
+    assert_eq!(acknowledgment_hash(&a), acknowledgment_hash(&b));
+    // The endpoint is part of what is hashed; `capabilities` alone no longer is the whole consent.
+    assert_ne!(acknowledgment_hash(&a), capability_hash(&a.capabilities));
+
+    // `remote` and `provider` are the only extra inputs. `null` (the schema allows `remote: null`) adds nothing.
+    let mut v = base();
+    v["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["mcp.example.org"] });
+    let plain = caps(&v);
+    assert_eq!(
+        acknowledgment_hash(&plain),
+        capability_hash(&plain.capabilities)
+    );
+    assert_eq!(
+        plur1bus_ext::compat::acknowledged_capabilities(&plain),
+        plain.capabilities
+    );
+    let mut with_null = v.clone();
+    with_null["remote"] = Value::Null;
+    let nulled = caps(&with_null);
+    assert_eq!(
+        acknowledgment_hash(&nulled),
+        capability_hash(&nulled.capabilities)
+    );
+
+    // A skill's matrix of capabilities is unaffected, too.
+    let mut rng = Rng(SEED ^ 0x55);
+    for _ in 0..50 {
+        let mut v = base();
+        v["capabilities"] = random_capabilities(&mut rng);
+        let m = caps(&v);
+        assert_eq!(acknowledgment_hash(&m), capability_hash(&m.capabilities));
+    }
+}
+
+/// Whatever the endpoint and the capabilities do, a new declared right (capability or URL) never keeps the consent hash.
+#[test]
+fn a_new_declared_right_of_any_origin_changes_the_consent_hash() {
+    let mut rng = Rng(SEED ^ 0xE0);
+    let urls = [
+        "https://mcp.example.org/v1",
+        "https://mcp.example.org/v2",
+        "https://mcp.example.org/v1?tenant=b",
+        "https://mcp.example.org/",
+    ];
+    let make = |rng: &mut Rng| {
+        let mut v = base();
+        v["name"] = json!("crm");
+        v["id"] = json!("demo/crm");
+        v["kind"] = json!("mcp-server");
+        v["remote"] = json!({ "url": urls[rng.below(urls.len())], "auth": "none" });
+        v["capabilities"] = random_capabilities(rng);
+        v["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["mcp.example.org"] });
+        caps(&v)
+    };
+    let mut gained_url = 0;
+    for case in 0..300 {
+        let (old, new) = (make(&mut rng), make(&mut rng));
+        let before: BTreeSet<String> = ids(&old).into_iter().collect();
+        let after: BTreeSet<String> = ids(&new).into_iter().collect();
+        if after.difference(&before).any(|r| r.starts_with("remote:")) {
+            gained_url += 1;
+        }
+        if after.difference(&before).next().is_some() {
+            assert_ne!(
+                acknowledgment_hash(&old),
+                acknowledgment_hash(&new),
+                "seed {SEED:#x} case {case}: {before:?} → {after:?}"
+            );
+        }
+    }
+    assert!(
+        gained_url > 30,
+        "{gained_url} upgrades changed only the URL"
+    );
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import path from "node:path";
 import { matchDeny, type DenyEntry } from "../policy/paths.ts";
 import type { HostPlatform } from "./types.ts";
 import { joinPath } from "./types.ts";
@@ -9,6 +10,18 @@ const BEARER = /^Bearer\s+\S{8,}$/i;
 const HEX = /^[A-Fa-f0-9]{32,}$/;
 const FLAG = /^(?:--|-)(?:[\w-]*?(?:token|secret|pass(?:word)?|key|auth|credential|api[-_]?key))(?:[=:].*)?$/i;
 const REDACTED = "[redacted]";
+
+const ABSOLUTE = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/u;
+
+/**
+ * An environment override (`CLAUDE_CONFIG_DIR=/srv/agents/../claude`) is taken as a path, but an entry with a `.` or `..` segment never
+ * matches a canonical target, so the protection would silently be gone (and `canonicalisePath` refuses such an entry). Absolute values are
+ * collapsed lexically; a relative value is left as it is and is refused downstream.
+ */
+function collapse(platform: HostPlatform, value: string): string {
+  if (!ABSOLUTE.test(value) || !value.split(/[\\/]+/u).some((seg) => seg === ".." || seg === ".")) return value;
+  return (platform === "win32" || /^(?:[A-Za-z]:|\\\\)/u.test(value) ? path.win32 : path.posix).normalize(value);
+}
 
 export function denyEntriesFor(
   home: string,
@@ -77,7 +90,7 @@ export function denyEntriesFor(
       p(home, "AppData", "Roaming", "1Password"),
     );
   }
-  return [...names, ...paths.map((path) => ({ path }))];
+  return [...names, ...paths.map((entry) => ({ path: collapse(platform, entry) }))];
 }
 
 export function looksLikeSecret(token: string): boolean {

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import type { Page } from "playwright";
 import { withShell } from "./browser-harness.ts";
 
 test("all shell routes and dialog pass axe WCAG 2.1 AA in both themes and locales", async () => {
@@ -25,6 +26,7 @@ test("all shell routes and dialog pass axe WCAG 2.1 AA in both themes and locale
           for (const [actual, expected] of colors) assert.equal(actual, expected, "gradient allow-list must use the tested token pairs");
         }
         await page.locator(".toast").waitFor({ state: "detached", timeout: 4000 });
+        await wordmarkSettled(page);
         const results = await page.evaluate(async () => await (window as any).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } }));
         assertAxe(results, `${section}/${subpage} ${theme}/${locale}`);
       }
@@ -36,6 +38,16 @@ test("all shell routes and dialog pass axe WCAG 2.1 AA in both themes and locale
     }
   });
 });
+
+// A section change morphs the wordmark (190ms delay, then a 220ms max-width/opacity
+// transition). axe cannot resolve contrast for letters that are still partly
+// transparent and reports them as incomplete, so audit only the settled state.
+async function wordmarkSettled(page: Page) {
+  await page.waitForFunction(() => {
+    const mark = document.querySelector(".wordmark");
+    return mark !== null && mark.querySelector(".wordmark-letter.is-collapsed") === null && mark.getAnimations({ subtree: true }).length === 0;
+  });
+}
 
 function assertAxe(results: { violations: Array<{ id: string; nodes: unknown[] }>; incomplete: Array<{ id: string; nodes: Array<{ target: string[] }> }> }, context: string) {
   assert.deepEqual(results.violations.map(v => `${v.id} (${v.nodes.length})`), [], context);

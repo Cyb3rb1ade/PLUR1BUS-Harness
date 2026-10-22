@@ -524,3 +524,84 @@ describe("rollback: memory and store accounting (read from the ledger)", () => {
     assert.equal((await run(fx)).status, "planned");
   });
 });
+
+describe("rollback of a store swap that died between its two renames (hermes-stores commitStoreAdopt)", () => {
+  // The live store was moved to imports/<run>/replaced/lancedb, the staged copy never came in, and no ledger entry
+  // exists: state/lancedb is missing and the only copy of the harness store is the one moved aside.
+  const crashed = () => {
+    const fx = build({ pre: { "config.json": "{}" } });
+    mkdirSync(path.join(fx.runDir, "replaced", "lancedb"), { recursive: true });
+    writeFileSync(path.join(fx.runDir, "replaced", "lancedb", "marker.txt"), "live store");
+    return fx;
+  };
+  it("a dry run plans the restore, apply puts the moved-aside store back at state/lancedb", async () => {
+    const fx = crashed();
+    const plan = await run(fx);
+    assert.deepEqual(plan.changes.filter((c) => c.path === "state/lancedb"), [{ path: "state/lancedb", change: "restore" }]);
+    assert.equal(plan.storeUndoStatus, "restored");
+    const done = await run(fx, { apply: true });
+    assert.equal(done.status, "completed");
+    assert.equal(read(fx.abs("state/lancedb/marker.txt")), "live store");
+    assert.ok(!existsSync(path.join(fx.runDir, "replaced", "lancedb")));
+  });
+  it("does not touch a state/lancedb that is there (the swap never started, or the put-back worked)", async () => {
+    const fx = crashed();
+    mkdirSync(fx.abs("state/lancedb"), { recursive: true });
+    writeFileSync(fx.abs("state/lancedb/marker.txt"), "current store");
+    const plan = await run(fx);
+    assert.deepEqual(plan.changes.filter((c) => c.path === "state/lancedb"), []);
+    await run(fx, { apply: true });
+    assert.equal(read(fx.abs("state/lancedb/marker.txt")), "current store");
+  });
+});
+
+describe("rollback of a config.json the import created (docs/import.md §5.5, kept-modified)", () => {
+  const imported = "{\"imported\":true}\n";
+  const created = (): RollbackFixture => build({ created: { "config.json": imported }, agentsExisted: false });
+  const backup = (fx: RollbackFixture) => path.join(fx.runDir, "rolled-back", "replaced", "config.json");
+
+  it("an unchanged config is removed after a backup (the legitimate case keeps working)", async () => {
+    const fx = created();
+    const r = await run(fx, { apply: true });
+    assert.deepEqual(r.changes.filter((c) => c.path === "config.json"), [{ path: "config.json", change: "remove" }]);
+    assert.ok(!existsSync(fx.abs("config.json")));
+    assert.equal(read(backup(fx)), imported);
+  });
+
+  it("a config the user edited after the import is kept (backed up, reported kept-modified), in the dry run and on apply", async () => {
+    const fx = created();
+    writeFileSync(fx.abs("config.json"), "{\"imported\":true,\"mine\":1}\n");
+    assert.deepEqual((await run(fx)).changes.filter((c) => c.path === "config.json"), [{ path: "config.json", change: "kept-modified" }]);
+    const r = await run(fx, { apply: true });
+    assert.deepEqual(r.changes.filter((c) => c.path === "config.json"), [{ path: "config.json", change: "kept-modified" }]);
+    assert.equal(read(fx.abs("config.json")), "{\"imported\":true,\"mine\":1}\n", "the edited config stays");
+    assert.equal(read(backup(fx)), "{\"imported\":true,\"mine\":1}\n");
+    assert.equal(r.status, "completed");
+  });
+
+  it("--force removes the edited config, after the backup", async () => {
+    const fx = created();
+    writeFileSync(fx.abs("config.json"), "{\"mine\":1}\n");
+    await run(fx, { apply: true, force: true });
+    assert.ok(!existsSync(fx.abs("config.json")));
+    assert.equal(read(backup(fx)), "{\"mine\":1}\n");
+  });
+
+  it("a config without a recorded hash in the ledger is treated as modified (fail safe), like any created file", async () => {
+    const fx = created();
+    writeFileSync(fx.ledgerPath, "");
+    const r = await run(fx, { apply: true });
+    assert.deepEqual(r.changes.filter((c) => c.path === "config.json"), [{ path: "config.json", change: "kept-modified" }]);
+    assert.ok(existsSync(fx.abs("config.json")));
+  });
+
+  it("a failing backup stops the rollback before the config is deleted (no unbacked removal)", async () => {
+    const fx = created();
+    _testFsAtomicHooks.beforeRename = () => { throw new Error("injected backup failure"); };
+    await assert.rejects(() => run(fx, { apply: true }), /injected backup failure/);
+    _testFsAtomicHooks.beforeRename = undefined;
+    assert.equal(read(fx.abs("config.json")), imported, "the config was not deleted without its backup");
+    assert.equal((await run(fx, { apply: true })).status, "completed", "a retry converges");
+    assert.equal(read(backup(fx)), imported);
+  });
+});

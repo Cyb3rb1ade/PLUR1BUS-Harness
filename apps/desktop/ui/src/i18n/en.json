@@ -421,5 +421,15 @@
   "integration.menu": "AppImage menu integration",
   "integration.failed": "The shortcut could not be changed. An existing foreign entry was kept.",
   "integration.store": "Windows manages Store startup in Settings → Apps → Startup. Disable PLUR1BUS there; your choice is preserved. Remove the desktop shortcut in File Explorer. In-app Store controls are not yet available.",
-  "advanced.sandboxed": "Install the native host CLI separately. Flatpak cannot change the host CLI or your shell PATH."
+  "advanced.sandboxed": "Install the native host CLI separately. Flatpak cannot change the host CLI or your shell PATH.",
+  "pair.error.timeout": "The harness took too long to answer. Your code may already have been used: check Connections first, then request a new code if the connection is missing.",
+  "connections.loadTimeout": "Loading connections took too long.",
+  "connections.retry": "Try again",
+  "runtime.logsLoading": "Loading logs…",
+  "runtime.logsFailed": "The logs could not be loaded.",
+  "runtime.logsTimeout": "The logs took too long to load.",
+  "runtime.logsRetry": "Try again",
+  "update.installing": "Installing the update… Keep the app open: it restarts when the update is ready.",
+  "update.downloading": "Downloading: {percent} %",
+  "update.progressLabel": "Update download progress"
 }

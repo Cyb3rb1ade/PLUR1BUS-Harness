@@ -41,6 +41,7 @@ export interface HandlerScript {
   validateArgs?: SystemJobHandler["validateArgs"];
   nextRunAt?: () => number | null;
   schedule?: SystemJobSpec["schedule"];
+  exclusive?: boolean;
 }
 
 /** A scripted handler; `calls` records what the module handed to it. The behaviour under test (the registry, the ledger) is not in here. */
@@ -48,7 +49,7 @@ export function scriptedHandler(s: HandlerScript = {}) {
   const calls: { args: Record<string, unknown>; ctx: { runId: string; trigger: RunTrigger; signal: AbortSignal } }[] = [];
   const validated: unknown[] = [];
   const handler: SystemJobHandler = {
-    spec: { name: s.name ?? "test.job", needsLlm: false, singleton: true, schedule: s.schedule ?? { every: 60_000, jitter: 0.1 } },
+    spec: { name: s.name ?? "test.job", needsLlm: false, singleton: true, schedule: s.schedule ?? { every: 60_000, jitter: 0.1 }, ...(s.exclusive ? { exclusive: true } : {}) },
     nextRunAt: s.nextRunAt ?? (() => null),
     validateArgs: (a) => { validated.push(a); return s.validateArgs ? s.validateArgs(a) : (a && typeof a === "object" ? { ...(a as Record<string, unknown>) } : {}); },
     run: async (args, ctx) => { calls.push({ args, ctx }); return s.run ? s.run(args, ctx) : ({ outcome: "completed", detail: null } satisfies SystemJobOutcome); },

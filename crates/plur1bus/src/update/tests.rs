@@ -13,11 +13,24 @@ struct Fake {
     start_err_once: RefCell<Option<String>>,
     alive: bool,
     disable_err: Option<String>,
+    /// Names `reenable_addons` refuses.
+    refuse_reenable: Vec<String>,
+    /// `stop` leaves a directory where the state file's temporary copy goes, so every later state write fails.
+    break_state_on_stop: bool,
+}
+
+/// Makes every later write of the update state fail (a directory sits where `state::save` creates its temp file).
+fn break_state_writes(layout: &Layout) {
+    fs::create_dir_all(state::dir(layout).join(format!("state.json.tmp-{}", std::process::id())))
+        .unwrap();
 }
 
 impl Host for Fake {
-    fn stop(&self, _: &Layout) -> Result<bool, String> {
+    fn stop(&self, layout: &Layout) -> Result<bool, String> {
         self.calls.borrow_mut().push("stop".into());
+        if self.break_state_on_stop {
+            break_state_writes(layout);
+        }
         Ok(self.running)
     }
     fn start(&self, _: &Layout, bin: &Path) -> Result<(), String> {
@@ -59,6 +72,16 @@ impl Host for Fake {
         self.calls
             .borrow_mut()
             .push(format!("reenable:{}", names.join(",")));
+        names
+            .iter()
+            .filter(|n| self.refuse_reenable.contains(n))
+            .map(|n| (n.clone(), "refused".to_string()))
+            .collect()
+    }
+    fn redisable_addons(&self, _: &Layout, names: &[String], _: &str, _: &str) -> Vec<String> {
+        self.calls
+            .borrow_mut()
+            .push(format!("redisable:{}", names.join(",")));
         Vec::new()
     }
 }
@@ -544,4 +567,104 @@ fn a_declared_size_must_match_exactly() {
     assert_eq!(err.reason, "download-too-large");
     e.plan.binary.size = Some(real);
     assert!(apply(&e.layout, &Fake::default(), &e.plan, &e.bin).is_ok());
+}
+
+#[test]
+fn a_state_that_cannot_be_written_after_the_stop_does_not_keep_the_daemon_down() {
+    let e = env();
+    let before = originals(&e);
+    let host = Fake {
+        running: true,
+        break_state_on_stop: true,
+        ..Default::default()
+    };
+    let err = apply(&e.layout, &host, &e.plan, &e.bin).unwrap_err();
+    assert_eq!(err.reason, "io", "{err:?}");
+    assert_eq!(originals(&e), before, "nothing was swapped");
+    assert_eq!(
+        *host.calls.borrow(),
+        ["stop", "start:old-binary"],
+        "the daemon that was running is started again"
+    );
+    // A daemon that was off stays off.
+    let e = env();
+    let host = Fake {
+        running: false,
+        break_state_on_stop: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        apply(&e.layout, &host, &e.plan, &e.bin).unwrap_err().reason,
+        "io"
+    );
+    assert_eq!(*host.calls.borrow(), ["stop"]);
+}
+
+#[test]
+fn recovery_starts_the_daemon_even_when_it_cannot_close_the_state() {
+    for phase in [Phase::Stopping, Phase::Snapshotted] {
+        let e = env();
+        let before = originals(&e);
+        crash_at(&e, phase);
+        break_state_writes(&e.layout);
+        let host = Fake::default();
+        assert!(recover(&e.layout, &host).is_err(), "{phase:?}");
+        assert_eq!(
+            *host.calls.borrow(),
+            ["start:old-binary"],
+            "{phase:?}: the daemon the update stopped goes back up"
+        );
+        assert_eq!(originals(&e), before, "{phase:?}");
+    }
+}
+
+#[test]
+fn a_manual_rollback_disables_again_what_the_rolled_back_update_re_enabled() {
+    let mut e = env();
+    with_addons(&mut e, &[], &["back", "stuck"]);
+    let host = Fake {
+        running: true,
+        refuse_reenable: vec!["stuck".into()],
+        ..Default::default()
+    };
+    let st = apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
+    assert_eq!(st.phase, Phase::Committed);
+    assert_eq!(
+        st.addons_reenable,
+        ["back"],
+        "only what was really switched on is kept"
+    );
+    host.calls.borrow_mut().clear();
+    rollback_manual(&e.layout, &host).unwrap();
+    assert_eq!(
+        *host.calls.borrow(),
+        ["stop", "redisable:back", "start:old-binary"],
+        "put right while the daemon is stopped, before it starts"
+    );
+}
+
+#[test]
+fn a_manual_rollback_without_reenabled_addons_disables_nothing() {
+    let mut e = env();
+    with_addons(&mut e, &["fancy"], &[]);
+    let host = Fake {
+        running: true,
+        ..Default::default()
+    };
+    apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
+    host.calls.borrow_mut().clear();
+    rollback_manual(&e.layout, &host).unwrap();
+    assert_eq!(
+        *host.calls.borrow(),
+        ["stop", "restore:fancy", "start:old-binary"]
+    );
+}
+
+#[test]
+fn the_update_lock_is_exclusive_and_goes_away_with_its_holder() {
+    let e = env();
+    let held = lock(&e.layout).unwrap();
+    assert_eq!(lock(&e.layout).unwrap_err(), LockError::Busy);
+    drop(held);
+    assert!(lock(&e.layout).is_ok(), "released with the file handle");
 }

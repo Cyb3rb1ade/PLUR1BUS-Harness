@@ -103,6 +103,8 @@ p { color: var(--ink-2); line-height: 1.5; }
 .app-dialog { width: min(680px,calc(100vw - 48px)); min-width: min(320px,calc(100vw - 48px)); max-height: min(760px,calc(100vh - 48px)); overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 28px 28px 0; box-shadow: var(--shadow); }
 .app-dialog::backdrop { background: var(--scrim); }
 .dialog-footer { margin: 26px -28px 0; padding: 16px 28px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.update-install-feedback p { margin: 12px 0 0; }
+.update-progress { display: block; width: 100%; height: 10px; margin-top: 12px; accent-color: var(--primary-bg); }
 .switch-control { min-width: 44px; min-height: 44px; border: 0; background: transparent; display: inline-flex; align-items: center; }
 .switch-control::before { content: ""; width: 42px; height: 26px; border-radius: 14px; background: var(--toggle-off); }
 .switch-control[aria-checked="true"]::before { background: var(--ok-ink); }

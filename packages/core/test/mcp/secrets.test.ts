@@ -46,7 +46,7 @@ describe("mcp secrets stay out of logs, results and errors", { timeout: 60_000 }
 
   it("a server that prints a secret and dies at start-up leaks it neither in the error nor in the log", async () => {
     const logger = capturingLogger();
-    const reg = new McpRegistry({ logger, hostEnv: {}, policy: { allowedCommands: [NODE] } });
+    const reg = new McpRegistry({ logger, hostEnv: {}, policy: { allowedCommands: [NODE], inlineCodeCommands: [NODE] } });
     try {
       reg.register({ name: "dies", transport: { type: "stdio", command: NODE, args: ["-e", "console.error('boot token ' + process.env.MCP_TEST_SECRET); process.exit(2)"], env: { MCP_TEST_SECRET: MARK } }, timeouts: { connectMs: 10_000, closeGraceMs: 300 } });
       await assert.rejects(reg.listTools("dies", caller), (e: Error) => { assert.ok(!e.message.includes(MARK), e.message); return true; });
@@ -70,7 +70,7 @@ describe("mcp secrets stay out of logs, results and errors", { timeout: 60_000 }
 
   it("caps and rate-limits stderr so a chatty server cannot flood the log", async () => {
     const logger = capturingLogger();
-    const reg = new McpRegistry({ logger, hostEnv: {}, policy: { allowedCommands: [NODE] } });
+    const reg = new McpRegistry({ logger, hostEnv: {}, policy: { allowedCommands: [NODE], inlineCodeCommands: [NODE] } });
     try {
       reg.register({ name: "chatty", transport: { type: "stdio", command: NODE, args: ["-e", "for(let i=0;i<500;i++)console.error('x'.repeat(5000));setInterval(()=>{},1000)"] }, timeouts: { connectMs: 1000, closeGraceMs: 300 } });
       await assert.rejects(reg.listTools("chatty", caller)); // never answers initialize; the burst is already in

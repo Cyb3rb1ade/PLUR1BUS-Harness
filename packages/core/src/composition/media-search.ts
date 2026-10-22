@@ -1,5 +1,11 @@
+import { authorize } from '../rbac/authorize.ts';
 // Media search composition (ME2): builds the media index port, caption service, index hook and backfill job, and attaches
 // the hook to the OutputStore. The RPC surface (`createMediaSearchSurface`) is connected by the caller: see WIRING POINT.
+import { safeId } from '../../../media/src/files.ts';
+import { guardedMediaIndex, type MediaEncodingBudget } from '../media-search/admission.ts';
+import { localMediaSelection } from '../media-search/engine-host.ts';
+import { mediaError } from '../media-search/errors.ts';
+import { localOnlyShared } from '../privacy/local-only.ts';
 import { readFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,12 +19,12 @@ import type { HarnessLogger } from '../logger.ts';
 import { DisabledMediaIndex } from '../media-search/disabled.ts';
 import { selectMediaIndex, type MediaIndexKind } from '../media-search/select.ts';
 import { createFfmpegPorts } from '../media-search/ffmpeg.ts';
-import { createBackfillJob, createBudgetCallback, type BackfillJob } from '../media-search/backfill.ts';
+import { createBackfillJob, type BackfillJob } from '../media-search/backfill.ts';
 import { createMediaIndexHook, type MediaIndexHook, type MediaRecord } from '../media-search/hook.ts';
 import { createCaptionService, resolveCaptionProvider, type CaptionService, type CaptionProviders } from '../media-search/caption/service.ts';
 import { createLocalCaptionProvider, localTranscriber, DEFAULT_CAPTION_MODEL } from '../media-search/caption/local.ts';
 import type { CaptionProvider } from '../media-search/caption/types.ts';
-import type { MediaIndexPort } from '../media-search/types.ts';
+import type { MediaIndexPort, MediaKind, Scope } from '../media-search/types.ts';
 import { createMediaSearchSurface, createMediaOwnerAcl } from '../rpc/media-search-surface.ts';
 import { deriveUserPrincipal } from '../identity/principals.ts';
 import type { Handler } from '../rpc/server.ts';
@@ -27,6 +33,8 @@ export interface MediaSearchDeps {
   home: string;
   config: () => HarnessConfig;
   engine: unknown;
+  /** Actual HostServices.fetch binding, checked by bootstrap before engine construction. */
+  hostFetchReady?: boolean;
   agents: Pick<AgentRegistry, 'workspaceOf'>;
   logger: HarnessLogger;
   /** The OutputStore generation/edit results land in; null: nothing to observe. */
@@ -42,6 +50,8 @@ export interface MediaSearchDeps {
   emit?: (name: string, payload: Record<string, unknown>) => void;
   /** Test seams. */
   testPort?: MediaIndexPort;
+  /** Unbound until #603 plus Secret lease admission land; no token-budget substitution. */
+  encodingBudget?: MediaEncodingBudget;
   ffmpeg?: Partial<Parameters<typeof createFfmpegPorts>[0]>;
 }
 export interface MediaSearchComposition {
@@ -65,7 +75,21 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   const emit = d.emit ?? ((name, payload) => d.logger.info(name, payload));
   const counts: Record<string, number> = {};
   const counters = { indexFailed: (stage: string) => { counts[`index_failed_${stage}`] = (counts[`index_failed_${stage}`] ?? 0) + 1; }, snapshot: () => ({ ...counts }) };
-  const budgetCallback = createBudgetCallback(d.budget);
+  const snapshot = structuredClone(cfg());
+  const effective = (agentId?: string) => {
+    const own = agentId ? d.config().agents[agentId]?.memory?.mediaEmbedding : undefined;
+    return { ...cfg(), ...own, modalities: (own?.modalities ?? cfg().modalities).filter((m): m is MediaKind => m !== undefined), video: { ...cfg().video, ...own?.video }, audio: { ...cfg().audio, ...own?.audio }, caption: { ...cfg().caption, ...own?.caption } };
+  };
+  const ownerOf = async (mediaId: string): Promise<string> => {
+    safeId(mediaId);
+    for (let i=0;;i++) {
+      try { const owner=JSON.parse(await readFile(join(d.home,'media','owners',`${mediaId}.json`),'utf8')) as {agentId?:unknown};
+        if (typeof owner.agentId !== 'string') throw new Error('unknown media owner');
+        return owner.agentId;
+      } catch(e) { if(i>=10) throw e; await new Promise(r=>setTimeout(r,25)); }
+    }
+  };
+  const budgetCallback = { canContinue: async () => localMediaSelection(cfg()) };
   // Media paths (store outputs, uploads) live below <home>/media; the store root is added in case it is configured elsewhere. Nothing else is readable by ffmpeg or the caption providers.
   const allowedRoots = [join(d.home, 'media'), ...(d.store ? [d.store.root] : [])];
   const ports = createFfmpegPorts({ tempDir: join(d.home, 'media', 'tmp'), allowedRoots, ...d.ffmpeg });
@@ -76,8 +100,10 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   if (cfg().enabled !== false && !['local', 'local-transformers', 'egemma2', 'off'].includes(mediaProvider) && d.privacyPinned?.()) {
     d.logger.warn('media index disabled by privacy.localOnly', { provider: mediaProvider });
     port = new DisabledMediaIndex(`privacy.localOnly: media embedding provider ${mediaProvider} is not local`); kind = 'disabled';
+  } else if (!d.testPort && !d.hostFetchReady) {
+    port = new DisabledMediaIndex('Host Fetch port is not bound'); kind = 'disabled';
   } else try {
-    ({ port, kind } = selectMediaIndex({ engine: d.engine, config: cfg(), ports: { frames: ports.frames, audio: ports.audio, budget: budgetCallback }, ...(d.testPort ? { test: d.testPort } : {}) }));
+    ({ port, kind } = selectMediaIndex({ engine: d.engine, config: cfg(), ports: { frames: ports.frames, audio: ports.audio, budget: budgetCallback }, scopeOfMedia: async id => agentScope(d.agents, await ownerOf(id)), ...(d.testPort ? { test: d.testPort } : {}) }));
   } catch (e) {
     d.logger.error('media index unavailable', { err: e });
     port = new DisabledMediaIndex('composition failed'); kind = 'disabled';
@@ -92,26 +118,37 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
     }),
     ...(d.cloudCaption ? { cloud: d.cloudCaption } : {}),
   };
-  const captions = createCaptionService({
-    config: () => cfg().caption,
+  const captionServiceFor = (agentId?: string) => createCaptionService({
+    config: () => effective(agentId).caption,
     // Read on every call: a pin set after the provider was chosen still stops a cloud provider before it is called.
     pinned: () => d.privacyPinned?.() ?? false,
     provider: () => {
-      try { return resolveCaptionProvider({ config: cfg().caption, pinned: d.privacyPinned?.() ?? false, providers, embeddingLocal: cfg().provider.startsWith('local') || cfg().provider === 'egemma2' }); }
+      try { return resolveCaptionProvider({ config: effective(agentId).caption, pinned: d.privacyPinned?.() ?? false, providers, embeddingLocal: localMediaSelection(effective(agentId)) }); }
       catch (e) { d.logger.warn('caption provider refused', { err: e }); return undefined; }
     },
   });
 
-  const ownerOf = async (mediaId: string): Promise<string> => {
-    // The owner file is written next to the put; retry briefly for the order in which the surface writes them.
-    for (let i = 0; ; i++) {
-      try { return (JSON.parse(await readFile(join(d.home, 'media', 'owners', `${mediaId}.json`), 'utf8')) as { agentId: string }).agentId; }
-      catch (e) { if (i >= 10) throw e; await new Promise(r => setTimeout(r, 25)); }
-    }
+  const captions = captionServiceFor();
+  const mediaPolicy = (scope?: Scope, mediaKind?: MediaKind) => {
+      const c=effective(scope?.agentId), local=localMediaSelection(c);
+      const pinned=(d.privacyPinned?.() ?? false) || localOnlyShared(d.config());
+      if(!local && pinned) throw mediaError('E_MEDIA_PRIVACY','privacy.localOnly blocks cloud media');
+      if(!c.enabled || c.provider==='off') throw mediaError('E_MEDIA_UNAVAILABLE','media index disabled for agent');
+      if(!local) throw mediaError('E_MEDIA_UNAVAILABLE','media encoder/Secret lease admission is not bound');
+      if(![128,256,512,768].includes(c.dimensions)) throw mediaError('E_MEDIA_DIMENSION','unsupported media vector dimension');
+      if(c.model!==snapshot.model || c.dimensions!==snapshot.dimensions) throw mediaError('E_MEDIA_UNAVAILABLE','shared Engine does not support this agent model override');
+      if(mediaKind && !c.modalities.includes(mediaKind)) throw mediaError('E_MEDIA_CAPABILITY','media kind disabled for this agent');
+      return {local,model:c.model,pinned};
   };
+  if (kind !== 'disabled') port = guardedMediaIndex(port, {policy:mediaPolicy,...(d.encodingBudget ? {budget:d.encodingBudget}:{})});
   const hook = createMediaIndexHook({
-    port: () => port, captions, config: cfg, events: { emit }, counters, logger: d.logger,
-    scopeOf: async record => agentScope(d.agents, record.agentId ?? await ownerOf(record.mediaId)),
+    port: () => port, captions, captionForScope: scope => captionServiceFor(scope.agentId), config: cfg, events: { emit }, counters, logger: d.logger,
+    admit: (record, scope) => { mediaPolicy(scope, record.kind); },
+    scopeOf: async record => {
+      const owner = await ownerOf(record.mediaId);
+      if (record.agentId !== undefined && record.agentId !== owner) throw mediaError('E_MEDIA_UNAVAILABLE', 'media owner mismatch');
+      return agentScope(d.agents, owner);
+    },
   });
   const backfill = createBackfillJob({ port: () => port, config: cfg, budgetCallback, events: { emit }, logger: d.logger, stateFile: join(d.home, 'state', 'media-search.json') });
 
@@ -146,10 +183,11 @@ export function mediaSearchMethods(d: Pick<MediaSearchDeps, 'home' | 'config' | 
     index: () => (m.kind === 'disabled' ? null : m.port),
     config: d.config,
     backfill: { pause: async () => { await m.backfill.pause(); }, resume: async () => { await m.backfill.resume(); }, reindex: async () => { await m.backfill.reindex(); } },
+    globalStatus: true,
     scopeOf: principal => {
-      const agentId = principal.kind === 'agent' ? principal.userId : 'main';
-      const scope = agentScope(d.agents, agentId);
-      return principal.kind === 'agent' ? scope : { ...scope, user: deriveUserPrincipal(principal.userId), trust: 'proved' };
+      if(principal.kind === 'agent') return agentScope(d.agents, principal.userId);
+      return Object.keys(d.config().agents).filter(agentId => authorize(principal, 'agent.read', {kind:'agent',agentId}).effect === 'allow')
+        .map(agentId => ({...agentScope(d.agents,agentId),user:deriveUserPrincipal(principal.userId),trust:'proved' as const}));
     },
     ...createMediaOwnerAcl({ home: d.home }),
   }).methods;

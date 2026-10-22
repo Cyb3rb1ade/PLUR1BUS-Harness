@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createNodeExec, runHostTool, systemClock, type ExecResult, type HostExec, type HostOutcome } from "../../src/host-tools/index.ts";
-import { makeCtx, ok, FakeExec, platformScripts } from "./helpers.ts";
+import { makeCtx, ok, FakeExec, MemoryFs, platformScripts } from "./helpers.ts";
 
 /** makeCtx only honours FakeExec instances, so wrap through a subclass. */
 class WrapExec extends FakeExec {
@@ -63,9 +63,66 @@ describe("b07 audit: apps.open", () => {
     }
   });
 
-  it("KNOWN GAP: apps.open can launch executables but is registered as sys.read/low (auto-allowed)", { todo: "needs an approval-class capability (e.g. shell.exec) plus an update of composition/tools.test.ts and catalog.test.ts pins" }, async () => {
+  it("is approval-class: the capability behind apps.open is not auto-allowed", async () => {
     const { getHostTool } = await import("../../src/host-tools/index.ts");
-    assert.notEqual(getHostTool("apps.open")!.capability, "sys.read");
+    const { CAPABILITIES } = await import("../../src/policy/index.ts");
+    const tool = getHostTool("apps.open")!;
+    assert.notEqual(tool.capability, "sys.read");
+    const def = CAPABILITIES.get(tool.capability)!;
+    assert.equal(def.base.inside, "approval");
+    assert.equal(def.base.outside, "approval");
+  });
+
+  it("refuses executables, scripts and bundles on every platform without running an opener", async () => {
+    const targets = [
+      "C:\\Users\\alice\\setup.exe", "C:\\Users\\alice\\run.bat", "C:\\Users\\alice\\run.CMD", "C:\\Users\\alice\\run.ps1",
+      "C:\\Users\\alice\\x.msi", "C:\\Users\\alice\\x.vbs", "/Users/alice/Downloads/run.command", "/Users/alice/Downloads/Evil.app",
+      "/Users/alice/Downloads/Evil.app/", "/home/alice/x.desktop", "/home/alice/tool.AppImage", "~/run.bat",
+    ];
+    for (const platform of ["darwin", "linux", "win32"] as const) {
+      for (const kind of ["file", "app"] as const) {
+        for (const target of targets) {
+          const { ctx, exec } = makeCtx(platform);
+          const r = await runHostTool("apps.open", { target, kind }, ctx);
+          assert.equal(code(r), "denied_by_denylist", `${platform} ${kind} ${target}`);
+          assert.equal(exec.calls.length, 0, `${platform} ${kind} ${target}`);
+        }
+      }
+    }
+  });
+
+  it("refuses a regular file with an execute bit, also through a dot-segment path", async () => {
+    for (const platform of ["darwin", "linux"] as const) {
+      const fs = new MemoryFs({ "/Users/alice/Downloads/tool": "#!/bin/sh\n", "/Users/alice/Downloads/notes.txt": "hi" });
+      fs.modes.set("/Users/alice/Downloads/tool", 0o755);
+      fs.modes.set("/Users/alice/Downloads/notes.txt", 0o644);
+      for (const target of ["/Users/alice/Downloads/tool", "/Users/alice/Downloads/x/../tool"]) {
+        const { ctx, exec } = makeCtx(platform, { fs });
+        assert.equal(code(await runHostTool("apps.open", { target, kind: "file" }, ctx)), "denied_by_denylist", `${platform} ${target}`);
+        assert.equal(exec.calls.length, 0);
+      }
+      const { ctx, exec } = makeCtx(platform, { fs });
+      ok(await runHostTool("apps.open", { target: "/Users/alice/Downloads/notes.txt", kind: "file" }, ctx));
+      assert.equal(exec.calls.length, 1);
+    }
+  });
+
+  it("still opens documents, URLs, system applications by name and from the system application folders", async () => {
+    for (const [platform, target, kind, program] of [
+      ["darwin", "/Users/alice/Documents/notes.txt", "file", "open"],
+      ["darwin", "Safari", "app", "open"],
+      ["darwin", "/Applications/Safari.app", "app", "open"],
+      ["darwin", "/System/Applications/Utilities/Terminal.app", "file", "open"],
+      ["darwin", "https://example.com", "url", "open"],
+      ["linux", "/home/alice/notes.txt", "file", "xdg-open"],
+      ["linux", "https://example.com", "url", "xdg-open"],
+      ["win32", "C:\\Users\\alice\\notes.txt", "file", "explorer.exe"],
+      ["win32", "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Code.lnk", "file", "explorer.exe"],
+    ] as const) {
+      const { ctx, exec } = makeCtx(platform);
+      ok(await runHostTool("apps.open", { target, kind }, ctx));
+      assert.equal(exec.calls.at(-1)?.program, program, `${platform} ${target}`);
+    }
   });
 });
 

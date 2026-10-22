@@ -25,6 +25,9 @@ describe("mapMemoryOpError", () => {
       ["identity-already-bound", "E_CONFLICT", undefined],
       ["ledger-corrupt", "E_STORAGE", undefined],
       ["lock-lost", "E_STORAGE", undefined],
+      ["lock-busy", "E_STORAGE", undefined],
+      ["EMBEDDER_UNAVAILABLE", "E_NOT_AVAILABLE", undefined],
+      ["EMBEDDING_IDENTITY_MISMATCH", "E_CONFLICT", undefined],
     ];
     for (const [code, rpc, detail] of cases) {
       const r = mapMemoryOpError(opError(code, detail), { stopping: false });

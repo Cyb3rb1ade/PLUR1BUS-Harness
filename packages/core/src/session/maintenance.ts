@@ -7,10 +7,10 @@ import type { HarnessConfig } from '@plur1bus/config-schema';
 import type { createTurnProvider } from '../composition/provider.ts';
 import { createSessionRoleProvider } from './role-routing.ts';
 import { readOnlyCatalog } from './catalog.ts';
-export function sessionRoleFactory(create: typeof createTurnProvider, config: HarnessConfig | (() => HarnessConfig), hooks: { onClient?: (client: DecisionClient) => void; emit?: DecisionOptions['emit'] } = {}): typeof createTurnProvider {
+export function sessionRoleFactory(create: typeof createTurnProvider, config: HarnessConfig | (() => HarnessConfig), hooks: { onClient?: (client: DecisionClient) => void; emit?: DecisionOptions['emit']; backends?: DecisionOptions['backends'] } = {}): typeof createTurnProvider {
   return options => {
     const read = () => typeof config === 'function' ? config() : config;
-    const decisions = new DecisionClient({ config: read, backends: { role: createRoleBackend(create, options, read) }, ...(hooks.emit ? { emit: hooks.emit } : {}) });
+    const decisions = new DecisionClient({ config: read, backends: { ...hooks.backends, role: createRoleBackend(create, options, read) }, ...(hooks.emit ? { emit: hooks.emit } : {}) });
     hooks.onClient?.(decisions);
     let key = '', current: ReturnType<typeof createSessionRoleProvider>;
     const get = () => {

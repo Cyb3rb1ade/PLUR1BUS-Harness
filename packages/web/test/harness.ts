@@ -5,11 +5,12 @@ import { chromium, type Browser, type BrowserContext, type Page } from "playwrig
 import { buildWeb } from "../build.ts";
 import { MockHarnessServer, OWNER_TOKEN, type MockOptions } from "./mock-server.ts";
 
-import { findChromium } from "./browser-runtime.ts";
+import { BROWSER_OFF_REASON, browserOff, findChromium } from "./browser-runtime.ts";
 
 const executablePath = findChromium();
 /** `skip` option for node:test; the browser tests need a Chromium that CI's plain `pnpm test` job may not have. */
-export const browserSkip: string | false = executablePath ? false : "no Chromium found (set PLUR1BUS_CHROMIUM)";
+export const browserSkip: string | false = executablePath ? false : browserOff() ? BROWSER_OFF_REASON : "no Chromium found (set PLUR1BUS_CHROMIUM)";
+if (browserOff() && process.env.PLUR1BUS_WEB_E2E_REQUIRED === "1") throw new Error("PLUR1BUS_WEB_BROWSER=off conflicts with PLUR1BUS_WEB_E2E_REQUIRED=1 (required mode must run the browser suites)");
 if (!executablePath && process.env.PLUR1BUS_WEB_E2E_REQUIRED === "1") throw new Error("PLUR1BUS_WEB_E2E_REQUIRED=1 but no Chromium was found");
 
 let distDir: string | undefined;

@@ -92,9 +92,16 @@ export interface ApprovalDecider { decide(input: ServiceDecideInput): ServiceDec
 export interface OutputsPort { store(): unknown | null }
 
 export interface SwitchboardOptions {
+  command?: import("./router.ts").RouterDeps["command"];
+  observed?: import("./router.ts").RouterDeps["observed"];
   config: ConfigPort;
   secrets: SecretsPort;
   identity: () => IdentityService | null;
+  /**
+   * Whether a person (the identity service's human id) may use the harness at all; `false` for a disabled person. Asked on every
+   * inbound message, every turn and every approval press, never cached. Absent: nobody is disabled (tests without an admin store).
+   */
+  personActive?: (humanId: string) => boolean;
   turns: () => TurnPort | null;
   approvals: () => ApprovalDecider | null;
   /** The media output store (read-only use through the adapters' `outputs` port); absent: images are not sent. */
@@ -200,7 +207,7 @@ class Host implements Switchboard {
 
   constructor(o: SwitchboardOptions) {
     this.#o = o;
-    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, behaviour: (msg) => this.behaviour(msg) });
+    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, behaviour: (msg) => this.behaviour(msg), ...(o.command ? { command: o.command } : {}), ...(o.observed ? { observed: o.observed } : {}) });
     this.#registry = new ChannelRegistry({ clock: o.clock, router, log: o.log, redact: (t) => this.#redact(t), ...o.registry });
     for (const b of o.bindings) this.#bindings.set(b.id, b);
     const r = this.#registry;
@@ -396,13 +403,28 @@ class Host implements Switchboard {
   }
 
   output(input: { channel: string; chatId: string; kind: "reply" | "edit"; text: string }): string | null {
-    const chatKind = this.#kinds.get(chatKeyOf(input.channel, input.chatId)) ?? "direct";
-    const { profile } = this.behaviour({ channel: input.channel, chatKind });
+    const known = this.#kinds.get(chatKeyOf(input.channel, input.chatId));
+    // A chat nobody has written in since the start (the map is memory only and bounded) is of unknown kind: fail closed, so it gets
+    // the stricter of the direct and the group rules (a `never` of either, the lower of each limit), never the direct ones alone.
+    const profile = known !== undefined ? this.behaviour({ channel: input.channel, chatKind: known }).profile : this.#strictest(input.channel);
     const limit = input.kind === "edit" ? profile.rateLimits.editsPerMinute : profile.rateLimits.repliesPerHour;
     if (profile.reply.policy === "never" || !this.#outboundRates.take(`${input.channel}\0${input.chatId}\0${input.kind}`, limit, this.#o.clock.now(), input.kind === "edit" ? 60_000 : 3_600_000)) return null;
     let end = Math.min(input.text.length, profile.rateLimits.maxReplyChars);
     if (end > 0 && /[\uD800-\uDBFF]/.test(input.text[end - 1]!) && end < input.text.length) end--;
     return input.text.slice(0, end);
+  }
+
+  /** The outbound-relevant part of the behaviour for a chat of unknown kind: the stricter of the direct and the group resolution. */
+  #strictest(channel: string): { reply: { policy: string }; rateLimits: { repliesPerHour: number; editsPerMinute: number; maxReplyChars: number } } {
+    const a = this.behaviour({ channel, chatKind: "direct" }).profile, b = this.behaviour({ channel, chatKind: "group" }).profile;
+    return {
+      reply: { policy: a.reply.policy === "never" || b.reply.policy === "never" ? "never" : b.reply.policy },
+      rateLimits: {
+        repliesPerHour: Math.min(a.rateLimits.repliesPerHour, b.rateLimits.repliesPerHour),
+        editsPerMinute: Math.min(a.rateLimits.editsPerMinute, b.rateLimits.editsPerMinute),
+        maxReplyChars: Math.min(a.rateLimits.maxReplyChars, b.rateLimits.maxReplyChars),
+      },
+    };
   }
 
   noteInbound(msg: InboundMessage): void {
@@ -451,12 +473,20 @@ class Host implements Switchboard {
     return {
       resolve: async (sender): Promise<IdentityResolution> => {
         const hit = find(sender);
-        return hit ? { linked: true, userId: hit.humanId } : { linked: false };
+        if (!hit) return { linked: false };
+        return this.#active(hit.humanId) ? { linked: true, userId: hit.humanId } : { linked: true, userId: hit.humanId, disabled: true };
       },
       // Pairing happens in the adapters (`/link <code>` through `IdentityService.claim`, which the owner then confirms): a bare
       // code sent as a normal message is never a claim here.
       claimPairing: async (): Promise<PairingResult> => ({ ok: false }),
     };
+  }
+
+  /** A person the admin store has not disabled. A failing check counts as disabled: fail closed. */
+  #active(humanId: string): boolean {
+    const f = this.#o.personActive;
+    if (!f) return true;
+    try { return f(humanId) !== false; } catch { return false; }
   }
 
   #linkOf(humanId: string, channel: string): Link | null {
@@ -500,6 +530,8 @@ class Host implements Switchboard {
         const t = turns();
         const session = t.store.getSession(sessionId);
         if (!session || session.kind !== "channel" || !session.chatKey) throw new Error("not a channel session");
+        // Defence in depth: the router already dropped a disabled person's message; a turn never starts for one.
+        if (!this.#active(input.userId)) throw new Error("person is disabled");
         const chat = parseChatKey(session.chatKey);
         if (!chat) throw new Error("malformed chat key");
         const kind = this.#kinds.get(session.chatKey);
@@ -556,9 +588,8 @@ class Host implements Switchboard {
       const adapter = this.#live.get(chat.channel);
       if (!adapter?.prompt || this.#registry.status(chat.channel)?.state !== "running") return;
       // Only the person the request belongs to may answer, and only from a handle linked to them on this channel.
-      const human = svc.list({}).humans.find((h) => h.id === approval.principal);
-      if (!human) return;
-      const approverIds = human.identities.filter((l) => l.channel === chat.channel && l.revokedAt === null).map((l) => l.userId);
+      if (!this.#active(approval.principal)) return;
+      const approverIds = this.#approversOf(approval.principal, chat.channel);
       if (approverIds.length === 0) return;
       // A prompt shows what is being asked, so it goes to a private chat only; in a group the request waits for another surface.
       if (this.#kinds.get(session.chatKey) !== "direct") return;
@@ -584,8 +615,12 @@ class Host implements Switchboard {
     const key = `${channel}\0${d.promptId}`;
     const p = this.#prompts.get(key);
     if (!p) return;
-    // The adapter already checked the approver list; the host checks again against the person's links as they are now.
-    if (d.chatId !== p.chatId || !p.approverIds.has(d.senderId)) { this.#o.log.warn("channel.approval.refused", { channel, reason: "approver" }); return; }
+    // The adapter already checked the approver list (the snapshot taken when the prompt went out). The host checks again against
+    // the person's links as they are NOW: a handle revoked since, or a person disabled since, can no longer decide.
+    if (d.chatId !== p.chatId || !p.approverIds.has(d.senderId) || !this.#approversOf(p.person, channel).includes(d.senderId) || !this.#active(p.person)) {
+      this.#o.log.warn("channel.approval.refused", { channel, reason: "approver" });
+      return;
+    }
     const decision = d.choiceId === APPROVE ? "approve" : d.choiceId === DENY ? "deny" : null;
     if (!decision) return;
     const approvals = this.#o.approvals();
@@ -594,6 +629,14 @@ class Host implements Switchboard {
     const surface = 2; // D109 §5: a private chat with a linked person
     const res = approvals.decide({ requestId: p.requestId, nonce: p.nonce, decision, person: p.person, surface });
     if (!res.ok) this.#o.log.warn("channel.approval.refused", { channel, reason: res.reason });
+  }
+
+  /** The handles on `channel` that are linked to `person` right now (revoked links excluded); empty when the identity service is unavailable. */
+  #approversOf(person: string, channel: string): string[] {
+    const svc = this.#o.identity();
+    if (!svc) return [];
+    const human = svc.list({}).humans.find((h) => h.id === person);
+    return human ? human.identities.filter((l) => l.channel === channel && l.revokedAt === null).map((l) => l.userId) : [];
   }
 
   #forgetPrompts(requestId: string): void {

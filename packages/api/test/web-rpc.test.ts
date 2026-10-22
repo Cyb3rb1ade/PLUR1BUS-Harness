@@ -6,6 +6,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { METHODS_BY_SERVER } from "@plur1bus/rpc-schema";
 import { WEB_CORE_METHODS, WEB_SUPERVISOR_METHODS, rpcRoute, webEndpoint } from "../src/rpc-route.ts";
+import { RPC_RULES } from "../src/rbac-bridge.ts";
+import { EXPENSIVE_RPC_METHODS } from "../src/rate-limit.ts";
 import { webEventAllowed } from "../src/events-route.ts";
 import { start, raw, login, csrfToken } from "./helpers.ts";
 import type { CoreRpc } from "../src/core-rpc.ts";
@@ -18,6 +20,28 @@ test("explicit web exposure rejects internal and unrelated supervisor methods", 
 test("every exposed method is declared on its routed server", () => {
   for (const method of WEB_CORE_METHODS) assert.ok(METHODS_BY_SERVER.core.includes(method), method);
   for (const method of WEB_SUPERVISOR_METHODS) assert.ok(METHODS_BY_SERVER.supervisor.includes(method), method);
+});
+const ID = "00000000-0000-4000-8000-000000000001";
+const LIBRARY_MEDIA_CALLS: Record<string, object> = {
+  "media.output.list": {}, "media.output.get": { id: ID }, "media.output.delete": { id: ID }, "media.adapters.list": {},
+  "media.preferences.get": {}, "media.preferences.set": { embedMetadata: true },
+  "media.generate": { agentId: "main", request: { prompt: "a cat" } }, "media.edit": { agentId: "main", request: { prompt: "a cat" } },
+  "media.job.get": { id: ID }, "media.job.list": {}, "media.job.cancel": { id: ID },
+  "media.index.status": {}, "media.index.pause": {}, "media.index.resume": {}, "media.index.reindex": { confirm: true },
+};
+test("every media.* method the Library and Memory pages call is web-callable, routed to the core and covered by an RBAC rule", async () => {
+  for (const [method, params] of Object.entries(LIBRARY_MEDIA_CALLS)) {
+    assert.equal(webEndpoint(method), "core", method);
+    assert.ok(RPC_RULES[method], `${method} needs an RBAC rule before it may be exposed`);
+    let got: unknown;
+    const core: CoreRpc = { call: async () => { throw new Error("legacy path"); }, callAs: async (m, p, who, endpoint) => { got = { m, p, who, endpoint }; return {} as never; } };
+    const answer = await rpcRoute(core, { jsonrpc: "2.0", id: 1, method, params }, person);
+    assert.ok("result" in answer, `${method}: ${JSON.stringify(answer)}`);
+    assert.deepEqual(got, { m: method, p: params, who: person, endpoint: "core" });
+  }
+});
+test("media.generate and media.edit draw on the expensive bucket; the other Library methods do not", () => {
+  for (const method of Object.keys(LIBRARY_MEDIA_CALLS)) assert.equal(EXPENSIVE_RPC_METHODS.has(method), method === "media.generate" || method === "media.edit", method);
 });
 test("principal spoofing is discarded; batches refused; errors have safe text with original code", async () => {
   let got: unknown;
@@ -84,4 +108,17 @@ test('decision diagnostics have explicit web exposure and retain human settings 
     assert.ok('error' in result);
   }
   assert.equal(calls, 0);
+});
+
+test("engine role tests route explicit closed params and authenticated principal to core", async () => {
+  const calls: unknown[] = [];
+  const core: CoreRpc = { call: async () => { throw new Error("legacy"); }, callAs: async (method, params, principal) => { calls.push({ method, params, principal }); return { ok: true } as never; } };
+  assert.equal(webEndpoint("admin.engine.test"), "core");
+  const request = { jsonrpc: "2.0", id: 1, method: "admin.engine.test", params: { role: "embedder" } };
+  const admin = { ...person, role: "admin" } as const;
+  assert.ok("result" in await rpcRoute(core, request, admin));
+  assert.deepEqual(calls, [{ method: "admin.engine.test", params: { role: "embedder" }, principal: admin }]);
+  assert.ok("error" in await rpcRoute(core, { ...request, params: { role: "embedder", apiKey: "private" } }, admin));
+  assert.ok("error" in await rpcRoute(core, request, { ...person, tokenScopes: ["chat:read"] } as any));
+  assert.equal(calls.length, 1);
 });
