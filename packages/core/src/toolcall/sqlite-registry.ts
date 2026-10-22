@@ -43,7 +43,8 @@ export class SqliteCapabilityRegistry implements RegistrationPort {
     if (result.changes) for (const fn of this.#subscribers) fn({ remove: id });
   }
   record(id: string, agent: string, event: 'offered' | 'used' | 'foundBySearch' | 'succeeded'): void {
-    const column = { offered: 'offered', used: 'used', foundBySearch: 'searched', succeeded: 'succeeded' }[event];
+    const columns: Readonly<Record<string, string>> = { offered: 'offered', used: 'used', foundBySearch: 'searched', succeeded: 'succeeded' };
+    const column = Object.hasOwn(columns, event) ? columns[event] : undefined;
     if (!column) throw Error('unknown capability statistic');
     if (!this.#db.prepare('SELECT id FROM capability_index WHERE id=?').get(id)) throw Error('unknown capability');
     this.#db.prepare(`INSERT INTO capability_stats(id,agent,${column}) VALUES(?,?,1) ON CONFLICT(id,agent) DO UPDATE SET ${column}=${column}+1`).run(id, agent);

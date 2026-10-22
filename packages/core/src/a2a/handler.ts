@@ -130,6 +130,8 @@ export function createA2aHandler(o: A2aHandlerOptions): A2aHandler {
   const tasks = new TaskStore({
     turns, clock: () => clock.now(), ...(o.scheduler ? { scheduler: o.scheduler } : {}),
     maxLivePerPeer: limits.maxLiveTasksPerPeer, maxStored: limits.maxStoredTasks, retentionMs: limits.retentionMs,
+    maxStoredPerPeer: limits.maxStoredTasksPerPeer ?? Math.max(1, Math.floor(limits.maxStoredTasks / Math.max(1, o.peers.length))),
+    maxReplyBytes: limits.maxReplyBytes, maxEventsPerTask: limits.maxEventsPerTask,
     replyTimeoutMs: limits.replyTimeoutMs, maxHistory: limits.maxHistoryLength,
     maxStreamConnectionsPerPeer: limits.maxStreamConnectionsPerPeer,
     onEvent: (e) => audit(`a2a.task.${e.type}`, `a2a-peer:${e.peerId}`, e.taskId, { agent: e.agentId, state: e.state }),

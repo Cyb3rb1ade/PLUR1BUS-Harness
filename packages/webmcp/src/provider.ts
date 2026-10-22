@@ -63,6 +63,26 @@ const FORBIDDEN_EXACT = new Set([
   // stay exposed: a person may trigger them through an assistant, and RBAC decides who may.
   "agent.create", "agent.import", "agent.validate", "agent.delete", "agent.archive", "agent.unarchive", "agent.export", "agent.rights.get", "agent.rights.set",
   "pairing.qr", "session.list",
+  // Every other action POLICY marks humanOnly (people only, docs/rbac.md): the page's RPC client is the signed-in person, so
+  // an agent driving the page would act as that person. Exact names on purpose: the agent-admitted neighbours stay
+  // available (project.card.get|list|move|comment.*, media.search, media.index.status). The matrix test
+  // (rbac-matrix.test.ts, section C) fails for any new humanOnly method missing here.
+  // Not listed, owner decision pending (documented as exposed, existing tests assert it): agent.pause, agent.resume
+  // (README: a person may trigger them through an assistant) and the D55 default reads memory.list, memory.show.
+  "channel.crypto", "channel.disable", "channel.enable", "channel.get", "channel.list", "channel.set", "channel.status", "channel.test",
+  "collab.chain.cancel", "collab.session.replay", "collab.trace.get", "collab.trace.list",
+  "media.adapters.list", "media.caption.set", "media.edit", "media.generate", "media.index.pause", "media.index.reindex", "media.index.resume",
+  "media.job.cancel", "media.job.get", "media.job.list", "media.output.delete", "media.output.get", "media.output.list",
+  "media.preferences.get", "media.preferences.set",
+  "project.agent.add", "project.agent.remove", "project.archive", "project.card.archive", "project.card.assign", "project.card.create",
+  "project.card.unarchive", "project.card.unassign", "project.card.update", "project.create", "project.get", "project.list",
+  "project.member.add", "project.member.remove", "project.member.role", "project.update",
+  "session.archive", "session.cancel", "session.create", "session.events", "session.get", "session.resume", "session.submit",
+  // humanOnly on the RPC rule itself (guard.ts `humanOnly: true`), not through the action:
+  "chat.promote.links", "chat.promote.preview", "chat.promote.commit",
+  // voice.session.create is humanOnly too but not listed: provider.test.ts 'Voice V3' asserts every voice.* method that is not one of the
+  // seven writes stays open (owner decision pending).
+  "model.embedding.select", "model.licence.confirm", "model.licence.list", "model.licence.check",
 ]);
 const FORBIDDEN_PREFIX = ["inbox.", "project.column.","supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth.", "grant.", "approval.", "user.", "breakglass.", "device."];
 const FORBIDDEN_SUFFIX = [".auth", ".adopt", ".shutdown"];

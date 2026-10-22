@@ -23,6 +23,10 @@ All are private to the user (0600, Windows ACL via the host's `securePath`).
 {"seq":4,"prev":"<sha256 of the previous line>","rec":{"at":…,"actor":{"user":"…","host":"…"},"action":"…","target":"…","detail":{…}}}
 ```
 
+`detail` is passed through the D111 redactor (`logs/redact.ts`, the data in `packages/log-schema/schema/redaction.json`) before the line is
+built, so a secret-keyed value or a credential shape inside it is written as `[REDACTED:…]`; the `audit.log` writers in rbac and identity do
+the same. Plain numbers, booleans, names and hex digests are unchanged.
+
 The hash covers the line's UTF-8 bytes without its terminator, so a CRLF copy of the file verifies the same. The
 first line has `prev` = 64 zeros and `seq` 1. After rotation the first line of the new file chains to the last hash
 of the old one and `seq` carries on.
@@ -146,4 +150,4 @@ recognisable by the event (or by an `announced: false` set).
   (`src/journal.rs`), are tested for append-only writes (no earlier byte is rewritten), one physical line per entry whatever the content,
   eight concurrent writers without interleaved lines, private permissions, and a last line left torn by a crash: the next entry now starts
   a line of its own instead of being glued to the fragment.
-- **Known gaps:** `detail` is written as given: secrets inside it are not redacted by the chain (not yet enforced; redaction belongs to the event producers in rbac and identity). Neither `audit.log` nor the journal rotates. Both chain writers use the same rotation contract.
+- **Known gaps:** `detail` is redacted by the TypeScript chain writer and the rbac and identity `audit.log` writers only. The Rust CLI's chain and `audit.log` lines and the secret-store `audit.log` copy write `detail` as given (the secret store keeps an allow-list of primitive keys; the Rust callers are not checked by this change). Neither `audit.log` nor the journal rotates. Both chain writers use the same rotation contract.

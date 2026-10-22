@@ -16,7 +16,9 @@ export const WEB_CORE_METHODS = new Set([
   "memory.curation.list", "memory.curation.resolve",
   "memory.list", "memory.show", "memory.forget", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.decide", "approval.cancel",
   "breakglass.list", "breakglass.notices", "breakglass.request", "breakglass.revoke", "identity.list", "identity.link.request", "identity.link.remove", "user.list", "user.role.set", "user.disable", "user.enable", "user.invite.create", "user.invite.list", "user.invite.revoke",
-  "device.list", "device.rename", "device.revoke", "pairing.qr", "media.search", "media.index.status", "media.index.reindex", "media.caption.set", "media.output.get",
+  "device.list", "device.rename", "device.revoke", "pairing.qr", "media.search", "media.index.status", "media.index.reindex", "media.caption.set", "media.output.get", "media.output.list",
+  // Library page: RBAC media.read (all roles) / media.write (not viewer) / media.index.operate (owner, admin); generate/edit are rate-limit class `expensive`.
+  "media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set", "media.index.pause", "media.index.resume",
   "channel.list", "channel.get", "channel.set", "channel.enable", "channel.disable", "channel.test", "logs.query", "logs.tail", "audit.verify",
   "dreams.status", "dreams.log", "dreams.schedule.get", "dreams.schedule.set", "dreams.enable", "dreams.disable", "dreams.run", "jobs.list", "jobs.history", "jobs.run", "jobs.create", "jobs.update", "jobs.delete", "doctor.report",
   "budget.status", "budget.set", "auth.status", "auth.credentials.list", "auth.login.start", "auth.login.await", "auth.login.cancel", "auth.logout",

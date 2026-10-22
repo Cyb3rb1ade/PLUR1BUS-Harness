@@ -1,4 +1,4 @@
-import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from "node:crypto";
 import type { PairCodeStore } from "./pair-code.ts";
@@ -89,7 +89,7 @@ export class DeviceStore {
     let stat;
     try { stat = lstatSync(file); }
     catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") { DeviceStore.requireDirectoryAbove(file); return null; }
       throw new DeviceError("storage");
     }
     try {
@@ -102,6 +102,22 @@ export class DeviceStore {
       if (new Set(devices.map(d => d.id)).size !== devices.length || new Set(devices.map(d => d.fingerprint)).size !== devices.length) throw new Error();
       return structuredClone(devices);
     } catch { throw new DeviceError("storage"); }
+  }
+  /** A missing file means "no devices yet" only when nothing above it is a regular file. POSIX says ENOTDIR for a path
+   *  below a file; Windows says ENOENT, which is indistinguishable from a missing file, so the nearest existing ancestor is checked. */
+  private static requireDirectoryAbove(file: string): void {
+    for (let dir = dirname(file); ; ) {
+      try {
+        if (!statSync(dir).isDirectory()) throw new DeviceError("storage");
+        return;
+      } catch (error) {
+        if (error instanceof DeviceError) throw error;
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new DeviceError("storage");
+        const up = dirname(dir);
+        if (up === dir) return;
+        dir = up;
+      }
+    }
   }
   /** Re-reads the file before every decision that must not rest on a stale copy. A revocation is never undone: a device
    *  revoked on disk (by another instance) or in memory (not yet flushed) stays revoked, and its live connections close. */
