@@ -35,6 +35,12 @@ S0 spike ──► WP1 ssh core ──► WP2 profiles + keys ──► WP3 IPC 
 WP7 later options (macOS remote, ssh_config import, native secret prompts)
 ```
 
+**Transport choice (owner 2026-10-21).** The Tailscale/direct choice, the IANA classifier, the Tailscale check and the
+check-then-connect rule are planned in [`2026-10-21-desktop-transport-choice.md`](2026-10-21-desktop-transport-choice.md).
+Its packages T0–T5 do not depend on S0/WP1; its T6 changes WP1 (`SessionConfig` takes checked socket addresses, no
+DNS in the SSH crate), WP2 (`transport`/`publicAck` in `ssh-hosts.json` v1), WP3 (path step in the wizard) and WP5
+(re-check on connect and reconnect).
+
 One branch and one **ready** PR per phase, including stacks (owner 2026-10-18). Branches H–M/T use `codex/ssh-s0-spike`, `ssh-wp1-core`, `ssh-wp2-hosts`, `ssh-wp3-ui`, `ssh-wp4-install`, `ssh-wp5-connect`, `ssh-wp6-ci-docs` under `codex/`. Each starts from fresh `origin/main`, or cleanly stacks on its predecessor with that branch as base and `Stacked on #N` in the PR body. Never Draft; never copy code from open branches. Großpaket 1 A–G must be open/merged before implementation after H (Q inventory is the other exception).
 
 ---

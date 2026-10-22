@@ -23,8 +23,8 @@ describe("decision hint: the rule", () => {
     assert.equal(decisionRoleMissing({ modelRoles: { decision: "fast-profile", chat: "p/m" } }), false);
   });
 
-  test("three features, each with an English and a German text, and the way to set the role", () => {
-    assert.deepEqual(DECISION_FEATURES.map((f) => f.id), ["triage", "tools", "classes"]);
+  test("nine features (the ADR-015 consumers with their fallbacks), each with an English and a German text, and the way to set the role", () => {
+    assert.deepEqual(DECISION_FEATURES.map((f) => f.id), ["triage", "tools", "classes", "routing", "pruning", "skills", "placement", "zoom", "compaction"]);
     for (const f of DECISION_FEATURES) { assert.ok(en[f.text]); assert.ok(de[f.text]); assert.notEqual(en[f.text], de[f.text]); }
     for (const text of [en["shared.decisionHint.how"], en["shared.decisionHint.howHere"], de["shared.decisionHint.how"], de["shared.decisionHint.howHere"]]) assert.match(text, /plur1bus config set modelRoles\.decision/);
     assert.match(en["shared.decisionHint.how"], /Settings → Models & providers \(modelRoles\.decision\)/);
@@ -54,7 +54,7 @@ describe("decision hint: setup wizard", opts, () => {
       for (const f of DECISION_FEATURES) assert.ok(text.includes(en[f.text]), f.id);
       assert.match(text, /Settings → Models & providers \(modelRoles\.decision\)/);
       assert.match(text, /plur1bus config set modelRoles\.decision <provider\/model>/);
-      assert.equal(await hint(app).locator("li").count(), 3);
+      assert.equal(await hint(app).locator("li").count(), DECISION_FEATURES.length);
       assert.ok(reads(app).some((p) => (p as { key?: string })?.key === "modelRoles.decision"), "the role is read, not assumed");
 
       await page.getByLabel("Chat model").selectOption("anthropic/claude-x"); await next(page);
@@ -138,7 +138,7 @@ describe("decision hint: Models & providers settings", opts, () => {
       const text = (await hint(app).innerText()).replace(/\s+/g, " ");
       assert.match(text, /No decision model set/);
       assert.match(text, /plur1bus config set modelRoles\.decision <provider\/model>/);
-      assert.equal(await hint(app).locator("li").count(), 3);
+      assert.equal(await hint(app).locator("li").count(), DECISION_FEATURES.length);
       await expectAxeClean(app.page, "settings models with decision hint");
 
       await app.page.evaluate(() => { location.hash = "#/settings/general"; });

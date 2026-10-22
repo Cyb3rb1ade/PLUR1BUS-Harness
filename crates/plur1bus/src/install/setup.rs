@@ -1046,7 +1046,10 @@ fn step_config(
             "acceptedNcLicence": answers.accept_nc || config["embedding"]["acceptedNcLicence"] == json!(true),
             "changed": keys,
             "supervised": supervised,
-            "decisionRole": decision_role_note(&plur1bus_config::read(&layout.config_path()).unwrap_or_else(|_| config.clone())),
+            "decisionRole": decision_role_note(
+                &plur1bus_config::read(&layout.config_path()).unwrap_or_else(|_| config.clone()),
+                std::env::consts::OS,
+            ),
             "media": media.as_ref().map_or_else(
                 || json!({ "skipped": "profile-host" }),
                 MediaAnswers::detail,
@@ -1106,14 +1109,22 @@ fn answer_decision(
 }
 
 /// Skipping the optional Decision step leaves a home without `modelRoles.decision` on the
-/// built-in rules. `{ set, limited, hint }` tells the person (and `setup/1` readers) which features are limited and how
-/// to set the role later; `limited` is empty once the role is set.
-fn decision_role_note(config: &Value) -> Value {
+/// built-in rules. `{ set, limited, hint, notice }` tells the person (and `setup/1` readers) which features are limited and how
+/// to set the role later; `limited` is empty once the role is set. `notice` (only when there is something to tell) lists the
+/// features that depend on a decision model with their fallbacks, an uninstalled `decision.backend`, and the Windows/Laya
+/// recommendation (ADR-015; `commands/decision_notice.rs`). `os` is `std::env::consts::OS`, injected so a test can pick it.
+fn decision_role_note(config: &Value, os: &str) -> Value {
+    use crate::commands::decision_notice::{assess, notice_json, INSTALLED_BACKENDS};
     use crate::commands::model::{decision_role_set, DECISION_FEATURES, DECISION_ROLE_HOW};
-    if decision_role_set(&config["modelRoles"]) {
-        return json!({ "set": true, "limited": [] });
+    let mut note = if decision_role_set(&config["modelRoles"]) {
+        json!({ "set": true, "limited": [] })
+    } else {
+        json!({ "set": false, "limited": DECISION_FEATURES, "hint": DECISION_ROLE_HOW })
+    };
+    if let Some(notice) = notice_json(&assess(config, os, &INSTALLED_BACKENDS)) {
+        note["notice"] = notice;
     }
-    json!({ "set": false, "limited": DECISION_FEATURES, "hint": DECISION_ROLE_HOW })
+    note
 }
 
 // ---- memory & media search ---------------------------------------------------------------------------------------
@@ -1848,7 +1859,7 @@ mod tests {
             json!({ "modelRoles": { "chat": "p/m" } }),
             json!({ "modelRoles": { "decision": "" } }),
         ] {
-            let note = decision_role_note(&config);
+            let note = decision_role_note(&config, "linux");
             assert_eq!(note["set"], false, "{config}");
             assert_eq!(
                 note["limited"],
@@ -1859,8 +1870,35 @@ mod tests {
                 .unwrap()
                 .contains("modelRoles.decision"));
         }
-        let set = decision_role_note(&json!({ "modelRoles": { "decision": "p/small" } }));
+        let set = decision_role_note(
+            &json!({ "modelRoles": { "decision": "p/small" } }),
+            "windows",
+        );
         assert_eq!(set, json!({ "set": true, "limited": [] }));
+    }
+
+    #[test]
+    fn the_decision_role_note_carries_the_adr_015_notices() {
+        // No decision model: the feature list with fallbacks, whatever the OS.
+        for os in ["linux", "windows"] {
+            let note = decision_role_note(&json!({}), os);
+            assert_eq!(note["notice"]["uses"].as_array().unwrap().len(), 9, "{os}");
+            assert!(note["notice"].get("windowsLaya").is_none(), "{os}");
+        }
+        // Windows + local Laya: the recommendation travels with the note, even with a role set; local stays allowed.
+        let laya =
+            json!({ "decision": { "backend": "laya" }, "modelRoles": { "decision": "p/small" } });
+        let note = decision_role_note(&laya, "windows");
+        assert_eq!(note["set"], true);
+        assert_eq!(
+            note["notice"]["windowsLaya"],
+            json!({ "recommend": "cloud", "allowLocal": true })
+        );
+        assert!(note["notice"].get("uses").is_none());
+        // Laya on another OS: only the "not installed" note.
+        let note = decision_role_note(&laya, "linux");
+        assert!(note["notice"].get("windowsLaya").is_none());
+        assert_eq!(note["notice"]["backendUnavailable"], true);
     }
 
     #[test]
