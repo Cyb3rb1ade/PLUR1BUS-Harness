@@ -23907,7 +23907,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "turn.completed",
     "turn.failed",
     "session.model.changed",
-    "decision.completed"
+    "decision.completed",
+    "model.selected"
   ]
 }
 ```

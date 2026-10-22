@@ -10696,7 +10696,8 @@
     "turn.completed",
     "turn.failed",
     "session.model.changed",
-    "decision.completed"
+    "decision.completed",
+    "model.selected"
   ]
 },
     "SessionEvent": {
