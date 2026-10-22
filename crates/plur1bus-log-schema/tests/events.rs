@@ -699,13 +699,9 @@ fn the_config_properties_that_only_name_a_secret_say_so_and_the_one_that_holds_a
     );
 }
 
-/// KNOWN GAP (SICHERHEIT, latent): `audit.config.set` carries `old` and `new` as "any JSON, redacted when x-sensitive"
-/// (`audit_config_set` in the catalogue), but `config.schema.json` has no `x-sensitive` annotation at all (the first-aid bundle
-/// says so too, `firstaid_bundle/mod.rs`). `channels.telegram.webhook.secret` is a value kept in `config.json` itself, so a writer
-/// that follows the catalogue has nothing to tell it to redact that value. No emitter of `audit.config.set` exists in the Rust
-/// sources today, which is why this is latent. Adding the annotation changes the config schema, which this change does not touch.
+/// Config values audited by the shared writer carry an explicit sensitivity annotation. Secret references remain
+/// references; the webhook credential stored as a value must be x-sensitive in the source schema.
 #[test]
-#[ignore = "KNOWN GAP (SICHERHEIT, latent): config.schema.json has no x-sensitive, so audit.config.set cannot redact channels.telegram.webhook.secret"]
 fn every_config_property_that_holds_a_secret_value_is_marked_x_sensitive() {
     let unmarked: Vec<String> = credential_named_config_properties()
         .into_iter()

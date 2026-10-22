@@ -85,3 +85,11 @@ plur1bus 1staid check
 If you explicitly need to restore the separate full-installation archive, verify it first and use
 `plur1bus backup restore <archive>` with the core stopped. Preview with `--dry-run`; a script or
 `--json` invocation requires `--yes`. This is a broader restore than `update --rollback`.
+
+## Audit continuity is a separate check
+
+A healthy restarted core and a successful update or rollback do not establish audit integrity. Before planned changes, retain the latest explicit `plur1bus audit verify` result and, where required, pin its `lastSeq`/`lastHash` outside the host. Repeat verification after the core is reachable again and compare the reported era boundaries and prior-chain findings as well as the current result.
+
+The installation backup above excludes `logs/`; the updater snapshot also does not serve as an audit-evidence backup. Preserve a consistent, private copy of chain files, anchor, `audit.log`, pending journal and torn/set-aside evidence separately when required. Do not restore an older anchor alone over a newer chain.
+
+If only the configuration-audit append is refused, saving configuration can still succeed with `audit-chain-unavailable`; that warning is not audit acceptance. A failed ordinary audit append can still fail other operations. Resolve the observed cause through the [audit runbook](audit-recovery.md), rather than automatically running reanchor to make an update check green. Reanchor begins a visibly recorded new era and does not validate the damaged old history.

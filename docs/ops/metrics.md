@@ -77,3 +77,9 @@ no internal error so far) fall back to 0.
 Memory, connections, journal backlog and turn durations are collected without triggers; add your own threshold for the host.
 The template was written against the Zabbix 7.0 export format and checked structurally in CI
 (`packages/core/test/metrics/zabbix-template.test.ts`); it has not been imported into a live Zabbix from this repository's CI.
+
+## Audit health is not a Prometheus metric
+
+The cached audit operational metadata is available in authorized `core.status` and `daemon.status` responses, and in the Web audit view. This endpoint and the bundled Zabbix template do not expose audit-health series, pending-journal counts or an integrity-verification result. The metrics token grants `metrics.read`, not access to audit metadata.
+
+An engine-ready trigger therefore says nothing about the audit chain. Use an explicit `audit.verify` result for the integrity check and the [audit runbook](audit-recovery.md) for a refusing chain or pending rows. A cached audit `state: "ok"` is a tail/anchor observation, not a substitute for that check.

@@ -172,7 +172,7 @@ test("err.code is the RPC error enum plus the provider classes", () => {
 });
 
 test("audit is its own record type with the HB12 v1 fields (R1)", () => {
-  assert.deepEqual(AUDIT_KEY_ORDER, ["at", "actor", "action", "target", "detail", "v", "source", "trace_id", "agent", "session", "task", "surface", "store_ref"]);
+  assert.deepEqual(AUDIT_KEY_ORDER, ["at", "actor", "action", "target", "detail", "v", "source", "trace_id", "agent", "session", "task", "surface", "store_ref", "chain", "chainReason"]);
   assert.deepEqual(Object.keys(AUDIT_SCHEMA.properties), [...AUDIT_KEY_ORDER]);
   assert.deepEqual(AUDIT_SCHEMA.required, ["at", "actor", "action", "target", "detail"], "the v1 fields stay required");
   assert.equal(AUDIT_SCHEMA.properties.at.type, "integer", "`at` is epoch milliseconds");

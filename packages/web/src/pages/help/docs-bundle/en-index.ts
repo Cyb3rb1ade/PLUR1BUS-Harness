@@ -13,6 +13,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Approvals and grants"
   },
   {
+    "slug": "audit",
+    "title": "Verify and recover the audit chain"
+  },
+  {
     "slug": "breakglass",
     "title": "Break-glass access"
   },
@@ -179,6 +183,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "agent-provisioning": return import("./en/agent-provisioning.ts").then(m => m.doc);
     case "agents": return import("./en/agents.ts").then(m => m.doc);
     case "approvals": return import("./en/approvals.ts").then(m => m.doc);
+    case "audit": return import("./en/audit.ts").then(m => m.doc);
     case "breakglass": return import("./en/breakglass.ts").then(m => m.doc);
     case "budgets": return import("./en/budgets.ts").then(m => m.doc);
     case "channels": return import("./en/channels.ts").then(m => m.doc);
