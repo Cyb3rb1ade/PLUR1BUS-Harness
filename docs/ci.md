@@ -57,7 +57,7 @@ Everything else in `ci.yml` is deliberately outside the gate and not in its `nee
 `unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
 Actions concurrency change below it only runs under the full-platform policy),
 `python-host` (including the experimental `windows-11-arm` leg), `system`, `service`, `sandbox`, `release-scripts`,
-`documents-golden`, the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
+`documents-golden`, `host-tool-eval` (the deterministic host tool/policy scenarios of D106 P4, fake OS ports, no live model), the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
 `perf-startup` and `perf-budgets` jobs. They still run for their selected suites and show up as checks; a red one is a
 reason to look, not an automatic block. To promote a job, add it to `selections` in `scripts/ci/gate.mjs`, to the gate's
 `needs` and remove it from `UNGATED`; the workflow contract test fails until all three agree. Other workflows
