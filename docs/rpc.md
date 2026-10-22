@@ -8797,7 +8797,7 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
 
 **Served by:** core
 
-B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE.
+B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE. An optional external pin (a sequence and hash recorded elsewhere) is checked under the same lock against the whole chain, rotated files included; pin-missing or pin-mismatch is a finding, and it detects a chain that was rewritten consistently.
 
 **params**
 
@@ -8805,7 +8805,28 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "hash"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "description": "Externally recorded sequence/hash pair; pin-missing or pin-mismatch is a finding."
+    }
+  }
 }
 ```
 
@@ -8901,7 +8922,9 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
               "anchor-missing",
               "anchor-invalid",
               "anchor-mismatch",
-              "truncated"
+              "truncated",
+              "pin-missing",
+              "pin-mismatch"
             ]
           },
           "file": {
@@ -14876,7 +14899,7 @@ Sets the caption of a medium (source `user`); the caption is a memory entry of t
 
 **Served by:** core
 
-Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
+Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. A value of fewer than 8 characters is accepted, but the log redactor does not mask values that short, so the result then carries a `warning`. Owner only; every call is audited (M2, ADR-005).
 
 **params**
 
@@ -14911,7 +14934,7 @@ Creates or replaces a secret, with an optional description; leases on the old va
 
 ```json
 {
-  "$ref": "#/$defs/SecretMeta"
+  "$ref": "#/$defs/SecretSetOutcome"
 }
 ```
 
@@ -24537,6 +24560,72 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "string",
       "maxLength": 200,
       "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value."
+    }
+  }
+}
+```
+
+### `SecretSetOutcome`
+
+```json
+{
+  "description": "Experimental (1.5.0). What `secret.set` returns: the same fields as SecretMeta, plus a `warning` when the value is too short for the log redactor to mask. Never the value.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "backend",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "backend": {
+      "$ref": "#/$defs/SecretBackend"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    },
+    "updatedBy": {
+      "type": "string",
+      "description": "Person ID of the last writer, when known; never a secret value."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value."
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "minMaskedChars",
+        "message"
+      ],
+      "description": "Present when the stored value has fewer characters than the redactor masks: the value was stored, but it could appear unmasked in a log line.",
+      "properties": {
+        "code": {
+          "const": "short-value-unmasked"
+        },
+        "minMaskedChars": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The shortest value the log redactor masks (8)."
+        },
+        "message": {
+          "type": "string",
+          "description": "English text for clients without a message catalogue; the code is the stable part."
+        }
+      }
     }
   }
 }

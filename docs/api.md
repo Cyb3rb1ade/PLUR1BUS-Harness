@@ -27,8 +27,9 @@ stolen token cannot mint another one or switch off a second factor. The core's R
 Argon2id through `node:crypto` (no dependency), as a PHC string `$argon2id$v=19$m=19456,t=2,p=1$<salt>$<tag>`: 19 MiB, 2
 passes, 1 lane, 16-byte salt, 32-byte tag. ADR-007 defers the parameters to ADR-005, which states none; these are the OWASP
 minimum for Argon2id and are a decision to confirm. A stored hash is only trusted inside bounds (8 MiB to 256 MiB, 1 to 10
-passes, 1 to 4 lanes), so a planted record cannot make a login allocate gigabytes. After a good login a hash made with other
-parameters is replaced by one made with the current ones.
+passes, 1 to 4 lanes), so a planted record cannot make a login allocate gigabytes. After a good login a hash that is weaker than the current
+parameters in at least one of memory, passes or lanes is replaced by one made with the per-parameter maximum of the stored and
+the current ones; a hash that is equal or stronger is left alone, so a login never downgrades a record.
 
 - **Constant work.** An unknown name, a disabled account and an account without a password each cost one Argon2id
   verification against a dummy hash, and answer exactly like a wrong password (`401`, `reason: invalid-credentials`).
@@ -118,7 +119,7 @@ in whole seconds, `reason: rate-limited`.
 | `write` | 30 | 5 per s | writes |
 | `stream` | 6 | 1 per 5 s | opening `/events` |
 | `rpc` | 60 | 10 per s | `/rpc` |
-| `expensive` | 10 | 1 per 6 s | model-backed work, per person or token: the chat submit (`POST /api/v1/chats/{sessionId}/messages`) and, through `/rpc`, `session.submit`, `jobs.run`, `dreams.run`, `voice.realtime.start` |
+| `expensive` | 10 | 1 per 6 s | model-backed work, per person or token: the chat submit (`POST /api/v1/chats/{sessionId}/messages`) and, through `/rpc`, `session.submit`, `jobs.run`, `dreams.run`, `voice.realtime.start`, `media.generate`, `media.edit` |
 
 Model-backed work also holds one slot of a global concurrency cap (default 8, `ApiServerOptions.expensiveConcurrency`) from the
 moment it is admitted until its response, a chat stream included, has ended. A refused call is `429`, `reason: rate-limited`,
@@ -143,7 +144,8 @@ Every response, errors and malformed requests included, carries `X-Content-Type-
   font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`. `<N>` is
   128 fresh random bits per response. It reaches the page at delivery time: every `<script>` and `<style>` tag without a
   nonce gets one and `__CSP_NONCE__` is replaced, so `packages/web` is not touched. No `unsafe-inline`, no `unsafe-eval`.
-- Paths are cleaned (dot segments, encodings, backslashes, NUL, dotfiles, drive and stream colons, trailing dot or space) and
+- Paths are cleaned (dot segments, encodings, backslashes, NUL, dotfiles, drive and stream colons, trailing dot or space, and the reserved Windows device names `CON`, `PRN`, `AUX`, `NUL`,
+  `COM1` to `COM9`, `LPT1` to `LPT9`, `CONIN$` and `CONOUT$` in any case and with any extension, on every platform) and
   symlinks must resolve inside the root. A path whose last segment has no extension is a client-side route and gets the shell;
   a missing file or anything under `/api` is a JSON `404`. Static requests pass the same Host, Origin and rate gates.
 
@@ -232,6 +234,35 @@ answer as an unreachable core. `agents.list` takes an object with an `agents` ar
 `agentId`; any other answer is a 502 with `reason: core-error`, and the core cannot override the `schema` id. The core's own text is
 never forwarded.
 
+The REST routes that pass a core refusal on (`agents.list`, `chats.*`, the desktop-attach routes, `remote.*`, the
+`remote.pairing.*` and `remote.trust.*` routes, and the break-glass routes for every refusal they do not map themselves) turn a
+refusal with a code of the closed `ErrorCode` enum into an `ApiError` (`fromCoreError`, `src/errors.ts`). The code is kept, the
+status comes from one total table (`statusOfCode`; `hardening-openapi.test.ts` fails for any code without its own status and
+for any status entry that is not in the enum, so none falls back to a bare 500) and the text is a fixed one per code. No route
+returns the ten codes `E_AGENT_EXISTS`, `E_AGENT_RIGHTS`, `E_AGENT_SECRETS_MISSING`, `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`,
+`E_INVITE_INVALID`, `E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE` and `E_VOICE_UNAVAILABLE` yet; the table and its tests
+fix the status they will get once one does.
+
+`POST /rpc` does not use this table. `rpcFailure` (`src/rpc-route.ts`) answers every application error with HTTP 200 and a
+JSON-RPC `error` object: the code is `error.data.error` (and `error.data.reason`), the JSON-RPC number is -32602 for
+`E_INVALID_PARAMS` and -32000 otherwise unless the core named one, and the message comes from a small fixed table. Only the
+layers in front of the route (session, CSRF, rate limit, body size) use HTTP statuses.
+
+The status table of the REST routes:
+
+| Status | Codes |
+|---|---|
+| 400 | `E_INVALID_PARAMS`, `E_CONFIG_INVALID`, `E_INBOX_CURSOR`, `E_INVITE_INVALID` |
+| 401 | `E_UNAUTHORIZED` |
+| 403 | `E_DENIED`, `E_APPROVAL_REQUIRED`, `E_MEDIA_LICENSE`, `E_MEDIA_PRIVACY`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE` |
+| 404 | `E_NOT_FOUND`, `E_AGENT_UNKNOWN`, `E_MODULE_UNKNOWN` |
+| 409 | `E_CONFLICT`, `E_AGENT_EXISTS`, `E_PROJECT_WIP_LIMIT` |
+| 422 | `E_AGENT_RIGHTS`, `E_AGENT_SECRETS_MISSING`, `E_VOICE_BUDGET`, `E_MEDIA_CAPABILITY`, `E_MEDIA_DIMENSION`, `E_MEDIA_UNSUPPORTED_KIND` |
+| 423 | `E_LOCKED` |
+| 502 | `E_RPC_VERSION` (from the core, it and `E_UNAUTHORIZED` reach the caller as 502 `E_CORE_UNAVAILABLE`, reason `core-handshake`) |
+| 503 | `E_CORE_UNAVAILABLE`, `E_NOT_AVAILABLE`, `E_MEDIA_UNAVAILABLE`, `E_VOICE_UNAVAILABLE` |
+| 500 | `E_INTERNAL`, `E_STORAGE` (the core's own failures reach the caller as 502 `E_CORE_UNAVAILABLE`, reason `core-error`) |
+
 ### Behaviour worth knowing
 
 - **Audit queue.** Auth events are queued (default 2000) and written in order from the event loop; each gets a few retries.
@@ -252,12 +283,7 @@ never forwarded.
 
 Each is a test marked `KNOWN GAP`; none is fixed because the fix changes behaviour.
 
-- **Stronger password hashes are replaced** (`hardening-login.test.ts`): `needsRehash` rewrites any hash whose parameters differ
-  from the current ones, a stronger hash included.
-- **No HTTP status for six core codes** (`hardening-openapi.test.ts`): `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`,
-  `E_INVITE_INVALID` and the voice codes (`E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE`, `E_VOICE_UNAVAILABLE`) fall back to 500. No route returns them yet.
-- **Windows device names** (`hardening-static.test.ts`): `CON`, `NUL`, `AUX`, `COM1`, `LPT1` (with or without an extension) are
-  not refused as path segments; on Windows opening one can block a thread-pool worker. Not verified on Windows.
+None is open in the hardening tests at the moment (`hardening-*.test.ts` has no `KNOWN GAP` left).
 
 ## Browser RPC and events
 
