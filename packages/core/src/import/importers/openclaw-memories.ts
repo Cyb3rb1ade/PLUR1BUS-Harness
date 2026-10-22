@@ -194,7 +194,7 @@ export async function importOpenclawMemories(opts: {
             idempotencyKey: key,
             text,
             sourceRef: `openclaw:${agentId}:${file}#${i + 1}${runSuffix}`,
-            targetRef: `agents/${agentId}/workspace/${file === "MEMORY.md" ? "memories.md" : "USER.md"}`,
+            targetRef: `agents/${agentId}/workspace/${file === "MEMORY.md" ? "memory/KNOWLEDGE.md" : "USER.md"}`,
           });
         }
       });
@@ -302,7 +302,7 @@ export async function importOpenclawMemories(opts: {
           const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
           const fullBatch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
           const linked = await linkDuplicates(fullBatch, principal, "MEMORY.md");
-          await recordLinked(fullBatch, linked, principal, `agents/${agentId}/workspace/memories.md`);
+          await recordLinked(fullBatch, linked, principal, `agents/${agentId}/workspace/memory/KNOWLEDGE.md`);
           const batch = fullBatch.filter((c) => !linked.has(c.idempotencyKey));
           if (batch.length === 0) continue;
 
@@ -384,7 +384,7 @@ export async function importOpenclawMemories(opts: {
                 idempotencyKey: batchCard.idempotencyKey,
                 action: cardOutcome === "created" ? "created" : cardOutcome === "matched-existing" ? "matched-existing" : "rejected",
                 sourceRef: batchCard.sourceRef,
-                targetRef: `agents/${agentId}/workspace/memories.md`,
+                targetRef: `agents/${agentId}/workspace/memory/KNOWLEDGE.md`,
                 sha256: sha,
                 reason: cr?.reason,
               });

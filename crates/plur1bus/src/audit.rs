@@ -7,6 +7,8 @@
 pub(crate) mod chain;
 #[path = "audit_health.rs"]
 pub(crate) mod health;
+#[path = "audit_redact.rs"]
+mod redact;
 use crate::paths::Layout;
 use serde_json::{json, Value};
 use std::fs;
@@ -53,8 +55,9 @@ pub(crate) fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Appends one audit line. The line is written with a single `write_all` on an `O_APPEND` handle, so a crash never
-/// leaves a partial line in the middle of the file, and it is fsynced before this returns.
+/// Appends one audit line; `detail` is redacted first (`audit_redact.rs`, rules from `redaction.json`). The line is
+/// written with a single `write_all` on an `O_APPEND` handle, so a crash never leaves a partial line in the middle of
+/// the file, and it is fsynced before this returns.
 pub fn append(layout: &Layout, action: &str, target: &str, detail: Value) -> io::Result<()> {
     let caller = crate::identity::caller();
     append_as(
@@ -153,6 +156,11 @@ fn append_inner(
     // Create (or re-restrict) the file privately first; the append handle below cannot also carry WRITE_DAC on
     // Windows without losing append semantics.
     drop(create_private(&path, false)?);
+    // D111 §4: the detail is redacted once, here, before the line is built, so every writer (`append`, `append_as`,
+    // `append_as_degrading`, and with it the pending journal the drain replays) puts the same redacted text into the
+    // chain line and the `audit.log` line. When the redaction cannot be set up nothing is written; an audit line never
+    // falls back to the raw detail.
+    let detail = redact::redact_detail(&detail)?;
     let mut line = log_line(actor, action, target, detail);
     match chain::append(&layout.logs(), &line) {
         Ok(()) => {
@@ -637,13 +645,19 @@ mod tests {
     fn a_detail_with_newlines_unicode_and_a_megabyte_is_still_one_line() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
-        let big = "y".repeat(1 << 20);
-        for (i, detail) in [
-            json!({ "t": "a\nb\r\nc" }),
-            json!({ "t": "ünï ✓ 😀 \u{0} \u{2028}" }),
-            json!({ "t": big }),
-            json!(null),
-            json!([1, 2, 3]),
+        let same = |v: Value| (v.clone(), v);
+        for (i, (detail, shown)) in [
+            same(json!({ "t": "a\nb\r\nc" })),
+            same(json!({ "t": "ünï ✓ 😀 \u{0} \u{2028}" })),
+            same(json!({ "t": "y ".repeat(1 << 19) })),
+            // A megabyte without a break is a base64url run (a credential shape, D111 §4 rule 3): it is masked, and
+            // what is left is still one line.
+            (
+                json!({ "t": "y".repeat(1 << 20) }),
+                json!({ "t": "[REDACTED:pattern]" }),
+            ),
+            same(json!(null)),
+            same(json!([1, 2, 3])),
         ]
         .into_iter()
         .enumerate()
@@ -652,14 +666,108 @@ mod tests {
                 &layout,
                 &format!("test.action{i}"),
                 "target\nwith newline",
-                detail.clone(),
+                detail,
             )
             .unwrap();
             let all = lines(&layout);
             assert_eq!(all.len(), i + 1, "one physical line per entry");
             let v: Value = serde_json::from_str(all.last().unwrap()).unwrap();
-            assert_eq!(v["detail"], detail);
+            assert_eq!(v["detail"], shown);
             assert_eq!(v["target"], "target\nwith newline");
+        }
+    }
+
+    /// The chain's lines, each with the hash its successor must name, checked the way `audit verify` does: `seq`
+    /// counts up from 1, every `prev` is the SHA-256 of the line before (the genesis hash for the first), and the
+    /// anchor pins the newest (seq, hash).
+    fn chain_records(layout: &Layout) -> Vec<Value> {
+        let text = fs::read_to_string(layout.logs().join("audit-chain.jsonl")).unwrap();
+        let mut prev = "0".repeat(64);
+        let mut recs = Vec::new();
+        for (i, line) in text.lines().enumerate() {
+            let v: Value = serde_json::from_str(line).unwrap();
+            assert_eq!(v["seq"], i as u64 + 1);
+            assert_eq!(v["prev"], prev.as_str());
+            prev = chain::hash_line(line);
+            recs.push(v["rec"].clone());
+        }
+        let anchor: Value = serde_json::from_str(
+            fs::read_to_string(layout.logs().join("audit-chain.anchor"))
+                .unwrap()
+                .trim(),
+        )
+        .unwrap();
+        assert_eq!(anchor["seq"], recs.len() as u64);
+        assert_eq!(anchor["hash"], prev.as_str());
+        recs
+    }
+
+    /// D111 §4: a secret in `detail` reaches neither the chain nor `audit.log`, both hold the same redacted record,
+    /// and the chain still verifies (the hash is taken over the redacted line).
+    #[test]
+    fn a_secret_in_the_detail_reaches_neither_the_chain_nor_the_audit_log() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        // Assembled at run time: no credential-shaped literal sits in the source.
+        let token = format!("ghp_{}", "A1b2".repeat(10));
+        let bearer = format!("Bearer {}", "Zz9".repeat(8));
+        let url = format!("see https://u:p4ss@example.com/x?code=abc{}", 123);
+        append(
+            &layout,
+            "repair.test",
+            "t",
+            json!({
+                "reason": format!("provider said {token}"),
+                "message": bearer,
+                "password": "hunter2-hunter2",
+                "nested": { "list": [url], "ok": 3 },
+                "kept": "linux-x64",
+            }),
+        )
+        .unwrap();
+        let legacy = fs::read_to_string(layout.audit_log()).unwrap();
+        let chain_text = fs::read_to_string(layout.logs().join("audit-chain.jsonl")).unwrap();
+        for needle in [token.as_str(), "Zz9Zz9", "hunter2", "p4ss", "abc123"] {
+            assert!(!legacy.contains(needle), "{needle} in audit.log");
+            assert!(!chain_text.contains(needle), "{needle} in the chain");
+        }
+        let line: Value = serde_json::from_str(legacy.trim()).unwrap();
+        assert_eq!(
+            line["detail"],
+            json!({
+                "reason": "provider said [REDACTED:pattern]",
+                "message": "[REDACTED:pattern]",
+                "password": "[REDACTED:key]",
+                "nested": { "list": ["see https://example.com/x?code=[REDACTED:url]"], "ok": 3 },
+                "kept": "linux-x64",
+            })
+        );
+        let recs = chain_records(&layout);
+        assert_eq!(recs, vec![line], "the chain holds the audit.log record");
+    }
+
+    /// The counterpart: what is not a secret is written byte for byte, in both files, and the chain verifies.
+    #[test]
+    fn an_ordinary_detail_is_written_byte_for_byte_and_the_chain_verifies() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let details = [
+            json!({ "target": "linux-x64", "channel": "stable", "core": "bundled", "profile": "standard" }),
+            json!({ "useClass": "research", "acceptedAt": "2026-10-20T10:00:00Z" }),
+            json!({ "status": "done", "reason": "stale-files", "detail": { "removed": 2, "paths": ["data/ext/fixture"] } }),
+            json!({}),
+        ];
+        for (i, d) in details.iter().enumerate() {
+            append(&layout, &format!("test.action{i}"), "t", d.clone()).unwrap();
+        }
+        let recs = chain_records(&layout);
+        let shown: Vec<Value> = lines(&layout)
+            .iter()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(recs, shown);
+        for (i, d) in details.iter().enumerate() {
+            assert_eq!(shown[i]["detail"].to_string(), d.to_string());
         }
     }
 
@@ -942,6 +1050,111 @@ mod tests {
         append(&layout, "later", "t", json!({})).unwrap();
         assert_eq!(chain_rows(&layout).len(), 7);
         assert_eq!(drain_pending(&layout).unwrap(), 0);
+    }
+
+    /// The config audit rows go through `append_as` / `append_as_degrading`, not `append`: a secret registered in the
+    /// detail must be redacted there too, in the chain, in `audit.log` and in the pending journal the drain replays.
+    #[test]
+    fn config_audit_rows_are_redacted_in_the_chain_audit_log_and_pending_journal() {
+        // Assembled at run time: no credential-shaped literal sits in the source.
+        let token = format!("ghp_{}", "A1b2".repeat(10));
+        let secret = "hunter2-hunter2";
+        let detail = |t: &str| {
+            json!({
+                "oldValue": format!("token {t}"),
+                "newValue": { "password": secret, "ok": 5 },
+            })
+        };
+        let expected = json!({
+            "oldValue": "token [REDACTED:pattern]",
+            "newValue": { "password": "[REDACTED:key]", "ok": 5 },
+        });
+        let assert_clean = |layout: &Layout, what: &str| {
+            for name in [
+                "audit.log",
+                "audit-chain.jsonl",
+                "audit-chain.pending.jsonl",
+            ] {
+                if let Ok(text) = fs::read_to_string(layout.logs().join(name)) {
+                    for needle in [token.as_str(), "hunter2"] {
+                        assert!(!text.contains(needle), "{what}: {needle} in {name}");
+                    }
+                }
+            }
+        };
+
+        // A chain that takes the row: both `append_as` and `append_as_degrading`.
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        append_as(
+            &layout,
+            ("alice", "h"),
+            "audit.config.set",
+            "k1",
+            detail(&token),
+        )
+        .unwrap();
+        assert_eq!(
+            append_as_degrading(
+                &layout,
+                ("alice", "h"),
+                "audit.config.set",
+                "k2",
+                detail(&token)
+            )
+            .unwrap(),
+            None
+        );
+        assert_clean(&layout, "healthy chain");
+        let shown = log_values(&layout);
+        assert_eq!(shown.len(), 2);
+        for row in &shown {
+            assert_eq!(row["detail"], expected);
+        }
+        assert_eq!(
+            chain_rows(&layout),
+            shown,
+            "the chain holds the audit.log rows"
+        );
+
+        // A chain that refuses: the flagged row and the journal are redacted, and so is what the drain writes.
+        let (_dir2, refused) = layout_without_anchor();
+        for i in 0..2 {
+            let r = append_as_degrading(
+                &refused,
+                ("alice", "supervisor"),
+                "audit.config.set",
+                &format!("q{i}"),
+                detail(&token),
+            )
+            .unwrap();
+            assert!(r.is_some());
+        }
+        assert_clean(&refused, "refusing chain");
+        let pending = queued(&refused);
+        assert_eq!(pending.len(), 2);
+        for row in &pending {
+            assert_eq!(row["detail"], expected);
+        }
+        restore_anchor(&refused);
+        assert_eq!(
+            append_as_degrading(
+                &refused,
+                ("alice", "h"),
+                "audit.config.set",
+                "k3",
+                detail(&token)
+            )
+            .unwrap(),
+            None
+        );
+        assert!(!pending_path(&refused).exists(), "the journal was drained");
+        assert_clean(&refused, "after the drain");
+        let rows = chain_rows(&refused);
+        assert_eq!(rows.len(), 1 + 1 + 2 + 1, "first, k3, two drained, event");
+        for row in &rows[1..4] {
+            assert_eq!(row["detail"], expected);
+        }
     }
 
     #[test]

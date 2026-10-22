@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, mkdir, writeFile, realpath, rm, symlink } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpBase } from './helpers/tmp.ts';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
@@ -42,9 +42,9 @@ function build(extra: Partial<Parameters<typeof createHostctl>[0]> = {}) {
 }
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'hostctl-index-'));
-  outside = await mkdtemp(join(tmpdir(), 'hostctl-index-outside-'));
-  home = await mkdtemp(join(tmpdir(), 'hostctl-index-home-'));
+  root = await mkdtemp(join(tmpBase(), 'hostctl-index-'));
+  outside = await mkdtemp(join(tmpBase(), 'hostctl-index-outside-'));
+  home = await mkdtemp(join(tmpBase(), 'hostctl-index-home-'));
   audit = [];
   host = build();
   for (const key of Object.keys(fakeTools)) delete fakeTools[key];

@@ -4,14 +4,16 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import type { TimerHandle } from "../discovery/ports.ts";
-import { contentHash, DEFAULT_GATES, evaluate, type Decision, type GateConfig } from "./candidates.ts";
+import { contentHash, DEFAULT_GATES, evaluate, evaluateFallback, type Decision, type GateConfig } from "./candidates.ts";
 import { isValidTimezone, nextAfter, parseCron } from "./cron.ts";
 import type { DreamStore } from "./store.ts";
 import {
   BREAKER_PHASES, BREAKER_SESSIONS, CANDIDATE_TTL_MS, DAY_MS, LEDGER_RETENTION_MS, LOG_RETENTION_MS, MAX_CONCURRENT_RUNS, PHASE_DEFAULTS, PHASES, REASON, RETRY_CAP, RETRY_MAX_AGE_MS, STAGGER_WINDOW_S,
-  type CandidateSource, type Clock, type DreamEngine, type DreamEvent, type DreamJobRun, type DreamLogger, type DreamRun, type Outcome, type Phase,
+  type CandidateInput, type CandidateSource, type Clock, type DreamEngine, type DreamEvent, type DreamJobRun, type DreamLogger, type DreamRun, type Outcome, type Phase,
   type PhaseDefaults, type RunCounts, type ScheduleRow, type Trigger,
 } from "./types.ts";
+
+type PromotionCandidate = { candidateId: string; memoryId: string; decision: Decision };
 
 export interface SchedulerOptions {
   store: DreamStore; engine: DreamEngine; clock: Clock; logger: DreamLogger;
@@ -422,16 +424,18 @@ export class DreamScheduler {
 
       // Candidate guards (inert until a producer is wired, see CandidateSource).
       const cand: RunCounts = {};
-      let promotable: { candidateId: string; decision: Decision }[] = [];
+      let promotable: PromotionCandidate[] = [];
+      let candidateError: Error | undefined;
       if (this.#o.candidates && (phase === "light" || phase === "deep")) {
         try {
           const r = await this.#ingestCandidates(agentId, runId, now);
           Object.assign(cand, r.counts);
-          if (phase === "deep") {
-            promotable = r.promotable;
-            if (promotable.length === 0) return finish("skipped", REASON.noCandidates, cand);
-          }
-        } catch (e) { return finish("failed", REASON.engineError, cand, { error: { message: String((e as Error).message ?? e), name: (e as Error).name } }); }
+          if (phase === "deep") promotable = r.promotable;
+        } catch (e) {
+          // Candidate reads must not suppress light or deep jobs. Surface the
+          // failure after maintenance; promotion stays closed for this run.
+          candidateError = e instanceof Error ? e : new Error(String(e));
+        }
       }
 
       if (this.#o.llmRoute && jobs.some((j) => j.needsLlm) && !(await this.#o.llmRoute(agentId))) return finish("skipped", REASON.noLlmRoute, cand);
@@ -439,7 +443,7 @@ export class DreamScheduler {
 
       await this.#sem.acquire();
       try {
-        return await this.#execute(agentId, phase, runId, jobs, logFile, o.signal, cand, promotable, finish);
+        return await this.#execute(agentId, phase, runId, jobs, logFile, o.signal, cand, promotable, finish, candidateError);
       } finally { this.#sem.release(); }
     } catch (e) {
       return finish("failed", REASON.engineError, {}, { error: { message: String((e as Error).message ?? e), name: (e as Error).name } });
@@ -448,8 +452,9 @@ export class DreamScheduler {
 
   async #execute(
     agentId: string, phase: Phase, runId: string, jobs: { name: string; needsLlm: boolean }[], logFile: string | null, callerSignal: AbortSignal | undefined,
-    counts: RunCounts, promotable: { candidateId: string; decision: Decision }[],
+    counts: RunCounts, promotable: PromotionCandidate[],
     finish: (o: Outcome, r: string | null, c: RunCounts, x?: { tokensIn?: number | null; tokensOut?: number | null; error?: DreamRun["error"] }) => DreamRun,
+    candidateError?: Error,
   ): Promise<DreamRun> {
     const signal = callerSignal ? AbortSignal.any([callerSignal, this.#stop.signal]) : this.#stop.signal;
     const primary = this.#phase(phase).primary;
@@ -484,6 +489,8 @@ export class DreamScheduler {
       }
     }
 
+    if (candidateError) return finish("failed", REASON.engineError, tally(), { ...usage(), error: { message: candidateError.message, name: candidateError.name } });
+
     // The primary job decides the outcome: a phase whose main job skipped is skipped, never "completed" (causes 5, 7).
     const main = results.find((x) => x.job === primary)?.run ?? results[0]?.run;
     if (main?.outcome === "skipped") {
@@ -498,22 +505,59 @@ export class DreamScheduler {
       const why = badDiary?.run.diary?.reason ?? "no diary entry reported";
       return finish("failed", REASON.diaryNotWritten, tally(), { ...usage(), error: { message: `diary not written: ${why}` } });
     }
-    // Deep promotions are recorded only now, after the engine's run completed.
+    // Jobs completing is not a promotion receipt. A1's explicit public operation
+    // writes KNOWLEDGE.md first; only its confirmation may advance the ledger.
+    if (phase === "deep") counts.promoted = 0;
     if (promotable.length > 0) {
-      for (const p of promotable) this.#o.store.setCandidateState(p.candidateId, "promoted", p.decision);
-      counts.promoted = promotable.length;
+      if (!this.#o.candidates?.promote) {
+        counts.promotionUnavailable = promotable.length;
+        this.#log(logFile, "promotion unavailable: needs Engine contract 1.17.0 (Controller pin)");
+      } else {
+        if (signal.aborted) return finish("aborted", this.#stop.signal.aborted ? REASON.shutdown : REASON.cancelled, tally(), usage());
+        try {
+          const ids = [...new Set(promotable.map((p) => p.memoryId))];
+          const byId = new Map<string, Awaited<ReturnType<NonNullable<CandidateSource["promote"]>>>["items"][number]>();
+          for (let start = 0; start < ids.length; start += 500) {
+            if (signal.aborted) return finish("aborted", this.#stop.signal.aborted ? REASON.shutdown : REASON.cancelled, tally(), usage());
+            const batch = ids.slice(start, start + 500);
+            const requested = new Set(batch);
+            const receipt = await this.#o.candidates.promote(agentId, batch);
+            if (receipt.agentId !== agentId || !Array.isArray(receipt.items)) throw new Error("invalid Engine promotion receipt agent");
+            for (const item of receipt.items) {
+              if (!requested.has(item.id) || byId.has(item.id) ||
+                !(item.outcome === "promoted" && item.reason === "integrated" || item.outcome === "skipped" && typeof item.reason === "string")) throw new Error("invalid Engine promotion receipt item");
+              byId.set(item.id, item);
+            }
+          }
+          if (signal.aborted) return finish("aborted", this.#stop.signal.aborted ? REASON.shutdown : REASON.cancelled, tally(), usage());
+          this.#o.store.tx(() => {
+            for (const p of promotable) {
+              const engine = byId.get(p.memoryId) ?? { id: p.memoryId, outcome: "missing", reason: "no-confirmation" };
+              // A1 already-promoted confirms its durable source marker; recovery
+              // after a crash between the Engine write and this ledger update.
+              const confirmed = engine.outcome === "promoted" || engine.outcome === "skipped" && engine.reason === "already-promoted";
+              this.#o.store.setCandidateState(p.candidateId, confirmed ? "promoted" : "shortlisted", { ...p.decision, engine });
+              if (confirmed) counts.promoted!++; else counts.promotionSkipped = (counts.promotionSkipped ?? 0) + 1;
+            }
+          });
+        } catch (e) {
+          return finish("failed", REASON.engineError, tally(), { ...usage(), error: { message: String((e as Error).message ?? e), name: (e as Error).name } });
+        }
+      }
     }
     return finish("completed", null, tally(), usage());
   }
 
   /** Pull, dedupe, expire and gate: the candidate guards. Returns the ones the utility gate lets a deep run consider. */
-  async #ingestCandidates(agentId: string, runId: string, now: number): Promise<{ counts: RunCounts; promotable: { candidateId: string; decision: Decision }[] }> {
+  async #ingestCandidates(agentId: string, runId: string, now: number): Promise<{ counts: RunCounts; promotable: PromotionCandidate[] }> {
     const store = this.#o.store;
     const gates = this.#o.gates ?? DEFAULT_GATES;
     const counts: RunCounts = { candidates: 0, deduped: 0 };
+    const current = new Map<string, CandidateInput>();
     for (const c of await this.#o.candidates!.pull(agentId)) {
       const partition = c.partition ?? "agent-private";
       const hash = contentHash(c.content);
+      current.set(`${partition}\0${hash}`, c);
       const inserted = store.insertCandidate({
         candidateId: randomUUID(), agentId, partition, contentHash: hash, sourceRunId: runId, firstSeenAt: now, expiresAt: now + (this.#o.candidateTtlMs ?? CANDIDATE_TTL_MS),
         recalls: c.recalls ?? 0, uniqueQueries: c.uniqueQueries ?? 0, score: c.score ?? null,
@@ -522,14 +566,17 @@ export class DreamScheduler {
       else { counts.deduped!++; store.updateCandidateSignals(agentId, partition, hash, { recalls: c.recalls ?? 0, uniqueQueries: c.uniqueQueries ?? 0, score: c.score ?? null }); }
     }
     counts.expired = store.expireCandidates(agentId, now);
-    const promotable: { candidateId: string; decision: Decision }[] = [];
+    const promotable: PromotionCandidate[] = [];
     let rejected = 0;
     for (const c of store.listCandidates(agentId, "shortlisted")) {
-      const d = evaluate(c, now, gates);
-      if (d.promote) promotable.push({ candidateId: c.candidateId, decision: d });
-      // RULING: a candidate that fails a gate is not "rejected" (that state is for an owner/engine decision); it stays shortlisted
-      // with the gate-by-gate record and may still gain recalls until it expires.
-      else { rejected++; store.setCandidateState(c.candidateId, "shortlisted", d); } // stays eligible to gain recalls until it expires; the decision records the gate
+      const input = current.get(`${c.partition}\0${c.contentHash}`);
+      const recallDecision = evaluate(c, now, gates);
+      const d = { ...recallDecision, ...(input && (input.recalls === undefined || input.uniqueQueries === undefined) ? { fallback: evaluateFallback(input, now) } : {}) };
+      store.setCandidateState(c.candidateId, "shortlisted", d);
+      // Only a currently visible agent-private source id can be submitted. Old
+      // ledger counters or a content hash alone never reconstruct authority.
+      if (d.promote && c.partition === "agent-private" && input?.memoryId) promotable.push({ candidateId: c.candidateId, memoryId: input.memoryId, decision: d });
+      if (!d.promote) rejected++;
     }
     counts.rejected = rejected;
     return { counts, promotable };
@@ -563,7 +610,7 @@ export class DreamScheduler {
     return { agents, counters: this.counters, schemaVersion: this.#o.store.schemaVersion };
   }
 
-  /** The private diary of one agent (D15 `dreaming.md`). Cap matches per-run logs (262 144 bytes). Retention is unlimited. */
+  /** The private diary of one agent (engine-owned `DREAMS.md`). Cap matches per-run logs (262 144 bytes). Retention is unlimited. */
   readDiary(agentId: string): { path: string | null; exists: boolean; bytes: number; text: string; truncated: boolean } {
     const dp = this.#o.diaryPath?.(agentId) ?? null;
     if (!dp) return { path: null, exists: false, bytes: 0, text: "", truncated: false };

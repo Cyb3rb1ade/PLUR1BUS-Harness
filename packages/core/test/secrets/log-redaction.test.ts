@@ -77,6 +77,16 @@ describe("secret values never reach a log line in clear", () => {
     assert.ok(!logText(l.logs).includes(VALUE));
   });
 
+  it("the store's own audit.log and chain mask a held value that lands in a lease purpose", async () => {
+    const { l, store } = rig();
+    await store.set(owner, "provider.key", VALUE);
+    await store.lease(core, "provider.key", { purpose: VALUE, profileId: "p1" });
+    const legacy = readFileSync(join(l.logs, "audit.log"), "utf8"), chain = readFileSync(join(l.logs, "audit-chain.jsonl"), "utf8");
+    assert.ok(!legacy.includes(VALUE), "clear value in audit.log");
+    assert.ok(!chain.includes(VALUE), "clear value in the audit chain");
+    assert.ok(legacy.includes('"purpose":"[REDACTED:secret]"'));
+  });
+
   it("the policy audit and a live redactor mask values registered after they were created", async () => {
     const registry = createSecretRedaction();
     const sink = memoryAuditSink();

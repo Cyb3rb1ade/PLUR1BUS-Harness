@@ -970,8 +970,8 @@ Audit chain recovery/journal metadata emitted by the shared writer.
 The writer applies these rules in order (`secret`, `key`, `pattern`, `url`, `path`, `pii`) to `msg`, `attrs`, `err`, wrapped text and audit detail; a match is
 replaced by `[REDACTED:{rule}]`. Patterns use the subset common to ECMAScript and the Rust `regex` crate.
 
-- **`secret`** (registry, §4 rule 1): Exact secret-store values and leases the process holds (ADR-005), plus their base64 and URL-encoded forms; the registry is in memory only.
-  - minimum length 8, encodings: raw, base64, url
+- **`secret`** (registry, §4 rule 1): Exact secret-store values and leases the process holds (ADR-005), plus their base64, base64url, hex and URL-encoded forms (base64 and base64url with and without padding, hex in lower and upper case); the registry is in memory only. The minimum length is checked on the registered value, before the forms are derived.
+  - minimum length 8, encodings: raw, base64, base64url, hex, url
 - **`key`** (key-name, §4 rule 2): A JSON key, key=value pair or header whose name matches has its value replaced. A name matches when one of its delimited segments is a listed word, or (camelCase names) when it contains the word as a capitalised part. Plural token counts (input_tokens, outputTokens, max_tokens) are not credentials and do not match; `token` alone, access_token, accessToken and id_token_hint do.
   - names (flags `i`): `(?:^|[^a-z0-9])(?:authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key)(?:[^a-z0-9]|$)`
   - camelCase names (case-sensitive): `[a-z](?:Token|Secret|Password|Passwd|ApiKey|Cookie|Authorization|Ticket|Csrf|PrivateKey|SessionKey|Refresh|ClientSecret)(?:[A-Z]|$)`
@@ -981,19 +981,24 @@ replaced by `[REDACTED:{rule}]`. Patterns use the subset common to ECMAScript an
   - `sk`: `sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}`, left boundary — sk-…, sk-ant-…, sk-proj-… API keys
   - `ek`: `ek_[A-Za-z0-9_-]{16,}`, left boundary — ek_… values (D110)
   - `ghp`: `ghp_[A-Za-z0-9]{36,}`, left boundary — GitHub personal access token
+  - `github-token`: `gh[ousr]_[A-Za-z0-9]{36,}`, left boundary — GitHub OAuth (gho_), app (ghs_, ghu_) and refresh (ghr_) tokens
   - `github-pat`: `github_pat_[A-Za-z0-9_]{22,}`, left boundary — GitHub fine-grained token
   - `slack`: `xox[abpr]-[A-Za-z0-9-]{10,}`, left boundary — Slack token
   - `aws-access-key`: `AKIA[0-9A-Z]{16}`, left boundary — AWS access key id
   - `google-api-key`: `AIza[0-9A-Za-z_-]{35}`, left boundary — Google API key
   - `jwt`: `eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+` — JSON Web Token
-  - `pem-private-key`: `-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|$)` — PEM private-key block; an unterminated block is redacted to the end of the text
+  - `pem-private-key`: `-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----|$)` — PEM / PGP private-key block; an unterminated block is redacted to the end of the text. A child process prints a key over many lines and the writer sees one line at a time, so the output framer (packages/core/src/logs/output.ts) applies the same BEGIN and END markers across lines.
   - `plur1bus-env`: `PLUR1BUS_[A-Z0-9_]+=(\S+)`, replaces group 1 — the value of a PLUR1BUS_* environment assignment; the name stays
   - `base64url-run`: `[A-Za-z0-9_-]{43,}`, exempt when the whole match is `^[0-9A-Fa-f]+$` — base64url runs of 43 or more characters, unless the run is pure hex (SHA-256, git ids and the extension audit's sha256 stay readable)
-- **`url`** (url, §4 rule 4): Inside any URL: userinfo removed, query values and the fragment replaced, parameter names kept.
+- **`url`** (url, §4 rule 4): Inside any URL: userinfo removed, query values and the fragment replaced, parameter names kept. A credential that lives in the path of a well-known bot or webhook API (Telegram, Slack, Discord, Teams) is replaced too; the rest of the path stays.
   - finds URLs with `[A-Za-z][A-Za-z0-9+.-]*://[^\s"'<>]+`, then applies, in order:
   - `userinfo`: `(://)([^/\s?#@]+@)`, replaces group 2 — user:pass@ removed
   - `query-value`: `([?&][^=&#\s]*=)([^&#\s]*)`, replaces group 2 — query values replaced
   - `fragment`: `(#)(.+)$`, replaces group 2 — fragment replaced
+  - `path-telegram-bot`: `(/bot[0-9]{5,}:)([A-Za-z0-9_-]{30,})`, replaces group 2 — the token of a Telegram Bot API path (/bot<id>:<token>/method, also /file/bot<id>:<token>/…); the bot id stays
+  - `path-slack-webhook`: `(/services/[A-Z0-9]+/[A-Z0-9]+/)([A-Za-z0-9]{20,})`, replaces group 2 — the secret of a Slack incoming-webhook path (/services/T…/B…/<secret>)
+  - `path-discord-webhook`: `(/api(?:/v[0-9]+)?/webhooks/[0-9]+/)([A-Za-z0-9_-]{20,})`, replaces group 2 — the token of a Discord webhook path (/api/webhooks/<id>/<token>)
+  - `path-teams-webhook`: `(/webhook(?:b2)?/)([0-9A-Fa-f-]{36}@[0-9A-Fa-f-]{36}/IncomingWebhook/[0-9A-Za-z]+/[0-9A-Fa-f-]{36})`, replaces group 2 — the whole credential part of a Microsoft Teams incoming-webhook path (/webhookb2/<guid>@<guid>/IncomingWebhook/<id>/<guid>)
 - **`path`** (deny-paths, §4 rule 5): A path that canonicalises under a credential deny-list entry is replaced by the entry class and a short hash of the canonical path: <deny:ssh>/…#3f9a1c.
   - `ssh`: `.ssh`
   - `gnupg`: `.gnupg`

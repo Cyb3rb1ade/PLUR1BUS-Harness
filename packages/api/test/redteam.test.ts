@@ -167,7 +167,7 @@ test("OK-7: the route table is deny-by-default and only explicit status, agent a
     for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
     // GET /breakglass and GET /me/notices forward to the core's one break-glass registry (read-only methods; the writes need a POST).
-    assert.deepEqual([...called].sort(), ["agent.list", "breakglass.list", "breakglass.notices", "chat.events", "chat.get", "chat.list", "chat.model.get", "config.get", "core.status"]);
+    assert.deepEqual([...called].sort(), ["agent.list", "breakglass.list", "breakglass.notices", "channel.history.get", "channel.history.list", "chat.events", "chat.get", "chat.list", "chat.model.get", "config.get", "core.status"]);
     for (const p of ["/api/v1/admin/migrate", "/api/v1/admin.migrate", "/api/v1/rpc", "/api/v1/admin/reembed/run", "/api/v1/users", "/api/v1/identity", "/api/v1/secrets"]) {
       const t = await csrfToken(h, cookie);
       for (const method of ["GET", "POST", "DELETE", "PUT", "PATCH"]) assert.equal((await raw(h, { method, path: p, headers: { cookie, "x-csrf-token": t, ...jsonHeaders() } })).status, 404, `${method} ${p}`);

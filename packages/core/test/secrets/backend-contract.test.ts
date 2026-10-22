@@ -54,3 +54,15 @@ for (const [label, make] of backends) {
     });
   });
 }
+for (const [label, make] of backends) {
+  it(`${label}: metadata edit never replaces the credential and validates the current value`, async () => {
+    const backend = make();
+    await backend.put('billing', 'private-12345678-token', new Date('2026-10-18T10:00:00Z'), 'owner', 'Billing account');
+    const before = await backend.get('billing');
+    const meta = await backend.describe('billing', 'Production billing', new Date('2026-10-18T11:00:00Z'), 'owner');
+    assert.equal(meta.description, 'Production billing');
+    assert.equal(await backend.get('billing'), before);
+    await assert.rejects(() => backend.describe('billing', 'prefix 12345678', new Date()), (e: unknown) => (e as { code?: string }).code === 'invalid-description');
+    assert.equal((await backend.list())[0]!.description, 'Production billing');
+  });
+}

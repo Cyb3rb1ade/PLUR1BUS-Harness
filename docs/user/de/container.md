@@ -95,7 +95,7 @@ Die Container-Installation veröffentlicht standardmäßig keinen Port der Harne
 authentifizierte Unix-Verbindung innerhalb des Containers.
 
 Willst du einen Port auf dem Host, setze `containers.apiPort`. Er wird an der Adresse aus `containers.bindAddress`
-veröffentlicht, standardmäßig `127.0.0.1`, also nur für diesen Rechner. Ohne `apiPort` wird nichts veröffentlicht,
+veröffentlicht, standardmäßig `127.0.0.1`, also nur für diesen Computer. Ohne `apiPort` wird nichts veröffentlicht,
 egal was in `bindAddress` steht. Die API bleibt immer hinter der Anmeldung.
 
 `bindAddress` nimmt Loopback-, private LAN-, Tailnet- und Unique-Local-Adressen an. `0.0.0.0`, `::` und öffentliche

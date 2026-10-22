@@ -1,5 +1,10 @@
+# Require owner review for shipped defaults and the ownership rule itself.
+/config/shipped-models.json @Cyb3rb1ade
+/config/shipped-models.ts @Cyb3rb1ade
+/.github/CODEOWNERS @Cyb3rb1ade
+/packages/core/catalog/host-eval-recordings.json @Cyb3rb1ade
+
 # Audit exceptions and their enforcement are controlled by the repository owner.
 /audit-allowlist.json @Cyb3rb1ade
 /scripts/release/audit-policy.mjs @Cyb3rb1ade
 /.github/workflows/release-quality.yml @Cyb3rb1ade
-/.github/CODEOWNERS @Cyb3rb1ade

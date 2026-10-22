@@ -6,7 +6,7 @@
 // dangerous-command refusals, env allowlist by example, atomic create/overwrite/abort/CHANGED, NUL and traversal by example,
 // native argv contracts (processes.coverage, atomic.coverage, files.coverage, hostctl.test, native*.test).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, truncate, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -24,6 +24,13 @@ function mulberry32(seed: number): () => number {
 }
 const posix = process.platform !== 'win32';
 const root0 = await realpath(tmpdir());
+// Names the OS puts into every child started with an empty environment: Windows adds SYSTEMROOT, TEMP, USERPROFILE, PATH and
+// friends, macOS adds __CF_USER_TEXT_ENCODING. The allowlist tests subtract what a bare child shows instead of listing platforms,
+// so anything else that reaches a child (a leaked secret, a blocked name) still fails them. Windows names ignore case.
+const envName = (k: string) => (posix ? k : k.toUpperCase());
+const osAdded = new Set((JSON.parse(spawnSync(process.execPath, ['-e', 'process.stdout.write(JSON.stringify(Object.keys(process.env)))'], { env: {}, encoding: 'utf8' }).stdout) as string[]).map(envName));
+const ownKeys = (output: string): string[] => (JSON.parse(output) as string[]).filter(k => !osAdded.has(envName(k)) && !k.startsWith('__CF'));
+const expectedKeys = (names: string[]): string[] => names.filter(k => !osAdded.has(envName(k)));
 const ctx: RunContext = { agentId: 'fixture-agent', principal: 'fixture-owner', sessionId: 's1', signal: new AbortController().signal };
 
 let root: string, outside: string, home: string; const hosts: Hostctl[] = [];
@@ -78,7 +85,7 @@ describe('time, output and environment of real children', () => {
     const base = { PATH: process.env.PATH ?? '/usr/bin', HOME: '/home/someone', SECRET_TOKEN: 'redact-probe-alpha', MY_API_PASSWORD: 'redact-probe-alpha', AWS_SECRET_ACCESS_KEY: 'redact-probe-alpha', LD_PRELOAD: '/tmp/evil.so', NODE_OPTIONS: '--require /tmp/evil.js', PYTHONPATH: '/tmp/evil', BASH_ENV: '/tmp/evil.sh', ENV: '/tmp/e', LANG: 'C', MY_VAR: 'visible', UNLISTED: 'x' };
     const h = make({ baseEnv: base, config: { env: { allow: ['PATH', 'LANG', 'MY_VAR', 'SECRET_TOKEN', 'MY_API_PASSWORD', 'LD_PRELOAD', 'NODE_OPTIONS', 'PYTHONPATH', 'BASH_ENV', 'ENV', 'ABSENT_VAR'] }, exec: { timeoutMs: 20000 } } });
     const r = await call(h, 'proc.exec', { ...node('process.stdout.write(JSON.stringify(Object.keys(process.env).sort()))'), cwd: root }); expect(r.ok, JSON.stringify(r)).toBe(true);
-    expect(JSON.parse(r.value.output).filter((k: string) => !k.startsWith('__CF'))).toEqual(['LANG', 'MY_VAR', 'PATH']); // macOS adds __CF_USER_TEXT_ENCODING to every process it starts
+    expect(ownKeys(r.value.output).sort()).toEqual(expectedKeys(['LANG', 'MY_VAR', 'PATH']));
     const given = await call(h, 'proc.exec', { ...node('process.stdout.write(process.env.MY_VAR + "|" + process.env.LANG)'), cwd: root, env: { MY_VAR: 'from-request' } }); expect(given.value.output).toBe('from-request|C');
     for (const key of ['UNLISTED', 'HOME', 'SECRET_TOKEN', 'LD_PRELOAD', 'NODE_OPTIONS', '__proto__', 'constructor', 'path', 'My_Var']) { const d = await call(h, 'proc.exec', { ...node('1'), cwd: root, env: { [key]: 'x' } }); expect(d.ok, key).toBe(false); expect(d.error!.code, key).toBe('DENIED'); }
     for (const value of [5, null, {}, ['x'], true]) expect((await call(h, 'proc.exec', { ...node('1'), cwd: root, env: { MY_VAR: value } })).error!.code).toBe('INVALID_ARGUMENT');
@@ -128,7 +135,7 @@ describe('environment names that inject code stay blocked even when allowlisted'
   it('an operator who allowlists a code-injecting variable does not hand it to the child', async () => {
     const base = Object.fromEntries(inject.map(k => [k, 'redact-probe-alpha'])); const h = make({ baseEnv: base, config: { env: { allow: inject }, exec: { timeoutMs: 20000 } } });
     const r = await call(h, 'proc.exec', { ...node('process.stdout.write(JSON.stringify(Object.keys(process.env)))'), cwd: root }); expect(r.ok).toBe(true);
-    expect(JSON.parse(r.value.output).filter((k: string) => !k.startsWith('__CF'))).toEqual([]);
+    expect(ownKeys(r.value.output)).toEqual([]);
   }, 30_000);
 });
 

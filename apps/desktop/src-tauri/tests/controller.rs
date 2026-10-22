@@ -534,3 +534,31 @@ fn create_spec_is_exact_for_both_native_adapters() {
     assert_eq!(v["Labels"]["app.plur1bus.role"], "harness");
     assert_eq!(v["StopTimeout"], 150);
 }
+#[tokio::test]
+async fn logs_tail_returns_redacted_text_and_never_the_raw_container_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let runtime = Arc::new(FakeRuntime::new(RuntimeKind::Docker));
+    let ctl = Controller::with_health(
+        runtime.clone(),
+        plur1bus_desktop::controller::bundle::embedded().clone(),
+        dir.path().join("bundled"),
+        Arc::new(Healthy),
+    )
+    .with_test_namespace("controller")
+    .unwrap();
+    ctl.install(Resources::default(), |_| {}).await.unwrap();
+    // Secret-shaped values are assembled at run time so no token-like literal sits in the source.
+    let bearer = "Ab1".repeat(14);
+    let registered = format!("registered-{}", "k7".repeat(8));
+    plur1bus_desktop::logging::SecretRegistry::process().register_sensitive(&registered);
+    *runtime.log_sample.lock().unwrap() = format!(
+        "listening on 18700\nAuthorization: Bearer {bearer}\nlease {registered} granted\nGET https://svc:{bearer}@harness.invalid/api\n"
+    );
+    let tail = ctl.logs_tail(200).await.unwrap();
+    assert!(!tail.contains(&bearer), "bearer value survived");
+    assert!(!tail.contains(&registered), "registered secret survived");
+    assert!(
+        tail.contains("listening on 18700"),
+        "ordinary output stays readable"
+    );
+}

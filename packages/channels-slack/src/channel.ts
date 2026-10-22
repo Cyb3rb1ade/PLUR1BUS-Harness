@@ -517,6 +517,7 @@ export class SlackChannel implements Channel {
     const text = slackToPlain(raw.replace(new RegExp(`<@${this.#botUserId}(?:\\|[^>]*)?>`, "g"), "")).trim();
     if (!text && attachments.length === 0) return;
     const message: RichInbound = {
+      ...(this.#botUserId ? { accountId: this.#botUserId } : {}),
       channel: this.name,
       chatId,
       chatKind: direct ? "direct" : "group",

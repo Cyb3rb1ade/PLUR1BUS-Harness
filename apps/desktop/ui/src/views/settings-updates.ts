@@ -1,6 +1,6 @@
 import {element,append,restoreFocus,trapDialogFocus} from "../components/dom.ts";
 import {button} from "../components/button.ts";
-import {isVerifyFailure,notesBlocks,UPDATE_VERIFY_DOCS,type UpdatePreferences,type UpdateSnapshot} from "../models/update-model.ts";
+import {isVerifyFailure,notesBlocks,progressPercent,UPDATE_VERIFY_DOCS,type UpdatePreferences,type UpdateSnapshot} from "../models/update-model.ts";
 import {translate,type MessageKey} from "../i18n.ts";
 import type {DesktopTransport} from "../ipc.ts";
 /** Shell updates keep all release verification and installation inputs in Rust. */
@@ -27,11 +27,37 @@ export function updatesPage(transport:DesktopTransport,changed:()=>void){
  });
  append(dialog,...languageButtons.map(item=>item.control),body);notes(de()?"de":"en");
  const footer=element("div","dialog-footer");const close=()=>dialog.close();
- append(footer,button(t("update.hold"),()=>{close();void save({held:true});},"quiet"),button(t("update.skip"),()=>{close();void operation(()=>transport.updateSkip!());}),button(t("update.later"),()=>{close();void operation(()=>transport.updateLater!());}));
+ // A decision made while the install runs would contradict it, so these wait until an install attempt has failed.
+ const decisions=[button(t("update.hold"),()=>{close();void save({held:true});},"quiet"),button(t("update.skip"),()=>{close();void operation(()=>transport.updateSkip!());}),button(t("update.later"),()=>{close();void operation(()=>transport.updateLater!());})];append(footer,...decisions);
+ let stopProgress:(()=>void)|undefined;
  if(snapshot.storeBuild){append(dialog,element("p",undefined,t("update.storeManaged")));footer.append(button(t("update.storeOpen"),()=>{void transport.updateStoreOpen?.().catch(()=>{failed=true;changed();});}));}
- else {const install=button(t("update.install"),()=>{install.disabled=true;void transport.updateInstall!().catch((reason:unknown)=>{failed=true;verifyFailed=isVerifyFailure(reason);install.disabled=verifyFailed;if(verifyFailed){dialog.append(verifyNotice());return;}const error=element("p",undefined,t("update.installFailed"));error.setAttribute("role","alert");dialog.append(error);});},"primary");install.disabled=!snapshot.installAvailable||snapshot.offer.action==="needsIntermediate"||verifyFailed;footer.append(install);if(!snapshot.installAvailable)dialog.append(element("p",undefined,t("update.channelManaged")));}
+ else {
+  const feedback=element("div","update-install-feedback");dialog.append(feedback);
+  const install=button(t("update.install"),()=>{void run();},"primary");
+  // The shell restarts the app when the update is ready; until then the dialog shows that something is happening, and why it stopped if it does.
+  async function run(){
+   install.disabled=true;for(const control of decisions)control.disabled=true;
+   stopProgress?.();stopProgress=undefined;feedback.replaceChildren();
+   const wait=element("p",undefined,t("update.installing"));wait.setAttribute("role","status");wait.tabIndex=-1;
+   const bar=element("progress","update-progress");bar.setAttribute("aria-label",t("update.progressLabel"));
+   const percent=element("p");percent.setAttribute("aria-live","polite");
+   append(feedback,wait,bar,percent);wait.focus();
+   try{
+    const stop=await transport.updateProgress?.(progress=>{const value=progressPercent(progress);if(value===null){bar.removeAttribute("value");percent.textContent="";}else{bar.max=100;bar.value=value;percent.textContent=t("update.downloading",{percent:String(value)});}});
+    if(stop){if(dialog.open)stopProgress=stop;else stop();}
+   }catch{/* Progress is cosmetic: a listener that cannot register must not block the install. */}
+   try{await transport.updateInstall!();}
+   catch(reason){
+    stopProgress?.();stopProgress=undefined;feedback.replaceChildren();
+    failed=true;verifyFailed=isVerifyFailure(reason);for(const control of decisions)control.disabled=false;install.disabled=verifyFailed;
+    if(verifyFailed){feedback.append(verifyNotice());return;}
+    const error=element("p",undefined,t("update.installFailed"));error.setAttribute("role","alert");feedback.append(error);install.focus();
+   }
+  }
+  install.disabled=!snapshot.installAvailable||snapshot.offer.action==="needsIntermediate"||verifyFailed;footer.append(install);if(!snapshot.installAvailable)dialog.append(element("p",undefined,t("update.channelManaged")));
+ }
  if(snapshot.offer.action==="needsIntermediate")dialog.append(element("p",undefined,t("update.intermediate",{version:snapshot.offer.version??""})));
- footer.append(button(t("update.close"),close));dialog.append(footer);document.body.append(dialog);dialog.addEventListener("close",()=>{dialog.remove();restoreFocus(opener);},{once:true});trapDialogFocus(dialog);dialog.showModal();footer.querySelector<HTMLButtonElement>("button")?.focus();
+ footer.append(button(t("update.close"),close));dialog.append(footer);document.body.append(dialog);dialog.addEventListener("close",()=>{stopProgress?.();stopProgress=undefined;dialog.remove();restoreFocus(opener);},{once:true});trapDialogFocus(dialog);dialog.showModal();footer.querySelector<HTMLButtonElement>("button")?.focus();
  }
  return ()=>{const root=element("section","settings-stack");if(!transport.updateSettings||!transport.updateCheck)return root;
  if(!loaded){loaded=true;void operation(()=>transport.updateSettings!());}

@@ -16,7 +16,7 @@ type Agents = { agents: string[]; core: CoreStatusLite | null; coreFailure: Fail
 
 /** Agents come from core.status; when that is not served, the REST list of the Harness API (GET /api/v1/agents, which exists
  *  today) keeps the page usable, and the health card says the engine status is missing. */
-async function loadAgents(signal: AbortSignal): Promise<Agents> {
+export async function loadAgents(signal: AbortSignal): Promise<Agents> {
   try {
     const core = await loadCoreStatus(signal);
     return { agents: core.agents.map((a) => a.agentId), core, coreFailure: null };

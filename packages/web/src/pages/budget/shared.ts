@@ -9,7 +9,7 @@ export const failState = (e: unknown): FailState => (kindOf(e) === "forbidden" ?
 export const isForbidden = (e: unknown): boolean => kindOf(e) === "forbidden";
 export const isAborted = (e: unknown): boolean => kindOf(e) === "aborted";
 
-/** Bounds and use are token counts (input + output); there is no money dimension. */
+/** Bounds and use are whole counts in the limit's metric (tokens, images, video seconds); there is no money dimension. */
 export const amount = (n: number): string => formatNumber(n);
 
 export function when(iso: string): string {
@@ -18,7 +18,8 @@ export function when(iso: string): string {
 }
 
 export function limitTitle(l: Pick<Limit, "period" | "metric">): string {
-  return t(`budget.title.${l.period}Tokens` as Key);
+  const unit = l.metric === "images" ? "Images" : l.metric === "videoSeconds" ? "VideoSeconds" : "Tokens";
+  return t(`budget.title.${l.period}${unit}` as Key);
 }
 /** Title with the agent for a button label: "Daily tokens (main)". */
 export const fullTitle = (l: Pick<Limit, "period" | "metric" | "agentId" | "scope">): string =>

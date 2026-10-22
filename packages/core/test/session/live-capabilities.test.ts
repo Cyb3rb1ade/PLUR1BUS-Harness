@@ -16,7 +16,15 @@ test('D103 system: install, update and disable between RPC turns without restart
   writeFileSync(join(home, 'config.json'), JSON.stringify(cfg));
   const wire = scriptedAdapter([{ text: 'done' }]);
   const recorded = { schema: 'plur1bus.triage/1', shape: 'single', tasks: [{ id: 'report', summary: 'Create quarterly report', start: 0, end: 23, categories: { 'docs.create': 1 }, modelClass: { small: 1, medium: 0, large: 0, frontier: 0 }, chosenClass: 'small', effort: 'low', dependsOn: [], confidence: 1, reason: 'fixture' }] };
-  const classifier = scriptedAdapter([{ text: JSON.stringify(recorded) }]);
+  // The role handles both triage and final skill choices. The lifecycle assertions stay unchanged.
+  const classifier = { adapter: { async *stream(request: Parameters<typeof wire.adapter.stream>[0]) {
+    const user=request.messages.filter(m=>m.role==='user').at(-1)?.content;
+    const payload=JSON.parse(typeof user==='string'?user:'{}') as {options?:{id:string}[]};
+    const options=payload.options;
+    const id=options?.find(o=>o.id!=='none')?.id ?? 'none';
+    const text=JSON.stringify(options?{id,probabilities:Object.fromEntries(options.map(o=>[o.id,o.id===id?1:0])),confidence:1}:recorded);
+    yield* scriptedAdapter([{text}]).adapter.stream(request);
+  } } };
   const core = createCore({ home, testInternals: flatTestInternals(), discovery: { scheduler: false }, dreams: { scheduler: false }, composition: { providers: { profiles: { triage: [{ provider: 'fixture', model: 'gpt-4.1-mini', adapter: classifier.adapter }], default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: wire.adapter }] } } } });
   await core.start(); const client = await connect({ address: core.address, token: core.token });
   try {

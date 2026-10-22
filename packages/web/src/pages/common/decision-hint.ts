@@ -1,7 +1,7 @@
 // "No decision model set" hint. Without `modelRoles.decision` the built-in rule triage runs (a normal mode, nothing is broken),
 // but the features that build on a decision model are limited. One component for the setup wizard (model step and summary) and
 // the Models & providers settings section, so both name the same features. The CLI (`plur1bus setup`) and the `models.decision`
-// check of `1staid check` carry the same three (crates/plur1bus/src/commands/model.rs).
+// check of `1staid check` carry the same list (crates/plur1bus/src/commands/model.rs).
 import { h } from "preact";
 import type { View } from "../../view.ts";
 import { getApi } from "../../api/shared.ts";
@@ -13,6 +13,13 @@ export const DECISION_FEATURES = [
   { id: "triage", text: "shared.decisionHint.triage" },
   { id: "tools", text: "shared.decisionHint.tools" },
   { id: "classes", text: "shared.decisionHint.classes" },
+  // The rows of ADR-015's consumer table (docs/adr/ADR-015-decision-service.md), each with the fallback that runs without a decision model.
+  { id: "routing", text: "shared.decisionHint.routing" },
+  { id: "pruning", text: "shared.decisionHint.pruning" },
+  { id: "skills", text: "shared.decisionHint.skills" },
+  { id: "placement", text: "shared.decisionHint.placement" },
+  { id: "zoom", text: "shared.decisionHint.zoom" },
+  { id: "compaction", text: "shared.decisionHint.compaction" },
 ] as const satisfies readonly { id: string; text: Key }[];
 
 /** Where the hint stands: the wizard names the Settings route and the command, the settings section only the command. */
