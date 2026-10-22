@@ -103,7 +103,10 @@ function normalize(s: Schema, v: unknown, path: string, log: RepairRecord[], all
   if (allowed.includes('numeric-string') && (s.type === 'integer' || s.type === 'number') && typeof v === 'string' && /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(v)) {
     const n = Number(v); if (matches(s.type, n)) { log.push({ kind: 'numeric-string', path }); return n; }
   }
-  if (object(v) && object(s.properties)) return Object.fromEntries(Object.entries(v).map(([key, val]) => [key, object((s.properties as Schema)[key]) ? normalize((s.properties as Schema)[key] as Schema, val, pointer(path, key), log, allowed, depth + 1) : val]));
+  if (object(v) && object(s.properties)) {
+    const props = s.properties;
+    return Object.fromEntries(Object.entries(v).map(([key, val]) => [key, Object.hasOwn(props, key) && object(props[key]) ? normalize(props[key] as Schema, val, pointer(path, key), log, allowed, depth + 1) : val]));
+  }
   if (Array.isArray(v) && object(s.items)) return v.map((val, i) => normalize(s.items as Schema, val, pointer(path, String(i)), log, allowed, depth + 1));
   return v;
 }

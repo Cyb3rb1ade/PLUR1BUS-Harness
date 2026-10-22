@@ -288,3 +288,10 @@ needs its own runtime work or the channel adapters' deletion support has to be b
 
 Spec §18.2 Q1–Q12 (status offen); prerequisites P1–P9 (spec §16). Phase 2 (not estimated): Obsidian return path with
 conflict detection (spec §6.3).
+
+## F7 additive port preparation (2026-10-20)
+
+The [DecisionTreeChooser adapter](../../../packages/core/src/decision/tree-adapter.ts) is available
+for the future C3/C4 caller; [contract and gates](../../decision-service.md#treechooser-port-f7-c3c4-noch-offen).
+Tree storage, visible-candidate enumeration and runtime wiring remain tasks of this plan.
+The adapter receives no store handle and does not establish authorisation itself.

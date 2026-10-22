@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, readdir, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, test } from "node:test";
 import { MatrixApi, MatrixApiError, FileSyncTokenStore, MemorySyncTokenStore, parseMxc } from "../src/index.ts";
 import { resolveConfig, type MatrixConfig } from "../src/config.ts";
@@ -105,7 +105,7 @@ test("file store: temp files left behind by a crash are swept on the next save, 
     await utimes(stale, old, old);
     await s.save("s2");
     const left = (await readdir(dir)).sort();
-    assert.deepEqual(left, [fresh, other, "matrix-sync.json"].map((f) => f.split("/").pop()!).sort());
+    assert.deepEqual(left, [fresh, other, "matrix-sync.json"].map((f) => basename(f)).sort());
     assert.equal(await s.load(), "s2");
   } finally {
     await rm(dir, { recursive: true, force: true });

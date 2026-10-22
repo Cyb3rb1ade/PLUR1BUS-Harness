@@ -70,6 +70,8 @@ function TotalsRows({ u }: { u: UsageTotals }): View[] {
     h(Row, { key: "o", label: t("budget.usage.output"), value: formatNumber(u.outputTokens) }),
     h(Row, { key: "cr", label: t("budget.usage.cacheRead"), value: formatNumber(u.cacheReadTokens) }),
     h(Row, { key: "cw", label: t("budget.usage.cacheWrite"), value: formatNumber(u.cacheWriteTokens) }),
+    h(Row, { key: "im", label: t("budget.usage.images"), value: formatNumber(u.images) }),
+    h(Row, { key: "vs", label: t("budget.usage.videoSeconds"), value: formatNumber(u.videoSeconds) }),
   ];
 }
 
@@ -81,7 +83,9 @@ function PeriodCard({ p }: { p: BudgetPeriod }): View {
       p.agents.map((a) => h("section", { key: a.agentId },
         h("h4", { class: "card-title" }, a.agentId),
         h("dl", { class: "facts" }, TotalsRows({ u: a.total })),
-        h("ul", { class: "plain-list" }, a.models.map((m) => h("li", { key: m.model }, t("budget.usage.modelLine", { model: m.model, events: formatNumber(m.events), input: formatNumber(m.inputTokens), output: formatNumber(m.outputTokens) }))))))) : null);
+        h("ul", { class: "plain-list" }, a.models.map((m) => h("li", { key: m.model }, m.images > 0 || m.videoSeconds > 0
+          ? t("budget.usage.modelMediaLine", { model: m.model, events: formatNumber(m.events), images: formatNumber(m.images), seconds: formatNumber(m.videoSeconds) })
+          : t("budget.usage.modelLine", { model: m.model, events: formatNumber(m.events), input: formatNumber(m.inputTokens), output: formatNumber(m.outputTokens) }))))))) : null);
 }
 
 export function BudgetPage({ sub }: PageProps): View {

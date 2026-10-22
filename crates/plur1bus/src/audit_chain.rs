@@ -123,6 +123,8 @@ fn tail(dir: &Path) -> io::Result<Tail> {
             let mut f = create_private(&evidence, false)?;
             f.write_all(&bytes[end..])?;
             f.sync_all()?;
+            // The evidence and its directory entry are durable before the interrupted write is truncated away.
+            sync_directory(dir)?;
             OpenOptions::new()
                 .write(true)
                 .open(&p)?
@@ -381,7 +383,19 @@ fn write_anchor(dir: &Path, seq: u64, hash: &str) -> io::Result<()> {
     writeln!(a, "{}", json!({"v": 1, "seq": seq, "hash": hash}))?;
     a.sync_all()?;
     drop(a);
-    fs::rename(&tmp, dir.join(ANCHOR))
+    fs::rename(&tmp, dir.join(ANCHOR))?;
+    // Active-file creation and the anchor replacement are durable before the chain lock is released.
+    sync_directory(dir)
+}
+
+/// POSIX directory fsync makes creation and rename durable. Windows directory-entry durability needs a native host
+/// capability that std does not offer (D2 known gap, docs/audit-chain.md).
+fn sync_directory(dir: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    File::open(dir)?.sync_all()?;
+    #[cfg(windows)]
+    let _ = dir;
+    Ok(())
 }
 
 /// Rotates when the active file is full, then writes one line chained to `start`, fsyncs it and moves the anchor.
@@ -406,6 +420,7 @@ fn write_line_unanchored(dir: &Path, start: &Tail, rec: &Value) -> io::Result<Ta
                 return Err(invalid("rotation-target-exists", "rotation target exists"));
             }
             fs::rename(&active, target)?;
+            sync_directory(dir)?;
         }
     }
     let seq = start.seq + 1;
@@ -868,6 +883,10 @@ pub(crate) fn reanchor(
 }
 
 #[cfg(test)]
+#[path = "../tests/common/prerequisites.rs"]
+mod test_prerequisites;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::process::{Command, Stdio};
@@ -1071,9 +1090,10 @@ mod tests {
             }
             return;
         }
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        super::test_prerequisites::require("audit", &root);
         let dir = tempfile::tempdir().unwrap();
         let logs = dir.path().join("logs");
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let node = std::env::var_os("PLUR1BUS_NODE").unwrap_or_else(|| "node".into());
         let mut children = Vec::new();
         for i in 0..3 {
@@ -1569,11 +1589,12 @@ mod tests {
     // Mixed-language check: what Rust leaves behind is read by the TypeScript verifier as one new chain plus a set-aside era.
     #[test]
     fn the_typescript_verifier_reads_a_rust_reanchor_as_an_era_boundary() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        super::test_prerequisites::require("audit", &root);
         let dir = refused_chain("tail-mismatch");
         let logs = dir.path();
         let done = reanchor(logs, "mixed test", false).unwrap();
         append(logs, &rec(9)).unwrap();
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let node = std::env::var_os("PLUR1BUS_NODE").unwrap_or_else(|| "node".into());
         let output = Command::new(&node).current_dir(&root)
             .args(["--experimental-strip-types", "--conditions=source", "--no-warnings=ExperimentalWarning", "--input-type=module", "-e", "import {createAuditChain} from './packages/core/src/audit/chain.ts'; console.log(JSON.stringify(createAuditChain({dir:process.argv[1]}).verify()))"])

@@ -173,6 +173,26 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "delivery.target.add" => check_pair::<
+                types::DeliveryTargetAddParams,
+                types::DeliveryTargetAddResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.confirm" => check_pair::<
+                types::DeliveryTargetConfirmParams,
+                types::DeliveryTargetConfirmResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.list" => check_pair::<
+                types::DeliveryTargetListParams,
+                types::DeliveryTargetListResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.remove" => check_pair::<
+                types::DeliveryTargetRemoveParams,
+                types::DeliveryTargetRemoveResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.subscribe" => check_pair::<
+                types::DeliveryTargetSubscribeParams,
+                types::DeliveryTargetSubscribeResult,
+            >(name, fixture, &root_schema),
             "admin.api.device.pair" => check_pair::<
                 types::AdminApiDevicePairParams,
                 types::AdminApiDevicePairResult,
@@ -379,6 +399,22 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "channel.handoff.create" => check_pair::<
+                types::ChannelHandoffCreateParams,
+                types::ChannelHandoffCreateResult,
+            >(name, fixture, &root_schema),
+            "channel.handoff.redeem" => check_pair::<
+                types::ChannelHandoffRedeemParams,
+                types::ChannelHandoffRedeemResult,
+            >(name, fixture, &root_schema),
+            "channel.history.get" => check_pair::<
+                types::ChannelHistoryGetParams,
+                types::ChannelHistoryGetResult,
+            >(name, fixture, &root_schema),
+            "channel.history.list" => check_pair::<
+                types::ChannelHistoryListParams,
+                types::ChannelHistoryListResult,
+            >(name, fixture, &root_schema),
             "channel.list" => check_pair::<types::ChannelListParams, types::ChannelListResult>(
                 name,
                 fixture,
@@ -820,6 +856,14 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "memory.curation.list" => check_pair::<
+                types::MemoryCurationListParams,
+                types::MemoryCurationListResult,
+            >(name, fixture, &root_schema),
+            "memory.curation.resolve" => check_pair::<
+                types::MemoryCurationResolveParams,
+                types::MemoryCurationResolveResult,
+            >(name, fixture, &root_schema),
             "memory.proposals.list" => check_pair::<
                 types::MemoryProposalsListParams,
                 types::MemoryProposalsListResult,
@@ -990,6 +1034,19 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AdminReembedAbortParams,
                 types::AdminReembedAbortResult,
             >(name, fixture, &root_schema),
+            "decision.status" => check_pair::<
+                types::DecisionStatusParams,
+                types::DecisionStatusResult,
+            >(name, fixture, &root_schema),
+            "decision.test" => check_pair::<types::DecisionTestParams, types::DecisionTestResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "admin.engine.test" => check_pair::<
+                types::AdminEngineTestParams,
+                types::AdminEngineTestResult,
+            >(name, fixture, &root_schema),
             "models.test" => check_pair::<types::ModelsTestParams, types::ModelsTestResult>(
                 name,
                 fixture,
@@ -1144,9 +1201,19 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
-            "secret.set" => {
-                check_pair::<types::SecretSetParams, types::SecretMeta>(name, fixture, &root_schema)
-            }
+            "secret.describe" => check_pair::<
+                types::SecretDescribeParams,
+                types::SecretDescribeResult,
+            >(name, fixture, &root_schema),
+            "secret.grants.list" => check_pair::<
+                types::SecretGrantsListParams,
+                types::SecretGrantsListResult,
+            >(name, fixture, &root_schema),
+            "secret.set" => check_pair::<types::SecretSetParams, types::SecretSetOutcome>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "secret.get" => check_pair::<types::SecretGetParams, types::SecretGetResult>(
                 name,
                 fixture,

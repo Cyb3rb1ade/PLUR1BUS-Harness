@@ -40,12 +40,16 @@ export function createCoreSecretStore(o: {
   const load = keyringLoaderFor(o.env ?? process.env);
   // One keyring service per home, so two homes of one OS user never see each other's secrets.
   const service = `plur1bus:${createHash("sha256").update(o.layout.home).digest("hex").slice(0, 16)}`;
-  return createSecretStore({
+  const audit = createFileAuditSink({ file: o.layout.logFile("audit"), secure: o.securePath, ...(o.clock ? { clock: o.clock } : {}) });
+  const store = createSecretStore({
     keyring: createKeyringBackend({ service, ...(load ? { load } : {}) }),
     file: createFileBackend({ dir: o.layout.secrets, secure: o.securePath }),
     fileFallback: o.fileFallback,
-    audit: createFileAuditSink({ file: o.layout.logFile("audit"), secure: o.securePath, ...(o.clock ? { clock: o.clock } : {}) }),
+    audit,
     ...(o.clock ? { clock: o.clock } : {}),
     ...(o.logger ? { logger: o.logger } : {}),
   });
+  // Every value the store holds is masked in `reason` and `purpose` of the audit line from then on.
+  store.redaction.subscribe(v => audit.registerSecret(v));
+  return store;
 }

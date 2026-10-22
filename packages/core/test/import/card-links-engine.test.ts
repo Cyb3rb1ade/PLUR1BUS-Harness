@@ -124,7 +124,7 @@ describe("card linker with engine contract 1.16.0 (memory.link)", () => {
     const { r, links, imports, ledgerPath } = await run({ files: { memory: `${DUP}\n` }, linkError: { code: "conflict" } });
 
     assert.equal(links.length, 1);
-    assert.deepEqual(r.errors, [{ sourceRef: "alpha:agents/alpha/workspace/memories.md", reason: "memory-link-failed:conflict" }]);
+    assert.deepEqual(r.errors, [{ sourceRef: "alpha:agents/alpha/workspace/memory/KNOWLEDGE.md", reason: "memory-link-failed:conflict" }]);
     assert.deepEqual(r.cardResults.map((c) => [c.outcome, c.linkId ?? null]), [["linked", null]]);
     assert.deepEqual(imports.filter((x) => !x.dryRun), [], "the duplicate is not written");
     const linked = ledgerLines(ledgerPath).filter((e) => e.action === "linked");

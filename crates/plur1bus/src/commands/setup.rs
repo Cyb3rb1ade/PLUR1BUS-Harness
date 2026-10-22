@@ -67,6 +67,12 @@ pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
                     if !args.no_service {
                         child_args.push("--no-service".into());
                     }
+                    // The child starts the supervisor; Rust's `CreateProcessW` inherits every inheritable handle, so without
+                    // this the supervisor would keep our caller's stdout/stderr pipes open and the caller (a script, a
+                    // test's `Command::output()`) would wait for EOF for as long as the daemon runs. The child's own
+                    // piped stdio below is duplicated for it explicitly and is unaffected.
+                    #[cfg(windows)]
+                    crate::supervisor::keep_std_handles_private();
                     let output = std::process::Command::new(&binary)
                         .args(child_args)
                         .env("PLUR1BUS_HM4_PARENT", std::process::id().to_string())
@@ -173,15 +179,23 @@ fn describe(steps: &[StepResult], check: Option<&Value>) -> String {
     let config = steps
         .iter()
         .find(|s| s.id == "config" && s.status == "done");
+    // ADR-015: which features depend on a decision model and what runs without one, plus the Windows/Laya recommendation.
+    // Notices only; nothing here blocks the installation.
+    let notice = config.map(|s| &s.detail["decisionRole"]["notice"]);
     if config.is_some_and(|s| s.detail["decisionRole"]["set"] == false) {
         lines.push(format!(
             "note: {}",
             crate::commands::model::decision_limits_sentence()
         ));
-        lines.push(format!(
-            "      to enable them, {}",
-            crate::commands::model::DECISION_ROLE_HOW
-        ));
+        if notice.is_none_or(|n| n["uses"].is_null()) {
+            lines.push(format!(
+                "      to enable them, {}",
+                crate::commands::model::DECISION_ROLE_HOW
+            ));
+        }
+    }
+    if let Some(n) = notice {
+        lines.extend(crate::commands::decision_notice::render(n));
     }
     if let Some(c) = check {
         lines.push(format!(
@@ -242,5 +256,46 @@ mod tests {
         let mut failed = config_step(json!({ "set": false }));
         failed.status = "failed";
         assert!(!describe(&[failed], None).contains("decision model role"));
+    }
+
+    #[test]
+    fn describe_prints_the_feature_fallbacks_and_the_windows_laya_recommendation() {
+        use crate::commands::decision_notice::{assess, notice_json, INSTALLED_BACKENDS};
+        let step = |config: Value, os: &str| {
+            let mut note = json!({ "set": false, "limited": ["messageTriage"] });
+            if let Some(n) = notice_json(&assess(&config, os, &INSTALLED_BACKENDS)) {
+                note["notice"] = n;
+            }
+            config_step(note)
+        };
+        let none = describe(&[step(json!({}), "linux")], None);
+        assert!(none.contains("depend on a decision model"), "{none}");
+        assert!(
+            none.contains("automatic skill choice (D69): the rule shortlist (top 3) is used"),
+            "{none}"
+        );
+        assert_eq!(none.matches("to enable them").count(), 1, "{none}");
+        assert!(!none.contains("Windows"), "{none}");
+
+        // Windows + Laya: the recommendation follows, and the installation is not blocked (a note, no failure).
+        let win = describe(
+            &[step(
+                json!({ "decision": { "backend": "laya" } }),
+                "windows",
+            )],
+            None,
+        );
+        assert!(win.contains("not installed"), "{win}");
+        assert!(
+            win.contains("Windows: the local decision backend (Laya)"),
+            "{win}"
+        );
+        assert!(win.contains("Recommended: a cloud decision model"), "{win}");
+        assert!(win.contains("does not block the local backend"), "{win}");
+
+        // A set role with the default backend prints no decision notice at all.
+        let mut set = config_step(json!({ "set": true, "limited": [] }));
+        set.detail["decisionRole"]["notice"] = Value::Null;
+        assert!(!describe(&[set], None).contains("depend on a decision model"));
     }
 }

@@ -35,3 +35,45 @@ test("restart compensates a durable config-plus-files intent before serving",asy
  const fs=await import("node:fs");for(const name of fs.readdirSync(journal.directory))if(name.endsWith(".json"))fs.writeFileSync(join(journal.directory,name),JSON.stringify(r));s.rights.clear();
  await agentCreation(s.deps).recover();assert.equal(s.config.agents.alpha,undefined);assert.equal(existsSync(s.l.agentDir("alpha")),false);assert.equal(journal.pending().length,0);
 });
+// A deleted agent's name is free again: the saga retires the old incarnation as its first step and undoes that step on failure.
+async function deletedFixture(t:{after(fn:()=>void):void},fail:string="") {
+ const s=fixture(t,fail),{AgentLifecycle}=await import("../../src/agents/lifecycle.ts"),{readFileSync,readdirSync}=await import("node:fs");
+ const lc=new AgentLifecycle({path:":memory:"});t.after(()=>lc.close());
+ const deps={...s.deps,ready:(id:string)=>{lc.set(id,{paused:false});},reserve:async(id:string)=>{lc.set(id,{paused:true});return s.deps.reserve(id);},
+  // Only the registration of the NEW agent is lost; restoring the old config entry must work.
+  set:async(id:string,value:any)=>{s.config.agents[id]=value;if(fail==="config"&&value.persona==="new")throw Error("lost-response");},
+  isDeleted:(id:string)=>lc.state(id).deleted,setDeleted:(id:string,deleted:boolean)=>{lc.set(id,deleted?{deleted:true,archived:true}:{deleted:false,archived:false,paused:false});}};
+ s.config.agents.alpha={persona:"old"} as never;mkdirSync(join(s.l.agentDir("alpha"),"workspace"),{recursive:true});writeFileSync(join(s.l.agentDir("alpha"),"workspace","MEMORY.md"),"old memory");
+ s.rights.set("alpha:member","manage");lc.set("alpha",{archived:true,deleted:true});
+ const archives=()=>readdirSync(s.l.agents).filter(n=>n.startsWith(".deleted-alpha-"));
+ return {...s,lc,deps,service:agentCreation(deps),archives,read:(p:string)=>readFileSync(p,"utf8")};
+}
+test("create under a deleted name is usable, drops old rights, and keeps the old data in a unique archive",async t=>{
+ const s=await deletedFixture(t);
+ assert.deepEqual(await s.service.create({name:"alpha",persona:"new",idempotencyKey:"request-key-for-alpha"},owner),{agentId:"alpha"});
+ assert.equal(s.lc.usable("alpha"),true);assert.equal((s.config.agents.alpha as any).persona,"new");
+ assert.equal(existsSync(join(s.l.agentDir("alpha"),"workspace","MEMORY.md")),false);
+ const [archive,...more]=s.archives();assert.ok(archive&&more.length===0);assert.equal(s.read(join(s.l.agents,archive,"workspace","MEMORY.md")),"old memory");
+ assert.equal(s.rights.has("alpha:member"),false);assert.equal(s.rights.get("alpha:owner"),"manage");
+ assert.deepEqual(await s.service.create({name:"alpha",persona:"new",idempotencyKey:"request-key-for-alpha"},owner),{agentId:"alpha",replayed:true});assert.equal(s.archives().length,1);
+});
+for(const fail of ["engine","files","config","rights"])test(`create under a deleted name fails at ${fail}: the old incarnation is back and still deleted`,async t=>{
+ const s=await deletedFixture(t,fail);
+ await assert.rejects(s.service.create({name:"alpha",persona:"new",idempotencyKey:"request-key-for-alpha"},owner));
+ assert.equal(s.lc.state("alpha").deleted,true);assert.equal(s.lc.usable("alpha"),false);assert.deepEqual(s.config.agents.alpha,{persona:"old"});
+ assert.equal(s.read(join(s.l.agentDir("alpha"),"workspace","MEMORY.md")),"old memory");assert.deepEqual(s.archives(),[]);
+});
+test("restart compensates a retired name that was never completed",async t=>{
+ const s=await deletedFixture(t);await s.service.create({name:"alpha",persona:"new",idempotencyKey:"request-key-for-alpha"},owner);
+ const journal=new AgentCreateSaga(s.l.state),r=journal.find("request-key-for-alpha","owner")!,fs=await import("node:fs");
+ // A killed process after the retire step (the only effect so far): the journal says running with one attempted step.
+ fs.rmSync(s.l.agentDir("alpha"),{recursive:true,force:true});delete s.config.agents.alpha;s.rights.clear();s.lc.set("alpha",{paused:true});
+ r.state="running";r.attempted=1;for(const name of fs.readdirSync(journal.directory))if(name.endsWith(".json"))fs.writeFileSync(join(journal.directory,name),JSON.stringify(r));
+ await agentCreation(s.deps).recover();
+ assert.equal(s.lc.state("alpha").deleted,true);assert.deepEqual(s.config.agents.alpha,{persona:"old"});assert.equal(s.read(join(s.l.agentDir("alpha"),"workspace","MEMORY.md")),"old memory");assert.deepEqual(s.archives(),[]);
+});
+test("a name that was not deleted is still refused",async t=>{
+ const s=await deletedFixture(t);s.lc.set("alpha",{archived:false,deleted:false});
+ await assert.rejects(s.service.create({name:"alpha",idempotencyKey:"request-key-for-alpha"},owner),e=>(e as any).error==="E_AGENT_EXISTS");
+ assert.deepEqual(s.archives(),[]);assert.equal(s.read(join(s.l.agentDir("alpha"),"workspace","MEMORY.md")),"old memory");
+});

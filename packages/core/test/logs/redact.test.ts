@@ -50,6 +50,35 @@ describe("reader-side redaction (D111 section 4)", () => {
     const b64 = Buffer.from("hunter2hunter2").toString("base64");
     assert.equal(reg.text(`a hunter2hunter2 b ${b64} c short`), "a [REDACTED:secret] b [REDACTED:secret] c short");
   });
+  it("secret registry: hex (lower and upper case) and base64url with padding are masked like base64 and percent forms", () => {
+    // 20 bytes: the padded forms end in "=" (20 % 3 = 2) and the base64 alphabets differ ("??>" gives "+" and "/" vs "-" and "_").
+    const secret = "ab?>?>?>cd/+=value-1234";
+    const buf = Buffer.from(secret);
+    const std = buf.toString("base64"); const url = buf.toString("base64url");
+    const forms = [secret, std, std.replace(/=+$/, ""), url, url + "=".repeat((4 - (url.length % 4)) % 4), buf.toString("hex"), buf.toString("hex").toUpperCase(), encodeURIComponent(secret)];
+    assert.ok(forms.some((f) => f.endsWith("=") && !f.includes("+") && !f.includes("/")), "a padded base64url form is part of the vectors");
+    const reg = createRedactor({ secrets: [secret] });
+    for (const form of new Set(forms)) {
+      assert.equal(reg.text(`line ${form} end`), "line [REDACTED:secret] end", form);
+    }
+    // The whole padded form goes, no dangling "=" is left behind.
+    const padded = Buffer.from("secret-with-pad!").toString("base64url") + "==";
+    assert.equal(createRedactor({ secrets: ["secret-with-pad!"] }).text(`x ${padded} y`), "x [REDACTED:secret] y");
+  });
+  it("secret registry: the same minimum length applies before the forms are derived, and foreign hex or base64url stays", () => {
+    const reg = createRedactor({ secrets: ["abc123", "hunter2hunter2"] });
+    // "abc123" is shorter than 8: neither it nor its hex form (616263313233) is masked.
+    assert.equal(reg.text("abc123 616263313233 YWJjMTIz"), "abc123 616263313233 YWJjMTIz");
+    // Hex and base64url of some other value stay readable (a 64-digit digest, the hex of another string, an unrelated padded run).
+    const foreignHex = Buffer.from("another-value-xx").toString("hex");
+    const digest = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+    const foreignB64 = Buffer.from("another-value-xx").toString("base64url") + "==";
+    const line = `h=${foreignHex} d=${digest.toUpperCase()} u=${foreignB64}`;
+    assert.equal(reg.text(line), line);
+    // The registered value's own hex form, in both cases, inside a longer line, is masked.
+    const own = Buffer.from("hunter2hunter2").toString("hex");
+    assert.equal(reg.text(`a ${own} b ${own.toUpperCase()} c`), "a [REDACTED:secret] b [REDACTED:secret] c");
+  });
   it("does not mutate its input and leaves non-strings alone", () => {
     const input = { a: { token: "x" }, n: 1, z: null, l: ["Bearer abcdefghij"] };
     const copy = structuredClone(input);

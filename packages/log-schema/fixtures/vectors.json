@@ -14046,6 +14046,7 @@
           "sk",
           "ek",
           "ghp",
+          "github-token",
           "github-pat",
           "slack",
           "aws-access-key",
@@ -14062,7 +14063,11 @@
         "patterns": [
           "userinfo",
           "query-value",
-          "fragment"
+          "fragment",
+          "path-telegram-bot",
+          "path-slack-webhook",
+          "path-discord-webhook",
+          "path-teams-webhook"
         ]
       },
       {
@@ -14138,6 +14143,30 @@
       ],
       "matches": [
         "ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "github-token",
+      "parts": [
+        "gh",
+        "o_",
+        "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+      ],
+      "matches": [
+        "gho_CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "github-token",
+      "parts": [
+        "gh",
+        "s_",
+        "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
+      ],
+      "matches": [
+        "ghs_DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
       ]
     },
     {
@@ -14224,6 +14253,81 @@
     },
     {
       "rule": "pattern",
+      "pattern": "pem-private-key",
+      "parts": [
+        "-----BEGIN PGP ",
+        "PRIVATE KEY BLOCK-----",
+        " body ",
+        "-----END PGP ",
+        "PRIVATE KEY BLOCK-----"
+      ],
+      "matches": [
+        "-----BEGIN PGP ",
+        "PRIVATE KEY BLOCK-----",
+        " body ",
+        "-----END PGP ",
+        "PRIVATE KEY BLOCK-----"
+      ]
+    },
+    {
+      "rule": "url",
+      "pattern": "path-telegram-bot",
+      "parts": [
+        "https://api.telegram.org",
+        "/bot123456789:",
+        "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw",
+        "/getMe"
+      ],
+      "matches": [
+        "/bot123456789:",
+        "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw"
+      ]
+    },
+    {
+      "rule": "url",
+      "pattern": "path-slack-webhook",
+      "parts": [
+        "https://hooks.slack.com",
+        "/services/T0123ABCD/B0456EFGH/",
+        "xYz1AbC2dEf3GhI4jKl5MnOp"
+      ],
+      "matches": [
+        "/services/T0123ABCD/B0456EFGH/",
+        "xYz1AbC2dEf3GhI4jKl5MnOp"
+      ]
+    },
+    {
+      "rule": "url",
+      "pattern": "path-discord-webhook",
+      "parts": [
+        "https://discord.com",
+        "/api/webhooks/123456789012345678/",
+        "d1sc0rdT0ken_Abc-123Abc-123"
+      ],
+      "matches": [
+        "/api/webhooks/123456789012345678/",
+        "d1sc0rdT0ken_Abc-123Abc-123"
+      ]
+    },
+    {
+      "rule": "url",
+      "pattern": "path-teams-webhook",
+      "parts": [
+        "https://example.webhook.office.com",
+        "/webhookb2/",
+        "0a1b2c3d-aaaa-4e5f-8a9b-0c1d2e3f4a5b@0a1b2c3d-bbbb-4e5f-8a9b-0c1d2e3f4a5b",
+        "/IncomingWebhook/0123456789abcdef0123456789abcdef/",
+        "0a1b2c3d-cccc-4e5f-8a9b-0c1d2e3f4a5b"
+      ],
+      "matches": [
+        "/webhookb2/",
+        "0a1b2c3d-aaaa-4e5f-8a9b-0c1d2e3f4a5b@0a1b2c3d-bbbb-4e5f-8a9b-0c1d2e3f4a5b",
+        "/IncomingWebhook/0123456789abcdef0123456789abcdef/",
+        "0a1b2c3d-cccc-4e5f-8a9b-0c1d2e3f4a5b"
+      ]
+    },
+    {
+      "rule": "pattern",
       "pattern": "base64url-run",
       "parts": [
         "x ",
@@ -14297,6 +14401,46 @@
       "pattern": "basic",
       "text": "Basic info",
       "note": "prose"
+    },
+    {
+      "pattern": "github-token",
+      "text": "xgho_CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "note": "no left boundary, no match"
+    },
+    {
+      "pattern": "github-token",
+      "text": "gho_CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "note": "too short for a token"
+    },
+    {
+      "pattern": "github-token",
+      "text": "ghost_CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "note": "not one of the token prefixes"
+    },
+    {
+      "pattern": "path-telegram-bot",
+      "text": "https://example.test/bot123456789/status",
+      "note": "a bot-like path without a token"
+    },
+    {
+      "pattern": "path-telegram-bot",
+      "text": "/bot123456789:short",
+      "note": "too short for a token"
+    },
+    {
+      "pattern": "path-slack-webhook",
+      "text": "https://hooks.slack.com/services/",
+      "note": "no secret in the path"
+    },
+    {
+      "pattern": "path-discord-webhook",
+      "text": "https://example.test/api/webhooks/list",
+      "note": "no id and token"
+    },
+    {
+      "pattern": "path-teams-webhook",
+      "text": "https://example.test/webhook/list",
+      "note": "no guid pair"
     }
   ]
 }

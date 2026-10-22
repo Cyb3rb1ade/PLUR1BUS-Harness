@@ -1,2 +1,2 @@
 { "params": { "agentId": "bernd" },
-  "result": { "agentId": "bernd", "path": "agents/bernd/workspace/dreaming.md", "exists": true, "bytes": 42, "text": "# dreaming\nlight sweep notes\n", "truncated": false } }
+  "result": { "agentId": "bernd", "path": "agents/bernd/workspace/DREAMS.md", "exists": true, "bytes": 42, "text": "# dreaming\nlight sweep notes\n", "truncated": false } }

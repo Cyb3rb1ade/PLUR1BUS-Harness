@@ -805,13 +805,12 @@ fn gone(pid: i32) -> bool {
     }
 }
 
-/// The supervisor starts the core in a process group of its own (`child.rs`, `process_group(0)`) but ends it by pid: `core.shutdown`,
-/// then SIGTERM and SIGKILL to the pid, never `kill(-pgid)`. A process the core started is not ended with it, on a clean stop
-/// and not when the core is killed either. On Windows there is no job object. This test says what a person expects of
-/// "stopped": nothing of the core's tree is left running.
+/// The supervisor starts the core in a process group of its own (`child.rs`, `process_group(0)`) and ends the group, not the pid
+/// alone: SIGTERM and SIGKILL go to `-pgid`, and what is left in the group once the core is reaped gets SIGKILL, on a clean stop
+/// as well as after a crash or a `kill -9`. On Windows there is no job object (the core alone is ended). This test says what
+/// a person expects of "stopped": nothing of the core's tree is left running.
 #[cfg(unix)]
 #[test]
-#[ignore = "KNOWN GAP: the supervisor ends the core by pid, not by process group, so a child of the core outlives `daemon stop` and a killed core"]
 fn stopping_the_daemon_leaves_no_process_of_the_cores_tree_running() {
     for how in ["daemon.stop", "kill -9 the core"] {
         let h = Home::new();
@@ -853,6 +852,48 @@ fn stopping_the_daemon_leaves_no_process_of_the_cores_tree_running() {
             "{how}: the core's own child (pid {grandchild}) is still running"
         );
     }
+}
+
+/// Counter-test to the one above: only the core's own process group is ended. A process the core moved into a session of its
+/// own (`detached: true`, as the core does for its MCP servers and tool processes, which it stops itself) is not part of
+/// the group and keeps running, and the supervisor, which is not in the core's group either, ends with exit code 0 as
+/// before.
+#[cfg(unix)]
+#[test]
+fn stopping_the_daemon_ends_the_cores_process_group_and_no_other_group() {
+    let h = Home::new();
+    let wrapper = h._dir.path().join("core-with-detached-child.mjs");
+    let pidfile = h.home.join("detached.pid");
+    std::fs::write(
+        &wrapper,
+        format!(
+            "import {{ spawn }} from 'node:child_process';\nimport {{ writeFileSync }} from 'node:fs';\n\
+             const g = spawn('sleep', ['300'], {{ stdio: 'ignore', detached: true }});\ng.unref();\n\
+             writeFileSync({:?}, String(g.pid));\nawait import({:?});\n",
+            pidfile.to_string_lossy(),
+            fixture().to_string_lossy()
+        ),
+    )
+    .unwrap();
+    let mut s = start_with(&h, "ok", "0.02", &wrapper);
+    let mut c = client(&h.home);
+    wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
+    wait_until("the detached child's pid file", WAIT, || pidfile.exists());
+    let detached: i32 = std::fs::read_to_string(&pidfile)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    let _guard = KillOnDrop(detached);
+    assert_eq!(
+        c.call("daemon.stop", json!({ "budgetMs": 2000 })).unwrap(),
+        json!({ "accepted": true })
+    );
+    assert_eq!(s.wait_exit(WAIT).code(), Some(0));
+    assert!(
+        !gone(detached),
+        "a process in another group (pid {detached}) was ended with the core"
+    );
 }
 
 /// Something else (not a harness supervisor) is listening on the supervisor's socket and nobody holds the supervisor lock. The

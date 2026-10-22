@@ -8,11 +8,12 @@
 // before it" (append writes the line first, the anchor second). Every other disagreement between chain and anchor stays a
 // refusal; `plur1bus audit reanchor` (the Rust CLI) starts a new era and keeps the old files as `*.pre-reanchor-<ms>`.
 import { createHash } from "node:crypto";
-import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, truncateSync, writeFileSync, writeSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, truncateSync, writeSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import path from "node:path";
 import { acquireExclusiveLock } from "@plur1bus/module-api";
 import type { AuditEvent, AuditSink } from "../rbac/audit.ts";
+import { redactAuditDetail } from "./redact-detail.ts";
 
 export const GENESIS_HASH = "0".repeat(64);
 export const ACTIVE_NAME = "audit-chain.jsonl";
@@ -36,7 +37,7 @@ const DEFAULT_LOCK_TIMEOUT_MS = 5000;
 
 export type FindingCode =
   | "line-malformed" | "hash-mismatch" | "seq-gap" | "prefix-missing" | "file-name-mismatch" | "torn-tail"
-  | "anchor-missing" | "anchor-invalid" | "anchor-mismatch" | "truncated";
+  | "anchor-missing" | "anchor-invalid" | "anchor-mismatch" | "truncated" | "pin-missing" | "pin-mismatch";
 export interface Finding { code: FindingCode; file: string; line: number | null; seq: number | null }
 export type AnchorStatus = "match" | "behind" | "absent" | "invalid" | "ahead" | "mismatch";
 /** A `audit.chain.reanchored` event in the current chain: an era boundary, reported as a note and never as a finding. */
@@ -72,11 +73,12 @@ export interface AuditChainOptions {
   /** Content-free best-effort observer; its errors never replace an append failure. */
   onRefusal?: (code: string) => void;
 }
+export interface AuditPin { seq: number; hash: string }
 export type ChainRecord = Omit<AuditEvent, "target"> & { target: string | null };
 export interface AuditChain extends AuditSink {
   append(e: ChainRecord): void;
   /** Verifies every file and the anchor. Never changes a chain file; takes the writer lock so a line in flight is not seen half-written. */
-  verify(): VerifyResult;
+  verify(pin?: AuditPin): VerifyResult;
   /** Moves the active file aside (a no-op, `null`, when it holds no line). */
   rotate(): string | null;
   readonly dir: string;
@@ -94,6 +96,17 @@ function assertRecordable(e: ChainRecord): void {
 }
 
 export const hashLine = (line: string): string => createHash("sha256").update(line, "utf8").digest("hex");
+
+/** A successful write may still be short. The OS lock prevents interleaving across retries. */
+function writeAllSync(fd: number, value: string | Buffer): void {
+  const bytes = typeof value === "string" ? Buffer.from(value, "utf8") : value;
+  let offset = 0;
+  while (offset < bytes.length) {
+    const written = writeSync(fd, bytes, offset, bytes.length - offset);
+    if (written <= 0) throw new Error("audit-chain: write made no progress");
+    offset += written;
+  }
+}
 
 interface Parsed { seq: number; prev: string; reanchor: { at: number | null; suffix: string | null } | null }
 function parse(line: string): Parsed | null {
@@ -231,6 +244,13 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
     secured.set(p, inode);
   };
 
+  const syncDirectory = (): void => {
+    // Portable Node cannot flush directory entries on Windows; see the explicit D2 known gap.
+    if (process.platform === "win32") return;
+    const fd = openSync(dir, "r");
+    try { fsyncSync(fd); } finally { closeSync(fd); }
+  };
+
   const rotatedFiles = (): string[] => {
     if (!existsSync(dir)) return [];
     return readdirSync(dir).filter((n) => ROTATED.test(n)).sort(); // ten digits: lexical = numeric
@@ -311,8 +331,9 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
         // Never overwrite earlier evidence: two crashes within one millisecond get distinct names.
         let tornPath = `${f}.torn-${Date.now()}`;
         for (let n = 1; existsSync(tornPath); n++) tornPath = `${f}.torn-${Date.now()}-${n}`;
-        writeFileSync(tornPath, bytes, { mode: 0o600, flag: "wx" });
-        secure(tornPath);
+        const evidence = openSync(tornPath, "wx", 0o600);
+        try { secure(tornPath); writeAllSync(evidence, bytes); fsyncSync(evidence); } finally { closeSync(evidence); }
+        syncDirectory(); // retain evidence durably before truncating the interrupted write
         truncateSync(f, t.tornFrom);
         t = scanTail(f);
       }
@@ -345,17 +366,19 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
     if (existsSync(target)) throw new Error("audit-chain: rotation target exists");
     renameSync(active, target);
     secured.delete(active); // the next active file is a new inode: re-secure it
+    syncDirectory();
     return name;
   };
 
   const writeAnchor = (a: Anchor): void => {
     const tmp = `${anchorPath}.tmp`;
     const fd = openSync(tmp, "w", 0o600);
-    try { writeSync(fd, `${JSON.stringify({ v: 1, seq: a.seq, hash: a.hash })}\n`); fsyncSync(fd); } finally { closeSync(fd); }
+    try { writeAllSync(fd, `${JSON.stringify({ v: 1, seq: a.seq, hash: a.hash })}\n`); fsyncSync(fd); } finally { closeSync(fd); }
     secure(tmp);
     renameSync(tmp, anchorPath); // replaces atomically; the anchor is never half-written
     secured.delete(anchorPath); // a new inode: re-secure
     secure(anchorPath);
+    syncDirectory(); // active-file creation and anchor replacement are durable before unlocking
   };
 
   /** Rotates when the active file is full, then writes one line chained to `st` and moves the anchor. Returns the new tail. */
@@ -363,11 +386,11 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
     let st = start;
     if (existsSync(active) && statSync(active).size >= maxBytes) { rotateLocked(); st = tailState(); }
     const seq = st.seq + 1;
-    const line = JSON.stringify({ seq, prev: st.hash, rec: { at: e.at, actor: e.actor, action: e.action, target: e.target, detail: e.detail } });
+    const line = JSON.stringify({ seq, prev: st.hash, rec: { at: e.at, actor: e.actor, action: e.action, target: e.target, detail: redactAuditDetail(e.detail) } });
     const fd = openSync(active, "a", 0o600);
     try {
       secure(active);
-      writeSync(fd, `${line}\n`); // one write on an O_APPEND handle
+      writeAllSync(fd, `${line}\n`); // O_APPEND; the OS lock also covers short-write retries
       fsyncSync(fd);
     } finally { closeSync(fd); }
     const hash = hashLine(line);
@@ -410,7 +433,8 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
       }
     },
     rotate(): string | null { return withLock(rotateLocked); },
-    verify(): VerifyResult {
+    verify(pin?: AuditPin): VerifyResult {
+      if (pin && (!Number.isSafeInteger(pin.seq) || pin.seq < 1 || !HEX64.test(pin.hash))) throw new Error("audit-chain: invalid pin");
       return withLock(() => {
         const findings: Finding[] = [];
         let total = 0;
@@ -418,6 +442,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
         const files = [...rotatedFiles(), ...(existsSync(active) ? [ACTIVE_NAME] : [])];
         const a = readAnchor(anchorPath);
         const reanchors: ReanchorNote[] = [];
+        let pinned: { hash: string; file: string; line: number } | null = null;
         let records = 0; let lastSeq = 0; let prevHash = GENESIS_HASH; let anchorHash: string | null = null;
         let started = false; let known = true; // `known`: lastSeq/prevHash still mean something after a malformed line
         for (const name of files) {
@@ -437,6 +462,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
             }
             started = true; known = true; lastSeq = p.seq; prevHash = hashLine(line); records++;
             if (a.kind === "ok" && p.seq === a.anchor.seq) anchorHash = prevHash;
+            if (pin && p.seq === pin.seq) pinned = { hash: prevHash, file: name, line: n };
             if (p.reanchor) reanchors.push({ seq: p.seq, file: name, line: n, at: p.reanchor.at, suffix: p.reanchor.suffix });
           });
           if (rotatedSeq !== undefined && firstSeqInFile !== null && firstSeqInFile !== Number(rotatedSeq)) add({ code: "file-name-mismatch", file: name, line: 1, seq: firstSeqInFile });
@@ -457,6 +483,12 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
           add({ code: "anchor-mismatch", file: ANCHOR_NAME, line: null, seq: a.anchor.seq });
         } else {
           anchor = { status: a.anchor.seq === lastSeq ? "match" : "behind", seq: a.anchor.seq };
+        }
+        if (pin) {
+          // An external pin is checked against the chain as read under this lock, rotated files included.
+          const at = pinned as { hash: string; file: string; line: number } | null;
+          if (!at) add({ code: "pin-missing", file: ACTIVE_NAME, line: null, seq: pin.seq });
+          else if (at.hash !== pin.hash) add({ code: "pin-mismatch", file: at.file, line: at.line, seq: pin.seq });
         }
         const named = new Set(reanchors.map((r) => r.suffix));
         const previousChains = asideSuffixes().map((suffix) => verifyAside(suffix, named.has(suffix)));

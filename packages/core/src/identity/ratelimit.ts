@@ -30,6 +30,16 @@ export function createLimiter(db: DatabaseSync, clock: () => number) {
       put.run(key, failures, start, lockedUntil);
     },
     success(key: string): void { del.run(key); },
+    /**
+     * Takes back one counted event that turned out legitimate (the owner confirmed the claim). Only an event of the current window can be
+     * taken back; reaching the limit locks and resets the count, so a lock that is still running is that last event and is lifted with it.
+     */
+    release(key: string, spec: LimitSpec, eventAt: number): void {
+      const now = clock(); const r = get.get(key) as Row;
+      if (!r || eventAt < now - spec.windowMs) return;
+      if (r.failures > 0 && now - r.window_start <= spec.windowMs) put.run(key, r.failures - 1, r.window_start, r.locked_until);
+      else if (r.failures === 0 && r.locked_until > now) put.run(key, spec.limit - 1, r.window_start, 0);
+    },
     prune(): void { db.prepare("DELETE FROM attempts WHERE locked_until < ? AND window_start < ?").run(clock(), clock() - 24 * 3_600_000); },
   };
 }

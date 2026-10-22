@@ -46,7 +46,7 @@ Ein bestehender Gedächtnis-Store ist an das Modell gebunden, das ihn aufgebaut 
 - **Datenschutzbestätigung ist Pflicht:** Jeder Embedding-Endpunkt außerhalb von Loopback (`localhost`, `127.0.0.0/8`, `::1`) braucht `memory.embedding.privacyAck` für genau diesen Anbieter und Endpunkt. Ein Wechsel von Anbieter oder Adresse macht eine alte Bestätigung ungültig. Ab der nächsten Version braucht der Reranker eine eigene `memory.reranker.privacyAck`, gebunden an den Anbieter.
 - **Schlüssel gehören nie in die Konfiguration:** Ein Klartext-`apiKey` oder eine `baseUrl` mit Benutzername oder Passwort wird abgelehnt. Nutze `apiKeyEnv`. Auch die Schreibweise `baseURL` wird abgelehnt, weil die Engine sie ignorieren und ihren Standard-Endpunkt aufrufen würde.
 - **Kein stiller Fallback:** Ein `fallback`-Modell wird abgelehnt. Ist der gehostete Dienst nicht erreichbar, melden Indexierung und Abruf den Fehler; sie wechseln nie auf ein anderes Modell oder einen anderen Vektorraum, was die Suchergebnisse verfälschen würde.
-- **Nur lokal:** Ab der nächsten Version lehnt `privacy.localOnly` einen Cloud-Embedding- oder Reranker-Endpunkt ab ([datenschutz.md](datenschutz.md)).
+- **Nur lokale Modelle:** Ab der nächsten Version lehnt `privacy.localOnly` einen Cloud-Embedding- oder Reranker-Endpunkt ab ([datenschutz.md](datenschutz.md)).
 
 ## Fehlermeldungen
 
@@ -60,5 +60,5 @@ Ein bestehender Gedächtnis-Store ist an das Modell gebunden, das ihn aufgebaut 
 ## Weiter
 
 - Bestehenden Store auf ein neues Embedding-Modell überführen: [reembed.md](reembed.md)
-- Datenschutz und Nur lokal: [datenschutz.md](datenschutz.md)
+- Datenschutz und „Nur lokale Modelle“: [datenschutz.md](datenschutz.md)
 - Modell-Anbieter und Profile konfigurieren: [providers.md](providers.md)

@@ -1,5 +1,16 @@
 // secrets area catalogue (Settings > Secrets): keys `secrets.<topic>`; en and de have the same keys and {placeholders}.
 export const en = {
+  "secrets.describe.title": "Description of {name}",
+  "secrets.describe.save": "Save description",
+  "secrets.describe.edit": "Edit description",
+  "secrets.describe.label": "Edit description of {name}",
+  "secrets.describe.hint": "Leave empty to clear. Never include the secret or any part of it.",
+  "secrets.describe.invalid": "The description must be one line, at most 200 characters, and contain no secret fragment of eight or more characters.",
+  "secrets.grants.title": "Agent secret access",
+  "secrets.grants.disabled": "Agent leases are disabled. Configuration references are not grants.",
+  "secrets.grants.present": "present",
+  "secrets.grants.missing": "missing",
+
   "secrets.unknown": "Unknown",
   "secrets.title": "Secrets",
   "secrets.intro": "Names and metadata only. Values are write-only: they are never shown, never stored in this page and never read back.",
@@ -51,6 +62,7 @@ export const en = {
   "secrets.delete.confirm": "Delete secret",
   "secrets.delete.failed": "The secret could not be deleted.",
   "secrets.saved": "Saved {name}.",
+  "secrets.warn.shortValue": "{name} is saved, but its value has fewer than {min} characters. The log redactor does not mask values this short, so it could appear in a log line. If the service allows it, use a longer value.",
   "secrets.updatedOn": "{name}: updated on {when}.",
   "secrets.rotate.confirm": "Rotate now",
   "secrets.rotate.confirmText": "Replace the value of {name}? The old value stops working at once. Check the new value before you continue.",
@@ -59,6 +71,17 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "secrets.describe.title": "Beschreibung von {name}",
+  "secrets.describe.save": "Beschreibung speichern",
+  "secrets.describe.edit": "Beschreibung bearbeiten",
+  "secrets.describe.label": "Beschreibung von {name} bearbeiten",
+  "secrets.describe.hint": "Zum Leeren leer lassen. Niemals den Schlüssel oder Teile davon eintragen.",
+  "secrets.describe.invalid": "Die Beschreibung muss einzeilig sein, höchstens 200 Zeichen lang sein und darf keinen Secret-Teil ab acht Zeichen enthalten.",
+  "secrets.grants.title": "Secret-Zugriff der Agenten",
+  "secrets.grants.disabled": "Agent-Leases sind deaktiviert. Konfigurationsverweise sind keine Berechtigungen.",
+  "secrets.grants.present": "vorhanden",
+  "secrets.grants.missing": "fehlt",
+
   "secrets.unknown": "Unbekannt",
   "secrets.title": "Geheimnisse",
   "secrets.intro": "Nur Namen und Metadaten. Werte sind nur schreibbar: Sie werden nie angezeigt, nie in dieser Seite gespeichert und nie zurückgelesen.",
@@ -110,6 +133,7 @@ export const de: Record<keyof typeof en, string> = {
   "secrets.delete.confirm": "Geheimnis löschen",
   "secrets.delete.failed": "Das Geheimnis konnte nicht gelöscht werden.",
   "secrets.saved": "{name} gespeichert.",
+  "secrets.warn.shortValue": "{name} ist gespeichert, aber der Wert hat weniger als {min} Zeichen. Der Log-Redaktor maskiert so kurze Werte nicht, deshalb könnte er in einer Logzeile auftauchen. Nimm einen längeren Wert, wenn der Dienst es erlaubt.",
   "secrets.updatedOn": "{name}: aktualisiert am {when}.",
   "secrets.rotate.confirm": "Jetzt rotieren",
   "secrets.rotate.confirmText": "Den Wert von {name} ersetzen? Der alte Wert ist sofort ungültig. Prüfe den neuen Wert, bevor du fortfährst.",

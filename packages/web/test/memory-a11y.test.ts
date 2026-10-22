@@ -322,14 +322,26 @@ describe("keyboard", opts, () => {
       await app.page.keyboard.press("Home");
       await app.page.getByRole("region", { name: "Memory cards" }).getByRole("link").first().waitFor();
       assert.equal(await app.page.evaluate(() => location.hash), "#/memories");
-      // End selects the last tab, the Media tab (#/memories/media) since it was added; ArrowLeft walks back through Dreams to the list.
+      // End selects Media; ArrowLeft walks through Curation and Dreams back to Memories.
       await app.page.keyboard.press("End");
       await app.page.getByRole("heading", { name: "Media index" }).waitFor();
       assert.equal(await app.page.evaluate(() => location.hash), "#/memories/media");
       await app.page.keyboard.press("ArrowLeft");
+      await app.page.getByRole("tab", { name: "Curation", selected: true }).waitFor();
+      assert.equal(await app.page.evaluate(() => location.hash), "#/memories/curation");
+      assert.equal(await tab("Curation").getAttribute("tabindex"), "0");
+      assert.equal(await tab("Media").getAttribute("tabindex"), "-1");
+      assert.equal(await tab("Curation").evaluate(el => document.activeElement === el), true);
+      await app.page.keyboard.press("ArrowLeft");
       await app.page.getByRole("group", { name: "Light", exact: true }).waitFor();
+      assert.equal(await app.page.evaluate(() => location.hash), "#/memories/dreams");
+      assert.equal(await tab("Dreams").getAttribute("aria-selected"), "true");
+      assert.equal(await tab("Curation").getAttribute("tabindex"), "-1");
       await app.page.keyboard.press("ArrowLeft");
       await app.page.getByRole("region", { name: "Memory cards" }).getByRole("link").first().waitFor();
+      assert.equal(await app.page.evaluate(() => location.hash), "#/memories");
+      assert.equal(await tab("Memories").getAttribute("aria-selected"), "true");
+      assert.equal(await tab("Dreams").getAttribute("tabindex"), "-1");
     });
   });
 
