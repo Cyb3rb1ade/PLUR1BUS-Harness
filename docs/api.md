@@ -119,7 +119,7 @@ in whole seconds, `reason: rate-limited`.
 | `write` | 30 | 5 per s | writes |
 | `stream` | 6 | 1 per 5 s | opening `/events` |
 | `rpc` | 60 | 10 per s | `/rpc` |
-| `expensive` | 10 | 1 per 6 s | model-backed work, per person or token: the chat submit (`POST /api/v1/chats/{sessionId}/messages`) and, through `/rpc`, `session.submit`, `jobs.run`, `dreams.run`, `voice.realtime.start` |
+| `expensive` | 10 | 1 per 6 s | model-backed work, per person or token: the chat submit (`POST /api/v1/chats/{sessionId}/messages`) and, through `/rpc`, `session.submit`, `jobs.run`, `dreams.run`, `voice.realtime.start`, `media.generate`, `media.edit` |
 
 Model-backed work also holds one slot of a global concurrency cap (default 8, `ApiServerOptions.expensiveConcurrency`) from the
 moment it is admitted until its response, a chat stream included, has ended. A refused call is `429`, `reason: rate-limited`,

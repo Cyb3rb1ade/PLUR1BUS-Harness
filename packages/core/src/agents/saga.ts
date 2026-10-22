@@ -12,8 +12,8 @@ export class AgentCreateSaga {
   private save(record: SagaRecord) {
     mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     const path = this.path(record.key, record.actor), temp = `${path}.${randomUUID()}.tmp`;
-    writeFileSync(temp, JSON.stringify(record), { mode: 0o600, flag: "wx" });
-    const fd = openSync(temp, "r+"); try { fsyncSync(fd); } finally { closeSync(fd); } // "r+": fsync on a read-only handle is EPERM on Windows
+    // Written and fsynced through one writable handle: on Windows fsync is FlushFileBuffers, which fails with EPERM on a read-only one.
+    const fd = openSync(temp, "wx", 0o600); try { writeFileSync(fd, JSON.stringify(record)); fsyncSync(fd); } finally { closeSync(fd); }
     renameSync(temp, path);
     // Windows does not support fsync on directory handles; the file is durable there.
     if (process.platform !== "win32") { const dir = openSync(this.directory, "r"); try { fsyncSync(dir); } finally { closeSync(dir); } }
