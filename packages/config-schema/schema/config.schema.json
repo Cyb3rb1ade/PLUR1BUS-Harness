@@ -916,6 +916,16 @@
       "description": "Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
       "type": "object", "default": {}, "x-restart": "core", "x-tier": "advanced",
       "properties": {
+        "schicht15": {
+          "description": "Curated knowledge promotion settings passed to the Engine.",
+          "type": "object", "additionalProperties": true, "x-restart": "core", "x-tier": "advanced",
+          "properties": {
+            "maxPromotionsPerRun": {
+              "description": "Maximum memories promoted by one knowledge-update run; 0 means unlimited.",
+              "type": "integer", "minimum": 0, "default": 0, "x-restart": "core", "x-tier": "advanced"
+            }
+          }
+        },
         "baseDbPathOverride": { "type": "string", "x-restart": "core", "x-tier": "advanced", "description": "Testing/advanced only; default <home>/state/lancedb" }
       },
       "additionalProperties": true

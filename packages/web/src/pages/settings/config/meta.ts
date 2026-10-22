@@ -25,6 +25,8 @@ export const META: readonly FieldMeta[] = [
   { key: "embedding.useClass", kind: "enum", def: "general", options: ["general", "research", "commercial"], restart: "core" },
   b("embedding.acceptedNcLicence", false, "core"), { key: "embedding.acceptedNcLicenceAt", kind: "string", restart: "core" },
   { key: "engine.baseDbPathOverride", kind: "string", restart: "core" },
+  { key: "engine.schicht15", kind: "json", restart: "core" },
+  n("engine.schicht15.maxPromotionsPerRun", 0, 0, "core"),
   o("providers"), o("oauth"),
   o("decision"),
   { key: "decision.backend", kind: "enum", def: "role", options: ["role", "laya", "kev", "jev", "auto"], restart: "live" }, n("decision.timeoutMs", 200, 1, "live", 60000),
