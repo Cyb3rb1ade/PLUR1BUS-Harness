@@ -1,18 +1,131 @@
-# CI: macOS runner policy
+# CI: affected suites and runner policy
 
-GitHub allows about five concurrent macOS jobs per account, and every PR push used to start four to six. Linux and
-Windows legs are unchanged; the macOS legs beyond the unit tests are now gated.
+
+## PR impact selection (GP5 P2)
+
+`ci.yml` starts a `changes` job. It reads the PR's actual Git merge-base diff with `--no-renames -z`, so both sides of
+moves and non-ASCII paths count. It compares the private Engine dependency value separately. Missing history or an
+invalid manifest fails the plan; unknown paths and empty diffs select the full suite. No GitHub write permission is used.
+
+| PR paths | Selected checks |
+| --- | --- |
+| Only `docs/**`, standard root documents or package/module README/CHANGELOG files | Documentation and hygiene |
+| `docs/errors.md`, `docs/rpc.md`, `docs/cli.md`, `docs/openapi.json`, `docs/api-surface.md` | Rust and TypeScript, as for code: `docs_consistency.rs`, `cli_surface.rs`, `error_codes_sync.rs`, the OpenAPI tests and `check-cli-exit-codes` read them |
+| `docs/operations.md` | Rust (`skill_freshness.rs` checks the commands it quotes) |
+| `docs/rbac.md`, `docs/channels/**`, `docs/embedding-adapters.md`, `docs/media-adapters.md`, `docs/ops/zabbix/**` | TypeScript (package tests read them) |
+| `docs/user/**` | Browser suite (the web help test renders them), plus documentation/hygiene |
+| `skills/**` | Rust and TypeScript (bundled skills: `skill_freshness.rs`, setup tests, `tests/system/setup.test.ts`) |
+| `packages/web/**` | Documentation/hygiene, TypeScript check, served-stack browser build, all four shards and exact-partition verification |
+| `crates/**`, `Cargo.toml`, Rust toolchain | Rust fmt/clippy/tests, runtime integrations, documentation/hygiene and the served-stack browser suite (`web-browser-build` compiles the CLI) |
+| `crates/**/fixtures/**` or `crates/plur1bus/src/backup/restore.rs` | Rust plus TypeScript (shared fixture/source parity readers), the browser suite, runtime integrations and documentation/hygiene |
+| Other `packages/**` | TypeScript unit checks, the browser suite (it builds and serves Core and the packages it bundles), runtime integrations and documentation/hygiene |
+| `tests/**` | TypeScript unit checks, runtime integrations and documentation/hygiene |
+| Shared RPC/config/log schemas or module API | Rust, TypeScript, browser, Python and documentation/hygiene |
+| `hosts/**` or `clients/python/**` | Python/Hermes, WSL and documentation/hygiene |
+| `packages/documents/**` | TypeScript/runtime checks plus golden rendering |
+| Engine pin, any Cargo lock, pnpm lock, workflow or unknown path | Full suite |
+
+The reader lists live in `TEST_READ` in `scripts/ci/changes.mjs`. Accepted gap: `error_codes_sync.rs` scans every other
+`docs/**/*.md` (except `docs/superpowers` and `docs/handoff`) for error-code words, so a documentation-only pull request
+that names an unknown code passes `ci-gate` and fails the Rust suite on the next push to `main`, which runs everything.
+
+The category outputs are `rust`, `ts-core`, `web`, `python`, `docs-only`, `workflows`, `engine-pin` and `documents`.
+The existing macOS label/path policy still selects the platform legs *within* each affected suite; it cannot turn a
+failed classifier into a successful skip. Main pushes, scheduled nightly and manual CI runs select all suites.
+`merge_group` classification also selects all suites; its trigger is added in P6.
+
+The `unit` job (ubuntu-24.04; the macOS and Windows legs are the separate `unit-os` job, see below) keeps setup/build and checks only the selected language's tests: TypeScript changes
+omit Rust fmt/clippy/unit tests, Rust-only changes omit the TypeScript unit suite; shared Rust fixtures and the restore marker
+source select both. Served-stack browser acceptance still
+builds the current CLI on Ubuntu. Runtime/sandbox/service/Python/WSL and startup/budget jobs remain conservative for
+Rust or TypeScript runtime changes. They do not run for documentation or isolated web changes. Markdown under source templates, skill packages and test fixtures follows its owning suite; a `.md` suffix alone is not a documentation change. No test is removed,
+relaxed or converted to a skip. Independent `desktop.yml`, `container.yml`, `hermes-host.yml` and release workflows
+retain their existing path rules. Their checks are not folded into this workflow's gate.
+
+### Required check and failures
+
+`ci-gate` is THE gate of `ci.yml`: the one check to wait for (and, once branch protection is configured, the one to
+require). It runs with `always()` after the reliable jobs and nothing else: `docs-hygiene`, `unit` (the
+`unit (ubuntu-24.04)` leg), `wsl` and `web-browser` (itself the aggregate over `web-browser-build` and the four shards, and
+the exact-partition check). It requires `changes` to succeed and all category outputs to be literal `true` or `false`.
+Every selected job must report `success`; `failure`, `cancelled`, `skipped`, an absent result or an unknown job in
+`needs` fail the gate. An unselected job may be `skipped` or may have succeeded, but never failed or cancelled. The gate
+reports even when the plan selected nothing, which is why a skipped `unit` matrix (never reports `unit (ubuntu-24.04)`)
+is no reason to wait on a name.
+
+Everything else in `ci.yml` is deliberately outside the gate and not in its `needs`, so it can neither fail nor delay it:
+`unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
+Actions concurrency change below it only runs under the full-platform policy),
+`python-host` (including the experimental `windows-11-arm` leg), `system`, `service`, `sandbox`, `release-scripts`,
+`documents-golden`, the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
+`perf-startup` and `perf-budgets` jobs. They still run for their selected suites and show up as checks; a red one is a
+reason to look, not an automatic block. To promote a job, add it to `selections` in `scripts/ci/gate.mjs`, to the gate's
+`needs` and remove it from `UNGATED`; the workflow contract test fails until all three agree. Other workflows
+(`release-quality`'s `quality`, `container`'s `build + smoke (amd64)`) are separate checks that are not folded in.
+
+A `labeled` event for any label other than `ci:macos` is a no-op run: `changes` sets `proceed=false`, nothing runs and
+its concurrency group differs from the real run's, so it never cancels it. Its gate job is named `ci-gate (label no-op)`
+instead of `ci-gate`, so it can never appear as a fresh green `ci-gate` on a head commit whose real run is still
+running or red. `ci:macos` itself re-triggers a real run, which reports `ci-gate`.
+
+`gate.test.mjs` exercises result combinations, and `workflow-contract.test.mjs` evaluates the actual job-level boolean
+conditions against the skip policy, proves the gate's `needs` are exactly the gated jobs and every other job is on the
+`UNGATED` list, proves `unit-os` has the same steps as `unit`, and evaluates the gate's job name for every event. Matrix
+failures of gated jobs remain failures. Performance jobs still run their existing diagnostic commands and
+known-gap behavior; no numerical budget is promoted from advisory to a hard assertion.
+
+**Required-check migration gate:** only after a green Windows baseline and refreshed heads for all open PRs, configure
+the `ci-gate` check from the `ci` workflow as the required check for this workflow, replacing individual matrix names. This PR does not change branch protection or repository rules. The controller (`CLAUDE.md`, "Which CI jobs decide") waits for `ci-gate`, `quality` and, when present, `build + smoke (amd64)`; merge-queue setup belongs to P6.
+
+Local checks: `node --test scripts/ci/*.test.mjs` and
+`actionlint -shellcheck= -config-file scripts/release/actionlint.yaml .github/workflows/*.yml`.
+
+## macOS runner policy
+
+GitHub allows about five concurrent macOS jobs per account, and every PR push used to start four to six. Actions
+concurrency overall is the bottleneck as well (about five concurrent jobs against 80 to 100 queued), and a Rust or core
+PR push started 17 jobs that do not decide a merge (`CLAUDE.md`, "Which CI jobs decide"). Since the owner decision of
+2026-10-22 the non-deciding **non-Linux** legs of `ci.yml` (macOS, Windows, Windows ARM) follow the same full-platform
+policy as the macOS legs; the Linux legs and everything the gate waits for run on every selected push.
+
+The policy output is called `macos` for historical reasons; it now means "run the full platform matrix", and it also
+switches on the Windows and Windows ARM legs listed below. It is not a macOS-only switch.
 
 ## Which macOS legs run
 
-| Event | `unit (macos-15)` | `system`, `service`, `python-host`, `real-hermes`, `desktop` (macOS legs) |
+For `ci.yml`, the impact filter above is applied first: a documentation-only PR does not run a unit matrix.
+The table below describes platform selection inside an affected suite.
+
+| Event | `unit (macos-15)`, `unit (windows-2025)` (job `unit-os`) and the other non-Linux legs listed below | `system`, `service`, `python-host`, `real-hermes`, `desktop` (macOS legs) |
 | --- | --- | --- |
-| PR opened / synchronize / reopened | yes | only if the PR has label `ci:macos`, or it changes a platform-sensitive path (below) |
-| PR `labeled` with `ci:macos` | yes | yes (the run is re-triggered; it replaces any run in progress) |
+| PR opened / synchronize / reopened | only if the PR has label `ci:macos`, or it changes a platform-sensitive path (below) | same |
+| PR `labeled` with `ci:macos` | yes (the run is re-triggered; it replaces any run in progress) | yes |
 | PR `labeled` with any other label | no (the whole run is a no-op) | no |
 | push to `main` | yes | yes |
 | schedule (nightly, 03:23-03:41 UTC) | yes | yes |
 | workflow_dispatch | yes | yes |
+
+Legs of `ci.yml` that follow this policy (everything else in the file, including every `ubuntu-24.04` and
+`ubuntu-24.04-arm` leg, runs whenever its suite is selected):
+
+| Job | Non-Linux legs that wait for the policy | Always on a selected push |
+| --- | --- | --- |
+| `unit-os` | `unit (macos-15)`, `unit (windows-2025)`: the whole job is conditional (`needs.changes.outputs.macos == 'true'`), because all its legs are non-Linux | none (the Linux leg is `unit`) |
+| `system` | `macos-15` | `ubuntu-24.04` |
+| `service` | `macos-15`, `windows-2025` | `ubuntu-24.04` |
+| `sandbox` | `macos-15`, `windows-2025`, `windows-11-arm` | `ubuntu-24.04`, `ubuntu-24.04-arm` |
+| `perf-startup` (`startup (...)`) | `darwin-arm64`, `win32-x64`, `win32-arm64` | `linux-x64`, `linux-arm64` |
+| `perf-budgets` (`budget catalogue (...)`) | `macos-15`, `windows-2025`, `windows-11-arm` | `ubuntu-24.04`, `ubuntu-24.04-arm` |
+
+Not moved: `unit (ubuntu-24.04)`, `wsl` (a required Windows job), `web-browser*`, the `python-host` matrix (its Windows legs
+are unchanged), `docs-hygiene`, and the other workflows (`release-quality`, `container*`, `desktop.yml`, `hermes-host.yml`).
+Nothing in `ci-gate` depends on the moved legs, so a PR without the policy gets the same gate verdict as before. A PR that
+changes nothing platform-sensitive therefore shows no `unit (macos-15)`, `unit (windows-2025)`, `service (windows-2025)`,
+`sandbox (macos-15|windows-*)`, `startup (darwin-arm64|win32-*)` or `budget catalogue (macos-15|windows-*)` check; an absent
+check is not a red one. Add `ci:macos` to get them before merging. The mixed matrices use
+`exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[...]') }}`; `perf-startup` has no base `os` list, so
+it selects its whole `include` list by the same expression (an `exclude` cannot remove `include` entries).
+`scripts/ci/workflow-contract.test.mjs` evaluates these matrices and conditions for both values of the policy.
 
 Workflows: `ci.yml`, `desktop.yml`, `hermes-host.yml`. Their own `paths:` filters on PRs are unchanged (`desktop.yml` and
 `hermes-host.yml` only start for their paths), so adding `ci:macos` to a PR that touches none of them runs nothing extra
@@ -20,12 +133,11 @@ from those two; `ci.yml` always runs.
 
 ## Where the policy lives
 
-`scripts/ci/macos-plan.mjs` is the one place. Each workflow starts with a cheap ubuntu `plan` job that runs it and
-exposes `proceed` (false only for a `labeled` event of another label), `macos` (run the gated legs) and `python_matrix`.
-Jobs use `needs: plan`, and the matrices drop their macOS entries with
-`exclude: ${{ fromJSON(needs.plan.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}`
-(`python-host` takes its whole matrix from `python_matrix`). The script has tests, `scripts/ci/macos-plan.test.mjs`,
-which the `plan` job runs first.
+`scripts/ci/macos-plan.mjs` owns the platform policy. In `ci.yml`, the cheap Ubuntu `changes` job invokes it through
+`changes.mjs` and exposes `proceed` (false only for a `labeled` event of another label), `macos` and `python_matrix`.
+Its jobs use `needs: changes`; matrices use `needs.changes.outputs.macos`, and `python-host` reads
+`fromJSON(needs.changes.outputs.python_matrix)`. `desktop.yml` and `hermes-host.yml` retain their separate `plan` jobs
+and references to that job's outputs. The policy's tests are `scripts/ci/macos-plan.test.mjs`.
 
 Platform-sensitive paths (the `SENSITIVE` list in the script; edit it there only):
 `crates/**`, `Cargo.lock`, `packages/core/src/platform*`, `packages/core/src/**/acl*`, `packages/module-api/**`,
@@ -43,21 +155,28 @@ branch, so it starts working once this is merged.
 
 ## Using it
 
-Add the `ci:macos` label to a PR to get the full macOS matrix before merging (for example when a change is
-platform-sensitive in a way the path list misses). A required status check on a gated job name (`system (macos-15)` and
-so on) would stay pending on a PR that skips it; `main` has no branch protection at the time of writing.
+Add the `ci:macos` label to a PR to get the full platform matrix (macOS, and also the Windows and Windows ARM legs listed
+above) before merging, for example when a change is platform-sensitive in a way the path list misses. A required status check on a gated job name (`system (macos-15)` and
+so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-gate` only after the Windows baseline and open-head refresh gate above. This change does not inspect or modify current protection settings.
 
 ## Job map and failure semantics
 
 | Job | Gate |
 | --- | --- |
-| `plan` | Tested runner/label policy; a non-macOS label event deliberately runs no expensive matrix |
-| `unit` | Toolchain, fixture drift, lint, offline TypeScript tests, Rust fmt/clippy/tests and generated docs |
-| `system` | Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command) |
-| `service` | Service manager tests; existing systemd-unavailable handling remains documented in the workflow |
-| `python-host` | Python client/Hermes offline and live synthetic-host tests; Windows ARM informational policy is unchanged |
-| `wsl` | Real WSL setup and synthetic migration/snapshot security tests |
-| `release-scripts` | Ubuntu-only offline release tests and local actionlint validation of all workflows |
+| `changes` (`plan` in Desktop/Hermes workflows) | Tested runner/label policy; a non-macOS label event deliberately runs no expensive matrix |
+| `docs-hygiene` | Gated. Hygiene, source quality, i18n, doc links and `pnpm docs:check` (generated documents), for every selected run |
+| `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests, Rust fmt/clippy/tests |
+| `unit-os` | Not gated; only under the full-platform policy. The same steps on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)` |
+| `web-browser-macos` | Explicit advisory dependency: waits for the result, permits completed failure/skipped; selected only for proceed + web + macos |
+| `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
+| `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command); the macOS leg follows the full-platform policy |
+| `service` | Not gated. Service manager tests; existing systemd-unavailable handling remains documented in the workflow; the macOS and Windows legs follow the full-platform policy |
+| `python-host` | Not gated. Python client/Hermes offline and live synthetic-host tests; Windows ARM informational policy is unchanged |
+| `wsl` | Gated. Real WSL setup and synthetic migration/snapshot security tests |
+| `release-scripts` | Not gated. Ubuntu-only offline release tests and local actionlint validation of all workflows |
+| `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners (the three non-Linux ones follow the full-platform policy); golden-set visual diff |
+| `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue; the macOS, Windows and Windows ARM legs follow the full-platform policy |
+| `ci-gate` | THE gate: required jobs above plus the explicitly registered macOS browser advisory |
 | nightly `system-real-models` | Real model acceptance and full kill soak; may fetch model weights |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 
@@ -136,12 +255,41 @@ actionlint -shellcheck= -config-file scripts/release/actionlint.yaml .github/wor
 
 To collect file timings locally, set `TEST_TIMING_DIR` and `NODE_OPTIONS` to the absolute file URL of `scripts/release/timing-reporter.mjs` with `--test-reporter-destination=stdout`, run `pnpm test`, then `node scripts/release/timing-summary.mjs <directory>`. The source reporter does not change test outcomes. WSL setup reproduction requires a Windows host with the corresponding Ubuntu distribution; offline Linux/macOS tests are not evidence for that platform.
 
+## macOS browser suites
+
+`packages/web/test/browser-runtime.ts` also looks for the system Chrome (`/Applications/Google Chrome.app`), which every macOS runner has. `unit (macos-15)` therefore ran the whole browser suite in-line (`--test-concurrency=1`, 20+ minutes against 85 seconds on Linux, where no Chromium is found), and the 25-minute `pnpm test` step timed out inside `packages/web`: `packages/core`, which runs last, never started. Observed on main runs 39295005315 and 39345213479; the macOS state of core is unknown until a run reaches it.
+
+The fix is an explicit, documented switch, not a removed browser path: `PLUR1BUS_WEB_BROWSER=off` makes every browser suite of `packages/web` report `skipped` with the reason `browser suites off (PLUR1BUS_WEB_BROWSER=off); they run in the web-browser job`. The `unit-os` job sets it on macOS only (the identical Linux `unit` steps leave it empty) (`runner.os == 'macOS'`); Linux and Windows are unchanged. Combined with `PLUR1BUS_WEB_E2E_REQUIRED=1` it is a startup failure, so required mode can never be switched off. The switch is tested in `packages/web/test/browser-required.test.ts`.
+
+The coverage moves to `web-browser (macos-15, i/2)` (job `web-browser-macos`): two round-robin shards (`PLUR1BUS_TEST_SHARD=i/2`), frozen dependencies, `pnpm gen && pnpm build`, lockfile-matched Playwright Chromium (`PLUR1BUS_WEB_E2E_REQUIRED=1`, cached in `~/Library/Caches/ms-playwright`). It runs only when `changes` reports `proceed`, `web` and `macos` all true (macOS policy: push to main, schedule, dispatch, label `ci:macos`, platform-sensitive paths). It is an explicit advisory dependency of `ci-gate`: the gate waits for its matrix outcome, accepts `success`, `failure` or `skipped`, and rejects missing, cancelled or malformed results. It is not part of the required Linux `web-browser` aggregate and writes no shard manifest. The served-stack tests (`real-transport`, `real-accounts`, `surfaces-e2e`) need the Rust CLI and stay with the Linux shards (they skip here with a reason).
+
 ## M3 web browser checks
 
-`web-browser` in `ci.yml` runs on Ubuntu with Node 24.21.0 and frozen workspace dependencies. Its package-local Playwright CLI installs Chromium plus Linux libraries; this selects the browser revision belonging to the lockfile's exact Playwright version. `PLUR1BUS_WEB_E2E_REQUIRED=1` refuses a missing matching browser and disables the system-Chrome fallback. The job builds Core and the current-branch CLI with the pinned Rust toolchain, sets an absolute `PLUR1BUS_BIN`, and sets `PLUR1BUS_WEB_TRANSPORT_REQUIRED=1`; served-stack account/transport tests cannot silently skip. The complete web suite runs, including axe, keyboard, token contrast, four responsive widths and zoom. Commit 175969ea introduced the job as informational. A separate gate commit removes continue-on-error after the complete required local browser run passed (1,994 total, 1,988 passed, zero failed/skipped, six explicit TODO). A subsequent strictly additive Core budget-write rule and promoted web case passed their separate 79-test acceptance (78 passed, zero failed/skipped, one hardware TODO); five web TODOs remain. The frontend production tree did not change in that late merge. Hosted CI was not polled and is not claimed green.
+`web-browser` in `ci.yml` (a gated job, see `ci-gate` above) runs on Ubuntu with Node 24.21.0 and frozen workspace dependencies. Its package-local Playwright CLI installs Chromium plus Linux libraries; this selects the browser revision belonging to the lockfile's exact Playwright version. `PLUR1BUS_WEB_E2E_REQUIRED=1` refuses a missing matching browser and disables the system-Chrome fallback. The job builds Core and the current-branch CLI with the pinned Rust toolchain, sets an absolute `PLUR1BUS_BIN`, and sets `PLUR1BUS_WEB_TRANSPORT_REQUIRED=1`; served-stack account/transport tests cannot silently skip. The complete web suite runs, including axe, keyboard, token contrast, four responsive widths and zoom. Commit 175969ea introduced the job as informational. A separate gate commit removes continue-on-error after the complete required local browser run passed (1,994 total, 1,988 passed, zero failed/skipped, six explicit TODO). A subsequent strictly additive Core budget-write rule and promoted web case passed their separate 79-test acceptance (78 passed, zero failed/skipped, one hardware TODO); five web TODOs remain. The frontend production tree did not change in that late merge. Hosted CI was not polled and is not claimed green.
 
 Since the owner decision of 2026-10-18 the suite runs in four shards. `web-browser-build` compiles the current-branch CLI once and passes it to the shards as the `web-browser-cli` artifact. Each `web-browser shard i/4` installs frozen dependencies, runs the esbuild `pnpm gen && pnpm build`, installs Chromium through the same package-local Playwright CLI (browser files cached by lockfile hash) and runs `pnpm --filter @plur1bus/web test` with `PLUR1BUS_TEST_SHARD=i/4`. `PLUR1BUS_WEB_E2E_REQUIRED=1`, `PLUR1BUS_WEB_TRANSPORT_REQUIRED=1` and the absolute `PLUR1BUS_BIN` are set in every shard. `scripts/test-package.mjs` deals the sorted `test/**/*.test.ts` list round-robin (`scripts/ci/test-shards.mjs`), so file k goes to shard (k mod 4) + 1, and writes a manifest of the files it ran. The `web-browser` job keeps the gate's check name. It fails unless `plan`, `web-browser-build` and every shard succeeded, and its shard check (`test-shards.mjs verify`) fails unless the manifests of shards 1 to 4 are disjoint, none is empty, and together they equal the package's full test list. A malformed `PLUR1BUS_TEST_SHARD` stops the run instead of running every file. Locally, `PLUR1BUS_TEST_SHARD=2/4 pnpm --filter @plur1bus/web test` runs one shard.
 
 The registry-driven `shipped-conformance.test.ts` includes every shipped page automatically. Browser reflow at 200% uses 720 CSS px and device scale 2 for the equivalent 1440 physical-pixel window; CSS `zoom` alone leaves media queries unchanged. The shipped-page matrix also checks enlarged text with CSS zoom at 200%; the existing pattern cases remain. Target measurements use the WCAG 2.5.5 inline-prose exception, while standalone links and controls remain measured ([W3C target-size explanation](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html)). Browser fixture tests establish UI accessibility and layout, while served-stack acceptance is recorded independently in `docs/demos/m3.md`.
 
 The macOS unit lint step uses a 4096 MiB V8 heap. This increases the available memory without reducing the checked files or changing the gate. Verification on the local Mac does not prove a hosted runner's memory behavior; CI is not polled.
+
+
+## Superseded-run cancellation (GP5 P3)
+
+The cancellation behavior requested by GP5 was already present on main at `1dae60f2ae` (including #655's workflow
+hygiene work). P3 preserves it and adds offline regression checks; it introduces no concurrency mutation.
+
+- `ci`, `desktop` and `hermes-host` group by workflow and PR number (falling back to ref). That is stable across new
+  commits on one PR and distinct across PRs. Unrelated label events use the existing `-noop` suffix so they cannot
+  cancel a useful run; `ci:macos` intentionally replaces it with the requested platform run.
+- `cancel-in-progress` is true only for `pull_request`, false for main pushes, schedules, manual and merge-group runs.
+- `container` and `release-smoke` already use the same PR-only cancellation. P3 leaves their workflows unchanged.
+  Release-smoke tests a candidate; it does not publish it.
+- `harness-release` explicitly uses `cancel-in-progress: false`, including reusable/manual invocations. `nightly` has
+  no PR trigger, and its schedule/manual events cannot activate its existing PR-only cancellation expression.
+
+`node --test scripts/release/test/concurrency.test.mjs` evaluates the actual concurrency expressions with synthetic
+Actions contexts: different commits/PRs/refs/workflows, all relevant event types and both label cases. It checks the
+existing policy without dispatching or polling Actions. The release-script suite already runs this file in CI.
+
+No repository rules, release policy, controller merging or watcher behavior change in P3.
