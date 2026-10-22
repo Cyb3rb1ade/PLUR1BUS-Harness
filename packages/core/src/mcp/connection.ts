@@ -117,7 +117,7 @@ export class McpConnection {
       onNotification: (method, params) => {
         if (method === "notifications/subscriptions/acknowledged") { this.subscriptionAck?.resolve(); this.subscriptionAttempts = 0; }
         if (method === "notifications/tools/list_changed") { this.tools.clear(); this.outputValidators.clear(); d.onToolsChanged(); } d.onNotification?.(method, params); },
-      onClose: () => { this.exited = true; this.flushStderr(); if (!this.stopping) { this.state("degraded"); d.onRemoteClose(); } },
+      onClose: () => { this.exited = true; this.flushStderr(); this.closeStderrOutput(); if (!this.stopping) { this.state("degraded"); d.onRemoteClose(); } },
       onError: error => { this.state("degraded"); d.logger.debug("mcp.client.error", { server: d.def.name, message: d.redactor.redact(error.message) }); },
     };
     this.client = modern ? new ModernProtocol(options) : new LegacyProtocol(options);
