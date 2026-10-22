@@ -493,7 +493,9 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
       sourceType: opts.sourceType,
       mode: opts.apply ? "apply" : "dry-run",
       status: "planned",
-      reportPath: realReportPath,
+      // Preserve the caller's absolute spelling in the report, like snapshot.path.
+      // The real path above is used only to validate the report's identity.
+      reportPath: resolve(opts.reportPath),
       snapshot: {
         path: snapPath,
         existed: manifest.configExisted || manifest.agentsExisted,

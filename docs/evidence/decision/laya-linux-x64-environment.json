@@ -1,0 +1,112 @@
+{
+  "schema": "plur1bus.laya-native-environment/1",
+  "notes": "Fresh-process measurements on a cloud sandbox VM (Firecracker/KVM), NOT the owner Ubuntu NAS VM and NOT reference hardware; no bare-metal claim. The file cache was not flushed. Labels are agent-authored. The sandbox was shared with other agents; every timing run was started only after a quiet-machine check (no cargo/rustc/pnpm/vitest/node --test process, 1-minute load average < 0.5) and its own foreign-CPU share was recorded.",
+  "fileCacheState": "uncontrolled",
+  "virtualMachine": true,
+  "bareMetalAcceptance": false,
+  "hostRole": "cloud-sandbox",
+  "sourceSha256": {
+    "decision-laya-manifest.json": "f273fd3c87587f5a5c08bad8d9b568e6647d011b4333bcec8dd170a3df078d51",
+    "decision-laya.mjs": "051166b8b510440c1c8849ba547314386a59505c93b71c6d88624bf829fd384f",
+    "decision-laya-paths.mjs": "ee3aeeaffadc56cfe44d275aed63fa666a0b6fd1ab171a072fb70bc23fce8393",
+    "decision-eval-cases.json": "4fdd03e69e2647ba604d783bed8d702497a43f345f706c6b72b14e5b1c61ba15",
+    "decision-laya-lib.mjs": "da2af3236e54786541834559db61dd3d77b1f1fa5b3fc81db9428dedb3ac36bf"
+  },
+  "operatingSystem": {
+    "Distribution": "Ubuntu 24.04.5 LTS",
+    "Kernel": "6.18.44-fc-v140",
+    "KernelFull": "Linux vm 6.18.44-fc-v140 #1 SMP PREEMPT_DYNAMIC @0 x86_64 x86_64 x86_64 GNU/Linux",
+    "Architecture": "x86_64"
+  },
+  "system": {
+    "Hypervisor": "KVM",
+    "VirtualizationType": "full",
+    "CpuModelName": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "CpuFamilyModelStepping": "6/207/2",
+    "NumberOfProcessors": 1,
+    "NumberOfLogicalProcessors": 2,
+    "ThreadsPerCore": 1,
+    "CoresPerSocket": 2,
+    "NominalMHz": 2100,
+    "L1d": "96 KiB (2 instances)",
+    "L2": "4 MiB (2 instances)",
+    "L3": "260 MiB (1 instance)",
+    "TotalPhysicalMemory": 8417533952,
+    "Swap": 0,
+    "CpuFlagsOfInterest": {
+      "sse4_2": true,
+      "avx": true,
+      "avx2": true,
+      "fma": true,
+      "f16c": true,
+      "avx512f": true,
+      "avx512bw": true,
+      "avx512vl": true,
+      "avx512_vnni": true,
+      "avx_vnni": true,
+      "avx512_bf16": true,
+      "avx512_fp16": true,
+      "amx_tile": true,
+      "amx_int8": true,
+      "amx_bf16": true
+    },
+    "AllAvxAmxFlags": [
+      "amx_bf16",
+      "amx_int8",
+      "amx_tile",
+      "avx",
+      "avx2",
+      "avx512_bf16",
+      "avx512_bitalg",
+      "avx512_fp16",
+      "avx512_vbmi2",
+      "avx512_vnni",
+      "avx512_vpopcntdq",
+      "avx512bw",
+      "avx512cd",
+      "avx512dq",
+      "avx512f",
+      "avx512ifma",
+      "avx512vbmi",
+      "avx512vl",
+      "avx_vnni",
+      "f16c",
+      "fma"
+    ]
+  },
+  "runtime": {
+    "node": "v24.21.0",
+    "platform": "linux",
+    "arch": "x64",
+    "versions": {
+      "onnxruntime-node": "1.30.0",
+      "@huggingface/transformers": "4.3.1"
+    },
+    "imports": "ok",
+    "installedOutsideRepository": "npm install --ignore-scripts into a scratch directory; lockfiles untouched"
+  },
+  "at": "2026-10-21T13:53:38.137Z",
+  "timingRuns": {
+    "laya-linux-x64-threads1.json": {
+      "loadAverageAtStart": "0.40 2.77 4.18 1/104 14658",
+      "loadAverageAtEnd": "0.96 2.17 3.77 1/103 14708",
+      "waitedForQuietMachineMin": 0.00025,
+      "foreignCpuShare": 0.011802009488815629,
+      "stealShare": 0.008222066610541555,
+      "wallMs": 127097,
+      "valid": true,
+      "attempt": 1
+    },
+    "laya-linux-x64-threads2.json": {
+      "loadAverageAtStart": "0.35 1.78 3.53 1/101 14738",
+      "loadAverageAtEnd": "1.50 1.83 3.42 1/102 14764",
+      "waitedForQuietMachineMin": 1.0004,
+      "foreignCpuShare": 0.011352258464836203,
+      "stealShare": 0.01226890045268012,
+      "wallMs": 70911,
+      "valid": true,
+      "attempt": 1
+    }
+  },
+  "modelProvenance": "inferenceprince/laya-onnx @ dd0f4db73e24ef4c646d47d0e48e74024f439e6c fetched with prepareLaya (decision-laya-prepare.mjs) through plain fetch at the two manifest hosts; all six artifacts re-verified against the manifest by the runner before every run"
+}

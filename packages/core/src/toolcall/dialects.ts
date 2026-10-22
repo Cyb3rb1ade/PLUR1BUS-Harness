@@ -63,7 +63,7 @@ export function restoreStrictArguments(schema: Schema, value: unknown): unknown 
     const props = object(schema.properties) ? schema.properties : {};
     const required = (schema.required ?? []) as string[];
     return Object.fromEntries(Object.entries(value).filter(([key, v]) => !(Object.hasOwn(props, key) && !required.includes(key) && v === null && !validateNullable(props[key] as Schema)))
-      .map(([key, v]) => [key, object(props[key]) ? restoreStrictArguments(props[key], v) : v]));
+      .map(([key, v]) => [key, Object.hasOwn(props, key) && object(props[key]) ? restoreStrictArguments(props[key], v) : v]));
   }
   if (Array.isArray(value) && object(schema.items)) return value.map(v => restoreStrictArguments(schema.items as Schema, v));
   return value;

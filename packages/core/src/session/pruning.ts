@@ -1,13 +1,25 @@
 // ADR-003: hide only in the context view; the append-only events are the retrieval source.
+import { createHash } from 'node:crypto';
 import type { SessionStore } from './store.ts';
 import type { EventRecord } from './types.ts';
 export interface PruneConfig { enabled: boolean; keepLastTurns: number; decider: 'laya' | 'heuristic' | 'off'; maxMs: number; batchSize: number }
+/** The floor when no configuration supplies one; equals the `decision.confidence.pruning` default. */
+export const DEFAULT_PRUNE_CONFIDENCE = 0.7;
 export const defaultPrune = (): PruneConfig => ({ enabled: true, keepLastTurns: 3, decider: 'laya', maxMs: 100, batchSize: 16 });
 export interface ToolPair { ref: string; turnId: string; call: EventRecord; result: EventRecord; text: string; hidden: boolean; restored: boolean; reason?: string }
-export interface Relevance { ref: string; relevant: boolean; reason: string }
+export interface Relevance { ref: string; relevant: boolean; reason: string; verdict?: 'keep' | 'truncate' | 'drop'; confidence?: number }
 /** Laya local CPU backend (D34). An absent/over-budget backend returns null; failures/timeouts retain everything. */
 export type LayaDecisionPort = (batch: readonly ToolPair[], task: string, signal: AbortSignal) => Promise<Relevance[] | null>;
-export interface PruneHooks { decide?: LayaDecisionPort; signal?: AbortSignal; emit?: (type: 'compaction.prune.hidden' | 'compaction.prune.restored', attrs: Record<string, unknown>) => void }
+/** `minConfidence` is the configured `decision.confidence.pruning` floor (read per run, so a live config change applies); a three-way verdict below it never hides anything. */
+export interface PruneHooks { decide?: LayaDecisionPort; minConfidence?: () => number; signal?: AbortSignal; emit?: (type: 'compaction.prune.hidden' | 'compaction.prune.restored', attrs: Record<string, unknown>) => void }
+/** Deterministic context view; estimates use these exact rendered characters, never stored output rewrites. */
+function prunedText(pair: ToolPair, mode: 'truncate' | 'drop'): string {
+  const argsHash = createHash('sha256').update(JSON.stringify(pair.call.data.args ?? {})).digest('hex');
+  const stub = `call ${String(pair.call.data.name).slice(0, 100)}; args-sha256 ${argsHash}; status ${pair.result.data.isError === true ? 'error' : 'ok'}`;
+  if (mode === 'drop') return `[tool output hidden; originals ${pair.ref}, event:${pair.result.seq}; ${stub}]`;
+  const output = String(pair.result.data.output ?? '');
+  return `${stub}\n${output.slice(0, 256)}\n[truncated by compaction: ${Math.ceil(pair.text.length / 4)} tokens, ref ${pair.ref}]\n${output.slice(-256)}`;
+}
 export class ToolPruner {
   readonly #store: SessionStore; readonly cfg: PruneConfig; readonly #hooks: PruneHooks;
   readonly #running = new Map<string, Promise<number>>();
@@ -28,20 +40,23 @@ export class ToolPruner {
       const raw = JSON.stringify({ call: call.data, result: event.data });
       const pair: ToolPair = { ref, turnId: call.turnId, call, result: event, text: raw, hidden: state?.hidden ?? false, restored: state?.hidden === false, ...(state ? { reason: state.reason } : {}) };
       if (this.#protected(sessionId, pair, boundary)) pair.hidden = false;
-      if (pair.hidden) pair.text = `[tool output hidden; originals ${ref}, event:${event.seq}; call ${String(call.data.name).slice(0, 100)}]`;
+      if (pair.hidden) pair.text = prunedText(pair, state?.mode ?? 'drop');
       pairs.push(pair);
     }
     return pairs;
   }
   #boundary(sessionId: string) {
     const turns = this.#store.listTurns(sessionId);
-    return { turns: new Map(turns.map(t => [t.id,t])), latest: turns.at(-1)?.seq ?? 0, assistant: this.#store.listMessages(sessionId).filter(m => m.role === 'assistant').at(-1)?.text ?? '' };
+    const pending = new Map<string, EventRecord>();
+    for (const event of this.#store.toolEvents(sessionId)) { const key=`${event.turnId}:${event.data.id}`; if(event.type==='tool.call') pending.set(key,event); else pending.delete(key); }
+    return { pending: [...pending.values()], turns: new Map(turns.map(t => [t.id,t])), latest: turns.at(-1)?.seq ?? 0, assistant: this.#store.latestAssistantContext(sessionId) };
   }
   #protected(sessionId: string, pair: ToolPair, boundary = this.#boundary(sessionId)): boolean {
     const turn = boundary.turns.get(pair.turnId);
     if (!turn || turn.state !== 'completed' || turn.seq > boundary.latest - this.cfg.keepLastTurns || pair.restored) return true;
     // The background worker cannot weaken approval/audit evidence, even when a model says "no".
     if (/approval|audit|grant|attest|permission|policy/i.test(JSON.stringify({ call: pair.call.data, result: pair.result.data }))) return true;
+    if(boundary.pending.some(call=>call.turnId===pair.turnId)) return true;
     const assistant = boundary.assistant;
     const refs = [pair.ref, `event:${pair.result.seq}`, String(pair.call.data.id), pair.turnId, String(pair.call.data.name)];
     const collect = (value: unknown, key = '') => {
@@ -50,15 +65,17 @@ export class ToolPruner {
     };
     collect(pair.call.data.args);
     try { collect(JSON.parse(String(pair.result.data.output))); } catch { /* Plain output has no structured refs. */ }
-    return refs.some(ref => ref.length > 0 && assistant.includes(ref));
+    return refs.some(ref => ref.length > 0 && (assistant.includes(ref) || boundary.pending.some(call=>JSON.stringify(call.data.args ?? {}).includes(ref))));
   }
   restore(sessionId: string, ref: string): boolean {
     const pair = this.view(sessionId).find(p => p.ref === ref);
     const state = this.#store.toolVisibility(sessionId).find(p => p.ref === ref);
     if (!pair || !state?.hidden) return false;
     this.#store.setToolVisibility(sessionId, ref, false, 'explicit-restore');
+    this.#store.recordToolRefetch(sessionId,ref);
     this.#hooks.emit?.('compaction.prune.restored', { sessionId, ref }); return true;
   }
+  metrics(sessionId: string) { return this.#store.pruneMetrics(sessionId); }
   run(sessionId: string): Promise<number> {
     const prior = this.#running.get(sessionId); if (prior) return prior;
     const run = this.#run(sessionId); this.#running.set(sessionId, run);
@@ -68,7 +85,7 @@ export class ToolPruner {
     if (this.#hooks.signal?.aborted || !this.cfg.enabled || this.cfg.decider === 'off' || this.#store.runningTurn(sessionId)) return 0;
     const started = performance.now();
     const revision = this.#store.lastEventSeq(sessionId);
-    const proposed: { pair: ToolPair; reason: string }[] = [];
+    const proposed: { pair: ToolPair; reason: string; detail?: { mode: 'truncate' | 'drop'; confidence: number; tokensSaved: number } }[] = [];
     const initialBoundary = this.#boundary(sessionId);
     const candidates = this.view(sessionId).filter(p => !p.hidden && !this.#protected(sessionId, p, initialBoundary));
     if (!candidates.length) return 0;
@@ -91,21 +108,25 @@ export class ToolPruner {
         if (!Array.isArray(answer) || answer.length !== batch.length || new Set(answer.map(a => a.ref)).size !== batch.length || answer.some(a => !batch.some(p => p.ref === a.ref) || typeof a.relevant !== 'boolean' || typeof a.reason !== 'string' || !a.reason.trim() || a.reason.length > 256)) continue;
         // Re-check all boundaries after the await. A new foreground turn makes this stale batch unusable.
         if (signal.aborted || this.#store.runningTurn(sessionId) || this.#store.lastEventSeq(sessionId) !== revision) return 0;
+        const floor = this.#hooks.minConfidence?.() ?? DEFAULT_PRUNE_CONFIDENCE;
         const freshBoundary = this.#boundary(sessionId);
         const visibility = new Set(this.#store.toolVisibility(sessionId).map(p => p.ref));
         for (const decision of answer) {
           const pair = batch.find(p => p.ref === decision.ref)!;
+          if (decision.verdict !== undefined && (!['keep','truncate','drop'].includes(decision.verdict) || typeof decision.confidence !== 'number' || !Number.isFinite(decision.confidence) || decision.confidence < floor || decision.confidence > 1 || decision.verdict === 'keep')) continue;
           if (decision.relevant || this.#protected(sessionId, pair, freshBoundary) || visibility.has(pair.ref)) continue;
-          proposed.push({ pair, reason: decision.reason });
+          proposed.push({ pair, reason: decision.reason, ...(decision.verdict && decision.confidence !== undefined ? {detail:{mode:decision.verdict as 'truncate'|'drop',confidence:decision.confidence,tokensSaved:Math.max(0,Math.ceil(pair.text.length/4)-Math.ceil(prunedText(pair,decision.verdict as 'truncate'|'drop').length/4))}}:{}) });
         }
       }
       if (signal.aborted || performance.now() - started >= this.cfg.maxMs || this.#store.runningTurn(sessionId) || this.#store.lastEventSeq(sessionId) !== revision) return 0;
       const boundary = this.#boundary(sessionId);
       const visibility = new Set(this.#store.toolVisibility(sessionId).map(p => p.ref));
       const changes = proposed.filter(({pair}) => !this.#protected(sessionId,pair,boundary) && !visibility.has(pair.ref));
-      this.#store.setToolVisibilities(sessionId,changes.map(({pair,reason}) => ({ref:pair.ref,hidden:true,reason})));
+      this.#store.setToolVisibilities(sessionId,changes.map(({pair,reason,detail}) => ({ref:pair.ref,turnId:pair.turnId,hidden:true,reason,...(detail?{detail}:{})})));
       hidden = changes.length;
-      for (const {pair} of changes) this.#hooks.emit?.('compaction.prune.hidden',{sessionId,ref:pair.ref});
+      for (const {pair,detail} of changes) {
+        this.#hooks.emit?.('compaction.prune.hidden',{sessionId,ref:pair.ref,...detail});
+      }
       return hidden;
     } finally { clearTimeout(timer); }
   }

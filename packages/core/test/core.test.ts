@@ -9,7 +9,7 @@ import { connect } from "./helpers/connect.ts";
 import { defaults } from "@plur1bus/config-schema";
 import { CORE_FEATURES } from "../src/capabilities.ts";
 import { createCore, type Core } from "../src/core.ts";
-import { CORE_CONTRACT } from "../src/engine.ts";
+import { assertEngineContract } from "../src/engine.ts";
 import { createLogger } from "../src/logger.ts";
 import type { CatalogStore } from "../src/discovery/catalog-store.ts";
 import { appendJournalLine } from "../src/journal.ts";
@@ -88,7 +88,7 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, CORE_CONTRACT); assert.equal(s.rpc, "1.6.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, c.hello.contract); assertEngineContract({ contract: s.contract }); assert.equal(s.rpc, "1.6.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
   });
 

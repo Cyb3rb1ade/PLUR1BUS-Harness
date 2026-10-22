@@ -45,8 +45,12 @@ function info(f: string): Info {
   for (const m of src.matchAll(/(?:^|\n)[ \t]*import\s*["']([^"']+)["']/g)) stat.push(m[1]!);
   for (const m of src.matchAll(/import\(\s*["']([^"']+)["']\s*\)/g)) dyn.push(m[1]!);
   const keys = new Set<string>();
-  for (const m of src.matchAll(/["'`]([a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)+)["'`]/g)) if (keyArea.has(m[1]!)) keys.add(m[1]!);
-  for (const m of src.matchAll(/\bt\(\s*`([a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)*\.)\$\{/g)) for (const k of keyArea.keys()) if (k.startsWith(m[1]!)) keys.add(k);
+  // The generated help bundle (pages/help/docs-bundle/<lang>/*.ts, from docs/user/**) is rendered Markdown, never an
+  // argument to t(): a page that names a key as inline code (`project.board.backlog` in the CLI docs) uses no text of
+  // that area, so its string literals are not scanned for keys. Its imports are still followed.
+  const isDocsBundlePage = /[\\/]pages[\\/]help[\\/]docs-bundle[\\/](de|en)[\\/]/.test(f);
+  if (!isDocsBundlePage) for (const m of src.matchAll(/["'`]([a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)+)["'`]/g)) if (keyArea.has(m[1]!)) keys.add(m[1]!);
+  if (!isDocsBundlePage) for (const m of src.matchAll(/\bt\(\s*`([a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)*\.)\$\{/g)) for (const k of keyArea.keys()) if (k.startsWith(m[1]!)) keys.add(k);
   r = {
     stat: stat.map((s) => resolveImport(f, s)).filter((x): x is string => x !== null),
     dyn: dyn.map((s) => resolveImport(f, s)).filter((x): x is string => x !== null),

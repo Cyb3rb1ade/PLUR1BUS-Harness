@@ -141,8 +141,8 @@ class CiPythonHostJobTest(EngineTokenScopeMixin, unittest.TestCase):
         t = _read("ci.yml")
         self.assertIn("  python-host:", t)
         job = t[t.index("  python-host:") :]
-        # The matrix comes from the macOS-load plan job (scripts/ci/macos-plan.mjs); the legs themselves live there.
-        self.assertIn("fromJSON(needs.plan.outputs.python_matrix)", job)
+        # The changes job exposes the macOS policy matrix (scripts/ci/macos-plan.mjs); the legs live there.
+        self.assertIn("fromJSON(needs.changes.outputs.python_matrix)", job)
         with open(os.path.join(REPO_ROOT, "scripts", "ci", "macos-plan.mjs"), encoding="utf-8") as f:
             plan = f.read()
         for leg in ('{ os: "ubuntu-24.04", python: "3.11" }', '{ os: "ubuntu-24.04", python: "3.13" }', '"macos-15"',

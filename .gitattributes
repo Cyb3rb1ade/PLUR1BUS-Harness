@@ -9,3 +9,6 @@ docs/ops/zabbix/** text eol=lf
 packages/config-schema/fixtures/*.json text eol=lf
 # The web.fetch golden corpus is byte-exact: legacy-charset pages and exact-text goldens must not gain CRLF on a Windows checkout.
 packages/core/test/fixtures/web-fetch/** -text
+# The Laya spike sources and fixtures are hashed byte for byte by scripts/test/decision-laya.acceptance.todo.test.mjs
+# and recorded in docs/evidence/decision/*.json; a Windows autocrlf checkout must not change them.
+scripts/spikes/** text eol=lf

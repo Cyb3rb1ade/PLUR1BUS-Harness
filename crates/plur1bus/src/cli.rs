@@ -693,6 +693,11 @@ pub enum MemoryCmd {
         #[command(subcommand)]
         sub: ProposalsCmd,
     },
+    /// [experimental] Human curation of memory candidates (separate from correction proposals)
+    Curation {
+        #[command(subcommand)]
+        sub: CurationCmd,
+    },
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
 }
@@ -790,6 +795,28 @@ pub enum ProposalsCmd {
         proposal_id: String,
         #[arg(long)]
         note: Option<String>,
+    },
+}
+#[derive(Subcommand, Debug)]
+pub enum CurationCmd {
+    /// [experimental] List the human curation queue
+    List {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Keep a curation record
+    Keep {
+        #[arg(long)]
+        agent: String,
+        id: String,
+    },
+    /// [experimental] Drop a curation record
+    Drop {
+        #[arg(long)]
+        agent: String,
+        id: String,
     },
 }
 #[derive(Subcommand, Debug)]
@@ -993,8 +1020,10 @@ pub enum BackupCmd {
     ///
     /// The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite
     /// backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are
-    /// copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and
-    /// `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+    /// copied. The archive is private to the user. The secret store is never read: API keys stay in the OS keyring and
+    /// `run/` (tokens) is never archived, and a webhook secret kept in `config.json` is replaced by a placeholder. The API
+    /// account database (`state/api/accounts.db`) is archived with its password hashes and TOTP seeds. Checksums detect
+    /// corruption; the archive is not signed or encrypted.
     Create {
         /// where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
         #[arg(long)]
@@ -1156,6 +1185,33 @@ pub struct ChatArgs {
     pub message: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub struct AuditPin {
+    pub seq: u64,
+    pub hash: String,
+}
+
+fn parse_audit_pin(text: &str) -> Result<AuditPin, String> {
+    const ERROR: &str =
+        "expected positive safe sequence and 64 lowercase hexadecimal hash (SEQ:HASH)";
+    let (sequence, hash) = text.split_once(':').ok_or(ERROR)?;
+    let seq: u64 = sequence.parse().map_err(|_| ERROR)?;
+    if !sequence.bytes().all(|c| c.is_ascii_digit())
+        || seq == 0
+        || seq > 9_007_199_254_740_991
+        || hash.len() != 64
+        || !hash
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
+        return Err(ERROR.into());
+    }
+    Ok(AuditPin {
+        seq,
+        hash: hash.into(),
+    })
+}
+
 #[derive(Subcommand, Debug)]
 pub enum AuditCmd {
     /// [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
@@ -1163,8 +1219,13 @@ pub enum AuditCmd {
     /// Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must
     /// be gapless across rotated files, and the anchor file must match the newest line. Asks the core
     /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result
-    /// also names the era boundary and checks the set-aside chain up to its first deviation.
-    Verify,
+    /// also names the era boundary and checks the set-aside chain up to its first deviation. `--pin SEQ:HASH` also
+    /// checks a sequence/hash pair recorded outside this host (rotated files included).
+    Verify {
+        /// Check an externally recorded sequence/hash pair, including older rotated files (no external transmission)
+        #[arg(long, value_name = "SEQ:HASH", value_parser = parse_audit_pin)]
+        pin: Option<AuditPin>,
+    },
     /// [experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
     ///
     /// Writers refuse to append when the anchor is missing or invalid, when the chain is shorter than the anchor,
@@ -1221,8 +1282,9 @@ pub enum BudgetCmd {
     /// [experimental] Set or clear a limit, or the time zone budget periods follow
     ///
     /// A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`, `--hard`,
-    /// `--clear-soft`, `--clear-hard`. Values are input + output tokens (output includes reported
-    /// reasoning tokens). A bound left out stays as it is.
+    /// `--clear-soft`, `--clear-hard`. Values are whole numbers in the metric: input + output tokens
+    /// (output includes reported reasoning tokens), generated images, or seconds of generated video.
+    /// A bound left out stays as it is.
     Set {
         /// the limit covers all agents together
         #[arg(long, conflicts_with = "agent")]
@@ -1233,8 +1295,8 @@ pub enum BudgetCmd {
         /// the period the limit resets on (local calendar day or month)
         #[arg(long, value_parser = ["day", "month"])]
         period: Option<String>,
-        /// what is counted: input + output tokens (the only metric; may be left out)
-        #[arg(long, value_parser = ["tokens"])]
+        /// what is counted: input + output tokens (the default), generated images, or seconds of generated video
+        #[arg(long, value_parser = ["tokens", "images", "video-seconds"])]
         metric: Option<String>,
         /// warn (once per period) above this value
         #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
@@ -1534,6 +1596,16 @@ pub enum SecretCmd {
         /// refused: a value never goes in an argument (kept only so the refusal does not echo it)
         #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
         rest: Vec<String>,
+    },
+    /// [experimental] Change only a secret's description (owner only); never reads its value back to the caller
+    Describe {
+        name: String,
+        /// new description, one line of at most 200 characters
+        #[arg(required_unless_present = "clear", conflicts_with = "clear")]
+        text: Option<String>,
+        /// remove the description
+        #[arg(long)]
+        clear: bool,
     },
     /// [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
     Get {

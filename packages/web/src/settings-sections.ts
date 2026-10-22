@@ -2,7 +2,7 @@
 // so the page, its navigation and the palette's settings hits (`/settings/<section>?focus=<key>`) agree.
 import type { Key } from "./i18n.ts";
 
-export type SectionKind = "media" | "config" | "users" | "providers" | "secrets" | "devices" | "voice" | "modules" | "security";
+export type SectionKind = "decision" | "media" | "config" | "users" | "providers" | "secrets" | "devices" | "voice" | "modules" | "security";
 export type SectionDef = {
   id: string;
   kind: SectionKind;
@@ -15,7 +15,8 @@ export type SectionDef = {
 export const SECTIONS: readonly SectionDef[] = [
   { id: "media", kind: "media", label: "nav.media" },
   { id: "general", kind: "config", label: "settings.section.general", keys: ["core.", "supervisor.", "logs.", "metrics.", "modules"] },
-  { id: "models", kind: "config", label: "settings.section.models", keys: ["modelRoles", "modelProfiles", "models.", "providers", "oauth", "decision"] },
+  { id: "models", kind: "config", label: "settings.section.models", keys: ["modelRoles", "modelProfiles", "models.", "providers", "oauth"] },
+  { id: "decision", kind: "decision", label: "settings.decision.title", keys: ["decision"] },
   { id: "memory", kind: "config", label: "settings.section.memory", keys: ["embedding.", "engine"] },
   { id: "extensions", kind: "config", label: "settings.section.extensions", keys: ["extensions."] },
   { id: "network", kind: "config", label: "settings.section.network", keys: ["egress."] },
@@ -23,7 +24,7 @@ export const SECTIONS: readonly SectionDef[] = [
   { id: "privacy", kind: "config", label: "settings.section.privacy", keys: ["privacy."] },
   { id: "users", kind: "users", label: "settings.section.users" },
   { id: "providers", kind: "providers", label: "settings.section.providers", keys: ["auth."] },
-  { id: "secrets", kind: "secrets", label: "settings.section.secrets", keys: ["secrets."] },
+  { id: "secrets", kind: "secrets", label: "settings.section.secrets", keys: ["secrets.", "decision.systemOne.jev.secretRef"] },
   { id: "voice", kind: "voice", label: "settings.section.voice" },
   { id: "devices", kind: "devices", label: "settings.section.devices" },
   { id: "modules", kind: "modules", label: "settings.section.modules" },
@@ -40,7 +41,9 @@ const matches = (key: string, pattern: string): boolean => (pattern.endsWith("."
 /** The section that edits `key`, or undefined for a key edited elsewhere (`agents` lives on the Agents page, `$schema` and
  * `schemaVersion` are not settings). */
 export function sectionOf(key: string): SectionDef | undefined {
-  return SECTIONS.find((s) => s.keys?.some((p) => matches(key, p)));
+  // An exact key wins over a prefix: `decision.systemOne.jev.secretRef` names a secret-store entry, so it belongs to Secrets and
+  // never becomes an editable config field, although the Models section owns the rest of `decision`.
+  return SECTIONS.find((s) => s.keys?.includes(key)) ?? SECTIONS.find((s) => s.keys?.some((p) => matches(key, p)));
 }
 
 /** Where a settings hit goes: the section's route with `?focus=<key>`. `agents` goes to the Agents page. */

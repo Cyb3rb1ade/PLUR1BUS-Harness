@@ -1,0 +1,3531 @@
+{
+  "schema": "plur1bus.decision-eval/1",
+  "labelSource": "agent-authored candidate labels; not independently human-validated",
+  "cases": [
+    {
+      "id": "routing-01",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Hallo, wie geht es dir?",
+        "en": "Hello, how are you?"
+      },
+      "gold": "chat"
+    },
+    {
+      "id": "routing-02",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Danke für deine Erklärung.",
+        "en": "Thanks for your explanation."
+      },
+      "gold": "chat"
+    },
+    {
+      "id": "routing-03",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Was bedeutet Föderation?",
+        "en": "What does federation mean?"
+      },
+      "gold": "chat"
+    },
+    {
+      "id": "routing-04",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Erkläre einen Hashwert in einem Satz.",
+        "en": "Explain a hash in one sentence."
+      },
+      "gold": "chat"
+    },
+    {
+      "id": "routing-05",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Gute Nacht.",
+        "en": "Good night."
+      },
+      "gold": "chat"
+    },
+    {
+      "id": "routing-06",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Lies bitte die Datei README.md.",
+        "en": "Please read README.md."
+      },
+      "gold": "tool"
+    },
+    {
+      "id": "routing-07",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Zeige den aktuellen Git-Status.",
+        "en": "Show current Git status."
+      },
+      "gold": "tool"
+    },
+    {
+      "id": "routing-08",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Liste die Dateien im Projekt.",
+        "en": "List the project files."
+      },
+      "gold": "tool"
+    },
+    {
+      "id": "routing-09",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Suche im Log nach Fehler 42.",
+        "en": "Search the log for error 42."
+      },
+      "gold": "tool"
+    },
+    {
+      "id": "routing-10",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Prüfe die Größe von bild.png.",
+        "en": "Check the size of image.png."
+      },
+      "gold": "tool"
+    },
+    {
+      "id": "routing-11",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Analysiere den Fehler, schreibe einen Fix und teste ihn.",
+        "en": "Analyze the bug, write a fix and test it."
+      },
+      "gold": "workflow"
+    },
+    {
+      "id": "routing-12",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Erstelle ein Backup, migriere die Daten und prüfe den Restore.",
+        "en": "Create a backup, migrate the data and verify restoration."
+      },
+      "gold": "workflow"
+    },
+    {
+      "id": "routing-13",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Baue das Paket, teste es und bereite einen PR vor.",
+        "en": "Build the package, test it and prepare a PR."
+      },
+      "gold": "workflow"
+    },
+    {
+      "id": "routing-14",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Vergleiche die Angebote und schreibe daraus einen Plan.",
+        "en": "Compare the offers and write a plan from them."
+      },
+      "gold": "workflow"
+    },
+    {
+      "id": "routing-15",
+      "useCase": "routing",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Arbeitsweg passt?",
+        "en": "Which work path fits?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Direkt antworten, keine Werkzeuge",
+            "en": "Direct reply, no tools"
+          }
+        },
+        {
+          "id": "tool",
+          "description": {
+            "de": "Eine konkrete Werkzeugaktion",
+            "en": "One concrete tool action"
+          }
+        },
+        {
+          "id": "workflow",
+          "description": {
+            "de": "Mehrere abhängige Arbeitsschritte",
+            "en": "Multiple dependent work steps"
+          }
+        }
+      ],
+      "state": {
+        "de": "Importiere Bilder, erstelle Captions und prüfe danach die Suche.",
+        "en": "Import images, create captions and then verify search."
+      },
+      "gold": "workflow"
+    },
+    {
+      "id": "sensitivity-01",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Das darfst du allen sagen: Ich mag grünen Tee.",
+        "en": "You may tell everyone: I like green tea."
+      },
+      "gold": "shareable"
+    },
+    {
+      "id": "sensitivity-02",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Diese Projektinfo ist öffentlich.",
+        "en": "This project information is public."
+      },
+      "gold": "shareable"
+    },
+    {
+      "id": "sensitivity-03",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Den Termin darf Eva wissen.",
+        "en": "Eva may know the appointment."
+      },
+      "gold": "shareable"
+    },
+    {
+      "id": "sensitivity-04",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Diese Anleitung ist für das ganze Team freigegeben.",
+        "en": "This guide is approved for the whole team."
+      },
+      "gold": "shareable"
+    },
+    {
+      "id": "sensitivity-05",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Teile meine Empfehlung bitte mit den anderen.",
+        "en": "Please share my recommendation with the others."
+      },
+      "gold": "shareable"
+    },
+    {
+      "id": "sensitivity-06",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Ich erzähle dir etwas über meinen Alltag.",
+        "en": "I am telling you something about my daily life."
+      },
+      "gold": "confidential"
+    },
+    {
+      "id": "sensitivity-07",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Ich bin unsicher, ob das schon öffentlich ist.",
+        "en": "I am unsure whether this is public yet."
+      },
+      "gold": "confidential"
+    },
+    {
+      "id": "sensitivity-08",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Die neue Planung ist noch intern.",
+        "en": "The new plan is still internal."
+      },
+      "gold": "confidential"
+    },
+    {
+      "id": "sensitivity-09",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Das ist vertraulich, kein Zitat nach außen.",
+        "en": "This is confidential, do not quote it externally."
+      },
+      "gold": "confidential"
+    },
+    {
+      "id": "sensitivity-10",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Dazu habe ich keine Freigabe zum Teilen erteilt.",
+        "en": "I have not given permission to share this."
+      },
+      "gold": "confidential"
+    },
+    {
+      "id": "sensitivity-11",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Das bleibt unter uns.",
+        "en": "This stays between us."
+      },
+      "gold": "private"
+    },
+    {
+      "id": "sensitivity-12",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Niemand außer mir darf das erfahren.",
+        "en": "Nobody except me may know this."
+      },
+      "gold": "private"
+    },
+    {
+      "id": "sensitivity-13",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Nur nach meiner Verifikation offenlegen, das ist privat.",
+        "en": "Disclose only after my verification, this is private."
+      },
+      "gold": "private"
+    },
+    {
+      "id": "sensitivity-14",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Das ist mein privates Tagebuch, niemals teilen.",
+        "en": "This is my private diary, never share it."
+      },
+      "gold": "private"
+    },
+    {
+      "id": "sensitivity-15",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Vertraulichkeit verlangt die Aussage?",
+        "en": "Which confidentiality does the statement require?"
+      },
+      "options": [
+        {
+          "id": "shareable",
+          "description": {
+            "de": "Ausdrücklich zum Teilen freigegeben",
+            "en": "Explicitly permitted to share"
+          }
+        },
+        {
+          "id": "confidential",
+          "description": {
+            "de": "Vertraulich oder unklar, nicht privat bestätigt",
+            "en": "Confidential or uncertain, not explicitly private"
+          }
+        },
+        {
+          "id": "private",
+          "description": {
+            "de": "Ausdrücklich privat, nur für diesen Menschen",
+            "en": "Explicitly private, only for this person"
+          }
+        }
+      ],
+      "state": {
+        "de": "Diese Erinnerung ist ausschließlich für mich.",
+        "en": "This memory is exclusively for me."
+      },
+      "gold": "private"
+    },
+    {
+      "id": "model-tier-01",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Antworte mit einem freundlichen Gruß.",
+        "en": "Reply with a friendly greeting."
+      },
+      "gold": "small"
+    },
+    {
+      "id": "model-tier-02",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Fasse diese zwei Sätze in einem Satz zusammen.",
+        "en": "Summarize these two sentences in one sentence."
+      },
+      "gold": "small"
+    },
+    {
+      "id": "model-tier-03",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Übersetze das Wort Haus ins Englische.",
+        "en": "Translate the word Haus into English."
+      },
+      "gold": "small"
+    },
+    {
+      "id": "model-tier-04",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Schreibe eine kurze Terminbestätigung.",
+        "en": "Write a short appointment confirmation."
+      },
+      "gold": "small"
+    },
+    {
+      "id": "model-tier-05",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Formatiere diese drei Namen als Liste.",
+        "en": "Format these three names as a list."
+      },
+      "gold": "small"
+    },
+    {
+      "id": "model-tier-06",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Vergleiche diese zwei Konfigurationsoptionen strukturiert.",
+        "en": "Compare these two configuration options in a structured way."
+      },
+      "gold": "medium"
+    },
+    {
+      "id": "model-tier-07",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Behebe diesen einfachen Indexfehler in einer Funktion.",
+        "en": "Fix this simple indexing bug in one function."
+      },
+      "gold": "medium"
+    },
+    {
+      "id": "model-tier-08",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Schreibe Tests für diesen Validator.",
+        "en": "Write tests for this validator."
+      },
+      "gold": "medium"
+    },
+    {
+      "id": "model-tier-09",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Erkläre die Vor- und Nachteile dieser Schnittstelle.",
+        "en": "Explain the pros and cons of this interface."
+      },
+      "gold": "medium"
+    },
+    {
+      "id": "model-tier-10",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Analysiere eine Race Condition über drei Prozesse.",
+        "en": "Analyze a race condition across three processes."
+      },
+      "gold": "large"
+    },
+    {
+      "id": "model-tier-11",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Entwirf die Migration einer verteilten Datenbank ohne Datenverlust.",
+        "en": "Design a distributed database migration without data loss."
+      },
+      "gold": "large"
+    },
+    {
+      "id": "model-tier-12",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Prüfe diese Architektur auf komponentenübergreifende Sicherheitsfehler.",
+        "en": "Review this architecture for cross-component security bugs."
+      },
+      "gold": "large"
+    },
+    {
+      "id": "model-tier-13",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Finde einen neuen mathematischen Beweis für dieses offene Spezialproblem.",
+        "en": "Find a new mathematical proof for this open specialized problem."
+      },
+      "gold": "frontier"
+    },
+    {
+      "id": "model-tier-14",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Entwickle ein neues verteiltes Konsensverfahren samt formaler Korrektheit.",
+        "en": "Develop a novel distributed consensus algorithm with formal correctness."
+      },
+      "gold": "frontier"
+    },
+    {
+      "id": "model-tier-15",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche kleinste Modellstufe reicht?",
+        "en": "Which smallest model tier is sufficient?"
+      },
+      "options": [
+        {
+          "id": "small",
+          "description": {
+            "de": "Einfacher kurzer Alltagstext",
+            "en": "Simple short everyday text"
+          }
+        },
+        {
+          "id": "medium",
+          "description": {
+            "de": "Strukturierter Vergleich oder lokaler Code-Fix",
+            "en": "Structured comparison or local code fix"
+          }
+        },
+        {
+          "id": "large",
+          "description": {
+            "de": "Komplexe Analyse mehrerer Komponenten",
+            "en": "Complex analysis of several components"
+          }
+        },
+        {
+          "id": "frontier",
+          "description": {
+            "de": "Schwieriger neuer Beweis oder hochkomplexe Forschung",
+            "en": "Difficult new proof or highly complex research"
+          }
+        }
+      ],
+      "state": {
+        "de": "Löse diese bisher unbekannte Forschungsfrage mit vollständigem Beweis.",
+        "en": "Solve this previously unknown research question with a complete proof."
+      },
+      "gold": "frontier"
+    },
+    {
+      "id": "pruning-01",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Ausgabe aus einem der letzten drei Turns.",
+        "en": "Output from one of the last three turns."
+      },
+      "gold": "keep"
+    },
+    {
+      "id": "pruning-02",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Ein Folgeaufruf für dieses Tool läuft noch.",
+        "en": "A follow-up call for this tool is still pending."
+      },
+      "gold": "keep"
+    },
+    {
+      "id": "pruning-03",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Der aktuelle Auftrag verweist auf diese Ausgabe.",
+        "en": "The current task refers to this output."
+      },
+      "gold": "keep"
+    },
+    {
+      "id": "pruning-04",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Die Ausgabe enthält Approval- und Audit-Belege.",
+        "en": "The output contains approval and audit evidence."
+      },
+      "gold": "keep"
+    },
+    {
+      "id": "pruning-05",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Es ist unklar, ob diese Ausgabe noch gebraucht wird.",
+        "en": "It is unclear whether this output is still needed."
+      },
+      "gold": "keep"
+    },
+    {
+      "id": "pruning-06",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Große Logausgabe wird noch gebraucht; Anfang und Ende genügen.",
+        "en": "A large log output is still needed; head and tail suffice."
+      },
+      "gold": "truncate"
+    },
+    {
+      "id": "pruning-07",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Lange Dateiliste ist weiter nützlich, Referenz für den Rest behalten.",
+        "en": "A long file list remains useful, keep a reference for the rest."
+      },
+      "gold": "truncate"
+    },
+    {
+      "id": "pruning-08",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Großer Buildlog: relevante Fehler stehen am Anfang und Ende.",
+        "en": "Large build log: relevant errors are at the beginning and end."
+      },
+      "gold": "truncate"
+    },
+    {
+      "id": "pruning-09",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Alte umfangreiche Messdaten werden noch zusammengefasst.",
+        "en": "Old extensive measurements are still being summarized."
+      },
+      "gold": "truncate"
+    },
+    {
+      "id": "pruning-10",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Lange Suchtrefferliste ist relevant, ein Auszug reicht.",
+        "en": "Long search results are relevant, an excerpt is sufficient."
+      },
+      "gold": "truncate"
+    },
+    {
+      "id": "pruning-11",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Alter unreferenzierter erfolgreicher Ping, Aufgabe beendet.",
+        "en": "Old unreferenced successful ping, task completed."
+      },
+      "gold": "drop"
+    },
+    {
+      "id": "pruning-12",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Veraltete unreferenzierte Verzeichnisliste; neuere Liste vorhanden.",
+        "en": "Obsolete unreferenced directory list; a newer list exists."
+      },
+      "gold": "drop"
+    },
+    {
+      "id": "pruning-13",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Diese abgeschlossene Ausgabe wird nicht mehr benötigt.",
+        "en": "This completed output is no longer needed."
+      },
+      "gold": "drop"
+    },
+    {
+      "id": "pruning-14",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Alter überholter Download-Fortschritt ohne spätere Referenz.",
+        "en": "Old superseded download progress without later reference."
+      },
+      "gold": "drop"
+    },
+    {
+      "id": "pruning-15",
+      "useCase": "pruning",
+      "coreGate": true,
+      "primitive": "choice",
+      "question": {
+        "de": "Wie den Tool-Ausgabepaar im Kontext behandeln?",
+        "en": "How should this tool output pair be treated in context?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Geschützt, benötigt oder unsicher: unverändert behalten",
+            "en": "Protected, needed or uncertain: preserve unchanged"
+          }
+        },
+        {
+          "id": "truncate",
+          "description": {
+            "de": "Noch nützliche große Ausgabe mit Referenz kürzen",
+            "en": "Shorten still useful large output with a reference"
+          }
+        },
+        {
+          "id": "drop",
+          "description": {
+            "de": "Veraltet und unreferenziert: nur Aufruf-Stub behalten",
+            "en": "Obsolete and unreferenced: retain only call stub"
+          }
+        }
+      ],
+      "state": {
+        "de": "Unreferenzierter Testlauf einer verworfenen Variante.",
+        "en": "Unreferenced test run for a discarded variant."
+      },
+      "gold": "drop"
+    },
+    {
+      "id": "triage-01",
+      "useCase": "triage",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Nachrichtenform?",
+        "en": "Which message shape?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Gespräch",
+            "en": "Conversation"
+          }
+        },
+        {
+          "id": "single",
+          "description": {
+            "de": "Ein Auftrag",
+            "en": "One task"
+          }
+        },
+        {
+          "id": "multi",
+          "description": {
+            "de": "Mehrere Aufträge",
+            "en": "Several tasks"
+          }
+        },
+        {
+          "id": "followup",
+          "description": {
+            "de": "Rückfrage zur vorherigen Aufgabe",
+            "en": "Follow-up to previous task"
+          }
+        }
+      ],
+      "state": {
+        "de": "Hallo!",
+        "en": "Hello!"
+      },
+      "gold": "chat"
+    },
+    {
+      "id": "triage-02",
+      "useCase": "triage",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Nachrichtenform?",
+        "en": "Which message shape?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Gespräch",
+            "en": "Conversation"
+          }
+        },
+        {
+          "id": "single",
+          "description": {
+            "de": "Ein Auftrag",
+            "en": "One task"
+          }
+        },
+        {
+          "id": "multi",
+          "description": {
+            "de": "Mehrere Aufträge",
+            "en": "Several tasks"
+          }
+        },
+        {
+          "id": "followup",
+          "description": {
+            "de": "Rückfrage zur vorherigen Aufgabe",
+            "en": "Follow-up to previous task"
+          }
+        }
+      ],
+      "state": {
+        "de": "Erkläre Caching.",
+        "en": "Explain caching."
+      },
+      "gold": "single"
+    },
+    {
+      "id": "triage-03",
+      "useCase": "triage",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Nachrichtenform?",
+        "en": "Which message shape?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Gespräch",
+            "en": "Conversation"
+          }
+        },
+        {
+          "id": "single",
+          "description": {
+            "de": "Ein Auftrag",
+            "en": "One task"
+          }
+        },
+        {
+          "id": "multi",
+          "description": {
+            "de": "Mehrere Aufträge",
+            "en": "Several tasks"
+          }
+        },
+        {
+          "id": "followup",
+          "description": {
+            "de": "Rückfrage zur vorherigen Aufgabe",
+            "en": "Follow-up to previous task"
+          }
+        }
+      ],
+      "state": {
+        "de": "Lies README und erstelle danach einen Test.",
+        "en": "Read README and then create a test."
+      },
+      "gold": "multi"
+    },
+    {
+      "id": "triage-04",
+      "useCase": "triage",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Nachrichtenform?",
+        "en": "Which message shape?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Gespräch",
+            "en": "Conversation"
+          }
+        },
+        {
+          "id": "single",
+          "description": {
+            "de": "Ein Auftrag",
+            "en": "One task"
+          }
+        },
+        {
+          "id": "multi",
+          "description": {
+            "de": "Mehrere Aufträge",
+            "en": "Several tasks"
+          }
+        },
+        {
+          "id": "followup",
+          "description": {
+            "de": "Rückfrage zur vorherigen Aufgabe",
+            "en": "Follow-up to previous task"
+          }
+        }
+      ],
+      "state": {
+        "de": "Und warum war das so?",
+        "en": "And why was that so?"
+      },
+      "gold": "followup"
+    },
+    {
+      "id": "triage-05",
+      "useCase": "triage",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Nachrichtenform?",
+        "en": "Which message shape?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Gespräch",
+            "en": "Conversation"
+          }
+        },
+        {
+          "id": "single",
+          "description": {
+            "de": "Ein Auftrag",
+            "en": "One task"
+          }
+        },
+        {
+          "id": "multi",
+          "description": {
+            "de": "Mehrere Aufträge",
+            "en": "Several tasks"
+          }
+        },
+        {
+          "id": "followup",
+          "description": {
+            "de": "Rückfrage zur vorherigen Aufgabe",
+            "en": "Follow-up to previous task"
+          }
+        }
+      ],
+      "state": {
+        "de": "Danke.",
+        "en": "Thanks."
+      },
+      "gold": "chat"
+    },
+    {
+      "id": "triage-06",
+      "useCase": "triage",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche Nachrichtenform?",
+        "en": "Which message shape?"
+      },
+      "options": [
+        {
+          "id": "chat",
+          "description": {
+            "de": "Gespräch",
+            "en": "Conversation"
+          }
+        },
+        {
+          "id": "single",
+          "description": {
+            "de": "Ein Auftrag",
+            "en": "One task"
+          }
+        },
+        {
+          "id": "multi",
+          "description": {
+            "de": "Mehrere Aufträge",
+            "en": "Several tasks"
+          }
+        },
+        {
+          "id": "followup",
+          "description": {
+            "de": "Rückfrage zur vorherigen Aufgabe",
+            "en": "Follow-up to previous task"
+          }
+        }
+      ],
+      "state": {
+        "de": "Zeige den Status.",
+        "en": "Show status."
+      },
+      "gold": "single"
+    },
+    {
+      "id": "skills-01",
+      "useCase": "skills",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Skill passt, ohne weitere Annahmen?",
+        "en": "Which skill fits without further assumptions?"
+      },
+      "options": [
+        {
+          "id": "none",
+          "description": {
+            "de": "Kein passender Skill",
+            "en": "No matching skill"
+          }
+        },
+        {
+          "id": "rust",
+          "description": {
+            "de": "Rust-Code prüfen",
+            "en": "Review Rust code"
+          }
+        },
+        {
+          "id": "media",
+          "description": {
+            "de": "Medien durchsuchen",
+            "en": "Search media"
+          }
+        }
+      ],
+      "state": {
+        "de": "Hallo.",
+        "en": "Hello."
+      },
+      "gold": "none"
+    },
+    {
+      "id": "skills-02",
+      "useCase": "skills",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Skill passt, ohne weitere Annahmen?",
+        "en": "Which skill fits without further assumptions?"
+      },
+      "options": [
+        {
+          "id": "none",
+          "description": {
+            "de": "Kein passender Skill",
+            "en": "No matching skill"
+          }
+        },
+        {
+          "id": "rust",
+          "description": {
+            "de": "Rust-Code prüfen",
+            "en": "Review Rust code"
+          }
+        },
+        {
+          "id": "media",
+          "description": {
+            "de": "Medien durchsuchen",
+            "en": "Search media"
+          }
+        }
+      ],
+      "state": {
+        "de": "Prüfe diesen Rust-Code.",
+        "en": "Review this Rust code."
+      },
+      "gold": "rust"
+    },
+    {
+      "id": "skills-03",
+      "useCase": "skills",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Skill passt, ohne weitere Annahmen?",
+        "en": "Which skill fits without further assumptions?"
+      },
+      "options": [
+        {
+          "id": "none",
+          "description": {
+            "de": "Kein passender Skill",
+            "en": "No matching skill"
+          }
+        },
+        {
+          "id": "rust",
+          "description": {
+            "de": "Rust-Code prüfen",
+            "en": "Review Rust code"
+          }
+        },
+        {
+          "id": "media",
+          "description": {
+            "de": "Medien durchsuchen",
+            "en": "Search media"
+          }
+        }
+      ],
+      "state": {
+        "de": "Suche ähnliche Bilder.",
+        "en": "Find similar images."
+      },
+      "gold": "media"
+    },
+    {
+      "id": "skills-04",
+      "useCase": "skills",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Skill passt, ohne weitere Annahmen?",
+        "en": "Which skill fits without further assumptions?"
+      },
+      "options": [
+        {
+          "id": "none",
+          "description": {
+            "de": "Kein passender Skill",
+            "en": "No matching skill"
+          }
+        },
+        {
+          "id": "rust",
+          "description": {
+            "de": "Rust-Code prüfen",
+            "en": "Review Rust code"
+          }
+        },
+        {
+          "id": "media",
+          "description": {
+            "de": "Medien durchsuchen",
+            "en": "Search media"
+          }
+        }
+      ],
+      "state": {
+        "de": "Was ist Rust? Antworte direkt.",
+        "en": "What is Rust? Reply directly."
+      },
+      "gold": "none"
+    },
+    {
+      "id": "skills-05",
+      "useCase": "skills",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Skill passt, ohne weitere Annahmen?",
+        "en": "Which skill fits without further assumptions?"
+      },
+      "options": [
+        {
+          "id": "none",
+          "description": {
+            "de": "Kein passender Skill",
+            "en": "No matching skill"
+          }
+        },
+        {
+          "id": "rust",
+          "description": {
+            "de": "Rust-Code prüfen",
+            "en": "Review Rust code"
+          }
+        },
+        {
+          "id": "media",
+          "description": {
+            "de": "Medien durchsuchen",
+            "en": "Search media"
+          }
+        }
+      ],
+      "state": {
+        "de": "Behebe den Rust-Borrow-Fehler.",
+        "en": "Fix the Rust borrow error."
+      },
+      "gold": "rust"
+    },
+    {
+      "id": "skills-06",
+      "useCase": "skills",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher Skill passt, ohne weitere Annahmen?",
+        "en": "Which skill fits without further assumptions?"
+      },
+      "options": [
+        {
+          "id": "none",
+          "description": {
+            "de": "Kein passender Skill",
+            "en": "No matching skill"
+          }
+        },
+        {
+          "id": "rust",
+          "description": {
+            "de": "Rust-Code prüfen",
+            "en": "Review Rust code"
+          }
+        },
+        {
+          "id": "media",
+          "description": {
+            "de": "Medien durchsuchen",
+            "en": "Search media"
+          }
+        }
+      ],
+      "state": {
+        "de": "Finde die Tonaufnahme vom Projekt.",
+        "en": "Find the project audio recording."
+      },
+      "gold": "media"
+    },
+    {
+      "id": "placement-01",
+      "useCase": "placement",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher sichtbare Top-Zweig passt?",
+        "en": "Which visible top branch fits?"
+      },
+      "options": [
+        {
+          "id": "knowledge",
+          "description": {
+            "de": "Allgemeines Wissen",
+            "en": "General knowledge"
+          }
+        },
+        {
+          "id": "environment",
+          "description": {
+            "de": "Geräte und Umgebung",
+            "en": "Devices and environment"
+          }
+        },
+        {
+          "id": "self",
+          "description": {
+            "de": "Agent selbst",
+            "en": "Agent self"
+          }
+        }
+      ],
+      "state": {
+        "de": "Der Router steht im Arbeitszimmer.",
+        "en": "The router is in the study."
+      },
+      "gold": "environment"
+    },
+    {
+      "id": "placement-02",
+      "useCase": "placement",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher sichtbare Top-Zweig passt?",
+        "en": "Which visible top branch fits?"
+      },
+      "options": [
+        {
+          "id": "knowledge",
+          "description": {
+            "de": "Allgemeines Wissen",
+            "en": "General knowledge"
+          }
+        },
+        {
+          "id": "environment",
+          "description": {
+            "de": "Geräte und Umgebung",
+            "en": "Devices and environment"
+          }
+        },
+        {
+          "id": "self",
+          "description": {
+            "de": "Agent selbst",
+            "en": "Agent self"
+          }
+        }
+      ],
+      "state": {
+        "de": "Wasser gefriert bei null Grad Celsius.",
+        "en": "Water freezes at zero degrees Celsius."
+      },
+      "gold": "knowledge"
+    },
+    {
+      "id": "placement-03",
+      "useCase": "placement",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher sichtbare Top-Zweig passt?",
+        "en": "Which visible top branch fits?"
+      },
+      "options": [
+        {
+          "id": "knowledge",
+          "description": {
+            "de": "Allgemeines Wissen",
+            "en": "General knowledge"
+          }
+        },
+        {
+          "id": "environment",
+          "description": {
+            "de": "Geräte und Umgebung",
+            "en": "Devices and environment"
+          }
+        },
+        {
+          "id": "self",
+          "description": {
+            "de": "Agent selbst",
+            "en": "Agent self"
+          }
+        }
+      ],
+      "state": {
+        "de": "Ich als Agent sollte künftig kürzer antworten.",
+        "en": "I as the agent should reply more briefly in future."
+      },
+      "gold": "self"
+    },
+    {
+      "id": "placement-04",
+      "useCase": "placement",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher sichtbare Top-Zweig passt?",
+        "en": "Which visible top branch fits?"
+      },
+      "options": [
+        {
+          "id": "knowledge",
+          "description": {
+            "de": "Allgemeines Wissen",
+            "en": "General knowledge"
+          }
+        },
+        {
+          "id": "environment",
+          "description": {
+            "de": "Geräte und Umgebung",
+            "en": "Devices and environment"
+          }
+        },
+        {
+          "id": "self",
+          "description": {
+            "de": "Agent selbst",
+            "en": "Agent self"
+          }
+        }
+      ],
+      "state": {
+        "de": "Das NAS hat die Adresse 192.168.1.5.",
+        "en": "The NAS address is 192.168.1.5."
+      },
+      "gold": "environment"
+    },
+    {
+      "id": "placement-05",
+      "useCase": "placement",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher sichtbare Top-Zweig passt?",
+        "en": "Which visible top branch fits?"
+      },
+      "options": [
+        {
+          "id": "knowledge",
+          "description": {
+            "de": "Allgemeines Wissen",
+            "en": "General knowledge"
+          }
+        },
+        {
+          "id": "environment",
+          "description": {
+            "de": "Geräte und Umgebung",
+            "en": "Devices and environment"
+          }
+        },
+        {
+          "id": "self",
+          "description": {
+            "de": "Agent selbst",
+            "en": "Agent self"
+          }
+        }
+      ],
+      "state": {
+        "de": "Ein Hash ist keine Verschlüsselung.",
+        "en": "A hash is not encryption."
+      },
+      "gold": "knowledge"
+    },
+    {
+      "id": "placement-06",
+      "useCase": "placement",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welcher sichtbare Top-Zweig passt?",
+        "en": "Which visible top branch fits?"
+      },
+      "options": [
+        {
+          "id": "knowledge",
+          "description": {
+            "de": "Allgemeines Wissen",
+            "en": "General knowledge"
+          }
+        },
+        {
+          "id": "environment",
+          "description": {
+            "de": "Geräte und Umgebung",
+            "en": "Devices and environment"
+          }
+        },
+        {
+          "id": "self",
+          "description": {
+            "de": "Agent selbst",
+            "en": "Agent self"
+          }
+        }
+      ],
+      "state": {
+        "de": "Meine Agentenstimme soll ruhig sein.",
+        "en": "My agent voice should be calm."
+      },
+      "gold": "self"
+    },
+    {
+      "id": "zoom-01",
+      "useCase": "zoom",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "In welchen sichtbaren Zweig suchen?",
+        "en": "Which visible branch to search?"
+      },
+      "options": [
+        {
+          "id": "network",
+          "description": {
+            "de": "Router und Netzwerk",
+            "en": "Routers and network"
+          }
+        },
+        {
+          "id": "cooking",
+          "description": {
+            "de": "Kochrezepte",
+            "en": "Cooking recipes"
+          }
+        },
+        {
+          "id": "none",
+          "description": {
+            "de": "Keiner passt",
+            "en": "None fits"
+          }
+        }
+      ],
+      "state": {
+        "de": "Wo steht der Router?",
+        "en": "Where is the router?"
+      },
+      "gold": "network"
+    },
+    {
+      "id": "zoom-02",
+      "useCase": "zoom",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "In welchen sichtbaren Zweig suchen?",
+        "en": "Which visible branch to search?"
+      },
+      "options": [
+        {
+          "id": "network",
+          "description": {
+            "de": "Router und Netzwerk",
+            "en": "Routers and network"
+          }
+        },
+        {
+          "id": "cooking",
+          "description": {
+            "de": "Kochrezepte",
+            "en": "Cooking recipes"
+          }
+        },
+        {
+          "id": "none",
+          "description": {
+            "de": "Keiner passt",
+            "en": "None fits"
+          }
+        }
+      ],
+      "state": {
+        "de": "Wie ging das Brotrezept?",
+        "en": "What was the bread recipe?"
+      },
+      "gold": "cooking"
+    },
+    {
+      "id": "zoom-03",
+      "useCase": "zoom",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "In welchen sichtbaren Zweig suchen?",
+        "en": "Which visible branch to search?"
+      },
+      "options": [
+        {
+          "id": "network",
+          "description": {
+            "de": "Router und Netzwerk",
+            "en": "Routers and network"
+          }
+        },
+        {
+          "id": "cooking",
+          "description": {
+            "de": "Kochrezepte",
+            "en": "Cooking recipes"
+          }
+        },
+        {
+          "id": "none",
+          "description": {
+            "de": "Keiner passt",
+            "en": "None fits"
+          }
+        }
+      ],
+      "state": {
+        "de": "Welchen Roman habe ich gelesen?",
+        "en": "Which novel did I read?"
+      },
+      "gold": "none"
+    },
+    {
+      "id": "zoom-04",
+      "useCase": "zoom",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "In welchen sichtbaren Zweig suchen?",
+        "en": "Which visible branch to search?"
+      },
+      "options": [
+        {
+          "id": "network",
+          "description": {
+            "de": "Router und Netzwerk",
+            "en": "Routers and network"
+          }
+        },
+        {
+          "id": "cooking",
+          "description": {
+            "de": "Kochrezepte",
+            "en": "Cooking recipes"
+          }
+        },
+        {
+          "id": "none",
+          "description": {
+            "de": "Keiner passt",
+            "en": "None fits"
+          }
+        }
+      ],
+      "state": {
+        "de": "Welche IP hat das NAS?",
+        "en": "What is the NAS IP?"
+      },
+      "gold": "network"
+    },
+    {
+      "id": "zoom-05",
+      "useCase": "zoom",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "In welchen sichtbaren Zweig suchen?",
+        "en": "Which visible branch to search?"
+      },
+      "options": [
+        {
+          "id": "network",
+          "description": {
+            "de": "Router und Netzwerk",
+            "en": "Routers and network"
+          }
+        },
+        {
+          "id": "cooking",
+          "description": {
+            "de": "Kochrezepte",
+            "en": "Cooking recipes"
+          }
+        },
+        {
+          "id": "none",
+          "description": {
+            "de": "Keiner passt",
+            "en": "None fits"
+          }
+        }
+      ],
+      "state": {
+        "de": "Welche Zutaten brauche ich für Suppe?",
+        "en": "What ingredients do I need for soup?"
+      },
+      "gold": "cooking"
+    },
+    {
+      "id": "zoom-06",
+      "useCase": "zoom",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "In welchen sichtbaren Zweig suchen?",
+        "en": "Which visible branch to search?"
+      },
+      "options": [
+        {
+          "id": "network",
+          "description": {
+            "de": "Router und Netzwerk",
+            "en": "Routers and network"
+          }
+        },
+        {
+          "id": "cooking",
+          "description": {
+            "de": "Kochrezepte",
+            "en": "Cooking recipes"
+          }
+        },
+        {
+          "id": "none",
+          "description": {
+            "de": "Keiner passt",
+            "en": "None fits"
+          }
+        }
+      ],
+      "state": {
+        "de": "Wie hieß der Film?",
+        "en": "What was the movie called?"
+      },
+      "gold": "none"
+    },
+    {
+      "id": "compaction-01",
+      "useCase": "compaction",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche konservative Kompaktierungsaktion?",
+        "en": "Which conservative compaction action?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Aktueller Zustand bleibt wichtig",
+            "en": "Current state remains important"
+          }
+        },
+        {
+          "id": "summarize",
+          "description": {
+            "de": "Abgeschlossener Verlauf kann zusammengefasst werden",
+            "en": "Completed history can be summarized"
+          }
+        }
+      ],
+      "state": {
+        "de": "Der aktuelle Auftrag ist noch offen.",
+        "en": "The current task is still open."
+      },
+      "gold": "keep"
+    },
+    {
+      "id": "compaction-02",
+      "useCase": "compaction",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche konservative Kompaktierungsaktion?",
+        "en": "Which conservative compaction action?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Aktueller Zustand bleibt wichtig",
+            "en": "Current state remains important"
+          }
+        },
+        {
+          "id": "summarize",
+          "description": {
+            "de": "Abgeschlossener Verlauf kann zusammengefasst werden",
+            "en": "Completed history can be summarized"
+          }
+        }
+      ],
+      "state": {
+        "de": "Abgeschlossene alte Aufgabe ohne offene Referenz.",
+        "en": "Completed old task with no open reference."
+      },
+      "gold": "summarize"
+    },
+    {
+      "id": "compaction-03",
+      "useCase": "compaction",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche konservative Kompaktierungsaktion?",
+        "en": "Which conservative compaction action?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Aktueller Zustand bleibt wichtig",
+            "en": "Current state remains important"
+          }
+        },
+        {
+          "id": "summarize",
+          "description": {
+            "de": "Abgeschlossener Verlauf kann zusammengefasst werden",
+            "en": "Completed history can be summarized"
+          }
+        }
+      ],
+      "state": {
+        "de": "Die nächste Aktion hängt von diesem Fehler ab.",
+        "en": "The next action depends on this error."
+      },
+      "gold": "keep"
+    },
+    {
+      "id": "compaction-04",
+      "useCase": "compaction",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche konservative Kompaktierungsaktion?",
+        "en": "Which conservative compaction action?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Aktueller Zustand bleibt wichtig",
+            "en": "Current state remains important"
+          }
+        },
+        {
+          "id": "summarize",
+          "description": {
+            "de": "Abgeschlossener Verlauf kann zusammengefasst werden",
+            "en": "Completed history can be summarized"
+          }
+        }
+      ],
+      "state": {
+        "de": "Veralteter erledigter Dialog, Fakten werden in der Zusammenfassung erhalten.",
+        "en": "Obsolete completed dialogue, facts will be preserved in the summary."
+      },
+      "gold": "summarize"
+    },
+    {
+      "id": "compaction-05",
+      "useCase": "compaction",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche konservative Kompaktierungsaktion?",
+        "en": "Which conservative compaction action?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Aktueller Zustand bleibt wichtig",
+            "en": "Current state remains important"
+          }
+        },
+        {
+          "id": "summarize",
+          "description": {
+            "de": "Abgeschlossener Verlauf kann zusammengefasst werden",
+            "en": "Completed history can be summarized"
+          }
+        }
+      ],
+      "state": {
+        "de": "Unklar, ob die Informationen noch gebraucht werden.",
+        "en": "Unclear whether information is still needed."
+      },
+      "gold": "keep"
+    },
+    {
+      "id": "compaction-06",
+      "useCase": "compaction",
+      "coreGate": false,
+      "primitive": "choice",
+      "question": {
+        "de": "Welche konservative Kompaktierungsaktion?",
+        "en": "Which conservative compaction action?"
+      },
+      "options": [
+        {
+          "id": "keep",
+          "description": {
+            "de": "Aktueller Zustand bleibt wichtig",
+            "en": "Current state remains important"
+          }
+        },
+        {
+          "id": "summarize",
+          "description": {
+            "de": "Abgeschlossener Verlauf kann zusammengefasst werden",
+            "en": "Completed history can be summarized"
+          }
+        }
+      ],
+      "state": {
+        "de": "Abgeschlossener und geprüfter Teilauftrag.",
+        "en": "Completed and verified subtask."
+      },
+      "gold": "summarize"
+    }
+  ]
+}

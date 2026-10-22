@@ -1,0 +1,6 @@
+  × Failed to download `protobuf==6.33.6`
+  ╰─▶ Network connectivity is disabled, but the
+      requested data wasn't found in the cache for:
+      `https://files.pythonhosted.org/packages/5c/01/a3c3ed5cd186f39e7880f8303cc51385a198a81469d53d0fdecf1f64d929/protobuf-6.33.6-cp39-abi3-macosx_10_9_universal2.whl`
+  help: `protobuf` (v6.33.6) was included because `kev[serve]` (v0.1.0)
+        depends on `mlx-lm` (v0.31.3) which depends on `protobuf`

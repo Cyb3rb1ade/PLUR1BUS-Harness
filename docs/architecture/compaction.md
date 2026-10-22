@@ -46,27 +46,41 @@ is multiplied by the persisted factor. This remains an estimate, not a tokenizer
 ## Reversible tool pruning
 
 The worker scans completed `tool.call`/`tool.result` pairs in batches, under one
-time budget. The Laya port accepts the current task, original pair data and an
-AbortSignal, and returns `{ ref, relevant: boolean, reason }` per pair. Laya remains
-the default local CPU backend on Linux, Windows and macOS (D34); compaction adds
-no cloud decision backend and downloads no model. The current main branch has no
-Laya runtime: a host may supply the existing session service's `laya` port; an
-absent port or explicit unavailable/budget result uses the conservative heuristic.
-Timeouts and exceptions apply no changes from any earlier batch. Missing/duplicate refs and malformed answers retain their entire batch. Successful decisions commit in one SQLite transaction.
-
+time budget. The composition binding uses the shared DecisionClient with
+`choice keep|truncate|drop`. Raw pairs force local backend routing. Missing
+backend, invalid answers, low confidence, timeouts and exceptions keep outputs;
+there is no implicit heuristic replacement for an unavailable production role.
+The legacy binary host port remains compatible, and an explicitly configured
+`heuristic` uses the existing deterministic rule. This phase installs no Laya
+runtime or model. Missing/duplicate refs and malformed answers retain their
+entire batch. Successful overlay decisions and metadata traces commit in one
+SQLite transaction.
 Protected pairs include the last `keepLastTurns` turns, incomplete turns,
-references in the latest assistant message, approval/audit/grant/policy evidence,
+references in the latest semantic assistant message, pending follow-up calls,
+approval/audit/grant/policy evidence,
 and explicitly restored refs. Every protection is checked again after an awaited
 decision; a foreground running turn invalidates the candidate batch. The heuristic
 requires an old, unreferenced pair larger than 1,024 characters. `off` disables
 pruning altogether. Hidden pairs become compact placeholders only in the context
-view. All retained pair data stays byte-identical.
+view. Truncated pairs show the first and last 256 output characters plus an
+original ref; dropped pairs retain tool name, argument digest and result status.
+All retained pair data stays byte-identical.
 
 Visibility is persisted in `tool_visibility`. `ToolPruner.restore(sessionId, ref)`
 restores and pins the original; no deletion or event rewrite occurs. `session.get`
 adds `compaction.hidden` and original ranges of applied summaries to its existing
 inspection response. The full message/event APIs keep returning the transcript.
-No new CLI command, restoration RPC or authorization rule is added.
+In an already authorized session, `/compact --explain` shows at most 50 pruning
+decisions plus aggregate counters; it does not force a new background pass.
+`/compact --restore event:123` restores and pins that session's original pair.
+These local transcript commands need no model and perform no recall or capture.
+Their administrative replies cannot accidentally make hidden outputs visible
+through the semantic-reference protection. No restoration RPC is added.
+
+The saved-token metric estimates the positive difference between original and
+rendered character counts divided by four; it is not provider usage. Re-fetch
+rate counts explicit restores divided by all pruned overlay rows, including
+restored rows. Similar later tool calls are not classified as restores.
 
 ## Configuration and events
 
@@ -88,7 +102,9 @@ Decision time, batch size and retained turn count must be positive.
 D111 registers `compaction.summary.created`, `compaction.prune.hidden` and
 `compaction.prune.restored`. Diagnostic attributes contain session/ref/range/tier
 metadata only (IDs and counters), never decision text or transcript payload. Summaries and
-visibility metadata are distinct from approval/audit records.
+visibility metadata are distinct from approval/audit records. The additive
+`compaction.prune` session event records ref, mode, confidence and estimated
+savings together with the overlay transaction.
 
 ## Deterministic verification
 

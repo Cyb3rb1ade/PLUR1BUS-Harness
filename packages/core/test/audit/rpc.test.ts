@@ -8,7 +8,7 @@ import { defaults } from "@plur1bus/config-schema";
 import { validateResult } from "@plur1bus/rpc-schema";
 import { createCore, type Core } from "../../src/core.ts";
 import { layout } from "../../src/paths.ts";
-import { ACTIVE_NAME } from "../../src/audit/chain.ts";
+import { ACTIVE_NAME, hashLine } from "../../src/audit/chain.ts";
 import type { Principal } from "../../src/rbac/types.ts";
 import { connect } from "../helpers/connect.ts";
 import { flatTestInternals } from "../helpers/flat-embedder.ts";
@@ -38,6 +38,21 @@ describe("audit.verify in a running core", () => {
       who = { userId: `u-${role}`, role };
       const r = await c.call<any>("audit.verify", {});
       assert.equal(validateResult("audit.verify", r).ok, true, JSON.stringify(validateResult("audit.verify", r)));
+    }
+  });
+
+  it("verifies an explicit external pin through the existing Owner/Admin RPC permission", async () => {
+    who = { userId: "u-admin", role: "admin" };
+    const first = readFileSync(path.join(logs, ACTIVE_NAME), "utf8").split("\n")[0]!;
+    const pin = { seq: 1, hash: hashLine(first) };
+    const ok = await c.call<any>("audit.verify", { pin });
+    assert.equal(ok.ok, true);
+    assert.equal(validateResult("audit.verify", ok).ok, true);
+    const wrong = await c.call<any>("audit.verify", { pin: { ...pin, hash: "0".repeat(64) } });
+    assert.deepEqual(wrong.findings.map((f: any) => f.code), ["pin-mismatch"]);
+    assert.equal(validateResult("audit.verify", wrong).ok, true);
+    for (const invalid of [{ seq: 0, hash: pin.hash }, { seq: 1, hash: "short" }, { ...pin, extra: true }]) {
+      await assert.rejects(c.call("audit.verify", { pin: invalid }), (e: any) => e.error === "E_INVALID_PARAMS");
     }
   });
 

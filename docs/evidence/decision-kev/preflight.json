@@ -1,0 +1,361 @@
+{
+  "schema": "plur1bus.kev-spike-preflight/1",
+  "at": "2026-10-20T02:49:27.938005+00:00",
+  "status": "blocked-before-model-inference",
+  "upstream": {
+    "repository": "https://github.com/jaredpalmer/kev",
+    "commit": "1f04cfa28e6a708485b28a9585010b9e436b776e",
+    "license": "Apache-2.0",
+    "uvLockSha256": "a9922dbb89acdef78299fd2b4a8c3f7f0fa1b2bc08b55595b6926fa785a9c466"
+  },
+  "python": "Python 3.13.12",
+  "uv": "uv 0.10.11 (006b56b12 2026-03-16)",
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "inferencePerformed": false,
+  "serverStarted": false,
+  "largeModelDownloads": false,
+  "metrics": null,
+  "automaticGermanEligibility": false,
+  "blocker": {
+    "host": "files.pythonhosted.org",
+    "dnsAddresses": [
+      "0.0.0.0",
+      "::"
+    ],
+    "error": "Connection refused (os error 61)",
+    "package": "networkx==3.6.1",
+    "command": "uv sync --frozen --extra serve --no-dev --python 3.13"
+  },
+  "lockedDependencies": [
+    {
+      "name": "accelerate",
+      "version": "1.15.0",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/8a/4c/34f0450479d01195027260da68d8a3880683f1640c3ca5adf64acb3185f1/accelerate-1.15.0-py3-none-any.whl",
+          "hash": "sha256:97eacca0b73e45cb867dbf8c5d5d4dc32219544300e0c8992c7334dc2ef33cec",
+          "size": 394295
+        }
+      ]
+    },
+    {
+      "name": "datasets",
+      "version": "5.0.1",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/44/0b/98fc6eb83333508ca5f44c52b3e287ea8137a0ad582714e2cbc67a02154b/datasets-5.0.1-py3-none-any.whl",
+          "hash": "sha256:9fbf73688f8c18f7529b4fe592abd04015f81d1e58001e4bac73ffb2b39d7cc4",
+          "size": 559079
+        }
+      ]
+    },
+    {
+      "name": "fastapi",
+      "version": "0.141.1",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/cb/03/10388a42375ee7e4ac9b94eb2c5c569c8b5795e377e701c9ac3ad63de890/fastapi-0.141.1-py3-none-any.whl",
+          "hash": "sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3",
+          "size": 131954
+        }
+      ]
+    },
+    {
+      "name": "huggingface-hub",
+      "version": "1.32.0",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/1b/cf/d98dd561d6d0d7b7d7a64d1563f8aaaa7c235daee41c1c9bcc3da62420ed/huggingface_hub-1.32.0-py3-none-any.whl",
+          "hash": "sha256:b0c7c80561969d9cdacdd55fce67ba9584cca0b9d4ea80957a3a5c1445fac5c8",
+          "size": 842906
+        }
+      ]
+    },
+    {
+      "name": "mlx",
+      "version": "0.32.2",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/38/f7/5664e13821491559c953494e6705c818203d6880d713a0c22e12bead9564/mlx-0.32.2-cp312-cp312-macosx_14_0_arm64.whl",
+          "hash": "sha256:77217798a2b036bae9f213b851d4cde4581893787c9964458b7d471f86036bd6",
+          "size": 619370
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/bc/be/c821eed5b7c13b42c114aec54c757545d6eeecce25d3212ea7d18dd79cfd/mlx-0.32.2-cp312-cp312-macosx_15_0_arm64.whl",
+          "hash": "sha256:cf63fd5c32258ab07523b06401c20ee2280bf56e26e991d05bf6fd8a4d42d1f6",
+          "size": 619376
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/0b/eb/af6b1a8b45f24d22e4735c52e0696c66233bd477e1b9e9dbbef225bdf88b/mlx-0.32.2-cp312-cp312-macosx_26_0_arm64.whl",
+          "hash": "sha256:68560fd648c5bb900aa6f6765cd74c5a8abaf092d97d73584a57b7545966c227",
+          "size": 619488
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/5e/d7/0f9717acf577621ff0899f311eaa16abbfd2ee5a5c2156313f49d080cb5f/mlx-0.32.2-cp313-cp313-macosx_14_0_arm64.whl",
+          "hash": "sha256:65d3d29b66045ed8dd2d8e437c8770de325843c364f7b7c38cd8ae90a7eec854",
+          "size": 619420
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/2d/96/d333b83d04c31046d49d9e1f915c9da76eb264b8e4205bd36d428d09421f/mlx-0.32.2-cp313-cp313-macosx_15_0_arm64.whl",
+          "hash": "sha256:daebf84dfb857d70e87b1b98189a057e691e99a4a2b9f6f64cadebad917f8964",
+          "size": 619418
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/38/96/9db8e27f384d83d3816ec7392c7a2b375979c14509d7f345d1fa3d05cac8/mlx-0.32.2-cp313-cp313-macosx_26_0_arm64.whl",
+          "hash": "sha256:df8c75e509de868fca148dfeb38d92ce956eed386569c87caeb72bd16d2d6962",
+          "size": 619417
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/bf/86/c574112fc8193c6e032c4be3a394361dfa283a57e276a76538fa8da341df/mlx-0.32.2-cp313-cp313t-macosx_14_0_arm64.whl",
+          "hash": "sha256:dc5eb3cc30d4285f2734c368442f717599e97294663441cb42959e3b856d6898",
+          "size": 645041
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/10/44/d50dd35a356323105f2d25aa5b463869e6dfe6e75cb2422e738472b6127a/mlx-0.32.2-cp313-cp313t-macosx_15_0_arm64.whl",
+          "hash": "sha256:c95a384de1a0c0ba18425344cad8ac87180e3c5c1921a42e2621475be5966bcf",
+          "size": 645042
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/0f/a3/9feb2ed4bb045cb077beed6fec309154e3a4ec71ce6a714e8487d133e355/mlx-0.32.2-cp313-cp313t-macosx_26_0_arm64.whl",
+          "hash": "sha256:bc69bd1062b97028ae6b79522ed0bd635a2b133fe3c398c03b66b060c20d9240",
+          "size": 644908
+        }
+      ]
+    },
+    {
+      "name": "mlx-lm",
+      "version": "0.31.3",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/90/02/9a67b8e4f87e3e2e5cd7b1ad79304b93c09a0db6af34bee75e6551c06c60/mlx_lm-0.31.3-py3-none-any.whl",
+          "hash": "sha256:758cfddf1180053b7613db76fad3d246a331a2a905808e1164a275621fc983b8",
+          "size": 408890
+        }
+      ]
+    },
+    {
+      "name": "networkx",
+      "version": "3.6.1",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl",
+          "hash": "sha256:d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762",
+          "size": 2068504
+        }
+      ]
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.3",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/d6/50/8fdbb16af64895706a45f06a4068e29db732ec180f3c1375f14123359138/numpy-2.5.3-cp312-cp312-macosx_10_13_x86_64.whl",
+          "hash": "sha256:cb189f09db39283b26bfd061ec16189e14f71c6755207f72a0f7540867afe5b9",
+          "size": 16994982
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/60/39/789131c1188c078dcb3a1692e72e1e050c68b88ffe72c9ccaac9bcd7a9cd/numpy-2.5.3-cp312-cp312-macosx_11_0_arm64.whl",
+          "hash": "sha256:f59a878c33d6b88122d80d239bb3b845d58708750b0cb06a09aebb9b18ec696c",
+          "size": 12009327
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/9c/59/a312e95696e5f601914dd8b6dd844692ba61670807417e24b68e337b5c70/numpy-2.5.3-cp312-cp312-macosx_14_0_arm64.whl",
+          "hash": "sha256:a72f874bc9e10e4b8f80426fb49716d5141f64442a0c8418065093ec8017fbb0",
+          "size": 5445405
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/30/d0/5623a1707ed4fe16e3909fe3cf5ee3da004ae677ad23d83bbf3adf1a6faf/numpy-2.5.3-cp312-cp312-macosx_14_0_x86_64.whl",
+          "hash": "sha256:fc36dc566135b5eceec4cf89758fcb719266a019ef07dae1754ae7c9f617ef3e",
+          "size": 6783213
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/79/e5/8fb89cd46d14e35699d13bf943a5f5f441ecee8667120a1f6105ab89e349/numpy-2.5.3-cp313-cp313-macosx_10_13_x86_64.whl",
+          "hash": "sha256:66a78fe4556c60aceda5916f9eacd638b18e9e681016ec302dcb4682d6d4d034",
+          "size": 16991061
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/2f/06/9dc9e48b5e5e941c8b10350c5ff2d721da42a20517d911d15544246775ff/numpy-2.5.3-cp313-cp313-macosx_11_0_arm64.whl",
+          "hash": "sha256:92f30e89b8ee0ecf363033576c422b2f58fed6a80bed0aa48dff6d14c654663e",
+          "size": 12003676
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/ab/2a/98282aa5b8f58b1157d440bb6282eed47e3632a5de53a714fbab17e659fe/numpy-2.5.3-cp313-cp313-macosx_14_0_arm64.whl",
+          "hash": "sha256:f9a2353b37a1a9e78fd82b27ad7e2a32a2d036604d18f02b05e3136c62ca3b09",
+          "size": 5439695
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/a1/f9/b6533d777be9d6ffd29dc1be0867e563e6e8cc9a220ff1b716adc317f060/numpy-2.5.3-cp313-cp313-macosx_14_0_x86_64.whl",
+          "hash": "sha256:ccbc4665079665c3cf3bab4db9f6b095370cd6437d66be549b6c2a1fd19e1958",
+          "size": 6779395
+        }
+      ]
+    },
+    {
+      "name": "peft",
+      "version": "0.21.0",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/13/f0/29c37002f5ef5cb5be54890114d5c8f726f0cb5072a8ba0880758c912bfd/peft-0.21.0-py3-none-any.whl",
+          "hash": "sha256:b64eb75fd9dece7401c70e675b8d9de024993b70483691b41c62876f0c7809b7",
+          "size": 832883
+        }
+      ]
+    },
+    {
+      "name": "pydantic",
+      "version": "2.13.5",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/eb/47/c95ffc2009878c7aac0c5e08528022dcb885933252a88b5f170058014464/pydantic-2.13.5-py3-none-any.whl",
+          "hash": "sha256:346a034f080da3755d8e9cb5e00e8b07de1d39e4f6e2c87d8ab7cafa0b269a73",
+          "size": 472589
+        }
+      ]
+    },
+    {
+      "name": "scikit-learn",
+      "version": "1.9.1",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/df/a7/25f0a43d2fde306e8ef45f45121192f687b79beaf4bae8c21607c46c5e63/scikit_learn-1.9.1-cp312-cp312-macosx_10_13_x86_64.whl",
+          "hash": "sha256:0c0f8b5d09b44101cea2767f300680bada1ea27f976fe4b48b83950a4f55a49a",
+          "size": 8775209
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/60/ea/57e57539ce175d774fc291ed091b0a6d756854b92cd92554c6bb4d0ae498/scikit_learn-1.9.1-cp312-cp312-macosx_12_0_arm64.whl",
+          "hash": "sha256:8c14ce41d561f7749f990b41d6703fe02c4669fbc485e598e069e0a1967b488e",
+          "size": 8295541
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/bb/8d/b60d5e7354ff0ff5cc9400e60273696589d87a30b8b2235886a76d80d062/scikit_learn-1.9.1-cp313-cp313-macosx_10_13_x86_64.whl",
+          "hash": "sha256:2c2b312fd8c02951a364fa120ea08c1cec10d863466bf1701b013152d7537835",
+          "size": 8739300
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/2f/81/3c6392c03665d2899457a76e535a9a6f597dddddf3220fd2e1d790da88c5/scikit_learn-1.9.1-cp313-cp313-macosx_12_0_arm64.whl",
+          "hash": "sha256:61cd968ab831a76d0ecbaf0347ab2270268716da28f94fd022497e3d6f205f13",
+          "size": 8262364
+        }
+      ]
+    },
+    {
+      "name": "torch",
+      "version": "2.8.0",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/be/66/5c9a321b325aaecb92d4d1855421e3a055abd77903b7dab6575ca07796db/torch-2.8.0-cp312-none-macosx_11_0_arm64.whl",
+          "hash": "sha256:619c2869db3ada2c0105487ba21b5008defcc472d23f8b80ed91ac4a380283b0",
+          "size": 73630478
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/de/69/8b7b13bba430f5e21d77708b616f767683629fc4f8037564a177d20f90ed/torch-2.8.0-cp313-cp313t-macosx_14_0_arm64.whl",
+          "hash": "sha256:1a62a1ec4b0498930e2543535cf70b1bef8c777713de7ceb84cd79115f553767",
+          "size": 73915128
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/04/6e/650bb7f28f771af0cb791b02348db8b7f5f64f40f6829ee82aa6ce99aabe/torch-2.8.0-cp313-none-macosx_11_0_arm64.whl",
+          "hash": "sha256:7b677e17f5a3e69fdef7eb3b9da72622f8d322692930297e4ccb52fefc6c8211",
+          "size": 73632395
+        }
+      ]
+    },
+    {
+      "name": "transformers",
+      "version": "5.17.0",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/e8/d0/c502b60d684adbd98a8dc7d5bb866842772b816ac4354e4608be240041ae/transformers-5.17.0-py3-none-any.whl",
+          "hash": "sha256:78ec1ce21579b38dfb83950a0658cd119f87212a2fcfdff478096ce9d6c03801",
+          "size": 12295140
+        }
+      ]
+    },
+    {
+      "name": "typesafe-sdk",
+      "version": "0.6.0",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/2e/0d/e99f9622354aeb7205ee4ffded0ac7b4cc38f0981e463e90940578cc10f6/typesafe_sdk-0.6.0-py3-none-any.whl",
+          "hash": "sha256:21559d5558e95a7ee008d0a044a60bb5bb2d3b1ec426fe158a7f37af35ba3232",
+          "size": 32675
+        }
+      ]
+    },
+    {
+      "name": "uvicorn",
+      "version": "0.53.0",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/76/18/0eea75741ee812e9f598b687619ce2454f6c3a1c5cd21ea990ec6bd26f45/uvicorn-0.53.0-py3-none-any.whl",
+          "hash": "sha256:e8dca71ec86dce5f04e333f0d56cdedf942446e6643b9cea1af0d6d3a02cb03e",
+          "size": 87081
+        }
+      ]
+    }
+  ],
+  "fixtureSha256": "4fdd03e69e2647ba604d783bed8d702497a43f345f706c6b72b14e5b1c61ba15",
+  "fixturePairs": 90,
+  "offlineBlocker": {
+    "package": "protobuf==6.33.6",
+    "error": "Pinned wheel not available in cache with networking disabled",
+    "command": "uv sync --frozen --offline --extra serve --no-dev --python 3.13"
+  },
+  "hardware": {
+    "cpu": "Apple M5 Pro",
+    "memoryBytes": 51539607552
+  },
+  "modelManifestFile": "model-manifests.json",
+  "dependencyLicenseFile": "dependency-license-metadata.json",
+  "plannedServer": {
+    "host": "127.0.0.1",
+    "port": 18177,
+    "backend": "mlx",
+    "started": false
+  }
+}
