@@ -1,6 +1,6 @@
 # Kanäle
 
-Kanäle verbinden Chat-Plattformen mit Plur1bus. Du schreibst dem Assistenten in Telegram, Discord, Slack, Matrix, Signal
+Kanäle verbinden Chat-Plattformen mit Plur1bus. Du schreibst dem Assistenten in Telegram, Discord, Slack, Matrix, Buzz, Signal
 oder per E-Mail, und die Antwort kommt dort zurück. Diese Seite zeigt, wie du einen Kanal einrichtest, ein Konto mit dem
 Assistenten verknüpfst und ihn verwaltest. Die Einrichtung jedes Kanals steht ausführlich auf seiner eigenen Seite unter
 [../../channels/](../../channels/). Die englische Fassung dieser Seite ist [../en/channels.md](../en/channels.md).
@@ -25,7 +25,8 @@ einen Host. `plur1bus channel show <kanal>` zeigt dann Zustand und letzten Fehle
 | Telegram | Direktnachrichten, Gruppen | ausgereift |
 | Discord | Direktnachrichten, Serverkanal, Thread | neu |
 | Slack | Direktnachrichten, Kanal, Gruppe | neu |
-| Matrix | Direktnachrichten, Raum, Thread | neu; nur unverschlüsselte Räume |
+| Matrix | Direktnachrichten, Raum, Thread | standardmäßig Klartext; experimentelle nicht persistente E2EE |
+| Buzz | 1:1-Text-DMs | Review-Build; NIP-17-verschlüsselt |
 | Signal | Direktnachrichten, Gruppe | neu; braucht signal-cli |
 | E-Mail | Direkt, im Mail-Thread | neu |
 
@@ -134,3 +135,11 @@ gespeichert und nicht ausgegeben. Speichere Schlüssel immer mit `plur1bus secre
 | Status `not-registered` | Der Build enthält keinen Switchboard-Host. | Siehe „Vorab“ oben. |
 
 Die vollständige Liste steht in [../../errors.md](../../errors.md).
+
+## M4-Ergänzungen im Review-Build
+
+Der Draft-Build ergänzt [Buzz / Nostr](../../channels/buzz.md): verschlüsselte 1:1-Textnachrichten, normalisierte hex/npub-Allowlist und private Schlüssel ausschließlich im Secret-Store. Matrix bietet einen ausdrücklich experimentellen Memory-Crypto-Schalter, standardmäßig aus: Schlüssel sind **nicht persistent**, nach Neustart ist erneut eine Verifikation nötig. Persistente Matrix-E2EE bleibt blockiert; siehe [Matrix](../../channels/matrix.md).
+
+Für `/web` setzt ein Owner/Admin `core.webHandoffBaseUrl` auf die tatsächliche Web-Adresse. Eine verknüpfte Person erhält im eigenen DM einen zehn Minuten gültigen Einmal-Link und muss sich im Web als dieselbe Person anmelden. Ein eigener Web-Chat enthält den zitierten Kontext; der Channel-Verlauf bleibt aktiv. Channel-DMs im Web sind nur lesbar und bieten **In Web fortsetzen**. Gruppen und alte Sessions ohne belegten DM-Status werden ausgeschlossen; mit `/new` lässt sich eine neue Channel-Session beginnen. Der Link meldet niemanden an und sollte dennoch privat bleiben.
+
+Unter Recurring → Zustellziele lassen sich eigene verknüpfte DMs durch eine Antwort direkt im Ziel bestätigen. Nur bestätigte Ziele erscheinen im Job-Editor. Entfernen des Ziels oder Entzug von Identität/Rechten stoppt künftige Zustellungen.

@@ -18,6 +18,7 @@ export interface UserJobInput {
     timezone: string;
   };
   enabled: boolean;
+  deliveryTarget?: string;
 }
 export interface UserJob extends UserJobInput {
   id: string;
@@ -48,6 +49,7 @@ export interface UserJobRun {
   outcome: UserJobOutcome;
 }
 export interface UserJobsOptions {
+  validateDelivery?: (id: string, person: string, agentId: string) => void;
   isStopping?: () => boolean;
   path: string;
   clock: () => number;
@@ -142,6 +144,11 @@ export class UserJobs {
     this.#person(p);
     return p.role === "owner" || p.role === "admin" || p.userId === j.runAs || (Object.hasOwn(p.agentRights ?? {}, j.agentId) && ["use", "manage"].includes(p.agentRights![j.agentId]!));
   }
+  #delivery(i: UserJobInput, person: string) {
+    if (i.deliveryTarget === undefined || i.deliveryTarget === '') return;
+    if (typeof i.deliveryTarget !== 'string' || !this.#o.validateDelivery) throw denied();
+    this.#o.validateDelivery(i.deliveryTarget, person, i.agentId);
+  }
   #validate(i: UserJobInput) {
     if (typeof i.name !== "string" || !i.name.trim() || i.name.length > 128 || /[\u0000-\u001f\u007f]/.test(i.name) || typeof i.prompt !== "string" || !i.prompt.trim() || i.prompt.length > 4000 || i.prompt.includes("\0") || typeof i.enabled !== "boolean" || typeof i.agentId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(i.agentId) || !this.#o.agentExists(i.agentId)) {
       throw invalid();
@@ -174,7 +181,7 @@ export class UserJobs {
     this.#db.prepare("INSERT INTO user_jobs VALUES (?,?) ON CONFLICT(id) DO UPDATE SET definition=excluded.definition").run(j.id, JSON.stringify(j));
   }
   create(input: UserJobInput, p: Principal): UserJob {
-    if (Object.keys(input).some(k => !["name", "agentId", "prompt", "schedule", "enabled"].includes(k))) {
+    if (Object.keys(input).some(k => !["name", "agentId", "prompt", "schedule", "enabled", "deliveryTarget"].includes(k))) {
       throw invalid();
     }
     // Authorize before looking at the agent, so a caller without rights cannot probe which agents exist.
@@ -185,6 +192,7 @@ export class UserJobs {
     this.#manage(p, input.agentId);
     this.#use(p, input.agentId);
     this.#validate(input);
+    this.#delivery(input, p.userId);
     const now = this.#o.clock();
     const job: UserJob = { ...structuredClone(input), name: input.name.trim(), id: `user:${randomUUID()}`, kind: "user", needsLlm: true, singleton: true, runAs: p.userId, createdBy: p.userId, createdAt: now, updatedAt: now, nextRunAt: this.#next(input, now) };
     this.#audit(p, "jobs.created", job.id, { agentId: job.agentId, runAs: job.runAs });
@@ -194,13 +202,14 @@ export class UserJobs {
   update(patch: {
     id: string;
   } & Partial<UserJobInput>, p: Principal): UserJob {
-    if (Object.keys(patch).some(k => !["id", "name", "agentId", "prompt", "schedule", "enabled"].includes(k))) {
+    if (Object.keys(patch).some(k => !["id", "name", "agentId", "prompt", "schedule", "enabled", "deliveryTarget"].includes(k))) {
       throw invalid();
     }
     const old = this.get(patch.id);
     this.#manage(p, old.agentId);
     const next: UserJob = { ...old, ...structuredClone(patch), runAs: p.userId, updatedAt: this.#o.clock() };
     this.#validate(next);
+    this.#delivery(next, p.userId);
     next.name = next.name.trim();
     this.#manage(p, next.agentId);
     const live = this.#o.resolve(p.userId);
@@ -331,6 +340,7 @@ export class UserJobs {
             record.outcome = "skipped_no_rights";
           }
           else {
+            this.#delivery(j, person.userId);
             if (this.#o.budgetBlocked(j.agentId)) {
               record.outcome = "skipped_budget";
             }

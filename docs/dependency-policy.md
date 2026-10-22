@@ -127,20 +127,66 @@ Only an advisory actually found exits 1. Python advisories are not wired.
 | 2 | usage error, unreadable or malformed policy / exceptions file |
 | 3 | an ecosystem could not be collected (`--allow-incomplete` turns this into a warning) |
 
-## Optional legacy helper job (not the release gate)
+## Advisory licence job (GP5 S4)
 
-The generic helper is not wired into CI. An optional informational job could look like this:
+`.github/workflows/dependency-licenses.yml` runs a separate **non-blocking** job on dependency,
+policy and auditor PR changes, every main push, weekly and manually. It is not a required check
+and does not replace `release-quality` or change the existing advisory gate. No user-document-only
+PR starts it. Every action uses an immutable commit SHA with its version comment.
 
-```yaml
-audit-deps:
-  runs-on: ubuntu-24.04
-  timeout-minutes: 15
-  steps:
-    - uses: actions/checkout@v4
-    - uses: pnpm/action-setup@v4
-    - uses: actions/setup-node@v4
-      with: { node-version: 24.21.0 }
-    - run: pnpm install --frozen-lockfile
-    - run: node scripts/audit-deps.mjs
-    - run: node scripts/audit-deps.mjs --advisories   # weekly schedule is enough; do not block PRs on new advisories
+The job performs a frozen workspace install, then runs `node scripts/audit-deps.mjs --json`.
+The `dependency-licenses` artifact retains `licenses.json`, `errors.txt` and `exit-code.txt` for
+14 days. Collection and upload run even after an earlier failure. A non-zero auditor exit is
+preserved in the job and artifact; `continue-on-error` at job scope keeps the result advisory.
+Missing ecosystems remain visible as incomplete; the job never passes `--allow-incomplete`.
+Python packages are not installed by this job, so their missing licence metadata may be reported
+as incomplete/unknown. Root and desktop Cargo metadata use the pinned Rust 1.95 toolchain.
+No report contents are copied into an executable workflow command or used as an approval.
+
+### Licence exception format
+
+[dependency-exceptions.json](dependency-exceptions.json) is still empty. Its format is described by
+[dependency-exceptions.schema.json](dependency-exceptions.schema.json). An owner-approved entry
+requires `ecosystem`, `name`, `license`, a non-empty `reason` and `expires` (`YYYY-MM-DD` UTC);
+`version` can narrow it to an exact dependency version. Expiry is exclusive at 00:00 UTC.
+The CLI rejects malformed calendar dates and expired entries before collecting dependencies;
+expiry is an error even when the dependency disappeared. No auto-renewal is provided. This file
+is separate from the vulnerability exceptions in `audit-allowlist.json`.
+
+Example shape only (not an approved exception):
+
+```json
+{
+  "ecosystem": "pnpm",
+  "name": "example-package",
+  "version": "1.0.0",
+  "license": "Example-License",
+  "reason": "Owner decision and its reviewed distribution conditions",
+  "expires": "2027-01-01"
+}
 ```
+
+### Open owner decisions
+
+None of the following is approved or added to either exception file by S4.
+
+| Case | Decision and recommendation |
+|---|---|
+| `@img/sharp-libvips-*` / `sharp-win32-*`, LGPL-3.0-or-later via `@huggingface/transformers` | Decide after checking the actual distributed native artifacts and applicable source/notice/relinking requirements. Recommendation: keep the finding visible and require a distribution review before approving a narrow, expiring exception or changing the dependency. This report alone does not establish compliance. |
+| `nostr-tools`, Unlicense | Decide whether to include this licence in the approved policy or approve a package/version-specific exception. Recommendation: make that an explicit owner policy decision; do not silently broaden the allow-list. |
+| Desktop `zbus_names`, `zvariant_derive`, unmaintained | These are maintenance advisories, not licence approvals. Recommendation: track the upstream zbus migration and its desktop compatibility separately; do not suppress them through the licence exception file. |
+| Make licence CI blocking | Recommendation: keep it advisory until the above decisions, reproducible metadata on distributed targets and incomplete Python collection are resolved. Then enable a separate required check through an explicit owner decision. |
+
+S4 does not change the existing `release-quality` merge requirements or any active security
+exception. Licence-policy acceptance and native release qualification remain distinct checks.
+
+### Local report used for S4
+
+A prepared macOS arm64 checkout of main `1dae60f2ae` produced 1,313 licence rows,
+14 policy findings and no incomplete ecosystem. This is a local-target snapshot, not the
+Ubuntu workflow or an all-target release qualification. In addition to libvips and nostr-tools,
+the current allow-list reports Python-2.0 (`argparse`), MIT-0 (`borrow-or-share`), Zlib
+(`foldhash`, `zlib-rs`) and CDLA-Permissive-2.0 (`webpki-root-certs`, `webpki-roots`).
+Several rows appear in both Cargo workspaces. These are unlisted-policy findings, not a claim
+that each licence is forbidden. None was silently approved, suppressed or added as an exception.
+The advisory job exposes the full target-specific report for the owner policy review.

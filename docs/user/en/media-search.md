@@ -46,7 +46,7 @@ rank positions of both result lists, never on the vectors.
 
 Text and media providers are chosen independently. There is no fixed list of allowed combinations. When you save the
 setup, Plur1bus checks only four things: whether the provider can handle the media type (capability), whether the model's
-licence is confirmed, whether the privacy pin allows the provider, and whether the provider is available. Here are three
+licence is confirmed, whether "Only local models" allows the provider, and whether the provider is available. Here are three
 examples.
 
 **Only EmbeddingGemma 2 local for text and media.** This is the simplest setup. The same local model serves the text index
@@ -81,11 +81,11 @@ Jina models are licensed CC BY-NC-4.0. This licence allows non-commercial use on
 not allow Jina models. Setup asks you to confirm the licence for each model before it can continue. The memory and media
 step can be skipped as a whole; you can set it up later in Settings, Memory.
 
-## Privacy pin
+## Only local models
 
-If the privacy pin is set, cloud providers are not used for embedding or captioning. Plur1bus sends no request to them at
-all. Local providers keep working. If a cloud provider is still configured while the pin is set, the affected indexing
-stops with an error (see below).
+If "Only local models" (`privacy.localOnly`, see [privacy.md](privacy.md)) is on, cloud providers are not used for embedding
+or captioning. Plur1bus sends no request to them at all. Local providers keep working. If a cloud provider is still
+configured while the switch is on, the affected indexing stops with an error (see below).
 
 ## Backfill and reindexing
 
@@ -120,7 +120,7 @@ search covers only part of your media.
 |---|---|---|
 | The provider cannot handle this media type (E_MEDIA_CAPABILITY) | The chosen provider does not support images, videos or audio. For example, OpenAI cannot serve the media index. | Choose a provider that supports this medium for the media index. |
 | The licence is not confirmed (E_MEDIA_LICENSE) | The model, for example a Jina model, needs a licence confirmation that is missing. | Open setup and confirm the licence. |
-| The privacy pin blocks a cloud provider (E_MEDIA_PRIVACY) | The privacy pin is set, and a cloud provider is configured for embedding or captioning. No request was sent. | Use a local provider, or remove the privacy pin if you want cloud providers. |
+| "Only local models" blocks a cloud provider (E_MEDIA_PRIVACY) | "Only local models" is on, and a cloud provider is configured for embedding or captioning. No request was sent. | Use a local provider, or turn "Only local models" off if you want cloud providers. |
 | The model is not available (E_MEDIA_UNAVAILABLE) | The model is not installed, a key is missing, or this engine has no media index. | Install the model, add the key, or check the engine. |
 | The dimension does not match (E_MEDIA_DIMENSION) | The query and the stored media use different dimensions, or the model does not support the chosen dimension. | Reindex the media index after a model change, or choose a supported dimension. |
 | The format or a component is unknown (E_MEDIA_UNSUPPORTED_KIND) | Plur1bus cannot process this file format, or a component it needs for it is missing. The medium is counted as unsupported. | Convert the file to a common format, or accept that this medium stays unsupported. |

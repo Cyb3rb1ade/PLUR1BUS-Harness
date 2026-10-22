@@ -1,0 +1,9 @@
+{
+  "params": {
+    "sessionId": "channel-session"
+  },
+  "result": {
+    "path": "#/chat/handoff/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "expiresAt": 600000
+  }
+}

@@ -10,6 +10,14 @@ export interface SystemJobSpec {
   needsLlm: false;
   singleton: true;
   schedule: { every: number; jitter: number };
+  /**
+   * Registry-side lock (opt-in): while a run of this job is in flight, a further run of the same job is not started; it is
+   * recorded as `skipped` / `already_running` with the `runningRunId` of the holder (ADR-009: every skip writes a row). The lock
+   * is process-wide and in memory: system jobs only run inside the core, and `state/core.lock` keeps a second core off the same
+   * home, so no lock file is needed. A job that enforces its own granularity (models.scan: per provider, in discovery) leaves
+   * this unset and its runs stay parallel.
+   */
+  exclusive?: boolean;
 }
 
 export interface SystemJobOutcome {
@@ -72,12 +80,15 @@ export interface CreateSystemJobsOptions {
   logger: { warn(m: string, f?: object): void };
   engineHasJob: (name: string) => boolean;
   /** Called after a run was recorded as failed (the inbox's job-failed notice); never allowed to break the run. */
+  onRecorded?: (record: SystemRunRecord) => void;
   onFailed?: (run: { runId: string; job: string; reason?: string }) => void;
 }
 
 export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
   const handlers = new Map<string, SystemJobHandler>();
   const inFlight = new Set<string>();
+  /** job name -> run id holding the registry lock of an `exclusive` job. */
+  const holders = new Map<string, string>();
   const ledger = new SystemJobsLedger({
     ledgerPath: options.ledgerPath,
     securePath: options.securePath,
@@ -145,11 +156,23 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
 
     inFlight.add(runId);
     try {
-      const outcome = await handler.run(validatedArgs, {
-        runId,
-        trigger: o.trigger,
-        signal: o.signal ?? new AbortController().signal,
-      });
+      // Check and take the lock in one synchronous step: nothing awaits between the two.
+      const holder = handler.spec.exclusive ? holders.get(name) : undefined;
+      let outcome: SystemJobOutcome;
+      if (holder !== undefined) {
+        outcome = { outcome: "skipped", reason: "already_running", runningRunId: holder, detail: null };
+      } else {
+        if (handler.spec.exclusive) holders.set(name, runId);
+        try {
+          outcome = await handler.run(validatedArgs, {
+            runId,
+            trigger: o.trigger,
+            signal: o.signal ?? new AbortController().signal,
+          });
+        } finally {
+          if (holders.get(name) === runId) holders.delete(name);
+        }
+      }
 
       // The system clock may step back during a run: a record never finishes before it started.
       const finishedAt = Math.max(startedAt, options.clock.now());
@@ -171,6 +194,7 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
       };
 
       safeFinish(record);
+      try { options.onRecorded?.(record); } catch {}
       if (record.outcome === "failed") try { options.onFailed?.(record); } catch { /* notification only */ }
       return { record, detail: outcome.detail };
     } catch (err) {

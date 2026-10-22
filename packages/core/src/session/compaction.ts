@@ -136,6 +136,10 @@ export class Compactor {
     return { summaries, messages, tokens, hidden: pairs.filter(p => p.hidden).map(p => ({ ref: p.ref, ...(p.reason ? { reason: p.reason } : {}) })), clipped, compaction: { swapped: false } };
   }
 
+  /** Metadata only: no original tool text or arguments are exposed by the local command. */
+  explain(sessionId:string) { const rows=this.#store.pruneExplanation(sessionId); return {summaryCount:this.#applied(sessionId).length,decisions:rows.slice(-50),truncated:rows.length>50,metrics:this.#store.pruneMetrics(sessionId)}; }
+  restoreToolRef(sessionId:string,ref:string):boolean { return this.#hooks.pruner?.restore(sessionId,ref) ?? false; }
+
   /** Called with the new user message already stored: guarantees the returned view is within the hard limit (L14),
    *  swapping a summary in when it is not. Never cuts inside a turn and never cuts the newest turn. */
   async prepare(sessionId: string): Promise<ContextView> {

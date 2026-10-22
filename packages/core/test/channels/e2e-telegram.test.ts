@@ -76,6 +76,8 @@ test("a linked person's DM runs a turn and the echo reply reaches the Telegram c
     t.fake.push(textUpdate(nextUpdateId(), Number(DM_USER), "hello"));
     await t.e2e.until(() => toChat(t.fake).some((c) => String(c.body.text).includes("echo:hello")), "the echo reply");
     assert.equal(t.e2e.provider.requests.length, 1);
+    assert.equal(typeof t.e2e.provider.origins[0]?.accountId, "string");
+    assert.equal(t.e2e.provider.origins[0]?.channel, "telegram");
   } finally {
     await t.close();
   }
@@ -181,4 +183,10 @@ test("an image a tool produced follows the text reply into the chat via sendOutp
   } finally {
     await t.close();
   }
+});
+
+test('/web in the hosted real Telegram adapter reaches the shared authenticated command port',async()=>{
+ const fake=new FakeTelegram();await fake.listen();let commands=0;
+ const e=await startE2e({id:'telegram',secrets:{'channels.telegram.botToken':FAKE_TELEGRAM_TOKEN},config:{tokenSecret:'channels.telegram.botToken',allowlist:[DM_USER],botId:BOT_ID,botUsername:BOT_USERNAME,pollTimeoutSec:1},adapterDeps:{baseUrl:fake.baseUrl,sleep:async()=>{},random:()=>0.5},command:async(msg,_person,send)=>{if(msg.text!=='/web')return false;commands++;assert.equal(msg.accountId,String(BOT_ID));await send({chatId:msg.chatId,text:'https://web.example/'});return true;}});
+ try{await e.until(()=>e.switchboard.view.status('telegram')?.state==='running','running');e.link('telegram',String(BOT_ID),DM_USER);fake.push(textUpdate(nextUpdateId(),Number(DM_USER),'/web'));await e.until(()=>commands===1&&toChat(fake).some(c=>c.body.text==='https://web.example/'),'shared /web response');assert.equal(e.provider.requests.length,0);}finally{await e.switchboard.stop();e.identity.close();e.store.close();await fake.close();}
 });

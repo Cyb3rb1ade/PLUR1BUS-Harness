@@ -10,7 +10,7 @@ const isMediaIndexCode = (c: unknown): c is MediaErrorCode => typeof c === "stri
 const MEDIA_INDEX_MESSAGES: Record<MediaErrorCode, string> = {
   E_MEDIA_CAPABILITY: "the media provider cannot handle this media kind",
   E_MEDIA_LICENSE: "the media model licence has not been confirmed",
-  E_MEDIA_PRIVACY: "the privacy pin forbids a cloud media provider",
+  E_MEDIA_PRIVACY: "“Only local models” forbids a cloud media provider",
   E_MEDIA_UNAVAILABLE: "the media index is not available",
   E_MEDIA_DIMENSION: "the media index dimensions do not match",
   E_MEDIA_UNSUPPORTED_KIND: "this media kind cannot be processed",

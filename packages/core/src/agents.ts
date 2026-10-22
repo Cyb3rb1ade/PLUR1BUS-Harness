@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { migrateLegacyKnowledge } from "./knowledge/migration.ts";
+import { lstatSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_SCHEMA, type HarnessConfig } from "@plur1bus/config-schema";
 import { RpcError } from "./rpc/errors.ts";
@@ -16,7 +17,10 @@ export function scaffoldFiles(l: Layout, id: string): void {
   mkdirSync(l.workspaceDir(id), { recursive: true, mode: 0o700 });
   for (const t of TEMPLATES) {
     const target = join(l.agentDir(id), t);
-    // "wx" is create-exclusive and never follows a link planted at the target (a dangling symlink also counts as existing).
+    // Anything already at the target stays, a dangling symlink included. lstat does not follow it. "wx" alone is not enough on
+    // Windows: CreateFile(CREATE_NEW) follows a dangling symlink and creates the file it points to, outside the agent directory.
+    try { lstatSync(target); continue; } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
+    // "wx" stays as the create-exclusive guard against a link planted between the check and the write (POSIX never follows it).
     try { writeFileSync(target, readFileSync(new URL(t, TEMPLATE_DIR), "utf8").replaceAll("{{agentId}}", () => id), { mode: 0o600, flag: "wx" }); }
     catch (e) { if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e; }
   }
@@ -29,6 +33,11 @@ export interface AgentRegistry { list(): string[]; has(id: string): boolean; sca
 export type AgentRegistryInput = HarnessConfig | { path: string } | { config: () => HarnessConfig };
 
 export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout, logger?: HarnessLogger): AgentRegistry {
+  // Runtime-only migration: import uses scaffoldFiles inside its own snapshot/ledger transaction.
+  const scaffoldRuntimeAgent = (id: string): void => {
+    scaffoldFiles(l, id);
+    migrateLegacyKnowledge(l.workspaceDir(id), l.home);
+  };
   if ("config" in configOrPath && typeof configOrPath.config === "function") {
     const current = configOrPath.config;
     const seen = new Set<string>();
@@ -36,14 +45,14 @@ export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout,
       const agents = current().agents;
       for (const id of Object.keys(agents)) {
         if (seen.has(id)) continue;
-        try { scaffoldFiles(l, id); seen.add(id); } catch (e) { logger?.warn("scaffold failed, will retry later", { agentId: id, err: e }); }
+        try { scaffoldRuntimeAgent(id); seen.add(id); } catch (e) { logger?.warn("scaffold failed, will retry later", { agentId: id, err: e }); }
       }
       return agents;
     };
     return {
       list: () => Object.keys(agentsNow()).sort(),
       has: (id) => Object.hasOwn(agentsNow(), id),
-      scaffold: (id) => scaffoldFiles(l, id),
+      scaffold: (id) => scaffoldRuntimeAgent(id),
       workspaceOf: (id) => (Object.hasOwn(agentsNow(), id) ? l.workspaceDir(id) : undefined),
     };
   }
@@ -57,7 +66,7 @@ export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout,
 
     const scaffoldAgent = (id: string): boolean => {
       try {
-        scaffoldFiles(l, id);
+        scaffoldRuntimeAgent(id);
         return true;
       } catch (e) {
         logger?.warn("scaffold failed, will retry later", { agentId: id, err: e });
@@ -146,7 +155,7 @@ export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout,
     return {
       list: () => Object.keys(config.agents).sort(),
       has: (id) => Object.hasOwn(config.agents, id),
-      scaffold: (id) => scaffoldFiles(l, id),
+      scaffold: (id) => scaffoldRuntimeAgent(id),
       workspaceOf: (id) => (Object.hasOwn(config.agents, id) ? l.workspaceDir(id) : undefined),
     };
   }

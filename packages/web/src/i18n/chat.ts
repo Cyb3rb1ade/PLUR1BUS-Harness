@@ -1,5 +1,12 @@
 // chat area catalogue: keys `chat.<topic>`; en and de must have the same keys and {placeholders} (test/i18n.test.ts).
 export const en = {
+  "chat.channel.history": "Channel direct messages",
+  "chat.channel.readOnly": "Read only",
+  "chat.channel.continue": "Continue in Web",
+  "chat.channel.separate": "This channel conversation remains active. Continuing creates a separate private Web chat with a quoted summary.",
+  "chat.channel.failed": "This channel conversation is unavailable.",
+  "chat.channel.invalid": "This continuation is expired, already used, or belongs to another person.",
+  "chat.channel.opening": "Opening your private continuation…",
   "chat.promotion.links": "Linked projects",
   "chat.promotion.openProject": "Open project",
 
@@ -113,6 +120,14 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "chat.channel.history": "Channel-Direktnachrichten",
+  "chat.channel.readOnly": "Nur lesend",
+  "chat.channel.continue": "In Web fortsetzen",
+  "chat.channel.separate": "Der Channel-Verlauf bleibt aktiv. Die Fortsetzung erstellt einen eigenen privaten Web-Chat mit einer zitierten Zusammenfassung.",
+  "chat.channel.failed": "Dieser Channel-Verlauf ist nicht verfügbar.",
+  "chat.channel.invalid": "Diese Fortsetzung ist abgelaufen, bereits verwendet oder gehört einer anderen Person.",
+  "chat.channel.opening": "Private Fortsetzung wird geöffnet…",
+
   "chat.promotion.links": "Verknüpfte Projekte",
   "chat.promotion.openProject": "Projekt öffnen",
 

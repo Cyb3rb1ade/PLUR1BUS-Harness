@@ -32745,7 +32745,6 @@ cargo:litemap@0.8.3/LICENSE
 cargo:potential_utf@0.1.6/LICENSE
 cargo:tinystr@0.8.4/LICENSE
 cargo:writeable@0.6.4/LICENSE
-cargo:yoke-derive@0.8.3/LICENSE
 cargo:yoke-derive@0.8.4/LICENSE
 cargo:yoke@0.8.3/LICENSE
 cargo:zerofrom-derive@0.1.8/LICENSE
