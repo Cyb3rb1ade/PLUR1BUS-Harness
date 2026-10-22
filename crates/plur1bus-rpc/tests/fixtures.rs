@@ -262,6 +262,12 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.share" => pair::<MemoryShareParams, MemoryShareResult>(name, f),
         "memory.state" => pair::<MemoryStateParams, MemoryStateResult>(name, f),
         "memory.propose" => pair::<MemoryProposeParams, MemoryProposeResult>(name, f),
+        "memory.curation.list" => {
+            pair::<MemoryCurationListParams, MemoryCurationListResult>(name, f)
+        }
+        "memory.curation.resolve" => {
+            pair::<MemoryCurationResolveParams, MemoryCurationResolveResult>(name, f)
+        }
         "memory.proposals.list" => {
             pair::<MemoryProposalsListParams, MemoryProposalsListResult>(name, f)
         }

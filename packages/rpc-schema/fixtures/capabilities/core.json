@@ -436,6 +436,14 @@
       "stability": "experimental",
       "since": "1.1.0"
     },
+    "memory.curation.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "memory.curation.resolve": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "memory.proposals.list": {
       "stability": "experimental",
       "since": "1.1.0"

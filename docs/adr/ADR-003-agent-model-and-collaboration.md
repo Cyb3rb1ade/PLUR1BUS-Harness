@@ -42,11 +42,12 @@ agents/<agentId>/
   SOUL.md             # the one persona file (D14, 2026-09-22 — not renamed)
   IDENTITY.md          # agent identity (D14; default name, OpenClaw-style, see action items)
   USER.md               # user/owner facts (D14; default name, OpenClaw-style, see action items)
+  workspace/
+    DREAMS.md         # engine-owned diary at workspace root (A5, ADR-009 amendment 2026-10-20)
   behaviour/          # optional split-out overrides, merged into agent.json
   memory/
     DailyNote_<YYYY-MM-DD_HHMMSS>.md   # timestamped daily notes — light-sleep input (D15, ADR-009)
     KNOWLEDGE.md                 # canonical curated agent knowledge (A2, ADR-009 amendment 2026-10-20)
-    dreaming.md                        # dream diary (D15, ADR-009)
 ```
 
 ```ts

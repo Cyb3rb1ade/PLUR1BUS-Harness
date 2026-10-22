@@ -63,7 +63,7 @@ describe("OpenClaw importer (Batch 2)", () => {
     assert.ok(alpha.files.some((f) => f.targetFile === "memory/KNOWLEDGE.md" && f.action === "created"));
     assert.ok(alpha.files.some((f) => f.targetFile === "USER.md" && f.action === "created"));
     assert.ok(alpha.files.some((f) => f.targetFile === "memory/KNOWLEDGE.md" && f.action === "created"));
-    assert.ok(alpha.files.some((f) => f.targetFile === "dreaming.md" && f.action === "created"));
+    assert.ok(alpha.files.some((f) => f.targetFile === "DREAMS.md" && f.action === "created"));
     assert.ok(alpha.files.some((f) => f.targetFile.startsWith("DailyNote_2026-01-01") && f.action === "created"));
 
     // Verify channel allowlists (I1: deferred)
@@ -119,8 +119,8 @@ describe("OpenClaw importer (Batch 2)", () => {
     assert.equal(existsSync(join(wsAlpha,"memories.md")),false);
     assert.equal(existsSync(join(wsAlpha,"knowledgepool.md")),false);
 
-    assert.ok(existsSync(join(wsAlpha, "dreaming.md")));
-    assert.equal(readFileSync(join(wsAlpha, "dreaming.md"), "utf8"), readFileSync(fx.curatedFiles.dreams, "utf8"));
+    assert.ok(existsSync(join(wsAlpha, "DREAMS.md")));
+    assert.equal(readFileSync(join(wsAlpha, "DREAMS.md"), "utf8"), readFileSync(fx.curatedFiles.dreams, "utf8"));
 
     assert.ok(existsSync(join(wsAlpha, "DailyNote_2026-01-01_000000.md")));
     assert.equal(readFileSync(join(wsAlpha, "DailyNote_2026-01-01_000000.md"), "utf8"), readFileSync(fx.curatedFiles.dailyNote, "utf8"));
@@ -129,6 +129,36 @@ describe("OpenClaw importer (Batch 2)", () => {
     assert.ok(!existsSync(join(home, "cron")));
     assert.ok(!existsSync(join(home, "state", "system-jobs", "cron")));
   });
+
+  for (const onConflict of ["skip", "rename", "replace"] as const) {
+    it(`imports the diary at the workspace root with ${onConflict} conflict handling`, { timeout: 30_000 }, async () => {
+      const home = tempDir("a5-import-diary-");
+      const ws = layout(home).workspaceDir("alpha");
+      mkdirSync(ws, { recursive: true });
+      const diaryPath = join(ws, "DREAMS.md");
+      const original = "# Existing engine diary\nPreserve this entry.\n";
+      const legacyPath = join(ws, "dreaming.md");
+      writeFileSync(diaryPath, original);
+      writeFileSync(legacyPath, "# Historical harness diary\n");
+      const source = readFileSync(fx.curatedFiles.dreams, "utf8");
+
+      const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true, onConflict });
+      const entry = report.agents.find((a) => a.harnessAgentId === "alpha")?.files.find((f) => f.sourceFile === fx.curatedFiles.dreams);
+      assert.ok(entry);
+      assert.equal(entry.action, onConflict === "skip" ? "conflict" : onConflict);
+      assert.equal(entry.targetFile, onConflict === "rename" ? "DREAMS.openclaw.md" : "DREAMS.md");
+      assert.equal(readFileSync(diaryPath, "utf8"), onConflict === "replace" ? source : original);
+      assert.equal(readFileSync(legacyPath, "utf8"), "# Historical harness diary\n");
+      assert.equal(readFileSync(fx.curatedFiles.dreams, "utf8"), source);
+      if (onConflict === "rename") {
+        assert.equal(readFileSync(join(ws, "DREAMS.openclaw.md"), "utf8"), source);
+      }
+      if (onConflict === "replace") {
+        assert.ok(entry.backupPath);
+        assert.equal(readFileSync(entry.backupPath, "utf8"), original);
+      }
+    });
+  }
 
   it("idempotency: a second apply run produces matched-existing for all entities and zero new writes outside imports/ (I4)", { timeout: 30_000 }, async () => {
     const home = tempDir("p1b-test-home-");

@@ -294,7 +294,7 @@ The harness-owned scheduler landed in `packages/core/src/dreams/` (operator guid
 
 * **Q1** cost is measured (tokens per run), not capped; `cost_micros` stays NULL until a price table exists. **Q2** both triggers
   ship: importance accumulation (a stored capture weighs 5; thresholds light 150, rem 300, deep 450; minimum gap 1 h / 6 h / 12 h)
-  with cron as the floor. **Q3/D15** the diary is `dreaming.md` (a constant; the pinned engine still writes `DREAMS.md`).
+  with cron as the floor. **Q3/D15 (historical, superseded by A5 below)** the implementation then read `dreaming.md` while the engine wrote `DREAMS.md`.
   **Q4** a schedule's timezone is the host's IANA zone at creation, stored explicitly (UTC when unknown). **Q5** M1 dreams the
   agent-private partition only. **Q6** `0 */4 * * *` plus the importance trigger; no extra post-session pass. **Q7** ledger rows 365
   days, per-run logs 30 days, diary forever.
@@ -334,3 +334,14 @@ implements a competing promotion algorithm nor registers an unguarded `knowledge
 Point 8 remains partially open: A2 implements the canonical agent-knowledge runtime path and reversible migration;
 A5 addresses the engine-owned diary read path. Other D15 files, daily-note runtime writers and D116 tree mirrors are
 not claimed complete here. Person-bound `USER.md` and private/person memory scopes retain their existing isolation.
+
+## Amendment A5 (2026-10-20): read the engine-owned diary
+
+The Großpaket 3 A5 decision supersedes the D15 diary filename mapping: the runtime diary is
+`<agent workspace>/DREAMS.md`, the file the engine actually writes. `dreams.status` and `dreams.diary` now agree on that
+path; the Web Dreams tab can load its redacted content on demand. The older D15 statements and owner quotations above
+record the historical decision. Imports now copy source `DREAMS.md` (or `dreams.md`) to the same workspace-root
+`DREAMS.md`; existing files use the established skip/rename/replace strategy. Skip preserves the runtime diary, rename
+keeps imported history in `DREAMS.openclaw.md`, and explicit replace retains a backup for rollback. An existing legacy
+`dreaming.md` is left untouched; A5 introduces no second runtime writer and performs no automatic legacy-file migration.
+Point 8 remains open for the other curated files and the later D116 work.

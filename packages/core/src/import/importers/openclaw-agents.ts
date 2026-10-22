@@ -354,7 +354,7 @@ export function planAndMigrateAgent(
         sourceCandidates: [join(srcWs, "USER.md"), join(srcWs, "user.md")],
       },
       {
-        targetFileName: "dreaming.md",
+        targetFileName: "DREAMS.md",
         sourceCandidates: [join(srcWs, "DREAMS.md"), join(srcWs, "dreams.md")],
       },
     ];

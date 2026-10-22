@@ -2210,7 +2210,7 @@
                         "x-tier": "basic"
                       },
                       "privacyAck": {
-                        "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                        "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                         "type": "object",
                         "additionalProperties": false,
                         "required": [
@@ -2352,7 +2352,7 @@
                             "x-tier": "advanced"
                           },
                           "privacyAck": {
-                            "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                            "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                             "type": "object",
                             "additionalProperties": false,
                             "required": [
@@ -2473,7 +2473,7 @@
                   "x-tier": "basic"
                 },
                 "privacyAck": {
-                  "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                  "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
@@ -2631,7 +2631,7 @@
                       "x-tier": "advanced"
                     },
                     "privacyAck": {
-                      "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                      "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                       "type": "object",
                       "additionalProperties": false,
                       "required": [
@@ -3669,7 +3669,7 @@
               "additionalProperties": false,
               "properties": {
                 "privacyAck": {
-                  "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                  "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
@@ -3718,7 +3718,7 @@
               "additionalProperties": false,
               "properties": {
                 "privacyAck": {
-                  "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                  "description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.",
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
