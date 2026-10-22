@@ -49,7 +49,8 @@ const KEY_NAMES: [&str; 22] = [
 const LINE_VALUE_KEYS: [&str; 2] = ["authorization", "cookie"];
 
 pub struct Redactor {
-    /// Known secret values, ≥ 8 characters, with their base64, base64url and percent-encoded forms; longest first.
+    /// Known secret values, ≥ 8 characters, with their base64, base64url (padded and unpadded), percent-encoded and hex
+    /// (lower and upper case) forms; longest first.
     secrets: Vec<String>,
 }
 
@@ -66,7 +67,10 @@ impl Redactor {
             all.push(base64(s.as_bytes(), false, true));
             all.push(base64(s.as_bytes(), false, false));
             all.push(base64(s.as_bytes(), true, false));
+            all.push(base64(s.as_bytes(), true, true));
             all.push(percent_encode(&s));
+            all.push(hex_encode(s.as_bytes(), false));
+            all.push(hex_encode(s.as_bytes(), true));
             all.push(s);
         }
         all.retain(|s| s.len() >= 8);
@@ -166,6 +170,18 @@ fn base64(bytes: &[u8], url: bool, pad: bool) -> String {
             } else if pad {
                 out.push('=');
             }
+        }
+    }
+    out
+}
+
+fn hex_encode(bytes: &[u8], upper: bool) -> String {
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        if upper {
+            out.push_str(&format!("{b:02X}"));
+        } else {
+            out.push_str(&format!("{b:02x}"));
         }
     }
     out
@@ -610,11 +626,43 @@ mod tests {
             secret.to_string(),
             base64(secret.as_bytes(), false, true),
             base64(secret.as_bytes(), true, false),
+            base64(secret.as_bytes(), true, true),
             percent_encode(secret),
+            hex_encode(secret.as_bytes(), false),
+            hex_encode(secret.as_bytes(), true),
         ] {
             assert_gone(&r, &format!("log line with {form} inside"), &form);
         }
         assert_eq!(r.redact("short"), "short");
+    }
+
+    #[test]
+    fn the_hex_form_of_a_secret_is_replaced_but_unrelated_hex_stays() {
+        let secret = "hx-secret-0123";
+        let r = Redactor::new([secret.to_string()]);
+        let lower = hex_encode(secret.as_bytes(), false);
+        let upper = hex_encode(secret.as_bytes(), true);
+        assert_ne!(lower, upper);
+        assert_eq!(
+            r.redact(&format!("a {lower} b {upper} c")),
+            "a [REDACTED:secret] b [REDACTED:secret] c"
+        );
+        // A hash-like hex run and a hex run that is only part of the secret's hex are not touched.
+        let other = "00112233445566778899aabbccddeeff";
+        assert_eq!(r.redact(other), other);
+        assert_eq!(
+            r.redact(&lower[..lower.len() - 2]),
+            &lower[..lower.len() - 2]
+        );
+    }
+
+    #[test]
+    fn a_short_value_gets_no_hex_form_either() {
+        // Seven characters: below the minimum, so neither the raw value nor its 14-character hex form is registered.
+        let secret = "abcdefg";
+        let r = Redactor::new([secret.to_string()]);
+        let hexed = hex_encode(secret.as_bytes(), false);
+        assert_eq!(r.redact(&hexed), hexed);
     }
 
     #[test]

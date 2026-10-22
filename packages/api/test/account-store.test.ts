@@ -19,16 +19,17 @@ test("durable credentials normalize names, enforce both unique keys, secure file
   await assert.rejects(store.createPending("person-b", "ALICE", hash), { error: "E_CONFLICT" });
   await assert.rejects(store.createPending(p.userId, "different", hash), { error: "E_CONFLICT" });
   await store.activate(p.userId); assert.equal((await store.findByUsername("aLiCe"))?.role, "member");
-  assert.equal(statSync(path).mode & 0o777, 0o600); assert.equal(statSync(join(dir, "private")).mode & 0o777, 0o700);
+  if (process.platform !== "win32") { assert.equal(statSync(path).mode & 0o777, 0o600); assert.equal(statSync(join(dir, "private")).mode & 0o777, 0o700); } // Windows has no POSIX mode bits (its files read 0o666)
   store.close(); store = new AccountStore({ path, resolve: async () => ({ ...p, role: "viewer" }) });
   assert.equal((await store.findByUsername("alice"))?.role, "viewer");
   await store.createPending("pending", "pending", hash); await store.removePending("pending"); await store.createPending("pending", "pending", hash);
   store.close(); assert.equal(readFileSync(path).includes(Buffer.from('"role"')), false);
 });
 test("disable then enable while API was offline revokes old tokens permanently and invalidates versions", async t => {
-  const dir = mkdtempSync(join(tmpdir(), "accounts-status-")), path = join(dir, "accounts.db"); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = mkdtempSync(join(tmpdir(), "accounts-status-")), path = join(dir, "accounts.db");
   let p: CorePerson | null = { userId: "person-a", kind: "person", role: "member", disabled: false, version: 1 };
-  const store = new AccountStore({ path, resolve: async () => p }); t.after(() => store.close());
+  // after-hooks run in registration order: the open SQLite file must be closed before its directory is removed (Windows refuses otherwise)
+  const store = new AccountStore({ path, resolve: async () => p }); t.after(() => store.close()); t.after(() => rmSync(dir, { recursive: true, force: true }));
   const password = randomBytes(16).toString("hex"); await store.createPending("person-a", "alice", await hashPassword(password)); await store.activate("person-a");
   const login = new PasswordLogin({ users: store, clock: systemClock }); assert.equal((await login.check("alice", password)).ok, true);
   const old = (await store.findById("person-a"))!.version;
@@ -54,24 +55,27 @@ test("durable login compares the real password before reading Core status", asyn
 });
 
 test("TOTP enrollment, backup hashes and replay counter persist; only enabled credential changes end sessions", async t => {
-  const dir = mkdtempSync(join(tmpdir(), "accounts-totp-")), path = join(dir, "accounts.db"); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = mkdtempSync(join(tmpdir(), "accounts-totp-")), path = join(dir, "accounts.db");
   const resolve = async (userId: string): Promise<CorePerson> => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }); let store = new AccountStore({ path, resolve });
+  // one hook, store first: it closes whichever store is current (the test reopens), then removes the directory (Windows refuses while the file is open)
+  t.after(() => { try { store.close(); } catch { /* already closed */ } rmSync(dir, { recursive: true, force: true }); });
   const password = randomBytes(16).toString("hex"); await store.createPending("person", "alice", await hashPassword(password)); await store.activate("person");
   const { TotpService, totpCodeAt } = await import("../src/totp.ts"); const { FakeClock } = await import("../src/clock.ts"); const clock = new FakeClock(); const service = new TotpService({ store: store.totp, clock, issuer: "Test" });
   const before = (await store.findById("person"))!.version; const setup = await service.begin("person", "alice"); assert.equal((await store.findById("person"))!.version, before);
   const enabled = await service.confirm("person", totpCodeAt(setup.secret, clock.now())); assert.equal(enabled.ok, true); const version = (await store.findById("person"))!.version; assert.ok(version > before);
-  store.close(); store = new AccountStore({ path, resolve }); t.after(() => store.close()); const reopened = new TotpService({ store: store.totp, clock, issuer: "Test" });
+  store.close(); store = new AccountStore({ path, resolve }); const reopened = new TotpService({ store: store.totp, clock, issuer: "Test" });
   assert.equal(await reopened.isEnabled("person"), true); assert.equal((await reopened.verify("person", totpCodeAt(setup.secret, clock.now()))).ok, false);
   clock.advance(30_000); assert.equal((await reopened.verify("person", totpCodeAt(setup.secret, clock.now()))).ok, true); assert.equal((await store.findById("person"))!.version, version);
   assert.equal((await reopened.status("person")).backupCodesRemaining, 10);
 });
 
 test("passkeys persist across reopen and changes bump the account version; consumed bootstrap never reinitializes", async t => {
-  const dir = mkdtempSync(join(tmpdir(), "passkeys-durable-")), path = join(dir, "accounts.db"); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = mkdtempSync(join(tmpdir(), "passkeys-durable-")), path = join(dir, "accounts.db");
   const resolve = async (userId: string): Promise<CorePerson> => ({ userId, kind: "person", role: "owner", disabled: false, version: 1 }); let store = new AccountStore({ path, resolve });
+  t.after(() => { try { store.close(); } catch { /* already closed */ } rmSync(dir, { recursive: true, force: true }); });
   const { bootstrapHash } = await import("../src/bootstrap.ts"); const proof = randomBytes(32).toString("base64url"); store.initializeBootstrap(bootstrapHash(proof)); await store.bootstrapOwner("christian", "unused");
   const v = (await store.findById("local-owner"))!.version, id = randomBytes(32).toString("base64url"); store.putPasskey("local-owner", { id, name: "Laptop", publicKey: "public-test-key", signCount: 1 }); assert.equal((await store.findById("local-owner"))!.version, v + 1);
-  store.close(); store = new AccountStore({ path, resolve }); t.after(() => store.close()); assert.deepEqual(store.passkeysFor("local-owner").map(k => k.name), ["Laptop"]);
+  store.close(); store = new AccountStore({ path, resolve }); assert.deepEqual(store.passkeysFor("local-owner").map(k => k.name), ["Laptop"]);
   assert.equal(store.advancePasskey("local-owner", id, 1, 2), true); assert.equal(store.advancePasskey("local-owner", id, 1, 3), false);
   store.changePasskey("local-owner", id, "Desktop"); assert.equal((await store.findById("local-owner"))!.version, v + 2);
   store.changePasskey("local-owner", id); assert.equal(store.passkeysFor("local-owner").length, 0); assert.equal((await store.findById("local-owner"))!.version, v + 3);

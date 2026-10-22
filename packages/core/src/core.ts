@@ -48,6 +48,7 @@ import { type HarnessLogger, type Level } from "./logger.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
+import type { A1MemoryOperations } from "./dreams/producer.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
@@ -104,7 +105,7 @@ import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { loadReasoningTable, resolveReasoning } from "./discovery/reasoning.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
-import { createDreams, forgetRemovedAgent, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
+import { createDreams, forgetRemovedAgent, readCandidateMemory, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
@@ -390,7 +391,7 @@ export function createCore(o: CoreOptions): Core {
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
     const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     // Every secret value the store writes, rotates, reveals or leases is masked in the core log from that moment on.
-    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe(value => createdLog.registerSecret(value)); }
+    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe((value, info) => createdLog.registerSecret(value, info)); }
     // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
     // The sidecar's destination is configuration (sidecars.searxng) or the address the container layer injected; the keyed
     // providers go through the egress policy and read their key from the secret store per call. The trace carries lengths,
@@ -508,7 +509,7 @@ export function createCore(o: CoreOptions): Core {
       } });
       discoveryWriter = createWriter({ dir: l.logs, role: "core", source: { kind: "harness", id: "discovery", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes, keep: config.logs.keep });
       unsubscribeDiscoveryRedaction?.();
-      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe(value => discoveryWriter?.registerSecret(value));
+      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe((value, info) => discoveryWriter?.registerSecret(value, info));
       const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
       const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
       const discEvents = o.discovery?.events ?? createD111Events(discoveryWriter);
@@ -745,6 +746,8 @@ export function createCore(o: CoreOptions): Core {
         setRight: (id, userId, right) => people.setRight(id, userId, right),
         clearRights: id => { for (const { userId } of people.rights(id)) people.setRight(id, userId, null); },
         ready: id => { lifecycle.set(id,{ paused:false }); },
+        isDeleted: id => lifecycle.state(id).deleted,
+        setDeleted: (id, deleted) => { lifecycle.set(id, deleted ? { deleted: true, archived: true } : { deleted: false, archived: false, paused: false }); },
         reserve: async id => { lifecycle.set(id,{ paused:true }); const store = await eng.open(id); reservedAgents.set(id, store); },
         release: async id => { const store = reservedAgents.get(id); if (store) { await store.close(); reservedAgents.delete(id); } },
         removeConfig: async (id, expected) => {
@@ -852,10 +855,12 @@ export function createCore(o: CoreOptions): Core {
         egress,
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
         // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
-        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
+        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`, and an owner
+        // that carries a `surface` must have `MIN_SECRET_SURFACE` to write, delete or reveal: the level is the connection's own
+        // (T1 for a token connection, which is where the CLI and the web UI arrive; an attestation can only raise it).
         secrets: { store: secretStore, principalOf: async (ctx, method, params) => {
           const p = await resolvePrincipal(ctx, method, params);
-          return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId } : { kind: "agent" };
+          return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId, surface: connectionSurface({ principal: p, now: clock(), attestation: o.rbac?.attest?.(ctx) }) } : { kind: "agent" };
         } },
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
@@ -954,18 +959,33 @@ export function createCore(o: CoreOptions): Core {
       if (o.discovery?.scheduler !== false) scanScheduler.start();
       // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
       try {
+        // A1 is optional until the Controller pins Engine contract 1.17.0.
+        // These are public host operations under the agent's existing principal,
+        // never calls made by a model or a background AgentContext.
+        const dreamMemory = eng.memory as typeof eng.memory & A1MemoryOperations;
+        const dreamContext = { origin: "system", background: false } as const;
+        const dreamPrincipal = (agentId: string) => {
+          const ws = executionRegistry.workspaceOf(agentId);
+          if (!ws) throw new Error(`dreams agent workspace unavailable: ${agentId}`);
+          return callerToPrincipal(cliCaller(), agentId, ws).principal;
+        };
         dreams = createDreams({
           engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
-          // Content-only producer: Engine.memory.list yields text (+ optional score on a topic query, not on `since`).
-          // Agent-private cards only (ADR-009 Q5). A truncated page throws; the scheduler maps that to engineError.
-          // Gates keep a content-only card from promoting; a deep run then skip/no_candidates (fail closed).
+          // Agent-private public cards plus A1's persistent recall counters when
+          // available. Missing A1 keeps promotion closed, never maintenance. A
+          // truncated corpus fails closed after the independent jobs ran.
           candidateMemory: {
             async list(agentId) {
               const ws = executionRegistry.workspaceOf(agentId);
               if (!ws) return [];
-              const { principal } = callerToPrincipal(cliCaller(), agentId, ws);
-              return itemsFromEngineList(await eng.memory.list({ since: 0, limit: 100 }, principal, AGENT_CONTEXT_CLI));
+              return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
             },
+            ...(typeof dreamMemory.stats === "function" ? {
+              stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
+            } : {}),
+            ...(typeof dreamMemory.promote === "function" ? {
+              promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
+            } : {}),
           },
           ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
         });

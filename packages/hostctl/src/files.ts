@@ -1,5 +1,5 @@
 import { atomicWrite } from './atomic.ts';
-import { textMatcher } from './search.ts';
+import { matchMany } from './search.ts';
 import { constants } from 'node:fs';
 import { mkdir, rename, realpath, lstat } from 'node:fs/promises';
 import path from 'node:path';
@@ -9,6 +9,7 @@ import { createFsOps } from '../../core/src/tools/fs/ops.ts';
 import { denyEntriesFor, isHostPlatform } from '../../core/src/host-tools/index.ts';
 import { fail, string, integer } from './errors.ts';
 import type { HostctlConfig } from './config.ts';
+const SEARCH_BATCH_FILES = 32, SEARCH_BATCH_CHARS = 8 << 20;
 export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[], config: HostctlConfig, trash: (path: string, signal: AbortSignal) => Promise<void>, home = homedir(), env: NodeJS.ProcessEnv = process.env, afterStage?: () => Promise<void>) {
   const cwd = roots[0]?.path;
   const deny = [...denyEntriesFor(home, env, isHostPlatform(process.platform) ? process.platform : 'linux'), { name: '.env' }, { name: 'api-owner.token' }, { name: 'core.token' }, { name: 'supervisor.token' }, ...extraDeny];
@@ -38,21 +39,28 @@ export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[
     if (await realpath(path.dirname(c.canonical)) !== parent.canonical) fail('CHANGED', 'Parent changed; review before retrying.');
     return c;
   };
-  const walk = async (input: string, depth: number, limit: number, signal: AbortSignal) => {
-    const entries: { path: string; type: string }[] = []; let truncated = false; let scanned = 0;
-    const visit = async (dir: string, prefix: string, remaining: number) => {
-      signal.throwIfAborted(); if (++scanned > 1000) { truncated = true; return; }
+  // The listing is produced lazily, so a caller that stops early (a search whose results are full) pays only for the entries it consumed:
+  // every entry costs one canonicalisation, which resolves the deny-list and the roots again.
+  const scan = (input: string, depth: number, limit: number, signal: AbortSignal) => {
+    const state = { truncated: false, count: 0, scanned: 0 };
+    async function* visit(dir: string, prefix: string, remaining: number): AsyncGenerator<{ path: string; type: string }> {
+      signal.throwIfAborted(); if (++state.scanned > 1000) { state.truncated = true; return; }
       await canon(dir, 'read');
-      const result = await fs.list({ path: dir, maxEntries: 1000 }, { signal }); truncated ||= result.truncated;
+      const result = await fs.list({ path: dir, maxEntries: 1000 }, { signal }); state.truncated ||= result.truncated;
       for (const item of result.entries) {
-        if (entries.length >= limit) { truncated = true; return; }
+        if (state.count >= limit) { state.truncated = true; return; }
         const full = path.join(dir, item.name); const relative = prefix + item.name;
         try { await canon(full, 'read'); } catch { continue; }
-        entries.push({ path: relative, type: item.type });
-        if (remaining > 0 && item.type === 'directory') await visit(full, relative + '/', remaining - 1);
+        state.count++; yield { path: relative, type: item.type };
+        if (remaining > 0 && item.type === 'directory') yield* visit(full, relative + '/', remaining - 1);
       }
-    };
-    await visit(input, '', depth); return { entries, truncated };
+    }
+    return { state, entries: visit(input, '', depth) };
+  };
+  const walk = async (input: string, depth: number, limit: number, signal: AbortSignal) => {
+    const listing = scan(input, depth, limit, signal); const entries: { path: string; type: string }[] = [];
+    for await (const entry of listing.entries) entries.push(entry);
+    return { entries, truncated: listing.state.truncated };
   };
   return { canon, async run(op: string, a: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
     signal.throwIfAborted(); const input = string(a, 'path') === '.' ? cwd! : string(a, 'path'); await canon(input, /^(read|list|search|stat)$/.test(op) ? 'read' : 'write');
@@ -70,18 +78,31 @@ export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[
       }
       case 'list': return walk(input, integer(a.depth, 0, 16), integer(a.limit, config.search.maxResults, 1000), signal);
       case 'search': {
-        const matcher = await textMatcher();
         const query = string(a, 'query'); if (!query) fail('INVALID_ARGUMENT', 'Use a nonempty literal query.');
-        const listing = await walk(input, integer(a.depth, 8, 16), 1000, signal); const matches: { path: string }[] = []; let truncated = listing.truncated;
+        const listing = scan(input, integer(a.depth, 8, 16), 1000, signal); const matches: { path: string }[] = []; let truncated = false, full = false;
         const limit = integer(a.limit, config.search.maxResults, config.search.maxResults);
-        for (const item of listing.entries) {
-          signal.throwIfAborted(); let match = a.mode !== 'content' && item.path.includes(query);
-          if (a.mode === 'content' && item.type === 'file') {
-            try { match = await matcher.matches((await fs.read({ path: path.join(input, item.path), encoding: 'utf8' }, { signal })).content, query, signal); } catch { continue; }
+        const take = (hit: string) => { if (matches.length >= limit) { truncated = true; full = true; } else matches.push({ path: hit }); };
+        // Content mode reads each file through the verified path and tests a batch of the loaded texts at a time, in this process (no child process).
+        let batch: { path: string; text: string }[] = [], batchBytes = 0;
+        const flush = async () => {
+          const pending = batch; batch = []; batchBytes = 0; if (pending.length === 0) return;
+          const hits = await matchMany(pending.map(p => p.text), query, signal);
+          for (let i = 0; i < pending.length && !full; i++) if (hits[i]) take(pending[i]!.path);
+        };
+        for await (const item of listing.entries) {
+          signal.throwIfAborted();
+          if (a.mode !== 'content') { if (item.path.includes(query)) take(item.path); }
+          else if (item.type === 'file') {
+            let text: string;
+            try { text = (await fs.read({ path: path.join(input, item.path), encoding: 'utf8' }, { signal })).content; } catch { continue; }
+            batch.push({ path: item.path, text }); batchBytes += text.length;
+            if (batch.length >= SEARCH_BATCH_FILES || batchBytes >= SEARCH_BATCH_CHARS) await flush();
           }
-          if (match) { if (matches.length >= limit) { truncated = true; break; } matches.push({ path: item.path }); }
+          if (full) break;
         }
-        return { matches, truncated, backend: matcher.backend };
+        if (!full) await flush();
+        if (!full) truncated = listing.state.truncated;
+        return { matches, truncated, backend: 'bounded-js' };
       }
       case 'mkdir': { const c = await entry(input); signal.throwIfAborted(); await mkdir(c.canonical, { mode: 0o700 }); await canon(c.canonical, 'read'); return { created: true }; }
       case 'copy': case 'move': {

@@ -7,10 +7,10 @@ import { LicenceLedger } from "../../src/licences/ledger.ts";
 import { checkMemorySelection,memoryModel } from "../../src/licences/memory.ts";
 import { memoryAuditSink } from "../../src/rbac/audit.ts";
 test("full model/revision/actor/time/licence acceptance is audited and survives reopening",t=>{
- const home=mkdtempSync(join(tmpdir(),"licences-"));t.after(()=>rmSync(home,{recursive:true,force:true}));const audit=memoryAuditSink(),path=join(home,"licences.sqlite"),model=memoryModel("jinaai/jina-embeddings-v3");
+ const home=mkdtempSync(join(tmpdir(),"licences-"));const closers:Array<()=>void>=[];t.after(()=>{for(const c of closers.reverse())c();rmSync(home,{recursive:true,force:true});});/* reopened ledgers close before the directory goes: hooks run in registration order, Windows cannot remove an open SQLite file */const audit=memoryAuditSink(),path=join(home,"licences.sqlite"),model=memoryModel("jinaai/jina-embeddings-v3");
  const ledger=new LicenceLedger(path,audit,()=>12345);const change=[{key:"engine.embedding.local.model",value:model.model}];
  assert.throws(()=>checkMemorySelection(ledger,"owner",change));const acceptance=ledger.confirm("owner",model.model,model.licence,model.revision,"memory");ledger.close();
- const reopened=new LicenceLedger(path,audit,()=>99999);t.after(()=>reopened.close());assert.deepEqual(reopened.list(),[acceptance]);assert.equal(acceptance.who,"owner");assert.equal(acceptance.at,new Date(12345).toISOString());assert.equal(acceptance.revision.length,40);
+ const reopened=new LicenceLedger(path,audit,()=>99999);closers.push(()=>reopened.close());assert.deepEqual(reopened.list(),[acceptance]);assert.equal(acceptance.who,"owner");assert.equal(acceptance.at,new Date(12345).toISOString());assert.equal(acceptance.revision.length,40);
  checkMemorySelection(reopened,"owner",change);assert.throws(()=>checkMemorySelection(reopened,"other",change));assert.equal(audit.events[0]!.action,"model.licence.confirmed");
 });
 test("audit failure prevents confirmation persistence",()=>{

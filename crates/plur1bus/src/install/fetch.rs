@@ -453,10 +453,14 @@ mod tests {
                 .iter()
                 .map(|(k, _)| (*k, std::env::var_os(k)))
                 .collect();
+            // Removals first, then assignments. Windows environment names are case-insensitive, so removing
+            // `https_proxy` after setting `HTTPS_PROXY` would delete the value just set.
+            for (k, _) in vars.iter().filter(|(_, v)| v.is_none()) {
+                std::env::remove_var(k);
+            }
             for (k, v) in vars {
-                match v {
-                    Some(v) => std::env::set_var(k, v),
-                    None => std::env::remove_var(k),
+                if let Some(v) = v {
+                    std::env::set_var(k, v);
                 }
             }
             EnvGuard(saved)
@@ -546,6 +550,16 @@ mod tests {
             rx.recv_timeout(Duration::from_millis(500)).is_err(),
             "NO_PROXY was ignored"
         );
+    }
+
+    /// Windows environment names are case-insensitive: the proxy test lists `HTTPS_PROXY` and `https_proxy`, and a
+    /// guard that applied the removal of one after the assignment of the other lost the proxy (CI, windows-2025).
+    #[cfg(windows)]
+    #[test]
+    fn env_guard_keeps_a_value_when_the_same_name_in_another_case_is_removed() {
+        let _lock = ENV.lock().unwrap_or_else(|p| p.into_inner());
+        let _g = EnvGuard::set(&[("P1B_CASE_PROBE", Some("kept")), ("p1b_case_probe", None)]);
+        assert_eq!(std::env::var("P1B_CASE_PROBE").as_deref(), Ok("kept"));
     }
 
     #[test]
