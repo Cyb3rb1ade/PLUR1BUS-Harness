@@ -6,11 +6,23 @@ import { networkInterfaces } from "node:os";
 import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { admitSocket, certPin, inspectCertificate, compileAllowlist, confirmSecurityNotice, parseRemoteConfig, detectServe, detectTailscale, firstAidChecks, noticeNeeded, planListeners, planServe, planServeOff, runServePlan, type ExecPort, type FirstAidEntry, type HostInterface, type NoticeAck, type RemoteConfig } from "../../remote-access/src/index.ts";
+import { cidrContainsPublic, formatRange, formatWitness, parseCidr } from "./net-bridge.ts";
 import type { ApiServer } from "./server.ts";
 import { RemoteCertificates, privateAtomicJson, readPrivateText, type RemoteTlsMaterial } from "./remote-certificates.ts";
 export interface RemoteBind {
   host: string; port: number; tls?: { key: string; cert: string };
   remote: { publish: "network" | "tailnet"; publicOrigin: string; allowSubnets: readonly string[]; noticeAck?: NoticeAck & { version: number } };
+}
+/** The configured ranges that contain public addresses, each with the lowest one as an example (spec §4.5). Feeds the
+ *  `remote.allowlist-public` Doctor row; it only informs, the list is enforced as configured. A line `parseCidr` cannot read
+ *  is skipped here (`compileAllowlist` is what refuses an invalid list). */
+export function allowlistPublic(subnets: readonly string[]): { cidr: string; example: string }[] {
+  const out: { cidr: string; example: string }[] = [];
+  for (const cidr of subnets) {
+    const range = parseCidr(cidr.trim()); const witness = range && cidrContainsPublic(range);
+    if (range && witness) out.push({ cidr: formatRange(range), example: formatWitness(witness) });
+  }
+  return out;
 }
 export interface RemoteRuntimeState {
   publish: RemoteConfig["publish"]; phase: "inactive" | "active" | "failed"; publicOrigin?: string; fingerprint?: string;
@@ -93,7 +105,7 @@ export async function startRemoteRuntime(o: {
       const server = api.server as unknown as { setSecureContext: (material: { key: string; cert: string }) => void };
       try {
         server.setSecureContext({ key: staged.key, cert: staged.cert }); const activated = certificates.activateStaged();
-        record({ ...state, fingerprint: activated.certPin, doctor: firstAidChecks(config, { now: now(), noticeAck: o.noticeAck, certNotAfter: activated.notAfter, tlsReady: true }) });
+        record({ ...state, fingerprint: activated.certPin, doctor: firstAidChecks(config, { now: now(), noticeAck: o.noticeAck, certNotAfter: activated.notAfter, tlsReady: true, allowlistPublic: allowlistPublic(config.allowSubnets) }) });
       } catch { await api.close(); api = undefined; record({ publish: config.publish, phase: "failed", doctor: [{ id: "remote.rotation-failed", severity: "warn", message: "TLS rotation failed; the remote listener closed safely." }] }); throw new Error("remote TLS rotation failed"); }
     },
     async close() {
@@ -145,6 +157,6 @@ export async function startRemoteRuntime(o: {
     const allowed = compileAllowlist(config.allowSubnets); if (!allowed.ok) return fail("remote.allowlist-invalid", "Client subnet allowlist contains an invalid CIDR; no remote listener opened.");
     api = o.createApi({ host: bind.address, port: bind.port, tls: { key: material.key, cert: material.cert }, remote: { publish: "network", publicOrigin: origin.origin, allowSubnets: config.allowSubnets, ...(o.noticeAck ? { noticeAck: o.noticeAck } : {}) } });
     api.server.on("connection", socket => { if (!admitSocket(allowed.list, socket)) socket.destroy(); }); await api.listen();
-    record({ publish: "network", phase: "active", publicOrigin: origin.origin, fingerprint: material.certPin, doctor: firstAidChecks(config, { now: now(), noticeAck: o.noticeAck, certNotAfter: material.notAfter, tlsReady: true }) }); return result;
+    record({ publish: "network", phase: "active", publicOrigin: origin.origin, fingerprint: material.certPin, doctor: firstAidChecks(config, { now: now(), noticeAck: o.noticeAck, certNotAfter: material.notAfter, tlsReady: true, allowlistPublic: allowlistPublic(config.allowSubnets) }) }); return result;
   } catch { return fail("remote.tls-unavailable", "Remote TLS material or listener is unavailable; network access stays closed. Check certificate validity and permissions."); }
 }

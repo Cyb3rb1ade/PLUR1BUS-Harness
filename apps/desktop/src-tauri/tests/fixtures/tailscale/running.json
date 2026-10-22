@@ -1,0 +1,59 @@
+{
+  "Version": "1.90.0-synthetic",
+  "TUN": true,
+  "BackendState": "Running",
+  "HaveNodeKey": true,
+  "AuthURL": "",
+  "TailscaleIPs": ["100.90.0.1", "fd7a:115c:a1e0::1"],
+  "Self": {
+    "ID": "self-node",
+    "HostName": "workstation-host",
+    "DNSName": "workstation.example.ts.net.",
+    "OS": "macOS",
+    "UserID": 1001,
+    "TailscaleIPs": ["100.90.0.1", "fd7a:115c:a1e0::1"],
+    "Online": true
+  },
+  "Health": [],
+  "MagicDNSSuffix": "example.ts.net",
+  "CurrentTailnet": {
+    "Name": "alice@example.com",
+    "MagicDNSSuffix": "example.ts.net",
+    "MagicDNSEnabled": true
+  },
+  "Peer": {
+    "peer-nas": {
+      "ID": "peer-nas-id",
+      "HostName": "nas-host",
+      "DNSName": "nas.example.ts.net.",
+      "OS": "linux",
+      "UserID": 1001,
+      "TailscaleIPs": ["100.101.102.103", "fd7a:115c:a1e0::65"],
+      "Online": true,
+      "PrimaryRoutes": null
+    },
+    "peer-laptop": {
+      "ID": "peer-laptop-id",
+      "HostName": "laptop-host",
+      "DNSName": "laptop.example.ts.net.",
+      "OS": "windows",
+      "UserID": 1002,
+      "TailscaleIPs": ["100.101.102.104", "fd7a:115c:a1e0::66"],
+      "Online": true
+    },
+    "peer-router": {
+      "ID": "peer-router-id",
+      "HostName": "router-host",
+      "DNSName": "router.example.ts.net.",
+      "OS": "linux",
+      "UserID": 1002,
+      "TailscaleIPs": ["100.101.102.105"],
+      "Online": true,
+      "PrimaryRoutes": ["192.168.10.0/24"]
+    }
+  },
+  "User": {
+    "1001": { "ID": 1001, "LoginName": "alice@example.com", "DisplayName": "Alice Example" },
+    "1002": { "ID": 1002, "LoginName": "bob@example.com", "DisplayName": "Bob Example" }
+  }
+}

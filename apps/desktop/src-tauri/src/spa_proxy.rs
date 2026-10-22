@@ -259,16 +259,24 @@ impl SpaProxy {
         *self.inner.session_meta.lock().unwrap() = fresh;
         Ok(())
     }
-    /// Reserved port (retired origins cannot be leased again by this process).
-    /// Rust-only update after authenticated trust persistence. Admission and jar stay in this session.
+    /// The checked addresses this carrier's upstream client is pinned to (transport choice spec §9.2).
+    pub fn pin(&self) -> Option<crate::transport::ConnectPin> {
+        self.inner.client.read().unwrap().pin().cloned()
+    }
+    /// Rust-only update after authenticated trust persistence. Admission and jar stay in this session. A pinned
+    /// carrier only takes a pinned client.
     pub fn update_transport(&self, client: HarnessClient) -> Result<(), ClientError> {
         if client.origin() != &self.inner.upstream_origin {
+            return Err(ClientError::Protocol);
+        }
+        if client.pin().is_none() && self.inner.client.read().unwrap().pin().is_some() {
             return Err(ClientError::Protocol);
         }
         client.streaming_http()?;
         *self.inner.client.write().unwrap() = client;
         Ok(())
     }
+    /// Reserved port (retired origins cannot be leased again by this process).
     pub fn port(&self) -> u16 {
         self.port
     }
@@ -553,15 +561,9 @@ async fn forward(
             return StatusCode::BAD_GATEWAY.into_response();
         };
         upstream.headers_mut().extend(headers);
-        let connector = match client.websocket_connector() {
-            Ok(v) => v,
-            Err(_) => return StatusCode::BAD_GATEWAY.into_response(),
-        };
-        let opened = tokio::time::timeout(
-            Duration::from_secs(10),
-            tokio_tungstenite::connect_async_tls_with_config(upstream, None, false, connector),
-        )
-        .await;
+        // The client connects to the open's checked addresses only (transport choice spec §9.2).
+        let opened =
+            tokio::time::timeout(Duration::from_secs(10), client.websocket_connect(upstream)).await;
         let Ok(Ok((socket, response))) = opened else {
             return StatusCode::BAD_GATEWAY.into_response();
         };

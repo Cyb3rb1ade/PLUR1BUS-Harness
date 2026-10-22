@@ -11,6 +11,7 @@ test("pair_link_prefills_and_never_pairs: origin and pin visible, existing rows 
     assert.equal(await page.locator("#pair-code-second").inputValue(), "1234");
     assert.equal(await page.evaluate(() => (window as any).testShell.calls.pair), 0);
     await page.locator("#pair-name").fill("Work harness");
+    await page.getByRole("radio", { name: "Direct" }).check();
     await page.locator('form button[type="submit"]').click();
     await page.waitForFunction(() => (window as any).testShell.calls.pair === 1);
   });
@@ -53,6 +54,7 @@ test("failed confirmed pairing keeps readonly code for an explicit retry", async
   await withShell(async page => {
     await page.evaluate(() => { (window as any).testShell.setPairingError("network"); (window as any).testShell.offerLink({ id: 4, intent: {kind:"pair", origin:"https://harness.test", code:"ABCD-1234",pin:null,ca:null} }); });
     await page.locator("#pair-name").fill("Desk");
+    await page.getByRole("radio", { name: "Direct" }).check();
     await page.locator('form button[type="submit"]').click();
     await page.waitForFunction(() => (window as any).testShell.calls.pair === 1);
     assert.equal(await page.locator("#pair-code-first").inputValue(), "ABCD");

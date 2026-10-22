@@ -134,3 +134,43 @@ test("firstAidChecks: everything at once is ordered, unique and all warnings", (
   assert.equal(new Set(out.map((e) => e.id)).size, out.length);
   assert.ok(out.every((e) => e.severity === "warn"));
 });
+
+// --- remote.allowlist-public (desktop transport choice, spec §4.5: a notice, never a refusal) ----------------------------
+
+test("firstAidChecks: a public range in the allow-list is a warning that names the range and an example address", () => {
+  for (const [cidr, example] of [["0.0.0.0/0", "1.0.0.0"], ["100.0.0.0/8", "100.0.0.0"], ["::/0", "1.0.0.0"]] as const) {
+    const out = firstAidChecks({ ...NET, allowSubnets: [cidr] }, { ...GOOD, allowlistPublic: [{ cidr, example }] });
+    assert.deepEqual(out.map((e) => e.id), ["remote.network-on", "remote.allowlist-public"], cidr);
+    const row = out[1]!;
+    assert.equal(row.severity, "warn");
+    assert.ok(row.message.startsWith(`${cidr} contains public addresses (for example ${example})`), row.message);
+    assert.match(row.fix ?? "", /organisation owns this block/);
+    assert.match(row.fix ?? "", /remote\.allowSubnets/);
+  }
+});
+
+test("firstAidChecks: one warning per public range, in the order given; private ranges add none", () => {
+  const out = firstAidChecks({ ...NET, allowSubnets: ["10.0.0.0/8", "8.8.8.0/24", "fd00::/8", "100.0.0.0/8"] },
+    { ...GOOD, allowlistPublic: [{ cidr: "8.8.8.0/24", example: "8.8.8.0" }, { cidr: "100.0.0.0/8", example: "100.0.0.0" }] });
+  assert.deepEqual(out.map((e) => e.id), ["remote.network-on", "remote.allowlist-public", "remote.allowlist-public"]);
+  assert.match(out[1]!.message, /^8\.8\.8\.0\/24 contains/);
+  assert.match(out[2]!.message, /^100\.0\.0\.0\/8 contains/);
+});
+
+test("firstAidChecks: no public ranges, an empty list or no state at all add no allowlist-public warning", () => {
+  for (const state of [GOOD, { ...GOOD, allowlistPublic: [] }]) assert.deepEqual(ids(NET, state), ["remote.network-on"]);
+  assert.deepEqual(ids({ ...NET, allowSubnets: ["fd00::/8"] }, { ...GOOD, allowlistPublic: [] }), ["remote.network-on"]);
+});
+
+test("firstAidChecks: the allowlist-public warning exists only while publish is network (the one level that enforces the list)", () => {
+  const state: FirstAidState = { ...GOOD, allowlistPublic: [{ cidr: "0.0.0.0/0", example: "1.0.0.0" }] };
+  for (const publish of ["local", "tailnet"] as const) assert.deepEqual(firstAidChecks({ ...NET, publish, allowSubnets: ["0.0.0.0/0"] }, state), [], publish);
+  assert.deepEqual(ids({ ...NET, allowSubnets: ["0.0.0.0/0"] }, state), ["remote.network-on", "remote.allowlist-public"]);
+});
+
+test("firstAidChecks: an allowlist-public row follows the empty-list and certificate rows and never blocks anything", () => {
+  const out = firstAidChecks({ ...NET, allowSubnets: ["0.0.0.0/0"] }, { now: T0, certNotAfter: T0 + DAY, tlsReady: false, funnelActive: true, allowlistPublic: [{ cidr: "0.0.0.0/0", example: "1.0.0.0" }] });
+  assert.deepEqual(out.map((e) => e.id), [
+    "remote.funnel-active", "remote.network-on", "remote.notice-unconfirmed", "remote.tls-not-ready", "remote.cert-expiring", "remote.allowlist-public",
+  ]);
+});

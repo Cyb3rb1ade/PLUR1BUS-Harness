@@ -24,7 +24,7 @@ test("withDeadline passes results and errors through and rejects with the timeou
 test("withDeadlines bounds exactly the three calls that can hang and leaves every other call untouched", async () => {
   const base = { connectionsList: () => never(), pairCode: () => never(), harnessLogsTail: () => never<string>(), settingsGet: async () => ({ theme: "dark", locale: "de" }) } as unknown as DesktopTransport;
   const bounded = withDeadlines(base, { connectionsList: 15, pairCode: 15, harnessLogsTail: 15 });
-  for (const call of [() => bounded.connectionsList(), () => bounded.pairCode({ name: "n", origin: "https://harness.test", code: "ABCD-2345", repairId: null }), () => bounded.harnessLogsTail!()]) await assert.rejects(call(), isTimeout);
+  for (const call of [() => bounded.connectionsList(), () => bounded.pairCode({ name: "n", origin: "https://harness.test", code: "ABCD-2345", repairId: null, transport: "direct", publicAck: false }), () => bounded.harnessLogsTail!()]) await assert.rejects(call(), isTimeout);
   assert.equal(bounded.settingsGet, base.settingsGet);
   const { harnessLogsTail: _absent, ...withoutLogs } = base;
   assert.equal(withDeadlines(withoutLogs as DesktopTransport, DEADLINES).harnessLogsTail, undefined, "an absent call stays absent");
@@ -41,7 +41,7 @@ test("a pair_code that is still waiting after the old 45 s deadline is not timed
   t.mock.timers.enable({ apis: ["setTimeout"] });
   let answer: (value: string) => void = () => {};
   const base = { pairCode: () => new Promise<string>(resolve => { answer = resolve; }) } as unknown as DesktopTransport;
-  const pending = withDeadlines(base).pairCode({ name: "n", origin: "https://harness.test", code: "ABCD-2345", repairId: null }) as unknown as Promise<string>;
+  const pending = withDeadlines(base).pairCode({ name: "n", origin: "https://harness.test", code: "ABCD-2345", repairId: null, transport: "direct", publicAck: false }) as unknown as Promise<string>;
   let settled = false;
   pending.then(() => { settled = true; }, () => { settled = true; });
   t.mock.timers.tick(45_001);
@@ -49,7 +49,7 @@ test("a pair_code that is still waiting after the old 45 s deadline is not timed
   assert.equal(settled, false, "the person is still answering the prompt");
   answer("paired");
   assert.equal(await pending, "paired");
-  const late = withDeadlines(base).pairCode({ name: "n", origin: "https://harness.test", code: "ABCD-2345", repairId: null }) as unknown as Promise<string>;
+  const late = withDeadlines(base).pairCode({ name: "n", origin: "https://harness.test", code: "ABCD-2345", repairId: null, transport: "direct", publicAck: false }) as unknown as Promise<string>;
   const rejected = assert.rejects(late, isTimeout);
   t.mock.timers.tick(120_000);
   await rejected;
@@ -86,6 +86,7 @@ test("a pair_code that never answers unlocks the form with a timeout message and
     await page.getByRole("button", { name: "Add remote", exact: true }).click();
     await page.getByLabel("Name", { exact: true }).fill("Desk");
     await page.getByLabel("Harness origin").fill("https://harness.test");
+    await page.getByRole("radio", { name: "Direct" }).check();
     await page.getByLabel("First four characters").fill("ABCD");
     await page.getByLabel("Last four characters").fill("2345");
     await page.evaluate(() => (window as any).testShell.hold("pair"));

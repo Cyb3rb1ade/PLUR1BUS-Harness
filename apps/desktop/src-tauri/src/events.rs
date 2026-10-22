@@ -33,6 +33,98 @@ pub struct EventUpdate {
     pub connected: bool,
     pub failure: Option<SessionFailure>,
 }
+/// What the status stream does before a reconnect (transport choice spec §9.2).
+pub enum Reconnect {
+    /// Reconnect with the same client (connections without a transport check).
+    Same,
+    /// Reconnect with this client, pinned to the addresses of a fresh check.
+    Use(Box<HarnessClient>),
+    /// Nothing to connect to now (the check found no address): wait another backoff.
+    Skip,
+    /// Stop: the target needs a confirmation the app never gives on its own.
+    Stop,
+}
+/// The shell event a reconnect stopped for a confirmation raises (transport choice spec §9.2).
+pub const TRANSPORT_ATTENTION: &str = "transport-attention";
+/// The shell event after a tray switch that opened or failed (desktop spec §6.3): `{ id, error }`; the connection list
+/// refreshes, and a failure shows on the connection.
+pub const TRAY_SWITCH: &str = "desktop-tray-switch";
+
+/// What a reconnect's transport check means for the tray and the shell.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReconnectOutcome {
+    /// Reconnecting over a fresh check of this path: the tray shows its path and Tailscale notice.
+    Checked(
+        crate::transport::Transport,
+        crate::transport::TransportReport,
+    ),
+    /// Stopped: the target needs a confirmation the app never gives on its own.
+    Attention {
+        id: uuid::Uuid,
+        transport: crate::transport::Transport,
+        code: &'static str,
+    },
+}
+impl ReconnectOutcome {
+    pub fn apply(&self, view: &mut crate::tray::TrayState) {
+        match self {
+            Self::Checked(transport, report) => view.set_transport(Some((*transport, report))),
+            Self::Attention { transport, .. } => view.set_confirm_needed(*transport),
+        }
+    }
+    /// The `transport-attention` payload for the shell, for a stop.
+    pub fn event(&self) -> Option<serde_json::Value> {
+        match self {
+            Self::Checked(..) => None,
+            Self::Attention { id, code, .. } => Some(serde_json::json!({ "id": id, "code": code })),
+        }
+    }
+}
+
+/// The decision before a reconnect of a connection's status or trust stream (transport choice spec §9.2, §5.4): rows
+/// without a transport reconnect as before; a remote row runs the shared re-check and reconnects only over its
+/// addresses, waits another backoff when nothing resolves, and stops when the target needs a confirmation.
+/// `earlier_private` carries whether the previous check of this open found the target not public.
+pub async fn transport_reconnect(
+    transports: &crate::transport::Transports,
+    store: &crate::transport::TransportStore,
+    row: &crate::connections::Connection,
+    client: &HarnessClient,
+    earlier_private: &std::sync::atomic::AtomicBool,
+) -> (Reconnect, Option<ReconnectOutcome>) {
+    use crate::transport::Recheck;
+    use std::sync::atomic::Ordering;
+    if row.kind != crate::connections::Kind::Remote {
+        return (Reconnect::Same, None);
+    }
+    let transport = transports.effective(store, row).transport;
+    match transports
+        .recheck_shared(store, row, earlier_private.load(Ordering::SeqCst))
+        .await
+    {
+        Recheck::Pinned(checked) => {
+            earlier_private.store(
+                checked.report.category != Some(crate::transport::Category::Public),
+                Ordering::SeqCst,
+            );
+            let outcome = ReconnectOutcome::Checked(transport, checked.report);
+            (
+                Reconnect::Use(Box::new(client.clone().with_pin(checked.pin))),
+                Some(outcome),
+            )
+        }
+        Recheck::Attention(code) => (
+            Reconnect::Stop,
+            Some(ReconnectOutcome::Attention {
+                id: row.id,
+                transport,
+                code,
+            }),
+        ),
+        Recheck::Retry => (Reconnect::Skip, None),
+    }
+}
+
 #[derive(Default)]
 pub struct EventStream {
     approval_sink: Option<ApprovalSink>,
@@ -190,18 +282,81 @@ impl EventStream {
         client: &HarnessClient,
         installation: &str,
         token: &SecretString,
-        mut stop: watch::Receiver<bool>,
-        mut emit: impl FnMut(EventUpdate) -> E,
-        mut jitter: impl FnMut() -> f64,
-        mut wait: F,
+        stop: watch::Receiver<bool>,
+        emit: impl FnMut(EventUpdate) -> E,
+        jitter: impl FnMut() -> f64,
+        wait: F,
     ) where
         F: FnMut(Duration) -> Fut,
         Fut: Future<Output = ()>,
         E: Future<Output = ()>,
     {
+        self.run_checked_with_timing(
+            client,
+            installation,
+            token,
+            stop,
+            emit,
+            jitter,
+            wait,
+            || std::future::ready(Reconnect::Same),
+        )
+        .await;
+    }
+    /// [`Self::run_async`] that asks `reconnect` before every reconnect (transport choice spec §9.2: every reconnect
+    /// runs the full check again and connects over its addresses).
+    pub async fn run_checked<E, R, RF>(
+        &mut self,
+        client: &HarnessClient,
+        installation: &str,
+        token: &SecretString,
+        stop: watch::Receiver<bool>,
+        emit: impl FnMut(EventUpdate) -> E,
+        reconnect: R,
+    ) where
+        E: Future<Output = ()>,
+        R: FnMut() -> RF,
+        RF: Future<Output = Reconnect>,
+    {
+        self.run_checked_with_timing(
+            client,
+            installation,
+            token,
+            stop,
+            emit,
+            rand::random::<f64>,
+            |delay| async move {
+                tokio::time::sleep(delay).await;
+            },
+            reconnect,
+        )
+        .await;
+    }
+    #[allow(clippy::too_many_arguments)]
+    /// The reconnect loop with its timing and reconnect seams. After a failed stream it publishes `Down`, waits the
+    /// backoff and asks `reconnect`: [`Reconnect::Same`] and [`Reconnect::Use`] reconnect, [`Reconnect::Skip`] waits
+    /// another backoff, [`Reconnect::Stop`] ends the loop.
+    pub async fn run_checked_with_timing<F, Fut, E, R, RF>(
+        &mut self,
+        client: &HarnessClient,
+        installation: &str,
+        token: &SecretString,
+        mut stop: watch::Receiver<bool>,
+        mut emit: impl FnMut(EventUpdate) -> E,
+        mut jitter: impl FnMut() -> f64,
+        mut wait: F,
+        mut reconnect: R,
+    ) where
+        F: FnMut(Duration) -> Fut,
+        Fut: Future<Output = ()>,
+        E: Future<Output = ()>,
+        R: FnMut() -> RF,
+        RF: Future<Output = Reconnect>,
+    {
+        let mut current = client.clone();
         while !*stop.borrow() {
             let result = self
-                .consume(client, installation, token, &mut stop, &mut emit)
+                .consume(&current, installation, token, &mut stop, &mut emit)
                 .await;
             if *stop.borrow() || stop.has_changed().is_err() {
                 return;
@@ -243,8 +398,28 @@ impl EventStream {
             {
                 return;
             }
-            let delay = self.next_delay(jitter());
-            tokio::select! { _ = wait(delay) => {}, _ = stop.changed() => {} }
+            loop {
+                let delay = self.next_delay(jitter());
+                tokio::select! { _ = wait(delay) => {}, _ = stop.changed() => {} }
+                if *stop.borrow() {
+                    return;
+                }
+                let next = tokio::select! {
+                    biased;
+                    next = reconnect() => next,
+                    _ = stop.changed() => return,
+                };
+                match next {
+                    Reconnect::Same => break,
+                    Reconnect::Use(client) => {
+                        current = *client;
+                        break;
+                    }
+                    Reconnect::Skip if stop.has_changed().is_err() => return,
+                    Reconnect::Skip => continue,
+                    Reconnect::Stop => return,
+                }
+            }
         }
     }
     async fn consume<E: Future<Output = ()>>(

@@ -221,6 +221,19 @@ pub async fn pair_code(
     store: &Store,
     repair: Option<uuid::Uuid>,
 ) -> Result<Connection, PairError> {
+    pair_code_pinned(origin, code, name, tokens, store, repair, None).await
+}
+/// [`pair_code`] whose every connection goes to the checked addresses of `connect` (transport choice spec §7.1: the
+/// shell re-runs the check and pairs over the checked addresses). `None` pairs unpinned.
+pub async fn pair_code_pinned(
+    origin: &str,
+    code: &str,
+    name: &str,
+    tokens: &dyn TokenStore,
+    store: &Store,
+    repair: Option<uuid::Uuid>,
+    connect: Option<crate::transport::ConnectPin>,
+) -> Result<Connection, PairError> {
     let origin = Origin::parse(origin).map_err(|_| PairError::InsecureOrigin)?;
     let existing = if let Some(id) = repair {
         Some(
@@ -240,8 +253,13 @@ pub async fn pair_code(
     {
         return Err(PairError::Invalid);
     }
-    pair(
-        origin,
+    let client = HarnessClient::new(origin, None);
+    let client = match connect {
+        Some(pin) => client.with_pin(pin),
+        None => client,
+    };
+    pair_using_client(
+        client,
         code,
         name,
         existing.as_ref().map_or(Kind::Remote, |c| c.kind.clone()),
@@ -307,6 +325,10 @@ async fn pair_using_client_inner(
     let origin = client.origin().clone();
     if existing.as_ref().is_some_and(|c| c.origin != origin) {
         return Err(PairError::Invalid);
+    }
+    // A remote harness off loopback is paired only over checked addresses (transport choice spec §9.2).
+    if kind == Kind::Remote && client.pin().is_none() && !origin.is_loopback() {
+        return Err(ClientError::Protocol.into());
     }
     client.establish_pairing_trust(code).await?;
     let meta = client.meta().await?;
@@ -417,6 +439,15 @@ pub async fn validate_connection(
     tokens: &dyn TokenStore,
     store: &Store,
 ) -> Result<(), PairError> {
+    validate_connection_pinned(c, tokens, store, None).await
+}
+/// [`validate_connection`] over the checked addresses of the open (`None`: unpinned, loopback rows).
+pub async fn validate_connection_pinned(
+    c: &mut Connection,
+    tokens: &dyn TokenStore,
+    store: &Store,
+    connect: Option<&crate::transport::ConnectPin>,
+) -> Result<(), PairError> {
     let token = match connection_token(c, tokens) {
         Ok(token) => token,
         Err(error) => {
@@ -425,7 +456,7 @@ pub async fn validate_connection(
             return Err(error);
         }
     };
-    let client = match HarnessClient::from_connection(c).await {
+    let client = match HarnessClient::from_connection_pinned(c, connect.cloned()).await {
         Ok(client) => client,
         Err(e) => {
             mark_failure(c, &e, tokens, store)?;
@@ -458,21 +489,8 @@ pub async fn validate_connection(
     }
 }
 
-/// WP6 can drive this bounded primitive from its cancellable event loop.
-pub async fn sync_next_trust_event(
-    c: &mut Connection,
-    tokens: &dyn TokenStore,
-    store: &Store,
-) -> Result<(), PairError> {
-    let client = match HarnessClient::from_connection(c).await {
-        Ok(client) => client,
-        Err(e) => {
-            mark_failure(c, &e, tokens, store)?;
-            return Err(e.into());
-        }
-    };
-    sync_next_trust_event_with_client(c, client, tokens, store).await
-}
+/// WP6 can drive this bounded primitive from its cancellable event loop, with a client built for the open (pinned
+/// for a remote row).
 pub async fn sync_next_trust_event_with_client(
     c: &mut Connection,
     client: HarnessClient,
@@ -518,9 +536,18 @@ pub async fn session_ticket(
     tokens: &dyn TokenStore,
     store: &Store,
 ) -> Result<crate::client::Ticket, PairError> {
+    session_ticket_pinned(c, tokens, store, None).await
+}
+/// [`session_ticket`] over the checked addresses of the open (`None`: unpinned, loopback rows).
+pub async fn session_ticket_pinned(
+    c: &mut Connection,
+    tokens: &dyn TokenStore,
+    store: &Store,
+    connect: Option<&crate::transport::ConnectPin>,
+) -> Result<crate::client::Ticket, PairError> {
     let token = connection_token(c, tokens)?;
     let result = async {
-        let client = HarnessClient::from_connection(c).await?;
+        let client = HarnessClient::from_connection_pinned(c, connect.cloned()).await?;
         client.session_ticket(&c.installation_id, &token).await
     }
     .await;

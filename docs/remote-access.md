@@ -99,7 +99,7 @@ Any change of what a client pins — a new self-signed certificate, `self-signed
 
 - `compileAllowlist(cidrs)`: IPv4 and IPv6 CIDRs, IPv4-mapped clients (`::ffff:a.b.c.d` matches an IPv4 rule), zone ids; empty means any client; an address that does not parse never passes a non-empty list. `admitSocket` is the gate for a listener's raw `connection` event, before the TLS handshake. Pairing and sign-in apply either way.
 - `securityNoticeItems`, `confirmSecurityNotice`, `noticeNeeded`: enabling `network` shows the notice (reach, pairing, TLS inspection, allow-list, never public) and needs an explicit confirmation by a named person; the record is `{ by, at, version }`.
-- `firstAidChecks(config, state)` returns `warn` entries with stable ids: `remote.network-on` (for as long as network is on), `remote.notice-unconfirmed`, `remote.tls-not-ready`, `remote.cert-expiring` (30 days) / `remote.cert-expired`, `remote.allowlist-empty`, and `remote.funnel-active` at **every** level.
+- `firstAidChecks(config, state)` returns `warn` entries with stable ids: `remote.network-on` (for as long as network is on), `remote.notice-unconfirmed`, `remote.tls-not-ready`, `remote.cert-expiring` (30 days) / `remote.cert-expired`, `remote.allowlist-empty`, `remote.allowlist-public` and `remote.funnel-active` at **every** level. `remote.allowlist-public` is one row per `allowSubnets` range that contains public addresses (the caller classifies and passes `state.allowlistPublic`; the API uses the shared `ip.ts` rules and names the lowest public address as the example). It is a notice only: the range stays in force, nothing is refused, and Devices & Remote shows the same notice under the subnet field.
 
 ## Spec coverage
 

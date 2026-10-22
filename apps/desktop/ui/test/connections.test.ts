@@ -8,6 +8,8 @@ test("reachable remote form validates origin, pairs, selects, renames and remove
         assert.equal(await page.getByLabel("Name", { exact: true }).evaluate(node => document.activeElement === node), true);
         await page.getByLabel("Name", { exact: true }).fill("Synthetic desk");
         await page.getByLabel("Harness origin").fill("http://harness.test");
+        // Transport choice §7.1: the path is a required step before the code.
+        await page.getByRole("radio", { name: "Direct" }).check();
         await page.getByLabel("First four characters").fill("ABCD");
         await page.getByLabel("Last four characters").fill("2345");
         await page.getByRole("button", { name: "Pair harness", exact: true }).click();
@@ -40,6 +42,7 @@ test("native denial reaches code form; remote errors and repair retain accessibl
         await page.getByRole("heading", { name: "Add remote" }).waitFor();
         await page.getByLabel("Name", { exact: true }).fill("Desk");
         await page.getByLabel("Harness origin").fill("https://harness.test");
+        await page.getByRole("radio", { name: "Direct" }).check();
         for (const error of ["revoked", "cert-changed", "ca-untrusted", "proof-mismatch"]) {
             await page.evaluate(error => (window as any).testShell.setPairingError(error), error);
             await page.getByLabel("First four characters").fill("ABCD");

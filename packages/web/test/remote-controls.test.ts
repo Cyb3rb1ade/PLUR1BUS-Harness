@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { expectAxeClean } from "./axe.ts";
 import { browserSkip, openRoute, setup, teardown, withApp } from "./harness.ts";
+import { NOTICE_SETTLE_MS } from "../src/pages/settings/sections/devices/remote.ts";
 import { remoteFixture } from "./remote-fixtures.ts";
 
 before(setup);
@@ -110,6 +111,100 @@ describe("remote controls: real REST contract", opts, () => {
       await app.page.getByRole("button", { name: "Activate announced certificate" }).click();
       await app.page.getByRole("button", { name: "Announce next certificate" }).waitFor();
       assert.deepEqual(remote.calls.filter(c => c.path.endsWith("rotate")).map(c => c.body), [{ operation: "stage" }, { operation: "activate" }]);
+    });
+  });
+  describe("public range notice (a notice, never a refusal)", () => {
+    type Page = import("playwright").Page;
+    const subnetsLabel = (locale: string) => locale === "de-DE" ? "Erlaubte Client-Subnetze (CIDR, eines pro Zeile)" : "Allowed client subnets (CIDR, one per line)";
+    const publishLabel = (locale: string) => locale === "de-DE" ? "Erreichbarkeit" : "Exposure";
+    const rows = (page: Page) => page.locator("#remote-subnets-public li").allInnerTexts();
+    // The notice settles NOTICE_SETTLE_MS after the last keystroke (live region, no half-typed announcements).
+    const settled = (page: Page) => page.locator("#remote-subnets-public li").first().waitFor();
+    const gone = (page: Page) => page.locator("#remote-subnets-public li").first().waitFor({ state: "detached" });
+    test("the documentation range shows nothing, a range with public addresses shows the notice with an example, and saving is never blocked", async () => {
+      await withApp({}, async app => {
+        const remote = remoteFixture(app); await openRoute(app.page, route);
+        await app.page.getByLabel("Exposure", { exact: true }).selectOption("network");
+        const field = app.page.getByLabel(subnetsLabel("en-US"));
+        await field.fill("192.0.2.0/24\n10.0.0.0/8\nfd00::/8");
+        assert.deepEqual(await rows(app.page), []);
+        assert.equal(await field.getAttribute("aria-describedby"), null);
+        await field.fill("8.8.8.0/24");
+        await app.page.getByText("8.8.8.0/24 contains public addresses (for example 8.8.8.0). That is only right if your organisation owns public address blocks; otherwise it is probably a typo.").waitFor();
+        assert.equal(await field.getAttribute("aria-describedby"), "remote-subnets-public");
+        // One notice per valid public line, in order; documentation range, junk and a repeated line add none.
+        await field.fill("192.0.2.0/24\n8.8.8.0/24, 100.0.0.0/8\n0.0.0.0/0\n::/0\nnot a range\n8.8.8.0/24"); await app.page.getByText(/^0\.0\.0\.0\/0 contains/).waitFor();
+        assert.deepEqual((await rows(app.page)).map(x => x.slice(0, x.indexOf(" contains")) + " | " + /for example ([^)]*)\)/.exec(x)![1]), [
+          "8.8.8.0/24 | 8.8.8.0", "100.0.0.0/8 | 100.0.0.0", "0.0.0.0/0 | 1.0.0.0", "::/0 | 1.0.0.0"]);
+        await field.fill("192.0.2.0/24"); await gone(app.page);
+        assert.deepEqual(await rows(app.page), []);
+        assert.equal(await field.getAttribute("aria-describedby"), null);
+        await field.fill("8.8.8.0/24");
+        await app.page.getByText(/^8\.8\.8\.0\/24 contains public addresses/).waitFor();
+        const save = app.page.getByRole("button", { name: "Apply remote settings" });
+        await app.page.getByRole("checkbox", { name: "I understand and confirm the network security notice" }).click();
+        assert.equal(await save.isDisabled(), false); await save.click();
+        await app.page.getByText("Settings saved. Restart the harness to apply them.").waitFor();
+        assert.deepEqual((remote.calls.find(c => c.method === "PATCH")!.body as { allowSubnets: string[] }).allowSubnets, ["8.8.8.0/24"]);
+      });
+    });
+    // Types `text` one character at a time with STEP_MS between keys, the whole loop running inside the page: the gaps are
+    // page timers (a hundred times shorter than the settle delay), so a slow runner or a slow browser channel cannot
+    // stretch a keystroke past it, while every prefix is still rendered on its own (an `await` per key).
+    const STEP_MS = 5;
+    const typeInPage = (field: import("playwright").Locator, text: string) => field.evaluate(async (el, [value, step]) => {
+      const area = el as HTMLTextAreaElement; area.focus(); area.value = "";
+      for (let i = 1; i <= (value as string).length; i++) {
+        area.value = (value as string).slice(0, i); area.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, step as number));
+      }
+    }, [text, STEP_MS] as const);
+    test("typing a range character by character announces only the settled value, never a half-typed prefix", async () => {
+      await withApp({}, async app => {
+        remoteFixture(app); await openRoute(app.page, route);
+        await app.page.getByLabel("Exposure", { exact: true }).selectOption("network");
+        const field = app.page.getByLabel(subnetsLabel("en-US"));
+        // Everything that ever appears in the live region, text of every mutation.
+        await app.page.evaluate(() => {
+          const log: string[] = []; (globalThis as unknown as { __announced: string[] }).__announced = log;
+          const region = document.getElementById("remote-subnets-public")!;
+          new MutationObserver(() => { const text = region.textContent ?? ""; if (text) log.push(text); }).observe(region, { subtree: true, childList: true, characterData: true });
+        });
+        const announced = () => app.page.evaluate(() => (globalThis as unknown as { __announced: string[] }).__announced);
+        // 192.168.0.0/1 and 192.168.0.0/1x are ranges with public addresses on the way to a private /16.
+        await typeInPage(field, "192.168.0.0/16");
+        await app.page.waitForTimeout(NOTICE_SETTLE_MS + 400);
+        assert.deepEqual(await announced(), []); assert.deepEqual(await rows(app.page), []);
+        await typeInPage(field, "8.8.8.0/24");
+        await settled(app.page);
+        assert.deepEqual(await rows(app.page).then(l => l.map(x => x.slice(0, x.indexOf(" contains")))), ["8.8.8.0/24"]);
+        const log = await announced(); assert.ok(log.length > 0);
+        assert.ok(log.every(text => text.startsWith("8.8.8.0/24 contains public addresses")), JSON.stringify(log));
+      });
+    });
+    test("lines in brackets are skipped; a range is named the way the allow-list normalises it, once", async () => {
+      await withApp({}, async app => {
+        remoteFixture(app); await openRoute(app.page, route);
+        await app.page.getByLabel("Exposure", { exact: true }).selectOption("network");
+        const field = app.page.getByLabel(subnetsLabel("en-US"));
+        await field.fill("[::]/0\n[2000::]/3\n8.8.8.0/24"); await settled(app.page);
+        assert.deepEqual((await rows(app.page)).map(x => x.slice(0, x.indexOf(" contains"))), ["8.8.8.0/24"]);
+        await field.fill("8.8.8.8/24\n8.8.8.0/24\n8.8.8.8/32\n8.8.8.8\n::ffff:9.9.9.0/120");
+        await app.page.getByText(/^9\.9\.9\.0\/24 contains/).waitFor();
+        assert.deepEqual((await rows(app.page)).map(x => x.slice(0, x.indexOf(" contains")) + " | " + /for example ([^)]*)\)/.exec(x)![1]), [
+          "8.8.8.0/24 | 8.8.8.0", "8.8.8.8/32 | 8.8.8.8", "9.9.9.0/24 | 9.9.9.0"]);
+      });
+    });
+    for (const locale of ["en-US", "de-DE"]) for (const colorScheme of ["light", "dark"] as const) test(`the notice is accessible (${locale}/${colorScheme})`, async () => {
+      await withApp({ locale, colorScheme, width: 400 }, async app => {
+        remoteFixture(app); await openRoute(app.page, route, locale === "de-DE" ? "de" : "en");
+        await app.page.getByLabel(publishLabel(locale), { exact: true }).selectOption("network");
+        await app.page.getByLabel(subnetsLabel(locale)).fill("8.8.8.0/24\n::/0");
+        await app.page.getByText(locale === "de-DE" ? /^8\.8\.8\.0\/24 enthält öffentliche Adressen \(zum Beispiel 8\.8\.8\.0\)/ : /^8\.8\.8\.0\/24 contains public addresses/).waitFor();
+        assert.equal((await rows(app.page)).length, 2);
+        assert.equal(await app.page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
+        await expectAxeClean(app.page, `range-notice-${locale}-${colorScheme}`);
+      });
     });
   });
   for (const locale of ["en-US", "de-DE"]) for (const colorScheme of ["light", "dark"] as const) test(`network notice is accessible (${locale}/${colorScheme})`, async () => {
