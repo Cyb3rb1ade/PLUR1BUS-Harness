@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { expectAxeClean } from './axe.ts';
-import { openRoute, setup, teardown, withApp } from './harness.ts';
+import { browserSkip, openRoute, setup, teardown, withApp } from './harness.ts';
 import { seedConfig } from './settings-config-fixtures.ts';
 import { rpcError } from './mock-rpc.ts';
 before(setup); after(teardown);
@@ -12,7 +12,7 @@ function install(app: any) {
   app.server.rpc.handle('decision.test', () => ({ ok: true, durationMs: 5, outcome: 'accepted', backend: 'role' }));
   return fake;
 }
-test('decision settings show metrics and provisional native evidence; revision save and fixed diagnostic', async () => {
+test('decision settings show metrics and provisional native evidence; revision save and fixed diagnostic', { skip: browserSkip }, async () => {
   await withApp({ width: 400 }, async app => {
     const f = install(app); await openRoute(app.page, '#/settings/decision');
     await app.page.locator('#decision-test').waitFor();
@@ -29,7 +29,7 @@ test('decision settings show metrics and provisional native evidence; revision s
     await expectAxeClean(app.page, 'decision settings'); assert.deepEqual(app.problems, []);
   });
 });
-for (const role of ['member', 'viewer', 'operator', 'agent', 'unknown']) test(`${role} cannot invoke or configure diagnostic`, async () => {
+for (const role of ['member', 'viewer', 'operator', 'agent', 'unknown']) test(`${role} cannot invoke or configure diagnostic`, { skip: browserSkip }, async () => {
   await withApp({ server: { role } }, async app => {
     install(app); await openRoute(app.page, '#/settings/decision');
     await app.page.locator('#decision-evidence').waitFor();
@@ -38,7 +38,7 @@ for (const role of ['member', 'viewer', 'operator', 'agent', 'unknown']) test(`$
     assert.equal(app.server.rpc.calls.filter(c => c.method === 'decision.test' || c.method === 'config.set').length, 0);
   });
 });
-test('German gate failure and refused diagnostic are explicit; Admin controls and axe', async () => {
+test('German gate failure and refused diagnostic are explicit; Admin controls and axe', { skip: browserSkip }, async () => {
   await withApp({ width: 400, locale: 'de-DE', server: { role: 'admin' } }, async app => {
     install(app); app.server.rpc.handle('decision.test', () => { throw rpcError('E_DENIED', 'denied'); });
     await openRoute(app.page, '#/settings/decision', 'de');
@@ -51,7 +51,7 @@ test('German gate failure and refused diagnostic are explicit; Admin controls an
   });
 });
 
-test('unavailable status and unsuccessful diagnostics retain explicit states', async () => {
+test('unavailable status and unsuccessful diagnostics retain explicit states', { skip: browserSkip }, async () => {
   await withApp({}, async app => {
     install(app); app.server.rpc.handle('decision.status', () => { throw rpcError('E_NOT_AVAILABLE', 'not ready'); }, { write: false });
     app.server.rpc.handle('decision.test', () => ({ ok: false, durationMs: 17, outcome: 'privacy' }));
@@ -61,7 +61,7 @@ test('unavailable status and unsuccessful diagnostics retain explicit states', a
     await app.page.getByRole('alert').filter({ hasText: 'Diagnostic failed: privacy (17 ms).' }).waitFor();
   });
 });
-test('leaving during a diagnostic aborts UI delivery without stale notices', async () => {
+test('leaving during a diagnostic aborts UI delivery without stale notices', { skip: browserSkip }, async () => {
   await withApp({}, async app => {
     install(app); app.server.rpc.setDelay('decision.test', 400);
     await openRoute(app.page, '#/settings/decision');
@@ -74,7 +74,7 @@ test('leaving during a diagnostic aborts UI delivery without stale notices', asy
   });
 });
 
-test('empty registered agents disable the diagnostic without an RPC invocation', async () => {
+test('empty registered agents disable the diagnostic without an RPC invocation', { skip: browserSkip }, async () => {
   await withApp({}, async app => {
     install(app); app.server.rpc.handle('agent.list', () => ({ agents: [] }), { write: false });
     await openRoute(app.page, '#/settings/decision');
