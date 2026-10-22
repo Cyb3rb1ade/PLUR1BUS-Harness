@@ -247,3 +247,7 @@ The first collection (#423) found the inconsistencies below. All of them are fix
   `chat` prints one document per turn, so with several lines on stdin only the failed turns carry `error`.
   The exit stays 1; without `--json` nothing changes. A success is unchanged, in particular the documents the desktop
   app parses (`1staid.check/1`, `admin.smoke/1`, `daemon.status`, `state.snapshot/1`).
+
+### D106 sandbox adapter diagnostics (2026-10-15 Draft)
+
+Sandbox failure uses the existing tool error envelope (`tool-failed`); the host adapter may supply `sourceCode: sandbox-unavailable`, and exec retains its existing `spawn-failed` diagnostic inside the adapter failure. These are tool-local diagnostics, not new RPC error codes. Missing isolation never changes into a successful unsandboxed result. The trusted Rust limits launcher exits 125 on setup failure; the CLI exit-code checker already documents that code.

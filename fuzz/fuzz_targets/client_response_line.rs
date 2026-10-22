@@ -9,17 +9,20 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixListener;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
+use tempfile::TempDir;
 
 const TOKEN: &str = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 static PAYLOAD: Mutex<Vec<u8>> = Mutex::new(Vec::new());
 static ADDR: OnceLock<String> = OnceLock::new();
+// The socket directory lives in a static for the whole run (never dropped). `mem::forget` on it left its path buffer
+// (15 bytes) unreachable, which LeakSanitizer reported as a leak at exit even for the empty input.
+static DIR: OnceLock<TempDir> = OnceLock::new();
 
 fn addr() -> &'static str {
     ADDR.get_or_init(|| {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = DIR.get_or_init(|| tempfile::tempdir().unwrap());
         let path = dir.path().join("core.sock");
         let listener = UnixListener::bind(&path).unwrap();
-        std::mem::forget(dir);
         std::thread::spawn(move || {
             for stream in listener.incoming() {
                 let Ok(stream) = stream else { continue };

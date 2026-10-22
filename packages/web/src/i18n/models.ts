@@ -1,5 +1,9 @@
 // models area catalogue: add keys as `"models.<topic>": "..."` in en and the same keys in de (see ./index.ts).
 export const en = {
+  "models.field.toolUse": "Host tool use",
+  "models.toolUse.supported": "Host tool eval ≥ 95%",
+  "models.toolUse.limited": "limited tool use",
+  "models.toolUse.unknown": "Host tool use not evaluated",
   "models.engine.title": "Engine model tests",
   "models.engine.note": "Test the active engine configuration. A test can contact the configured provider or download a local model; provider charges may apply.",
   "models.engine.test": "Test",
@@ -128,6 +132,10 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "models.field.toolUse": "Host-Tool-Nutzung",
+  "models.toolUse.supported": "Host-Tool-Eval ≥ 95 %",
+  "models.toolUse.limited": "Eingeschränkte Tool-Nutzung",
+  "models.toolUse.unknown": "Host-Tool-Nutzung nicht geprüft",
   "models.engine.title": "Engine-Modelle testen",
   "models.engine.note": "Testet die aktive Engine-Konfiguration. Ein Test kann den konfigurierten Anbieter aufrufen oder ein lokales Modell herunterladen; dabei können Anbieterkosten entstehen.",
   "models.engine.test": "Testen",
