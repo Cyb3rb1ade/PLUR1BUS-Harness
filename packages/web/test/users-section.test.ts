@@ -85,7 +85,7 @@ describe("users: presets, simple mode, rights", opts, () => {
       assert.deepEqual(await app.page.locator(".users-preset strong").allTextContents(), ["Owner", "Admin", "Operator", "Member", "Viewer"]);
       assert.equal(await app.page.getByRole("heading", { name: "Rights per agent" }).count(), 0);
       assert.ok(!app.server.rpc.calls.some((c) => c.method === "config.get"));
-      await app.page.getByText("Assigning roles is not available on this harness yet").waitFor();
+      assert.equal(await app.page.getByText("Assigning roles is not available").count(), 0, "role changes are wired: no stale notice");
     });
   });
   test("choosing a preset shows what it can and cannot do (keyboard)", async () => {
@@ -98,7 +98,8 @@ describe("users: presets, simple mode, rights", opts, () => {
       assert.match((await detail.textContent()) ?? "", /Owner.*Reveal and change secrets/s);
       await app.page.getByRole("radio", { name: /^Viewer/ }).check();
       const text = (await detail.textContent()) ?? "";
-      assert.match(text, /Read logs/); assert.match(text, /Write any memory/);
+      assert.match(text, /Read sessions/); assert.match(text, /Write any memory/);
+      assert.doesNotMatch((await detail.locator(".users-can > div").first().textContent()) ?? "", /logs/i, "a Viewer has no logs.query");
     });
   });
   test("simple mode off: rights per agent from config.get agents; Manage includes Use; Operator has no Manage", async () => {

@@ -44,7 +44,8 @@ Codes: `invalid-arguments`, `invalid-url`, `private-address`, `egress-denied`, `
 
 A single page asked for does not consult `robots.txt`. `crawl: true` (links beyond the page asked for) fetches and
 caches `robots.txt` per host (404 = allow, 5xx/unreachable = disallow, RFC 9309 matching), honours `Crawl-delay` (capped at 30 s, so a site cannot park the agent) and paces
-to at most 1 request/s per host; the wait ends when the call is cancelled. Allow/Disallow patterns are matched without a
+to at most 1 request/s per host; the wait ends when the call is cancelled. Every redirect target is checked the same way
+(its host's `robots.txt`, its turn at that host) before it is requested, and the wait counts against the call's 30 s. Allow/Disallow patterns are matched without a
 regular expression, so a hostile `robots.txt` cannot stall the process. The User-Agent is `PLUR1BUS/<version> (+https://plur1bus.app/bot)`.
 
 ## Result size

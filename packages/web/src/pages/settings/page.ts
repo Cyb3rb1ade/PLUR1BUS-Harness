@@ -24,7 +24,9 @@ const ModulesSection = lazySection<SectionProps>(() => import("./sections/module
 const MediaIndexPanel = lazySection<object>(() => import("../media-search/settings.ts").then((m) => m.MediaIndexPanel));
 const MediaSection = lazySection<SectionProps>(() => import("../surfaces/media.ts").then(m => m.MetadataPreference));
 
-const BODY = { media: MediaSection, config: ConfigSection, secrets: SecretsSection, providers: ProvidersSection, users: UsersSection, devices: DevicesSection, voice: VoiceSection, modules: ModulesSection, security: SecuritySection } as const;
+const DecisionSection = lazySection<SectionProps>(() => import("./sections/decision.ts").then(m => m.DecisionSection));
+
+const BODY = { decision: DecisionSection, media: MediaSection, config: ConfigSection, secrets: SecretsSection, providers: ProvidersSection, users: UsersSection, devices: DevicesSection, voice: VoiceSection, modules: ModulesSection, security: SecuritySection } as const;
 
 export function SettingsPage({ sub }: PageProps): View {
   const section = sectionById(sub) ?? sectionById(DEFAULT_SECTION)!;

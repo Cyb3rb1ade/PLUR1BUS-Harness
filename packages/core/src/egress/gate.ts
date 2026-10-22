@@ -11,9 +11,11 @@ export type Decision = { allowed: true } | { allowed: false; reason: DenyReason 
 
 export class EgressDenial extends WebFailure {
   readonly reason: DenyReason;
-  constructor(reason: DenyReason, message: string) {
+  readonly host: string;
+  constructor(reason: DenyReason, message: string, host = "") {
     super(reason === "private-address" ? "private-address" : "egress-denied", message);
     this.reason = reason;
+    this.host = host;
   }
 }
 
@@ -38,13 +40,14 @@ export function isLoopbackHost(host: string): boolean {
 export const effectivePort = (url: URL): number => (url.port !== "" ? Number(url.port) : url.protocol === "https:" ? 443 : 80);
 
 export function createGate(policy: EgressPolicy, hooks: GateHooks = {}): HopGate {
+  let destinationHost = "";
   const deny = (reason: DenyReason, message: string): never => {
     hooks.onDecision?.({ allowed: false, reason });
-    throw new EgressDenial(reason, message);
+    throw new EgressDenial(reason, message, destinationHost);
   };
   return {
     beforeResolve(url) {
-      const host = bareHost(url);
+      const host = bareHost(url); destinationHost = host;
       const loopbackOk = policy.allowLoopback && isLoopbackHost(host);
       if (url.protocol !== "https:" && !(url.protocol === "http:" && loopbackOk)) {
         return deny("scheme", `${url.protocol} to ${host} is not allowed (https only; http only to a listed loopback host when egress.allowLoopback is on)`);
@@ -61,7 +64,7 @@ export function createGate(policy: EgressPolicy, hooks: GateHooks = {}): HopGate
       if (policy.allowLoopback && isLoopbackHost(host) && !hostAllowed(policy, host, { explicitOnly: true })) return deny("host-not-allowed", `${host} is a loopback host and must be listed in egress.allowHosts by name`);
     },
     afterResolve(url, pin) {
-      const host = bareHost(url);
+      const host = bareHost(url); destinationHost = host;
       const a = parseAddress(pin.address);
       const loopbackPin = a !== null && classifyAddress(a).reason === "loopback";
       if (loopbackPin && !policy.allowLoopback) return deny("loopback", `${host} resolved to a loopback address and egress.allowLoopback is off`);

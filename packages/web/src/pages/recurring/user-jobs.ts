@@ -1,3 +1,4 @@
+import { DeliverySelect } from "./delivery.ts";
 // Personal recurring tasks (jobs.create / jobs.update / jobs.delete / jobs.history for kind "user"): the list, the editor with its
 // schedule preview, the history and the confirmed delete. The server decides rights; the page only offers what manageableAgents allows.
 import { h } from "preact";
@@ -53,6 +54,7 @@ function JobEditor({ job, targets, onClose, onSaved }: { job: UserJob | null; ta
   const [prompt, setPrompt] = useState(job?.prompt ?? "");
   const [cron, setCron] = useState(job?.schedule.cron ?? "0 9 * * *");
   const [timezone, setTimezone] = useState(job?.schedule.timezone ?? defaultZone());
+  const [deliveryTarget,setDeliveryTarget] = useState(job?.deliveryTarget ?? "");
   const [enabled, setEnabled] = useState(job?.enabled ?? true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -73,7 +75,7 @@ function JobEditor({ job, targets, onClose, onSaved }: { job: UserJob | null; ta
     setBusy(true);
     setError("");
     try {
-      const input = { name: name.trim(), agentId: agent, prompt, schedule: { cron: check.cron, timezone: check.timezone }, enabled };
+      const input = { name: name.trim(), agentId: agent, prompt, schedule: { cron: check.cron, timezone: check.timezone }, enabled, deliveryTarget };
       if (job) await getApi().rpc("jobs.update", { id: job.id, ...input });
       else await getApi().rpc("jobs.create", input);
       onSaved();
@@ -102,6 +104,7 @@ function JobEditor({ job, targets, onClose, onSaved }: { job: UserJob | null; ta
       : null,
     h(Field, { id: "job-name", label: t("recurring.user.name") }, h("input", { id: "job-name", value: name, maxLength: 128, required: true, onInput: (e: Event) => setName((e.target as HTMLInputElement).value) })),
     h(Field, { id: "job-agent", label: t("recurring.user.agent") }, h("select", { id: "job-agent", value: agent, onChange: (e: Event) => setAgent((e.target as HTMLSelectElement).value) }, targets.map((id) => h("option", { key: id, value: id }, id)))),
+    h(DeliverySelect,{value:deliveryTarget,onChange:setDeliveryTarget}),
     h(Field, { id: "job-prompt", label: t("recurring.user.prompt") }, h("textarea", { id: "job-prompt", value: prompt, rows: 4, maxLength: 4000, required: true, onInput: (e: Event) => setPrompt((e.target as HTMLTextAreaElement).value) })),
     h(Field, { id: "job-cron", label: t("recurring.user.cron"), error: cronError }, h("input", { id: "job-cron", value: cron, required: true, ...bad(cronError, "job-cron"), onInput: (e: Event) => setCron((e.target as HTMLInputElement).value) })),
     h(Field, { id: "job-timezone", label: t("recurring.user.timezone"), error: zoneError }, h("input", { id: "job-timezone", value: timezone, required: true, ...bad(zoneError, "job-timezone"), onInput: (e: Event) => setTimezone((e.target as HTMLInputElement).value) })),

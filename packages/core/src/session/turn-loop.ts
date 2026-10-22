@@ -53,7 +53,8 @@ export class TurnRunner {
   /** The caller has authorised `session` (owner check) already. */
   submit(a: { session: SessionRecord; caller: CallerIdentity; text: string; authenticatedPerson?: string; approver?: TurnApprover; turnProfile?: TurnProfile; recurring?: import("./provider.ts").RecurringOrigin }): TurnHandle {
     const provider = this.#d.provider();
-    if (!provider) throw new NoProviderError();
+    const localCommand = a.text.trim() === '/compact --explain' || /^\/compact --restore event:\d+$/.test(a.text.trim());
+    if (!provider && !localCommand) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
     const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text));
     this.#emit(event, a.session);
@@ -85,11 +86,23 @@ export class TurnRunner {
     this.#emit(this.#d.store.appendEvent(turnId, type, data), session);
   }
 
-  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider, cancelled: AbortSignal, approver?: TurnApprover, turnProfile?: TurnProfile, recurring?: import("./provider.ts").RecurringOrigin, authenticatedPerson?: string): Promise<TurnOutcome> {
+  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider | null, cancelled: AbortSignal, approver?: TurnApprover, turnProfile?: TurnProfile, recurring?: import("./provider.ts").RecurringOrigin, authenticatedPerson?: string): Promise<TurnOutcome> {
     const { store, memory, compactor } = this.#d;
     const signal = turnProfile?.signal ? AbortSignal.any([cancelled, turnProfile.signal, ...(this.#d.signal ? [this.#d.signal] : [])]) : this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
     const trace = (r: import("../composition/trace.ts").PipelineRecord) => this.#d.logger?.info("turn.stage", { ...r });
     try {
+      // D33 transcript commands share the admitted session, event stream and cancellation switch.
+      // They never enter recall/capture, the model, or the cached prefix.
+      const command=text.trim(), restore=/^\/compact --restore (event:\d+)$/.exec(command);
+      if(command==='/compact --explain'||restore){
+        signal.throwIfAborted();
+        const reply=restore ? JSON.stringify({ref:restore[1],restored:compactor.restoreToolRef(session.id,restore[1]!)}) : JSON.stringify(compactor.explain(session.id));
+        this.#event(turnId,'delta',{index:0,text:reply},session);
+        const done=store.completeTurn(turnId,{text:reply,tokens:estimateTokens(reply),data:{provider:'harness-command'}});
+        if(!done)return {state:'failed',error:'turn-not-running'};
+        this.#emit(done.event,session);return {state:'completed',assistantMessageId:done.message.id,reply};
+      }
+      if(!provider)throw new NoProviderError();
       // 1. recall: exactly one call. A recall that fails or degrades never fails the turn.
       let recalled: { text: string; degraded: unknown } = { text: "", degraded: null };
       try { const recall = (signal: AbortSignal) => stage("recall", signal, trace, () => memory.recall({ agentId: session.agentId, caller, query: text, signal, ...((authenticatedPerson ?? recurring?.runAs) ? { authenticatedPerson: authenticatedPerson ?? recurring!.runAs } : {}), ...(turnProfile ? { turnProfile } : {}) }));
@@ -135,6 +148,8 @@ export class TurnRunner {
 
       // 4. complete, then capture (once) and keep the context small. The turn is complete for the client at this point.
       if (turnProfile?.confirmed) await stage("voice-confirm", signal, trace, () => waitForVoiceConfirmation(turnProfile, signal));
+      // A cancel acknowledged to the client (session.cancel → cancelled:true) must win even when it lands after the last chunk, while the provider stream was still closing.
+      cancelled.throwIfAborted();
       if (turnProfile) signal.throwIfAborted();
       const done = store.completeTurn(turnId, {
         text: reply, tokens: usage?.outputTokens ?? estimateTokens(reply),

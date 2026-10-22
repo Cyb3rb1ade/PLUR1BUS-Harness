@@ -416,3 +416,27 @@ pub fn tauri_public_key(key: &str) -> Result<String, UpdateError> {
     };
     Ok(base64::engine::general_purpose::STANDARD.encode(text))
 }
+
+/// Throttles the updater's per-chunk callback for the offer dialog: one report per whole percent of a known length,
+/// or per 512 KiB while the server sends none, so a fast link does not flood the webview with events.
+#[derive(Debug, Default)]
+pub struct DownloadProgress {
+    downloaded: u64,
+    reported: Option<u64>,
+}
+impl DownloadProgress {
+    /// Count one chunk. `Some((downloaded, total))` when the page should hear about it; `total` is `None` while the length is unknown.
+    pub fn chunk(&mut self, len: usize, total: Option<u64>) -> Option<(u64, Option<u64>)> {
+        self.downloaded = self.downloaded.saturating_add(len as u64);
+        let total = total.filter(|t| *t > 0);
+        let step = match total {
+            Some(t) => (self.downloaded.saturating_mul(100) / t).min(100),
+            None => self.downloaded / (512 * 1024),
+        };
+        if self.reported == Some(step) {
+            return None;
+        }
+        self.reported = Some(step);
+        Some((self.downloaded, total))
+    }
+}

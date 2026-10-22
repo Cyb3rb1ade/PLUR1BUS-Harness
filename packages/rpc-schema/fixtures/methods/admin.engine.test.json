@@ -1,0 +1,12 @@
+{
+  "params": {
+    "role": "embedder"
+  },
+  "result": {
+    "role": "embedder",
+    "ok": true,
+    "durationMs": 3,
+    "model": "local/embed",
+    "dimensions": 384
+  }
+}

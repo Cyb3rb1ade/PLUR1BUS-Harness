@@ -1,0 +1,26 @@
+# Command palette
+
+The command palette helps you open pages, actions, agents, your chats and settings. Every role can use it on a page of the signed-in application; results and destination pages remain subject to your permissions. It is unavailable on the sign-in page. The German version is [befehlspalette.md](../de/befehlspalette.md).
+
+## Open and navigate
+
+- Click search in the sidebar, or press **⌘K** on a Mac or **Ctrl+K** on other systems. The same shortcut closes the palette again.
+- **/** also opens it when you are not typing in an input field.
+- Enter a name, agent ID or configuration key such as `core.logLevel`. Use **Up/Down** to select a result and **Enter** to open it. You can also click it.
+- **Esc**, the close button or a click on the backdrop closes the palette. Closing without choosing a result returns focus to the previous element.
+
+## What it finds
+
+**Navigation** contains sidebar pages, settings sections and Dreams. **Actions** open destination pages, such as a new chat or the create-agent dialog. They do not perform a write action from the palette. **Settings** searches keys, labels, help text and available current values. Secret fields are omitted. A setting result opens its section and highlights the field if present there. It does not change the value.
+
+A non-empty query also searches agents and your own non-archived direct chats, where the server permits reading them. Agents match by name and ID; chat search can also find message text, but results here show only title and agent. Each group shows at most five agents or chats; settings show at most 40 results. If one of these requests fails, its group is absent while other results remain usable.
+
+Memories are not searched. The palette does not replace [media search](media-search.md) or [handbook search](help.md). The hidden Home page `/home` has no navigation result.
+
+## Roles and limits
+
+**Create agent** and **Run setup** appear for Owner and Admin. Users, Secrets and Devices settings destinations are also restricted to those roles. Only Owner and Admin may read and save general configuration; a visible search result grants other roles no access.
+
+**Open logs** appears for Owner, Admin, Operator and Viewer and opens the Logs page. Only Owner and Admin may read the actual diagnostic and audit logs. **Verify audit trail** appears only for those two roles and leads to the Activity tab; selecting it does not itself start verification.
+
+Owner and Admin also receive a log-search result for a query, and a trace result for a matching identifier. The results pass the search text or trace filter to the log viewer. See [Status and logs](diagnostics.md) for its filters.

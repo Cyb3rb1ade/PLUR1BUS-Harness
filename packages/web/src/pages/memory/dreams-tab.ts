@@ -68,7 +68,20 @@ function PhaseCard({ agentId, phase, schedule, onAction }: PhaseProps): View {
     canToggle ? null : h(Hint, { id: `${id}-sched-hint`, text: serverRefusedSchedule ? t("memory.denied.schedule") : t("memory.dreams.noSchedule", { role: currentRole() ?? "" }) })));
 }
 
+function DiaryContent({ agentId, tick }: { agentId: string; tick: number }): View {
+  const { state, reload } = useLoad((signal) => getApi().rpc("dreams.diary", { agentId }, { write: false, signal }), [agentId], tick);
+  if (state.status === "loading") return h(PageState, { state: "loading" });
+  if (state.status === "fail") return h(FailureState, { failure: state.failure, unavailable: t("memory.dreams.diaryUnavailable"), onRetry: reload });
+  const diary = state.data;
+  if (!diary.exists) return h("p", { role: "status" }, t("memory.dreams.diaryMissing"));
+  return h("div", { class: "m-stack" },
+    diary.text === "" ? h("p", { role: "status" }, t("memory.dreams.diaryEmpty"))
+      : h("pre", { class: "m-pre", tabIndex: 0, "aria-label": t("memory.dreams.diaryContent") }, diary.text),
+    diary.truncated ? h("p", { class: "m-muted", role: "status" }, t("memory.dreams.diaryTruncated")) : null);
+}
+
 function AgentSection({ agent, tick, onAction }: { agent: DreamAgentStatus; tick: number; onAction: (d: DreamsDialog) => void }): View {
+  const [showDiary, setShowDiary] = useState(false);
   const sched = useLoad((signal) => getApi().rpc("dreams.schedule.get", { agentId: agent.agentId }, { write: false, signal }), [agent.agentId], tick);
   const schedules = sched.state.status === "ok" ? sched.state.data.schedules : [];
   return h(Panel, {
@@ -77,6 +90,10 @@ function AgentSection({ agent, tick, onAction }: { agent: DreamAgentStatus; tick
   },
   h("div", { class: "m-stack" },
     agent.diary === null ? null : h(Facts, { rows: [[t("memory.dreams.diary"), `${agent.diary.path} (${t("memory.dreams.bytes", { n: formatNumber(agent.diary.bytes) })})`]] }),
+    agent.diary === null ? null : h("div", { class: "m-stack" },
+      h("button", { type: "button", class: "btn", "aria-expanded": String(showDiary), onClick: () => setShowDiary((shown) => !shown) },
+        t(showDiary ? "memory.dreams.hideDiary" : "memory.dreams.readDiary")),
+      showDiary ? h(DiaryContent, { agentId: agent.agentId, tick }) : null),
     sched.state.status === "fail" ? h("p", { class: "m-muted" }, sched.state.failure.kind === "forbidden" ? t("memory.dreams.scheduleForbidden") : t("memory.dreams.scheduleUnavailable")) : null,
     PHASES.map((p) => {
       const ph = agent.phases.find((x) => x.phase === p);

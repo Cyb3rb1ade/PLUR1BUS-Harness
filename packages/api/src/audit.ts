@@ -8,7 +8,7 @@ export const AUDIT_ACTIONS = [
   "account.bootstrap.consumed", "auth.passkey.registered", "auth.passkey.changed", "auth.passkey.failure", "auth.passkey.clone-warning",
   "transport.ws.opened", "transport.ws.closed", "chat.call",
   "invitation.redeemed", "invitation.account.failed",
-  "auth.login.success", "auth.login.failure", "auth.logout", "auth.logout-all", "auth.session.rotated",
+  "auth.login.success", "auth.login.failure", "auth.logout", "auth.logout-all", "auth.session.rotated", "auth.session.evicted",
   "auth.token.created", "auth.token.revoked", "auth.token.used-denied",
   "auth.totp.enabled", "auth.totp.disabled", "auth.totp.failure", "auth.totp.backup-used",
   "auth.rate-limited", "auth.denied", "auth.csrf-refused",

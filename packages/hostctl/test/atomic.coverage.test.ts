@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rename, rm, stat, chmod } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpBase } from './helpers/tmp.ts';
 import { join } from 'node:path';
 import { atomicWrite } from '../src/atomic.ts';
 import { files } from '../src/files.ts';
@@ -11,8 +11,8 @@ let root: string, home: string, canon: ReturnType<typeof files>['canon'];
 const posix = process.platform !== 'win32';
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'hostctl-atomic-'));
-  home = await mkdtemp(join(tmpdir(), 'hostctl-atomic-home-'));
+  root = await mkdtemp(join(tmpBase(), 'hostctl-atomic-'));
+  home = await mkdtemp(join(tmpBase(), 'hostctl-atomic-home-'));
   canon = files([{ id: 'fixture', path: root }], [], configure(), async () => {}, home, {}).canon;
 });
 afterEach(async () => {

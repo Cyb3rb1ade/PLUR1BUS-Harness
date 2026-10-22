@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ARGON2_PARAMS, hashPassword, needsRehash, parsePhc, verifyPassword } from "../src/password.ts";
+import { ARGON2_PARAMS, hashPassword, needsRehash, parsePhc, rehashParams, verifyPassword } from "../src/password.ts";
 
 // Fixture passwords are made up here; none is a real credential.
 const PW = "correct horse battery staple (fixture)";
@@ -29,11 +29,25 @@ test("a malformed or hostile stored hash is false, never an exception or an allo
   assert.equal(parsePhc("$argon2id$v=19$m=8,t=1,p=1$AAAAAAAAAAAAAAAAAAAAAA$" + "A".repeat(43)), undefined, "below the floor is not trusted either");
 });
 
-test("needsRehash is true when the stored parameters differ from the current ones (and for unparseable hashes), false otherwise", async () => {
+test("needsRehash is true when a stored parameter is weaker than the current one (and for unparseable hashes), false when equal or stronger", async () => {
   const h = await hashPassword(PW);
   assert.equal(needsRehash(h), false);
   assert.equal(needsRehash(h.replace("m=19456", "m=12288")), true);
   assert.equal(needsRehash(h.replace("t=2", "t=1")), true);
   assert.equal(needsRehash("garbage"), true);
   assert.equal(needsRehash(h, { ...ARGON2_PARAMS, passes: 3 }), true);
+  // Stronger is never stale, in any single parameter; one weaker parameter is enough to be stale.
+  assert.equal(needsRehash(h.replace("m=19456", "m=65536")), false);
+  assert.equal(needsRehash(h.replace("t=2", "t=3")), false);
+  assert.equal(needsRehash(h.replace("p=1", "p=2")), false);
+  assert.equal(needsRehash(h.replace("m=19456", "m=65536").replace("t=2", "t=1")), true);
+  assert.equal(needsRehash(h, { ...ARGON2_PARAMS, memoryKiB: 8_192 }), false);
+});
+
+test("rehashParams takes the per-parameter maximum of the stored and the current parameters, and the current ones for an unreadable hash", async () => {
+  const h = await hashPassword(PW);
+  assert.deepEqual(rehashParams(h.replace("m=19456", "m=65536").replace("t=2", "t=1")), { memoryKiB: 65_536, passes: 2, parallelism: 1 });
+  assert.deepEqual(rehashParams(h.replace("m=19456", "m=12288")), { ...ARGON2_PARAMS });
+  assert.deepEqual(rehashParams(h.replace("t=2", "t=4").replace("p=1", "p=2")), { memoryKiB: 19_456, passes: 4, parallelism: 2 });
+  assert.deepEqual(rehashParams("garbage"), { ...ARGON2_PARAMS });
 });
