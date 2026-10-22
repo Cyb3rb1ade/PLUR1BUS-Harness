@@ -28,7 +28,7 @@ export const SHARED_ADDRESS_SCALE = 10;
 
 /** RPC methods reachable through `POST /rpc` that start model-backed work. They draw on the `expensive` bucket of the caller and
  *  hold one slot of the global concurrency cap while they run (the REST chat submit does the same through its route class). */
-export const EXPENSIVE_RPC_METHODS: ReadonlySet<string> = new Set(["session.submit", "jobs.run", "dreams.run", "voice.realtime.start"]);
+export const EXPENSIVE_RPC_METHODS: ReadonlySet<string> = new Set(["session.submit", "jobs.run", "dreams.run", "voice.realtime.start", "media.generate", "media.edit"]);
 export const DEFAULT_EXPENSIVE_CONCURRENCY = 8;
 
 /** At most `max` model-backed operations run at the same time, installation-wide (ADR-004: global concurrency cap). */

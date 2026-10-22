@@ -198,5 +198,55 @@ describe("warmup", () => {
     assert.ok(performance.now() - t0 < 700, "six hung agents at 400ms each would take 2400ms");
     assert.deepEqual(order, ["a", "onRecallDone"], "the budget ended the pass before the next agent and the rerank");
   });
-  it.todo("KNOWN GAP: models.warm() itself has no deadline (a first-run model download may legitimately take minutes); a hung provider keeps recallWarmPending true until shutdown");
+
+  it("a hung models.warm() ends the wait at modelsTimeoutMs: warned, no recall pass, onRecallDone runs, the probe is not cancelled", async () => {
+    const lines: Line[] = []; const order: string[] = []; let warmSignal: AbortSignal | undefined;
+    const engine = {
+      models: { status: () => models("loading", "loading"), warm: (opts?: { signal?: AbortSignal }) => { warmSignal = opts?.signal; return new Promise<E.ModelsStatus>(() => {}); } },
+      memory: { list: async () => { order.push("list"); return { items: [], truncated: false }; } },
+    } as unknown as E.Engine;
+    const t0 = performance.now();
+    const w = startWarmup({
+      engine, logger: recordingLogger(lines), signal: new AbortController().signal, onDone: () => order.push("onDone"), modelsTimeoutMs: 60,
+      recallPath: { agents: () => ["bernd"], principal: (agentId) => ({ agentId } as unknown as E.Principal) },
+      onRecallDone: () => order.push("onRecallDone"),
+    });
+    await w.done;
+    assert.ok(performance.now() - t0 < 2_000, "the wait ended at the deadline, not at shutdown");
+    assert.deepEqual(order, ["onRecallDone"], "a warm-up that gave up neither reports a result nor warms the recall path");
+    assert.ok(lines.some(([lvl, msg, f]) => lvl === "warn" && /gave up|deadline/i.test(msg) && f!.timeoutMs === 60), JSON.stringify(lines));
+    // The deadline ends this caller's wait only: a first-run download keeps running in the engine (warm() is not handed the deadline).
+    assert.equal(warmSignal!.aborted, false, "the deadline must not abort the engine's probe");
+  });
+
+  it("a slow but finishing models.warm() is not cut off by the deadline, and its timer does not outlive the warm-up", async () => {
+    const lines: Line[] = []; const order: string[] = []; let warmSignal: AbortSignal | undefined;
+    const timers = () => process.getActiveResourcesInfo().filter((r) => r === "Timeout").length;
+    const before = timers();
+    const engine = {
+      models: { status: () => models("loading", "loading"), warm: async (opts?: { signal?: AbortSignal }) => { warmSignal = opts?.signal; await new Promise((r) => setTimeout(r, 120)); return models("ready", "disabled"); } },
+      memory: { list: async () => { order.push("list"); return { items: [], truncated: false }; } },
+    } as unknown as E.Engine;
+    const w = startWarmup({
+      engine, logger: recordingLogger(lines), signal: new AbortController().signal, onDone: () => order.push("onDone"), modelsTimeoutMs: 60_000,
+      recallPath: { agents: () => ["bernd"], principal: (agentId) => ({ agentId } as unknown as E.Principal) },
+      onRecallDone: () => order.push("onRecallDone"),
+    });
+    await w.done;
+    assert.deepEqual(order, ["onDone", "list", "onRecallDone"]);
+    assert.equal(warmSignal!.aborted, false);
+    assert.equal(lines.some(([lvl]) => lvl === "warn"), false, JSON.stringify(lines));
+    assert.equal(timers(), before, "the 60 s deadline timer is cleared once warm() answered");
+  });
+
+  it("abort and shutdown clear the deadline timer too", async () => {
+    const before = process.getActiveResourcesInfo().filter((r) => r === "Timeout").length;
+    const shutdown = new AbortController();
+    const w = startWarmup({
+      engine: fakeEngine(() => new Promise(() => {})), logger: recordingLogger([]), signal: shutdown.signal, onDone: () => {}, modelsTimeoutMs: 60_000,
+    });
+    shutdown.abort();
+    await w.done;
+    assert.equal(process.getActiveResourcesInfo().filter((r) => r === "Timeout").length, before);
+  });
 });

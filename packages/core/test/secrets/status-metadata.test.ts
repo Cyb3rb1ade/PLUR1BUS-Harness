@@ -67,6 +67,6 @@ it("RPC resolves the writer using the actual secret method", async () => {
   const backend = createMemoryBackend();
   const store = createSecretStore({ keyring: backend, file: createMemoryBackend({ available: false }), fileFallback: () => false, audit: { record() {} } });
   const methods = buildSecretMethods({ store, principalOf: (_ctx, method) => ({ kind: "owner", id: method === "secret.set" ? "person-writer" : "person-reader" }) });
-  const result = await methods["secret.set"]({ name: "example", value: "fixture" }, { requestId: "request", connectionId: "connection", signal: new AbortController().signal }) as { updatedBy?: string };
+  const result = await methods["secret.set"]({ name: "example", value: "fixture-value" }, { requestId: "request", connectionId: "connection", signal: new AbortController().signal }) as { updatedBy?: string };
   assert.equal(result.updatedBy, "person-writer");
 });
