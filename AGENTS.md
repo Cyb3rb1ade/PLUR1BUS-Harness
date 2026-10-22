@@ -48,11 +48,38 @@ Root scripts (`package.json`). `gen` and `build` fan out with `pnpm -r --workspa
 |---|---|
 | `pnpm gen` | Regenerates generated sources: `packages/rpc-schema/generated/*` (from `schema/rpc.schema.json`) plus the Python client's `_schema.py` (`scripts/gen-python-client.mjs`, which also verifies the committed address vectors and never writes them), `packages/config-schema/fixtures/*` (from `schema/config.schema.json` via `src/index.ts`), `packages/log-schema/fixtures/vectors.json` and `packages/web/src/palette/settings-index.ts` (from the config schema). Run before `build` after touching a schema. |
 | `pnpm build` | Bundles each TypeScript package to `dist/` (`esbuild`, ESM, `--packages=external`, Node 24 target; `packages/web` has its own `build.ts`). |
+| `pnpm test:prep` | Installs the frozen workspace dependencies, runs `pnpm gen` and `pnpm build`, then checks the audit source imports, built Core entry and private Engine entry. See “Tests lokal” below. |
 | `pnpm test` | `scripts/run-ts-tests.mjs`: runs every package's `test` script (`pnpm -r --workspace-concurrency=1 --no-bail`, `@plur1bus/desktop-ui` excluded, its tests run in `desktop.yml`) and fails when pnpm matched nothing or no test ran. The `test` script of `config-schema`, `log-schema` and `rpc-schema` regenerates before testing. |
 | `pnpm typecheck` | `tsc -p tsconfig.base.json --noEmit` across all package sources. |
 | `pnpm lint` | `pnpm typecheck`, then `scripts/release/check-source-quality.mjs`, `scripts/lint-hygiene.mjs` (below), `scripts/check-i18n.mjs` (de/en catalogue completeness) and the node tests of those scripts. |
 | `pnpm docs:gen` | Builds the CLI (`cargo build -q -p plur1bus`), then regenerates `docs/config-engine-keys.md` (`scripts/gen-engine-keys.mjs`), `docs/rpc.md` + `docs/cli.md` + `docs/config.md` + `docs/log-schema.md` (`scripts/gen-docs.mjs`), `docs/openapi.json` + `docs/api-surface.md` (`scripts/gen-openapi.mjs`) and the web settings index. |
 | `pnpm docs:check` | Builds the CLI, then fails when a generated doc differs from what the schemas, the clap tree and the API route table produce (`gen-docs.mjs --check`, `gen-openapi.mjs --check`, the settings-index check), and runs `check-docs-commands.mjs` (commands quoted in `docs/user/**` exist in `docs/cli.md`), `check-doc-links.mjs`, the bundled user docs check and `check-cli-exit-codes.mjs --check` (exit codes against `docs/errors.md`). CI runs it. |
+
+## Tests lokal
+
+Stelle Node 24.21 und pnpm 10 auf `PATH` bereit und führe im Repository-Root aus:
+
+```bash
+pnpm test:prep
+```
+
+`scripts/test-prep.mjs` führt nacheinander `pnpm install --frozen-lockfile`, `pnpm gen` und
+`pnpm build` aus. Danach prüft es die tatsächlichen Audit-Quellimports, `packages/core/dist/core.js`
+und die Auflösung der privaten Engine aus `packages/core`. So entstehen auch die generierten
+RPC-Dateien und die `dist`-Dateien der Schema-Pakete. Jeder Fehler stoppt die Vorbereitung mit
+einem Fehlercode; ein fehlender Befehl oder eine fehlende Abhängigkeit ist kein Skip.
+
+Du brauchst authentifizierten Lesezugriff auf das private Engine-Repository oder dessen bereits
+zwischengespeichertes, exakt gepinntes Paket. Ohne diese Abhängigkeit können die Core-Integrationstests
+und die Engine-abhängigen TS-Tests nicht laufen. Die Vorbereitung nennt das ausdrücklich. Sie
+entfernt oder ersetzt die Engine nicht und verwendet das bestehende Lockfile mit `--frozen-lockfile`.
+
+Danach laufen die gewünschten Tests, zum Beispiel `cargo test --workspace` oder `pnpm test`.
+Die gemischten Rust/TS-Audit-Tests prüfen ihre Workspace-Voraussetzungen vor dem Kindprozessstart;
+`repair_never_removes_a_live_endpoint` prüft zuerst den gebauten Core. Der Paket-Testrunner ergänzt
+bei `ERR_MODULE_NOT_FOUND` für die Engine den Vorbereitungsbefehl und lässt den Fehler bestehen.
+Für Browser- und native Systemtests gelten zusätzlich ihre unten bzw. in `docs/ci.md` beschriebenen
+Voraussetzungen. `test:prep` baut keinen Rust-Binary und installiert keinen Browser.
 
 One crate (from the repo root):
 

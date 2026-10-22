@@ -84,3 +84,12 @@ for (const [specifier, dynamic] of [["@cyb3rb1ade/plur1bus-memory", false], ["@c
     }
   });
 }
+
+test("Engine preflight refuses an absent private dependency with an access diagnostic", (t) => {
+  const result = run([script, "engine", fixture(t)]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /private Engine/);
+  assert.match(result.stderr, /@cyb3rb1ade\/plur1bus-memory/);
+  assert.match(result.stderr, /read access/);
+  assert.match(result.stderr, /pnpm test:prep/);
+});

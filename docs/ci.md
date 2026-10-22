@@ -226,6 +226,32 @@ isolated compiler misses that justify another pinned tool and cache lifecycle.
 
 ## Local reproduction
 
+Prepare the checkout before running Rust tests with TypeScript child processes or the TS suite:
+
+```bash
+pnpm test:prep
+cargo test --workspace
+pnpm test
+```
+
+Use Node 24.21 and pnpm 10 on `PATH`. `scripts/test-prep.mjs` runs the workspace install with
+`--frozen-lockfile`, then `pnpm gen` and `pnpm build`; this creates generated RPC files, schema
+`dist` files and `packages/core/dist/core.js`. It checks the actual audit source imports, the built
+Core entry and resolution of the private Engine from Core before reporting readiness. A failed
+stage stops preparation with a nonzero exit; no test is skipped or retried by this command.
+
+The pinned private `@cyb3rb1ade/plur1bus-memory` dependency needs authenticated read access to its
+repository or an already cached copy of that exact package. Without it, Core integration and
+Engine-dependent TS tests cannot run. An install or Engine-check failure explains this requirement;
+the dependency and lockfile remain required. The mixed Rust/TS audit tests and live-endpoint repair
+test now diagnose missing workspace/build prerequisites before starting their integration work.
+The package test runner adds setup guidance to a missing-Engine resolution error and preserves
+its failing result.
+
+`test:prep` prepares JavaScript dependencies and artifacts. Rust binaries and the matching browser
+still need the commands documented for their suites below; browser or native acceptance is not
+implied by a successful preparation. The existing CI continues to use the real pinned Engine.
+
 ### Actions throughput snapshot (GP5 P1)
 
 `node scripts/ci/timings.mjs --repo Cyb3rb1ade/PLUR1BUS-Harness --workflow ci.yml --runs 50 --out /tmp/ci-baseline`
