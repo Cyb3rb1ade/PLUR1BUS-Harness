@@ -246,7 +246,7 @@ pub(super) async fn serve(listener: TcpListener, shared: Arc<Shared>, test_contr
     let mut tasks = tokio::task::JoinSet::new();
     loop {
         tokio::select! {
-         accepted=listener.accept()=>{let Ok((stream,peer))=accepted else {break};let config=shared.tls.lock().unwrap().as_ref().unwrap().current.config();let service=router(shared.clone(),test_control).layer(axum::Extension(ConnectInfo(peer)));
+         accepted=listener.accept()=>{let Ok((stream,peer))=accepted else {break};shared.accepted.fetch_add(1,Ordering::SeqCst);let config=shared.tls.lock().unwrap().as_ref().unwrap().current.config();let service=router(shared.clone(),test_control).layer(axum::Extension(ConnectInfo(peer)));
           tasks.spawn(async move{if let Ok(Ok(stream))=tokio::time::timeout(std::time::Duration::from_secs(10),tokio_rustls::TlsAcceptor::from(config).accept(stream)).await{let _=hyper::server::conn::http1::Builder::new().serve_connection(hyper_util::rt::TokioIo::new(stream),hyper_util::service::TowerToHyperService::new(service)).with_upgrades().await;}});
          },
          _=tasks.join_next(),if !tasks.is_empty()=>{}

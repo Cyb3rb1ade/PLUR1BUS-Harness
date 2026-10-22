@@ -4282,6 +4282,7 @@ dependencies = [
  "minisign",
  "minisign-verify",
  "plur1bus-desktop-contract",
+ "plur1bus-desktop-net",
  "plur1bus-host",
  "plur1bus-mock-harness",
  "rand 0.9.5",
@@ -4328,6 +4329,14 @@ dependencies = [
  "serde",
  "sha2 0.10.9",
  "zeroize",
+]
+
+[[package]]
+name = "plur1bus-desktop-net"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

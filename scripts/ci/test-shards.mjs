@@ -26,9 +26,23 @@ export function parseShard(spec) {
   return { index, total };
 }
 
-/** The files of shard `index` of `total`: round-robin over the sorted list. */
-export function selectShard(files, { index, total }) {
-  return [...files].sort().filter((_, k) => k % total === index - 1);
+/** Round-robin by default; optional measured milliseconds use longest-first scheduling onto the least-loaded shard. */
+export function selectShard(files, { index, total }, timings) {
+  if (timings === undefined) return [...files].sort().filter((_, k) => k % total === index - 1);
+  if (!timings || typeof timings !== "object" || Array.isArray(timings)
+      || Object.values(timings).some(ms => typeof ms !== "number" || !Number.isFinite(ms) || ms < 0)) {
+    throw new Error("invalid shard timing data: expected finite nonnegative milliseconds by file");
+  }
+  const weight = file => Object.hasOwn(timings, file) ? Math.max(100, timings[file]) : 1000;
+  const sorted = [...files].sort((a, b) => weight(b) - weight(a) || (a < b ? -1 : a > b ? 1 : 0));
+  const bins = Array.from({ length: total }, () => ({ ms: 0, files: [] }));
+  for (const file of sorted) {
+    let lightest = 0;
+    for (let i = 1; i < bins.length; i++) if (bins[i].ms < bins[lightest].ms) lightest = i;
+    bins[lightest].files.push(file);
+    bins[lightest].ms += weight(file);
+  }
+  return bins[index - 1].files.sort();
 }
 
 export function writeManifest(path, { index, total }, files) {

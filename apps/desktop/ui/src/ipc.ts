@@ -9,11 +9,20 @@ export type Platform = "mac" | "win" | "gnome" | "kde";
 export type Settings = { theme: ThemeChoice; locale: LocaleChoice };
 export type Connection = { id: string; name: string; kind: "bundled" | "local" | "remote"; origin: string; installationId: string; deviceId: string; tokenHint: string; certPin: string | null; caPin: string | null; nextCertPin: string | null; nextCaPin: string | null; observedCertPin: string | null; pairingNeeded: boolean };
 export type TokenStoreKind = "keychain" | "memory-only";
-export type ConnectionList = { connections: Connection[]; active: string | null; tokenStore: TokenStoreKind | null };
+/** Transport choice (spec §3.1, §8): the path, what a check reports, what the list shows. */
+export type Transport = "tailscale" | "direct";
+export type Purpose = "remote" | "ssh" | "ssh-jump";
+export type CheckTarget = { kind: "origin"; origin: string } | { kind: "host"; host: string; port: number } | { kind: "connection"; id: string };
+export type TransportHint = { code: string; severity: "info" | "notice" | "warning" | "error"; params: Record<string, string> };
+export type TransportReport = { category: "loopback" | "tailnet" | "private" | "special" | "public" | null; addresses: string[]; hints: TransportHint[]; tailscale: { state: string; peer: string | null; online: boolean | null } | null; needsPublicAck: boolean; classifier: string };
+export type TransportView = { transport: Transport; publicAck: boolean; storeReadOnly: boolean };
+export type TransportStoreMode = "read-write" | "read-only-newer" | "failed";
+export type ConnectionList = { connections: Connection[]; active: string | null; tokenStore: TokenStoreKind | null; transports?: Record<string, TransportView>; transportStore?: TransportStoreMode };
 export type ConnectionSnapshot = { status: "loading" | "ready" | "error"; data: ConnectionList | null; timedOut?: boolean };
 export type LinkEnvelope = { id: number; intent: {kind: "pair"; origin: string; code: string; pin: string | null; ca: string | null} | {kind: "open"; path: string} | {kind: "chat" | "install" | "p1x" | "ignored"} };
 export type PairPrefill = { linkId: number; origin: string; code: string; pin: string | null; ca: string | null };
-export type PairRequest = { name: string; origin: string; code: string; repairId: string | null; linkId?: number | null };
+export type PairRequest = { name: string; origin: string; code: string; repairId: string | null; linkId?: number | null; transport: Transport; publicAck: boolean };
+export type Opened = { selected: boolean; spa_available: boolean; transport?: TransportReport | null };
 export type Paired = { connection: Connection; tokenStore: TokenStoreKind };
 export type HelperStatus={ready:boolean;restarting:boolean;capabilities:string[];grants:string[]};
 export type BridgeSettings={enabled:boolean;memoryOnly:boolean;secretsLocked:boolean;secretsState?:"locked"|"unlocked"|"unknown"};
@@ -69,7 +78,12 @@ export type DesktopTransport = {
   connectionsRemove(id: string): Promise<void>;
   pairCode(request: PairRequest): Promise<Paired>;
   pairLocal(name: string): Promise<Paired>;
-  openConnection(id: string): Promise<{ selected: boolean; spa_available: boolean }>;
+  openConnection(id: string): Promise<Opened>;
+  transportCheck?(target: CheckTarget, transport: Transport, purpose: Purpose): Promise<TransportReport>;
+  connectionTransportSet?(id: string, transport: Transport, publicAck: boolean): Promise<TransportReport>;
+  transportAttention?(listener: (event: { id: string; code: string }) => void): Promise<() => void>;
+  /** After a switch from the tray menu: `error` is the open's code when it failed (desktop spec §6.3). */
+  traySwitch?(listener: (event: { id: string; error: string | null }) => void): Promise<() => void>;
   appInfo(): Promise<{ platform: Platform; locale: string; store_managed?:boolean; sandboxed?:boolean }>;
   settingsGet(): Promise<Settings>;
   settingsSet(value: Settings): Promise<Settings>;
@@ -123,6 +137,10 @@ export const nativeTransport: DesktopTransport = {
   pairCode: request => invoke("pair_code", { request }),
   pairLocal: name => invoke("pair_local", { request: { name } }),
   openConnection: id => invoke("open_connection", { request: { id } }),
+  transportCheck: (target, transport, purpose) => invoke("transport_check", { request: { target, transport, purpose } }),
+  connectionTransportSet: (id, transport, publicAck) => invoke("connection_transport_set", { request: { id, transport, publicAck } }),
+  transportAttention: listener => listen<{ id: string; code: string }>("transport-attention", event => listener(event.payload)),
+  traySwitch: listener => listen<{ id: string; error: string | null }>("desktop-tray-switch", event => listener(event.payload)),
   appInfo: () => invoke("app_info"),
   settingsGet: () => invoke("settings_get"),
   settingsSet: settings => invoke("settings_set", { request: { settings } }),

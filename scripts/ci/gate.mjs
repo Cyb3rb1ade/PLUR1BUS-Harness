@@ -17,6 +17,8 @@ export function selections(o) {
   return {
     'docs-hygiene': enabled,
     unit: enabled && runtime, // ubuntu-24.04 only; the macos/windows legs are the ungated `unit-os`
+    'core-unit-shard': enabled && o['ts-core'] === 'true',
+    'core-unit': enabled && o['ts-core'] === 'true',
     wsl: enabled && (runtime || o.python === 'true'),
     'web-browser': enabled && o.web === 'true',
     'web-browser-macos': enabled && o.web === 'true' && o.macos === 'true',

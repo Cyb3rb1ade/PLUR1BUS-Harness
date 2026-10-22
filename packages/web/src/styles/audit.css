@@ -1,0 +1,12 @@
+.audit { display: grid; gap: 16px; min-width: 0; }
+.audit > h2 { margin: 0; }
+.audit .card { min-width: 0; }
+.audit-facts { display: grid; gap: 12px; }
+.audit-facts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; }
+.audit-facts dt { color: var(--ink-2); }
+.audit-facts dd { margin: 0; }
+.audit-facts dd, .audit-pending li, .audit-eras li, .audit-findings li { overflow-wrap: anywhere; }
+.audit-pending, .audit-eras { display: grid; gap: 12px; }
+.audit-pending li, .audit-eras li { display: grid; gap: 8px; justify-items: start; }
+.audit-command { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 40rem) { .audit-facts > div { grid-template-columns: minmax(0, 1fr); gap: 4px; } }

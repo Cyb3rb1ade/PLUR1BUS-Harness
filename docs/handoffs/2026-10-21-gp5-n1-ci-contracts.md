@@ -88,3 +88,22 @@ Existing main audit failures are outside this correction; no clean audit baselin
 P2 follow-up: the broader command completed with **128 tests: 127 pass, 0 failure, 0 skip, 1 existing TODO**.
 Local logs: `/tmp/gp5-n1-p2-red.log`, `/tmp/gp5-n1-p2-final-ci.log`,
 `/tmp/gp5-n1-p2-python.log`, `/tmp/gp5-n1-p2-scoped.log`.
+
+P5 follow-up: after the normal P2 feature merge, **58/58 CI tests and 8/8 Python tests** pass; the broader command
+has **136 tests: 135 pass, 0 failure/skip, 1 existing TODO**. Frozen dependency installation and `pnpm gen` complete,
+with no tracked generated output, lock or Engine pin changes. Source-quality passes after installation.
+The two real shared-reader test files pass after generation; their initial missing generated RPC data was a local
+prerequisite, not a suppressed test. See the P5 handoff for the final count and `/tmp/gp5-n1-p5-*.log` for local logs.
+
+P6 follow-up: after the normal P5 feature merge, **61/61 CI tests and 8/8 Python tests** pass; the broader command
+has **139 tests: 138 pass, 0 failure/skip, 1 existing TODO**. Toolchain, frozen install, hygiene, source-quality,
+documentation links, actionlint and diff check pass. The after-evidence ancestry manifest now requires corrected P1
+`93462118ecf007a93592709d1029c04647201cff`, P2 `f09ec4b29fce8491b0c13ecc2df2ca3690efb98f`,
+and P5 `9f571cb356ebf3372284c47eaf60afba47c139c6`. P3/P4 remote heads still match their existing manifest entries.
+No after measurement or hosted green baseline is asserted. Local logs: `/tmp/gp5-n1-p6-*.log`.
+
+P6 integration RED/GREEN: `merge-group.test.mjs` initially retained a second hard-performance assertion,
+so its first integrated CI run passed 60/61. Its full outcome table now matches the explicit advisory contract;
+required check failures/cancellations/skips/missing results remain rejection cases. Final recorded counts above
+were confirmed by rerunning both CI-only and broader commands after this correction. RED log:
+`/tmp/gp5-n1-p6-red.log`. No tests were removed, skipped or converted to TODO.

@@ -41,7 +41,7 @@ no longer hides a repeat of the same event behind its dedupe key, so the repeat 
 | `media-index` | `media.index.failed`; a finished backfill | Every Owner and Admin | media object / index fingerprint |
 | `channel` | The switchboard parks a channel as `misconfigured` | Every Owner and Admin | channel |
 | `update` | Reserved. The core has no update offer yet; the CLI updater is not a core module. | | |
-| `system` | Reserved for core-level notices. | | |
+| `system` | Audit health warnings and always-grant reviews | Active owners for audit warnings; affected person for grant reviews | rolling owner/cause hour or grant |
 
 "Every Owner and Admin" is resolved when the entry is written. A person who becomes Admin later does not get old entries.
 
@@ -129,3 +129,27 @@ The page (`packages/web/src/pages/inbox`) is covered by `inbox-page.test.ts`, `i
 
 Limits: an entry of a kind this UI does not know is not shown (the kinds are a closed list in `rpc-types.ts`); "Mark all as read" without a kind
 filter also marks entries that are not loaded yet, as the label says.
+
+## Audit health warnings (GP5 Q3)
+
+Active human owners receive metadata-only `system` warnings for chain refusal (one cause per
+bounded code), pending journal entries, and dropped pending rows. Admins are not recipients of
+these owner notices. Payload params contain only `code`, `count` and observation time `at`;
+record details, targets and actor fields are never copied. The link opens the existing logs page.
+Core append failures are observed immediately without changing the original exception. A startup
+and 30-second check of cached Q2 health observes the shared journal written by the supervisor/CLI;
+an incremental read-only `audit.log` reader also observes persisted refusal/overflow/drain events,
+so a queue already drained between samples still creates a notice. At most 1 MiB is read per tick; a backlog schedules a single zero-delay catch-up tick that
+yields to the event loop, rather than waiting 30 seconds per chunk. Shutdown clears both timers;
+a read failure falls back to the normal interval, without a tight retry loop.
+partial rows are retained, file replacement/truncation resets the reader. Historical events older
+than one hour do not create fresh warnings; current pending/health conditions still do. Replay on
+restart is subject to the same durable cooldown. A row exceeding the 8-MiB buffer is discarded
+through its newline and produces an `audit-unavailable` warning, never copied content.
+
+Publication uses the existing durable inbox and its person-scoped live change delivery. A rolling
+one-hour cooldown per owner/cause is committed in the same SQLite transaction as the inbox entry.
+It survives restart, dismissal, clock rollback and entry retention. A failed insertion rolls the
+cooldown back. Persistent conditions can remind again after an hour; a resolved condition creates
+no further warning. An old warning is an observation at its recorded time, not current verification.
+No new RPC, notification name, subscription or config key is introduced.

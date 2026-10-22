@@ -89,6 +89,7 @@ impl SupervisorServer {
             token: self.token,
             hello: hello_base,
             shared: shared.clone(),
+            audit_health: Mutex::new(crate::audit::health::Cache::default()),
             layout,
         });
         let mut next_id: u64 = 0;
@@ -131,6 +132,7 @@ impl SupervisorServer {
 struct ConnCtx {
     token: String,
     hello: Value,
+    audit_health: Mutex<crate::audit::health::Cache>,
     shared: Arc<Shared>,
     layout: Layout,
 }
@@ -854,7 +856,7 @@ impl ConnCtx {
             // Supervisor-only lifecycle/subscription operations never cross the browser transport.
             if !matches!(
                 method,
-                "config.get" | "config.set" | "module.list" | "module.graph"
+                "config.get" | "config.set" | "module.list" | "module.graph" | "daemon.status"
             ) || !matches!(p["role"].as_str(), Some("owner" | "admin"))
             {
                 return Some((
@@ -879,6 +881,10 @@ impl ConnCtx {
                     let cfg = config::status_json(&relock(&self.shared.config));
                     let mut status = self.shared.lock().status_json();
                     status["config"] = cfg;
+                    if crate::audit::health::authorized(principal.as_ref()) {
+                        status["audit"] = relock(&self.audit_health)
+                            .status(&self.layout.logs(), crate::audit::now_ms());
+                    }
                     (result_reply(&id, status), After::Continue)
                 }
             },

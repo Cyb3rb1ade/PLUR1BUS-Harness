@@ -153,6 +153,8 @@ struct Shared {
     event_replay_ids: Mutex<Vec<Option<String>>>,
     revoke_after: Mutex<Option<String>>,
     redemption_token_length: Mutex<Option<usize>>,
+    /// TCP connections the TLS listener accepted (transport tests count them).
+    accepted: AtomicU64,
 }
 #[derive(Clone)]
 enum Event {
@@ -262,6 +264,7 @@ impl MockHarness {
             event_replay_ids: Mutex::new(Vec::new()),
             revoke_after: Mutex::new(None),
             redemption_token_length: Mutex::new(None),
+            accepted: AtomicU64::new(0),
         });
         shared.save(&shared.store.lock().unwrap())?;
         let listener = TcpListener::bind(options.bind).await?;
@@ -300,6 +303,17 @@ impl MockHarness {
 impl MockControl {
     pub fn set_redemption_token_length(&self, length: usize) {
         *self.shared.redemption_token_length.lock().unwrap() = Some(length);
+    }
+
+    /// Reports `origin` as this harness's origin (pairing proof, browser `Origin` checks) instead of the listener
+    /// address, so a test can reach the listener under a host name its own resolver maps to it.
+    pub fn set_origin(&self, origin: &str) {
+        *self.shared.origin.lock().unwrap() = Some(origin.into());
+    }
+
+    /// TCP connections the TLS listener accepted so far (plain-HTTP harnesses do not count).
+    pub fn accepted_connections(&self) -> u64 {
+        self.shared.accepted.load(Ordering::SeqCst)
     }
 
     pub fn revoke_after_route(&self, route: &str) {

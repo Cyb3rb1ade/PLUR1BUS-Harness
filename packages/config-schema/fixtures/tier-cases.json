@@ -5896,7 +5896,8 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9_-]{1,256}$",
                       "x-restart": "module:telegram",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "maxBodyBytes": {
                       "description": "Maximum accepted request body size in bytes.",

@@ -69,6 +69,7 @@ export interface MethodDeps {
   backup?: { layout: Layout; baseDbPath: string };
   /** B5: the hash-chained audit file (`audit.verify`). */
   auditChain?: AuditChain;
+  auditVerified?: (ok: boolean) => void;
   /** D112: harness-side system jobs registry. */
   systemJobs?: import("../system-jobs/index.ts").SystemJobs;
   /** D112: model discovery service. */
@@ -218,7 +219,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
     ...(d.reembed ?? {}),
 
-    ...(d.auditChain ? buildAuditMethods({ chain: d.auditChain }) : {}),
+    ...(d.auditChain ? buildAuditMethods({ chain: d.auditChain, ...(d.auditVerified ? { verified: d.auditVerified } : {}) }) : {}),
     ...(d.backup ? buildBackupMethods({ engine: d.engine, layout: d.backup.layout, baseDbPath: d.backup.baseDbPath, logger: d.logger, isStopping: d.isStopping }) : {}),
 
     ...buildActivityMethods(d.activity, () => d.agents.list()),

@@ -13,12 +13,13 @@ import type { PageProps } from "../registry.ts";
 type Props = Record<string, unknown>;
 const Viewer = lazySection<Props>(() => import("./viewer.ts").then((m) => m.LogViewer));
 const Activity = lazySection<Props>(() => import("./activity.ts").then((m) => m.ActivityFeed));
+const Audit = lazySection<Props>(() => import("./audit.ts").then((m) => m.AuditSection));
 const Sessions = lazySection<Props>(() => import("./sessions.ts").then((m) => m.SessionsOverview));
 import "../../styles/logs-tabs.css";
 
 registerArea("logs", logsArea);
 
-const TABS = ["logs", "activity", "sessions"] as const;
+const TABS = ["logs", "activity", "sessions", "audit"] as const;
 
 export function LogsPage({ item, sub }: PageProps): View {
   const selected = TABS.find((x) => x === sub) ?? "logs";
@@ -29,6 +30,7 @@ export function LogsPage({ item, sub }: PageProps): View {
         { id: "logs", label: t("logs.tab.logs"), panel: h(Viewer, {}) },
         { id: "activity", label: t("logs.tab.activity"), panel: h(Activity, {}) },
         { id: "sessions", label: t("logs.tab.sessions"), panel: h(Sessions, {}) },
+        { id: "audit", label: t("logs.tab.audit"), panel: h(Audit, {}) },
       ],
     }));
 }

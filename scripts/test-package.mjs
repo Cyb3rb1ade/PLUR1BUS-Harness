@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { listTestFiles, parseShard, selectShard, writeManifest } from "./ci/test-shards.mjs";
 
 // Default per-test timeout: a hung test fails with its own name instead of silently eating the CI job budget (the job
@@ -13,7 +14,15 @@ let files = listTestFiles();
 if (process.env.PLUR1BUS_TEST_SHARD !== undefined) {
   let shard;
   try { shard = parseShard(process.env.PLUR1BUS_TEST_SHARD); } catch (e) { console.error(`PLUR1BUS_TEST_SHARD: ${e.message}`); process.exit(1); }
-  files = selectShard(files, shard);
+  let timings;
+  try {
+    if (process.env.PLUR1BUS_TEST_SHARD_TIMINGS) {
+      const profile = JSON.parse(readFileSync(process.env.PLUR1BUS_TEST_SHARD_TIMINGS, "utf8"));
+      if (profile.version !== 1 || !profile.durationsMs) throw new Error("unsupported timing profile: expected version 1 and durationsMs");
+      timings = profile.durationsMs;
+    }
+    files = selectShard(files, shard, timings);
+  } catch (e) { console.error(`PLUR1BUS_TEST_SHARD_TIMINGS: ${e.message}`); process.exit(1); }
   if (process.env.PLUR1BUS_TEST_SHARD_MANIFEST) writeManifest(process.env.PLUR1BUS_TEST_SHARD_MANIFEST, shard, files);
   console.log(`shard ${shard.index}/${shard.total}: ${files.length} test files`);
 }

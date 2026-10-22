@@ -5,6 +5,8 @@
 #![allow(dead_code)]
 #[path = "audit_chain.rs"]
 pub(crate) mod chain;
+#[path = "audit_health.rs"]
+pub(crate) mod health;
 #[path = "audit_redact.rs"]
 mod redact;
 use crate::paths::Layout;

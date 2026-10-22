@@ -1,6 +1,6 @@
 {
   "$comment": "D111 §3. Diagnostic and payload entries describe `attrs` of a diagnostic record; audit entries describe `detail` of an audit record (schema/audit.schema.json, spec R1). A group with `open: true` tolerates further keys (legacy HB12 details). The event catalogue; the source of truth for both writers and the reader. Entries carry one full example record each (validated by the tests). Names are stable API (R10): a rename is a new event plus a deprecation.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "nameRule": "^[a-z][a-z0-9_-]*(\\.[a-z0-9][a-z0-9_-]*){1,3}$",
   "streams": [
     "diagnostic",
@@ -43,7 +43,10 @@
     }
   },
   "attrGroups": {
-    "agent_creation": {"description":"Agent registration completed.","properties":{}},
+    "agent_creation": {
+      "description": "Agent registration completed.",
+      "properties": {}
+    },
     "compaction": {
       "description": "Compaction view changes; references only, never transcript content.",
       "properties": {
@@ -1237,25 +1240,26 @@
       }
     },
     "audit_config_set": {
-      "description": "A configuration change. x-sensitive values are redacted by the writer.",
+      "description": "Supervisor audit.config.set prepare event. Values are redacted by the writer according to x-sensitive.",
       "properties": {
-        "key": {
+        "personId": {
           "type": "string",
-          "maxLength": 128,
-          "description": "config key"
+          "maxLength": 128
         },
-        "restart_class": {
+        "oldValue": {
+          "description": "Previous JSON value, redacted when x-sensitive."
+        },
+        "newValue": {
+          "description": "Proposed JSON value, redacted when x-sensitive."
+        },
+        "targetRevision": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "phase": {
           "enum": [
-            "live",
-            "core",
-            "module"
+            "prepare"
           ]
-        },
-        "old": {
-          "description": "previous value (any JSON), redacted when x-sensitive"
-        },
-        "new": {
-          "description": "new value (any JSON), redacted when x-sensitive"
         }
       }
     },
@@ -1589,6 +1593,227 @@
               "minimum": 0
             }
           }
+        }
+      }
+    },
+    "audit_config_set_legacy": {
+      "description": "Previously published config.set event shape, retained for historical readers.",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "config key"
+        },
+        "restart_class": {
+          "enum": [
+            "live",
+            "core",
+            "module"
+          ]
+        },
+        "old": {
+          "description": "previous value (any JSON), redacted when x-sensitive"
+        },
+        "new": {
+          "description": "new value (any JSON), redacted when x-sensitive"
+        }
+      }
+    },
+    "audit_chain_advanced": {
+      "description": "Audit chain recovery/journal metadata emitted by the shared writer.",
+      "properties": {
+        "fromSeq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toSeq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "writer": {
+          "enum": [
+            "cli",
+            "core"
+          ]
+        }
+      }
+    },
+    "audit_chain_reanchored": {
+      "description": "Audit chain recovery/journal metadata emitted by the shared writer.",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "disagreement": {
+          "enum": [
+            "tail-malformed",
+            "anchor-missing",
+            "anchor-invalid",
+            "chain-shorter-than-anchor",
+            "tail-mismatch"
+          ]
+        },
+        "previousAnchor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "ok",
+                "missing",
+                "invalid"
+              ]
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "previousEnd": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "seq",
+                "hash"
+              ],
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "hash": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "validLines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastValid": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "seq",
+                "hash"
+              ],
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "hash": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "firstBreak": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "code",
+                "file",
+                "line"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "file": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "line": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "asideSuffix": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "aside": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        "asideDir": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      }
+    },
+    "audit_chain_drained": {
+      "description": "Audit chain recovery/journal metadata emitted by the shared writer.",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dropped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "audit_chain_overflow": {
+      "description": "Audit chain recovery/journal metadata emitted by the shared writer.",
+      "properties": {
+        "dropped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limitLines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limitBytes": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
@@ -5986,12 +6211,12 @@
     },
     {
       "event": "config.set",
-      "note": "Records a configuration change.",
+      "note": "Records a configuration change. Historical name and shape retained; current supervisor writes audit.config.set.",
       "kinds": [
         "harness"
       ],
       "stream": "audit",
-      "attrs": "audit_config_set",
+      "attrs": "audit_config_set_legacy",
       "requiredAttrs": [
         "key"
       ],
@@ -6907,6 +7132,201 @@
               "unchanged": 0,
               "duplicates": 0
             }
+          }
+        }
+      ]
+    },
+    {
+      "event": "audit.config.set",
+      "note": "Records supervisor configuration preparation under the authenticated person.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_config_set",
+      "requiredAttrs": [
+        "personId",
+        "oldValue",
+        "newValue",
+        "targetRevision",
+        "phase"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "at": 1792544400000,
+          "actor": {
+            "user": "p1",
+            "host": "supervisor"
+          },
+          "action": "audit.config.set",
+          "target": "core.logLevel",
+          "detail": {
+            "personId": "p1",
+            "oldValue": "info",
+            "newValue": "debug",
+            "targetRevision": "rev-1",
+            "phase": "prepare"
+          }
+        }
+      ]
+    },
+    {
+      "event": "audit.chain.anchor-advanced",
+      "note": "Records shared audit-chain operation metadata.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_chain_advanced",
+      "requiredAttrs": [
+        "fromSeq",
+        "toSeq",
+        "writer"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "at": 1792544400000,
+          "actor": {
+            "user": "p1",
+            "host": "supervisor"
+          },
+          "action": "audit.chain.anchor-advanced",
+          "target": "audit-chain.anchor",
+          "detail": {
+            "fromSeq": 1,
+            "toSeq": 2,
+            "writer": "cli"
+          }
+        }
+      ]
+    },
+    {
+      "event": "audit.chain.reanchored",
+      "note": "Records shared audit-chain operation metadata.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_chain_reanchored",
+      "requiredAttrs": [
+        "reason",
+        "disagreement",
+        "previousAnchor",
+        "previousEnd",
+        "lines",
+        "validLines",
+        "lastValid",
+        "firstBreak",
+        "asideSuffix",
+        "aside",
+        "asideDir"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "at": 1792544400000,
+          "actor": {
+            "user": "p1",
+            "host": "supervisor"
+          },
+          "action": "audit.chain.reanchored",
+          "target": "audit-chain",
+          "detail": {
+            "reason": "Owner inspected damaged anchor",
+            "disagreement": "anchor-invalid",
+            "previousAnchor": {
+              "status": "invalid"
+            },
+            "previousEnd": {
+              "seq": 2,
+              "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "lines": 2,
+            "validLines": 2,
+            "lastValid": {
+              "seq": 2,
+              "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "firstBreak": null,
+            "asideSuffix": "pre-reanchor-1792544400000",
+            "aside": [
+              "audit-chain.jsonl.pre-reanchor-1792544400000"
+            ],
+            "asideDir": "/home/owner/logs"
+          }
+        }
+      ]
+    },
+    {
+      "event": "audit.chain.pending_drained",
+      "note": "Records shared audit-chain operation metadata.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_chain_drained",
+      "requiredAttrs": [
+        "count",
+        "dropped",
+        "skipped"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "at": 1792544400000,
+          "actor": {
+            "user": "p1",
+            "host": "supervisor"
+          },
+          "action": "audit.chain.pending_drained",
+          "target": "audit-chain",
+          "detail": {
+            "count": 3,
+            "dropped": 1,
+            "skipped": 0
+          }
+        }
+      ]
+    },
+    {
+      "event": "audit.chain.pending_overflow",
+      "note": "Records shared audit-chain operation metadata.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_chain_overflow",
+      "requiredAttrs": [
+        "dropped",
+        "limitLines",
+        "limitBytes"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "at": 1792544400000,
+          "actor": {
+            "user": "p1",
+            "host": "supervisor"
+          },
+          "action": "audit.chain.pending_overflow",
+          "target": "audit-chain",
+          "detail": {
+            "dropped": 1,
+            "limitLines": 1000,
+            "limitBytes": 8388608
           }
         }
       ]

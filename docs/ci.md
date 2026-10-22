@@ -32,7 +32,8 @@ that names an unknown code passes `ci-gate` and fails the Rust suite on the next
 The category outputs are `rust`, `ts-core`, `web`, `python`, `docs-only`, `workflows`, `engine-pin` and `documents`.
 The existing macOS label/path policy still selects the platform legs *within* each affected suite; it cannot turn a
 failed classifier into a successful skip. Main pushes, scheduled nightly and manual CI runs select all suites.
-`merge_group` classification also selects all suites; its trigger is added in P6.
+`merge_group.checks_requested` starts the same workflow and selects all suites, including the full macOS policy and
+all Core/browser shards. It uses the queue commit checked out by Actions and needs no PR diff, labels or PR metadata.
 
 The `unit` job (ubuntu-24.04; the macOS and Windows legs are the separate `unit-os` job, see below) keeps setup/build and checks only the selected language's tests: TypeScript changes
 omit Rust fmt/clippy/unit tests, Rust-only changes omit the TypeScript unit suite; shared Rust fixtures and the restore marker
@@ -45,13 +46,15 @@ retain their existing path rules. Their checks are not folded into this workflow
 ### Required check and failures
 
 `ci-gate` is THE gate of `ci.yml`: the one check to wait for (and, once branch protection is configured, the one to
-require). It runs with `always()` after the reliable jobs and nothing else: `docs-hygiene`, `unit` (the
-`unit (ubuntu-24.04)` leg), `wsl` and `web-browser` (itself the aggregate over `web-browser-build` and the four shards, and
+require). It runs with `always()` after the required reliable jobs and the explicitly registered macOS browser advisory: `docs-hygiene`, `unit` (the
+`unit (ubuntu-24.04)` leg), P5 `core-unit-shard` and `core-unit` when TypeScript is selected, `wsl` and `web-browser` (itself the aggregate over `web-browser-build` and the four shards, and
 the exact-partition check). It requires `changes` to succeed and all category outputs to be literal `true` or `false`.
-Every selected job must report `success`; `failure`, `cancelled`, `skipped`, an absent result or an unknown job in
+Every selected required job must report `success`; `failure`, `cancelled`, `skipped`, an absent result or an unknown job in
 `needs` fail the gate. An unselected job may be `skipped` or may have succeeded, but never failed or cancelled. The gate
 reports even when the plan selected nothing, which is why a skipped `unit` matrix (never reports `unit (ubuntu-24.04)`)
 is no reason to wait on a name.
+
+`web-browser-macos` is the sole explicit advisory dependency: the gate waits for its two-shard matrix outcome and accepts completed success, failure or skipped outcomes. Missing, cancelled or malformed results block. It is selected only when `proceed`, `web` and `macos` are all true.
 
 Everything else in `ci.yml` is deliberately outside the gate and not in its `needs`, so it can neither fail nor delay it:
 `unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
@@ -68,9 +71,32 @@ its concurrency group differs from the real run's, so it never cancels it. Its g
 instead of `ci-gate`, so it can never appear as a fresh green `ci-gate` on a head commit whose real run is still
 running or red. `ci:macos` itself re-triggers a real run, which reports `ci-gate`.
 
+### Merge queue: owner activation (GP5 P6)
+
+The workflow is prepared for merge groups. Queue activation remains an explicit owner decision; no repository setting
+is changed here, and the Controller/Watcher process continues unchanged until the owner enables an available queue.
+The read-only repository API on 2026-10-21 reports a public repository with `owner.type=User`. GitHub currently offers
+GitHub.com merge queues for organization-owned repositories, so this repository first needs an owner-approved change
+of ownership or future feature availability. Do not move it automatically for this feature. See
+[GitHub's merge queue documentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue).
+
+Only after a green Windows baseline and refreshed open PR heads, and when eligible, an administrator can open Settings → Branches (or the existing main ruleset), select the exact `main`
+branch, require the GitHub Actions `ci-gate` check and enable **Require merge queue**. Use the aggregate check rather
+than filtered/matrix job names, which can deliberately skip on PRs. Any other required workflow must also report for
+merge groups before activating the queue. Start with queue build concurrency 1 to limit runner demand; increase it
+only after a measured queue/throughput comparison. A successful PR check does not substitute for the queue commit's check.
+
+Open owner decision: whether to enable a queue after integration and after resolving feature availability. Recommendation:
+retain the current Controller/Watcher for this personal repository; review any organization move separately. If a queue
+becomes available and is approved, use exact `main`, `ci-gate` and initial build concurrency 1. No existing permission,
+branch-protection or merge-method setting is silently changed.
+
+The [CI throughput handoff](handoffs/2026-10-21-ci-throughput.md) preserves the historical P1 baseline and the executable
+preflight for a genuine measurement after P1–P5 integration. No after measurement or speedup is claimed yet.
+
 `gate.test.mjs` exercises result combinations, and `workflow-contract.test.mjs` evaluates the actual job-level boolean
 conditions against the skip policy, proves the gate's `needs` are exactly the gated jobs and every other job is on the
-`UNGATED` list, proves `unit-os` has the same steps as `unit`, and evaluates the gate's job name for every event. Matrix
+`UNGATED` list, proves `unit-os` preserves the unit steps with full TypeScript coverage while Ubuntu excludes only the separately sharded Core package, and evaluates the gate's job name for every event. Matrix
 failures of gated jobs remain failures. Performance jobs still run their existing diagnostic commands and
 known-gap behavior; no numerical budget is promoted from advisory to a hard assertion.
 
@@ -165,8 +191,9 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | --- | --- |
 | `changes` (`plan` in Desktop/Hermes workflows) | Tested runner/label policy; a non-macOS label event deliberately runs no expensive matrix |
 | `docs-hygiene` | Gated. Hygiene, source quality, i18n, doc links and `pnpm docs:check` (generated documents), for every selected run |
-| `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests, Rust fmt/clippy/tests |
-| `unit-os` | Not gated; only under the full-platform policy. The same steps on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)` |
+| `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests outside Core, Rust fmt/clippy/tests |
+| `core-unit-shard`, `core-unit` | Gated. Three measured Ubuntu Core shards plus the exact-partition check; missing manifests, failure and cancellation block |
+| `unit-os` | Not gated; only under the full-platform policy. Full offline TypeScript workspace tests and the same remaining steps on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)` |
 | `web-browser-macos` | Explicit advisory dependency: waits for the result, permits completed failure/skipped; selected only for proceed + web + macos |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
 | `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command); the macOS leg follows the full-platform policy |
@@ -181,6 +208,32 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 
 CI/nightly actions are pinned to full commit SHAs; comments record their versions. `node scripts/lint-hygiene.mjs` (rule HYG-016) rejects any workflow `uses:` that is not a full SHA, a local `./` action or a `docker://` image with a `@sha256:` digest. It also rejects known annotated tag-object SHAs from the small offline denylist in `scripts/workflow-pin-gate.mjs`. That list cannot establish the type of an arbitrary Git object: when updating a pin, verify it through the Git API or `git ls-remote <repository> 'refs/tags/<tag>' 'refs/tags/<tag>^{}'` and use the peeled commit, with a version comment. Add newly discovered tag objects to the list with verification evidence and a regression test. Workflow default is `contents: read`. PR concurrency cancels superseded runs. No new third-party retry action is introduced.
+
+### Core sharding and job budgets (GP5 P5)
+
+For selected TypeScript suites, Ubuntu runs `packages/core` in three `core-unit-shard` jobs. The existing Ubuntu
+unit job runs every other package through the same root test runner and its nonzero-test guard. macOS and Windows
+keep the full unsharded offline workspace test run; macOS browser tests run explicitly in `web-browser-macos`. New Core files are always included, even before their timing is measured.
+
+`.github/ci/core-test-timings.json` records all 601 Core file durations from the historical successful Ubuntu run
+39516791460 at `1dae60f2ae` (artifact 12310137290). `selectShard` assigns the longest measured file first to the
+least-loaded shard, with deterministic ties, a 100 ms floor and a 1000 ms estimate for new files. Only the Core
+job sets `PLUR1BUS_TEST_SHARD_TIMINGS`; browser sharding remains round-robin. No test or assertion was removed.
+
+Each Core shard writes its executed file list and uploads a timing report. `core-unit` checks the manifests against
+the live file inventory and requires the entire matrix to succeed. The final `ci-gate` requires both the shard
+matrix and the partition gate when TypeScript was selected. A missing/cancelled/failed shard cannot become a pass.
+Every `ci.yml` job has an explicit budget; new Core shards allow 20 minutes per job and 15 minutes for tests, with
+5 minutes for the partition gate. Existing platform and integration budgets remain in place until new measurements
+justify changing them. The [P5 handoff](handoffs/2026-10-21-gp5-p5-core-shards.md) lists all budgets, the global Top 20,
+the measured partition and its limits. The projected balance is not a hosted before/after result.
+
+To run a weighted Core shard locally after preparation:
+
+```bash
+PLUR1BUS_TEST_SHARD=1/3 PLUR1BUS_TEST_SHARD_TIMINGS="$PWD/.github/ci/core-test-timings.json" \
+  pnpm --filter @plur1bus/core test
+```
 
 ### Windows timeout and timings
 

@@ -1,16 +1,24 @@
-import type { Connection, DesktopTransport, Paired, PairPrefill } from "../ipc.ts";
+import type { Connection, DesktopTransport, Paired, PairPrefill, TransportView } from "../ipc.ts";
 import type { MessageKey } from "../i18n.ts";
 import { element, append } from "../components/dom.ts";
 import { button } from "../components/button.ts";
 import { normalizeOrigin } from "../models/origin-input.ts";
 import { pairingFailure } from "../models/pairing-model.ts";
+import { createTransportModel, errorLine, originHost, type TransportModel } from "../models/transport-model.ts";
+import { transportChoice } from "./transport-choice.ts";
 export type Translate = (key: MessageKey, values?: Record<string, string>) => string;
 /** The one pairing in flight lives outside the form: the shell rebuilds views on late loads and must not unlock a
  * code that was already sent. */
-const pairing: { busy: boolean; message: string; live: { sync(): void; failed(): void } | null } = { busy: false, message: "", live: null };
-/** A fresh "add" (from the list) starts without the previous attempt's message; a pairing still in flight is kept. */
-export function resetPairing(): void { if (!pairing.busy) pairing.message = ""; }
-export function addRemote(t: Translate, transport: DesktopTransport, done: (result: Paired) => void, cancel: () => void, repair?: Connection, prefill?: PairPrefill): HTMLElement {
+const pairing: { busy: boolean; message: string; live: { sync(): void; failed(refusal?: "confirm" | "target"): void } | null } = { busy: false, message: "", live: null };
+/** The path choice of the form in progress (transport choice §7.1) survives re-renders like the pairing state. */
+let choice: { model: TransportModel; owner: DesktopTransport } | null = null;
+function choiceFor(transport: DesktopTransport): TransportModel {
+    if (!choice || choice.owner !== transport) choice = { model: createTransportModel(transport.transportCheck?.bind(transport), "remote"), owner: transport };
+    return choice.model;
+}
+/** A fresh "add" (from the list) starts without the previous attempt's message or path; a pairing in flight is kept. */
+export function resetPairing(): void { if (!pairing.busy) { pairing.message = ""; choice?.model.reset(); } }
+export function addRemote(t: Translate, transport: DesktopTransport, done: (result: Paired) => void, cancel: () => void, repair?: Connection, prefill?: PairPrefill, repairView?: TransportView): HTMLElement {
     const form = element("form", "page-card pairing-form");
     append(form, element("h2", undefined, t(repair ? "pair.repair" : "pair.add")), element("p", undefined, t("pair.instructions")));
     function field(label: string, value: string, id: string) { const row = element("label", "field"); row.htmlFor = id; const input = element("input"); input.id = id; input.value = value; input.required = true; append(row, element("span", undefined, label), input); form.append(row); return input; }
@@ -31,6 +39,12 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
     validation.setAttribute("aria-live", "polite");
     origin.setAttribute("aria-describedby", validation.id);
     form.append(validation);
+    // Transport choice §7.1: the path, its check and a needed confirmation come between origin and code.
+    const model = choiceFor(transport);
+    if (repair && !model.state.transport && repairView) model.setTransport(repairView.transport);
+    const fixedOrigin = repair?.origin ?? prefill?.origin;
+    if (fixedOrigin) { const normalized = normalizeOrigin(fixedOrigin); model.setTarget(normalized ? { kind: "origin", origin: normalized } : null, normalized ? originHost(normalized) : ""); }
+    form.append(transportChoice(t, model, { idPrefix: "pair-transport", storeReadOnly: repairView?.storeReadOnly, onChange: () => pairing.live?.sync() }));
     const codes = element("fieldset", "code-fields");
     append(codes, element("legend", undefined, t("pair.code")));
     const first = element("input"), second = element("input");
@@ -61,11 +75,20 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
     submit.type = "submit";
     append(footer, button(t("pair.cancel"), () => { if (!pairing.busy) pairing.message = ""; cancel(); }), submit);
     form.append(footer);
-    origin.addEventListener("input", () => { const normalized = normalizeOrigin(origin.value); validation.textContent = normalized ?? t("pair.error.insecure-origin"); origin.setAttribute("aria-invalid", String(!normalized)); });
+    origin.addEventListener("input", () => {
+        const normalized = normalizeOrigin(origin.value);
+        validation.textContent = normalized ?? t("pair.error.insecure-origin");
+        origin.setAttribute("aria-invalid", String(!normalized));
+        model.setTarget(normalized ? { kind: "origin", origin: normalized } : null, normalized ? originHost(normalized) : "");
+    });
     pairing.live = {
-        sync: () => { submit.disabled = pairing.busy; status.textContent = pairing.message; },
-        failed: () => { pairing.live?.sync();
-            if (!prefill) { first.value = ""; second.value = ""; first.focus(); }
+        // Submit waits for a chosen path and, for a public target, the ticked confirmation.
+        sync: () => { submit.disabled = pairing.busy || !model.ready(); status.textContent = pairing.message; },
+        failed: refusal => { pairing.live?.sync();
+            // A refusal before any harness contact did not use the code: keep it and go to what needs fixing.
+            if (refusal === "confirm") (form.querySelector<HTMLInputElement>("#pair-transport-public-ack") ?? form.querySelector<HTMLInputElement>("input[name=pair-transport-transport]:checked"))?.focus();
+            else if (refusal === "target") (origin.readOnly ? submit : origin).focus();
+            else if (!prefill) { first.value = ""; second.value = ""; first.focus(); }
             else submit.focus();
         },
     };
@@ -81,11 +104,14 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
             origin.focus();
             return;
         }
+        const path = model.state.transport;
+        if (!path || !model.ready())
+            return;
         pairing.busy = true;
         pairing.message = t("pair.working");
         pairing.live?.sync();
         try {
-            const result = await transport.pairCode({ name: name.value, origin: normalized, code: `${first.value}-${second.value}`, repairId: repair?.id ?? null, linkId: prefill?.linkId ?? null });
+            const result = await transport.pairCode({ name: name.value, origin: normalized, code: `${first.value}-${second.value}`, repairId: repair?.id ?? null, linkId: prefill?.linkId ?? null, transport: path, publicAck: model.state.ack });
             first.value = "";
             second.value = "";
             pairing.busy = false;
@@ -93,8 +119,17 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
             done(result);
         }
         catch (error) {
-            const failure = pairingFailure(error);
             pairing.busy = false;
+            // Rust's own check refused before any harness contact (spec §7.1, §8).
+            const refusal = typeof error === "string" ? errorLine(error, originHost(normalized)) : null;
+            if (refusal) {
+                pairing.message = t(refusal.key, refusal.values);
+                const confirm = error === "transport-confirm-needed";
+                if (confirm) model.checkNow();
+                pairing.live?.failed(confirm ? "confirm" : "target");
+                return;
+            }
+            const failure = pairingFailure(error);
             pairing.message = t(`pair.error.${failure.error}`) + (failure.versions ? ` ${t("pair.apiVersions", failure.versions)}` : "");
             pairing.live?.failed();
         }

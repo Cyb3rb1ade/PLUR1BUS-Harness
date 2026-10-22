@@ -57,6 +57,8 @@ fn shell_capability_is_local_only() {
             "allow-pair-code",
             "allow-pair-local",
             "allow-open-connection",
+            "allow-transport-check",
+            "allow-connection-transport-set",
             "allow-quit-request",
             "allow-quit-offer",
             "allow-background-hint",
@@ -169,6 +171,8 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "pair_code",
             "pair_local",
             "open_connection",
+            "transport_check",
+            "connection_transport_set",
             "desktop_integration_get",
             "desktop_integration_set",
             "autostart_get",
@@ -240,4 +244,111 @@ fn updater_artifacts_are_signed_only_through_the_release_overlay() {
     let release: Value = serde_json::from_str(include_str!("../tauri.release.conf.json")).unwrap();
     assert_eq!(release["bundle"]["createUpdaterArtifacts"], true);
     assert_eq!(release.as_object().unwrap().len(), 1);
+}
+
+/// Transport choice spec §9.5: the two transport commands are shell commands at the bundled origin only; their
+/// requests are closed and carry only a validated host, a port, enums and a connection id.
+#[test]
+fn transport_commands_are_shell_only_and_take_closed_requests() {
+    use plur1bus_desktop::commands::{
+        allowed_command, authorized_shell, host_target, PairCodeRequest, TransportCheckRequest,
+        TransportSetRequest, APP_COMMANDS,
+    };
+    use serde_json::json;
+    for command in ["transport_check", "connection_transport_set"] {
+        assert!(allowed_command("shell", command));
+        assert!(!allowed_command("approvals", command));
+        assert!(!allowed_command("spa", command));
+        assert!(APP_COMMANDS.contains(&command));
+    }
+    // The label check is paired with the exact bundled origin.
+    assert!(authorized_shell("shell", "tauri://localhost/"));
+    assert!(authorized_shell("shell", "http://tauri.localhost/"));
+    for url in [
+        "https://harness.test/",
+        "http://127.0.0.1:30001/",
+        "tauri://localhost:1/",
+    ] {
+        assert!(!authorized_shell("shell", url), "{url}");
+    }
+    assert!(!authorized_shell("spa", "tauri://localhost/"));
+
+    let id = "01940000-0000-7000-8000-000000000001";
+    for good in [
+        json!({"target":{"kind":"origin","origin":"https://harness.test"},"transport":"direct","purpose":"remote"}),
+        json!({"target":{"kind":"host","host":"nas.example","port":22},"transport":"tailscale","purpose":"ssh"}),
+        json!({"target":{"kind":"connection","id":id},"transport":"direct","purpose":"remote"}),
+    ] {
+        assert!(
+            serde_json::from_value::<TransportCheckRequest>(good.clone()).is_ok(),
+            "{good}"
+        );
+    }
+    for bad in [
+        json!({"target":{"kind":"origin","origin":"https://harness.test"},"transport":"direct","purpose":"remote","probe":true}),
+        json!({"target":{"kind":"origin","origin":"https://harness.test","addresses":["1.1.1.1"]},"transport":"direct","purpose":"remote"}),
+        json!({"target":{"kind":"host","host":"nas","port":22,"resolved":"10.0.0.1"},"transport":"direct","purpose":"ssh"}),
+        json!({"target":{"kind":"connection","id":id,"origin":"https://x.test"},"transport":"direct","purpose":"remote"}),
+        json!({"target":{"kind":"url","url":"https://harness.test"},"transport":"direct","purpose":"remote"}),
+        json!({"target":{"kind":"host","host":"nas","port":70000},"transport":"direct","purpose":"ssh"}),
+        json!({"target":{"kind":"origin","origin":"https://harness.test"},"transport":"vpn","purpose":"remote"}),
+        json!({"target":{"kind":"origin","origin":"https://harness.test"},"transport":"direct","purpose":"web"}),
+        json!({"target":{"kind":"origin","origin":"https://harness.test"},"transport":"direct"}),
+    ] {
+        assert!(
+            serde_json::from_value::<TransportCheckRequest>(bad.clone()).is_err(),
+            "{bad}"
+        );
+    }
+    assert!(serde_json::from_value::<TransportSetRequest>(
+        json!({"id":id,"transport":"direct","publicAck":true})
+    )
+    .is_ok());
+    for bad in [
+        json!({"id":id,"transport":"direct","publicAck":true,"classifier":"iana-special-2025-10-09"}),
+        json!({"id":id,"transport":"direct","publicAck":true,"atMs":1}),
+        json!({"id":id,"transport":"direct"}),
+    ] {
+        assert!(
+            serde_json::from_value::<TransportSetRequest>(bad.clone()).is_err(),
+            "{bad}"
+        );
+    }
+    // `pair_code` needs the chosen path and the confirmation flag; the old request shape is refused.
+    let pair = json!({"origin":"https://harness.test","name":"Desk","code":"ABCD-2345","repairId":null,"linkId":null});
+    assert!(serde_json::from_value::<PairCodeRequest>(pair.clone()).is_err());
+    let mut with_path = pair.clone();
+    with_path["transport"] = json!("direct");
+    with_path["publicAck"] = json!(false);
+    let request = serde_json::from_value::<PairCodeRequest>(with_path.clone()).unwrap();
+    assert_eq!(
+        request.transport,
+        plur1bus_desktop::transport::Transport::Direct
+    );
+    assert!(!request.public_ack);
+    with_path["addresses"] = json!(["10.0.0.1"]);
+    assert!(serde_json::from_value::<PairCodeRequest>(with_path).is_err());
+
+    // Host strings: spec §4.4 limits, refused before any check.
+    let name_254 = format!(
+        "{}.{}.{}.{}",
+        "a".repeat(63),
+        "b".repeat(63),
+        "c".repeat(63),
+        "d".repeat(62)
+    );
+    assert_eq!(name_254.len(), 254);
+    assert_eq!(host_target(&name_254, 22).unwrap_err(), "host-invalid");
+    let name_253 = &name_254[..253];
+    assert!(host_target(name_253.trim_end_matches('.'), 22).is_ok());
+    assert_eq!(
+        host_target(&"a".repeat(2000), 22).unwrap_err(),
+        "host-invalid"
+    );
+    assert_eq!(
+        host_target("127.1", 22).unwrap_err(),
+        "host-ipv4-noncanonical"
+    );
+    assert_eq!(host_target("nas:22", 22).unwrap_err(), "host-invalid");
+    assert_eq!(host_target("nas", 0).unwrap_err(), "invalid");
 }

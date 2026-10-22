@@ -295,7 +295,7 @@ pub async fn uninstall_run(
         let c = runtime_commands::resolve_uninstall(&window, &mut *state.0.lock().await).await?;
         let store = commands::app_connection_store(window.app_handle())?;
         let app = window.app_handle().clone();
-        commands::credential_action(&credentials, move |tokens, runtime| {
+        let removed = commands::credential_action(&credentials, move |tokens, runtime| {
             let transient = crate::secrets::MemoryStore::default();
             if request.level == UninstallLevel::Everything && tokens.is_none() {
                 *tokens = Some(crate::secrets::open_default());
@@ -313,7 +313,10 @@ pub async fn uninstall_run(
                 ))
                 .map_err(|e| e.code().into())
         })
-        .await?;
+        .await;
+        // `Everything` removes the bundled row (also when a later step fails): the tray switch drops it.
+        crate::native::connections_changed(window.app_handle());
+        removed?;
     }
     if std::env::var_os("FLATPAK_ID").is_none() {
         let home = home()?;
