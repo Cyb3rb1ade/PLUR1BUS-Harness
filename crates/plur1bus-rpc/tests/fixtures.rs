@@ -68,6 +68,19 @@ fn method_fixture(name: &str, f: &Value) {
         "chat.export" => pair::<ChatExportParams, ChatExportResult>(name, f),
         "chat.model.get" => pair::<ChatModelGetParams, ChatModelGetResult>(name, f),
         "chat.model.set" => pair::<ChatModelSetParams, ChatModelSetResult>(name, f),
+        "delivery.target.add" => pair::<DeliveryTargetAddParams, DeliveryTargetAddResult>(name, f),
+        "delivery.target.confirm" => {
+            pair::<DeliveryTargetConfirmParams, DeliveryTargetConfirmResult>(name, f)
+        }
+        "delivery.target.list" => {
+            pair::<DeliveryTargetListParams, DeliveryTargetListResult>(name, f)
+        }
+        "delivery.target.remove" => {
+            pair::<DeliveryTargetRemoveParams, DeliveryTargetRemoveResult>(name, f)
+        }
+        "delivery.target.subscribe" => {
+            pair::<DeliveryTargetSubscribeParams, DeliveryTargetSubscribeResult>(name, f)
+        }
         "chat.fork" => pair::<ChatForkParams, ChatForkResult>(name, f),
         "chat.get" => pair::<ChatGetParams, ChatGetResult>(name, f),
         "chat.list" => pair::<ChatListParams, ChatListResult>(name, f),
@@ -262,6 +275,12 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.share" => pair::<MemoryShareParams, MemoryShareResult>(name, f),
         "memory.state" => pair::<MemoryStateParams, MemoryStateResult>(name, f),
         "memory.propose" => pair::<MemoryProposeParams, MemoryProposeResult>(name, f),
+        "memory.curation.list" => {
+            pair::<MemoryCurationListParams, MemoryCurationListResult>(name, f)
+        }
+        "memory.curation.resolve" => {
+            pair::<MemoryCurationResolveParams, MemoryCurationResolveResult>(name, f)
+        }
         "memory.proposals.list" => {
             pair::<MemoryProposalsListParams, MemoryProposalsListResult>(name, f)
         }
@@ -325,6 +344,7 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
         "models.test" => pair::<ModelsTestParams, ModelsTestResult>(name, f),
+        "admin.engine.test" => pair::<AdminEngineTestParams, AdminEngineTestResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),
@@ -339,6 +359,7 @@ fn method_fixture(name: &str, f: &Value) {
         "session.archive" => pair::<SessionArchiveParams, SessionArchiveResult>(name, f),
         "session.submit" => pair::<SessionSubmitParams, SessionSubmitResult>(name, f),
         "session.events" => pair::<SessionEventsParams, SessionEventsResult>(name, f),
+        "session.model.get" => pair::<SessionModelGetParams, SessionModelGetResult>(name, f),
         "session.model.set" => pair::<SessionModelSetParams, SessionModelSetResult>(name, f),
         "session.cancel" => pair::<SessionCancelParams, SessionCancelResult>(name, f),
         "identity.list" => pair::<IdentityListParams, IdentityListResult>(name, f),
@@ -360,7 +381,7 @@ fn method_fixture(name: &str, f: &Value) {
         "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
         "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),
         "secret.list" => pair::<SecretListParams, SecretListResult>(name, f),
-        "secret.set" => pair::<SecretSetParams, SecretMeta>(name, f),
+        "secret.set" => pair::<SecretSetParams, SecretSetOutcome>(name, f),
         "secret.get" => pair::<SecretGetParams, SecretGetResult>(name, f),
         "secret.delete" => pair::<SecretDeleteParams, SecretDeleteResult>(name, f),
         "grant.list" => pair::<GrantListParams, GrantListResult>(name, f),
@@ -501,6 +522,11 @@ fn every_method_fixture_round_trips() {
         "chat.export",
         "chat.model.get",
         "chat.model.set",
+        "delivery.target.add",
+        "delivery.target.confirm",
+        "delivery.target.list",
+        "delivery.target.remove",
+        "delivery.target.subscribe",
         "device.pair",
         "admin.api.desktop.redeem",
         "admin.api.desktop.token",
@@ -616,6 +642,7 @@ fn every_notification_fixture_round_trips() {
             "config.changed" => round_trip::<types::ConfigChangedNotification>(v, name),
             "module.state" => round_trip::<types::ModuleStateNotification>(v, name),
             "ext.changed" => round_trip::<types::ExtChangedNotification>(v, name),
+            "chat.models.changed" => round_trip::<types::ChatModelsChangedNotification>(v, name),
             "models.changed" => round_trip::<types::ModelsChangedNotification>(v, name),
             "session.event" => round_trip::<types::SessionEventNotification>(v, name),
             "approval.requested" => round_trip::<types::ApprovalRequestedNotification>(v, name),

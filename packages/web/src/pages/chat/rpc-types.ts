@@ -3,7 +3,7 @@
 // sent: a browser cannot supply an identity, so the Harness API has to derive it from the session cookie (open point).
 export type MemoryMode = "remember" | "incognito";
 export type TurnState = "running" | "completed" | "failed";
-export type SessionEventType = "turn.started" | "delta" | "tool.call" | "tool.result" | "turn.completed" | "turn.failed";
+export type SessionEventType = "turn.started" | "delta" | "tool.call" | "tool.result" | "turn.completed" | "turn.failed" | "session.model.changed";
 
 export type SessionRecord = {
   id: string;
@@ -52,7 +52,7 @@ declare module "../../api/index.ts" {
     "chat.model.set": { params: { sessionId: string; profile: string; reasoning?: import("./model-switch.ts").ReasoningChoice; expectedRevision: number }; result: import("./model-switch.ts").ChatModelSet };
     "session.create": { params: { agentId: string; kind?: "direct"; title?: string; memoryMode?: MemoryMode }; result: { session: SessionRecord } };
     "session.list": { params: { kind?: SessionRecord["kind"]; agentId?: string; archived?: "exclude" | "only" | "any"; search?: string; limit?: number }; result: { sessions: SessionRecord[]; truncated: boolean } };
-    "session.resume": { params: { sessionId: string; limit?: number }; result: { session: SessionRecord; runningTurnId: string | null; messages: SessionMessage[]; lastEventSeq: number } };
+    "session.resume": { params: { sessionId: string; limit?: number }; result: { session: SessionRecord; runningTurnId: string | null; messages: SessionMessage[]; modelChanges?: SessionEvent[]; lastEventSeq: number } };
     "session.submit": { params: { sessionId: string; text: string; wait?: boolean }; result: { sessionId: string; turnId: string; messageId: string; state: TurnState; reply?: string; error?: string } };
     "session.events": { params: { sessionId: string; afterSeq?: number; limit?: number }; result: { sessionId: string; events: SessionEvent[]; lastSeq: number; running: boolean } };
     "session.cancel": { params: { sessionId: string }; result: { sessionId: string; turnId: string | null; cancelled: boolean } };

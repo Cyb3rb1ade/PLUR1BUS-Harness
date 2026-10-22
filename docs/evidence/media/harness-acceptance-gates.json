@@ -1,0 +1,16 @@
+{
+  "schema": "plur1bus.media-harness-acceptance-gates/1",
+  "targetEngine": {
+    "contract": "1.19.0",
+    "commit": "f933f3134c1374fa562c02630947052f5dbb95a4"
+  },
+  "dependencyPinAtCapture": "98dfe2f03363f6291daa9f85e473578770fb5c55",
+  "engineApiReceipt": null,
+  "productionUnitBudgetReceipt": null,
+  "harnessEndToEndReceipt": null,
+  "blockers": {
+    "engineApiReceipt": "Controller must merge/pin Engine H1 contract 1.19 and #602 Host Fetch; current contract is 1.16",
+    "productionUnitBudgetReceipt": "#603 image/video-second reservations and Secret leases are not bound to production media encoding; cloud remains refused",
+    "harnessEndToEndReceipt": "Actual Harness image/audio inference, caption memory recall and image query require Engine pin and Host Fetch; Engine-only measurements and fakes do not satisfy H3"
+  }
+}

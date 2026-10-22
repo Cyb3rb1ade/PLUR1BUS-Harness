@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { expectAxeClean } from "./axe.ts";
 import { browserSkip, setup, teardown, withApp, type App } from "./harness.ts";
-import { next, open, seed, skip, stepHeading } from "./setup-fixtures.ts";
+import { next, open, seed, skip, stepHeading, toSwitchboard } from "./setup-fixtures.ts";
 
 before(setup);
 after(teardown);
@@ -61,12 +61,18 @@ describe("setup wizard: a11y", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
+      // Tabs to the button and presses Enter. The button has to be there and enabled first: the wizard disables it while it saves ("Working…"),
+      // and a disabled button is skipped by Tab. If Tab does not arrive at it, fail here, not with a timeout at some later wait.
       const press = async (name: RegExp): Promise<void> => {
+        await page.waitForFunction((src) => Array.from(document.querySelectorAll("button")).some((b) => !b.disabled && new RegExp(src).test(b.textContent ?? "")), name.source);
         for (let i = 0; i < 40; i++) {
-          if (await page.evaluate((src) => new RegExp(src).test(document.activeElement?.textContent ?? "") && document.activeElement?.tagName === "BUTTON", name.source)) break;
+          if (await page.evaluate((src) => new RegExp(src).test(document.activeElement?.textContent ?? "") && document.activeElement?.tagName === "BUTTON", name.source)) {
+            await page.keyboard.press("Enter");
+            return;
+          }
           await page.keyboard.press("Tab");
         }
-        await page.keyboard.press("Enter");
+        assert.fail(`${name} was not reached by Tab within 40 presses (focus is on ${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 120))})`);
       };
       await stepHeading(page, "Your account").waitFor();
       await page.locator("main h1").focus();
@@ -101,6 +107,32 @@ describe("setup wizard: a11y", opts, () => {
       await page.keyboard.press("Escape");
       await page.getByRole("dialog").waitFor({ state: "detached" });
       assert.equal(await page.evaluate(() => document.activeElement?.id), "setup-embedding-jina-v5-nano");
+    });
+  });
+
+  test("a new step is only visible once its heading has the focus (no later focus steal from a key press in between)", async () => {
+    await withApp({}, async (app) => {
+      seed(app.server.rpc); await open(app);
+      const { page } = app;
+      // Records, in a mutation callback (a microtask right after the draw that shows the heading), whether the heading is already focused.
+      await page.evaluate(() => {
+        const seen: { title: string; focused: boolean }[] = [];
+        (window as unknown as { __steps: typeof seen }).__steps = seen;
+        const look = (): void => {
+          const h = document.getElementById("setup-h");
+          const title = h?.firstChild?.textContent ?? "";
+          if (h && title !== "" && seen[seen.length - 1]?.title !== title) seen.push({ title, focused: document.activeElement === h });
+        };
+        new MutationObserver(look).observe(document.body, { childList: true, subtree: true, characterData: true });
+        look();
+      });
+      await toSwitchboard(app);
+      await skip(page);
+      await stepHeading(page, /Memory/).waitFor();
+      const seen = await page.evaluate(() => (window as unknown as { __steps: { title: string; focused: boolean }[] }).__steps);
+      assert.deepEqual(seen.map((s) => s.title), ["Your account", "Name & persona", "Main model", "Decision model", "Switchboard", "Memory"]);
+      // The first step is drawn on load and keeps the page's own focus; every step reached by a button gets its heading focused in the same draw.
+      assert.deepEqual(seen.slice(1).filter((s) => !s.focused).map((s) => s.title), []);
     });
   });
 

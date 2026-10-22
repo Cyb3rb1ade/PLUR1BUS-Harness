@@ -173,6 +173,26 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "delivery.target.add" => check_pair::<
+                types::DeliveryTargetAddParams,
+                types::DeliveryTargetAddResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.confirm" => check_pair::<
+                types::DeliveryTargetConfirmParams,
+                types::DeliveryTargetConfirmResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.list" => check_pair::<
+                types::DeliveryTargetListParams,
+                types::DeliveryTargetListResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.remove" => check_pair::<
+                types::DeliveryTargetRemoveParams,
+                types::DeliveryTargetRemoveResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.subscribe" => check_pair::<
+                types::DeliveryTargetSubscribeParams,
+                types::DeliveryTargetSubscribeResult,
+            >(name, fixture, &root_schema),
             "admin.api.device.pair" => check_pair::<
                 types::AdminApiDevicePairParams,
                 types::AdminApiDevicePairResult,
@@ -820,6 +840,14 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "memory.curation.list" => check_pair::<
+                types::MemoryCurationListParams,
+                types::MemoryCurationListResult,
+            >(name, fixture, &root_schema),
+            "memory.curation.resolve" => check_pair::<
+                types::MemoryCurationResolveParams,
+                types::MemoryCurationResolveResult,
+            >(name, fixture, &root_schema),
             "memory.proposals.list" => check_pair::<
                 types::MemoryProposalsListParams,
                 types::MemoryProposalsListResult,
@@ -990,6 +1018,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AdminReembedAbortParams,
                 types::AdminReembedAbortResult,
             >(name, fixture, &root_schema),
+            "admin.engine.test" => check_pair::<
+                types::AdminEngineTestParams,
+                types::AdminEngineTestResult,
+            >(name, fixture, &root_schema),
             "models.test" => check_pair::<types::ModelsTestParams, types::ModelsTestResult>(
                 name,
                 fixture,
@@ -1059,6 +1091,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "session.model.get" => check_pair::<
+                types::SessionModelGetParams,
+                types::SessionModelGetResult,
+            >(name, fixture, &root_schema),
             "session.model.set" => check_pair::<
                 types::SessionModelSetParams,
                 types::SessionModelSetResult,
@@ -1140,9 +1176,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
-            "secret.set" => {
-                check_pair::<types::SecretSetParams, types::SecretMeta>(name, fixture, &root_schema)
-            }
+            "secret.set" => check_pair::<types::SecretSetParams, types::SecretSetOutcome>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "secret.get" => check_pair::<types::SecretGetParams, types::SecretGetResult>(
                 name,
                 fixture,

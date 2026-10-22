@@ -349,6 +349,9 @@ fn plan_removing_nulls(
     })
 }
 
+/// The `config.set` warning (`warnings` in the result) for a saved configuration whose audit rows the hash chain refused.
+pub const AUDIT_CHAIN_UNAVAILABLE: &str = "audit-chain-unavailable";
+
 fn set_inner(
     shared: &Arc<Shared>,
     layout: &Layout,
@@ -361,7 +364,7 @@ fn set_inner(
     let started = Instant::now();
     // Serialised by the config mutex. It is released at the end of this block: a later step that waits for a
     // restart job (Task 5) must wait without it, because the restarted core's own `config.watch` needs it (H3B-R6).
-    let (applied, changed, restart, revision, job) = {
+    let (applied, changed, restart, revision, job, chain_unavailable) = {
         let mut st = relock(&shared.config);
         // I1: a hand edit the watcher has not seen yet is applied (or rejected) first, under this lock, so the set
         // builds on it: never overwritten unseen, and a stale `ifRevision` is a conflict.
@@ -418,7 +421,7 @@ fn set_inner(
         }
         let restart = restart_json(&plan.restart);
         if dry_run || (plan.changed.is_empty() && st.rejected.is_none()) {
-            (!dry_run, plan.changed, restart, current, None)
+            (!dry_run, plan.changed, restart, current, None, false)
         } else {
             let path = layout.config_path();
             if let Some(rejected) = &st.rejected {
@@ -436,8 +439,24 @@ fn set_inner(
                     json!({ "path": backup.display().to_string() }),
                 );
             }
-            super::config_policy::audit(layout, person, &audited, &cfg::revision(&plan.after))
-                .map_err(|_| SetError::Io("config audit unavailable".into()))?;
+            // Only a failure to write `audit.log` refuses the set. A chain that refuses the rows (anchor, integrity,
+            // lock timeout) does not: the rows are in `audit.log` and the pending journal, and the result carries the
+            // `audit-chain-unavailable` warning (owner decision 20.10.: saving the configuration is never blocked).
+            let chain_refusal =
+                super::config_policy::audit(layout, person, &audited, &cfg::revision(&plan.after))
+                    .map_err(|_| SetError::Io("config audit unavailable".into()))?;
+            if let Some(refusal) = &chain_refusal {
+                shared.log.error(
+                    "audit chain refused the config audit rows; the configuration is saved and the rows wait in the pending journal",
+                    json!({
+                        "reason": refusal.reason,
+                        "rows": audited.len(),
+                        "queued": refusal.queued,
+                        "droppedFromJournal": refusal.dropped,
+                        "revision": cfg::revision(&plan.after),
+                    }),
+                );
+            }
             let meta = cfg::write_atomic(&path, &plan.after)
                 .map_err(|e| SetError::Io(format!("cannot write config.json: {e}")))?;
             st.applied_hash = Some(sha256(cfg::serialize(&plan.after).as_bytes()));
@@ -450,7 +469,14 @@ fn set_inner(
             let job = (plan.restart.core || !plan.restart.modules.is_empty())
                 .then(|| super::push_restart(shared, plan.restart.clone()))
                 .flatten();
-            (true, plan.changed, restart, revision, job)
+            (
+                true,
+                plan.changed,
+                restart,
+                revision,
+                job,
+                chain_refusal.is_some(),
+            )
         }
     };
     let mut restarted: Vec<String> = Vec::new();
@@ -486,6 +512,9 @@ fn set_inner(
         "applied": applied, "dryRun": dry_run, "changed": changed, "restart": restart, "revision": revision,
         "restarted": restarted, "durationMs": started.elapsed().as_millis() as u64,
     });
+    if chain_unavailable {
+        out["warnings"] = json!([AUDIT_CHAIN_UNAVAILABLE]);
+    }
     // The last spawn-to-ready time is the estimate: on a dry run it informs the decision (M3).
     if (applied || dry_run) && restart["core"] == true {
         out["estimates"] = json!({ "core": shared.lock().core_ready_ms });
@@ -613,6 +642,14 @@ fn poll_locked(shared: &Shared, layout: &Layout, st: &mut ConfigState) {
             if let Some(policy) = crate::privacy::running_violation(layout, &new) {
                 errors.push(format!("{}: {}", policy.reason(), policy.message()));
             }
+            // ADR-013 §5: a hand edit is applied like a set, so it passes the same foreign-host store check as
+            // `set_inner`, `config set` and `setup` (`engine.baseDbPathOverride` inside another host's state dir).
+            if let Some(violation) = crate::coexistence::store_violation(
+                &new,
+                &crate::coexistence::HostEnvironment::current(),
+            ) {
+                errors.push(format!("foreign-host-store-path: {}", violation.message()));
+            }
             if !errors.is_empty() {
                 shared.log.warn(
                     "config.json rejected; the running configuration stays",
@@ -694,5 +731,103 @@ mod tests {
         let whole = get_result(&c, "r1", None, None).unwrap();
         assert_eq!(whole["value"], c);
         assert!(whole["tier"].is_null());
+    }
+
+    /// A supervisor state for `set`: the defaults run (no config.json yet) and `supervisor.log` is a real file, so
+    /// its lines can be read back.
+    fn shared_for(layout: &Layout) -> Arc<Shared> {
+        Arc::new(Shared {
+            state: std::sync::Mutex::new(crate::supervisor::test_state()),
+            wake: std::sync::Condvar::new(),
+            log: crate::supervisor::Log::open(&layout.logs().join("supervisor.log"), 1 << 20, 3),
+            config: std::sync::Mutex::new(initial(layout)),
+            subscribers: Default::default(),
+            out_logs: std::sync::Mutex::new(Vec::new()),
+        })
+    }
+
+    /// A live-or-core audited key (`x-audit`, owner/admin) whose change restarts nothing here: `--no-core`.
+    fn max_grant_days(days: u64) -> Vec<(String, Value)> {
+        vec![("approvals.maxGrantDays".to_string(), json!(days))]
+    }
+
+    fn audit_log_rows(layout: &Layout) -> Vec<Value> {
+        fs::read_to_string(layout.audit_log())
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect()
+    }
+
+    /// Owner decision 20.10.: the audit chain refusing the rows (here: its anchor is gone) must not stop a person from
+    /// saving the configuration. The set is applied, the rows are in `audit.log` flagged and queued for the chain, the
+    /// result carries the `audit-chain-unavailable` warning and the supervisor log an error line with the reason.
+    #[test]
+    fn a_refusing_audit_chain_does_not_block_config_set_and_is_reported() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let shared = shared_for(&layout);
+        let first = set(&shared, &layout, max_grant_days(30), None, false).unwrap();
+        assert_eq!(first["applied"], true);
+        assert!(first.get("warnings").is_none(), "a healthy chain: {first}");
+        fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
+
+        let out = set(&shared, &layout, max_grant_days(45), None, false).unwrap();
+        assert_eq!(out["applied"], true, "{out}");
+        assert_eq!(out["warnings"], json!([AUDIT_CHAIN_UNAVAILABLE]));
+        let saved: Value =
+            serde_json::from_slice(&fs::read(layout.config_path()).unwrap()).unwrap();
+        assert_eq!(saved["approvals"]["maxGrantDays"], 45);
+        assert_eq!(
+            relock(&shared.config).running.as_ref().unwrap()["approvals"]["maxGrantDays"],
+            45
+        );
+
+        let rows = audit_log_rows(&layout);
+        let row = rows.last().unwrap();
+        assert_eq!(row["action"], "audit.config.set");
+        assert_eq!(row["target"], "approvals.maxGrantDays");
+        assert_eq!(row["detail"]["newValue"], 45);
+        assert_eq!(row["chain"], "refused");
+        assert_eq!(row["chainReason"], "anchor-missing");
+        let pending: Vec<Value> =
+            fs::read_to_string(layout.logs().join("audit-chain.pending.jsonl"))
+                .unwrap()
+                .lines()
+                .map(|l| serde_json::from_str(l).unwrap())
+                .collect();
+        assert_eq!(pending, vec![row.clone()]);
+
+        let log = fs::read_to_string(layout.logs().join("supervisor.log")).unwrap();
+        assert!(
+            log.lines().any(|l| {
+                let v: Value = serde_json::from_str(l).unwrap_or(Value::Null);
+                v["level"] == "error" && v["reason"] == "anchor-missing" && v["queued"] == true
+            }),
+            "{log}"
+        );
+
+        // A dry run audits nothing and warns of nothing.
+        let dry = set(&shared, &layout, max_grant_days(50), None, true).unwrap();
+        assert!(dry.get("warnings").is_none(), "{dry}");
+    }
+
+    /// `audit.log` stays fail-closed: a row it cannot hold refuses the set before `config.json` is written.
+    #[test]
+    fn an_unwritable_audit_log_still_refuses_config_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let shared = shared_for(&layout);
+        set(&shared, &layout, max_grant_days(30), None, false).unwrap();
+        let before = fs::read(layout.config_path()).unwrap();
+        fs::remove_file(layout.audit_log()).unwrap();
+        fs::create_dir(layout.audit_log()).unwrap();
+        let err = set(&shared, &layout, max_grant_days(45), None, false).unwrap_err();
+        assert_eq!(err, SetError::Io("config audit unavailable".into()));
+        assert_eq!(fs::read(layout.config_path()).unwrap(), before);
+        assert_eq!(
+            relock(&shared.config).running.as_ref().unwrap()["approvals"]["maxGrantDays"],
+            30
+        );
     }
 }

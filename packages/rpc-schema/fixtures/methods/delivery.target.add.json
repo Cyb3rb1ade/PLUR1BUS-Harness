@@ -1,0 +1,21 @@
+{
+  "params": {
+    "identity": {
+      "channel": "telegram",
+      "accountId": "bot",
+      "userId": "sender"
+    }
+  },
+  "result": {
+    "id": "destination",
+    "person": "alice",
+    "identity": {
+      "channel": "telegram",
+      "accountId": "bot",
+      "userId": "sender"
+    },
+    "chatId": "dm",
+    "validated": false,
+    "createdAt": 0
+  }
+}

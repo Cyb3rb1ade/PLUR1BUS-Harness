@@ -5,6 +5,7 @@
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor or (methods only, since 1.3.0) module.",
   "x-rpc-version": "1.6.0",
   "$defs": {
+    "MemoryCurationRecord": {"type": "object", "additionalProperties": false, "required": ["id", "status", "text", "category"], "properties": {"id": {"type": "string", "minLength": 1, "maxLength": 200}, "status": {"enum": ["candidate", "conflict", "stale"]}, "text": {"type": "string"}, "category": {"type": ["string", "null"]}}},
     "UserJob": {
       "type": "object",
       "additionalProperties": false,
@@ -101,6 +102,11 @@
             "skipped_no_rights",
             "skipped_agent_missing"
           ]
+        },
+        "deliveryTarget": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Own validated delivery target; empty disables delivery."
         }
       }
     },
@@ -1557,6 +1563,7 @@
       "required": ["methods", "notifications", "extensionPoints", "features"],
       "properties": {
         "methods": {
+
  "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
         "notifications": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
         "extensionPoints": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
@@ -1661,6 +1668,11 @@
       }
     },
     "methods": {
+      "delivery.target.list": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {}, "required": []}, "result": {"type": "object", "additionalProperties": true}},
+      "delivery.target.add": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {"identity": {"type": "object", "additionalProperties": false, "required": ["channel", "accountId", "userId"], "properties": {"channel": {"type": "string", "minLength": 1, "maxLength": 128}, "accountId": {"type": "string", "minLength": 1, "maxLength": 128}, "userId": {"type": "string", "minLength": 1, "maxLength": 128}}}}, "required": ["identity"]}, "result": {"type": "object", "additionalProperties": true}},
+      "delivery.target.confirm": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {"id": {"type": "string", "maxLength": 64}}, "required": ["id"]}, "result": {"type": "object", "additionalProperties": true}},
+      "delivery.target.remove": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {"id": {"type": "string", "maxLength": 64}}, "required": ["id"]}, "result": {"type": "object", "additionalProperties": true}},
+      "delivery.target.subscribe": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {"id": {"type": "string", "maxLength": 64}, "source": {"type": "string", "enum": ["system", "dreams"]}, "job": {"type": "string", "maxLength": 64}, "agentId": {"$ref": "#/$defs/AgentId"}}, "required": ["id", "source", "job", "agentId"]}, "result": {"type": "object", "additionalProperties": true}},
       "chat.promote.links": {
         "description": "List this owned direct chat's private project links, filtered by current project visibility.",
         "x-server": "core",
@@ -1913,66 +1925,73 @@
         }
       },
       "chat.get": {
-        "x-stability": "experimental",
-        "x-since": "1.6.0",
-        "x-server": "core",
-        "description": "Authenticated own direct-chat get. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
-        "params": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 500
-            },
-            "beforeSeq": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "sessionId"
-          ]
-        },
-        "result": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "session",
-            "runningTurnId",
-            "messages",
-            "lastEventSeq"
-          ],
-          "properties": {
-            "session": {
-              "$ref": "#/$defs/SessionRecord"
-            },
-            "runningTurnId": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "messages": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/SessionMessage"
-              }
-            },
-            "lastEventSeq": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "x-server": "core",
+  "description": "Authenticated own direct-chat get. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+  "params": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 500
+      },
+      "beforeSeq": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "sessionId"
+    ]
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "session",
+      "runningTurnId",
+      "messages",
+      "lastEventSeq"
+    ],
+    "properties": {
+      "session": {
+        "$ref": "#/$defs/SessionRecord"
+      },
+      "runningTurnId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/SessionMessage"
         }
       },
+      "lastEventSeq": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "modelChanges": {
+        "type": "array",
+        "maxItems": 2000,
+        "items": {
+          "$ref": "#/$defs/SessionEvent"
+        }
+      }
+    }
+  }
+},
       "chat.events": {
         "x-stability": "experimental",
         "x-since": "1.6.0",
@@ -2477,7 +2496,7 @@
         "x-stability": "experimental",
         "x-since": "1.7.0",
         "x-server": "core",
-        "description": "Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by Nur lokal is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).",
+        "description": "Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by “Only local models” is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -2598,6 +2617,11 @@
             },
             "enabled": {
               "type": "boolean"
+            },
+            "deliveryTarget": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Own validated delivery target; empty disables delivery."
             }
           },
           "required": [
@@ -2670,6 +2694,11 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128
+            },
+            "deliveryTarget": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Own validated delivery target; empty disables delivery."
             }
           },
           "required": [
@@ -6107,6 +6136,8 @@
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "sharedId", "text"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "sharedId": { "$ref": "#/$defs/MemoryId" }, "text": { "type": "string", "minLength": 1, "maxLength": 8000 }, "note": { "type": "string", "maxLength": 500 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "sharedId", "sharerAgentId"], "properties": { "proposalId": { "type": "string" }, "sharedId": { "type": "string" }, "sharerAgentId": { "type": "string" } } }
       },
+      "memory.curation.list": {"x-stability": "experimental", "x-since": "1.6.0", "x-server": "core", "description": "Human curation queue (Engine contract 1.17.0). Separate from D31 memory.proposals.", "params": {"type": "object", "additionalProperties": false, "required": ["agentId"], "properties": {"agentId": {"$ref": "#/$defs/AgentId"}, "limit": {"type": "integer", "minimum": 1, "maximum": 100}}}, "result": {"type": "object", "additionalProperties": false, "required": ["agentId", "items", "truncated"], "properties": {"agentId": {"$ref": "#/$defs/AgentId"}, "items": {"type": "array", "items": {"$ref": "#/$defs/MemoryCurationRecord"}}, "truncated": {"type": "boolean"}}}},
+      "memory.curation.resolve": {"x-stability": "experimental", "x-since": "1.6.0", "x-server": "core", "description": "Human keep/drop of a visible Neo curation record. Never accepts caller identity in params.", "params": {"type": "object", "additionalProperties": false, "required": ["agentId", "id", "action"], "properties": {"agentId": {"$ref": "#/$defs/AgentId"}, "id": {"type": "string", "minLength": 1, "maxLength": 200}, "action": {"enum": ["keep", "drop"]}}}, "result": {"type": "object", "additionalProperties": false, "required": ["agentId", "id", "status"], "properties": {"agentId": {"$ref": "#/$defs/AgentId"}, "id": {"type": "string"}, "status": {"enum": ["promoted", "demoted"]}}}},
       "memory.proposals.list": {
         "x-stability": "experimental", "x-since": "1.1.0", "x-server": "core",
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "status": { "$ref": "#/$defs/MemoryProposalStatus" }, "limit": { "type": "integer", "minimum": 1, "maximum": 100 } } },
@@ -7007,7 +7038,7 @@
       },
       "dreams.diary": {
         "x-stability": "experimental", "x-since": "1.6.0", "x-server": "core",
-        "description": "The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.",
+        "description": "The private engine-owned dreaming diary (DREAMS.md at the agent workspace root; A5 amendment to D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": {
           "type": "object", "additionalProperties": false, "required": ["agentId", "path", "exists", "bytes", "text", "truncated"],
@@ -7123,8 +7154,13 @@
       },
       "audit.verify": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. An unreadable log directory is E_STORAGE.",
-        "params": { "type": "object", "additionalProperties": false, "properties": {} },
+        "description": "B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE. An optional external pin (a sequence and hash recorded elsewhere) is checked under the same lock against the whole chain, rotated files included; pin-missing or pin-mismatch is a finding, and it detects a chain that was rewritten consistently.",
+        "params": { "type": "object", "additionalProperties": false, "properties": {
+          "pin": { "type": "object", "additionalProperties": false, "required": ["seq", "hash"], "properties": {
+            "seq": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+            "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }, "description": "Externally recorded sequence/hash pair; pin-missing or pin-mismatch is a finding." }
+        } },
         "result": { "type": "object", "additionalProperties": false, "required": ["ok", "records", "files", "lastSeq", "lastHash", "anchor", "findings", "findingsTotal"], "properties": {
           "ok": { "type": "boolean" },
           "records": { "type": "integer", "minimum": 0 },
@@ -7136,12 +7172,38 @@
             "seq": { "type": ["integer", "null"], "minimum": 1 }
           } },
           "findings": { "type": "array", "maxItems": 50, "items": { "type": "object", "additionalProperties": false, "required": ["code", "file", "line", "seq"], "properties": {
-            "code": { "enum": ["line-malformed", "hash-mismatch", "seq-gap", "prefix-missing", "file-name-mismatch", "torn-tail", "anchor-missing", "anchor-invalid", "anchor-mismatch", "truncated"] },
+            "code": { "enum": ["line-malformed", "hash-mismatch", "seq-gap", "prefix-missing", "file-name-mismatch", "torn-tail", "anchor-missing", "anchor-invalid", "anchor-mismatch", "truncated", "pin-missing", "pin-mismatch"] },
             "file": { "type": "string" },
             "line": { "type": ["integer", "null"], "minimum": 1 },
             "seq": { "type": ["integer", "null"], "minimum": 1 }
           } } },
-          "findingsTotal": { "type": "integer", "minimum": 0, "description": "All findings; findings carries the first 50." }
+          "findingsTotal": { "type": "integer", "minimum": 0, "description": "All findings; findings carries the first 50." },
+          "reanchors": { "type": "array", "description": "Era boundaries in the current chain: each audit.chain.reanchored event, written by `plur1bus audit reanchor` as the first line of a new chain. A note, never a finding; it does not make ok false. Absent from cores older than this field.", "items": { "type": "object", "additionalProperties": false, "required": ["seq", "file", "line", "at", "suffix"], "properties": {
+            "seq": { "type": "integer", "minimum": 1 },
+            "file": { "type": "string" },
+            "line": { "type": "integer", "minimum": 1 },
+            "at": { "type": ["number", "null"], "description": "The event's timestamp (ms since the epoch)." },
+            "suffix": { "type": ["string", "null"], "pattern": "^pre-reanchor-[0-9]{1,16}$", "description": "The suffix of the set-aside files the event names; null when it names none or not a valid one." }
+          } } },
+          "previousChains": { "type": "array", "description": "Chains a reanchor set aside as audit-chain*.pre-reanchor-<ms>, oldest first, each read only up to its first deviation. A deviation there is usually the reason for the reanchor and does not make ok false. Absent from cores older than this field.", "items": { "type": "object", "additionalProperties": false, "required": ["suffix", "announced", "files", "records", "lastSeq", "lastHash", "intact", "firstBreak", "anchor"], "properties": {
+            "suffix": { "type": "string", "pattern": "^pre-reanchor-[0-9]{1,16}$" },
+            "announced": { "type": "boolean", "description": "False when no reanchor event in the current chain names this suffix." },
+            "files": { "type": "integer", "minimum": 0 },
+            "records": { "type": "integer", "minimum": 0, "description": "Lines read before the first deviation." },
+            "lastSeq": { "type": "integer", "minimum": 0 },
+            "lastHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+            "intact": { "type": "boolean", "description": "No deviation anywhere in the set and its own anchor matches (or trails by one write)." },
+            "firstBreak": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["code", "file", "line", "seq"], "properties": {
+              "code": { "enum": ["line-malformed", "hash-mismatch", "seq-gap", "prefix-missing", "file-name-mismatch", "torn-tail"] },
+              "file": { "type": "string" },
+              "line": { "type": ["integer", "null"], "minimum": 1 },
+              "seq": { "type": ["integer", "null"], "minimum": 1 }
+            } }], "description": "The first deviation, or null when the set was read to its end." },
+            "anchor": { "type": "object", "additionalProperties": false, "required": ["status", "seq"], "properties": {
+              "status": { "enum": ["match", "behind", "absent", "invalid", "ahead", "mismatch"] },
+              "seq": { "type": ["integer", "null"], "minimum": 1 }
+            } }
+          } } }
         } }
       },
       "admin.embedding.probe": {
@@ -7267,7 +7329,7 @@
       },
       "config.set": {
         "x-stability": "experimental", "x-since": "1.3.0", "x-server": "supervisor",
-        "description": "Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it.",
+        "description": "Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it. A chain that refuses the audit rows does not block the set; `warnings` then lists audit-chain-unavailable. A failure to write audit.log still refuses it (E_INTERNAL).",
         "params": {
           "type": "object", "additionalProperties": false, "required": ["changes"],
           "properties": {
@@ -7287,7 +7349,8 @@
             "revision": { "type": "string", "description": "After an apply the new revision; on a dry run the current one." },
             "restarted": { "type": "array", "items": { "type": "string" } },
             "durationMs": { "type": "integer", "minimum": 0 },
-            "estimates": { "type": "object", "additionalProperties": { "type": ["integer", "null"] }, "description": "Estimated restart time (ms) per unit, null when unknown." }
+            "estimates": { "type": "object", "additionalProperties": { "type": ["integer", "null"] }, "description": "Estimated restart time (ms) per unit, null when unknown." },
+            "warnings": { "type": "array", "items": { "enum": ["audit-chain-unavailable"] }, "description": "Present only when the set was applied with a caveat. `audit-chain-unavailable`: the configuration is saved, but the audit hash chain refused the audit rows (anchor missing or invalid, integrity mismatch, lock timeout); they are in audit.log with chain=refused and wait in the pending journal until the chain accepts appends again." }
           }
         }
       },
@@ -7428,6 +7491,71 @@
         "description": "Returns every installed extension and subscribes this connection to ext.changed. E_STORAGE reason=state-invalid (extensions/state.json cannot be read; nothing is subscribed).",
         "params": {"type": "object", "additionalProperties": false, "properties": {}},
         "result": {"type": "object", "additionalProperties": false, "required": ["subscriptionId", "items"], "properties": {"subscriptionId": {"type": "string"}, "items": {"type": "array", "items": {"$ref": "#/$defs/ExtItem"}}}}
+      },
+      "admin.engine.test": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Human-only Owner/Admin test of the active engine embedder or reranker through engine ports. Fixed small inputs, ten second deadline, no memory or session writes. May contact the configured provider or download local model artifacts under the host policy. Captioner is unsupported: this engine has no captioner role. Returns only safe failure classifications; never provider error messages or credentials.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "role"
+          ],
+          "properties": {
+            "role": {
+              "enum": [
+                "embedder",
+                "reranker",
+                "captioner"
+              ]
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "role",
+            "ok",
+            "durationMs"
+          ],
+          "properties": {
+            "role": {
+              "enum": [
+                "embedder",
+                "reranker",
+                "captioner"
+              ]
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "model": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "dimensions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "errorClass": {
+              "enum": [
+                "egress",
+                "key",
+                "download",
+                "provider",
+                "timeout",
+                "unsupported"
+              ]
+            }
+          }
+        }
       },
       "models.test": {
         "x-stability": "experimental",
@@ -7590,7 +7718,9 @@
           "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+            "images": { "type": "integer", "minimum": 0, "description": "Generated images (media units; absent from an older core)" },
+            "videoSeconds": { "type": "integer", "minimum": 0, "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)" }
           }
         },
                   "agents": {
@@ -7605,7 +7735,9 @@
           "required": ["events", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
           "properties": {
             "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
+            "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+            "images": { "type": "integer", "minimum": 0, "description": "Generated images (media units; absent from an older core)" },
+            "videoSeconds": { "type": "integer", "minimum": 0, "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)" }
           }
         },
                         "models": {
@@ -7616,7 +7748,8 @@
                             "properties": {
                               "model": { "type": "string" },
                               "events": { "type": "integer", "minimum": 0 }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 },
-                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 }
+                              "cacheReadTokens": { "type": "integer", "minimum": 0 }, "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+                              "images": { "type": "integer", "minimum": 0 }, "videoSeconds": { "type": "integer", "minimum": 0 }
                             }
                           }
                         }
@@ -7664,7 +7797,7 @@
       },
       "budget.set": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.",
+        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.",
         "params": {
           "type": "object", "additionalProperties": false,
           "minProperties": 1,
@@ -7676,7 +7809,7 @@
                 "scope": { "enum": ["global", "agent"] },
                 "agentId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Required for scope agent, refused for global" },
                 "period": { "enum": ["day", "month"] },
-                "metric": { "enum": ["tokens"] },
+                "metric": { "enum": ["tokens", "images", "videoSeconds"] },
                 "soft": { "type": ["integer", "null"], "minimum": 0 },
                 "hard": { "type": ["integer", "null"], "minimum": 0 }
               }
@@ -9313,7 +9446,7 @@
       },
       "media.search": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, privacy pin, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.",
+        "description": "Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, “Only local models”, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.",
         "params": {
           "type": "object", "additionalProperties": false, "required": [],
           "properties": {
@@ -9364,7 +9497,7 @@
       },
       "secret.set": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).",
+        "description": "Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. A value of fewer than 8 characters is accepted, but the log redactor does not mask values that short, so the result then carries a `warning`. Owner only; every call is audited (M2, ADR-005).",
         "params": {
           "type": "object", "additionalProperties": false,
           "required": ["name", "value"],
@@ -9374,7 +9507,7 @@
             "description": { "type": "string", "maxLength": 200, "description": "What the secret is for (one line of plain text, at most 200 characters, never the value); the agent's `secret_names` tool shows it. Absent: a replacement keeps the stored description. Empty: removes it." }
           }
         },
-        "result": { "$ref": "#/$defs/SecretMeta" }
+        "result": { "$ref": "#/$defs/SecretSetOutcome" }
       },
       "secret.get": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
@@ -9452,84 +9585,142 @@
         "params": {"type": "object", "additionalProperties": false, "required": ["caller", "linkId"], "properties": {"caller": { "$ref": "#/$defs/CallerIdentity" }, "linkId": { "type": "string", "minLength": 1 }}},
         "result": { "$ref": "#/$defs/IdentityLink" }
       },
-      "session.model.set": {
-        "x-stability": "experimental",
-        "x-since": "1.7.0",
-        "x-server": "core",
-        "description": "Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained. reasoning (since the per-chat reasoning choice) sets the chat's reasoning level with the profile; absent keeps the stored choice.",
-        "params": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "caller",
-            "sessionId",
-            "profile"
-          ],
-          "properties": {
-            "caller": {
-              "$ref": "#/$defs/CallerIdentity"
-            },
-            "sessionId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "profile": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            },
-            "confirmed": {
-              "type": "boolean"
-            },
-            "expectedRevision": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "reasoning": {
-              "$ref": "#/$defs/ChatReasoningChoice"
-            }
-          }
-        },
-        "result": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "sessionId",
-            "profile",
-            "previousProfile",
-            "revision",
-            "applied",
-            "warning"
-          ],
-          "properties": {
-            "sessionId": {
-              "type": "string"
-            },
-            "profile": {
-              "type": "string"
-            },
-            "previousProfile": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "applied": {
-              "type": "boolean"
-            },
-            "warning": {
-              "const": "cache-rebuild-cost-prefixes-preserved"
-            },
-            "reasoning": {
-              "$ref": "#/$defs/ChatReasoningChoice"
-            }
-          }
-        }
+      "session.model.get": {
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "x-server": "core",
+  "description": "Read the owned session model profile, effective default, revision and reasoning choice. Incognito stays in RAM. Same transcript authorization as session.get.",
+  "params": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "caller",
+      "sessionId"
+    ],
+    "properties": {
+      "caller": {
+        "$ref": "#/$defs/CallerIdentity"
       },
+      "sessionId": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "sessionId",
+      "profile",
+      "defaultProfile",
+      "revision",
+      "reasoning"
+    ],
+    "properties": {
+      "sessionId": {
+        "type": "string"
+      },
+      "profile": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "defaultProfile": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "reasoning": {
+        "$ref": "#/$defs/ChatReasoningChoice"
+      }
+    }
+  }
+},
+      "session.model.set": {
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "x-server": "core",
+  "description": "Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained. reasoning (since the per-chat reasoning choice) sets the chat's reasoning level with the profile; absent keeps the stored choice.",
+  "params": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "caller",
+      "sessionId",
+      "profile"
+    ],
+    "properties": {
+      "caller": {
+        "$ref": "#/$defs/CallerIdentity"
+      },
+      "sessionId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "profile": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "confirmed": {
+        "type": "boolean"
+      },
+      "expectedRevision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "reasoning": {
+        "$ref": "#/$defs/ChatReasoningChoice"
+      }
+    }
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "sessionId",
+      "profile",
+      "previousProfile",
+      "revision",
+      "applied",
+      "warning"
+    ],
+    "properties": {
+      "sessionId": {
+        "type": "string"
+      },
+      "profile": {
+        "type": "string"
+      },
+      "previousProfile": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "applied": {
+        "type": "boolean"
+      },
+      "warning": {
+        "const": "cache-rebuild-cost-prefixes-preserved"
+      },
+      "reasoning": {
+        "$ref": "#/$defs/ChatReasoningChoice"
+      }
+    }
+  }
+},
       "session.create": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Opens a session for the caller (the owner is derived from the caller identity). Only direct and channel sessions are created here; card/project/acp sessions belong to their modules. A channel session needs chatKey and, per D21, at most one is active per chat: a second create is E_CONFLICT unless replaceActive archives the first (/new).",
@@ -9737,63 +9928,70 @@
         }
       },
       "session.resume": {
-        "x-stability": "experimental",
-        "x-since": "1.5.0",
-        "x-server": "core",
-        "description": "Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.",
-        "params": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "sessionId",
-            "caller"
-          ],
-          "properties": {
-            "caller": {
-              "$ref": "#/$defs/CallerIdentity"
-            },
-            "sessionId": {
-              "$ref": "#/$defs/SessionId"
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1000
-            }
-          }
-        },
-        "result": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "session",
-            "runningTurnId",
-            "messages",
-            "lastEventSeq"
-          ],
-          "properties": {
-            "session": {
-              "$ref": "#/$defs/SessionRecord"
-            },
-            "runningTurnId": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "messages": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/SessionMessage"
-              }
-            },
-            "lastEventSeq": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "description": "Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.",
+  "params": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "sessionId",
+      "caller"
+    ],
+    "properties": {
+      "caller": {
+        "$ref": "#/$defs/CallerIdentity"
+      },
+      "sessionId": {
+        "$ref": "#/$defs/SessionId"
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      }
+    }
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "session",
+      "runningTurnId",
+      "messages",
+      "lastEventSeq"
+    ],
+    "properties": {
+      "session": {
+        "$ref": "#/$defs/SessionRecord"
+      },
+      "runningTurnId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/SessionMessage"
         }
       },
+      "lastEventSeq": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "modelChanges": {
+        "type": "array",
+        "maxItems": 2000,
+        "items": {
+          "$ref": "#/$defs/SessionEvent"
+        }
+      }
+    }
+  }
+},
       "session.archive": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Archives a session (archive-first deletion: nothing is removed; there is no delete over RPC). Idempotent. A session with a running turn is E_CONFLICT.",
@@ -9990,11 +10188,11 @@
       }
     },
     "BudgetLimit": {
-      "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
+      "description": "Experimental (1.5.0). A budget limit. Bounds count the metric: input + output tokens (output includes reported reasoning tokens), generated images, or seconds of generated video.",
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens", "images", "videoSeconds"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
@@ -10003,7 +10201,7 @@
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false, "required": ["scope", "period", "metric", "soft", "hard", "used", "state"],
       "properties": {
-        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens"] },
+        "scope": { "enum": ["global", "agent"] }, "agentId": { "type": "string" }, "period": { "enum": ["day", "month"] }, "metric": { "enum": ["tokens", "images", "videoSeconds"] },
         "soft": { "type": ["integer", "null"], "minimum": 0 }, "hard": { "type": ["integer", "null"], "minimum": 0 },
         "used": { "type": "integer", "minimum": 0 }, "state": { "enum": ["ok", "soft", "hard"] }
       }
@@ -10095,7 +10293,7 @@
       ]
     },
     "ChatModelOption": {
-      "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+      "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: “Only local models” is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
       "x-stability": "experimental",
       "x-since": "1.7.0",
       "type": "object",
@@ -10246,7 +10444,17 @@
       "required": ["id", "seq", "role", "text", "createdAt"],
       "properties": { "id": { "type": "string" }, "seq": { "type": "integer" }, "turnId": { "type": ["string", "null"] }, "role": { "enum": ["system", "user", "assistant", "tool"] }, "text": { "type": "string" }, "createdAt": { "type": "integer" } }
     },
-    "SessionEventType": { "enum": ["turn.started", "delta", "tool.call", "tool.result", "turn.completed", "turn.failed"] },
+    "SessionEventType": {
+  "enum": [
+    "turn.started",
+    "delta",
+    "tool.call",
+    "tool.result",
+    "turn.completed",
+    "turn.failed",
+    "session.model.changed"
+  ]
+},
     "SessionEvent": {
       "description": "One event of a session's ordered stream. seq is per session, starts at 1 and has no gaps; data's shape depends on type.",
       "x-stability": "experimental", "x-since": "1.5.0",
@@ -10371,6 +10579,7 @@
       "additionalProperties": false,
       "required": ["provider", "id", "displayName", "kind", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides"],
       "properties": {
+        "toolUse": { "enum": ["supported", "limited tool use", "unknown"], "description": "D97 host-eval status; missing, stale, fake or incomplete evidence is unknown." },
         "provider": { "type": "string" },
         "id": { "type": "string" },
         "displayName": { "type": "string" },
@@ -10576,6 +10785,30 @@
         "updatedAt": { "type": "string" },
         "updatedBy": { "type": "string", "description": "Person ID of the last writer, when known; never a secret value." },
         "description": { "type": "string", "maxLength": 200, "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value." }
+      }
+    },
+    "SecretSetOutcome": {
+      "description": "Experimental (1.5.0). What `secret.set` returns: the same fields as SecretMeta, plus a `warning` when the value is too short for the log redactor to mask. Never the value.",
+      "x-stability": "experimental", "x-since": "1.5.0",
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "backend", "createdAt", "updatedAt"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$" },
+        "backend": { "$ref": "#/$defs/SecretBackend" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string", "description": "Person ID of the last writer, when known; never a secret value." },
+        "description": { "type": "string", "maxLength": 200, "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value." },
+        "warning": {
+          "type": "object", "additionalProperties": false,
+          "required": ["code", "minMaskedChars", "message"],
+          "description": "Present when the stored value has fewer characters than the redactor masks: the value was stored, but it could appear unmasked in a log line.",
+          "properties": {
+            "code": { "const": "short-value-unmasked" },
+            "minMaskedChars": { "type": "integer", "minimum": 1, "description": "The shortest value the log redactor masks (8)." },
+            "message": { "type": "string", "description": "English text for clients without a message catalogue; the code is the stable part." }
+          }
+        }
       }
     },
     "SecretStatus": {
@@ -11165,6 +11398,27 @@
           "overlays": { "type": "array", "items": { "$ref": "#/$defs/ExtOverlay" } }
         }
       },
+      "chat.models.changed": {
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "x-server": "core",
+  "description": "Payload-free invalidation of chat model options after accepted privacy policy changes. Clients reread their authorized chat.model.get; no configuration, agent ID or credential is broadcast.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "at",
+    "reason"
+  ],
+  "properties": {
+    "at": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reason": {
+      "const": "privacy"
+    }
+  }
+},
       "models.changed": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Emitted when a scan alters available models in the catalog (D112).",

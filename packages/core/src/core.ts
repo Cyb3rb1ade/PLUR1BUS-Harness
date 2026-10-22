@@ -1,3 +1,7 @@
+import { DeliveryTargets } from "./delivery/service.ts";
+import { deliveryMethods } from "./delivery/rpc.ts";
+import { deliveryAllowed } from "./delivery/policy.ts";
+import { buildEngineTestSurface, createEngineTestDiagnostics } from "./rpc/engine-test-surface.ts";
 import { engineModelEndpoints } from "./composition/embedding-policy.ts";
 import { hermesClientAuth } from "./rpc/hermes-client-auth.ts";
 import { authorize } from "./rbac/authorize.ts";
@@ -6,6 +10,7 @@ import { creationDigest } from "./agents/saga.ts";
 import { LicenceLedger } from "./licences/ledger.ts";
 import { buildLicenceSurface, LICENCE_RULES } from "./rpc/licence-surface.ts";
 import { buildChatSurface } from "./rpc/chat-surface.ts";
+import { configuredDefaults } from './toolcall/host-eval-store.ts';
 import { apiAdmission } from "./rpc/api-admission.ts";
 import { apiIdentities } from "./rpc/api-identity.ts";
 import { buildDoctorMethods } from "./doctor-report.ts";
@@ -25,6 +30,7 @@ import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreSta
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
 import { BACKUP_METHODS } from "./backup-ops.ts";
+import { reapplyTombstonesAfterRestore, type LoadEngineReapply } from "./restore-reapply.ts";
 import { createMigrationDriver, type MigrationDriver } from "./embedding-migrate/driver.ts";
 import { createEnginePort } from "./embedding-migrate/engine-port.ts";
 import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
@@ -39,13 +45,16 @@ import { assertEngineContract, bindEngine } from "./engine.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
 import { isLocalEndpoint, localEndpoints, localOnlyFor } from "./privacy/local-only.ts";
 import { localOnlyCheck } from "./privacy/doctor.ts";
+import { emailAuthChecks } from "./channels/email-auth-check.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
 import { type HarnessLogger, type Level } from "./logger.ts";
+import { CURATION_METHODS } from "./memory-curation.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
+import type { A1MemoryOperations } from "./dreams/producer.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
@@ -71,6 +80,7 @@ import { alwaysGrantsToInbox, approvalToInbox, jobFailedToInbox, pairingToInbox,
 import { sessionUsage } from "./rpc/session-usage.ts";
 import { breakglassMemory } from "./rpc/breakglass-memory.ts";
 import { sessionWriteAccess } from "./rpc/session-access.ts";
+import { memoryCallerAccess } from "./rpc/memory-caller-access.ts";
 import { sessionTranscriptSurface } from "./rpc/session-overview.ts";
 import { UserJobs } from "./user-jobs/index.ts";
 import { attachUserJobMethods } from "./user-jobs/rpc.ts";
@@ -101,7 +111,7 @@ import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { loadReasoningTable, resolveReasoning } from "./discovery/reasoning.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
-import { createDreams, forgetRemovedAgent, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
+import { createDreams, forgetRemovedAgent, readCandidateMemory, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
@@ -109,6 +119,7 @@ import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
 import { approvalsDbPath } from "./approvals/db.ts";
 import { secretStoreKeySource, secretStoreSigningKeySource } from "./approvals/keys.ts";
+import { armKnowledgeUpdate, createKnowledgeUpdateJob } from "./knowledge/job.ts";
 import { armApprovalsIntegrity, createApprovalsIntegrityJob } from "./approvals/integrity-job.ts";
 import { createPermissionNotifier, type PermissionNotifier } from "./approvals/notify.ts";
 import { grantRecordOf } from "./approvals/wire.ts";
@@ -123,7 +134,7 @@ import { createAttestationService, helperFromEnv, type Attester, type HelperSpec
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
  *  too, so an applied migration or a consumed vault nonce is never left unanswered. */
-const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture", "approval.decide", "approval.cancel", "grant.create", "grant.revoke"] as const;
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...CURATION_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture", "approval.decide", "approval.cancel", "grant.create", "grant.revoke"] as const;
 /** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not. `engine.models` is read fresh on every call
  *  from the synchronous `engine.models.status()`. Only the async `EngineStatus` parts (`degraded`, from which
  *  `engine.ready` follows) are cached, stale-while-revalidate: a call finding the copy older than STATUS_CACHE_MS
@@ -175,6 +186,8 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** Test seam: the engine's tombstone re-apply a backup restore's marker asks for (restore-reapply.ts); default: the engine's `lib/tombstone-reapply.js`, when it has one. */
+  tombstoneReapply?: LoadEngineReapply;
   /** Legacy injected provider seam, adapted through composition; absent, configured provider definitions supply the pipeline. */
   chatProvider?: ChatProvider;
   composition?: CompositionOptions;
@@ -270,6 +283,7 @@ export function createCore(o: CoreOptions): Core {
   let webSearch: SearxngWebSearch | null = null;
   let metricsHttp: MetricsServer | null = null;
   let userJobs: UserJobs | null = null;
+  let delivery: DeliveryTargets | null = null;
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
@@ -385,7 +399,7 @@ export function createCore(o: CoreOptions): Core {
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
     const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     // Every secret value the store writes, rotates, reveals or leases is masked in the core log from that moment on.
-    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe(value => createdLog.registerSecret(value)); }
+    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe((value, info) => createdLog.registerSecret(value, info)); }
     // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
     // The sidecar's destination is configuration (sidecars.searxng) or the address the container layer injected; the keyed
     // providers go through the egress policy and read their key from the secret store per call. The trace carries lengths,
@@ -430,10 +444,11 @@ export function createCore(o: CoreOptions): Core {
     // `agents` are read per use; a `core`-class change waits for the supervisor's restart (restartPending).
     const watchedOrphans = orphans;
     cs.onChange((prev, next, plan) => {
+      if(plan.changed.some(k=>k==="privacy"||k.startsWith("privacy.")||/^agents\.[^.]+\.privacy(?:\.|$)/.test(k)))server?.notify("chat.models.changed",{at:clock(),reason:"privacy"});
       if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
-      if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers."))) scanScheduler?.replan();
+      if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers.") || k === "privacy" || k.startsWith("privacy."))) scanScheduler?.replan();
       // An agent that left the configuration loses its dream schedule at once (forgetAgent refuses one the registry still lists).
       for (const id of Object.keys(prev.agents)) if (!Object.hasOwn(next.agents, id)) forgetRemovedAgent(dreams?.scheduler, id, log);
       if (discoveryWriter) discoveryWriter.updateLevels({ ...discoveryWriter.currentLevels(), defaultLevel: next.core.logLevel });
@@ -461,7 +476,7 @@ export function createCore(o: CoreOptions): Core {
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       checkEngineConfigLicences(engineConfig,l);
-      // Until the engine has a fetch port, its model endpoints are judged by the harness egress policy before it is built.
+      // Preflight feedback; host.fetch also enforces the live egress policy on every request.
       await checkEngineEgress(engineConfig, egress, (message, fields) => log.warn(message, fields));
       const unmapped = new Set<string>();
       const events = (name: string, payload: unknown) => {
@@ -475,13 +490,18 @@ export function createCore(o: CoreOptions): Core {
           server?.notify("engine.event", { name, ...(typeof agentId === "string" && AGENT_ID.test(agentId) ? { agentId } : {}), payload }, { optIn: true });
         }
       };
+      const engineTestDiagnostics = createEngineTestDiagnostics();
       const host = createHarnessHost({
-        layout: l, logger, config, engineConfig, agents: executionRegistry, events, clock,
+        onPortFailure: engineTestDiagnostics.observe,
+        layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock, egress, secrets: secretStore,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
         mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
         canMutateConfig: () => cs.source === "supervisor",
       });
       o.inspectHost?.(host);
+      // A backup restore left rows that may hold memories forgotten since: re-apply the committed tombstones before the engine
+      // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
+      await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
       const eng = lifecycleEngine(bindEngine(host, engineConfig, o.testInternals ? engineInternals : undefined), lifecycle); engine = eng;
       assertEngineContract(eng);
@@ -499,7 +519,7 @@ export function createCore(o: CoreOptions): Core {
       } });
       discoveryWriter = createWriter({ dir: l.logs, role: "core", source: { kind: "harness", id: "discovery", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes, keep: config.logs.keep });
       unsubscribeDiscoveryRedaction?.();
-      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe(value => discoveryWriter?.registerSecret(value));
+      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe((value, info) => discoveryWriter?.registerSecret(value, info));
       const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
       const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
       const discEvents = o.discovery?.events ?? createD111Events(discoveryWriter);
@@ -579,8 +599,18 @@ export function createCore(o: CoreOptions): Core {
         logger,
         engineHasJob: (name) => eng.jobs.list().some((j) => j.name === name),
         onFailed: run => jobFailedToInbox(inboxPort, run),
+        onRecorded: run => { void delivery?.notify("system", run.job, undefined, run.outcome).catch(err => log.warn("delivery notify failed", { err })); },
       });
       systemJobs.register(createModelsScanJob(discovery, discSettings));
+      systemJobs.register(createKnowledgeUpdateJob({ engine: eng, agents: () => executionRegistry.list(), now: clock }));
+      armKnowledgeUpdate(systemJobs, {
+        now: clock,
+        setTimer: (fn, ms) => {
+          const timer = setTimeout(() => { void fn(); }, ms);
+          timer.unref();
+          return { cancel: () => clearTimeout(timer) };
+        },
+      }, shutdown.signal, log);
 
       scanScheduler = createScanScheduler({
         service: discovery,
@@ -597,6 +627,14 @@ export function createCore(o: CoreOptions): Core {
       // B5: the hash-chained audit file (logs/audit-chain*.jsonl). The core's own writers tee into it besides audit.log.
       auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p) });
       const chain = auditChain;
+      // Startup check: report-only. A broken or unreadable chain is logged (finding codes, files, line and seq numbers: no record content)
+      // and never blocks the core from starting; `plur1bus audit verify` and the append refusals carry the enforcement.
+      try {
+        const startupAudit = chain.verify();
+        if (!startupAudit.ok) log.error("audit chain integrity findings at startup", { findings: startupAudit.findings, findingsTotal: startupAudit.findingsTotal });
+      } catch (e) {
+        log.error("audit chain could not be verified at startup", { reason: e instanceof Error ? e.message : String(e) });
+      }
       const identityLog = createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock });
       identity = createIdentityService({
         dbPath: path.join(l.state, "identity.sqlite"), clock,
@@ -635,7 +673,8 @@ export function createCore(o: CoreOptions): Core {
       });
       permissionNotifier = notifier;
       const board = switchboard = openChannelSwitchboard({
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        command: async (msg, person) => delivery?.confirmMessage(msg, person) ?? false,
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
@@ -672,7 +711,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
@@ -724,6 +763,10 @@ export function createCore(o: CoreOptions): Core {
           void deliverBreakglassNotice(notice, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "notice", connectionId: id, signal: shutdown.signal }, "breakglass.notices", {}), notify: (m,p,options) => server?.notify(m,p,options), stopped: () => shutdown.signal.aborted }).catch(() => { log.debug("break-glass live notice withheld; durable inbox retained"); });
         },
       });
+      // The one break-glass registry: a lapsed grant is unusable at once, and its `break-glass.expired` audit line is written by whoever asks next or, when
+      // nobody does, by this timer (it used to be the API's second registry's). A failing audit sink keeps the grant listed; the next sweep retries.
+      const breakglassSweep = setInterval(() => { if (!shutdown.signal.aborted) try { breakglass.sweep(); } catch { log.debug("break-glass sweep postponed"); } }, 30_000);
+      breakglassSweep.unref(); shutdown.signal.addEventListener("abort", () => clearInterval(breakglassSweep), { once: true });
       const signer = agentExportSigner(secretStore);
       const licenceLedger = modelLicences = new LicenceLedger(path.join(l.state, "model-licences.sqlite"), rbacAudit, clock);
       const reservedAgents = new Map<string, Awaited<ReturnType<typeof eng.open>>>();
@@ -732,6 +775,8 @@ export function createCore(o: CoreOptions): Core {
         setRight: (id, userId, right) => people.setRight(id, userId, right),
         clearRights: id => { for (const { userId } of people.rights(id)) people.setRight(id, userId, null); },
         ready: id => { lifecycle.set(id,{ paused:false }); },
+        isDeleted: id => lifecycle.state(id).deleted,
+        setDeleted: (id, deleted) => { lifecycle.set(id, deleted ? { deleted: true, archived: true } : { deleted: false, archived: false, paused: false }); },
         reserve: async id => { lifecycle.set(id,{ paused:true }); const store = await eng.open(id); reservedAgents.set(id, store); },
         release: async id => { const store = reservedAgents.get(id); if (store) { await store.close(); reservedAgents.delete(id); } },
         removeConfig: async (id, expected) => {
@@ -784,7 +829,19 @@ export function createCore(o: CoreOptions): Core {
         },
         // No `erase`: the pinned engine has no hard-erasure API. The handler records/refuses before any mutation.
       });
+      delivery = new DeliveryTargets({
+        path: path.join(l.state, 'delivery.sqlite'), clock, audit: rbacAudit, identity: () => identity,
+        resolve: id => {
+          if (people.person(id)?.disabled) return null;
+          const current = o.rbac?.resolvePerson ? o.rbac.resolvePerson(id) : id === LOCAL_OWNER.userId || identityService.list({}).humans.some(h => h.id === id) ? { kind: 'person' as const, userId: id, role: people.role(id, id === LOCAL_OWNER.userId ? 'owner' : 'member') } : null;
+          return current?.kind === 'person' && current.userId === id ? people.resolve(current) : null;
+        },
+        allowed: who => deliveryAllowed(cfg(), who),
+        target: who => { if (!switchboard) throw new Error('channel unavailable'); return switchboard.view.ownerTarget!(who.channel, { userId: who.userId, accountId: who.accountId }); },
+        send: async (channel, chatId, text) => await switchboard?.view.sendTo(channel, { chatId, text }) ?? false,
+      });
       userJobs = new UserJobs({
+        validateDelivery: (id, person, agentId) => { if (!delivery) throw new Error("delivery unavailable"); delivery.validate(id, person, agentId); },
         path: path.join(l.state, "user-jobs.sqlite"), clock, audit: rbacAudit,
         isStopping: () => shutdown.signal.aborted,
         agentExists: id => registry.has(id) && !lifecycle.state(id).deleted, agents: () => registry.list().filter(id => !lifecycle.state(id).deleted),
@@ -805,15 +862,21 @@ export function createCore(o: CoreOptions): Core {
         submitTurn: async (job, person) => {
           if (!sessions) return "failed";
           if (!executionRegistry.has(job.agentId)) return "skipped_agent_inactive";
+          if (job.deliveryTarget) delivery!.validate(job.deliveryTarget, person.userId, job.agentId);
           const session = sessions.store.createSession({ kind: "direct", agentId: job.agentId, owner: deriveUserPrincipal(person.userId), scope: "user", title: job.name });
           const handle = sessions.runner.submit({ session, caller: { channel: "cli", accountId: "recurring", userId: person.userId }, text: job.prompt, approver: { person: person.userId, surface: 0 }, recurring: { jobId: job.id, jobName: job.name, runAs: person.userId, trigger: "recurring" } });
           const result = await handle.done;
           const outcome = result.error === "approval-timeout" ? "approval_timeout" : result.state === "completed" ? "completed" : result.error === "budget-exceeded" ? "skipped_budget" : "failed";
+          if (outcome === 'completed' && job.deliveryTarget) {
+            const reply = sessions.store.listMessages(session.id).filter(m => m.role === 'assistant').at(-1)?.text;
+            if (reply) await delivery!.deliver(job.deliveryTarget, person.userId, job.agentId, reply);
+          }
           return outcome;
         },
       });
       const rawMethods = {
-        ...buildMethods({
+        ...deliveryMethods(() => delivery),
+        ...buildMethods({ hostEvalHome: l.home,
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
@@ -839,10 +902,12 @@ export function createCore(o: CoreOptions): Core {
         egress,
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
         // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
-        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
+        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`, and an owner
+        // that carries a `surface` must have `MIN_SECRET_SURFACE` to write, delete or reveal: the level is the connection's own
+        // (T1 for a token connection, which is where the CLI and the web UI arrive; an attestation can only raise it).
         secrets: { store: secretStore, principalOf: async (ctx, method, params) => {
           const p = await resolvePrincipal(ctx, method, params);
-          return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId } : { kind: "agent" };
+          return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId, surface: connectionSurface({ principal: p, now: clock(), attestation: o.rbac?.attest?.(ctx) }) } : { kind: "agent" };
         } },
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
@@ -864,9 +929,10 @@ export function createCore(o: CoreOptions): Core {
         ...buildIdentitySurface(() => identity),
         ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, signal: shutdown.signal, revoked: userId => server?.notify("api.account.changed", {userId}, {audience:apiIdentity.services().map(connectionId=>({connectionId}))}), personVersion: id => { const p=people.person(id); return p && !p.disabled ? p.version : null; }, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,
+        ...buildEngineTestSurface({ embedding: eng.embedding, config: () => engineConfig, diagnostics: engineTestDiagnostics }),
         ...buildLicenceSurface(licenceLedger,cfg),
         ...buildEmbeddingSelectionSurface({ ledger:licenceLedger, currentModel:() => String((engineConfig.embedding as any).local.model), migration, port:reembedEnginePort, audit:rbacAudit, clock }),
-        ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, breakglass, ownership, personOf }),
+        ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, lookup: id => sessions?.forSession(id).store ?? null, breakglass, ownership, personOf }),
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
         ...buildAgentCreationSurface(creation),
         ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => switchboard?.view ?? null, audit: rbacAudit, clock }),
@@ -887,12 +953,14 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.list"] = async (p, ctx) => { const r = await listAgents!(p,ctx) as { agents: { agentId: string }[] }; return { ...r, agents: r.agents.filter(a => !lifecycle.state(a.agentId).deleted).map(a => ({ ...a, lifecycle: lifecycle.state(a.agentId) })) }; };
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
+      // The other caller-taking memory ops (forget, correct, share, state, propose, proposals.*) act as the principal derived from `caller`: bind it to the authenticated person like memory.list/show and session.*.
+      Object.assign(rawMethods, memoryCallerAccess({ methods: rawMethods, ownership, resolve: resolvePrincipal }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg())] }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg())] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});
-      const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
+      const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       const subscribe = methods["events.subscribe"]!;
       methods["events.subscribe"] = async (p, ctx) => {
         // The API's credential-only control link watches account revocations, never agent events.
@@ -939,20 +1007,35 @@ export function createCore(o: CoreOptions): Core {
       if (o.discovery?.scheduler !== false) scanScheduler.start();
       // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
       try {
+        // A1 is optional until the Controller pins Engine contract 1.17.0.
+        // These are public host operations under the agent's existing principal,
+        // never calls made by a model or a background AgentContext.
+        const dreamMemory = eng.memory as typeof eng.memory & A1MemoryOperations;
+        const dreamContext = { origin: "system", background: false } as const;
+        const dreamPrincipal = (agentId: string) => {
+          const ws = executionRegistry.workspaceOf(agentId);
+          if (!ws) throw new Error(`dreams agent workspace unavailable: ${agentId}`);
+          return callerToPrincipal(cliCaller(), agentId, ws).principal;
+        };
         dreams = createDreams({
           engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
-          // Content-only producer: Engine.memory.list yields text (+ optional score on a topic query, not on `since`).
-          // Agent-private cards only (ADR-009 Q5). A truncated page throws; the scheduler maps that to engineError.
-          // Gates keep a content-only card from promoting; a deep run then skip/no_candidates (fail closed).
+          // Agent-private public cards plus A1's persistent recall counters when
+          // available. Missing A1 keeps promotion closed, never maintenance. A
+          // truncated corpus fails closed after the independent jobs ran.
           candidateMemory: {
             async list(agentId) {
               const ws = executionRegistry.workspaceOf(agentId);
               if (!ws) return [];
-              const { principal } = callerToPrincipal(cliCaller(), agentId, ws);
-              return itemsFromEngineList(await eng.memory.list({ since: 0, limit: 100 }, principal, AGENT_CONTEXT_CLI));
+              return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
             },
+            ...(typeof dreamMemory.stats === "function" ? {
+              stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
+            } : {}),
+            ...(typeof dreamMemory.promote === "function" ? {
+              promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
+            } : {}),
           },
-          ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
+          scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
         });
         if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
       } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
@@ -1001,7 +1084,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
       if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
-      await userJobs?.drain(); userJobs?.close(); userJobs = null;
+      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
@@ -1088,7 +1171,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
-      await userJobs?.drain(); userJobs?.close(); userJobs = null;
+      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null;
       await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
       await step(logger, "rpc drain", async () => {

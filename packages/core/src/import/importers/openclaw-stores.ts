@@ -245,7 +245,7 @@ export async function prepareOpenclawStores(o: PrepareOpenclawStoresOptions): Pr
       }
       let check: Awaited<ReturnType<typeof inspectStoreAdopt>>;
       try {
-        check = await inspectStoreAdopt({ storePath: root, targetConfig: o.targetConfig, testInternals: o.testInternals });
+        check = await inspectStoreAdopt({ storePath: root, targetConfig: o.targetConfig, targetHome: o.l.home, testInternals: o.testInternals });
       } catch (err) {
         // The probe engine could not even start (e.g. an engine setting in config.json it rejects): nothing is vouched for.
         const code = (err as { code?: unknown } | null)?.code;

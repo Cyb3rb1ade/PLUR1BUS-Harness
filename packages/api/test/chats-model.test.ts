@@ -73,6 +73,10 @@ test("model and reasoning per chat: options, nearest-level substitution, CAS, ne
   // xhigh is not a gpt-5 level: the nearest (high) applies, visibly.
   const set = await h.json(await h.call(alice, path, "PATCH", { profile: "default", reasoning: "xhigh", expectedRevision: 0 }));
   assert.deepEqual([set.reasoning, set.effectiveReasoning, set.adjusted, set.revision, set.costHint], ["xhigh", "high", true, 1, "reasoning-cost-higher"]);
+  const history=await h.json(await h.call(alice,`/api/v1/chats/${session.id}`));
+  assert.equal(history.modelChanges.length,1);assert.equal(history.modelChanges[0].type,"session.model.changed");
+  assert.equal(history.modelChanges[0].data.person,"alice");assert.equal(history.modelChanges[0].data.model,"gpt-5");
+  assert.equal(history.modelChanges[0].data.effectiveReasoning,"high");
   await h.json(await h.call(alice, `/api/v1/chats/${session.id}/messages`, "POST", { text: "second", wait: true }));
   assert.deepEqual(h.seen.at(-1), { model: "gpt-5", reasoning: { vendorParam: "reasoning_effort", value: "high" } });
 
@@ -115,7 +119,11 @@ test("incognito: the choice works and stays in memory; the durable store holds n
   await h.json(await h.call(alice, `/api/v1/chats/${session.id}/messages`, "POST", { text: "secret", wait: true }));
   assert.deepEqual(h.seen.at(-1), { model: "gpt-5.2", reasoning: { vendorParam: "reasoning_effort", value: "xhigh" } });
   assert.equal((await h.json(await h.call(alice, `/api/v1/chats/${session.id}/model`))).reasoning, "xhigh");
+  const history=await h.json(await h.call(alice,`/api/v1/chats/${session.id}`));
+  assert.equal(history.modelChanges.length,1);assert.equal(history.modelChanges[0].data.person,"alice");
   const db = new DatabaseSync(join(h.home, "state", "sessions.sqlite"), { readOnly: true });
-  try { assert.equal((db.prepare("SELECT count(*) AS n FROM session_model_profiles WHERE session_id = ?").get(session.id) as { n: number }).n, 0); }
+  try { assert.equal((db.prepare("SELECT count(*) AS n FROM session_model_profiles WHERE session_id = ?").get(session.id) as { n: number }).n, 0);
+    assert.equal((db.prepare("SELECT count(*) AS n FROM events WHERE session_id=?").get(session.id) as {n:number}).n,0);
+  }
   finally { db.close(); }
 });

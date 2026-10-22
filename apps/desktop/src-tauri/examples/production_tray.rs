@@ -261,7 +261,7 @@ mod fixture {
         let app = tauri::Builder::default()
             .manage(native::NativeState::default())
             .manage(SpaState::default())
-            .manage(commands::ConnectionState(Arc::new(
+            .manage(commands::ConnectionState::new(Arc::new(
                 tokio::sync::Mutex::new(Some(Box::new(MemoryStore::default()))),
             )))
             .invoke_handler(tauri::generate_handler![

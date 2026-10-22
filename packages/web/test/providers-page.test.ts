@@ -119,6 +119,26 @@ describe("providers: OAuth login flow", opts, () => {
     });
   });
 
+  test("the authorization window opens without opener and referrer", async () => {
+    await withApp({}, async (app) => {
+      seedProviders(app.server.rpc, []);
+      await open(app);
+      await app.page.evaluate(() => {
+        const w = window as unknown as { __opens: unknown[][]; open: (...args: unknown[]) => null };
+        w.__opens = [];
+        w.open = (...args: unknown[]) => { w.__opens.push(args); return null; };
+      });
+      await app.page.getByRole("button", { name: /Sign in/i }).first().click();
+      await app.page.getByRole("dialog", { name: /Sign in with provider/i }).waitFor();
+      await app.page.waitForFunction(() => (window as unknown as { __opens: unknown[][] }).__opens.length > 0);
+      const [args] = await app.page.evaluate(() => (window as unknown as { __opens: unknown[][] }).__opens);
+      assert.match(String(args?.[0]), /^https:\/\/auth\.openai\.com\//);
+      assert.equal(args?.[1], "_blank");
+      assert.match(String(args?.[2]), /(^|,)noopener(,|$)/);
+      assert.match(String(args?.[2]), /(^|,)noreferrer(,|$)/);
+    });
+  });
+
   test("Anmelden can be cancelled", async () => {
     await withApp({}, async (app) => {
       seedProviders(app.server.rpc, []);

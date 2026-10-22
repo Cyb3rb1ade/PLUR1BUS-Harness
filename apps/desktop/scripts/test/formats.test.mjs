@@ -57,7 +57,11 @@ test('Flatpak exports protocol/file associations and Tauri resource and helper l
   assert.deepEqual(manifest.modules[0].sources, [{ type: 'dir', path: 'payload' }]);
   assert.ok(manifest.modules[0]['build-commands'].some(command => command.includes('/app/lib/plur1bus-desktop/')));
   assert.equal(await readFile(join(options.outDir, 'payload/resources/cli/plur1bus'), 'utf8'), 'cli fixture');
-  assert.ok((await lstat(join(options.outDir, 'payload/bin/plur1bus-host'))).mode & 0o100);
+  // POSIX permission bits do not exist on NTFS (lstat reports 0o666 for every file), so the executable bit is asserted
+  // where a Flatpak payload is actually staged: Linux and macOS. Windows runs the rest of this test unchanged.
+  if (process.platform !== 'win32') {
+    for (const name of ['plur1bus-host', 'plur1bus-desktop']) assert.equal((await lstat(join(options.outDir, 'payload/bin', name))).mode & 0o777, 0o755, name);
+  }
   const desktop = await readFile(join(options.outDir, 'payload/exports/app.plur1bus.desktop.desktop'), 'utf8');
   assert.match(desktop, /Exec=plur1bus-desktop %U/);
   assert.match(desktop, /x-scheme-handler\/plur1bus;application\/x-plur1bus-extension;/);

@@ -19,7 +19,7 @@ function `plur1bus_fuzz::<name>::run(&[u8])` in `fuzz/src/`; `fuzz/fuzz_targets/
 | Target | Code under test | Input | Invariants |
 |---|---|---|---|
 | `client_response_line` | `plur1bus_rpc::Client` against a unix-socket server replying with the input (Unix only) | raw reply bytes | `Ok` or typed `RpcError`; no panic, no hang, memory bounded by `MAX_LINE` |
-| `rpc_message` | generated wire types of `plur1bus-rpc` (`Request`, `Response`, `Notification`, `ErrorObject`, `Id`, `Capabilities`, `JournalLine`, `CoreStatus`, `ExtInspection`), `RpcError`, `capabilities()` | selector byte + JSON | parse then serialise then parse is a fixed point |
+| `rpc_message` | generated wire types of `plur1bus-rpc` (`Request`, `Response`, `Notification`, `ErrorObject`, `Id`, `Capabilities`, `JournalLine`, `CoreStatus`, `ExtInspection`), `RpcError`, `capabilities()` | selector byte + JSON | parse then serialise then parse is a fixed point; the bytes of an accepted `Value` also parse with `from_slice` (a repeated key in the raw input is not compared: `Value` keeps the last one, as `Client` does, a derived struct from bytes refuses it) |
 | `config_parse` | `plur1bus-config` `parse` / `validate` / `serialize` / `revision` / `get` / `set` / `restart_plan` / tier helpers | `config.json` text, NUL, `key`, NUL, JSON value | a parsed config validates and round-trips; `set` never returns an invalid config |
 | `backup_manifest` | `backup/manifest.rs` (`Manifest`, `validate`, `safe_rel`, `target_kind`, ...) and `backup/archive.rs` (`verify`: the tar.gz reader) | mode byte + raw manifest, raw file, gzip-wrapped tar, or a structured manifest and matching tar built with `arbitrary` | `safe_rel` never holds for an absolute, `..`, `.`, backslash, colon or NUL path; a validated manifest names only safe paths and round-trips; a verified archive yields a validated manifest |
 | `install_manifest` | `install/manifest.rs` (`parse_install`, `parse_release`: the release manifest is what `update --check` reads) and `install/pins.rs` lookups | selector byte + JSON | an install manifest that parses round-trips |
@@ -67,7 +67,7 @@ The workflow is not a merge gate.
 - `fuzz/seeds/<target>/` is committed: small (a few KiB each), hand-built or generated from real fixtures and
   catalogue examples, one file per behaviour (valid, hostile, truncated). The first byte of most inputs is the mode
   selector described in the source of each target. Keep the directory under about 500 KiB in total.
-- `fuzz/dicts/<target>.dict` holds libFuzzer dictionary tokens.
+- `fuzz/dicts/<target>.dict` holds libFuzzer dictionary tokens. libFuzzer knows only the escapes `\\`, `\"` and `\xHH` (a newline is `\x0a`); one bad line makes the whole target exit 1, so `tests/seeds.rs` checks every dictionary.
 - `fuzz/corpus/` (the evolving corpus) and `fuzz/artifacts/` are git-ignored and not cached between nightly runs: each
   run starts from the seeds. Add an input to `seeds/` only when it reaches code the existing seeds do not (check with
   `cargo +nightly fuzz coverage --locked`), and minimise it first with `cargo +nightly fuzz tmin --locked`.

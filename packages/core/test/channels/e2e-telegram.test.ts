@@ -76,6 +76,8 @@ test("a linked person's DM runs a turn and the echo reply reaches the Telegram c
     t.fake.push(textUpdate(nextUpdateId(), Number(DM_USER), "hello"));
     await t.e2e.until(() => toChat(t.fake).some((c) => String(c.body.text).includes("echo:hello")), "the echo reply");
     assert.equal(t.e2e.provider.requests.length, 1);
+    assert.equal(typeof t.e2e.provider.origins[0]?.accountId, "string");
+    assert.equal(t.e2e.provider.origins[0]?.channel, "telegram");
   } finally {
     await t.close();
   }

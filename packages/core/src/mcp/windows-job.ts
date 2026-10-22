@@ -1,7 +1,8 @@
 // Windows cannot reap an orphaned subtree with taskkill once its parent has exited. Launch the server suspended,
 // assign it to a kill-on-close Job Object, then resume it. The job handle is not inherited by the server.
 // PowerShell is an OS-provided native interop host, not a shell used to interpret the configured command.
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { join, win32 } from "node:path";
 
 /** Microsoft CRT argv quoting, including embedded quotes and trailing backslashes. */
 export function windowsArg(value: string): string {
@@ -78,10 +79,38 @@ export function windowsLauncherEnv(env: Record<string, string>, base: NodeJS.Pro
   return { ...out, ...env };
 }
 
-export function windowsJobCommand(command: string, args: string[], host: NodeJS.ProcessEnv, keep: string[] = []): { command: string; args: string[] } {
+/** The PATH a Windows child gets: the host's, whatever the case of the name, as the stdio transport hands it down. */
+function hostPath(host: NodeJS.ProcessEnv): string | undefined {
+  for (const env of [host, process.env]) {
+    const key = Object.keys(env).find((k) => k.toLowerCase() === "path");
+    if (key !== undefined && env[key] !== undefined) return env[key];
+  }
+  return undefined;
+}
+
+/**
+ * Resolves a bare command over PATH alone. CreateProcess, given a bare name, looks in the current directory before it looks
+ * at PATH, so a `node.exe` planted in a writable `cwd` would win; the launcher is therefore handed an absolute path and
+ * never a name. Empty and relative PATH entries are skipped: they mean "the current directory" too. Not found is an error,
+ * not a fall-back to CreateProcess's own search.
+ */
+export function resolveWindowsCommand(command: string, searchPath: string | undefined, exists: (path: string) => boolean): string {
+  if (win32.isAbsolute(command)) return command;
+  if (command.includes("\\") || command.includes("/")) throw new Error("MCP stdio command must be an absolute path or a bare command name");
+  const file = /\.exe$/i.test(command) ? command : command + ".exe";
+  for (const raw of (searchPath ?? "").split(";")) {
+    const dir = raw.trim().replace(/^"(.*)"$/, "$1");
+    if (dir === "" || !win32.isAbsolute(dir)) continue;
+    const candidate = win32.join(dir, file);
+    if (exists(candidate)) return candidate;
+  }
+  throw new Error(`MCP command not found on PATH: ${command}`);
+}
+
+export function windowsJobCommand(command: string, args: string[], host: NodeJS.ProcessEnv, keep: string[] = [], exists: (path: string) => boolean = existsSync): { command: string; args: string[] } {
   if (/\.(cmd|bat|ps1)$/i.test(command)) throw new Error("MCP stdio requires a native executable on Windows");
   const systemRoot = host.SYSTEMROOT ?? host.SystemRoot ?? "C:\\Windows";
-  const native = command.includes("\\") || command.includes("/") || /\.exe$/i.test(command) ? command : command + ".exe";
+  const native = resolveWindowsCommand(command, hostPath(host), exists);
   const payload = Buffer.from([native, ...args].map(windowsArg).join(" "), "utf8").toString("base64");
   const names = Buffer.from(keep.join("\n"), "utf8").toString("base64");
   const script = `$ErrorActionPreference='Stop'; try { Add-Type -TypeDefinition @'\n${source}\n'@; $command=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')); $keep=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${names}')).Split([char]10); foreach ($n in @([Environment]::GetEnvironmentVariables().Keys)) { if ($keep -notcontains $n) { [Environment]::SetEnvironmentVariable($n, $null) } }; exit [McpJob]::Run($command) } catch { [Console]::Error.WriteLine('MCP Windows job launch failed'); exit 125 }`;

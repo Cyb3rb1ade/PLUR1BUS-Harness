@@ -20,7 +20,8 @@ describe("recordUsage", () => {
     const day = s.periods[0]!;
     assert.equal(day.key, "2026-10-06");
     assert.equal(day.total.events, 1);
-    assert.deepEqual(Object.keys(day.total).sort(), ["cacheReadTokens", "cacheWriteTokens", "events", "inputTokens", "outputTokens"]);
+    assert.deepEqual(Object.keys(day.total).sort(), ["cacheReadTokens", "cacheWriteTokens", "events", "images", "inputTokens", "outputTokens", "videoSeconds"]);
+    assert.deepEqual([day.total.images, day.total.videoSeconds], [0, 0], "a token call delivers no media units");
     assert.equal("priceVersion" in s, false);
     assert.deepEqual(day.agents[0]!.models.map((m) => [m.model, m.inputTokens, m.outputTokens, m.cacheReadTokens, m.cacheWriteTokens]), [["m-small", 1000, 200, 500, 100]]);
   });
@@ -94,7 +95,7 @@ describe("no prompt content in the usage store", () => {
     for (const t of tables) cols[t.name] = (db.prepare(`PRAGMA table_info(${t.name})`).all() as { name: string; type: string }[]).map((c) => `${c.name}:${c.type}`);
     db.close();
     assert.deepEqual(Object.keys(cols).sort(), ["budget_limit", "notice", "settings", "usage_event"]);
-    assert.deepEqual(cols.usage_event, ["id:INTEGER", "ts:INTEGER", "agent:TEXT", "provider:TEXT", "model:TEXT", "input_tokens:INTEGER", "output_tokens:INTEGER", "cache_read_tokens:INTEGER", "cache_write_tokens:INTEGER", "cost_micros:INTEGER", "price_version:TEXT", "request_id:TEXT"]);
+    assert.deepEqual(cols.usage_event, ["id:INTEGER", "ts:INTEGER", "agent:TEXT", "provider:TEXT", "model:TEXT", "input_tokens:INTEGER", "output_tokens:INTEGER", "cache_read_tokens:INTEGER", "cache_write_tokens:INTEGER", "cost_micros:INTEGER", "price_version:TEXT", "request_id:TEXT", "images:INTEGER", "video_seconds:INTEGER"]);
   });
 
   it("the database files contain none of the rejected content", () => {

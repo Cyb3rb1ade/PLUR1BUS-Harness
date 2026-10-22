@@ -1067,6 +1067,8 @@ mod fake_core {
             "memory.share",
             "memory.state",
             "memory.propose",
+            "memory.curation.list",
+            "memory.curation.resolve",
             "memory.proposals.list",
             "memory.proposals.accept",
             "memory.proposals.reject",
@@ -1114,6 +1116,7 @@ fn memory_help_names_every_subcommand() {
         "state",
         "propose",
         "proposals",
+        "curation",
     ] {
         assert!(s.contains(sub), "memory --help does not mention {sub}\n{s}");
     }
@@ -2170,4 +2173,50 @@ fn a_real_stdout_write_error_exits_1() {
     let (code, stderr) = common::run_stdout_write_error(&mut c);
     assert!(stderr.contains("cannot write to stdout"), "{stderr}");
     assert_eq!(code, Some(1), "{stderr}");
+}
+
+#[test]
+fn memory_curation_list_keep_drop_preserve_raw_json_fields() {
+    let id = "mem_0123456789abcdefabcd";
+    let cases = [
+        (
+            "memory.curation.list",
+            vec!["memory", "curation", "list", "--agent", "bernd"],
+            serde_json::json!({"agentId":"bernd","items":[],"truncated":false,"future":true}),
+        ),
+        (
+            "memory.curation.resolve",
+            vec!["memory", "curation", "keep", "--agent", "bernd", id],
+            serde_json::json!({"agentId":"bernd","id":id,"status":"promoted","future":true}),
+        ),
+        (
+            "memory.curation.resolve",
+            vec!["memory", "curation", "drop", "--agent", "bernd", id],
+            serde_json::json!({"agentId":"bernd","id":id,"status":"demoted","future":true}),
+        ),
+    ];
+    for (method, args, result) in cases {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+        bin()
+            .args(["--home", home, "agent", "create", "bernd"])
+            .assert()
+            .success();
+        fake_core::spawn(
+            dir.path(),
+            fake_core::hello_with_capabilities(&[]),
+            Some((method, serde_json::json!({"result":result}))),
+        );
+        let output = bin()
+            .args(["--json", "--home", home])
+            .args(args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
+        assert_eq!(value["future"], true, "raw unknown fields survive {method}");
+        assert_eq!(value["agentId"], "bernd");
+    }
 }

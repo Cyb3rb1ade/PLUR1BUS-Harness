@@ -6,7 +6,7 @@ import {showCrashOffers} from "../src/views/crash-offer.ts";
 import { showBackgroundHint } from "../src/views/background-hint.ts";
 import {versionPage} from "../src/views/settings-version.ts";
 import { createShell } from "../src/shell.ts";
-import type { DesktopTransport, Settings } from "../src/ipc.ts";
+import { withDeadlines, type DesktopTransport, type Settings } from "../src/ipc.ts";
 import { openDialog } from "../src/components/dialog.ts";
 import { mountApprovals } from "../src/approvals-window.ts";
 import { openQuitDialog } from "../src/views/quit-dialog.ts";
@@ -20,7 +20,7 @@ let autostartFail = false;
 const autostartCalls: boolean[] = [];
 let deferredSaves = false;
 const pendingSaves: Array<{ value: Settings; resolve: (value: Settings) => void; reject: (error: Error) => void }> = [];
-const boot = (window as any).__fixtureBoot as { bundled?: boolean; platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean; failProgress?: boolean; harnessState?: string; runtimeLog?: string } | undefined;
+const boot = (window as any).__fixtureBoot as { bundled?: boolean; platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean; failProgress?: boolean; harnessState?: string; runtimeLog?: string; deadlineMs?: number } | undefined;
 autostart = boot?.autostartUnknown ? null : false;
 let rows: import("../src/ipc.ts").Connection[]=boot?.rows??[];
 let active:string|null=null;
@@ -28,7 +28,9 @@ let pairingError:string|null=null;
 let failConnections=boot?.failConnections??false;
 let releaseConnections: (()=>void)|undefined;
 const connectionGate = boot?.deferConnections ? new Promise<void>(resolve=>{releaseConnections=resolve;}) : Promise.resolve();
-const calls = { pair: 0, remove: 0, open: 0, decide: 0 };
+const calls = { pair: 0, remove: 0, open: 0, decide: 0, install: 0, logs: 0 };
+let renameError: string | null = null;
+const updateProgressListeners = new Set<(progress: import("../src/models/update-model.ts").UpdateProgress) => void>();
 const gates: Record<string, Promise<void> | undefined> = {};
 const releases: Record<string, () => void> = {};
 const hold = (name: string) => { gates[name] = new Promise<void>(resolve => { releases[name] = () => { gates[name] = undefined; resolve(); }; }); };
@@ -40,7 +42,7 @@ const transport: DesktopTransport = {
  async autostartGet(){return autostart;},
  async autostartSet(value){autostartCalls.push(value);if(autostartFail)throw new Error("injected autostart error");autostart=value;return autostart;},
  async connectionsList(){await connectionGate;if(failConnections)throw "storage";return {connections:rows,active,tokenStore:"memory-only"};},
- async connectionsRename(id,name){rows=rows.map(row=>row.id===id?{...row,name}:row);},
+async connectionsRename(id,name){if(renameError)throw renameError;rows=rows.map(row=>row.id===id?{...row,name}:row);},
  async connectionsRemove(id){calls.remove++;await gates.remove;rows=rows.filter(row=>row.id!==id);},
  async pairCode(request){calls.pair++;await gates.pair;if(pairingError)throw pairingError;const connection={id:request.repairId??"fixture-row",name:request.name,origin:request.origin,kind:"remote" as const,installationId:"fixture-installation",deviceId:"fixture-device",tokenHint:"hint",certPin:null,caPin:null,nextCertPin:null,nextCaPin:null,observedCertPin:null,pairingNeeded:false};rows=[connection];return {connection,tokenStore:"memory-only"};},
  async pairLocal(){if(pairingError)throw pairingError;throw "denied";},
@@ -60,11 +62,12 @@ if(boot?.bundled){
  transport.harnessStatus=async()=>({state:boot?.harnessState??"ready"});
  if(boot?.failProgress)transport.bundleProgress=async()=>{throw "listen-failed";};
  transport.harnessStart=async()=>{};transport.harnessStop=async()=>{};
- transport.harnessLogsTail=async()=>boot?.runtimeLog??"synthetic redacted log";
+ transport.harnessLogsTail=async()=>{calls.logs++;await gates.logs;return boot?.runtimeLog??"synthetic redacted log";};
 }
 const shellRoot = document.createElement("div");
 document.body.append(shellRoot);
-const shell = createShell(shellRoot, transport);
+const deadline = boot?.deadlineMs;
+const shell = createShell(shellRoot, withDeadlines(transport, deadline ? { connectionsList: deadline, pairCode: deadline, harnessLogsTail: deadline } : undefined));
 Object.assign(window, { testShell: {
   ...shell,
   rollbacks:0,
@@ -80,7 +83,7 @@ Object.assign(window, { testShell: {
   showRecovery:()=>{(window as any).testShell.showVersion(true);},
   showUpdates:(store=false)=>{
     let snapshot:import("../src/models/update-model.ts").UpdateSnapshot={settings:{channel:"stable",held:false,autoPatch:true,quietHours:[3,5],checkOnStart:true},release:{version:"0.1.1",channel:"stable",kind:"patch",security:true,date:"2026-10-10",notes:{en:"<script>bad()</script>Fixed\n- [Docs](https://harness.test)",de:"Behoben"},minFromVersion:"0.1.0"},offer:{action:"show"},storeBuild:store,installAvailable:!store};
-    const renderer=updatesPage({...transport,updateSettings:async request=>{if(request)snapshot={...snapshot,settings:request};return snapshot;},updateCheck:async()=>snapshot,updateInstall:async()=>{throw new Error("synthetic failure");},updateSkip:async()=>snapshot={...snapshot,offer:{action:"none"}},updateLater:async()=>snapshot={...snapshot,offer:{action:"none"}},updateStoreOpen:async()=>{}},()=>{shellRoot.replaceChildren(renderer());});
+    const renderer=updatesPage({...transport,updateSettings:async request=>{if(request)snapshot={...snapshot,settings:request};return snapshot;},updateCheck:async()=>snapshot,updateInstall:async()=>{calls.install++;await gates.install;throw new Error("synthetic failure");},updateProgress:async listener=>{updateProgressListeners.add(listener);return()=>{updateProgressListeners.delete(listener);};},updateSkip:async()=>snapshot={...snapshot,offer:{action:"none"}},updateLater:async()=>snapshot={...snapshot,offer:{action:"none"}},updateStoreOpen:async()=>{}},()=>{shellRoot.replaceChildren(renderer());});
     shellRoot.replaceChildren(renderer());
   },
   // Update states beyond the plain offer: an intermediate version first, or a check the shell rejects with an IPC error code.
@@ -90,6 +93,9 @@ Object.assign(window, { testShell: {
     shellRoot.replaceChildren(renderer());
   },
   calls,
+  emitUpdateProgress:(downloaded:number,total:number|null)=>{for(const listener of updateProgressListeners)listener({downloaded,total});},
+  updateProgressListeners:()=>updateProgressListeners.size,
+  setRenameError:(value:string|null)=>{renameError=value;},
   hold,
   release:(name:string)=>releases[name]?.(),
   showPendingApprovals:(cards:import("../src/views/approvals.ts").ApprovalCard[])=>{shellRoot.replaceChildren(approvalCards(cards,key=>translate("en",key),async()=>{},true,async()=>{calls.decide++;await gates.decide;}));},

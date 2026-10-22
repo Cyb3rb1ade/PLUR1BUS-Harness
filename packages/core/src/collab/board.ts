@@ -22,6 +22,8 @@ export class BoardError extends Error {
   constructor(code: BoardError["code"], message: string) { super(message); this.code = code; }
 }
 const bad = (message: string): never => { throw new BoardError("invalid", message); };
+/** A card link of kind url is shown as a clickable link: only http(s) and mailto, written exactly (no blanks or control characters), may be stored. */
+const safeLinkUrl = (s: string): boolean => /^(?:https?:\/\/|mailto:)[^\s\u0000-\u001f\u007f]+$/i.test(s) && URL.canParse(s);
 const same = (a: BoardActor, b: BoardActor): boolean => a.kind === b.kind && a.id === b.id;
 const title = (s: string): string => typeof s === "string" && s.trim().length > 0 && s.length <= 256 ? s.trim() : bad("invalid title");
 const index = (n: number | undefined, size: number): number => n === undefined ? size : Number.isSafeInteger(n) && n >= 0 ? Math.min(n, size) : bad("invalid position");
@@ -144,7 +146,7 @@ export class ProjectBoardStore {
     if (patch.labels !== undefined) { if (patch.labels.length > 32 || patch.labels.some(s => !s || s.length > 64)) bad("invalid labels"); c.labels = [...new Set(patch.labels)]; }
     if (patch.priority !== undefined) { if (!["none", "low", "normal", "high", "urgent"].includes(patch.priority)) bad("invalid priority"); c.priority = patch.priority; }
     if (patch.dueAt !== undefined) { if (patch.dueAt !== null && (!Number.isSafeInteger(patch.dueAt) || patch.dueAt < 0)) bad("invalid dueAt"); c.dueAt = patch.dueAt; }
-    if (patch.links !== undefined) { if (patch.links.length > 64 || patch.links.some(l => !["session", "job", "media", "url"].includes(l.kind) || typeof l.id !== "string" || !l.id || l.id.length > 4096)) bad("invalid links"); c.links = patch.links.map(l => ({ ...l })); }
+    if (patch.links !== undefined) { if (patch.links.length > 64 || patch.links.some(l => !["session", "job", "media", "url"].includes(l.kind) || typeof l.id !== "string" || !l.id || l.id.length > 4096 || (l.kind === "url" && !safeLinkUrl(l.id)))) bad("invalid links"); c.links = patch.links.map(l => ({ ...l })); }
   }
   createCard(projectId: string, input: CardInput, actor: BoardActor, override = false): BoardCard {
     return this.#write(projectId, d => {

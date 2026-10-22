@@ -190,6 +190,9 @@ describe("C. person-only methods turn agents away", () => {
   it("the per-chat model switch is people-only in RBAC and never a WebMCP tool; reading the choice stays a read", async () => {
     assert.equal(RPC_RULES["chat.model.set"]?.humanOnly, true);
     assert.equal(RPC_RULES["chat.model.set"]?.action, "chat:write");
+    assert.equal(RPC_RULES["session.model.get"]?.action, "admin.sessions.transcript");
+    assert.equal(isForbiddenMethod("session.model.get"), true);
+    assert.equal(isForbiddenMethod("task.complete"), true, "Controller M5 completion remains person-only across WebMCP");
     assert.equal(RPC_RULES["chat.model.get"]?.action, "chat:read");
     assert.ok(isForbiddenMethod("chat.model.set") && isForbiddenMethod("session.model.set"));
     assert.equal(isForbiddenMethod("chat.model.get"), false);
@@ -222,4 +225,17 @@ describe("D. the agent-facing secret name tool is neither an RPC method nor a We
 it('capabilities.search stays dispatcher-only and cannot bypass RPC RBAC through a colliding name', () => {
   assert.equal(Object.hasOwn(methods, 'capabilities.search'), false);
   assert.equal(Object.hasOwn(RPC_RULES, 'capabilities.search'), false);
+});
+
+describe("C2. humanOnly set on the RPC rule itself is forbidden in WebMCP too", () => {
+  // Section C only follows POLICY's humanOnly (the action); a rule can also carry `humanOnly: true` on its own (guard.ts).
+  // The same reasoning holds: the page's client is the person, so an agent driving the page would act as the person.
+  const ruleLevel = coreMethods.filter((m) => RPC_RULES[m]?.humanOnly === true && !policyFor(RPC_RULES[m]!.action)?.humanOnly);
+  it("finds rule-level person-only methods", () => assert.ok(ruleLevel.includes("model.licence.confirm") && ruleLevel.includes("voice.session.create")));
+  for (const m of ruleLevel) {
+    // provider.test.ts 'Voice V3 human-only writes' asserts that voice.* methods other than the seven writes stay open; blocking
+    // voice.session.create would contradict it, so it stays a todo until the owner decides.
+    const gap = m === "voice.session.create" && !isForbiddenMethod(m) ? `${GAP_HUMAN} (an existing Voice V3 test asserts non-write voice.* stays open)` : undefined;
+    t(`${m}: not offered to an agent over WebMCP`, gap, () => assert.ok(isForbiddenMethod(m)));
+  }
 });

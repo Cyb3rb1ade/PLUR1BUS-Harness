@@ -29,3 +29,19 @@ for (let crash=0;crash<4;crash++) test(`process exits after step ${crash+1}; a f
  await restarted.compensate(pending[0]!,[0,1,2,3].map(i=>({name:String(i),apply:async()=>{},undo:async()=>{fs.rmSync(join(path,`effect-${i}`),{force:true});}})));
  for(let i=0;i<4;i++)assert.equal(fs.existsSync(join(path,`effect-${i}`)),false);assert.equal(restarted.pending().length,0);
 });
+
+// Windows: fsync is FlushFileBuffers, which needs write access to the handle. A file opened read-only ("r") fails there with
+// EPERM, which agent.create reported as "E_STORAGE: agent provisioning unavailable" (hermes-host real-hermes, windows-2025).
+// Linux accepts fsync on a read-only fd, so the test pins the open flags of every fsynced file instead.
+test("every journal file is fsynced through a writable handle (FlushFileBuffers needs write access on Windows)", async t => {
+ const fs=(await import("node:fs")).default,{syncBuiltinESMExports}=await import("node:module");
+ const path=mkdtempSync(join(tmpdir(),"saga-"));t.after(()=>rmSync(path,{recursive:true,force:true}));
+ const flags=new Map<number,{path:string;flags:unknown}>(),synced:{path:string;flags:unknown}[]=[],dirs:string[]=[];
+ const realOpen=fs.openSync,realFsync=fs.fsyncSync;
+ t.mock.method(fs,"openSync",((p:string,f:unknown,...rest:unknown[])=>{const fd=(realOpen as any)(p,f,...rest);flags.set(fd,{path:String(p),flags:f});return fd;}) as typeof fs.openSync);
+ t.mock.method(fs,"fsyncSync",((fd:number)=>{const o=flags.get(fd);if(o)synced.push(o);return realFsync(fd);}) as typeof fs.fsyncSync);
+ syncBuiltinESMExports();t.after(()=>syncBuiltinESMExports());
+ new AgentCreateSaga(path).markActivated(record());
+ for(const o of synced.splice(0)){if(o.path===join(path,"agent-create"))dirs.push(o.path);else assert.match(String(o.flags),/^(r\+|a\+?|w\+?|wx\+?|ax\+?)$/,`${o.path} is fsynced through a read-only handle (flags ${String(o.flags)})`);}
+ assert.ok(flags.size>0,"the journal write opened nothing");
+});

@@ -17,7 +17,8 @@ Every name below has the `hostctl.` prefix. All tools have closed JSON parameter
 | `proc.kill` | `proc.signal` | Approval, at most session scope |
 | `proc.kill_foreign` | `hostctl.proc.kill_foreign` | Separate approval, once only |
 | `sys.info` | `sys.read` | Allowed |
-| `app.open`, `notify` | `os.script` | Approval, at most session scope |
+| `app.open` | `apps.launch` | Approval, once only; documents, folders and URLs, never programs |
+| `notify` | `os.script` | Approval, at most session scope |
 | `clipboard.read`, `clipboard.write` | `clipboard.read` | Approval, existing D106 clipboard capability |
 
 Capability names deliberately reuse D106 where possible. Clipboard writes and app opening retain separate tool names, so `tools.deny` and tool-specific rules can narrow them independently. Hostctl never raises caller surface trust; unattested surfaces must remain T1 under the existing authentication/surface rules. Medium/high-risk approval is unavailable from T1. Read the [approval](approvals.md) and [RBAC](rbac.md) contracts before adding tools.
@@ -42,25 +43,25 @@ The generated [config reference](config.md) is the source for schema defaults. `
 }
 ```
 
-Set shell.default to `pwsh` on Windows or `zsh` on macOS if desired. argv execution never starts a shell implicitly. Explicit shell interpreters must use `proc.shell`; arbitrary approved interpreters/programs can still execute code. Secret/injection environment names remain blocked even if added to the allowlist. Additional deny patterns are case-insensitive literal substrings; built-in dangerous-command checks cannot be removed.
+Set shell.default to `pwsh` on Windows or `zsh` on macOS if desired. argv execution never starts a shell implicitly. Explicit shell interpreters must use `proc.shell`, also behind a wrapper: the program a wrapper (`env`, `xargs`, `timeout`, `nice`, `nohup`, `busybox`, `sudo`, `doas` and similar) hands on is checked like the program itself, as is recursive `rm` of a file system root with its flags given in any form (`-rf`, `-r -f`, `--recursive`). Arbitrary approved interpreters/programs can still execute code. `PATH` and `PATHEXT` of a child come from the harness environment (and the operator allowlist); a request cannot set them, because they decide which program a bare name starts. Secret/injection environment names remain blocked even if added to the allowlist. Additional deny patterns are case-insensitive literal substrings; built-in dangerous-command checks cannot be removed.
 
 ## Files and safety boundaries
 
 Relative paths resolve against the first configured root (the agent workspace by default). Parent traversal, UNC/device paths, Windows reserved names/alternate streams, credential deny paths and symlink/junction escapes are refused. Reads open verified handles and detect binary/invalid UTF-8. `offset` and `length` are byte ranges. Files larger than the output limit require an explicit range; a range starting inside a UTF-8 codepoint is refused as binary.
 
-Writes, appends and exact unique edits publish a sibling temporary file atomically. Append/edit read a bounded snapshot: concurrent edits by another writer are not a merge mechanism; coordinate shared-file changes. Copy handles bounded regular files; move handles regular files on the same filesystem; copy requires a fresh destination, and mkdir creates one level. Recursive listing/search cap depth at 16, entries at 1000 and results at the configured search limit. When installed, ripgrep receives verified bounded text over stdin, never caller paths; otherwise a JS matcher is used. Search treats queries literally and ignores binary/oversize/denied files. Links are never traversed recursively.
+Writes, appends and exact unique edits publish a sibling temporary file atomically. Append/edit read a bounded snapshot: concurrent edits by another writer are not a merge mechanism; coordinate shared-file changes. Copy handles bounded regular files; move handles regular files on the same filesystem; copy requires a fresh destination, and mkdir creates one level. Recursive listing/search cap depth at 16, entries at 1000 and results at the configured search limit. Content search tests the verified, bounded text it has read with a plain literal substring test in the harness process; it never starts ripgrep or any other process and never hands a caller path to one. Search treats queries literally and ignores binary/oversize/denied files. Links are never traversed recursively.
 
 The canonicaliser rechecks resolved targets and file identity around opens. Namespace operations (mkdir/move/native Trash) recheck the parent and reject symbolic-link entries. Node offers no portable directory-handle-relative rename/mkdir/Trash API: a hostile local actor concurrently replacing ancestor directories can still race these namespace operations. Use roots private to the Harness user; this is not an OS sandbox against another process running as that user. Approved executables likewise are **not** confined by cwd to the roots and may access the user's files or network. Root checks protect file tools and process cwd; command deny patterns are an additional guard, not a sandbox.
 
-`fs.trash` calls Finder Trash on macOS, VisualBasic FileIO SendToRecycleBin on Windows, and `gio trash` (freedesktop Trash) on Linux. Missing helpers or unsupported filesystems fail closed. There is no permanent-delete fallback. Configured roots themselves cannot be trashed or moved.
+`fs.trash` calls Finder Trash on macOS, VisualBasic FileIO SendToRecycleBin on Windows, and `gio trash` (freedesktop Trash) on Linux. Missing helpers or unsupported filesystems fail closed. There is no permanent-delete fallback. Configured roots themselves, and any folder that contains a configured root (roots may be nested), cannot be trashed or moved.
 
 ## Process sessions and local integration
 
 `proc.exec` waits for completion; `proc.start` returns an opaque ID. Use `proc.read_output`, `proc.write_stdin` and `proc.kill` with that ID. IDs bind person, agent and Harness session; another session cannot read output or control the child. Only owned processes appear in `proc.list`. Foreign termination is a distinct PID tool/capability; PID 0/1 and the Harness itself are refused.
 
-Output combines stdout/stderr, retains a bounded prefix and appends `[OUTPUT TRUNCATED]`. Processes time out after at most five minutes; callers may choose a shorter timeout. At most 32 children run per root pool; 128 records are retained with completed records evicted first. POSIX process groups are reaped on termination and leader exit. Windows taskkill terminates a running process tree; descendants detached before the leader exits require an OS Job Object sandbox, which is not provided here. Session archive/chat replacement triggers cleanup through a post-commit observer; composition disposal reaps remaining children. Background jobs are local, finite Harness-session resources, not a service daemon.
+Output combines stdout/stderr, retains a bounded prefix and appends `[OUTPUT TRUNCATED]`. Processes time out after at most five minutes; callers may choose a shorter timeout. At most 32 children run per root pool; 128 records are retained with completed records evicted first. POSIX process groups are reaped on termination and leader exit. A job counts as finished when its leader exits or the time limit kills it: output still in flight is drained for a short moment, then the pipes are closed, even when a detached descendant inherited stdout and still holds the other end. Such a descendant (one that left the process group with `setsid`) is not killed on POSIX either; that needs a cgroup, as a Job Object does on Windows. Windows taskkill terminates a running process tree; descendants detached before the leader exits require an OS Job Object sandbox, which is not provided here. Session archive/chat replacement triggers cleanup through a post-commit observer; composition disposal reaps remaining children. Background jobs are local, finite Harness-session resources, not a service daemon.
 
-`sys.info` returns OS, CPU, RAM, capacity of root filesystems and interface addresses without hostname, username, MAC or environment. App opening accepts a root-contained file or HTTP(S) URL without credentials. Clipboard and notifications need an available interactive desktop. Linux requires Wayland clipboard tools or xclip/xsel; notifications need notify-send. Native helper targets/text use argv/stdin, never caller-supplied shell source.
+`sys.info` returns OS, CPU, RAM, capacity of root filesystems and interface addresses without hostname, username, MAC or environment. App opening accepts a root-contained document or folder, or an HTTP(S) URL without credentials. Anything that would start a program is refused with `DENIED` and a pointer to `proc.exec`/`proc.shell`: launchable extensions (`.exe`, `.bat`, `.cmd`, `.ps1`, `.msi`, `.vbs`, `.command`, `.app`, `.desktop` and similar) and any regular file with an execute bit. The audit event of `app.open` names a local target in `paths`; a URL is never recorded. Clipboard and notifications need an available interactive desktop. Linux requires Wayland clipboard tools or xclip/xsel; notifications need notify-send. Native helper targets/text use argv/stdin, never caller-supplied shell source.
 
 ## Audit and errors
 
@@ -88,8 +89,13 @@ What is pinned:
 
 - **Standard input.** `proc.write_stdin` refuses (`TOO_LARGE`) once `writableLength` plus the new bytes would exceed `output.maxBytes`, so
   a child that never reads cannot make the harness buffer without limit.
-- **Search.** A content query with `\r` or `\n` always uses the built-in matcher; ripgrep is line-based and would never match it, so the
-  result no longer depends on whether `rg` is installed.
+- **Search.** Content search is a literal, case-sensitive substring test (`String.includes`) on the text of each file after it was read through
+  the verified path, in the harness process. `\r`, `\n`, NUL and lone surrogates in the query are matched like any other character, the
+  result never depends on whether `rg` is installed, and the reported `backend` is always `bounded-js`. The text is already in memory, so a ripgrep
+  process would only add a start and a copy of every byte (measured on 32 MiB: ripgrep 96-198 ms, substring test 1-31 ms).
+- **Search cost.** A search lists and reads only as far as it needs: it stops as soon as its results are full, tests up to 32 files (or 8 MiB of
+  text) at a time and checks the abort signal before every file. Each listed entry and each file read is still canonicalised against the
+  roots and the deny-list on its own; nothing is cached across entries.
 - **Files.** `fs.append` and `fs.edit` keep a UTF-8 byte order mark. A crash between the temporary file and the rename leaves the original
   byte for byte (kill test).
 - **Configuration.** `NaN`, `Infinity` and strings where numbers belong are clamped to a default or a bound; a string where a list belongs

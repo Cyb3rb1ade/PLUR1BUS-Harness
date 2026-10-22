@@ -209,7 +209,9 @@ describe("OpenClaw safe source reads", () => {
       assert.equal(soul.reason, "symlink-escape");
       assert.ok(alpha.counts.filesCreated > 0);
       assert.ok(!fs.existsSync(join(layout(home).workspaceDir("alpha"), "SOUL.md")));
-      assert.deepEqual(fs.readFileSync(join(layout(home).workspaceDir("alpha"), "memories.md")), fs.readFileSync(fx.curatedFiles.memory));
+      const knowledge = fs.readFileSync(join(layout(home).workspaceDir("alpha"), "memory", "KNOWLEDGE.md"));
+      assert.ok(knowledge.includes(Buffer.from(fs.readFileSync(fx.curatedFiles.memory, "utf8").split("\n").map(line => `> ${line}`).join("\n"))));
+      assert.ok(knowledge.includes(Buffer.from(fs.readFileSync(fx.curatedFiles.knowledge, "utf8").split("\n").map(line => `> ${line}`).join("\n"))));
     } finally {
       t.mock.restoreAll();
       syncBuiltinESMExports();
