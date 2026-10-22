@@ -12,6 +12,7 @@ import {
   realpathSync,
   renameSync,
   rmdirSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -61,22 +62,39 @@ export function copyAtomicSync(srcPath: string, destPath: string, mode = 0o600):
   writeAtomicSync(destPath, buf, mode);
 }
 
-/** Real path of `p`; for a path that does not exist (yet) the real path of its nearest existing ancestor plus the missing
- *  tail. A root and a target must be resolved the same way, or one of them keeps a symlinked prefix the other lost (macOS:
- *  `/var` is `/private/var`, so a not-yet-created file under the temp dir would look outside it). A dangling symlink is
- *  judged by its own name inside the real parent, not by where it points. */
-function realpathLoose(p: string): string {
-  try {
-    return realpathSync(p);
-  } catch {
-    const parent = dirname(p);
-    return parent === p ? p : join(realpathLoose(parent), basename(p));
+// Resolve the nearest existing ancestor, then append the missing suffix. Comparing a
+// real root against a lexical missing target would reject macOS /var aliases and
+// miss escapes through existing symlink parents of not-yet-created files.
+function canonicalWithMissingSuffix(path: string): string {
+  let current = resolve(path);
+  const missing: string[] = [];
+  for (;;) {
+    try {
+      const canonical = realpathSync(current);
+      if (missing.length > 0 && !statSync(canonical).isDirectory()) {
+        throw Object.assign(new Error("Missing path suffix requires a directory ancestor"), { code: "ENOTDIR" });
+      }
+      return join(canonical, ...missing);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      const parent = dirname(current);
+      if (parent === current) return join(current, ...missing);
+      missing.unshift(basename(current));
+      current = parent;
+    }
   }
 }
 
 export function isInsideDir(root: string, target: string): boolean {
-  const r = realpathLoose(resolve(root));
-  const q = realpathLoose(resolve(target));
+  let r: string;
+  let q: string;
+  try {
+    r = canonicalWithMissingSuffix(root);
+    q = canonicalWithMissingSuffix(target);
+  } catch {
+    // A cycle, inaccessible parent or non-directory component is never containment.
+    return false;
+  }
   if (process.platform === "win32" || process.platform === "darwin") {
     const rLower = r.toLowerCase();
     const qLower = q.toLowerCase();
