@@ -75,7 +75,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `auth.openai.storeBackend` | string | `"auto"` | core | Use the existing secret service. auto permits only its explicitly enabled encrypted-file fallback. |
 | `auth.openai.federated` | object | `{}` | core | External bearer supplier: one executable or file, explicit arguments and environment. |
 | `oauth` | object | `{}` | live | Reserved namespace for OAuth configuration. |
-| `decision` | object | `{}` | live | Reserved namespace for decision model configuration. |
+| `decision` | object | `{}` | live | Decision service contract (ADR-015). Selection does not install or activate an unavailable backend. |
 | `modelProfiles` | object | `{}` | live | Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order. |
 | `models.scan.enabled` | boolean | `true` | live | Whether periodic model discovery scans are enabled. |
 | `models.scan.intervalHours` | integer | `24` | live | Hours between periodic model discovery scans. |
