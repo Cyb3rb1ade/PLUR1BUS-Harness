@@ -91,6 +91,27 @@ describe("secrets: create, rotate, delete", opts, () => {
       assert.ok(c[0]!.csrf);
     });
   });
+  test("a short value is saved and a notice says the log redactor does not mask it; a longer one shows no notice", async () => {
+    await withApp({}, async (app) => {
+      seedSecrets(app.server.rpc); await open(app);
+      await app.page.getByRole("button", { name: "Add secret" }).click();
+      let dlg = app.page.getByRole("dialog", { name: "Add a secret" });
+      await dlg.getByLabel("Name", { exact: true }).fill("legacy.pin");
+      await dlg.getByLabel("Value", { exact: true }).fill("1234");
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await app.page.getByRole("row", { name: /legacy\.pin/ }).waitFor();
+      await app.page.getByText(/legacy\.pin is saved, but its value has fewer than 8 characters/).waitFor();
+      assert.deepEqual(calls(app, "secret.set").map((c) => c.params), [{ name: "legacy.pin", value: "1234" }]);
+      assert.equal(await app.page.getByText("1234").count(), 0, "the notice never repeats the value");
+      await app.page.getByRole("button", { name: "Add secret" }).click();
+      dlg = app.page.getByRole("dialog", { name: "Add a secret" });
+      await dlg.getByLabel("Name", { exact: true }).fill("long.key");
+      await dlg.getByLabel("Value", { exact: true }).fill("a-long-enough-value");
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await app.page.getByText("Saved long.key.").waitFor();
+      assert.equal(await app.page.locator(".secrets-warning").count(), 0);
+    });
+  });
   test("description: shown in the list, sent on create, kept by a rotation that leaves it alone, sent when edited or emptied", async () => {
     await withApp({}, async (app) => {
       seedSecrets(app.server.rpc, [meta("anthropic.apiKey", { description: "Billing key for the team account" }), meta("telegram.token")]); await open(app);
