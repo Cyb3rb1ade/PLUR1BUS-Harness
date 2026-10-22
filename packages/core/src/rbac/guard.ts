@@ -41,6 +41,11 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "delivery.target.list": { ...rule("agent.list", system), humanOnly: true },
+  "delivery.target.add": { ...rule("agent.list", system), humanOnly: true },
+  "delivery.target.confirm": { ...rule("agent.list", system), humanOnly: true },
+  "delivery.target.remove": { ...rule("agent.list", system), humanOnly: true },
+  "delivery.target.subscribe": { ...rule("agent.list", system), humanOnly: true },
   "chat.promote.links": { ...rule("chat:read", system), humanOnly: true },
   "chat.promote.preview": { ...rule("chat:write", system), humanOnly: true },
   "chat.promote.commit": { ...rule("chat:write", system), humanOnly: true },

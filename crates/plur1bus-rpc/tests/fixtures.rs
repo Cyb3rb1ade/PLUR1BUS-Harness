@@ -68,6 +68,19 @@ fn method_fixture(name: &str, f: &Value) {
         "chat.export" => pair::<ChatExportParams, ChatExportResult>(name, f),
         "chat.model.get" => pair::<ChatModelGetParams, ChatModelGetResult>(name, f),
         "chat.model.set" => pair::<ChatModelSetParams, ChatModelSetResult>(name, f),
+        "delivery.target.add" => pair::<DeliveryTargetAddParams, DeliveryTargetAddResult>(name, f),
+        "delivery.target.confirm" => {
+            pair::<DeliveryTargetConfirmParams, DeliveryTargetConfirmResult>(name, f)
+        }
+        "delivery.target.list" => {
+            pair::<DeliveryTargetListParams, DeliveryTargetListResult>(name, f)
+        }
+        "delivery.target.remove" => {
+            pair::<DeliveryTargetRemoveParams, DeliveryTargetRemoveResult>(name, f)
+        }
+        "delivery.target.subscribe" => {
+            pair::<DeliveryTargetSubscribeParams, DeliveryTargetSubscribeResult>(name, f)
+        }
         "chat.fork" => pair::<ChatForkParams, ChatForkResult>(name, f),
         "chat.get" => pair::<ChatGetParams, ChatGetResult>(name, f),
         "chat.list" => pair::<ChatListParams, ChatListResult>(name, f),
@@ -509,6 +522,11 @@ fn every_method_fixture_round_trips() {
         "chat.export",
         "chat.model.get",
         "chat.model.set",
+        "delivery.target.add",
+        "delivery.target.confirm",
+        "delivery.target.list",
+        "delivery.target.remove",
+        "delivery.target.subscribe",
         "device.pair",
         "admin.api.desktop.redeem",
         "admin.api.desktop.token",

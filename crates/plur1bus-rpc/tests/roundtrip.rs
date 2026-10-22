@@ -173,6 +173,26 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "delivery.target.add" => check_pair::<
+                types::DeliveryTargetAddParams,
+                types::DeliveryTargetAddResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.confirm" => check_pair::<
+                types::DeliveryTargetConfirmParams,
+                types::DeliveryTargetConfirmResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.list" => check_pair::<
+                types::DeliveryTargetListParams,
+                types::DeliveryTargetListResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.remove" => check_pair::<
+                types::DeliveryTargetRemoveParams,
+                types::DeliveryTargetRemoveResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.subscribe" => check_pair::<
+                types::DeliveryTargetSubscribeParams,
+                types::DeliveryTargetSubscribeResult,
+            >(name, fixture, &root_schema),
             "admin.api.device.pair" => check_pair::<
                 types::AdminApiDevicePairParams,
                 types::AdminApiDevicePairResult,
