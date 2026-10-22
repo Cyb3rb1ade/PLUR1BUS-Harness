@@ -52,9 +52,15 @@ test('the ungated jobs can neither delay nor fail the gate', () => {
     'an ungated job in needs is a contract error, never a silent pass');
 });
 
-test('unit-os is the same job as the gated unit for the other operating systems', () => {
+test('unit-os preserves every unit step while Ubuntu runs Core only in its measured shards', () => {
   const jobs = jobBlocks(workflow());
-  assert.equal(stepsOf(jobs['unit-os']), stepsOf(jobs.unit));
+  const coreSplit = '          # The Core files run exactly once in core-unit-shard; every other package stays here.\n' +
+    '          node scripts/run-ts-tests.mjs --filter=!@plur1bus/core\n';
+  assert.ok(stepsOf(jobs.unit).includes(coreSplit));
+  assert.ok(stepsOf(jobs['unit-os']).includes('          pnpm test\n'));
+  assert.equal(stepsOf(jobs['unit-os']), stepsOf(jobs.unit).replace(coreSplit, '          pnpm test\n'));
+  assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);
+  assert.match(jobs['core-unit'], /core-unit-shard/);
   const field = (block, re) => re.exec(block)[0];
   // Same condition as `unit`, plus the full-platform policy: every leg of this job is non-Linux (see the next test).
   assert.equal(field(jobs['unit-os'], /^    if: .*$/m), `${field(jobs.unit, /^    if: .*$/m)} && needs.changes.outputs.macos == 'true'`);
@@ -104,6 +110,18 @@ test('workflow dependency references resolve, including a regression for the #62
   const macosJob = "  web-browser-macos:\n    needs: plan\n    if: needs.plan.outputs.proceed == 'true' && needs.plan.outputs.macos == 'true'\n";
   assert.deepEqual(unknownNeeds(yaml + macosJob), ['plan', 'plan']);
   assert.deepEqual(unknownNeeds(yaml + macosJob.replaceAll('needs: plan', 'needs: changes').replaceAll('needs.plan.', 'needs.changes.')), []);
+});
+
+test('every executable CI job has a bounded timeout, including the Core shard and its gate', () => {
+  const yaml = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const jobs = yaml.slice(yaml.indexOf('\njobs:\n')).split(/(?=^  [a-z][\w-]*:\n)/m).slice(1);
+  for (const job of jobs) {
+    const name = /^  ([\w-]+):/.exec(job)[1];
+    const timeout = /^    timeout-minutes: (.+)$/m.exec(job)?.[1];
+    assert.ok(timeout, `${name}: explicit job timeout required`);
+    const minutes = timeout.startsWith('${{') ? [...timeout.matchAll(/(?:&&|\|\|)\s*(\d+)/g)].map(m => Number(m[1])) : [Number(timeout)];
+    assert.ok(minutes.length > 0 && minutes.every(n => Number.isInteger(n) && n >= 1 && n <= 120), `${name}: unreasonable job budget ${timeout}`);
+  }
 });
 
 // The non-deciding non-Linux legs (macOS, Windows, Windows ARM) follow the full-platform policy (`changes.macos`: push to main,
