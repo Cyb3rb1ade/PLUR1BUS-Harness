@@ -37,6 +37,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Cloud embeddings and rerankers"
   },
   {
+    "slug": "command-palette",
+    "title": "Command palette"
+  },
+  {
     "slug": "containers",
     "title": "Containers"
   },
@@ -57,6 +61,18 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Skills and plugins"
   },
   {
+    "slug": "general-settings",
+    "title": "General settings"
+  },
+  {
+    "slug": "help",
+    "title": "Help and user handbook"
+  },
+  {
+    "slug": "home",
+    "title": "Home page"
+  },
+  {
     "slug": "import-rollback",
     "title": "Undoing an import (import rollback)"
   },
@@ -67,6 +83,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "invitations",
     "title": "Inviting people"
+  },
+  {
+    "slug": "library",
+    "title": "Media library"
   },
   {
     "slug": "long-conversations",
@@ -83,6 +103,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "memories",
     "title": "Memories"
+  },
+  {
+    "slug": "network-settings",
+    "title": "Network settings"
   },
   {
     "slug": "operations",
@@ -157,18 +181,24 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "chat-models": return import("./en/chat-models.ts").then(m => m.doc);
     case "chat": return import("./en/chat.ts").then(m => m.doc);
     case "cloud-embeddings": return import("./en/cloud-embeddings.ts").then(m => m.doc);
+    case "command-palette": return import("./en/command-palette.ts").then(m => m.doc);
     case "containers": return import("./en/containers.ts").then(m => m.doc);
     case "desktop": return import("./en/desktop.ts").then(m => m.doc);
     case "diagnostics": return import("./en/diagnostics.ts").then(m => m.doc);
     case "dreams": return import("./en/dreams.ts").then(m => m.doc);
     case "extensions": return import("./en/extensions.ts").then(m => m.doc);
+    case "general-settings": return import("./en/general-settings.ts").then(m => m.doc);
+    case "help": return import("./en/help.ts").then(m => m.doc);
+    case "home": return import("./en/home.ts").then(m => m.doc);
     case "import-rollback": return import("./en/import-rollback.ts").then(m => m.doc);
     case "inbox": return import("./en/inbox.ts").then(m => m.doc);
     case "invitations": return import("./en/invitations.ts").then(m => m.doc);
+    case "library": return import("./en/library.ts").then(m => m.doc);
     case "long-conversations": return import("./en/long-conversations.ts").then(m => m.doc);
     case "media-search": return import("./en/media-search.ts").then(m => m.doc);
     case "media": return import("./en/media.ts").then(m => m.doc);
     case "memories": return import("./en/memories.ts").then(m => m.doc);
+    case "network-settings": return import("./en/network-settings.ts").then(m => m.doc);
     case "operations": return import("./en/operations.ts").then(m => m.doc);
     case "os-confirmation": return import("./en/os-confirmation.ts").then(m => m.doc);
     case "passkeys": return import("./en/passkeys.ts").then(m => m.doc);

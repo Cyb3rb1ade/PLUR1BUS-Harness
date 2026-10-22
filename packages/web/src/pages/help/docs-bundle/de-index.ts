@@ -9,12 +9,20 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Agenten verwalten"
   },
   {
+    "slug": "befehlspalette",
+    "title": "Befehlspalette"
+  },
+  {
     "slug": "benutzer-rollen",
     "title": "Benutzer und Rollen"
   },
   {
     "slug": "bestaetigung-betriebssystem",
     "title": "Bestätigung per Betriebssystem"
+  },
+  {
+    "slug": "bibliothek",
+    "title": "Medien-Bibliothek"
   },
   {
     "slug": "breakglass",
@@ -61,6 +69,14 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Personen einladen"
   },
   {
+    "slug": "einstellungen-allgemein",
+    "title": "Allgemeine Einstellungen"
+  },
+  {
+    "slug": "einstellungen-netzwerk",
+    "title": "Netzwerk-Einstellungen"
+  },
+  {
     "slug": "erinnerungen",
     "title": "Erinnerungen"
   },
@@ -71,6 +87,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "freigaben",
     "title": "Freigaben und Berechtigungen"
+  },
+  {
+    "slug": "hilfe",
+    "title": "Hilfe und Benutzerhandbuch"
   },
   {
     "slug": "import-rollback",
@@ -137,6 +157,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Sprachfunktionen"
   },
   {
+    "slug": "start",
+    "title": "Startseite"
+  },
+  {
     "slug": "traeume",
     "title": "Träume"
   },
@@ -150,8 +174,10 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
   switch (slug) {
     case "agent-provisioning": return import("./de/agent-provisioning.ts").then(m => m.doc);
     case "agenten": return import("./de/agenten.ts").then(m => m.doc);
+    case "befehlspalette": return import("./de/befehlspalette.ts").then(m => m.doc);
     case "benutzer-rollen": return import("./de/benutzer-rollen.ts").then(m => m.doc);
     case "bestaetigung-betriebssystem": return import("./de/bestaetigung-betriebssystem.ts").then(m => m.doc);
+    case "bibliothek": return import("./de/bibliothek.ts").then(m => m.doc);
     case "breakglass": return import("./de/breakglass.ts").then(m => m.doc);
     case "budgets": return import("./de/budgets.ts").then(m => m.doc);
     case "channels": return import("./de/channels.ts").then(m => m.doc);
@@ -163,9 +189,12 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "desktop": return import("./de/desktop.ts").then(m => m.doc);
     case "diagnose": return import("./de/diagnose.ts").then(m => m.doc);
     case "einladungen": return import("./de/einladungen.ts").then(m => m.doc);
+    case "einstellungen-allgemein": return import("./de/einstellungen-allgemein.ts").then(m => m.doc);
+    case "einstellungen-netzwerk": return import("./de/einstellungen-netzwerk.ts").then(m => m.doc);
     case "erinnerungen": return import("./de/erinnerungen.ts").then(m => m.doc);
     case "extensions": return import("./de/extensions.ts").then(m => m.doc);
     case "freigaben": return import("./de/freigaben.ts").then(m => m.doc);
+    case "hilfe": return import("./de/hilfe.ts").then(m => m.doc);
     case "import-rollback": return import("./de/import-rollback.ts").then(m => m.doc);
     case "lange-gespraeche": return import("./de/lange-gespraeche.ts").then(m => m.doc);
     case "media": return import("./de/media.ts").then(m => m.doc);
@@ -182,6 +211,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "secrets": return import("./de/secrets.ts").then(m => m.doc);
     case "sprach-befehle": return import("./de/sprach-befehle.ts").then(m => m.doc);
     case "sprachfunktionen": return import("./de/sprachfunktionen.ts").then(m => m.doc);
+    case "start": return import("./de/start.ts").then(m => m.doc);
     case "traeume": return import("./de/traeume.ts").then(m => m.doc);
     case "wiederkehrende-aufgaben": return import("./de/wiederkehrende-aufgaben.ts").then(m => m.doc);
     default: return null;

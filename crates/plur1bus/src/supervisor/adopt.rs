@@ -418,14 +418,19 @@ impl Peer {
             == Some(self.pid)
     }
 
+    /// `tree`: when the core leads a process group of its own, the signal goes to that whole group (what it started is
+    /// part of it), see [`signal_led_group`]; otherwise, and when no group signal could be sent, to the pid alone.
     #[cfg(unix)]
-    fn signal(&self, sig: libc::c_int) -> bool {
+    fn signal(&self, sig: libc::c_int, tree: bool) -> bool {
         if !self.alive() {
             return false;
         }
         #[cfg(target_os = "linux")]
         if let Some(fd) = &self.pidfd {
             use std::os::fd::AsRawFd;
+            if tree && signal_led_group(self.pid, sig) {
+                return true;
+            }
             // SAFETY: pidfd_send_signal(2) on the pinned process; null info, no flags.
             let r = unsafe {
                 libc::syscall(
@@ -441,6 +446,9 @@ impl Peer {
         if !self.still_serves() {
             return false;
         }
+        if tree && signal_led_group(self.pid, sig) {
+            return true;
+        }
         // SAFETY: kill(2) on the pid the OS has just named as the core socket's server.
         unsafe { libc::kill(self.pid as libc::pid_t, sig) == 0 }
     }
@@ -449,7 +457,7 @@ impl Peer {
     pub fn terminate(&self) -> bool {
         #[cfg(unix)]
         {
-            self.signal(libc::SIGTERM)
+            self.signal(libc::SIGTERM, false)
         }
         #[cfg(windows)]
         {
@@ -457,11 +465,19 @@ impl Peer {
         }
     }
 
+    /// [`Peer::terminate`] for the adopted core of a [`Monitor`](super::child::Monitor): SIGTERM to the core's process
+    /// group when it leads one, so what the core started gets it too. Only for a process known to be a harness core
+    /// (the pid may be a foreign process in `terminate_found` and `1staid repair`, which keep [`Peer::terminate`]).
+    #[cfg(unix)]
+    pub fn terminate_tree(&self) -> bool {
+        self.signal(libc::SIGTERM, true)
+    }
+
     /// SIGKILL / TerminateProcess. Returns whether it was sent (never without a Windows handle).
     pub fn kill(&self) -> bool {
         #[cfg(unix)]
         {
-            self.signal(libc::SIGKILL)
+            self.signal(libc::SIGKILL, false)
         }
         #[cfg(windows)]
         {
@@ -472,6 +488,61 @@ impl Peer {
                 && unsafe { TerminateProcess(self.handle as _, 1) != 0 }
         }
     }
+
+    /// [`Peer::kill`] for the adopted core of a [`Monitor`](super::child::Monitor): SIGKILL to the core's process
+    /// group when it leads one (see [`Peer::terminate_tree`]). Windows: the core alone, as [`Peer::kill`] (no job
+    /// object).
+    pub fn kill_tree(&self) -> bool {
+        #[cfg(unix)]
+        {
+            self.signal(libc::SIGKILL, true)
+        }
+        #[cfg(windows)]
+        {
+            self.kill()
+        }
+    }
+}
+
+/// `kill(-pid, sig)`: `sig` to the process group that `pid` leads, which for a core is the group the supervisor made it
+/// the leader of (`process_group(0)`), or one an earlier supervisor did. Never a foreign group: nothing is sent unless
+/// `getpgid(pid) == pid` (the pid is the group's id and its leader), `pid` is neither 0 nor 1 (`kill(0)` and `kill(-1)`
+/// reach the caller's own group and every process), and the group is not the caller's own. The caller must hold the
+/// process unreaped or pinned: a group id cannot be handed out again while the group has a member, and the leader is
+/// one until it is reaped. Returns whether a signal was sent.
+#[cfg(unix)]
+pub(super) fn signal_led_group(pid: u32, sig: libc::c_int) -> bool {
+    let Ok(pid) = libc::pid_t::try_from(pid) else {
+        return false;
+    };
+    if pid <= 1 {
+        return false;
+    }
+    // SAFETY: getpgid(2) and getpgrp(2) only read process attributes.
+    let (leads, own) = unsafe { (libc::getpgid(pid) == pid, libc::getpgrp()) };
+    if !leads || own == pid {
+        return false;
+    }
+    // SAFETY: a negative pid addresses the group `pid`, which `getpgid` has just named as led by `pid` itself.
+    unsafe { libc::kill(-pid, sig) == 0 }
+}
+
+/// `SIGKILL` to the process group `pgid` after its leader was reaped, to end what it left behind: the sweep after a
+/// core's exit. The group id stays reserved for as long as a member lives, so a signal reaches only the dead leader's
+/// own leftovers; with none left it fails with `ESRCH`. Only for a group the supervisor itself created for a process it
+/// spawned (pgid == its pid, `process_group(0)`); never for an adopted core's. Same bounds as [`signal_led_group`]
+/// (not 0, not 1, not the caller's group); the leader no longer exists, so `getpgid` cannot confirm it.
+#[cfg(unix)]
+pub(super) fn sweep_group(pgid: u32) -> bool {
+    let Ok(pgid) = libc::pid_t::try_from(pgid) else {
+        return false;
+    };
+    // SAFETY: getpgrp(2) only reads a process attribute.
+    if pgid <= 1 || pgid == unsafe { libc::getpgrp() } {
+        return false;
+    }
+    // SAFETY: a negative pid addresses the group `pgid` (see above); ESRCH when it has no member left.
+    unsafe { libc::kill(-pgid, libc::SIGKILL) == 0 }
 }
 
 #[cfg(windows)]
@@ -717,5 +788,141 @@ mod tests {
         assert!(!peer.terminate() && !peer.kill());
         child.kill().unwrap();
         child.wait().unwrap();
+    }
+
+    /// A leader in a process group of its own (`process_group(0)`, as the supervisor starts a core) and one process
+    /// in that group besides it (its pid is the second value). `stay`: the leader keeps running; otherwise it exits
+    /// at once and leaves the member behind.
+    #[cfg(unix)]
+    fn group_with_a_member(stay: bool) -> (std::process::Child, u32) {
+        use std::io::{BufRead, BufReader};
+        use std::os::unix::process::CommandExt;
+        let script = if stay {
+            "sleep 30 & echo $!; wait"
+        } else {
+            "sleep 30 & echo $!"
+        };
+        let mut leader = std::process::Command::new("sh")
+            .args(["-c", script])
+            .stdout(std::process::Stdio::piped())
+            .process_group(0)
+            .spawn()
+            .unwrap();
+        let mut line = String::new();
+        BufReader::new(leader.stdout.take().unwrap())
+            .read_line(&mut line)
+            .unwrap();
+        (leader, line.trim().parse().unwrap())
+    }
+
+    /// Waits until `pid` is gone (a zombie counts as gone, as in [`Peer::alive`]).
+    #[cfg(unix)]
+    fn gone_within_5s(pid: u32) -> bool {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Peer::open(pid, &layout).alive() {
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        true
+    }
+
+    #[cfg(unix)]
+    fn kill_pid(pid: u32) {
+        // SAFETY: SIGKILL to a `sleep` this test started (cleanup); ESRCH when it is gone already is fine.
+        unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_group_signal_reaches_the_leader_and_what_shares_its_group() {
+        let (mut leader, member) = group_with_a_member(true);
+        assert!(signal_led_group(leader.id(), libc::SIGKILL));
+        let status = leader.wait().unwrap();
+        let reaped = {
+            use std::os::unix::process::ExitStatusExt;
+            status.signal()
+        };
+        let member_gone = gone_within_5s(member);
+        kill_pid(member);
+        assert_eq!(reaped, Some(libc::SIGKILL));
+        assert!(member_gone, "the leader's group member survived the signal");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn no_group_signal_goes_to_a_pid_that_does_not_lead_its_group() {
+        // Shares this process's group, as a child started without `process_group(0)` does: its group is not its own.
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
+        let sent = signal_led_group(child.id(), libc::SIGKILL);
+        let alive = child.try_wait().unwrap().is_none();
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(!sent, "a group the pid does not lead was signalled");
+        assert!(alive, "the process was signalled");
+        // 0 and 1 would address this process's own group and every process; the caller's own group is never signalled.
+        assert!(!signal_led_group(0, libc::SIGKILL));
+        assert!(!signal_led_group(1, libc::SIGKILL));
+        assert!(!signal_led_group(std::process::id(), libc::SIGKILL));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_sweep_ends_what_a_reaped_leader_left_in_its_group_and_nothing_else() {
+        let (mut leader, member) = group_with_a_member(false);
+        let pgid = leader.id();
+        leader.wait().unwrap();
+        // This process's own group and the pids 0 and 1 are refused before any signal.
+        // SAFETY: getpgrp(2) only reads a process attribute.
+        let own = unsafe { libc::getpgrp() } as u32;
+        let refused = !sweep_group(0) && !sweep_group(1) && !sweep_group(own);
+        let swept = sweep_group(pgid);
+        let member_gone = gone_within_5s(member);
+        kill_pid(member);
+        assert!(
+            refused,
+            "a sweep addressed pid 0, pid 1 or the caller's group"
+        );
+        assert!(swept, "the group of the reaped leader still had a member");
+        assert!(
+            member_gone,
+            "the member of the reaped leader's group survived the sweep"
+        );
+    }
+
+    /// Linux (pidfd, no socket needed): the tree variants take the group of a pinned core that leads one, and only the pid
+    /// of one that does not.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_pinned_peer_that_leads_a_group_is_killed_with_its_group_and_one_that_does_not_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let (mut leader, member) = group_with_a_member(true);
+        let peer = Peer::open(leader.id(), &layout);
+        assert!(peer.kill_tree());
+        leader.wait().unwrap();
+        let member_gone = gone_within_5s(member);
+        kill_pid(member);
+        assert!(
+            member_gone,
+            "the adopted core's group member survived kill_tree"
+        );
+        assert!(!peer.kill_tree() && !peer.terminate_tree());
+
+        let mut alone = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
+        let peer = Peer::open(alone.id(), &layout);
+        assert!(peer.terminate_tree(), "falls back to the pid itself");
+        let status = alone.wait().unwrap();
+        use std::os::unix::process::ExitStatusExt;
+        assert_eq!(status.signal(), Some(libc::SIGTERM));
     }
 }

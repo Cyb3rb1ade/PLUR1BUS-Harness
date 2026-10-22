@@ -43,16 +43,36 @@ describe("focus lands in the draw that shows the view", opts, () => {
       await page.evaluate(() => {
         const seen: Seen[] = [];
         (window as unknown as { __seen: Seen[] }).__seen = seen;
-        let last: Element | null = null;
+        const trace = { appeared: [] as string[], focused: [] as string[], labels: [] as string[] };
+        (window as unknown as { __composerTrace: typeof trace }).__composerTrace = trace;
+        document.addEventListener("focus", (event) => {
+          if (event.target instanceof HTMLTextAreaElement) trace.focused.push(event.target.id);
+        }, true);
+        // The outgoing composer is already present. Metadata mutations must not count it as a new insertion.
+        let last: Element | null = document.querySelector("textarea");
         new MutationObserver(() => {
           const el = document.querySelector("textarea");
-          if (el && el !== last) { last = el; seen.push({ key: "composer", focused: document.activeElement === el }); }
+          if (el && el !== last) {
+            last = el;
+            trace.appeared.push(el.id);
+            trace.labels.push(document.querySelector(`label[for="${el.id}"]`)?.textContent ?? "");
+            seen.push({ key: "composer", focused: document.activeElement === el });
+          }
         }).observe(document.body, { childList: true, subtree: true });
+        // Force an unrelated mutation before navigation, as late metadata/live-status updates can do.
+        const marker = document.createComment("unrelated mutation while the old session is still visible");
+        document.body.append(marker);
+        marker.remove();
       });
       await page.evaluate(() => { location.hash = "#/chat/ses_2"; });
-      await page.getByRole("textbox", { name: "Message to mara" }).waitFor();
+      const incoming = page.getByRole("textbox", { name: "Message to mara" });
+      await incoming.waitFor();
+      const id = await incoming.getAttribute("id");
       const seen = await page.evaluate(() => (window as unknown as { __seen: Seen[] }).__seen);
-      assert.deepEqual(seen, [{ key: "composer", focused: true }]);
+      const trace = await page.evaluate(() => (window as unknown as { __composerTrace: { appeared: string[]; focused: string[]; labels: string[] } }).__composerTrace);
+      assert.deepEqual(seen, [{ key: "composer", focused: true }], JSON.stringify(trace));
+      assert.deepEqual(trace.appeared, [id], "only the incoming session's composer appears during the observed transition");
+      assert.deepEqual(trace.focused, [id], "the incoming composer receives one focus transition");
     });
   });
 
@@ -66,11 +86,19 @@ describe("focus lands in the draw that shows the view", opts, () => {
       await app.page.evaluate(() => {
         const seen: Seen[] = [];
         (window as unknown as { __seen: Seen[] }).__seen = seen;
+        // The dialog reuses its heading node, so baseline its title rather than its element identity.
+        let lastKey = document.querySelector("dialog[open] .dialog-head h2")?.textContent ?? "";
         new MutationObserver(() => {
           const h = document.querySelector("dialog[open] .dialog-head h2");
           const key = h?.textContent ?? "";
-          if (h && key !== "" && seen[seen.length - 1]?.key !== key) seen.push({ key, focused: document.activeElement === h });
+          if (h && key !== "" && lastKey !== key) {
+            lastKey = key;
+            seen.push({ key, focused: document.activeElement === h });
+          }
         }).observe(document.body, { childList: true, subtree: true, characterData: true });
+        const marker = document.createComment("unrelated mutation while the edit step is still visible");
+        document.body.append(marker);
+        marker.remove();
       });
       await dlg.getByRole("button", { name: "Review" }).click();
       await app.page.getByRole("dialog", { name: "Confirm limit" }).waitFor();
