@@ -79,7 +79,7 @@ describe("engine-config", () => {
     assert.deepEqual(e.reranker, { provider: "cohere", model: "rerank-v3.5", apiKeyEnv: "COHERE_API_KEY", enabled: true, fallbackProvider: "disabled" });
     assert.equal(e.embedding.provider, "local-transformers");
   });
-  for (const provider of ["jina", "voyage", "openai-compatible", "ollama", "tei", "vllm", "llamacpp", "omlx", "mtplx"]) {
+  for (const provider of ["openai-compatible", "ollama", "tei", "vllm", "llamacpp", "omlx", "mtplx"]) {
     it(`refuses reranker ${provider}, which the pinned engine has no adapter for, without substituting another model`, () => {
       const cfg = defaults(); cfg.engine.reranker = { provider, model: "other", apiKeyEnv: "RERANK_KEY", baseUrl: "https://example.com" };
       assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "engine-adapter-factory-unavailable");
@@ -120,11 +120,11 @@ describe("engine-config", () => {
     assert.throws(() => buildEngineConfig(remote({ provider: "openai", model: "text-embedding-3-small", dimensions: 1536, apiKeyEnv: "K", fallback: { model: "text-embedding-3-large" } }, ack("openai")), l),
       (e: any) => e.reason === "embedding-fallback-refused");
   });
-  it("refuses a reranker fallback model and a custom Cohere endpoint the engine would ignore", () => {
+  it("refuses a reranker fallback model and checks custom endpoint privacy", () => {
     const cfg = defaults(); cfg.engine.reranker = { provider: "cohere", apiKeyEnv: "K", fallbackProvider: "local-transformers" };
     assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "reranker-fallback-refused");
     cfg.engine.reranker = { provider: "cohere", apiKeyEnv: "K", baseUrl: "https://example.com" };
-    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "engine-provider-config-incomplete");
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "privacy-acknowledgment-required");
   });
   it("refuses a remote embedding without the privacy acknowledgment for exactly that provider and endpoint", () => {
     const baseUrl = "https://openrouter.ai/api/v1", e = { provider: "openrouter", baseUrl, model: "qwen/qwen3-embedding-8b", dimensions: 4096, apiKeyEnv: "K" };
@@ -230,10 +230,42 @@ describe("engine-config", () => {
       assert.ok(warned.some(w => w.startsWith("embedding:")) && warned.some(w => w.startsWith("skillMiner:")));
     });
   });
-  it("KNOWN GAP: a key from the harness secret store reaches the engine as a reference", { todo: "the pinned engine resolves keys only from apiKeyEnv or host-SDK SecretRefs the harness does not provide; HostServices has no secret port" }, () => {
-    const cfg = defaults() as any; cfg.engine.embedding = { provider: "openai", model: "m", dimensions: 8, apiKey: { source: "store", id: "openai" } };
-    cfg.memory = { ...cfg.memory, embedding: { privacyAck: ack("openai") } };
-    assert.equal((buildEngineConfig(cfg, l) as any).embedding.apiKey.source, "store");
+  it("passes a secret-store reference to the engine without requiring an environment key", () => {
+    const cfg = remote({ provider: "openai", model: "m", dimensions: 8, apiKeyRef: "models/openai" }, ack("openai"));
+    assert.equal((buildEngineConfig(cfg, l) as any).embedding.apiKeyRef, "models/openai");
+  });
+  for (const provider of ["jina", "voyage", "remote"]) {
+    it(`admits ${provider} HTTP reranking with protocol and an endpoint-bound acknowledgment`, () => {
+      const cfg = defaults() as any, baseUrl = "https://rerank.example/v1";
+      cfg.engine.reranker = { provider, baseUrl, model: "chosen", protocol: "tei", apiKeyRef: "models/rerank" };
+      cfg.memory.reranker = { privacyAck: ack(provider, baseUrl) };
+      const rer = (buildEngineConfig(cfg, l) as any).reranker;
+      assert.deepEqual(rer, { provider, baseUrl, model: "chosen", protocol: "tei", apiKeyRef: "models/rerank", enabled: true, fallbackProvider: "disabled" });
+      cfg.memory.reranker.privacyAck = ack(provider, "https://another.example");
+      assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "privacy-acknowledgment-mismatch");
+    });
+  }
+  it("admits a keyless local HTTP reranker but refuses malformed references, protocols and missing remote endpoints", () => {
+    const cfg = defaults() as any;
+    cfg.engine.reranker = { provider: "remote", baseUrl: "http://localhost:8080", protocol: "tei" };
+    cfg.privacy.localOnly = true;
+    assert.equal((buildEngineConfig(cfg, l) as any).reranker.protocol, "tei");
+    cfg.privacy.localOnly = false; // Validate malformed details independently of the shared-engine privacy preflight.
+    for (const patch of [{ apiKeyRef: "invalid ref", apiKeyEnv: "K" }, { protocol: "unsupported" }, { baseUrl: undefined }]) {
+      cfg.engine.reranker = { provider: "remote", baseUrl: "http://localhost:8080", protocol: "tei", ...patch };
+      assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "engine-provider-config-incomplete");
+    }
+  });
+  it("preflight checks the selected HTTP reranker endpoint and engine LLM apiKeyRef", async () => {
+    const cfg = defaults() as any;
+    cfg.engine.reranker = { provider: "remote", baseUrl: "http://localhost:8080", protocol: "tei" };
+    cfg.engine.merging = { apiKeyRef: "models/llm" };
+    cfg.privacy.localOnly = true;
+    assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "local-only");
+    delete cfg.engine.merging;
+    const seen: string[] = [];
+    await checkEngineEgress(buildEngineConfig(cfg, l), { decide: async url => { seen.push(url); return { allowed: true, host: "localhost", port: 8080, address: "127.0.0.1", family: 4 }; } });
+    assert.deepEqual(seen, ["http://localhost:8080"]);
   });
   it("passes the 7.18.5–7.18.20 engine keys through (contract 1.12.0)", () => {
     const cfg = defaults();

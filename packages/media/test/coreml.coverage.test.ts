@@ -1,12 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, chmod } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { CoreMLAdapter, MediaError } from '../src/index.ts';
 import type { CoreMLConfig } from '../src/coreml.ts';
 import { reasonOf } from '../src/adapters/_shared/errors.ts';
-import { writeFakeHelper } from './coverage-helpers.coverage.ts';
+import { writeFakeHelper, buildNativeHelper } from './coverage-helpers.coverage.ts';
 import type { FakeHelper } from './coverage-helpers.coverage.ts';
 import { makePng, makeJpeg } from './adapters-fixtures.ts';
 
@@ -278,17 +275,20 @@ test('auto detection uses the session when the helper announces jsonl/1 and the 
 });
 
 test('a helper given directly as an executable (no arguments, no cancel grace) runs the session with default settings', async () => {
-  await withHelper(async helper => {
-    const dir = await mkdtemp(join(tmpdir(), 'media-coreml-exec-'));
-    try {
-      const wrapper = join(dir, 'media-coreml');
-      await writeFile(wrapper, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(helper.script)} "$@"\n`);
-      await chmod(wrapper, 0o755);
-      const a = build({ id: 'coreml-local', model: 'sd', helperPath: wrapper, platform: mac, protocol: 'jsonl' });
-      assert.equal((await a.generate(prompt('png'))).files.length, 1);
-      await a.close();
-    } finally { await rm(dir, { recursive: true, force: true }); }
-  });
+  // A real native executable, spawned directly: no shell, no script interpreter, no inherited environment (see buildNativeHelper).
+  const helper = await buildNativeHelper(HELPER_PNG);
+  try {
+    const a = build({ id: 'coreml-local', model: 'sd', helperPath: helper.path, platform: mac, protocol: 'jsonl' });
+    const result = await a.generate(prompt('png'));
+    assert.equal(result.files.length, 1);
+    assert.deepEqual(Buffer.from(result.files[0]!.bytes), HELPER_PNG);
+    assert.equal(result.metadata.seed, 42);
+    assert.equal(a.config.helperArgs, undefined);
+    assert.equal(a.config.cancelGraceMs, undefined);
+  } finally {
+    await Promise.all(live.splice(0).map(a => a.close()));
+    await helper.cleanup();
+  }
 });
 
 test('close is safe before any request, after one, and repeatedly', async () => {

@@ -12,6 +12,7 @@ import type { DesktopTransport, Platform, Settings, ThemeChoice } from "./ipc.ts
 import { resolveLocale, translate, type Locale, type MessageKey } from "./i18n.ts";
 import { routeFromHash, hashFor, type Route, type Section, type SettingsPage } from "./router.ts";
 import { element, append } from "./components/dom.ts";
+import { isTimeout } from "./models/deadline.ts";
 import { button } from "./components/button.ts";
 import { rail } from "./components/rail.ts";
 import { segmented } from "./components/segmented.ts";
@@ -89,18 +90,18 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   const renderConnections = connectionsView(transport, t, () => connectionStatus, refreshConnections);
   function connectionSummary() {
     if (connectionStatus.status === "loading") return t("connections.loading");
-    if (connectionStatus.status === "error") return t("connections.loadError");
+    if (connectionStatus.status === "error") return t(connectionStatus.timedOut ? "connections.loadTimeout" : "connections.loadError");
     const count = connectionStatus.data?.connections.length ?? 0;
     return count ? t("connections.count", { count: String(count) }) : t("status.empty");
   }
   function refreshConnections(): Promise<void> {
     if (connectionRefresh) return connectionRefresh;
-    connectionStatus = { ...connectionStatus, status: "loading" };
+    connectionStatus = { status: "loading", data: connectionStatus.data };
     render();
     connectionRefresh = transport.connectionsList().then(data => {
       connectionStatus = { status: "ready", data };
-    }).catch(() => {
-      connectionStatus = { ...connectionStatus, status: "error" };
+    }).catch(error => {
+      connectionStatus = { status: "error", data: connectionStatus.data, timedOut: isTimeout(error) };
     }).finally(() => { connectionRefresh = null; render(); });
     return connectionRefresh;
   }

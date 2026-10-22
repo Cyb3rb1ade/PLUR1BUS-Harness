@@ -1,3 +1,4 @@
+import { ChannelHistory, ChannelReadOnly, HandoffArrival } from "./channel-handoff.ts";
 // Chat page (`/chat`, `/chat/new`, `/chat/<sessionId>`): history column + conversation (desktop spec §13.7 "chat" pattern;
 // ListDetail pushes the conversation in compact). Backend contract: docs/rpc.md session.*; /rpc and /events are not on
 // origin/main yet, so every call can end in `unavailable`, which this page shows as such.
@@ -41,6 +42,8 @@ export function ChatPage({ item, sub }: PageProps): View {
   useEffect(() => { void refreshList(false); }, []);
   const title = t(item.label);
   const ls = list.value;
+  const first = sub?.split("/")[0];
+  if (first === "handoff") return h(Page, { title, width: "full" }, h(HandoffArrival, { key: sub, token: sub?.split("/")[1] ?? "" }));
 
   if (ls.status === "loading") return h(Page, { title, width: "full" }, h(PageState, { state: "loading" }));
   if (ls.status === "error") {
@@ -50,12 +53,11 @@ export function ChatPage({ item, sub }: PageProps): View {
         : state === "error" ? h(PageState, { state, onRetry: () => { void refreshList(false); } }) : h(PageState, { state }));
   }
 
-  const first = sub?.split("/")[0];
-  const sessionId = first === undefined || first === "new" ? null : decodeURIComponent(first);
-  const detail = sessionId === null ? h(NewChat, {}) : h(SessionView, { key: sessionId, sessionId });
+  const sessionId = first === undefined || first === "new" || first === "channel" ? null : decodeURIComponent(first);
+  const detail = first === "channel" ? h(ChannelReadOnly, { key: sub, sessionId: decodeURIComponent(sub?.split("/")[1] ?? "") }) : sessionId === null ? h(NewChat, {}) : h(SessionView, { key: sessionId, sessionId });
   return h(Page, { title, width: "full" },
     h(ListDetail, {
-      list: h(History, { sessions: ls.sessions, truncated: ls.truncated, current: sessionId }),
+      list: h("div", null, h(History, { sessions: ls.sessions, truncated: ls.truncated, current: sessionId }), h(ChannelHistory, {})),
       detail, empty: h(NewChat, {}), selected: first !== undefined,
       listLabel: t("chat.list.label"), detailLabel: t("chat.detail.label"), onBack: () => { navigate("/chat"); },
     }));

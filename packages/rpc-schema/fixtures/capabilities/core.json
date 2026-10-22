@@ -1,5 +1,41 @@
 {
   "methods": {
+    "channel.history.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "channel.history.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "channel.handoff.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "channel.handoff.redeem": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.add": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.confirm": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.remove": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.subscribe": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "chat.promote.links": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -436,6 +472,14 @@
       "stability": "experimental",
       "since": "1.1.0"
     },
+    "memory.curation.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "memory.curation.resolve": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "memory.proposals.list": {
       "stability": "experimental",
       "since": "1.1.0"
@@ -612,11 +656,7 @@
       "stability": "stable",
       "since": "1.0.0"
     },
-    "decision.status": {
-      "stability": "experimental",
-      "since": "1.6.0"
-    },
-    "decision.test": {
+    "admin.engine.test": {
       "stability": "experimental",
       "since": "1.6.0"
     },
@@ -851,6 +891,14 @@
     "media.caption.set": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "secret.describe": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "secret.grants.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
     },
     "secret.set": {
       "stability": "experimental",

@@ -158,7 +158,7 @@ export class LiveCapabilityIndex {
   }
   status() { return { mode: this.#embeddingReady ? 'fts5-vectors' : 'fts5-only', localEmbedding: this.#embeddingReady ? 'ready' : 'unavailable', entries: this.registry.snapshot().length, lastRecheck: this.#lastCheck, sourceError: this.#error }; }
   job(): SystemJobHandler {
-    return { spec: { name: 'capabilities.recheck', needsLlm: false, singleton: true, schedule: { every: 86_400_000, jitter: 0 } }, nextRunAt: () => { const next = new Date(this.#lastCheck ?? this.#clock()); next.setHours(3, 0, 0, 0); if (next.getTime() <= (this.#lastCheck ?? this.#clock())) next.setDate(next.getDate() + 1); return next.getTime(); },
+    return { spec: { name: 'capabilities.recheck', needsLlm: false, singleton: true, exclusive: true, schedule: { every: 86_400_000, jitter: 0 } }, nextRunAt: () => { const next = new Date(this.#lastCheck ?? this.#clock()); next.setHours(3, 0, 0, 0); if (next.getTime() <= (this.#lastCheck ?? this.#clock())) next.setDate(next.getDate() + 1); return next.getTime(); },
       validateArgs(args) { if (args != null && (typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length)) throw new RpcError('E_INVALID_PARAMS', 'capability recheck takes no arguments'); return {}; },
       run: async (_args, ctx) => { ctx.signal.throwIfAborted(); await this.syncExtensions(); const detail = this.recheck(); return { outcome: detail.sourceError ? 'incomplete' : 'completed', detail }; } };
   }

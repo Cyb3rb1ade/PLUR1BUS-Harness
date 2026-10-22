@@ -1,0 +1,8 @@
+{
+  "params": {
+    "id": "destination"
+  },
+  "result": {
+    "awaitingChannel": true
+  }
+}

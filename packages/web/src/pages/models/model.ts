@@ -14,7 +14,7 @@ const OUTCOMES: readonly ModelScanOutcomeCode[] = [...RESULTS, "already_running"
 const WARNING_CODES = ["role_unavailable", "shadowed_by_manual", "empty_list"] as const;
 
 /** A catalog entry as the page uses it: the documented fields plus `extra`, any further scalar fields (already masked). */
-export type ModelEntry = Omit<WireEntry, "source" | "status"> & { source: ModelSource | "unknown"; status: CatalogModelStatus; extra: Record<string, string | number | boolean> };
+export type ModelEntry = Omit<WireEntry, "source" | "status"> & { source: ModelSource | "unknown"; status: CatalogModelStatus; extra: Record<string, string | number | boolean>; toolUse: "supported" | "limited tool use" | "unknown" };
 export type ListData = { models: ModelEntry[]; providers: ModelProviderState[]; newCount: number; warnings: ModelScanWarning[] };
 
 const rec = (v: unknown): Record<string, unknown> => (typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
@@ -40,7 +40,7 @@ export function maskSecrets(v: unknown): unknown {
 
 // `new` is a documented field of ModelEntry (true until models.acknowledge); the page takes the "new" set from models.list { newOnly },
 // so the flag must not turn up as a "further field" of every entry.
-const KNOWN = new Set(["provider", "id", "displayName", "new", "kind", "contextWindow", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides", "locked"]);
+const KNOWN = new Set(["toolUse", "provider", "id", "displayName", "new", "kind", "contextWindow", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides", "locked"]);
 
 function overrides(v: unknown): ModelOverrides {
   const o = rec(v);
@@ -64,6 +64,7 @@ export function normalizeModel(raw: unknown): ModelEntry | null {
   }
   const cw = o.contextWindow;
   return {
+    toolUse: o.toolUse === "supported" || o.toolUse === "limited tool use" ? o.toolUse : "unknown",
     provider, id, displayName: str(o.displayName) ?? id, kind: oneOf(KINDS, o.kind) ?? "unknown",
     ...(typeof cw === "number" && Number.isInteger(cw) && cw >= 1 ? { contextWindow: cw } : {}),
     capabilities: Array.isArray(o.capabilities) ? o.capabilities.filter((c): c is ModelCapability => oneOf(CAPABILITIES, c) !== undefined) : [],

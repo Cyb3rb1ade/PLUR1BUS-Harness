@@ -513,8 +513,7 @@ Closed items name the test that covers them. Remaining items stay open.
    `crates/plur1bus/src/commands/firstaid.rs` `approvals_integrity_skips_when_core_is_down`,
    `approvals_integrity_unsigned_legacy_is_ok_and_tampered_signed_fails`. Remote-control approvals on both ends (D108) are not
    built. Signing-key rotation is documented in chapter 5.
-8. **Taint has no producer** (3.5), and the roots, deny-list flag, `cwd` and environment names depend on a tool's `classify()`
-   hook. A tool without one counts as outside the roots (fail closed).
+8. **Taint producer (2026-10-15 Draft):** the central ToolDispatcher result path records web.*, foreign MCP/peer and outside-root file provenance for the rest of the turn (`tools/sandbox/wiring.test.ts`). The existing evaluator suspends standing taint-sensitive/external grants; unrelated local grants are not broadened into this rule. Peer outputs outside this path remain open. Roots, deny flags, cwd/env still require a trusted classify() hook; no hook remains outside-roots.
 9. **Task and session end.** Done: composition `openSessionService({ onSessionEnd })` also calls `grants.endSession(id)` (hostctl
    cleanup stays); collab task-end calls `grants.endTask(taskId)`. Named tests: `packages/core/test/grants/lifetime-core.test.ts`
    "a task-scoped grant ends when the collab task ends, not after 24h", "a session-scoped grant ends on session archive via
@@ -724,7 +723,7 @@ Erledigte Punkte nennen den Test. Die übrigen bleiben offen.
    `crates/plur1bus/src/commands/firstaid.rs` (`approvals_integrity_skips_when_core_is_down`,
    `approvals_integrity_unsigned_legacy_is_ok_and_tampered_signed_fails`). D108 (Freigaben auf beiden Seiten) ist nicht gebaut.
    Schlüsselrotation steht in Kapitel 5.
-8. Taint hat keinen Lieferanten; Roots, Deny-List-Flag, `cwd` und Umgebungsnamen hängen an `classify()` des Tools.
+8. Taint hat im Draft vom 15.10. einen zentralen Lieferanten im ToolDispatcher (`tools/sandbox/wiring.test.ts`); Peer-Ausgaben außerhalb dieses Pfades bleiben offen. Die bestehende Regel suspendiert Standing-Grants für externe/taint-sensitive Aktionen. Roots, Deny-List-Flag, `cwd` und Umgebungsnamen hängen weiterhin an `classify()`.
 9. Task- und Session-Ende: `packages/core/test/grants/lifetime-core.test.ts` ("a task-scoped grant ends when the collab task
    ends, not after 24h", "a session-scoped grant ends on session archive via composition onSessionEnd").
 10. Erledigt auf diesem Branch: Modellbegründung und Diff
@@ -738,3 +737,8 @@ Erledigte Punkte nennen den Test. Die übrigen bleiben offen.
 ## OS confirmation status
 
 `approval.get` and `approval.list` optionally include `osConfirmation`: required, pending/confirmed/denied/failed/not_required, platform and update time. It describes the current process's attempts; old resolved requests can omit it after restart. Pending T1 requests show whether OS confirmation is needed. The existing action-, person-, scope- and request-bound attestation remains mandatory for a T1 → T2 lift; a displayed confirmed state never authorizes another decision. Changes reuse `approval.requested`, through the existing permission-filtered notifier. The web queue shows pending device confirmation, success and failure.
+
+
+### D106 sandbox follow-up (2026-10-15 Draft)
+
+Production exec/host subprocesses now require sandbox ports. run/, state/, secrets, configuration and runtime binaries are denied. Owner-only tools.sandbox.required=false is audited before launch and warned in Doctor. This does **not** close §9.6 as a cross-platform acceptance claim: Windows isolation, Linux writable policies, hostctl/stdin/service adapters, hard containment and installer delivery remain open. See docs/handoffs/2026-10-15-d106-p1.md and p2.md for per-backend evidence. No T3 attestation supplier is added.

@@ -94,8 +94,9 @@ proposals).
 ## 5. Backup and restore
 
 `plur1bus backup` (experimental) writes a consistent, checksummed archive of the installation. `create` needs a
-running core; the archive never contains secrets (API keys stay in the OS keyring, `run/` is never archived) and is
-neither signed nor encrypted:
+running core; the secret store is never read (API keys stay in the OS keyring, `run/` is never archived, a webhook secret
+kept in `config.json` is replaced by a placeholder), but the API account database `state/api/accounts.db` is archived with
+its password hashes and TOTP seeds, and the archive is neither signed nor encrypted, so keep it private:
 
 ```sh
 plur1bus backup create --dry-run          # list what would be archived, write nothing

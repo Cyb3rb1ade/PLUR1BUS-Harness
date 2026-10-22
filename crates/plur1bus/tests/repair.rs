@@ -5,6 +5,8 @@
 //! `tests/fixtures/fake-core.mjs` (the real built core where `memory recall` must work). Every run has no terminal on
 //! stdin, so `--yes` is what confirms.
 mod common;
+#[path = "common/prerequisites.rs"]
+mod prerequisites;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -252,6 +254,18 @@ fn core_state(c: &mut Client) -> String {
         .to_string()
 }
 
+/// The supervised API's process state (`""` when there is no API child yet). `run/api.json` is written before the
+/// supervisor's health poll marks the API `ready`, so a test that needs a healthy API waits for this, not for the file.
+fn api_state(c: &mut Client) -> String {
+    let s = c.call("daemon.status", json!({})).unwrap();
+    s["children"]
+        .as_array()
+        .and_then(|a| a.iter().find(|x| x["role"] == "api"))
+        .and_then(|x| x["process"]["state"].as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
 /// A `supervise` process started by a test: stopped over RPC on drop, then killed and reaped.
 struct Supervised {
     child: std::process::Child,
@@ -322,6 +336,10 @@ fn a_healthy_installation_plans_nothing() {
     let mut c = supervisor_client(&e.home);
     wait_until("the core to become ready", WAIT, || {
         core_state(&mut c) == "ready"
+    });
+    // `api.supervised` is one of the checks `checkAfter` counts: a healthy installation includes a ready API.
+    wait_until("the supervised API to become ready", WAIT, || {
+        api_state(&mut c) == "ready"
     });
     let (code, v) = e.repair(&[]);
     assert_eq!(code, 0, "{v}");
@@ -522,6 +540,7 @@ fn repair_never_touches_state() {
 /// the check found a stale sibling.
 #[test]
 fn repair_never_removes_a_live_endpoint() {
+    prerequisites::require("core", &Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."));
     let e = Env::new();
     e.install_service();
     let core_js = Path::new(env!("CARGO_MANIFEST_DIR"))

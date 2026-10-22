@@ -1,7 +1,7 @@
 // Pure logic of the Models page: tolerant parsing, secret masking, scan totals, filters, routes.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { filterModels, groupByProvider, isSecretKey, maskSecrets, modelKey, normalizeList, parseModelRoute, routeFor, scanTotals } from "../src/pages/models/model.ts";
+import { filterModels, groupByProvider, isSecretKey, maskSecrets, modelKey, normalizeModel, normalizeList, parseModelRoute, routeFor, scanTotals } from "../src/pages/models/model.ts";
 
 const entry = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
   provider: "openai", id: "gpt-5", displayName: "GPT-5", kind: "chat", contextWindow: 400000, capabilities: ["tools"], aliases: [],
@@ -75,4 +75,10 @@ describe("filter, group and routes", () => {
     assert.equal(parseModelRoute("onlyone"), null);
     assert.equal(parseModelRoute("%E0%A4%A/x"), null);
   });
+});
+
+test('host tool-use status is explicit and unknown evidence never implies support', () => {
+  const model = normalizeModel({ provider: 'fixture', id: 'host-model', toolUse: 'limited tool use' });
+  assert.equal(model?.toolUse, 'limited tool use');
+  assert.equal(normalizeModel({ provider: 'fixture', id: 'host-model', toolUse: 'unverified-pass' })?.toolUse, 'unknown');
 });

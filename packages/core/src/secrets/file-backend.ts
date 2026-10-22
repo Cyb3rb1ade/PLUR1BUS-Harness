@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeSync } from "node:fs";
 import path from "node:path";
 import type { SecurePath } from "@plur1bus/module-api";
-import { SecretError, backendFailure, isSecretName, nextDescription, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
+import { SecretError, backendFailure, isSecretName, checkDescription, nextDescription, type BackendProbe, type SecretBackend, type SecretMeta } from "./types.ts";
 
 export const FILE_SCHEMA = "plur1bus.secrets-file/1";
 const KEY_BYTES = 32;
@@ -11,13 +11,19 @@ const TAG_BYTES = 16;
 
 /** `description` is optional and sits outside the ciphertext (it is metadata, like `updatedBy`); files written before it existed have none and stay readable under the same schema id. */
 interface Entry { createdAt: string; updatedAt: string; updatedBy?: string; description?: string; nonce: string; ct: string; tag: string }
-interface Doc { schema: typeof FILE_SCHEMA; entries: Record<string, Entry> }
+/** `tombstones` (name -> ISO time of the delete) is optional and additive under the same schema id: a delete made while the OS keyring was
+ *  unreachable, so that its older copy there does not come back. A file written without it reads unchanged, and an older reader keeps it. */
+interface Doc { schema: typeof FILE_SCHEMA; entries: Record<string, Entry>; tombstones?: Record<string, string> }
+/** The oldest go first; a core that never had a keyring would otherwise record every delete forever. */
+export const MAX_TOMBSTONES = 512;
 
 export interface FileBackendOptions {
   /** `<home>/state/secrets`. */
   dir: string;
   /** The core's `securePath` (chmod 0600 on POSIX, a protected user + SYSTEM DACL on Windows). */
   secure: SecurePath;
+  /** At most this many tombstones are kept (default `MAX_TOMBSTONES`). */
+  maxTombstones?: number;
   /** Test seams. */
   random?: (n: number) => Buffer;
   rename?: (from: string, to: string) => void;
@@ -65,6 +71,11 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
     for (const [name, e] of Object.entries(d.entries)) {
       const x = e as Partial<Entry>;
       if (!isSecretName(name) || typeof x?.createdAt !== "string" || typeof x.updatedAt !== "string" || typeof x.nonce !== "string" || typeof x.ct !== "string" || typeof x.tag !== "string" || (x.description !== undefined && typeof x.description !== "string")) throw corrupt("bad-entry", name);
+    }
+    if (d.tombstones !== undefined) {
+      const t = d.tombstones as unknown;
+      if (!t || typeof t !== "object" || Array.isArray(t)) throw corrupt("bad-tombstones");
+      for (const [name, at] of Object.entries(t)) if (!isSecretName(name) || typeof at !== "string") throw corrupt("bad-tombstones", name);
     }
     return d as Doc;
   }
@@ -125,6 +136,18 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
 
   const aad = (name: string): Buffer => Buffer.from(`${FILE_SCHEMA}\u0000${name}`, "utf8");
 
+  function decrypt(doc: Doc, name: string): string {
+      const e = doc.entries[name]!;
+      const k = key(doc, false);
+      try {
+        const nonce = Buffer.from(e.nonce, "base64"); const tag = Buffer.from(e.tag, "base64");
+        if (nonce.length !== NONCE_BYTES || tag.length !== TAG_BYTES) throw new Error("shape");
+        const d = createDecipheriv("aes-256-gcm", k, nonce);
+        d.setAAD(aad(name)); d.setAuthTag(tag);
+        return Buffer.concat([d.update(Buffer.from(e.ct, "base64")), d.final()]).toString("utf8");
+      } catch { throw corrupt("authentication-failed", name); }
+  }
+
   return {
     kind: "file",
     async probe(): Promise<BackendProbe> {
@@ -139,18 +162,13 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
     get: (name) => serial("reading the encrypted store", () => {
       const doc = readDoc();
       if (!has(doc, name)) return null;
-      const e = doc.entries[name]!;
-      const k = key(doc, false);
-      try {
-        const nonce = Buffer.from(e.nonce, "base64"); const tag = Buffer.from(e.tag, "base64");
-        if (nonce.length !== NONCE_BYTES || tag.length !== TAG_BYTES) throw new Error("shape");
-        const d = createDecipheriv("aes-256-gcm", k, nonce);
-        d.setAAD(aad(name)); d.setAuthTag(tag);
-        return Buffer.concat([d.update(Buffer.from(e.ct, "base64")), d.final()]).toString("utf8");
-      } catch { throw corrupt("authentication-failed", name); }
+      return decrypt(doc, name);
     }),
-    put: (name, value, now, updatedBy, description) => serial("writing the encrypted store", () => {
+    put: (name, value, now, updatedBy, description, register) => serial("writing the encrypted store", () => {
       const doc = readDoc();
+      const kept = nextDescription(has(doc, name) ? doc.entries[name]?.description : undefined, description);
+      checkDescription(kept, value);
+      if (kept && has(doc, name)) { const previous = decrypt(doc, name); register?.(previous); checkDescription(kept, previous); }
       const k = key(doc, true);
       const nonce = rand(NONCE_BYTES);
       const c = createCipheriv("aes-256-gcm", k, nonce);
@@ -158,17 +176,43 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
       const ct = Buffer.concat([c.update(Buffer.from(value, "utf8")), c.final()]);
       const at = now.toISOString();
       const createdAt = (has(doc, name) ? doc.entries[name]?.createdAt : undefined) ?? at;
-      const kept = nextDescription(has(doc, name) ? doc.entries[name]?.description : undefined, description);
+      if (doc.tombstones && Object.hasOwn(doc.tombstones, name)) { delete doc.tombstones[name]; if (Object.keys(doc.tombstones).length === 0) delete doc.tombstones; }
       doc.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}), nonce: nonce.toString("base64"), ct: ct.toString("base64"), tag: c.getAuthTag().toString("base64") };
       writeDoc(doc);
       return { name, backend: "file" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
     }),
-    delete: (name) => serial("deleting from the encrypted store", () => {
+    describe: (name, description, now, updatedBy, register) => serial("describing the encrypted store", () => {
+      const doc = readDoc();
+      if (!has(doc, name)) throw new SecretError("not-found", "secret does not exist");
+      const value = decrypt(doc, name); register?.(value);
+      const text = checkDescription(description, value), entry = doc.entries[name]!;
+      entry.updatedAt = now.toISOString(); if (updatedBy) entry.updatedBy = updatedBy;
+      if (text) entry.description = text; else delete entry.description;
+      writeDoc(doc);
+      const { nonce: _nonce, ct: _ct, tag: _tag, ...meta } = entry;
+      return { name, backend: "file", ...meta };
+    }),
+    delete: (name, tombstoneAt) => serial("deleting from the encrypted store", () => {
       const doc = readDoc();
       if (!has(doc, name)) return false;
       delete doc.entries[name];
+      if (tombstoneAt) {
+        const t = { ...(doc.tombstones ?? {}), [name]: tombstoneAt.toISOString() };
+        const names = Object.keys(t);
+        const max = o.maxTombstones ?? MAX_TOMBSTONES;
+        if (names.length > max) for (const old of names.sort((a, b) => (t[a]! < t[b]! ? -1 : t[a]! > t[b]! ? 1 : 0)).slice(0, names.length - max)) delete t[old];
+        doc.tombstones = t;
+      }
       writeDoc(doc);
       return true;
+    }),
+    tombstones: () => serial("reading the encrypted store", () => ({ ...(readDoc().tombstones ?? {}) })),
+    clearTombstone: (name) => serial("writing the encrypted store", () => {
+      const doc = readDoc();
+      if (!doc.tombstones || !Object.hasOwn(doc.tombstones, name)) return;
+      delete doc.tombstones[name];
+      if (Object.keys(doc.tombstones).length === 0) delete doc.tombstones;
+      writeDoc(doc);
     }),
     list: () => serial("listing the encrypted store", (): SecretMeta[] =>
       Object.entries(readDoc().entries).map(([name, e]) => ({ name, backend: "file" as const, createdAt: e.createdAt, updatedAt: e.updatedAt, ...(e.updatedBy ? { updatedBy: e.updatedBy } : {}), ...(e.description ? { description: e.description } : {}) })).sort((a, b) => a.name.localeCompare(b.name))),
