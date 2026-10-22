@@ -1,0 +1,2095 @@
+{
+  "schema": "plur1bus.decision-candidates-comparison/1",
+  "at": "2026-10-21T14:49:47.375Z",
+  "pr": 626,
+  "branch": "codex/gp4-f3-laya-spike",
+  "purpose": "Local decision-model latency/accuracy candidates on Linux x64 CPU, same 60 core cases (x2 locales), same warm-up/statistics method as the existing Mac/Windows receipts.",
+  "honesty": [
+    "Labels in decision-eval-cases.json are agent-authored proposals, not independently validated; accuracy is only a relative signal between candidates on this fixture (60 core cases per language: one case = 1.67 percentage points).",
+    "The machine is a shared 2-vCPU cloud sandbox VM (KVM, Sapphire Rapids class Xeon, AVX-512/VNNI/AMX flags exposed), not the owner NAS VM and not reference hardware. Absolute latencies do not transfer to other CPUs; ratios between candidates are the more portable signal.",
+    "File cache not flushed; each run is a fresh process; first inference is reported separately; warm statistics are over the remaining 179 calls.",
+    "The fixture states are short (candidate B/C/D sequences are at most 79 tokens, A/D at most 117). Token caps of 128 and 256 therefore truncate nothing and are no-ops on this fixture; their latency differences are run-to-run noise. Cap 64 (B, C only) is the only cap that changes inputs (36 of 180 rows). Long-input latency was not measured.",
+    "Temperatures are the shipped ones (English: per-primitive buckets; multilingual: all 1.0, uncalibrated by the model card). Nothing was refitted. ECE uses Laya ece_score (15 equal-width bins on the top option probability).",
+    "The German gate (accuracy gap <= 5 points, Brier gap <= 0.05) is the preliminary gate from the handoff, not a product decision; automatic German eligibility stays false for every candidate."
+  ],
+  "method": {
+    "runner": "scripts/spikes/decision-laya-candidates.mjs (A also by the hash-pinned original scripts/spikes/decision-laya.mjs, rows A-orig-*)",
+    "sameAsExistingReceipts": [
+      "one request per call, 180 calls = 60 core + 30 extra pairs x 2 locales, in fixture order",
+      "first call reported separately; warm p50/p95 over calls 2..180 with nearest-rank percentiles (percentile() from decision-laya-lib.mjs)",
+      "five-question English batch, 10 repetitions",
+      "intraOpNumThreads = threads, interOpNumThreads = 1, CPU execution provider, onnxruntime-node 1.30.0, Node 24.21.0"
+    ],
+    "differences": [
+      "special tokens from tokenizer_config (mmBERT <bos>/<eos>/<mask>) instead of the English [CLS]/[SEP]/[MASK]; the prompt layout is otherwise identical",
+      "optional --max-tokens N: head kept whole, state clipped on the right (Laya build_sequence rule); default off",
+      "adds ECE, sequence-token statistics, /proc-based contention evidence"
+    ],
+    "contentionRule": "Before each run: no cargo/rustc/rustup/clippy-driver/pnpm/vitest/node --test process and 1-minute load average < 0.5, polled every 60 s. After each run the run is discarded and repeated when the foreign CPU share in the inference loop >= 5 %, any 30-call chunk >= 10 %, or steal >= 5 %. Orchestrator: not committed (scratch).",
+    "runsExecuted": 29,
+    "discardedRuns": [
+      {
+        "run": "C-t2-rep3",
+        "discardedAttempts": [
+          {
+            "attempt": 1,
+            "foreignShareLoop": 0.06997841451112746,
+            "worstChunk": 0.08536052765268819,
+            "stealShare": 0.012139239969380773,
+            "loadAvgAtStart": "0.44 0.57 0.74 1/112 16054"
+          }
+        ]
+      }
+    ]
+  },
+  "environment": {
+    "receipt": "laya-linux-x64-environment.json"
+  },
+  "candidates": {
+    "A": {
+      "model": "inferenceprince/laya-onnx",
+      "revision": "dd0f4db73e24ef4c646d47d0e48e74024f439e6c",
+      "license": "Apache-2.0",
+      "encoder": "ModernBERT-large 421M (English root Laya), fp16 weights",
+      "onnx": "as shipped (opset 18, fp16 initializers, fp32 I/O)",
+      "manifestVerified": true,
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 2063,
+          "sha256": "7f7ac00d9f70a2d5e8f41a10b6984d4a0833405984b3bf859ff1d49f1bced359"
+        },
+        {
+          "file": "model.onnx",
+          "size": 3336214,
+          "sha256": "75d37762009e57b03b28877d330a2a466acd576eb444b0fdd00ee2a3221f8761"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 842587136,
+          "sha256": "356764eb3ab760468479e6fa732217d8ccaa84ab38f2ca9e2ed174ae22aaf1b4"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 745,
+          "sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 308,
+          "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 3583228,
+          "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+        }
+      ]
+    },
+    "A32": {
+      "derivedFrom": "A",
+      "how": "scripts/spikes/candidates-prep/upcast_fp16_to_fp32.py: fp16 initializers and Cast(to=fp16) rewritten to fp32; identical maths, extra control to separate fp16-on-x86 cost from int8",
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 2063,
+          "sha256": "7f7ac00d9f70a2d5e8f41a10b6984d4a0833405984b3bf859ff1d49f1bced359"
+        },
+        {
+          "file": "model.onnx",
+          "size": 3224845,
+          "sha256": "c87e22414dbb6a1d802f520ab3b8ebcf5ac490ee61e2ba836d087dd83a050429"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 1685175296,
+          "sha256": "09b4862072a59ea3649963d4fa748e235a3bdad540712cef02a9c8682facafc3"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 745,
+          "sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 308,
+          "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 3583228,
+          "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+        }
+      ]
+    },
+    "B": {
+      "model": "convaiinnovations/laya-multilingual",
+      "revision": "1720e3e3357cfe1e281542e223f8273b0890ca34",
+      "license": "Apache-2.0",
+      "encoder": "mmBERT-base 322M total (22 layers, hidden 768, vocab 256000), 2-layer decision head, option [MASK] markers",
+      "onnx": "exported by scripts/spikes/candidates-prep/export_multilingual_onnx.py with torch 2.14.1 dynamo exporter, opset 18, fp32, dynamic batch/seq/markers; model code is laya 0.4.12 laya.common.DecisionModel (the checkpoint ships only safetensors)",
+      "sourceSha256": {
+        "model.safetensors": "9d628fd971b700382ac6f65920a86f149777b2e748e0c955fb3b19695aa8f204",
+        "tokenizer/tokenizer.json": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"
+      },
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 160,
+          "sha256": "7add7c041b53f7091e65908553af79ab3f077946e5f2312d510ae13b17c7c134"
+        },
+        {
+          "file": "encoder/config.json",
+          "size": 1938,
+          "sha256": "83f6916d13ef0f556ac461f28308dc2bffa7ebeadee8ec9e2db5812020ea5bb4"
+        },
+        {
+          "file": "model.onnx",
+          "size": 2548376,
+          "sha256": "69c3a76ed5b10b7fc58ed07db6ae89d5101535e6ff4749b9f85b3977a8dfcad0"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 1287639040,
+          "sha256": "70e635514cbd2785fb06fb6eff5d8d36f229e7eb18158e5503973977e05c8f88"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 472,
+          "sha256": "25061739243b617ad88d1219ba6f8a9c86c5881ca28df024fa2d9b3b2fcc30c6"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 502,
+          "sha256": "424b69444bf7b5809dc2cd2e36d0bd71b8055124dd24274d6db3c655d38205e7"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 34363188,
+          "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"
+        }
+      ],
+      "fidelity": {
+        "tokenIdMismatchesJsVsPythonTokenizers": "0 of 180",
+        "maxAbsLogitDiffOnnxVsEagerFp32SingleRequest": 0.0000141,
+        "argmaxFlipsOverAll180Requests": 0,
+        "maxAbsLogitDiffPaddedBatchOf6": 0.0000141,
+        "layaBuildSequenceLayoutEqualsRunnerLayout": true,
+        "note": "eager reference = laya.common.DecisionModel loaded from model.safetensors in fp32 on CPU"
+      }
+    },
+    "C": {
+      "derivedFrom": "B",
+      "how": "scripts/spikes/candidates-prep/quantize_dynamic_int8.py: onnxruntime.quantization.quantize_dynamic(per_channel=True, reduce_range=False, weight_type=QInt8, external data); 98 MatMulInteger nodes with DynamicQuantizeLinear (uint8) activations, token embedding table stored uint8 (ORT Gather quantization), the 54 activation-by-activation attention MatMuls stay fp32",
+      "onnxruntimeQuantizer": "1.31.0",
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 160,
+          "sha256": "7add7c041b53f7091e65908553af79ab3f077946e5f2312d510ae13b17c7c134"
+        },
+        {
+          "file": "model.onnx",
+          "size": 3239405,
+          "sha256": "b2a604d0ebfe6366008601fac063bf4807168be47ac97252d9de725e284018a8"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 332695808,
+          "sha256": "08d0a8b7181e96d87b5e6adef1532c8b787175cf8adec0f1dcde58dddfc4ccea"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 472,
+          "sha256": "25061739243b617ad88d1219ba6f8a9c86c5881ca28df024fa2d9b3b2fcc30c6"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 502,
+          "sha256": "424b69444bf7b5809dc2cd2e36d0bd71b8055124dd24274d6db3c655d38205e7"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 34363188,
+          "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"
+        }
+      ]
+    },
+    "D": {
+      "derivedFrom": "A (via A32)",
+      "how": "same quantize_dynamic recipe as C applied to the fp32-upcast A; ORT quantize_dynamic could not read the fp16 graph without the upcast (and a first in-memory attempt was OOM-killed on the 8 GB VM; the on-disk upcast is the workaround)",
+      "onnxruntimeQuantizer": "1.31.0",
+      "artifacts": [
+        {
+          "file": "config.json",
+          "size": 2063,
+          "sha256": "7f7ac00d9f70a2d5e8f41a10b6984d4a0833405984b3bf859ff1d49f1bced359"
+        },
+        {
+          "file": "model.onnx",
+          "size": 4726299,
+          "sha256": "c276e853c0f13469c84671a6d6ae08bf3faef7140ccf564766f01aa7445c181d"
+        },
+        {
+          "file": "model.onnx.data",
+          "size": 421558272,
+          "sha256": "924d0995531e480b1dcf888163ba09f4f1b7bba7e0bd5a1085b2f9df07a89a78"
+        },
+        {
+          "file": "rl_agent_config.json",
+          "size": 745,
+          "sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"
+        },
+        {
+          "file": "tokenizer/tokenizer_config.json",
+          "size": 308,
+          "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+        },
+        {
+          "file": "tokenizer/tokenizer.json",
+          "size": 3583228,
+          "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+        }
+      ]
+    }
+  },
+  "runs": [
+    {
+      "run": "A-t1",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3338.8497150000003,
+      "firstInferenceMs": 660.0726219999997,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 538.3112479999982,
+        "p95": 919.8983220000082
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 1588.6401009999972,
+        "p95": 1862.2934549999918
+      },
+      "maxRssKiB": 1767240,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.22 0.71 2.34 1/102 14899",
+        "loadAvgAtEnd": "0.93 0.84 2.17 1/100 14932",
+        "foreignCpuShareInferenceLoop": 0.006005947250237799,
+        "worstChunkOf30Calls": 0.00686797563905923,
+        "stealShare": 0.007120820727241422,
+        "waitedForQuietMin": 1.0003166666666667
+      },
+      "at": "2026-10-21T14:04:26.576Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A-t2",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3058.017742,
+      "firstInferenceMs": 387.40721399999984,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 344.1883999999991,
+        "p95": 572.5731309999974
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 1036.1822769999999,
+        "p95": 1190.9678540000023
+      },
+      "maxRssKiB": 1778000,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.34 0.68 2.03 1/100 14942",
+        "loadAvgAtEnd": "1.58 1.00 2.02 2/102 14965",
+        "foreignCpuShareInferenceLoop": 0.005516157286342175,
+        "worstChunkOf30Calls": 0.006041242425706479,
+        "stealShare": 0.009544541920630468,
+        "waitedForQuietMin": 1.00035
+      },
+      "at": "2026-10-21T14:06:47.972Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A-t2-rep2",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 2,
+      "loadMs": 3083.801889,
+      "firstInferenceMs": 329.17217900000014,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 285.6718439999968,
+        "p95": 523.5852799999993
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 867.3368159999955,
+        "p95": 991.0038659999991
+      },
+      "maxRssKiB": 1783108,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.41 0.56 0.80 1/104 15684",
+        "loadAvgAtEnd": "1.48 0.85 0.88 2/103 15714",
+        "foreignCpuShareInferenceLoop": 0.0050120055445610715,
+        "worstChunkOf30Calls": 0.005957343881091132,
+        "stealShare": 0.016227187662128793,
+        "waitedForQuietMin": 1.0013333333333334
+      },
+      "at": "2026-10-21T14:35:30.068Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A-t2-rep3",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 3,
+      "loadMs": 3221.4742490000003,
+      "firstInferenceMs": 362.1784040000002,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 312.2188509999978,
+        "p95": 532.7853480000049
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 804.8076599999913,
+        "p95": 943.6313660000014
+      },
+      "maxRssKiB": 1786648,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.21 0.45 0.67 1/104 16323",
+        "loadAvgAtEnd": "1.46 0.79 0.78 1/102 16359",
+        "foreignCpuShareInferenceLoop": 0.006669535197917246,
+        "worstChunkOf30Calls": 0.012188847661566858,
+        "stealShare": 0.015318062516787875,
+        "waitedForQuietMin": 1.0006666666666666
+      },
+      "at": "2026-10-21T14:43:59.355Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A-t2-cap128",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 128,
+      "repeat": 1,
+      "loadMs": 3449.3766749999995,
+      "firstInferenceMs": 479.3857969999999,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 293.43828300000314,
+        "p95": 554.0324049999981
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 858.1663509999998,
+        "p95": 1108.5787980000023
+      },
+      "maxRssKiB": 1770652,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.21 0.50 1.22 1/104 15170",
+        "loadAvgAtEnd": "1.42 0.80 1.28 1/105 15197",
+        "foreignCpuShareInferenceLoop": 0.00567429267607336,
+        "worstChunkOf30Calls": 0.007783726609901554,
+        "stealShare": 0.013832294941467987,
+        "waitedForQuietMin": 1.0002666666666666
+      },
+      "at": "2026-10-21T14:18:47.274Z",
+      "optionAgreementWithReference": {
+        "reference": "A-t2",
+        "fraction": 1
+      }
+    },
+    {
+      "run": "A-t2-cap256",
+      "candidate": "A",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 256,
+      "repeat": 1,
+      "loadMs": 2916.9296859999995,
+      "firstInferenceMs": 323.88957500000015,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 311.8250459999981,
+        "p95": 556.8327500000014
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 873.6840210000082,
+        "p95": 950.825042000004
+      },
+      "maxRssKiB": 1829624,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.20 0.45 0.96 1/107 15358",
+        "loadAvgAtEnd": "1.62 0.82 1.05 1/106 15393",
+        "foreignCpuShareInferenceLoop": 0.005130713549900811,
+        "worstChunkOf30Calls": 0.006125317150500357,
+        "stealShare": 0.012529339058653442,
+        "waitedForQuietMin": 1.0003666666666666
+      },
+      "at": "2026-10-21T14:25:58.786Z",
+      "optionAgreementWithReference": {
+        "reference": "A-t2",
+        "fraction": 1
+      }
+    },
+    {
+      "run": "A-orig-t1",
+      "candidate": "A-orig",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights), original hash-pinned runner",
+      "runner": "decision-laya.mjs (hash-pinned original)",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 4510.228567,
+      "firstInferenceMs": 707.0003049999996,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 539.5596129999976,
+        "p95": 923.8485990000045
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 1691.1925489999994,
+        "p95": 1865.6518259999866
+      },
+      "maxRssKiB": 1748072,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": null,
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.40 2.77 4.18 1/104 14658",
+        "loadAvgAtEnd": "0.96 2.17 3.77 1/103 14708",
+        "foreignCpuShareInferenceLoop": 0.011802009488815629,
+        "worstChunkOf30Calls": 0,
+        "stealShare": 0.008222066610541555,
+        "waitedForQuietMin": 0.00025
+      },
+      "at": "2026-10-21T13:53:38.137Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A-orig-t2",
+      "candidate": "A-orig",
+      "description": "inferenceprince/laya-onnx @ dd0f4db7 (English root Laya, fp16 weights), original hash-pinned runner",
+      "runner": "decision-laya.mjs (hash-pinned original)",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 4309.354608,
+      "firstInferenceMs": 363.9620220000006,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 303.1748749999997,
+        "p95": 565.7640229999997
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 812.6759220000095,
+        "p95": 938.3029939999979
+      },
+      "maxRssKiB": 1786536,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.65,
+        "deCorrect": 28,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6473723175369723,
+        "en": 0.45680880467275853
+      },
+      "ece": {
+        "de": 0.09895889547956596,
+        "en": 0.16505938561765818
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 18.333333333333336,
+        "brierGap": 0.1905635128642138
+      },
+      "sequenceTokens": null,
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.35 1.78 3.53 1/101 14738",
+        "loadAvgAtEnd": "1.50 1.83 3.42 1/102 14764",
+        "foreignCpuShareInferenceLoop": 0.011352258464836203,
+        "worstChunkOf30Calls": 0,
+        "stealShare": 0.01226890045268012,
+        "waitedForQuietMin": 1.0004
+      },
+      "at": "2026-10-21T13:55:49.135Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "A32-t2",
+      "candidate": "A32",
+      "description": "A with fp16 weights/casts rewritten to fp32 (extra: isolates fp16-on-x86 cost)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 2911.593036,
+      "firstInferenceMs": 315.0551779999996,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 310.13708299999416,
+        "p95": 531.3425029999999
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 830.8636669999978,
+        "p95": 971.7025069999945
+      },
+      "maxRssKiB": 1682576,
+      "accuracy": {
+        "de": 0.45,
+        "en": 0.65,
+        "deCorrect": 27,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6469984847455721,
+        "en": 0.4567184135938861
+      },
+      "ece": {
+        "de": 0.0824000327986409,
+        "en": 0.16507776447635295
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 20,
+        "brierGap": 0.190280071151686
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.33 0.57 1.54 1/104 15050",
+        "loadAvgAtEnd": "1.45 0.86 1.57 1/103 15078",
+        "foreignCpuShareInferenceLoop": 0.005590418650645388,
+        "worstChunkOf30Calls": 0.006791146842786451,
+        "stealShare": 0.010989350007135412,
+        "waitedForQuietMin": 1.0003166666666667
+      },
+      "at": "2026-10-21T14:12:56.503Z",
+      "optionAgreementWithReference": {
+        "reference": "A-t2",
+        "fraction": 0.9944444444444445
+      }
+    },
+    {
+      "run": "B-t1",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 3118.463195,
+      "firstInferenceMs": 142.5803249999999,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 156.4854149999992,
+        "p95": 231.45916800000123
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 433.7045880000005,
+        "p95": 549.7575490000017
+      },
+      "maxRssKiB": 1045980,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617450035058972,
+        "en": 0.4827106645245005
+      },
+      "ece": {
+        "de": 0.1894121769445738,
+        "en": 0.16164316792231276
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903433898139667
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.20 1.22 3.00 4/100 14788",
+        "loadAvgAtEnd": "0.59 1.19 2.91 3/101 14808",
+        "foreignCpuShareInferenceLoop": 0.006765017546306854,
+        "worstChunkOf30Calls": 0.00803591520749414,
+        "stealShare": 0.0039637899527963155,
+        "waitedForQuietMin": 2.0006666666666666
+      },
+      "at": "2026-10-21T13:58:28.346Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t2",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 2787.915941,
+      "firstInferenceMs": 111.22333600000002,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 96.86736999999994,
+        "p95": 145.3923020000002
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 289.9674410000007,
+        "p95": 351.48838199999955
+      },
+      "maxRssKiB": 1043720,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617450035058972,
+        "en": 0.4827106645245005
+      },
+      "ece": {
+        "de": 0.1894121769445738,
+        "en": 0.16164316792231276
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903433898139667
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.22 0.97 2.73 1/102 14821",
+        "loadAvgAtEnd": "0.77 1.04 2.70 2/102 14841",
+        "foreignCpuShareInferenceLoop": 0.005603321819904493,
+        "worstChunkOf30Calls": 0.007769480426159984,
+        "stealShare": 0.014342927760629245,
+        "waitedForQuietMin": 1.0003
+      },
+      "at": "2026-10-21T13:59:54.525Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t2-rep2",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 2,
+      "loadMs": 2941.4646949999997,
+      "firstInferenceMs": 88.54407900000024,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 92.4056870000004,
+        "p95": 123.76596400000017
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 275.90600300000006,
+        "p95": 392.8190460000005
+      },
+      "maxRssKiB": 1041340,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617450035058972,
+        "en": 0.4827106645245005
+      },
+      "ece": {
+        "de": 0.1894121769445738,
+        "en": 0.16164316792231276
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903433898139667
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.25 0.48 0.82 2/105 15606",
+        "loadAvgAtEnd": "1.02 0.65 0.87 1/102 15628",
+        "foreignCpuShareInferenceLoop": 0.013075923868407275,
+        "worstChunkOf30Calls": 0.034987597920679,
+        "stealShare": 0.014639948396258984,
+        "waitedForQuietMin": 0.00018333333333333334
+      },
+      "at": "2026-10-21T14:32:01.672Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t2-rep3",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 3,
+      "loadMs": 3098.266681,
+      "firstInferenceMs": 95.75664200000028,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 98.07622400000037,
+        "p95": 146.4509590000016
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 309.9068260000022,
+        "p95": 332.9655989999992
+      },
+      "maxRssKiB": 1046852,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617450035058972,
+        "en": 0.4827106645245005
+      },
+      "ece": {
+        "de": 0.1894121769445738,
+        "en": 0.16164316792231276
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903433898139667
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.30 0.55 0.75 1/101 15780",
+        "loadAvgAtEnd": "0.82 0.66 0.78 3/103 15797",
+        "foreignCpuShareInferenceLoop": 0.005277448117092064,
+        "worstChunkOf30Calls": 0.008777997783400594,
+        "stealShare": 0.01255521490857461,
+        "waitedForQuietMin": 1.00065
+      },
+      "at": "2026-10-21T14:39:20.148Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "B-t2-cap64",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 64,
+      "repeat": 1,
+      "loadMs": 2713.76432,
+      "firstInferenceMs": 93.9501850000006,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 90.87833000000137,
+        "p95": 115.86296299999958
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 254.45966699999917,
+        "p95": 306.4618620000001
+      },
+      "maxRssKiB": 1045068,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5563674949391552,
+        "en": 0.47694199068271104
+      },
+      "ece": {
+        "de": 0.14770029759372183,
+        "en": 0.14767126433277228
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07942550425644412
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 64,
+        "max": 64,
+        "truncatedRows": 36,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.29 0.53 0.88 1/106 15479",
+        "loadAvgAtEnd": "0.82 0.64 0.91 1/107 15501",
+        "foreignCpuShareInferenceLoop": 0.0049824155817569825,
+        "worstChunkOf30Calls": 0.0067149640730879735,
+        "stealShare": 0.013508221996124904,
+        "waitedForQuietMin": 1.0003833333333334
+      },
+      "at": "2026-10-21T14:29:45.857Z",
+      "optionAgreementWithReference": {
+        "reference": "B-t2",
+        "fraction": 0.9055555555555556
+      }
+    },
+    {
+      "run": "B-t2-cap128",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 128,
+      "repeat": 1,
+      "loadMs": 3134.2867299999994,
+      "firstInferenceMs": 106.81438399999934,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 98.96300900000006,
+        "p95": 136.9281519999986
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 272.3603729999995,
+        "p95": 436.3664580000004
+      },
+      "maxRssKiB": 1038940,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617450035058972,
+        "en": 0.4827106645245005
+      },
+      "ece": {
+        "de": 0.1894121769445738,
+        "en": 0.16164316792231276
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903433898139667
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.19 0.57 1.37 3/103 15108",
+        "loadAvgAtEnd": "0.85 0.69 1.39 1/106 15125",
+        "foreignCpuShareInferenceLoop": 0.006641605909444162,
+        "worstChunkOf30Calls": 0.009126768129129674,
+        "stealShare": 0.007845629897668542,
+        "waitedForQuietMin": 2.0006166666666667
+      },
+      "at": "2026-10-21T14:15:22.901Z",
+      "optionAgreementWithReference": {
+        "reference": "B-t2",
+        "fraction": 1
+      }
+    },
+    {
+      "run": "B-t2-cap256",
+      "candidate": "B",
+      "description": "convaiinnovations/laya-multilingual @ 1720e3e3 (mmBERT-base) exported to ONNX fp32",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 256,
+      "repeat": 1,
+      "loadMs": 2716.310354,
+      "firstInferenceMs": 93.33164500000021,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 90.07099299999754,
+        "p95": 136.129363
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 273.2276520000014,
+        "p95": 342.61807399999816
+      },
+      "maxRssKiB": 1046072,
+      "accuracy": {
+        "de": 0.5166666666666667,
+        "en": 0.65,
+        "deCorrect": 31,
+        "enCorrect": 39,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.5617450035058972,
+        "en": 0.4827106645245005
+      },
+      "ece": {
+        "de": 0.1894121769445738,
+        "en": 0.16164316792231276
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 13.33333333333333,
+        "brierGap": 0.07903433898139667
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.27 0.52 1.06 1/106 15274",
+        "loadAvgAtEnd": "0.81 0.62 1.08 2/105 15294",
+        "foreignCpuShareInferenceLoop": 0.0054171316614861015,
+        "worstChunkOf30Calls": 0.008471293461965216,
+        "stealShare": 0.013998660537466538,
+        "waitedForQuietMin": 1.0003
+      },
+      "at": "2026-10-21T14:22:34.092Z",
+      "optionAgreementWithReference": {
+        "reference": "B-t2",
+        "fraction": 1
+      }
+    },
+    {
+      "run": "C-t1",
+      "candidate": "C",
+      "description": "B + ORT dynamic int8 (QInt8 per-channel MatMul weights, dynamic uint8 activations, uint8 token-embedding table; attention activation-by-activation MatMuls stay fp32)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 2251.088884,
+      "firstInferenceMs": 48.60769399999981,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 50.6327739999997,
+        "p95": 79.71851500000048
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 150.9143499999991,
+        "p95": 172.93513299999904
+      },
+      "maxRssKiB": 666912,
+      "accuracy": {
+        "de": 0.48333333333333334,
+        "en": 0.5333333333333333,
+        "deCorrect": 29,
+        "enCorrect": 32,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6584424390756249,
+        "en": 0.5638776711169814
+      },
+      "ece": {
+        "de": 0.20591818209156515,
+        "en": 0.1619717878535033
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 4.999999999999999,
+        "brierGap": 0.09456476795864355
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.28 0.85 2.53 1/103 14858",
+        "loadAvgAtEnd": "0.44 0.85 2.51 2/102 14870",
+        "foreignCpuShareInferenceLoop": 0.0026892663987836468,
+        "worstChunkOf30Calls": 0.007960301747011051,
+        "stealShare": 0.008020956808588577,
+        "waitedForQuietMin": 1.00035
+      },
+      "at": "2026-10-21T14:01:08.351Z",
+      "optionAgreementWithReference": {
+        "reference": "B-t1",
+        "fraction": 0.7611111111111111
+      }
+    },
+    {
+      "run": "C-t2",
+      "candidate": "C",
+      "description": "B + ORT dynamic int8 (QInt8 per-channel MatMul weights, dynamic uint8 activations, uint8 token-embedding table; attention activation-by-activation MatMuls stay fp32)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 2833.939813,
+      "firstInferenceMs": 45.77915500000017,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 41.909169000000475,
+        "p95": 61.86712499999976
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 139.16637199999968,
+        "p95": 230.1901109999999
+      },
+      "maxRssKiB": 668012,
+      "accuracy": {
+        "de": 0.48333333333333334,
+        "en": 0.5333333333333333,
+        "deCorrect": 29,
+        "enCorrect": 32,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6584424390756249,
+        "en": 0.5638776711169814
+      },
+      "ece": {
+        "de": 0.20591818209156515,
+        "en": 0.1619717878535033
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 4.999999999999999,
+        "brierGap": 0.09456476795864355
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.44 0.85 2.51 1/102 14872",
+        "loadAvgAtEnd": "0.61 0.88 2.49 1/102 14886",
+        "foreignCpuShareInferenceLoop": 0.005165742345061718,
+        "worstChunkOf30Calls": 0.008797534282977935,
+        "stealShare": 0.006406168812160272,
+        "waitedForQuietMin": 0.00013333333333333334
+      },
+      "at": "2026-10-21T14:01:21.234Z",
+      "optionAgreementWithReference": {
+        "reference": "B-t2",
+        "fraction": 0.7611111111111111
+      }
+    },
+    {
+      "run": "C-t2-rep2",
+      "candidate": "C",
+      "description": "B + ORT dynamic int8 (QInt8 per-channel MatMul weights, dynamic uint8 activations, uint8 token-embedding table; attention activation-by-activation MatMuls stay fp32)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 2,
+      "loadMs": 2952.616293,
+      "firstInferenceMs": 63.45368400000007,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 59.430059999998775,
+        "p95": 89.68170099999952
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 146.45771400000012,
+        "p95": 181.89432099999976
+      },
+      "maxRssKiB": 668852,
+      "accuracy": {
+        "de": 0.48333333333333334,
+        "en": 0.5333333333333333,
+        "deCorrect": 29,
+        "enCorrect": 32,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6584424390756249,
+        "en": 0.5638776711169814
+      },
+      "ece": {
+        "de": 0.20591818209156515,
+        "en": 0.1619717878535033
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 4.999999999999999,
+        "brierGap": 0.09456476795864355
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.37 0.53 0.81 1/104 15651",
+        "loadAvgAtEnd": "1.13 0.69 0.86 2/105 15668",
+        "foreignCpuShareInferenceLoop": 0.010371856002511348,
+        "worstChunkOf30Calls": 0.014234822551367762,
+        "stealShare": 0.01652608193615785,
+        "waitedForQuietMin": 1.0012833333333333
+      },
+      "at": "2026-10-21T14:33:18.469Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "C-t2-rep3",
+      "candidate": "C",
+      "description": "B + ORT dynamic int8 (QInt8 per-channel MatMul weights, dynamic uint8 activations, uint8 token-embedding table; attention activation-by-activation MatMuls stay fp32)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 3,
+      "loadMs": 2578.1537780000003,
+      "firstInferenceMs": 50.85851899999989,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 42.1073980000001,
+        "p95": 62.83195700000033
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 131.77647700000125,
+        "p95": 145.7492829999992
+      },
+      "maxRssKiB": 668012,
+      "accuracy": {
+        "de": 0.48333333333333334,
+        "en": 0.5333333333333333,
+        "deCorrect": 29,
+        "enCorrect": 32,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6584424390756249,
+        "en": 0.5638776711169814
+      },
+      "ece": {
+        "de": 0.20591818209156515,
+        "en": 0.1619717878535033
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 4.999999999999999,
+        "brierGap": 0.09456476795864355
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 2,
+        "discardedAttempts": [
+          {
+            "attempt": 1,
+            "foreignShareLoop": 0.06997841451112746,
+            "worstChunk": 0.08536052765268819,
+            "stealShare": 0.012139239969380773,
+            "loadAvgAtStart": "0.44 0.57 0.74 1/112 16054"
+          }
+        ],
+        "loadAvgAtStart": "0.25 0.50 0.70 1/101 16288",
+        "loadAvgAtEnd": "0.57 0.56 0.72 1/102 16301",
+        "foreignCpuShareInferenceLoop": 0.005931552561372292,
+        "worstChunkOf30Calls": 0.00869910489912659,
+        "stealShare": 0.013495160796114949,
+        "waitedForQuietMin": 1.0012833333333333
+      },
+      "at": "2026-10-21T14:41:46.414Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "C-t2-cap64",
+      "candidate": "C",
+      "description": "B + ORT dynamic int8 (QInt8 per-channel MatMul weights, dynamic uint8 activations, uint8 token-embedding table; attention activation-by-activation MatMuls stay fp32)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 64,
+      "repeat": 1,
+      "loadMs": 2099.557353,
+      "firstInferenceMs": 35.65236900000036,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 36.742901000000074,
+        "p95": 52.12341600000036
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 111.36230299999988,
+        "p95": 171.51654300000155
+      },
+      "maxRssKiB": 655924,
+      "accuracy": {
+        "de": 0.4666666666666667,
+        "en": 0.55,
+        "deCorrect": 28,
+        "enCorrect": 33,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6306310731010374,
+        "en": 0.5564496093605819
+      },
+      "ece": {
+        "de": 0.19849067855151076,
+        "en": 0.17453547928158106
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 8.333333333333337,
+        "brierGap": 0.07418146374045553
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 64,
+        "max": 64,
+        "truncatedRows": 36,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.30 0.52 0.85 1/106 15524",
+        "loadAvgAtEnd": "0.49 0.55 0.86 2/107 15541",
+        "foreignCpuShareInferenceLoop": 0.003997970820403071,
+        "worstChunkOf30Calls": 0.011409632095335713,
+        "stealShare": 0.015470597805093907,
+        "waitedForQuietMin": 1.0004166666666667
+      },
+      "at": "2026-10-21T14:30:56.698Z",
+      "optionAgreementWithReference": {
+        "reference": "C-t2",
+        "fraction": 0.9333333333333333
+      }
+    },
+    {
+      "run": "C-t2-cap128",
+      "candidate": "C",
+      "description": "B + ORT dynamic int8 (QInt8 per-channel MatMul weights, dynamic uint8 activations, uint8 token-embedding table; attention activation-by-activation MatMuls stay fp32)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 128,
+      "repeat": 1,
+      "loadMs": 2296.070355,
+      "firstInferenceMs": 51.31899999999996,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 38.83374700000013,
+        "p95": 55.430005000000165
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 102.94031100000029,
+        "p95": 123.81990199999927
+      },
+      "maxRssKiB": 654692,
+      "accuracy": {
+        "de": 0.48333333333333334,
+        "en": 0.5333333333333333,
+        "deCorrect": 29,
+        "enCorrect": 32,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6584424390756249,
+        "en": 0.5638776711169814
+      },
+      "ece": {
+        "de": 0.20591818209156515,
+        "en": 0.1619717878535033
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 4.999999999999999,
+        "brierGap": 0.09456476795864355
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.31 0.56 1.30 2/105 15139",
+        "loadAvgAtEnd": "0.57 0.61 1.31 2/106 15155",
+        "foreignCpuShareInferenceLoop": 0.004851398275676616,
+        "worstChunkOf30Calls": 0.006653480170024521,
+        "stealShare": 0.008393422622277812,
+        "waitedForQuietMin": 1.0004666666666666
+      },
+      "at": "2026-10-21T14:16:34.325Z",
+      "optionAgreementWithReference": {
+        "reference": "C-t2",
+        "fraction": 1
+      }
+    },
+    {
+      "run": "C-t2-cap256",
+      "candidate": "C",
+      "description": "B + ORT dynamic int8 (QInt8 per-channel MatMul weights, dynamic uint8 activations, uint8 token-embedding table; attention activation-by-activation MatMuls stay fp32)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 256,
+      "repeat": 1,
+      "loadMs": 2148.827806,
+      "firstInferenceMs": 38.50472099999979,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 40.478338000000804,
+        "p95": 60.64215800000056
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 131.98565099999905,
+        "p95": 195.50212800000008
+      },
+      "maxRssKiB": 708320,
+      "accuracy": {
+        "de": 0.48333333333333334,
+        "en": 0.5333333333333333,
+        "deCorrect": 29,
+        "enCorrect": 32,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6584424390756249,
+        "en": 0.5638776711169814
+      },
+      "ece": {
+        "de": 0.20591818209156515,
+        "en": 0.1619717878535033
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 4.999999999999999,
+        "brierGap": 0.09456476795864355
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 51,
+        "p95": 74,
+        "max": 79,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.29 0.50 1.01 1/106 15318",
+        "loadAvgAtEnd": "0.56 0.55 1.02 1/107 15336",
+        "foreignCpuShareInferenceLoop": 0.005658088001765716,
+        "worstChunkOf30Calls": 0.012146754617065074,
+        "stealShare": 0.015434870546726048,
+        "waitedForQuietMin": 1.0003666666666666
+      },
+      "at": "2026-10-21T14:23:45.822Z",
+      "optionAgreementWithReference": {
+        "reference": "C-t2",
+        "fraction": 1
+      }
+    },
+    {
+      "run": "D-t1",
+      "candidate": "D",
+      "description": "A (upcast to fp32) + ORT dynamic int8 (same recipe as C)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 1,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 1484.6971689999998,
+      "firstInferenceMs": 140.4310919999998,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 132.46530299999722,
+        "p95": 265.2869530000007
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 342.15456899999845,
+        "p95": 357.14872500000274
+      },
+      "maxRssKiB": 616108,
+      "accuracy": {
+        "de": 0.4166666666666667,
+        "en": 0.5666666666666667,
+        "deCorrect": 25,
+        "enCorrect": 34,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6692995887106468,
+        "en": 0.5354676836087876
+      },
+      "ece": {
+        "de": 0.15011326594955332,
+        "en": 0.11759243204258744
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 14.999999999999996,
+        "brierGap": 0.13383190510185916
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.21 0.66 1.77 2/102 14987",
+        "loadAvgAtEnd": "0.52 0.70 1.74 1/102 15002",
+        "foreignCpuShareInferenceLoop": 0.005786528836387089,
+        "worstChunkOf30Calls": 0.006907782756317105,
+        "stealShare": 0.006811799228616439,
+        "waitedForQuietMin": 2.00065
+      },
+      "at": "2026-10-21T14:09:20.316Z",
+      "optionAgreementWithReference": {
+        "reference": "A-t1",
+        "fraction": 0.6555555555555556
+      }
+    },
+    {
+      "run": "D-t2",
+      "candidate": "D",
+      "description": "A (upcast to fp32) + ORT dynamic int8 (same recipe as C)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 1,
+      "loadMs": 1430.987412,
+      "firstInferenceMs": 127.99101700000028,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 93.34023199999956,
+        "p95": 154.39095200000065
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 294.7277099999992,
+        "p95": 365.7636840000014
+      },
+      "maxRssKiB": 616976,
+      "accuracy": {
+        "de": 0.4166666666666667,
+        "en": 0.5666666666666667,
+        "deCorrect": 25,
+        "enCorrect": 34,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6692995887106468,
+        "en": 0.5354676836087876
+      },
+      "ece": {
+        "de": 0.15011326594955332,
+        "en": 0.11759243204258744
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 14.999999999999996,
+        "brierGap": 0.13383190510185916
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.19 0.57 1.63 1/101 15013",
+        "loadAvgAtEnd": "0.81 0.68 1.64 2/104 15035",
+        "foreignCpuShareInferenceLoop": 0.012823871295812276,
+        "worstChunkOf30Calls": 0.04112668920888302,
+        "stealShare": 0.011296823217400212,
+        "waitedForQuietMin": 1.0003833333333334
+      },
+      "at": "2026-10-21T14:10:43.303Z",
+      "optionAgreementWithReference": {
+        "reference": "A-t2",
+        "fraction": 0.6555555555555556
+      }
+    },
+    {
+      "run": "D-t2-rep2",
+      "candidate": "D",
+      "description": "A (upcast to fp32) + ORT dynamic int8 (same recipe as C)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 2,
+      "loadMs": 1499.400478,
+      "firstInferenceMs": 146.5231530000001,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 94.03047200000219,
+        "p95": 170.73141199999918
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 242.29301199999827,
+        "p95": 268.2079850000009
+      },
+      "maxRssKiB": 602216,
+      "accuracy": {
+        "de": 0.4166666666666667,
+        "en": 0.5666666666666667,
+        "deCorrect": 25,
+        "enCorrect": 34,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6692995887106468,
+        "en": 0.5354676836087876
+      },
+      "ece": {
+        "de": 0.15011326594955332,
+        "en": 0.11759243204258744
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 14.999999999999996,
+        "brierGap": 0.13383190510185916
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.20 0.57 0.77 1/100 15746",
+        "loadAvgAtEnd": "0.81 0.68 0.81 2/102 15765",
+        "foreignCpuShareInferenceLoop": 0.005505708652336003,
+        "worstChunkOf30Calls": 0.007068284616867528,
+        "stealShare": 0.01635109532675559,
+        "waitedForQuietMin": 2.001333333333333
+      },
+      "at": "2026-10-21T14:37:53.695Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "D-t2-rep3",
+      "candidate": "D",
+      "description": "A (upcast to fp32) + ORT dynamic int8 (same recipe as C)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": null,
+      "repeat": 3,
+      "loadMs": 1421.0773869999998,
+      "firstInferenceMs": 119.46452899999986,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 96.16062700000111,
+        "p95": 178.68004199999996
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 255.29015000000072,
+        "p95": 304.42385600000125
+      },
+      "maxRssKiB": 602004,
+      "accuracy": {
+        "de": 0.4166666666666667,
+        "en": 0.5666666666666667,
+        "deCorrect": 25,
+        "enCorrect": 34,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6692995887106468,
+        "en": 0.5354676836087876
+      },
+      "ece": {
+        "de": 0.15011326594955332,
+        "en": 0.11759243204258744
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 14.999999999999996,
+        "brierGap": 0.13383190510185916
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.20 0.52 0.68 1/102 16400",
+        "loadAvgAtEnd": "0.71 0.62 0.71 1/104 16421",
+        "foreignCpuShareInferenceLoop": 0.005986938851199369,
+        "worstChunkOf30Calls": 0.008912037583302498,
+        "stealShare": 0.015138294393072323,
+        "waitedForQuietMin": 2.0005333333333333
+      },
+      "at": "2026-10-21T14:46:23.809Z",
+      "optionAgreementWithReference": null
+    },
+    {
+      "run": "D-t2-cap128",
+      "candidate": "D",
+      "description": "A (upcast to fp32) + ORT dynamic int8 (same recipe as C)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 128,
+      "repeat": 1,
+      "loadMs": 1296.1456389999998,
+      "firstInferenceMs": 105.72880699999996,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 89.13421000000017,
+        "p95": 150.8829110000006
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 239.61754999999903,
+        "p95": 278.8553789999969
+      },
+      "maxRssKiB": 603508,
+      "accuracy": {
+        "de": 0.4166666666666667,
+        "en": 0.5666666666666667,
+        "deCorrect": 25,
+        "enCorrect": 34,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6692995887106468,
+        "en": 0.5354676836087876
+      },
+      "ece": {
+        "de": 0.15011326594955332,
+        "en": 0.11759243204258744
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 14.999999999999996,
+        "brierGap": 0.13383190510185916
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.19 0.53 1.12 1/105 15232",
+        "loadAvgAtEnd": "0.75 0.63 1.14 1/106 15251",
+        "foreignCpuShareInferenceLoop": 0.01583879649604162,
+        "worstChunkOf30Calls": 0.03771684534637976,
+        "stealShare": 0.01410649065486758,
+        "waitedForQuietMin": 2.0005333333333333
+      },
+      "at": "2026-10-21T14:21:09.436Z",
+      "optionAgreementWithReference": {
+        "reference": "D-t2",
+        "fraction": 1
+      }
+    },
+    {
+      "run": "D-t2-cap256",
+      "candidate": "D",
+      "description": "A (upcast to fp32) + ORT dynamic int8 (same recipe as C)",
+      "runner": "decision-laya-candidates.mjs",
+      "threads": 2,
+      "maxTokens": 256,
+      "repeat": 1,
+      "loadMs": 1220.5429990000002,
+      "firstInferenceMs": 98.0917159999999,
+      "warmLatencyMs": {
+        "n": 179,
+        "p50": 97.44875700000011,
+        "p95": 166.17488200000116
+      },
+      "fiveQuestionBatchMs": {
+        "p50": 283.21296000000075,
+        "p95": 322.15207199999713
+      },
+      "maxRssKiB": 602604,
+      "accuracy": {
+        "de": 0.4166666666666667,
+        "en": 0.5666666666666667,
+        "deCorrect": 25,
+        "enCorrect": 34,
+        "n": 60
+      },
+      "brier": {
+        "de": 0.6692995887106468,
+        "en": 0.5354676836087876
+      },
+      "ece": {
+        "de": 0.15011326594955332,
+        "en": 0.11759243204258744
+      },
+      "germanGate": {
+        "passed": false,
+        "accuracyGapPoints": 14.999999999999996,
+        "brierGap": 0.13383190510185916
+      },
+      "sequenceTokens": {
+        "min": 33,
+        "p50": 60,
+        "p95": 111,
+        "max": 117,
+        "truncatedRows": 0,
+        "errorRows": 0
+      },
+      "errorRows": 0,
+      "contention": {
+        "validAttempt": 1,
+        "discardedAttempts": [],
+        "loadAvgAtStart": "0.22 0.54 0.91 1/106 15437",
+        "loadAvgAtEnd": "0.79 0.65 0.94 1/106 15455",
+        "foreignCpuShareInferenceLoop": 0.005557739280473886,
+        "worstChunkOf30Calls": 0.008736129895546441,
+        "stealShare": 0.012227138056129152,
+        "waitedForQuietMin": 2.00055
+      },
+      "at": "2026-10-21T14:28:22.417Z",
+      "optionAgreementWithReference": {
+        "reference": "D-t2",
+        "fraction": 1
+      }
+    }
+  ]
+}

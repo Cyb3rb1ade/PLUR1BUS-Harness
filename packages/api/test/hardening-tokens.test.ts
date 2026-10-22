@@ -26,6 +26,7 @@ const rank = (role: string) => ROLES.length - ROLES.indexOf(role as (typeof ROLE
 
 /** The lowest role the policy table lets through for a route's action (a role-level answer: ownership and object rights come on top). */
 const MIN_ROLE: Record<string, string> = {
+  "channel.history.list": "viewer", "channel.history.get": "viewer", "channel.handoff.create": "member", "channel.handoff.redeem": "member",
   "passkeys.list": "viewer", "passkeys.options": "member", "passkeys.register": "member", "passkeys.change": "member",
   "chats.list": "viewer", "chats.create": "member", "chats.create-agent": "member", "chats.get": "viewer", "chats.update": "member",
   "chats.messages": "viewer", "chats.submit": "member", "chats.events": "viewer", "chats.cancel": "member", "chats.archive": "member",

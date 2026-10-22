@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm, writeFile, chmod } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpBase } from './helpers/tmp.ts';
 import { join } from 'node:path';
 import { textMatcher } from '../src/search.ts';
 
@@ -40,7 +40,7 @@ async function launcher(name: string, body: string): Promise<string> {
 }
 
 beforeAll(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'hostctl-search-'));
+  dir = await mkdtemp(join(tmpBase(), 'hostctl-search-'));
   if (posix) {
     fakeRg = await launcher('rg-match', matcherScript);
     fakeRgExit2 = await launcher('rg-error', exitTwoScript);

@@ -1,0 +1,14 @@
+Using CPython 3.13.12
+Creating virtual environment at: .venv
+   Building kev @ file:///private/tmp/gp4-kev-spike
+  × Failed to download `networkx==3.6.1`
+  ├─▶ Request failed after 3 retries in 4.3s
+  ├─▶ Failed to fetch:
+  │   `https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl`
+  ├─▶ error sending request for url
+  │   (https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl)
+  ├─▶ client error (Connect)
+  ├─▶ tcp connect error
+  ╰─▶ Connection refused (os error 61)
+  help: `networkx` (v3.6.1) was included because `kev` (v0.1.0) depends on
+        `torch` (v2.8.0) which depends on `networkx`

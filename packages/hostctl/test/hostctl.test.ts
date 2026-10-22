@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, mkdir, writeFile, readFile, symlink, rm, readdir } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpBase } from './helpers/tmp.ts';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
@@ -11,7 +11,7 @@ const ctx: RunContext = { agentId: 'fixture-agent', principal: 'fixture-owner', 
 const audit: unknown[] = [];
 const call = (name: string, args: object = {}, context = ctx) => host.invoke(`hostctl.${name}`, args, context);
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'hostctl-')); outside = await mkdtemp(join(tmpdir(), 'outside-'));
+  root = await mkdtemp(join(tmpBase(), 'hostctl-')); outside = await mkdtemp(join(tmpBase(), 'outside-'));
   audit.length = 0;
   host = createHostctl({ home: join(root, 'fixture-home'), baseEnv: {}, roots: [{ id: 'fixture', path: root }], audit: e => { audit.push(e); }, trash: async path => { await mkdir(join(root, '.fake-trash'), { recursive: true }); await import('node:fs/promises').then(fs => fs.rename(path, join(root, '.fake-trash', 'trashed'))); } });
 });
