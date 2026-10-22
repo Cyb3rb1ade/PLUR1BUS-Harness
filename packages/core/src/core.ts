@@ -115,6 +115,7 @@ import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
 import { approvalsDbPath } from "./approvals/db.ts";
 import { secretStoreKeySource, secretStoreSigningKeySource } from "./approvals/keys.ts";
+import { armKnowledgeUpdate, createKnowledgeUpdateJob } from "./knowledge/job.ts";
 import { armApprovalsIntegrity, createApprovalsIntegrityJob } from "./approvals/integrity-job.ts";
 import { createPermissionNotifier, type PermissionNotifier } from "./approvals/notify.ts";
 import { grantRecordOf } from "./approvals/wire.ts";
@@ -595,6 +596,15 @@ export function createCore(o: CoreOptions): Core {
         onFailed: run => jobFailedToInbox(inboxPort, run),
       });
       systemJobs.register(createModelsScanJob(discovery, discSettings));
+      systemJobs.register(createKnowledgeUpdateJob({ engine: eng, agents: () => executionRegistry.list(), now: clock }));
+      armKnowledgeUpdate(systemJobs, {
+        now: clock,
+        setTimer: (fn, ms) => {
+          const timer = setTimeout(() => { void fn(); }, ms);
+          timer.unref();
+          return { cancel: () => clearTimeout(timer) };
+        },
+      }, shutdown.signal, log);
 
       scanScheduler = createScanScheduler({
         service: discovery,

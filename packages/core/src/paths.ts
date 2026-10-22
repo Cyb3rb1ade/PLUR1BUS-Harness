@@ -2,6 +2,9 @@ import { homedir as osHomedir } from "node:os";
 import path from "node:path";
 import { coreAddress as moduleApiCoreAddress, supervisorAddress as moduleApiSupervisorAddress } from "@plur1bus/module-api";
 
+/** Canonical engine-owned curated agent knowledge path, relative to its workspace (A2). */
+export const KNOWLEDGE_RELATIVE_PATH = "memory/KNOWLEDGE.md";
+
 export interface ResolveHomeOptions { home?: string; env?: NodeJS.ProcessEnv; platform?: NodeJS.Platform; homedir?: string; localAppData?: string }
 
 const blank = (v: string | undefined): v is undefined => v === undefined || v.trim() === "";
