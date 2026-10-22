@@ -64,6 +64,7 @@ declare module "../../api/index.ts" {
     "memory.state": { params: AgentRef; result: MemoryStateResult };
     "memory.recall": { params: AgentRef & { query: string; joined?: boolean }; result: RecallResult };
     "memory.proposals.list": { params: AgentRef & { status?: ProposalStatus; limit?: number }; result: ProposalsListResult };
+    "dreams.diary": { params: AgentRef; result: AgentRef & { path: string | null; exists: boolean; bytes: number; text: string; truncated: boolean } };
     "dreams.status": { params: { agentId?: string } | void; result: DreamStatusResult };
     "dreams.log": { params: { agentId?: string; phase?: DreamPhase; runId?: string; limit?: number }; result: { runs: DreamRun[]; log?: string } };
     "dreams.run": { params: { agentId: string; phase: DreamPhase; dryRun?: boolean }; result: DreamRun | DreamPlan };
