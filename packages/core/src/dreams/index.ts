@@ -33,7 +33,7 @@ export function createDreams(o: DreamsOptions): Dreams {
   const candidates = o.candidates ?? (o.candidateMemory ? createCandidateSource(o.candidateMemory) : undefined);
   const scheduler = new DreamScheduler({
     store, engine: o.engine, clock: o.clock, logger: o.logger, logsDir: dir, agents: () => o.agents.list(),
-    // D15 harness-host name. TODO(engine): the pinned engine still writes DREAMS.md; until it follows D15 `exists` stays false for it.
+    // Read the engine-owned diary in the registered agent workspace.
     diaryPath: (id) => { const ws = o.agents.workspaceOf(id); return ws ? path.join(ws, DIARY_FILE) : null; },
     ...o.scheduler,
     ...(candidates ? { candidates } : {}),

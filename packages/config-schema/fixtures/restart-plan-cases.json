@@ -173,6 +173,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -638,6 +645,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -1116,6 +1130,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -1583,6 +1604,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -2061,6 +2089,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -2530,6 +2565,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -3014,6 +3056,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -3479,6 +3528,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -3963,6 +4019,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -4432,6 +4495,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -4914,6 +4984,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -5383,6 +5460,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -5863,6 +5947,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -6328,6 +6419,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -6809,6 +6907,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -7279,6 +7384,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -7764,6 +7876,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -8229,6 +8348,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {

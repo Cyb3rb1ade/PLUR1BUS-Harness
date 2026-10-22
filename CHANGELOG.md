@@ -117,6 +117,27 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- **Secret store: a keyring outage no longer undoes rotations and deletes (file fallback on).** While the OS keyring is away,
+  `secret set` and `secret rm` can only reach the encrypted file; when the keyring came back, its older copy won and a rotated value
+  reverted or a deleted secret reappeared (ADR-005: "an older copy cannot come back"). Reads now take the newer `updatedAt` of the two
+  copies, a delete during the outage leaves a tombstone in the file (additive `tombstones` field, same schema id, at most 512), and the
+  next owner read (`secret ls`, `secret status`) moves a newer file value into the keyring, purges the deleted name and drops stale
+  copies, each step audited with the reason `keyring-sync`. A `secret rm` of a name only the unreachable keyring holds is still not-found.
+- **Secret store: surface floor for `secret.set`, `secret.get --reveal` and `secret.delete`.** The core now passes the connection's
+  trust level (D109) to the store; a connection below T1 (an agent, a non-person, a malformed level) is refused and the refusal is audited.
+  The token-authenticated local connection is T1 and is where `plur1bus secret get --reveal` and the web UI arrive, so they work as before.
+  This is a floor, not a fix for an agent that runs as the same OS user and reads `run/core.token`: that peer is T1 too, and the core cannot
+  tell it from the CLI until the CLI can be attested (docs/rbac.md, threat model; open owner question).
+- **Secret store: a description may not contain any value the store holds.** `secret set --description` compares the text with every stored
+  value (both backends, other names and older values of the name) and with every value the process has seen, not only with the value being
+  written. `secret.status`, which agents read, masks a registered value in an older description.
+- **Redaction: stored values are never displaced.** The registry dropped its oldest value after 256 (a chain or signing key could fall out of the
+  masking after about 256 OAuth refreshes). The value a stored name holds now is pinned in the registry and in the log writers that subscribe to it;
+  only retired values (rotated away, or registered without a name) are bounded.
+- **Secret store: a failed keyring index write rolls the value back** (the old value stays active and the stale-copy cleanup is not skipped),
+  and `secret.set` accepts a value of fewer than 8 characters but answers with a `warning` (`short-value-unmasked`): the redactor ignores shorter
+  values, so such a secret can appear in a log line. `plur1bus secret set` prints a note and Settings > Secrets shows a notice; there is no hard minimum.
+
 - **A backup restore no longer silently brings forgotten memories back (partly; KNOWN GAP until the engine pin moves).** `state/_tombstones`
   is not part of a backup and stays as it was, but the restored store rows are the backup's, so a memory forgotten after the backup was
   active again. `backup restore` now leaves `state/.restore-reapply-tombstones` (written before the first swap, removed by a clean

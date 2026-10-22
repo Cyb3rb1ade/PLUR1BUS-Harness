@@ -95,6 +95,12 @@ exec sandbox from writing to it; a signature check of the helper (macOS code sig
 session (UI automation) could in principle click an OS dialog itself; the `ui.control` capability is T2 and `os.privilege` /
 `remote.control` are T3 for that reason.
 
+**Secrets and the same threat.** `secret.set`, `secret.get` with `reveal` and `secret.delete` (owner only, `secrets.reveal` and `secrets.write`) also
+check the connection's trust level: below T1 they are refused and audited. An agent that holds `run/core.token` is T1, exactly like `plur1bus secret get
+--reveal` and the web UI, so for it the plaintext of a secret is not behind the OS confirmation that a T2 approval needs. The core cannot tell the two apart
+until the CLI can be attested; the one-line change then is `MIN_SECRET_SURFACE` in `packages/core/src/secrets/types.ts`. Until then keep the exec sandbox
+away from `run/` and `state/`, as for the approval chain key.
+
 ## Privacy (ADR-007 §Privacy)
 
 * `user`-scope cards: only the owning user. Owner and Admin can read **another** user's cards only through break-glass;
@@ -227,6 +233,7 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `admin.migrate` | system | ✔ | ✔ | – | – | – |
 | `admin.embedding.probe` | system | ✔ | ✔ | – | – | – |
 | `admin.embedding.serve` | system | ✔ | ✔ | – | – | – |
+| `admin.engine.test` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.plan` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.run` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.status` | system | ✔ | ✔ | – | – | – |
@@ -285,7 +292,7 @@ Three actions cover the media search surface. Everything is denied by default: a
 | media.index.pause, media.index.resume, media.index.reindex | media.index.operate | Owner and Admin, people only | Agents are denied with `agent-principal`. `reindex` needs `confirm: true` |
 | media.caption.set | media.caption.write | Owner, Admin, Operator, Member, people only | Agents are denied with `agent-principal`; the handler also needs edit rights on the medium (`editable`: `agent.use` on the agent that made it, from the owner file under `<home>/media/owners`), otherwise `E_DENIED reason=not-editable`; an unreadable medium is `E_NOT_FOUND` |
 
-The `E_MEDIA_*` codes (capability, licence, privacy pin, availability, dimension, unsupported kind) are not RBAC outcomes; they report that the media index itself cannot do what was asked (see [errors.md](errors.md)).
+The `E_MEDIA_*` codes (capability, licence, “Only local models”, availability, dimension, unsupported kind) are not RBAC outcomes; they report that the media index itself cannot do what was asked (see [errors.md](errors.md)).
 
 ## F39–F42/F44 administration backend
 
@@ -311,7 +318,7 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `session.get`, `session.resume`, `session.events` | `admin.sessions.transcript` | All five; own session or live audited Break-Glass grant |
 | `session.model.set` | `admin.sessions.write` | Human Owner, Admin, Operator, Member; own idle direct session and `agent.use`; never WebMCP |
 | `chat.model.get` | `chat:read` | Owner, Admin, Operator, Member, Viewer; own direct chat (identity from the authenticated person) and `agent.read` |
-| `chat.model.set` | `chat:write` | Human Owner, Admin, Operator, Member; own idle direct chat and `agent.use`; a profile locked by "Nur lokal" is `E_DENIED` `local-only`; never WebMCP |
+| `chat.model.set` | `chat:write` | Human Owner, Admin, Operator, Member; own idle direct chat and `agent.use`; a profile locked by "Nur lokale Modelle" is `E_DENIED` `local-only`; never WebMCP |
 | `session.create`, `session.submit`, `session.cancel`, `session.archive` | `admin.sessions.write` | Owner, Admin, Operator, Member; own session and `agent.use` required |
 | `memory.list`, `memory.show` | `admin.memory.read` | All five; optional `targetUserId` requires `agent.read` and live library `memory.user.read` authorization |
 | `pairing.qr` | `admin.pairing.read` | Owner, Admin; existing payload only, no code issuance |
@@ -451,7 +458,28 @@ Remote trust challenge and acknowledgement use the additive human-only `remote.d
 
 ### Model role probe (Phase A, 2026-10-18)
 
+`admin.engine.test` requires `settings.write` and a human Owner/Admin principal, including the existing device scope
+checks. It is excluded from WebMCP and never exposes provider errors, URLs or key values. The Web API's reviewed RPC
+bridge explicitly permits this method under those same Core rules; no standalone admin REST route is added.
+
 `models.test` requires `settings.write` (Owner/Admin) and an explicit human principal at the RPC guard. Token scopes can
 only narrow access. It is forbidden as a WebMCP tool. The handler takes only a model identifier; prompt, output cap, tool
 set, memory and timeout are server-owned. It selects one configured candidate without fallback and admits the request
 through the same budget/router and adapter egress as ordinary model calls. It creates no session or transcript.
+
+### A4: human memory curation
+
+`memory.curation.list` and `memory.curation.resolve` are **humanOnly** and require
+`agent.manage` on the exact requested agent. Owner/Admin may operate the queue;
+a Member needs an explicit `manage` grant for that agent. A grant on a different
+agent is insufficient. Agent principals are denied even when their role is Owner
+or their object grants contain `manage`. Operator/Viewer receive no role-wide
+access. The handler derives Engine identity from the authenticated connection,
+not request text; the closed params reject `caller` and target-human overrides.
+
+The explicit object grant is the current proxy for “own human”, matching the
+private diary boundary. A new active relationship binding is D116 C3 and is not
+introduced here. Engine ACLs additionally filter individual queue records. Keep
+and drop use the Engine's mandatory curation audit. Both RPCs are exposed on the
+human web route and forbidden over WebMCP, including explicit include lists.
+`memory.proposals.*` remains D31 shared-card correction proposals, not curation.

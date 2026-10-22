@@ -3,6 +3,7 @@ import { handoffMethods } from "./channel-handoff/rpc.ts";
 import { DeliveryTargets } from "./delivery/service.ts";
 import { deliveryMethods } from "./delivery/rpc.ts";
 import { deliveryAllowed } from "./delivery/policy.ts";
+import { buildEngineTestSurface, createEngineTestDiagnostics } from "./rpc/engine-test-surface.ts";
 import { engineModelEndpoints } from "./composition/embedding-policy.ts";
 import { hermesClientAuth } from "./rpc/hermes-client-auth.ts";
 import { authorize } from "./rbac/authorize.ts";
@@ -50,6 +51,7 @@ import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
 import { type HarnessLogger, type Level } from "./logger.ts";
+import { CURATION_METHODS } from "./memory-curation.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
@@ -132,7 +134,7 @@ import { createAttestationService, helperFromEnv, type Attester, type HelperSpec
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
  *  too, so an applied migration or a consumed vault nonce is never left unanswered. */
-const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture", "approval.decide", "approval.cancel", "grant.create", "grant.revoke"] as const;
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...CURATION_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture", "approval.decide", "approval.cancel", "grant.create", "grant.revoke"] as const;
 /** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not. `engine.models` is read fresh on every call
  *  from the synchronous `engine.models.status()`. Only the async `EngineStatus` parts (`degraded`, from which
  *  `engine.ready` follows) are cached, stale-while-revalidate: a call finding the copy older than STATUS_CACHE_MS
@@ -400,7 +402,7 @@ export function createCore(o: CoreOptions): Core {
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
     const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     // Every secret value the store writes, rotates, reveals or leases is masked in the core log from that moment on.
-    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe(value => createdLog.registerSecret(value)); }
+    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe((value, info) => createdLog.registerSecret(value, info)); }
     // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
     // The sidecar's destination is configuration (sidecars.searxng) or the address the container layer injected; the keyed
     // providers go through the egress policy and read their key from the secret store per call. The trace carries lengths,
@@ -477,7 +479,7 @@ export function createCore(o: CoreOptions): Core {
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       checkEngineConfigLicences(engineConfig,l);
-      // Until the engine has a fetch port, its model endpoints are judged by the harness egress policy before it is built.
+      // Preflight feedback; host.fetch also enforces the live egress policy on every request.
       await checkEngineEgress(engineConfig, egress, (message, fields) => log.warn(message, fields));
       const unmapped = new Set<string>();
       const events = (name: string, payload: unknown) => {
@@ -491,8 +493,10 @@ export function createCore(o: CoreOptions): Core {
           server?.notify("engine.event", { name, ...(typeof agentId === "string" && AGENT_ID.test(agentId) ? { agentId } : {}), payload }, { optIn: true });
         }
       };
+      const engineTestDiagnostics = createEngineTestDiagnostics();
       const host = createHarnessHost({
-        layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock,
+        onPortFailure: engineTestDiagnostics.observe,
+        layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock, egress, secrets: secretStore,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
         mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
         canMutateConfig: () => cs.source === "supervisor",
@@ -518,7 +522,7 @@ export function createCore(o: CoreOptions): Core {
       } });
       discoveryWriter = createWriter({ dir: l.logs, role: "core", source: { kind: "harness", id: "discovery", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes, keep: config.logs.keep });
       unsubscribeDiscoveryRedaction?.();
-      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe(value => discoveryWriter?.registerSecret(value));
+      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe((value, info) => discoveryWriter?.registerSecret(value, info));
       const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
       const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
       const discEvents = o.discovery?.events ?? createD111Events(discoveryWriter);
@@ -900,10 +904,12 @@ export function createCore(o: CoreOptions): Core {
         egress,
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
         // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
-        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
+        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`, and an owner
+        // that carries a `surface` must have `MIN_SECRET_SURFACE` to write, delete or reveal: the level is the connection's own
+        // (T1 for a token connection, which is where the CLI and the web UI arrive; an attestation can only raise it).
         secrets: { store: secretStore, principalOf: async (ctx, method, params) => {
           const p = await resolvePrincipal(ctx, method, params);
-          return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId } : { kind: "agent" };
+          return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId, surface: connectionSurface({ principal: p, now: clock(), attestation: o.rbac?.attest?.(ctx) }) } : { kind: "agent" };
         } },
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
@@ -925,6 +931,7 @@ export function createCore(o: CoreOptions): Core {
         ...buildIdentitySurface(() => identity),
         ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, signal: shutdown.signal, revoked: userId => server?.notify("api.account.changed", {userId}, {audience:apiIdentity.services().map(connectionId=>({connectionId}))}), personVersion: id => { const p=people.person(id); return p && !p.disabled ? p.version : null; }, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,
+        ...buildEngineTestSurface({ embedding: eng.embedding, config: () => engineConfig, diagnostics: engineTestDiagnostics }),
         ...buildLicenceSurface(licenceLedger,cfg),
         ...buildEmbeddingSelectionSurface({ ledger:licenceLedger, currentModel:() => String((engineConfig.embedding as any).local.model), migration, port:reembedEnginePort, audit:rbacAudit, clock }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, breakglass, ownership, personOf }),

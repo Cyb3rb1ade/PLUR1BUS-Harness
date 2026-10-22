@@ -5732,7 +5732,7 @@
                       "type": "array",
                       "maxItems": 256,
                       "items": {
-                        "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+                        "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: “Only local models” is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
                         "x-stability": "experimental",
                         "x-since": "1.7.0",
                         "type": "object",

@@ -1,3 +1,4 @@
+import { EngineRoleTests } from "../../components/engine-role-tests.ts";
 // Models page (`/models`, M3 E8): the model catalog of docs/rpc.md (models.list/scan/setOverride/removeManual/acknowledge,
 // notification models.changed) as list + detail. None of it is served by origin/main yet; a 404 shows the "unavailable" state.
 import { getApi } from "../../api/shared.ts";
@@ -229,6 +230,7 @@ export function ModelsPage({ sub }: PageProps): View {
   if (data.models.length === 0) {
     return h(Page, { title, actions },
       readOnly,
+      h(EngineRoleTests, {}),
       scanArea,
       h(PageState, { state: "empty", title: t("models.emptyTitle"), detail: t("models.emptyBody") }, scanButton),
       dialog);
@@ -239,6 +241,7 @@ export function ModelsPage({ sub }: PageProps): View {
   const newCount = isNew.size > 0 ? isNew.size : data.newCount;
   return h(Page, { title, lead: t("models.lead"), actions, width: "full" },
     readOnly,
+    h(EngineRoleTests, {}),
     scanArea,
     ackArea,
     newCount > 0 ? h("p", {}, h("button", { type: "button", class: "btn", onClick: () => { void acknowledge(); } }, t("models.ack", { count: newCount }))) : null,
