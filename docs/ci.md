@@ -54,7 +54,8 @@ reports even when the plan selected nothing, which is why a skipped `unit` matri
 is no reason to wait on a name.
 
 Everything else in `ci.yml` is deliberately outside the gate and not in its `needs`, so it can neither fail nor delay it:
-`unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package),
+`unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
+Actions concurrency change below it only runs under the full-platform policy),
 `python-host` (including the experimental `windows-11-arm` leg), `system`, `service`, `sandbox`, `release-scripts`,
 `documents-golden`, the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
 `perf-startup` and `perf-budgets` jobs. They still run for their selected suites and show up as checks; a red one is a
@@ -81,22 +82,50 @@ Local checks: `node --test scripts/ci/*.test.mjs` and
 
 ## macOS runner policy
 
-GitHub allows about five concurrent macOS jobs per account, and every PR push used to start four to six. Linux and
-Windows legs are unchanged; the macOS legs beyond the unit tests are now gated.
+GitHub allows about five concurrent macOS jobs per account, and every PR push used to start four to six. Actions
+concurrency overall is the bottleneck as well (about five concurrent jobs against 80 to 100 queued), and a Rust or core
+PR push started 17 jobs that do not decide a merge (`CLAUDE.md`, "Which CI jobs decide"). Since the owner decision of
+2026-10-22 the non-deciding **non-Linux** legs of `ci.yml` (macOS, Windows, Windows ARM) follow the same full-platform
+policy as the macOS legs; the Linux legs and everything the gate waits for run on every selected push.
+
+The policy output is called `macos` for historical reasons; it now means "run the full platform matrix", and it also
+switches on the Windows and Windows ARM legs listed below. It is not a macOS-only switch.
 
 ## Which macOS legs run
 
 For `ci.yml`, the impact filter above is applied first: a documentation-only PR does not run a unit matrix.
 The table below describes platform selection inside an affected suite.
 
-| Event | `unit (macos-15)` | `system`, `service`, `python-host`, `real-hermes`, `desktop` (macOS legs) |
+| Event | `unit (macos-15)`, `unit (windows-2025)` (job `unit-os`) and the other non-Linux legs listed below | `system`, `service`, `python-host`, `real-hermes`, `desktop` (macOS legs) |
 | --- | --- | --- |
-| PR opened / synchronize / reopened | yes (job `unit-os`) | only if the PR has label `ci:macos`, or it changes a platform-sensitive path (below) |
-| PR `labeled` with `ci:macos` | yes | yes (the run is re-triggered; it replaces any run in progress) |
+| PR opened / synchronize / reopened | only if the PR has label `ci:macos`, or it changes a platform-sensitive path (below) | same |
+| PR `labeled` with `ci:macos` | yes (the run is re-triggered; it replaces any run in progress) | yes |
 | PR `labeled` with any other label | no (the whole run is a no-op) | no |
 | push to `main` | yes | yes |
 | schedule (nightly, 03:23-03:41 UTC) | yes | yes |
 | workflow_dispatch | yes | yes |
+
+Legs of `ci.yml` that follow this policy (everything else in the file, including every `ubuntu-24.04` and
+`ubuntu-24.04-arm` leg, runs whenever its suite is selected):
+
+| Job | Non-Linux legs that wait for the policy | Always on a selected push |
+| --- | --- | --- |
+| `unit-os` | `unit (macos-15)`, `unit (windows-2025)`: the whole job is conditional (`needs.changes.outputs.macos == 'true'`), because all its legs are non-Linux | none (the Linux leg is `unit`) |
+| `system` | `macos-15` | `ubuntu-24.04` |
+| `service` | `macos-15`, `windows-2025` | `ubuntu-24.04` |
+| `sandbox` | `macos-15`, `windows-2025`, `windows-11-arm` | `ubuntu-24.04`, `ubuntu-24.04-arm` |
+| `perf-startup` (`startup (...)`) | `darwin-arm64`, `win32-x64`, `win32-arm64` | `linux-x64`, `linux-arm64` |
+| `perf-budgets` (`budget catalogue (...)`) | `macos-15`, `windows-2025`, `windows-11-arm` | `ubuntu-24.04`, `ubuntu-24.04-arm` |
+
+Not moved: `unit (ubuntu-24.04)`, `wsl` (a required Windows job), `web-browser*`, the `python-host` matrix (its Windows legs
+are unchanged), `docs-hygiene`, and the other workflows (`release-quality`, `container*`, `desktop.yml`, `hermes-host.yml`).
+Nothing in `ci-gate` depends on the moved legs, so a PR without the policy gets the same gate verdict as before. A PR that
+changes nothing platform-sensitive therefore shows no `unit (macos-15)`, `unit (windows-2025)`, `service (windows-2025)`,
+`sandbox (macos-15|windows-*)`, `startup (darwin-arm64|win32-*)` or `budget catalogue (macos-15|windows-*)` check; an absent
+check is not a red one. Add `ci:macos` to get them before merging. The mixed matrices use
+`exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[...]') }}`; `perf-startup` has no base `os` list, so
+it selects its whole `include` list by the same expression (an `exclude` cannot remove `include` entries).
+`scripts/ci/workflow-contract.test.mjs` evaluates these matrices and conditions for both values of the policy.
 
 Workflows: `ci.yml`, `desktop.yml`, `hermes-host.yml`. Their own `paths:` filters on PRs are unchanged (`desktop.yml` and
 `hermes-host.yml` only start for their paths), so adding `ci:macos` to a PR that touches none of them runs nothing extra
@@ -126,8 +155,8 @@ branch, so it starts working once this is merged.
 
 ## Using it
 
-Add the `ci:macos` label to a PR to get the full macOS matrix before merging (for example when a change is
-platform-sensitive in a way the path list misses). A required status check on a gated job name (`system (macos-15)` and
+Add the `ci:macos` label to a PR to get the full platform matrix (macOS, and also the Windows and Windows ARM legs listed
+above) before merging, for example when a change is platform-sensitive in a way the path list misses. A required status check on a gated job name (`system (macos-15)` and
 so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-gate` only after the Windows baseline and open-head refresh gate above. This change does not inspect or modify current protection settings.
 
 ## Job map and failure semantics
@@ -137,16 +166,16 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `changes` (`plan` in Desktop/Hermes workflows) | Tested runner/label policy; a non-macOS label event deliberately runs no expensive matrix |
 | `docs-hygiene` | Gated. Hygiene, source quality, i18n, doc links and `pnpm docs:check` (generated documents), for every selected run |
 | `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests, Rust fmt/clippy/tests |
-| `unit-os` | Not gated. The same steps on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)` |
+| `unit-os` | Not gated; only under the full-platform policy. The same steps on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)` |
 | `web-browser-macos` | Explicit advisory dependency: waits for the result, permits completed failure/skipped; selected only for proceed + web + macos |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
-| `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command) |
-| `service` | Not gated. Service manager tests; existing systemd-unavailable handling remains documented in the workflow |
+| `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command); the macOS leg follows the full-platform policy |
+| `service` | Not gated. Service manager tests; existing systemd-unavailable handling remains documented in the workflow; the macOS and Windows legs follow the full-platform policy |
 | `python-host` | Not gated. Python client/Hermes offline and live synthetic-host tests; Windows ARM informational policy is unchanged |
 | `wsl` | Gated. Real WSL setup and synthetic migration/snapshot security tests |
 | `release-scripts` | Not gated. Ubuntu-only offline release tests and local actionlint validation of all workflows |
-| `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners; golden-set visual diff |
-| `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue |
+| `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners (the three non-Linux ones follow the full-platform policy); golden-set visual diff |
+| `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue; the macOS, Windows and Windows ARM legs follow the full-platform policy |
 | `ci-gate` | THE gate: required jobs above plus the explicitly registered macOS browser advisory |
 | nightly `system-real-models` | Real model acceptance and full kill soak; may fetch model weights |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
