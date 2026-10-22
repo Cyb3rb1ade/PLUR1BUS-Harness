@@ -1,5 +1,6 @@
 import { SessionModelRouting } from './model-routing.ts';
 import { DecisionClient } from '../decision/client.ts';
+import { createSystemOneBackend } from '../decision/system-one.ts';
 import { decisionPruningPort } from '../decision/pruning.ts';
 import { toWireEvent } from '../session/methods.ts';
 import { SkillMining } from '../skill-mining/miner.ts';
@@ -64,6 +65,8 @@ import { mediaToInbox } from '../inbox/producers.ts';
 import { isLocalEndpoint, localEndpoints, localOnlyFor, localOnlyShared, LOCAL_ONLY_REASON, LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
 
 export interface CompositionOptions {
+  /** Internal loopback-only System One test endpoint; never a configuration or RPC field. */
+  decisionTestOrigin?: string;
   projectWorktrees?: import("../collab/coding-surface.ts").ProjectWorktreePort;
   delegationTargets?: readonly import("../collab/target.ts").DelegationTarget[];
   /** Trusted in-process surfaces register here; no auth RPC is added. */
@@ -259,8 +262,12 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       reasoning: reasoningFor, config: () => d.config(),
       ...(d.chatModels?.catalog ? { catalog: d.chatModels.catalog } : {}), ...(d.chatModels?.endpoint ? { endpoint: d.chatModels.endpoint } : {}),
     };
-    let decisions = new DecisionClient({ config: d.config, backends: {} });
+    const decisionOptions = { config: d.config, egress: d.egress, secrets: d.secrets, budget,
+      ...(options.decisionTestOrigin ? { testOrigin: options.decisionTestOrigin } : {}) };
+    const decisionBackends = { jev: createSystemOneBackend('jev', decisionOptions), kev: createSystemOneBackend('kev', decisionOptions) };
+    let decisions = new DecisionClient({ config: d.config, backends: decisionBackends });
     const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, d.config, {
+      backends: decisionBackends,
       onClient: client => { decisions = client; },
       emit: (context, event) => {
         // Raw state and model prose never enter telemetry. Incognito uses the volatile store.
@@ -354,7 +361,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     return { budget, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
       if (!d.agents.has(p.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'Unknown agent');
       const principal = deriveUserPrincipal(authenticatedPrincipal(ctx).userId);
-      const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, signal: AbortSignal.any([ctx.signal, d.signal]) });
+      const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, cloudEligible: true, signal: AbortSignal.any([ctx.signal, d.signal]) });
       return { ok: result.ok && result.value.id === 'even', durationMs: result.elapsedMs, outcome: result.ok ? (result.value.id === 'even' ? 'accepted' : 'invalid') : result.reason, ...(result.ok ? { backend: result.backend } : {}) };
     }, ...(promotions ? promotionMethods(promotions) : {}), ...(coding ? codingMethods(coding) : {}), "models.test": async (p: { model: string }, ctx) => {
       if (!budget) throw new RpcError('E_NOT_AVAILABLE', 'Model budget unavailable');

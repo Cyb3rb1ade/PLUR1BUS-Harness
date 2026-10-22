@@ -152,6 +152,15 @@
   },
   "oauth": {},
   "decision": {
+    "systemOne": {
+      "jev": {
+        "enabled": false,
+        "model": "jev-1.13.0"
+      },
+      "kev": {
+        "enabled": false
+      }
+    },
     "backend": "role",
     "timeoutMs": 200,
     "budgets": {

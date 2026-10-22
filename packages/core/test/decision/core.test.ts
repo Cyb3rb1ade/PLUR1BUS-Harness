@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
+import { once } from 'node:events';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaults } from '@plur1bus/config-schema';
@@ -30,5 +32,35 @@ test('full Core routes triage, mapped decision events and synthetic diagnostic t
     const after = await rpc.call<{ requests: number }>('decision.status', {}); assert.equal(after.requests, 2);
     assert.equal(validateParams('decision.test', { agentId: 'bernd', prompt: 'arbitrary' }).ok, false);
     const replay = await rpc.call<{ events: unknown[] }>('session.events', { caller, sessionId: session.id }); assert.equal(replay.events.length, events.length);
+  } finally { await rpc.close(); await core.stop({ budgetMs: 5000 }); }
+});
+
+test('Core System One diagnostics send only the fixed synthetic choice through the registered adapter', async t => {
+  const calls: any[] = [];
+  const server = http.createServer(async (req, res) => {
+    let body = ''; for await (const chunk of req) body += chunk;
+    const parsed = JSON.parse(body); calls.push(parsed);
+    res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ model: parsed.model, answers: { decision: { type: 'choice', choice: 'even', confidence: 1, probabilities: { even: 1, odd: 0 } } }, usage: { input_tokens: 20, output_tokens: 10 } }));
+  });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const port = (server.address() as import('node:net').AddressInfo).port;
+  t.after(async () => { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); });
+  const oldAllow = process.env.PLUR1BUS_ALLOW_TEST_INTERNALS, oldKeyring = process.env.PLUR1BUS_SECRETS_KEYRING;
+  process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = '1'; process.env.PLUR1BUS_SECRETS_KEYRING = 'memory';
+  t.after(() => { if (oldAllow === undefined) delete process.env.PLUR1BUS_ALLOW_TEST_INTERNALS; else process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = oldAllow; if (oldKeyring === undefined) delete process.env.PLUR1BUS_SECRETS_KEYRING; else process.env.PLUR1BUS_SECRETS_KEYRING = oldKeyring; });
+  const home = tempDir('decision-system-one-core-'), cfg = defaults(); cfg.agents.bernd = {};
+  cfg.decision.backend = 'jev'; cfg.decision.timeoutMs = 1000; cfg.decision.budgets = { routing: 1000 };
+  cfg.decision.systemOne = { jev: { enabled: true, model: 'jev-1.13.0', secretRef: 'typesafe-test' }, kev: { enabled: false } };
+  cfg.egress.allowHosts = ['127.0.0.1']; cfg.egress.allowPorts = [port]; cfg.egress.allowLoopback = true;
+  cfg.engine = { duplicateThreshold: 1.01, neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false } };
+  writeFileSync(join(home, 'config.json'), JSON.stringify(cfg));
+  const core = createCore({ home, testInternals: flatTestInternals(), discovery: { scheduler: false }, dreams: { scheduler: false }, composition: { decisionTestOrigin: `http://127.0.0.1:${port}` } });
+  await core.start(); const rpc = await connect({ address: core.address, token: core.token });
+  try {
+    await rpc.call('secret.set', { name: 'typesafe-test', value: 'core-diagnostic-key-probe' });
+    await assert.rejects(rpc.call('decision.test', { agentId: 'bernd', state: 'private arbitrary message' })); assert.equal(calls.length, 0);
+    const result = await rpc.call<{ ok: boolean; backend: string }>('decision.test', { agentId: 'bernd' }); assert.equal(result.ok, true); assert.equal(result.backend, 'jev');
+    assert.equal(calls.length, 1); assert.equal(calls[0].state, '2'); assert.equal(calls[0].questions.decision.instructions, 'Is this integer even or odd?');
+    assert.equal(JSON.stringify(calls).includes('private arbitrary message'), false);
   } finally { await rpc.close(); await core.stop({ budgetMs: 5000 }); }
 });

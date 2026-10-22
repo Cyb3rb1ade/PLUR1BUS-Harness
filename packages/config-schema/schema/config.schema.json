@@ -1143,6 +1143,125 @@
       "default": {},
       "additionalProperties": false,
       "properties": {
+        "systemOne": {
+          "description": "System One backends. Both are disabled until explicitly enabled; credentials alone do not enable a backend.",
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "jev": {
+              "description": "Cloud System One. Content also requires trusted caller admission; never arbitrary tool or triage text.",
+              "type": "object",
+              "default": {},
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "description": "Explicit opt-in for Jev; does not authorize cloud content by itself.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "model": {
+                  "description": "Pinned documented System One model id.",
+                  "type": "string",
+                  "enum": [
+                    "jev-1.13.0"
+                  ],
+                  "default": "jev-1.13.0",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "secretRef": {
+                  "description": "Secret-store name for the API key. No inline values.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              },
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "kev": {
+              "description": "Local Kev preparation. Native spike admission remains mandatory and is not configurable here.",
+              "type": "object",
+              "default": {},
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "description": "Explicit opt-in; remains unavailable until the native spike gate passes.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "model": {
+                  "description": "Explicit model name accepted by the local System One server.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9._/@-]+$",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "endpoint": {
+                  "description": "Literal loopback System One endpoint; localhost and remote addresses are refused.",
+                  "type": "string",
+                  "maxLength": 256,
+                  "pattern": "^https?://(?:127(?:\\.[0-9]{1,3}){3}|\\[::1\\])(?::[0-9]{1,5})?/v1/systemone$",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "required": [
+                      "enabled"
+                    ],
+                    "properties": {
+                      "enabled": {
+                        "const": true
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "model",
+                      "endpoint"
+                    ],
+                    "properties": {
+                      "model": {
+                        "description": "Explicit model name accepted by the local System One server.",
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[A-Za-z0-9._/@-]+$",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "endpoint": {
+                        "description": "Literal loopback System One endpoint; localhost and remote addresses are refused.",
+                        "type": "string",
+                        "maxLength": 256,
+                        "pattern": "^https?://(?:127(?:\\.[0-9]{1,3}){3}|\\[::1\\])(?::[0-9]{1,5})?/v1/systemone$",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      }
+                    }
+                  }
+                }
+              ],
+              "x-restart": "live",
+              "x-tier": "advanced"
+            }
+          },
+          "x-restart": "live",
+          "x-tier": "advanced"
+        },
         "backend": {
           "description": "Preferred backend. role preserves the existing decision model role; auto selects only installed and eligible backends.",
           "enum": [
