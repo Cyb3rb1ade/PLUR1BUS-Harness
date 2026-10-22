@@ -54,7 +54,7 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   },
   {
     "slug": "datenschutz",
-    "title": "Datenschutz und Modus „Nur lokal“"
+    "title": "Datenschutz und Modus „Nur lokale Modelle“"
   },
   {
     "slug": "desktop",
