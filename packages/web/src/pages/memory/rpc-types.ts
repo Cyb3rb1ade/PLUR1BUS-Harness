@@ -27,6 +27,8 @@ export type RecallResult = {
   timing: { totalMs: number; phases?: Record<string, unknown> | null }; deferrals: Deferral[];
 };
 
+export type CurationRecord = { id: string; status: "candidate" | "conflict" | "stale"; text: string; category: string | null };
+
 export type ProposalStatus = "pending" | "accepted" | "rejected" | "stale";
 export type MemoryProposal = {
   id: string; sharedId: string; sourceId: string; target: "workspace" | "user"; sharerAgentId: string; proposerAgentId: string;
@@ -63,6 +65,8 @@ declare module "../../api/index.ts" {
     "memory.show": { params: AgentRef & { id: string }; result: MemoryShowResult };
     "memory.state": { params: AgentRef; result: MemoryStateResult };
     "memory.recall": { params: AgentRef & { query: string; joined?: boolean }; result: RecallResult };
+    "memory.curation.list": { params: { agentId: string; limit?: number }; result: { agentId: string; items: CurationRecord[]; truncated: boolean } };
+    "memory.curation.resolve": { params: { agentId: string; id: string; action: "keep" | "drop" }; result: { agentId: string; id: string; status: "promoted" | "demoted" } };
     "memory.proposals.list": { params: AgentRef & { status?: ProposalStatus; limit?: number }; result: ProposalsListResult };
     "dreams.diary": { params: AgentRef; result: AgentRef & { path: string | null; exists: boolean; bytes: number; text: string; truncated: boolean } };
     "dreams.status": { params: { agentId?: string } | void; result: DreamStatusResult };

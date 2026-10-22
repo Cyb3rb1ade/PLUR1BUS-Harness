@@ -273,3 +273,17 @@ Additive under §2, `experimental` under §4, no schema version bump (methods si
 ## Implementation record (decision role hint, 2026-10-18)
 
 **`1staid.check/1` ids stay append-only.** `models.decision` is appended after `remote.exposure` (`CHECK_IDS` grows from 27 to 28). It reports `info` (never `warn` or `fail`) while `modelRoles.decision` is unset and `ok` once it is set. `plur1bus setup` adds `detail.decisionRole` (`{ set, limited, hint }`) to its `config` step; no new RPC, config key or error code.
+
+## Implementation record (A4 human curation, 2026-10-21)
+
+`memory.curation.list` and `memory.curation.resolve` are additive, experimental Core methods. They share the current RPC
+`1.6.0` development surface and carry `x-since: "1.6.0"`, following the existing M1b-3 record above; no extra version bump
+is needed for another additive method in that unreleased surface. The reviewed checkout's changelog has an active
+`[Unreleased]` section and only the older `0.1.0` release entry; the repository's GitHub release and tag inventories were
+empty when checked on 2026-10-21. This is the recorded basis for retaining 1.6.0, rather than treating matching
+`x-since` / `x-rpc-version` as a mismatch. Apply the M2 release proviso above if 1.6.0 has been published before merge:
+advance the minor version and both methods' `x-since` together in that case.
+
+Engine contract 1.17.0 is a separate version axis. The Controller pin must pass the mandatory real-Core curation
+acceptance command in `docs/curation.md`; an older contract must fail that check, not count its unavailability branch
+as successful real acceptance. Pre-pin source evidence does not replace this post-pin check.

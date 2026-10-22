@@ -5,6 +5,7 @@
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor or (methods only, since 1.3.0) module.",
   "x-rpc-version": "1.6.0",
   "$defs": {
+    "MemoryCurationRecord": {"type": "object", "additionalProperties": false, "required": ["id", "status", "text", "category"], "properties": {"id": {"type": "string", "minLength": 1, "maxLength": 200}, "status": {"enum": ["candidate", "conflict", "stale"]}, "text": {"type": "string"}, "category": {"type": ["string", "null"]}}},
     "UserJob": {
       "type": "object",
       "additionalProperties": false,
@@ -6114,6 +6115,8 @@
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "sharedId", "text"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "sharedId": { "$ref": "#/$defs/MemoryId" }, "text": { "type": "string", "minLength": 1, "maxLength": 8000 }, "note": { "type": "string", "maxLength": 500 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "sharedId", "sharerAgentId"], "properties": { "proposalId": { "type": "string" }, "sharedId": { "type": "string" }, "sharerAgentId": { "type": "string" } } }
       },
+      "memory.curation.list": {"x-stability": "experimental", "x-since": "1.6.0", "x-server": "core", "description": "Human curation queue (Engine contract 1.17.0). Separate from D31 memory.proposals.", "params": {"type": "object", "additionalProperties": false, "required": ["agentId"], "properties": {"agentId": {"$ref": "#/$defs/AgentId"}, "limit": {"type": "integer", "minimum": 1, "maximum": 100}}}, "result": {"type": "object", "additionalProperties": false, "required": ["agentId", "items", "truncated"], "properties": {"agentId": {"$ref": "#/$defs/AgentId"}, "items": {"type": "array", "items": {"$ref": "#/$defs/MemoryCurationRecord"}}, "truncated": {"type": "boolean"}}}},
+      "memory.curation.resolve": {"x-stability": "experimental", "x-since": "1.6.0", "x-server": "core", "description": "Human keep/drop of a visible Neo curation record. Never accepts caller identity in params.", "params": {"type": "object", "additionalProperties": false, "required": ["agentId", "id", "action"], "properties": {"agentId": {"$ref": "#/$defs/AgentId"}, "id": {"type": "string", "minLength": 1, "maxLength": 200}, "action": {"enum": ["keep", "drop"]}}}, "result": {"type": "object", "additionalProperties": false, "required": ["agentId", "id", "status"], "properties": {"agentId": {"$ref": "#/$defs/AgentId"}, "id": {"type": "string"}, "status": {"enum": ["promoted", "demoted"]}}}},
       "memory.proposals.list": {
         "x-stability": "experimental", "x-since": "1.1.0", "x-server": "core",
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "status": { "$ref": "#/$defs/MemoryProposalStatus" }, "limit": { "type": "integer", "minimum": 1, "maximum": 100 } } },
