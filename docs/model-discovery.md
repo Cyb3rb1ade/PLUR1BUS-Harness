@@ -103,6 +103,12 @@ The sources, in this order:
    on their own (`none`: deepseek-reasoner, grok-4, other Claude models). The vendor section is tried first, then `generic`.
 3. **Unknown**: `none`, with the hint `reasoning-unknown`.
 
+`node --experimental-strip-types scripts/check-reasoning-metadata.mjs` validates the reasoning table and reports
+coverage hints for concrete chat model IDs and aliases from the bundled D112 `model-metadata.json` table. Vendor
+identity is preserved. Open-ended family patterns do not enumerate model IDs, so they are not counted as concrete
+models; no IDs are invented from a regex. The summary reports how many known models were checked. Missing coverage
+is informational; invalid schema or unsafe patterns still fail the check.
+
 The description is fitted to the wire the profile speaks (the Responses API spells OpenAI's effort `reasoning.effort`); a parameter a
 wire cannot write becomes `none` with the hint `reasoning-wire-unsupported`. Each attempt of a turn maps the chat's level onto that
 candidate model (the nearest supported level, ties to the cheaper one), so a fallback model with other levels gets its own nearest

@@ -19,7 +19,7 @@ export const DEFAULT_WS_LIMITS: WsLimits = {
   ticketTtlMs: 30_000, maxTicketsPerSession: 4, pingIntervalMs: 15_000, pongTimeoutMs: 10_000, checkIntervalMs: 1_000, authorizationTimeoutMs: 2_000,
 };
 export interface WsOptions {
-  sessions: SessionStore; cookieName: string; clock: Clock; limiter: RateLimiter; audit: AuditEmitter;
+  sessions: SessionStore; cookieName: string; clock: Clock; limiter: RateLimiter; /** Width of the address bucket (>1 when all clients share one address). */ ipScale?: number; audit: AuditEmitter;
   resolve(session: Session): Promise<{ rbac: RbacPrincipal; version: number } | undefined>;
   /** These callbacks must use the listener's exact configured authorities, including its bound port. */
   allowedHost(host: string): boolean; allowedOrigin(origin: string): boolean; limits?: Partial<WsLimits>;
@@ -75,7 +75,7 @@ export function createWsRoute(o: WsOptions) {
       if (!req.headers.origin || !o.allowedOrigin(req.headers.origin.toLowerCase())) return deny(403, "origin");
       if (req.headers["sec-fetch-site"] !== undefined && req.headers["sec-fetch-site"] !== "same-origin" && req.headers["sec-fetch-site"] !== "none") return deny(403, "cross-site");
       const ip = (req.socket.remoteAddress ?? "unknown").replace(/^::ffff:/, "");
-      if (!o.limiter.take("stream", `ip:${ip}`).ok) return deny(429, "rate-limit");
+      if (!o.limiter.take("stream", `ip:${ip}`, o.ipScale ?? 1).ok) return deny(429, "rate-limit");
       const id = readCookie(req.headers.cookie, o.cookieName); const session = o.sessions.peek(id);
       if (!session || !id) return deny(401, "session");
       actor = session.principal.id;

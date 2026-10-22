@@ -286,6 +286,28 @@ test("HYG-016 accepts SHA pins, local actions, digest-pinned docker images and c
   });
   assert.equal(ok.status, 0, ok.stderr);
 });
+test("HYG-016 rejects known annotated tag objects even when written as full SHA pins", () => {
+  const tagObject = "f520eceda224fe1a4aed5a2a27a194379a409996";
+  for (const ref of [`pnpm/action-setup@${tagObject}`, `actions/checkout@${tagObject}`, `example/actions/setup@${tagObject}`]) {
+    for (const wrap of [(r) => `      - uses: ${r} # v6`, (r) => `      - uses: "${r}" # v6`, (r) => `        uses: '${r}' # v6`]) {
+      const r = lintTree({ ".github/workflows/x.yml": `jobs:\n  a:\n    steps:\n${wrap(ref)}\n` });
+      assert.equal(r.status, 1, `${ref}: ${r.stdout}${r.stderr}`);
+      assert.match(r.stderr, /\[HYG-016\] \.github\/workflows\/x\.yml:4:/);
+      assert.match(r.stderr, new RegExp(tagObject));
+    }
+  }
+});
+test("HYG-016 accepts the peeled pnpm v6 commit alongside local and digest pins", () => {
+  const r = lintTree({ ".github/workflows/x.yaml": [
+    "jobs:", "  a:", "    steps:",
+    "      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6",
+    '      - uses: "pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86" # v6',
+    "      - uses: ./.github/actions/local",
+    `      - uses: docker://alpine@sha256:${"f".repeat(64)}`,
+    "",
+  ].join("\n") });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
 test('HYG-003 permits Rust test container mounts without per-file exceptions and still rejects commands', () => {
   const mounts = readFileSync(join(fixtureDir, 'HYG-003-mounts.txt'), 'utf8');
   const allowed = lintTree({ 'crates/example/tests/container.rs': mounts });

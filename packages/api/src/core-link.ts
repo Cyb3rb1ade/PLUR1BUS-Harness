@@ -49,7 +49,10 @@ export function createCoreLink(home: string, o: CoreLinkOptions = {}): CoreRpc &
       if (closed) { await c.close(); throw new Error("closed"); }
       c.onNotification((name, params) => { if (name === "api.account.changed" && typeof (params as { userId?: unknown })?.userId === "string") for (const listener of peopleListeners) listener((params as { userId: string }).userId); });
       c.onClose(() => { if (service === c) service = undefined; });
-      await c.call("events.subscribe", { names: ["api.account.changed"] }); service = c; serviceToken = token; return c;
+      // A connection whose subscription failed is no use to anyone and nobody else holds it: close it, or it leaks until the core goes.
+      try { await c.call("events.subscribe", { names: ["api.account.changed"] }); }
+      catch (e) { await c.close().catch(() => {}); throw e; }
+      service = c; serviceToken = token; return c;
     })().finally(() => { servicePending = undefined; });
     return servicePending;
   }

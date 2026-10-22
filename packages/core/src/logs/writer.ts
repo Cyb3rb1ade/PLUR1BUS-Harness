@@ -6,10 +6,13 @@ import { LevelPolicy, type LevelSettings, type Source } from "./levels.ts";
 export type { LevelSettings, Source };
 import { currentTrace, newTrace } from "./trace.ts";
 import { createSink } from "./sink.ts";
+import type { ExclusiveLock } from "@plur1bus/module-api";
 /** Records held while the sink fails; the oldest are dropped (and reported once the sink works again). */
 const MAX_PENDING = 256;
+/** Most records written under one acquisition of the role lock (bounds how long other writers wait for it). */
+const MAX_BATCH = 256;
 export interface WriteFields { source?: Source; level?: Level; stream?: "stdout" | "stderr"; bypassRate?: boolean }
-export interface WriterOptions { dir: string; role: string; source: Source; now?: () => number; timers?: boolean; strict?: boolean; maxBytes?: number; keep?: number; retentionDays?: number; redactPii?: boolean; levels?: LevelSettings }
+export interface WriterOptions { dir: string; role: string; source: Source; now?: () => number; timers?: boolean; strict?: boolean; maxBytes?: number; keep?: number; retentionDays?: number; redactPii?: boolean; levels?: LevelSettings; /** Test seam: counts or replaces the sink's OS lock acquisition. */ acquireLock?: (lockPath: string) => ExclusiveLock | null }
 type RecordValue = Record<string, any>;
 interface Repeat { record: RecordValue; start: number; count: number }
 interface Bucket { tokens: number; at: number; start: number; dropped: number; source: Source }
@@ -22,7 +25,11 @@ export function cap(text: string, bytes: number): string {
 }
 export function createWriter(o: WriterOptions) {
   const now = o.now ?? Date.now; const sink = createSink({ ...o, now });
-  const secrets = new Set<string>(); let redactor = createRedactor({ pii: o.redactPii ?? false, secrets });
+  // `transient`: the newest 256 registered values (a value registered again moves to the end). `pinned`: values the secret store says
+  // are the current value of a stored secret; they are never displaced by the bound above (audit secrets #3).
+  const secrets = new Set<string>(); const pinned = new Set<string>();
+  const masked = (): Set<string> => new Set([...pinned, ...secrets]);
+  let redactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
   let closed = false; let flushing = false; let lastPrune = now();
   const pending: string[] = []; let lost = 0; let retryAt = 0; const repeats = new Map<string, Repeat>(); const buckets = new Map<string, Bucket>();
   const policy = new LevelPolicy({ now, expired: key => emit("log.level.expired", { source_key: key, from: "trace", to: "debug" }, {}, true) });
@@ -47,14 +54,20 @@ export function createWriter(o: WriterOptions) {
     if (flushing) return;
     flushing = true;
     try {
-      drain();
-      if (lost > 0 && !closed) { const dropped = lost; lost = 0; emit("log.suppressed", { dropped, window_ms: 0, reason: "sink-failed" }, {}, true); drain(); }
+      drain(durable);
+      if (lost > 0 && !closed) { const dropped = lost; lost = 0; emit("log.suppressed", { dropped, window_ms: 0, reason: "sink-failed" }, {}, true); drain(durable); }
       if (durable) sink.sync();
     }
     finally { flushing = false; }
     retryAt = 0;
   }
-  function drain(): void { while (pending.length) { sink.append(pending[0]!, false); pending.shift(); } }
+  /** Writes the queue in order, one role-lock acquisition per batch; the final batch also syncs when `durable`. A failing batch keeps exactly the records that did not reach the file queued. */
+  function drain(durable = false): void {
+    while (pending.length) {
+      const batch = pending.slice(0, MAX_BATCH);
+      sink.appendBatch(batch, durable && pending.length <= MAX_BATCH, count => { pending.splice(0, count); });
+    }
+  }
   function fit(record: RecordValue): RecordValue {
     const attrs = record.attrs as RecordValue; const original = Buffer.byteLength(JSON.stringify(attrs));
     const schema = attrsSchemaFor(lookupEvent(record.event)!); const props = schema.properties as Record<string, { maxLength?: number; maxItems?: number; items?: { maxLength?: number } }>;
@@ -147,10 +160,11 @@ export function createWriter(o: WriterOptions) {
       queue(`${line}\n`);
       autoFlush(level !== "info" && level !== "debug"); // a failing sink is not a redaction failure; the record stays queued
     },
-    registerSecret(value: string) {
-      secrets.delete(value); secrets.add(value);
+    registerSecret(value: string, opts?: { pinned?: boolean }) {
+      if (opts?.pinned === true) { secrets.delete(value); pinned.add(value); }
+      else { pinned.delete(value); secrets.delete(value); secrets.add(value); }
       if (secrets.size > 256) secrets.delete(secrets.values().next().value!);
-      redactor = createRedactor({ pii: o.redactPii ?? false, secrets });
+      redactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
     },
     currentLevels(): LevelSettings {
       return { defaultLevel: levelSettings.defaultLevel ?? "info", levels: { ...levelSettings.levels }, ...(levelSettings.traceUntil !== undefined ? { traceUntil: levelSettings.traceUntil } : {}) };
@@ -166,7 +180,7 @@ export function createWriter(o: WriterOptions) {
       levelSettings = { ...settings, levels: { ...settings.levels } };
     },
     setRotation: sink.setRotation,
-    close() { if (closed) return; if (timer) clearInterval(timer); tick(true); flush(); closed = true; secrets.clear(); },
+    close() { if (closed) return; if (timer) clearInterval(timer); tick(true); flush(); closed = true; secrets.clear(); pinned.clear(); },
   };
 }
 export type LogWriter = ReturnType<typeof createWriter>;

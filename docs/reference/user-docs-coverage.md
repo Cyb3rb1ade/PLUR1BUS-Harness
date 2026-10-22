@@ -2,6 +2,8 @@
 
 Stand: 20.10.2026, Basis `origin/main` 31f8dd62c plus der Zweig `fix/user-docs-coverage`. Die Tabelle zeigt, welche Funktionen der Weboberfläche und der Kommandozeile eine Seite oder einen Abschnitt in `docs/user/de/` und `docs/user/en/` haben. Sie ist die Arbeitsgrundlage für die nächsten Doku-Runden.
 
+Nachtrag U1 (21.10.2026, Basis `origin/main` `1dae60f2ae`): Die sechs neuen Themen sind unten verlinkt. Kennzahlen, Web-Urteile, CLI-Zählung und Rangfolge bleiben die historische Bestandsaufnahme vom 20.10.; ihre Neuberechnung ist U2. Die Bibliotheksseite nennt ausdrücklich die noch unvollständige Web-Anbindung. #657 ist integriert; die project-/voice-Ergänzungen und der Befehlschecker aus #661 sind auf dieser Basis noch offen.
+
 ## Methode
 
 - **Web:** Routen aus `packages/web/src/nav.ts` (Seitenleiste und versteckte Routen), `settings-sections.ts` (Einstellungsbereiche), `pages/registry.ts` und `docs/web-ui.md`. Eine Zeile ist eine Route oder ein Einstellungsbereich.
@@ -32,7 +34,7 @@ Neu in dieser Runde sind sechs Seiten, je in de und en: Chat, Agenten, Erinnerun
 | Träume: Phasen, Zeitplan, Lauf-Protokoll | `/memories/dreams` | `dreams …` | [traeume.md](../user/de/traeume.md) *neu* | [dreams.md](../user/en/dreams.md) *neu* | ja (vorher fehlt) |
 | Medienindex-Tab | `/memories/media` | `media index …` | [mediensuche.md](../user/de/mediensuche.md), [erinnerungen.md](../user/de/erinnerungen.md) *neu* | [media-search.md](../user/en/media-search.md), [memories.md](../user/en/memories.md) *neu* | ja |
 | Mediensuche | `/media` | `media search` | [mediensuche.md](../user/de/mediensuche.md) | [media-search.md](../user/en/media-search.md) | ja |
-| Bibliothek (Galerie, Vorschau, Löschen, Beschriftung) | `/library` | – | – | – | fehlt |
+| Bibliothek (Galerie, Vorschau, Löschen, Beschriftung) | `/library` | – | [bibliothek.md](../user/de/bibliothek.md) (U1) | [library.md](../user/en/library.md) (U1) | fehlt |
 | Bilder erzeugen | `/library` (Dialoge) | `media generate`, `media edit` | [media.md](../user/de/media.md) | [media.md](../user/en/media.md) | teilw. (nur CLI beschrieben) |
 | Projekte und Board | `/projects` | `project …` | [projekte.md](../user/de/projekte.md) | [projects.md](../user/en/projects.md) | ja |
 | Posteingang | `/inbox` | `inbox …` | [posteingang.md](../user/de/posteingang.md) | [inbox.md](../user/en/inbox.md) | ja |
@@ -45,11 +47,11 @@ Neu in dieser Runde sind sechs Seiten, je in de und en: Chat, Agenten, Erinnerun
 | Nutzung und Limits | `/usage` | `budget …` | [budgets.md](../user/de/budgets.md) | [budgets.md](../user/en/budgets.md) | ja |
 | Status (Doctor) | `/doctor` | `1staid check`, `daemon status` | [diagnose.md](../user/de/diagnose.md) *neu*, [operations.md](../user/de/operations.md) | [diagnostics.md](../user/en/diagnostics.md) *neu*, [operations.md](../user/en/operations.md) | ja (vorher fehlt) |
 | Protokolle: Logs, Aktivität, Sitzungen, Audit-Prüfung | `/logs` | `logs query`, `logs tail`, `audit verify` | [diagnose.md](../user/de/diagnose.md) *neu* | [diagnostics.md](../user/en/diagnostics.md) *neu* | ja (vorher fehlt) |
-| Einstellungen: Allgemein | `/settings/general` | `config get`, `config set` | – | – | fehlt |
+| Einstellungen: Allgemein | `/settings/general` | `config get`, `config set` | [einstellungen-allgemein.md](../user/de/einstellungen-allgemein.md) (U1) | [general-settings.md](../user/en/general-settings.md) (U1) | fehlt |
 | Einstellungen: Modelle | `/settings/models` | `config …`, `model …` | [providers.md](../user/de/providers.md), [chat-modelle.md](../user/de/chat-modelle.md) | [providers.md](../user/en/providers.md), [chat-models.md](../user/en/chat-models.md) | teilw. |
 | Einstellungen: Memory (Embeddings, Medienindex) | `/settings/memory` | `memory reembed` | [reembed.md](../user/de/reembed.md), [cloud-embeddings.md](../user/de/cloud-embeddings.md), [mediensuche.md](../user/de/mediensuche.md) | [reembed.md](../user/en/reembed.md), [cloud-embeddings.md](../user/en/cloud-embeddings.md), [media-search.md](../user/en/media-search.md) | ja |
 | Einstellungen: Erweiterungen | `/settings/extensions` | `ext …` | [extensions.md](../user/de/extensions.md) | [extensions.md](../user/en/extensions.md) | ja |
-| Einstellungen: Netzwerk (Egress) | `/settings/network` | – | – | – | fehlt |
+| Einstellungen: Netzwerk (Egress) | `/settings/network` | – | [einstellungen-netzwerk.md](../user/de/einstellungen-netzwerk.md) (U1) | [network-settings.md](../user/en/network-settings.md) (U1) | fehlt |
 | Einstellungen: Sicherheit und Berechtigungen | `/settings/security` | – | [passkeys.md](../user/de/passkeys.md) (nur Passkeys) | [passkeys.md](../user/en/passkeys.md) (nur Passkeys) | teilw. |
 | Einstellungen: Datenschutz („Nur lokal“) | `/settings/privacy` | `config set` | [datenschutz.md](../user/de/datenschutz.md) | [privacy.md](../user/en/privacy.md) | ja |
 | Einstellungen: Benutzer und Rollen, Identitäten | `/settings/users` | `user …`, `identity …` | [benutzer-rollen.md](../user/de/benutzer-rollen.md) *neu*, [einladungen.md](../user/de/einladungen.md) | [users-and-roles.md](../user/en/users-and-roles.md) *neu*, [invitations.md](../user/en/invitations.md) | ja (vorher teilw.) |
@@ -60,9 +62,9 @@ Neu in dieser Runde sind sechs Seiten, je in de und en: Chat, Agenten, Erinnerun
 | Einstellungen: Module und Updates | `/settings/modules` | `module …`, `update …` | [extensions.md](../user/de/extensions.md), [operations.md](../user/de/operations.md) | [extensions.md](../user/en/extensions.md), [operations.md](../user/en/operations.md) | teilw. |
 | Erster Start (Wizard) | `/setup` | `setup` | [quickstart.md](../user/de/quickstart.md) (CLI) | [quickstart.md](../user/en/quickstart.md) (CLI) | teilw. |
 | Anmeldung und Konto | `/login`, `/join` | `login …` | [passkeys.md](../user/de/passkeys.md), [einladungen.md](../user/de/einladungen.md) | [passkeys.md](../user/en/passkeys.md), [invitations.md](../user/en/invitations.md) | teilw. |
-| Start (Home) | `/home` | – | – | – | fehlt |
-| Hilfe (gebündelte Doku) | `/help` | – | – | – | fehlt |
-| Befehlspalette (Strg+K) | Overlay | – | – | – | fehlt |
+| Start (Home) | `/home` | – | [start.md](../user/de/start.md) (U1) | [home.md](../user/en/home.md) (U1) | fehlt |
+| Hilfe (gebündelte Doku) | `/help` | – | [hilfe.md](../user/de/hilfe.md) (U1) | [help.md](../user/en/help.md) (U1) | fehlt |
+| Befehlspalette (Strg+K) | Overlay | – | [befehlspalette.md](../user/de/befehlspalette.md) (U1) | [command-palette.md](../user/en/command-palette.md) (U1) | fehlt |
 
 ## CLI-Befehlsgruppen
 

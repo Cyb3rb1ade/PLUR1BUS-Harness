@@ -613,6 +613,14 @@ fn poll_locked(shared: &Shared, layout: &Layout, st: &mut ConfigState) {
             if let Some(policy) = crate::privacy::running_violation(layout, &new) {
                 errors.push(format!("{}: {}", policy.reason(), policy.message()));
             }
+            // ADR-013 §5: a hand edit is applied like a set, so it passes the same foreign-host store check as
+            // `set_inner`, `config set` and `setup` (`engine.baseDbPathOverride` inside another host's state dir).
+            if let Some(violation) = crate::coexistence::store_violation(
+                &new,
+                &crate::coexistence::HostEnvironment::current(),
+            ) {
+                errors.push(format!("foreign-host-store-path: {}", violation.message()));
+            }
             if !errors.is_empty() {
                 shared.log.warn(
                     "config.json rejected; the running configuration stays",
