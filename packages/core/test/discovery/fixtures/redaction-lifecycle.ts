@@ -14,7 +14,7 @@ mock.module(new URL('../../../src/secrets/runtime.ts', import.meta.url).href, { 
     const store = runtime.createCoreSecretStore(options);
     registry = store.redaction;
     const subscribe = registry.subscribe.bind(registry);
-    registry.subscribe = sink => subscribe(value => { deliveries++; sink(value); });
+    registry.subscribe = sink => subscribe((value, info) => { deliveries++; sink(value, info); });
     return store;
   },
 } });
