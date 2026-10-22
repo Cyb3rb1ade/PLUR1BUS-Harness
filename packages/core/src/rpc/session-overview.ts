@@ -7,10 +7,10 @@ import type { Handler } from "./server.ts";
 import { RpcError } from "./errors.ts";
 import { toWireEvent, toWireSession, mapSessionError } from "../session/methods.ts";
 import { hiddenToolOutputs } from "../session/pruning.ts";
-export function sessionTranscriptSurface(d: { sessions: () => SessionStore | null; breakglass: BreakGlass; ownership: (a: Principal, p: unknown) => string[]; personOf: (owner: string) => string | undefined }): Record<string, Handler> {
+export function sessionTranscriptSurface(d: { sessions: () => SessionStore | null; /** Resolves the store holding a session (incognito sessions are memory-only); falls back to `sessions`. */ lookup?: (sessionId: string) => SessionStore | null; breakglass: BreakGlass; ownership: (a: Principal, p: unknown) => string[]; personOf: (owner: string) => string | undefined }): Record<string, Handler> {
   const read = (method: "get" | "resume" | "events"): Handler => async (p, ctx) => {
     const a = authenticatedPrincipal(ctx); if (a.kind !== "person") throw new RpcError("E_DENIED", "transcript reads require a person");
-    const store = d.sessions(); if (!store) throw new RpcError("E_NOT_AVAILABLE", "sessions unavailable");
+    const store = (typeof p?.sessionId === "string" ? d.lookup?.(p.sessionId) : null) ?? d.sessions(); if (!store) throw new RpcError("E_NOT_AVAILABLE", "sessions unavailable");
     const session = store.getSession(p?.sessionId); if (!session) throw new RpcError("E_NOT_FOUND", "session not found");
     if (!d.ownership(a, p).includes(session.owner)) {
       const person = d.personOf(session.owner);

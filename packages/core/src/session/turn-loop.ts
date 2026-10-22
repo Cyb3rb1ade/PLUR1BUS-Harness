@@ -135,6 +135,8 @@ export class TurnRunner {
 
       // 4. complete, then capture (once) and keep the context small. The turn is complete for the client at this point.
       if (turnProfile?.confirmed) await stage("voice-confirm", signal, trace, () => waitForVoiceConfirmation(turnProfile, signal));
+      // A cancel acknowledged to the client (session.cancel → cancelled:true) must win even when it lands after the last chunk, while the provider stream was still closing.
+      cancelled.throwIfAborted();
       if (turnProfile) signal.throwIfAborted();
       const done = store.completeTurn(turnId, {
         text: reply, tokens: usage?.outputTokens ?? estimateTokens(reply),
