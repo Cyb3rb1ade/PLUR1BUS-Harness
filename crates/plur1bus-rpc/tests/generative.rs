@@ -2051,6 +2051,8 @@ table! {
     Result "audit.verify" AuditVerifyResult,
     Params "admin.embedding.probe" AdminEmbeddingProbeParams,
     Result "admin.embedding.probe" AdminEmbeddingProbeResult,
+    Params "admin.engine.test" AdminEngineTestParams,
+    Result "admin.engine.test" AdminEngineTestResult,
     Params "admin.embedding.serve" AdminEmbeddingServeParams,
     Result "admin.embedding.serve" AdminEmbeddingServeResult,
     Params "admin.reembed.plan" AdminReembedPlanParams,

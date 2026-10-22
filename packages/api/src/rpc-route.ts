@@ -6,6 +6,7 @@ import type { CoreRpc } from "./core-rpc.ts";
 /** Explicit exposure, not a prefix match: additions require review and a test. Unsafe unguarded memory/caller paths,
  * lifecycle internals, subscriptions, admin backup/import and secret reveal are deliberately absent. */
 export const WEB_CORE_METHODS = new Set([
+  "admin.engine.test",
   "chat.promote.links", "chat.promote.preview", "chat.promote.commit",
   "collab.trace.get", "collab.trace.list", "collab.session.replay", "collab.chain.cancel",
   "project.column.list", "project.card.comment.add", "project.card.comment.list", "project.card.activity.list", "task.complete",
