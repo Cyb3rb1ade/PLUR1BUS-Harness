@@ -1,3 +1,4 @@
+import { migrateLegacyKnowledge } from "./knowledge/migration.ts";
 import { lstatSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_SCHEMA, type HarnessConfig } from "@plur1bus/config-schema";
@@ -32,6 +33,11 @@ export interface AgentRegistry { list(): string[]; has(id: string): boolean; sca
 export type AgentRegistryInput = HarnessConfig | { path: string } | { config: () => HarnessConfig };
 
 export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout, logger?: HarnessLogger): AgentRegistry {
+  // Runtime-only migration: import uses scaffoldFiles inside its own snapshot/ledger transaction.
+  const scaffoldRuntimeAgent = (id: string): void => {
+    scaffoldFiles(l, id);
+    migrateLegacyKnowledge(l.workspaceDir(id), l.home);
+  };
   if ("config" in configOrPath && typeof configOrPath.config === "function") {
     const current = configOrPath.config;
     const seen = new Set<string>();
@@ -39,14 +45,14 @@ export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout,
       const agents = current().agents;
       for (const id of Object.keys(agents)) {
         if (seen.has(id)) continue;
-        try { scaffoldFiles(l, id); seen.add(id); } catch (e) { logger?.warn("scaffold failed, will retry later", { agentId: id, err: e }); }
+        try { scaffoldRuntimeAgent(id); seen.add(id); } catch (e) { logger?.warn("scaffold failed, will retry later", { agentId: id, err: e }); }
       }
       return agents;
     };
     return {
       list: () => Object.keys(agentsNow()).sort(),
       has: (id) => Object.hasOwn(agentsNow(), id),
-      scaffold: (id) => scaffoldFiles(l, id),
+      scaffold: (id) => scaffoldRuntimeAgent(id),
       workspaceOf: (id) => (Object.hasOwn(agentsNow(), id) ? l.workspaceDir(id) : undefined),
     };
   }
@@ -60,7 +66,7 @@ export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout,
 
     const scaffoldAgent = (id: string): boolean => {
       try {
-        scaffoldFiles(l, id);
+        scaffoldRuntimeAgent(id);
         return true;
       } catch (e) {
         logger?.warn("scaffold failed, will retry later", { agentId: id, err: e });
@@ -149,7 +155,7 @@ export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout,
     return {
       list: () => Object.keys(config.agents).sort(),
       has: (id) => Object.hasOwn(config.agents, id),
-      scaffold: (id) => scaffoldFiles(l, id),
+      scaffold: (id) => scaffoldRuntimeAgent(id),
       workspaceOf: (id) => (Object.hasOwn(config.agents, id) ? l.workspaceDir(id) : undefined),
     };
   }
