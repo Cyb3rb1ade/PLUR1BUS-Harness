@@ -107,6 +107,23 @@ isolated compiler misses that justify another pinned tool and cache lifecycle.
 
 ## Local reproduction
 
+### Actions throughput snapshot (GP5 P1)
+
+`node scripts/ci/timings.mjs --repo Cyb3rb1ade/PLUR1BUS-Harness --workflow ci.yml --runs 50 --out /tmp/ci-baseline`
+reads the most recent 50 runs once through the authenticated `gh api` client. It needs Actions read access and never
+polls for completion or changes repository settings. The output prefix produces raw `.json` and a `.md` summary;
+`--input /tmp/ci-baseline.json` reproduces the summary offline. Workflow and run/job pagination are explicit, and only
+the selected run's latest attempt is measured. An API error fails the collection instead of publishing partial data.
+
+Percentiles use nearest rank. Job wait is `started_at - created_at`, which can include dependency or environment delay
+as well as runner queue time. Skipped jobs and missing/invalid times contribute no timing sample. Incomplete runs are
+reported separately; cancelled jobs can have partial execution times. Runs/day uses the span of selected run creation
+times, with a one-day minimum; a latest-N window is not an unbiased calendar-day sample. A newer different head on the
+same branch/event makes a cancelled run a supersession candidate, not a proven concurrency cancellation. Compare
+equivalent workflow/event mixes after changes; do not claim speedups from a mostly unfinished or cancelled sample.
+
+The initial measurement and its limitations are in [the P1 handoff](handoffs/2026-10-21-ci-baseline.md).
+
 See [the release verification commands](release.md#local-verification) for the complete checklist. In addition:
 
 ```bash
@@ -128,3 +145,24 @@ Since the owner decision of 2026-10-18 the suite runs in four shards. `web-brows
 The registry-driven `shipped-conformance.test.ts` includes every shipped page automatically. Browser reflow at 200% uses 720 CSS px and device scale 2 for the equivalent 1440 physical-pixel window; CSS `zoom` alone leaves media queries unchanged. The shipped-page matrix also checks enlarged text with CSS zoom at 200%; the existing pattern cases remain. Target measurements use the WCAG 2.5.5 inline-prose exception, while standalone links and controls remain measured ([W3C target-size explanation](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html)). Browser fixture tests establish UI accessibility and layout, while served-stack acceptance is recorded independently in `docs/demos/m3.md`.
 
 The macOS unit lint step uses a 4096 MiB V8 heap. This increases the available memory without reducing the checked files or changing the gate. Verification on the local Mac does not prove a hosted runner's memory behavior; CI is not polled.
+
+
+## Superseded-run cancellation (GP5 P3)
+
+The cancellation behavior requested by GP5 was already present on main at `1dae60f2ae` (including #655's workflow
+hygiene work). P3 preserves it and adds offline regression checks; it introduces no concurrency mutation.
+
+- `ci`, `desktop` and `hermes-host` group by workflow and PR number (falling back to ref). That is stable across new
+  commits on one PR and distinct across PRs. Unrelated label events use the existing `-noop` suffix so they cannot
+  cancel a useful run; `ci:macos` intentionally replaces it with the requested platform run.
+- `cancel-in-progress` is true only for `pull_request`, false for main pushes, schedules, manual and merge-group runs.
+- `container` and `release-smoke` already use the same PR-only cancellation. P3 leaves their workflows unchanged.
+  Release-smoke tests a candidate; it does not publish it.
+- `harness-release` explicitly uses `cancel-in-progress: false`, including reusable/manual invocations. `nightly` has
+  no PR trigger, and its schedule/manual events cannot activate its existing PR-only cancellation expression.
+
+`node --test scripts/release/test/concurrency.test.mjs` evaluates the actual concurrency expressions with synthetic
+Actions contexts: different commits/PRs/refs/workflows, all relevant event types and both label cases. It checks the
+existing policy without dispatching or polling Actions. The release-script suite already runs this file in CI.
+
+No repository rules, release policy, controller merging or watcher behavior change in P3.

@@ -49,7 +49,7 @@ Set shell.default to `pwsh` on Windows or `zsh` on macOS if desired. argv execut
 
 Relative paths resolve against the first configured root (the agent workspace by default). Parent traversal, UNC/device paths, Windows reserved names/alternate streams, credential deny paths and symlink/junction escapes are refused. Reads open verified handles and detect binary/invalid UTF-8. `offset` and `length` are byte ranges. Files larger than the output limit require an explicit range; a range starting inside a UTF-8 codepoint is refused as binary.
 
-Writes, appends and exact unique edits publish a sibling temporary file atomically. Append/edit read a bounded snapshot: concurrent edits by another writer are not a merge mechanism; coordinate shared-file changes. Copy handles bounded regular files; move handles regular files on the same filesystem; copy requires a fresh destination, and mkdir creates one level. Recursive listing/search cap depth at 16, entries at 1000 and results at the configured search limit. When installed, ripgrep receives verified bounded text over stdin, never caller paths; otherwise a JS matcher is used. Search treats queries literally and ignores binary/oversize/denied files. Links are never traversed recursively.
+Writes, appends and exact unique edits publish a sibling temporary file atomically. Append/edit read a bounded snapshot: concurrent edits by another writer are not a merge mechanism; coordinate shared-file changes. Copy handles bounded regular files; move handles regular files on the same filesystem; copy requires a fresh destination, and mkdir creates one level. Recursive listing/search cap depth at 16, entries at 1000 and results at the configured search limit. Content search tests the verified, bounded text it has read with a plain literal substring test in the harness process; it never starts ripgrep or any other process and never hands a caller path to one. Search treats queries literally and ignores binary/oversize/denied files. Links are never traversed recursively.
 
 The canonicaliser rechecks resolved targets and file identity around opens. Namespace operations (mkdir/move/native Trash) recheck the parent and reject symbolic-link entries. Node offers no portable directory-handle-relative rename/mkdir/Trash API: a hostile local actor concurrently replacing ancestor directories can still race these namespace operations. Use roots private to the Harness user; this is not an OS sandbox against another process running as that user. Approved executables likewise are **not** confined by cwd to the roots and may access the user's files or network. Root checks protect file tools and process cwd; command deny patterns are an additional guard, not a sandbox.
 
@@ -89,8 +89,13 @@ What is pinned:
 
 - **Standard input.** `proc.write_stdin` refuses (`TOO_LARGE`) once `writableLength` plus the new bytes would exceed `output.maxBytes`, so
   a child that never reads cannot make the harness buffer without limit.
-- **Search.** A content query with `\r` or `\n` always uses the built-in matcher; ripgrep is line-based and would never match it, so the
-  result no longer depends on whether `rg` is installed.
+- **Search.** Content search is a literal, case-sensitive substring test (`String.includes`) on the text of each file after it was read through
+  the verified path, in the harness process. `\r`, `\n`, NUL and lone surrogates in the query are matched like any other character, the
+  result never depends on whether `rg` is installed, and the reported `backend` is always `bounded-js`. The text is already in memory, so a ripgrep
+  process would only add a start and a copy of every byte (measured on 32 MiB: ripgrep 96-198 ms, substring test 1-31 ms).
+- **Search cost.** A search lists and reads only as far as it needs: it stops as soon as its results are full, tests up to 32 files (or 8 MiB of
+  text) at a time and checks the abort signal before every file. Each listed entry and each file read is still canonicalised against the
+  roots and the deny-list on its own; nothing is cached across entries.
 - **Files.** `fs.append` and `fs.edit` keep a UTF-8 byte order mark. A crash between the temporary file and the rename leaves the original
   byte for byte (kill test).
 - **Configuration.** `NaN`, `Infinity` and strings where numbers belong are clamped to a default or a bound; a string where a list belongs
