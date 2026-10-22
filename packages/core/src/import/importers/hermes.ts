@@ -40,7 +40,7 @@ import {
   type StoreAdoptReport,
   createTempHost,
 } from "./hermes-stores.ts";
-import { lastTakenOverStoreKey, PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode, type PriorCardLink } from "./card-links.ts";
+import { hasLiveParkedCards, lastTakenOverStoreKey, PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode, type PriorCardLink } from "./card-links.ts";
 import { ROUTED_REASONS } from "./openclaw-stores.ts";
 import { storeIdempotencyKey } from "../ledger.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
@@ -54,6 +54,8 @@ const SAFE_READ_REFUSALS = new Set(["unsafe-symlink", "not-regular-file", "file-
  * How the memory cards are handled when --adopt-store names a store (owner decision 2026-10-19, docs/import.md §10.3). A
  * Hermes take-over swaps the whole harness store, so one verdict covers every profile:
  *   - no --adopt-store, or --adopt-strategy import (the store is deliberately left out): undefined, the plain card import;
+ *     except a run without --adopt-store in a home whose not rolled-back runs parked Hermes cards (pending-reembed): it
+ *     applies the identity check on state/lancedb like the same-store case below (parked until the migration, then linked);
  *   - --adopt-strategy reembed (taken over in a foreign vector space for `memory reembed`): parked as pending-reembed;
  *   - taken over / dry-run preview-ok with a matching identity: imported, a card already in the store is linked;
  *   - the harness store is this source's store from an earlier take-over (store-exists-skipped with the last recorded
@@ -71,7 +73,13 @@ async function hermesCardMode(o: {
   errors: Array<{ sourceRef: string; reason: string }>;
 }): Promise<OwnStoreCardMode | undefined> {
   const r = o.report;
-  if (!r || r.routedTo === "import") return undefined;
+  // No --adopt-store: the plain card import, unless an earlier run of this home parked Hermes cards for a re-embedding
+  // migration. Then the harness store is that taken-over store, and the same identity check decides (parked / linked).
+  if (!r) {
+    if (!existsSync(o.lancedb) || !hasLiveParkedCards(o.importsDir, "hermes:")) return undefined;
+    return checkHarnessStore(o);
+  }
+  if (r.routedTo === "import") return undefined;
   if (r.routedTo === "reembed") return PARK_PENDING_REEMBED;
   const link: OwnStoreCardMode = { kind: "link", priorLinks: o.priorLinks };
   if (r.verdict === "ok" && (r.action === "taken-over" || r.action === "preview-ok")) return link;
@@ -79,6 +87,20 @@ async function hermesCardMode(o: {
     && (r.reason === "already-adopted-in-run" || r.reason === "store-exists-skipped")
     && lastTakenOverStoreKey(o.importsDir) === storeIdempotencyKey(r.sourcePath);
   if (!sameStore) return PARK_DEFERRED;
+  return checkHarnessStore(o);
+}
+
+/** The engine's identity check on the harness store (state/lancedb) itself: matching -> link, another model's space ->
+ *  parked (pending-reembed), unverifiable -> deferred. */
+async function checkHarnessStore(o: {
+  importsDir: string;
+  lancedb: string;
+  priorLinks: ReadonlyMap<string, PriorCardLink>;
+  targetConfig: unknown;
+  testInternals: Record<string, unknown> | undefined;
+  errors: Array<{ sourceRef: string; reason: string }>;
+}): Promise<OwnStoreCardMode> {
+  const link: OwnStoreCardMode = { kind: "link", priorLinks: o.priorLinks };
   let check: Awaited<ReturnType<typeof inspectStoreAdopt>>;
   try {
     // Engine.stores.adopt dry run: reads the store, never writes it (the same check a dry run runs on a source store).

@@ -63,7 +63,6 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 | packages/core/test/config-load-hardening.test.ts:79 | core.recall.softBudgetMs above hardBudgetMs is accepted (needs the same cross-field rule in crates/plur1bus-config, else core and supervisor disagree) |
 | packages/core/test/config-load-hardening.test.ts:80 | numbers without maximum (logs.keep, core.recall.capChars, session.compaction.*Tokens, media dimensions) and arrays/strings without maxItems/maxLeng... |
 | packages/core/test/config-load-hardening.test.ts:81 | engine.baseDbPathOverride has no minLength/absolute-path constraint in the schema (engine-config.ts only ignores blank values) |
-| packages/core/test/import/hermes-cards-own-store.test.ts:271 | a run without --adopt-store after a reembed take-over imports the parked cards without duplicate linking (no store named, the plain import); the do... |
 | packages/core/test/toolcall/results.test.ts:527 | idempotency key collides for scope 'a:b' + operation 'c' and scope 'a' + operation 'b:c' |
 | packages/core/test/toolcall/results.test.ts:536 | a cached approved result of another scope is served without a new approval |
 | packages/core/test/toolcall/dialects.test.ts:39 | names such as constructor and __proto__ bypass the conservative fallback |
