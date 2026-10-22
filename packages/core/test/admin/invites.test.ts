@@ -41,8 +41,10 @@ function setup(t: { after(fn: () => void): void }) {
   const guarded = guardMethods(raw, { resolve: () => people.resolve(owner), audit: sink, now: () => now });
   const call = (m: string, p: any = {}, c = ctx()) => guarded[m]!(p, c);
   const create = (extra: Record<string, unknown> = {}) => call("user.invite.create", { displayName: "Alex", role: "member", channel: "web", origin: ORIGIN, ...extra });
-  t.after(() => { identity.close(); people.close(); lifecycle.close(); rmSync(root, { recursive: true, force: true }); });
-  return { root, people, identity, call, create, raw, audit, sink, tick: (ms: number) => { now += ms; }, setAuditDown: (v: boolean) => { auditDown = v; }, now: () => now };
+  // Stores a test reopens on these files close before the directory goes (Windows cannot remove an open SQLite file); after-hooks run in registration order.
+  const closers: Array<() => void> = [];
+  t.after(() => { for (const c of closers.reverse()) c(); identity.close(); people.close(); lifecycle.close(); rmSync(root, { recursive: true, force: true }); });
+  return { closeBeforeRemoval: (c: () => void) => { closers.push(c); }, root, people, identity, call, create, raw, audit, sink, tick: (ms: number) => { now += ms; }, setAuditDown: (v: boolean) => { auditDown = v; }, now: () => now };
 }
 
 test("a link carries 256 bits of randomness, is built on the origin's fragment and is returned once", async t => {
@@ -119,7 +121,7 @@ test("a 30-day link outlives the one-hour pairing code and survives a restart of
   const listed = (await s.call("user.invite.list") as any).invites[0];
   assert.equal(listed.state, "pending", "pairing code is long expired, the link is not");
   const reopened = new AdminStore({ path: join(s.root, "admin.sqlite"), ownerId: owner.userId });
-  t.after(() => reopened.close());
+  s.closeBeforeRemoval(() => reopened.close());
   assert.equal(reopened.invites()[0]!.id, made.id, "durable across reopen");
 });
 
@@ -202,7 +204,7 @@ test("the limit survives a restart of the store", async t => {
   const s = setup(t);
   for (let i = 0; i < 5; i++) await assert.rejects(s.raw["user.invite.redeem"]!({ token: "A".repeat(43) }, ctx("attacker")), invalid);
   const reopened = new AdminStore({ path: join(s.root, "admin.sqlite"), ownerId: owner.userId });
-  t.after(() => reopened.close());
+  s.closeBeforeRemoval(() => reopened.close());
   const left = reopened.db.prepare("SELECT locked_until FROM attempts WHERE key = ?").get("invite-redeem:src:attacker") as any;
   assert.ok(left.locked_until > s.now());
 });

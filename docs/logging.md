@@ -24,8 +24,8 @@ before enqueueing. Unknown events throw with `strict: true`; otherwise they prod
 `log.unregistered` record. Audit/payload events and invalid attribution, attrs or levels are refused.
 
 New records flush every second or after 64 records; transitional legacy calls flush synchronously to preserve existing diagnostic readers. `flush()` drains it synchronously; `close()`
-also emits pending dedup/drop summaries. Each complete line is appended under a shared native
-role lock with `O_APPEND` and fsync. Handles close before rotation and deletion, including on Windows.
+also emits pending dedup/drop summaries. The queue is appended in order, in batches of at most 256 records, each batch under one acquisition of the shared native
+role lock (`O_APPEND`, one fsync per durable batch); other processes interleave between batches, never inside a line. Handles close before rotation and deletion, including on Windows.
 Files are secured with the existing module API's private-path helper (0600 on POSIX; Windows ACL).
 An I/O failure retains the unwritten queue head for retry; a producer's explicit flush can throw.
 The Core bootstrap registers `uncaughtExceptionMonitor` and `exit` flushes without replacing the

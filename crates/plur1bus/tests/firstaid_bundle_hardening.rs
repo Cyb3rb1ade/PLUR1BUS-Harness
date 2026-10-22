@@ -1,6 +1,6 @@
 //! `plur1bus 1staid bundle`, beyond `firstaid_bundle.rs`: a marker search over every entry name and every byte of the zip in
-//! the raw form and in each encoded form the redactor is meant to know (base64 with and without padding, base64url, percent
-//! encoding), what a bundle never reads (an env file, the secret store's files, agent workspaces, earlier bundles, backups, the
+//! the raw form and in each encoded form the redactor is meant to know (base64 with and without padding, base64url with and
+//! without padding, percent encoding, hex in lower and upper case), what a bundle never reads (an env file, the secret store's files, agent workspaces, earlier bundles, backups, the
 //! audit and payload logs), a secret in a file name (the whole bundle is refused), the home directory in plain and JSON-escaped
 //! form, and the key-name rule against a list of credential names.
 //!
@@ -150,7 +150,10 @@ fn known_forms(secret: &str) -> Vec<(&'static str, String)> {
             b64(secret.as_bytes(), false, false),
         ),
         ("base64url", b64(secret.as_bytes(), true, false)),
+        ("base64url padded", b64(secret.as_bytes(), true, true)),
         ("percent-encoded", percent(secret)),
+        ("hex", hex(secret)),
+        ("HEX", hex(secret).to_uppercase()),
     ]
 }
 
@@ -401,28 +404,46 @@ fn a_bare_user_name_outside_a_path_is_not_replaced_which_is_what_the_code_does_t
     );
 }
 
-/// SICHERHEIT (low). The redactor knows a registered secret raw, in base64 (padded, unpadded, url-safe) and percent-encoded
-/// (spec §4 rule 1 lists exactly those). A secret logged in hex is none of them, so it passes the redactor and the bundle's own
-/// re-scan, which uses the same rules. Adding the hex form changes which texts the redactor rewrites, so it is not changed here.
+/// SICHERHEIT (low), closed. The redactor knows a registered secret raw, in base64 (padded, unpadded), base64url (padded,
+/// unpadded), percent-encoded and in hex (lower and upper case). A secret logged in hex used to be none of them, so it passed
+/// the redactor and the bundle's own re-scan, which uses the same rules.
 #[test]
-#[ignore = "KNOWN GAP (SICHERHEIT, low): a registered secret that was logged hex-encoded is not redacted in the bundle"]
 fn a_registered_secret_logged_in_hex_is_redacted_too() {
+    for form in [hex(RUN_TOKEN), hex(RUN_TOKEN).to_uppercase()] {
+        let h = Home::new();
+        write(
+            &h.home.join("logs/supervisor.log"),
+            &format!(
+                "{{\"at\":1,\"level\":\"info\",\"role\":\"core\",\"msg\":\"digest {form}\"}}\n"
+            ),
+        );
+        let dest = h.root.join("b.zip");
+        assert_eq!(h.bundle(&dest).status.code(), Some(0));
+        let zip = unzip(&dest);
+        let at = found_in(&zip, &form);
+        assert!(
+            at.is_empty(),
+            "the hex form {form} of the registered secret is in {at:?}"
+        );
+        let log = String::from_utf8_lossy(&zip["logs/supervisor.log"]).into_owned();
+        assert!(log.contains("[REDACTED:secret]"), "{log}");
+    }
+}
+
+/// The counterpart: hex that is not the registered secret's (a digest, an id) stays readable.
+#[test]
+fn hex_that_is_not_a_registered_secrets_stays_in_the_bundle() {
     let h = Home::new();
+    let other = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
     write(
         &h.home.join("logs/supervisor.log"),
-        &format!(
-            "{{\"at\":1,\"level\":\"info\",\"role\":\"core\",\"msg\":\"digest {}\"}}\n",
-            hex(RUN_TOKEN)
-        ),
+        &format!("{{\"at\":1,\"level\":\"info\",\"role\":\"core\",\"msg\":\"sha256 {other}\"}}\n"),
     );
     let dest = h.root.join("b.zip");
     assert_eq!(h.bundle(&dest).status.code(), Some(0));
     let zip = unzip(&dest);
-    let at = found_in(&zip, &hex(RUN_TOKEN));
-    assert!(
-        at.is_empty(),
-        "the hex form of the registered secret is in {at:?}"
-    );
+    let log = String::from_utf8_lossy(&zip["logs/supervisor.log"]).into_owned();
+    assert!(log.contains(other), "{log}");
 }
 
 #[test]
