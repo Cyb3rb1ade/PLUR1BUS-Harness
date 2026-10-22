@@ -21093,7 +21093,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "pendingLines": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "description": "Total number of rows observed in the pending journal (not only the sample in `pending`)."
     },
     "pendingDropped": {
       "type": "integer",
@@ -21101,6 +21102,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "pending": {
       "type": "array",
+      "maxItems": 50,
+      "description": "Metadata of the newest pending rows, oldest first, at most 50 (AUDIT_PENDING_SAMPLE). `pendingLines` is the total; when it exceeds the length of this array only the newest rows are shown.",
       "items": {
         "type": "object",
         "additionalProperties": false,

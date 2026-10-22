@@ -67,15 +67,15 @@ After a reanchor the result also carries two additive lists. Neither makes `ok` 
 
 `core.status.audit` and `daemon.status.audit` expose cached metadata for human Owner/Admin with `audit.read`; scoped tokens also need that scope. Other principals do not receive the audit object. The local supervisor CLI follows its existing OS-user trust path; use `plur1bus daemon status --json` to see the raw section. These reads do not append, advance an anchor, trim a torn tail or create verification evidence.
 
-The cache lasts 30 seconds. The reader scans metadata and hashes only the newest two complete rows; it is **not** a historical chain verification. `state: "ok"` means the observed tail/anchor is acceptable or in the narrowly healable one-line crash window. It proves neither complete history nor successful future writes. In particular, status preserves an unterminated fragment byte for byte; it can still require investigation even when the observed complete tail matches the anchor.
+The cache lasts 30 seconds. The reader scans metadata and hashes only the newest two complete rows. Rotated chain files never change, so the Core keeps a small per-file summary (last two complete lines, newest anchor and re-anchor event) keyed by name, size, modification time and inode and reads again only the active `audit-chain.jsonl` and any rotated file whose key changed; summaries of vanished files are dropped, and the summary is never a hash or integrity claim. it is **not** a historical chain verification. `state: "ok"` means the observed tail/anchor is acceptable or in the narrowly healable one-line crash window. It proves neither complete history nor successful future writes. In particular, status preserves an unterminated fragment byte for byte; it can still require investigation even when the observed complete tail matches the anchor.
 
 | Field | Meaning and limit |
 |---|---|
 | `state`, `reason` | `ok` or `refusing`, with a refusal code or `audit-unreadable`; a cached observation, not an integrity verdict |
 | `lastSeq`, `observedAt` | newest observed complete sequence and observation time; an unreadable/malformed end can leave the sequence unknown |
 | `lastVerifiedAt` | last successful explicit `audit.verify`, persisted in `audit-chain.verified.json`; null until known, unchanged by later appends |
-| `pendingLines`, `pendingDropped` | rows observed in the pending journal and the journal's overflow counter; neither establishes complete audit coverage |
-| `pending` | timestamp, actor, action and refusal reason only; no `target` or `detail` payload |
+| `pendingLines`, `pendingDropped` | total rows observed in the pending journal and the journal's overflow counter; neither establishes complete audit coverage |
+| `pending` | a sample of the **newest 50** pending rows (oldest first; `AUDIT_PENDING_SAMPLE`, schema `maxItems`), so the answer stays small when the journal holds up to 10,000; timestamp, actor, action and refusal reason only, no `target` or `detail` payload. The web view says "showing the newest N of M" from `pendingLines` |
 | `lastAnchorAdvanced`, `lastReanchor` | last matching events observed in the current chain, timestamp and actor only; null when unknown |
 
 A successful explicit verification updates its private metadata sidecar. Failure to persist that time is `E_STORAGE`, even though the chain files were not changed. A previous success timestamp is not reset by a later failed check, so operators must inspect the latest verification result as well. It is not an external hash pin.

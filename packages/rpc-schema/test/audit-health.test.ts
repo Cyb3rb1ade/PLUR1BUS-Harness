@@ -20,3 +20,12 @@ for (const method of ["core.status", "daemon.status"]) {
     assert.equal(validateResult(method, { ...base, audit: { ...health, state: "healthy" } }).ok, false);
   });
 }
+
+for (const method of ["core.status", "daemon.status"]) {
+  test(`${method}: audit health pending is a bounded sample of at most 50 rows while pendingLines is the total`, () => {
+    const base = JSON.parse(readFileSync(new URL(`../fixtures/methods/${method}.json`, import.meta.url), "utf8")).result;
+    const rows = (n: number) => Array.from({ length: n }, () => health.pending[0]);
+    assert.equal(validateResult(method, { ...base, audit: { ...health, pendingLines: 10_000, pending: rows(50) } }).ok, true);
+    assert.equal(validateResult(method, { ...base, audit: { ...health, pendingLines: 10_000, pending: rows(51) } }).ok, false);
+  });
+}

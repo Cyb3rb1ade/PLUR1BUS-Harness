@@ -69,6 +69,7 @@ function HealthView({ health: a }: { health: Health }): View {
       h("div", {}, h("dt", {}, t("audit.reanchored")), h("dd", {}, note(a.lastReanchor)))),
     h("h4", {}, t("audit.pending")),
     h("p", {}, t("audit.pendingCount", { count: formatNumber(a.pendingLines), dropped: formatNumber(a.pendingDropped) })),
+    a.pendingLines > a.pending.length && a.pending.length > 0 ? h("p", { class: "field-hint" }, t("audit.pendingSample", { shown: formatNumber(a.pending.length), total: formatNumber(a.pendingLines) })) : null,
     h("p", { class: "field-hint" }, t("audit.pendingScope")),
     a.pending.length === 0 ? h("p", {}, t("audit.noPending"))
       : h("ul", { class: "plain-list audit-pending" }, a.pending.map((p, i) => h("li", { key: i },

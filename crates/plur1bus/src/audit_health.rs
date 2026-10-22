@@ -180,11 +180,16 @@ fn read_into(dir: &Path, s: &mut Value) -> io::Result<()> {
                 pending.push(meta);
             }
             s["pendingLines"] = json!(pending.len());
-            s["pending"] = json!(pending);
+            // Total above, newest PENDING_SAMPLE rows below (rpc.schema.json maxItems; same constant as the Core).
+            let skip = pending.len().saturating_sub(PENDING_SAMPLE);
+            s["pending"] = json!(&pending[skip..]);
         }
     }
     Ok(())
 }
+
+/// `pending` carries at most this many (the newest) rows; `pendingLines` stays the total.
+pub(crate) const PENDING_SAMPLE: usize = 50;
 
 #[derive(Default)]
 pub(crate) struct Cache {
@@ -315,6 +320,19 @@ mod parity {
         );
         fs::write(&active, format!("{chain}\n")).unwrap();
         compare();
+        let rows: String = (0..120)
+            .map(|i| format!("{}\n", json!({"at":i,"actor":{"user":"u","host":"h"},"action":"audit_config_set","chainReason":"anchor-invalid"})))
+            .collect();
+        fs::write(
+            dir.path().join("audit-chain.pending.jsonl"),
+            format!("{{\"pendingDropped\":1}}\n{rows}"),
+        )
+        .unwrap();
+        compare();
+        let s = read(dir.path(), 500);
+        assert_eq!(s["pendingLines"], 120);
+        assert_eq!(s["pending"].as_array().unwrap().len(), PENDING_SAMPLE);
+        assert_eq!(s["pending"][0]["at"], 120 - PENDING_SAMPLE as u64);
     }
     #[test]
     fn only_the_local_owner_or_human_owner_admin_with_audit_scope_can_read_metadata() {

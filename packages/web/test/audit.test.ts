@@ -53,7 +53,7 @@ describe("Audit section", { skip: browserSkip }, () => {
       await open(app);
       await section(app).getByText("Refusing audit writes", { exact: true }).waitFor();
       const text = await section(app).innerText();
-      for (const value of ["tail-anchor-mismatch", "config.set", "usr_owner", "usr_admin", "3 pending lines", "2 dropped"]) assert.ok(text.includes(value), value);
+      for (const value of ["tail-anchor-mismatch", "config.set", "usr_owner", "usr_admin", "3 pending lines", "2 dropped", "Showing the newest 1 of 3 pending lines."]) assert.ok(text.includes(value), value);
       assert.ok(!text.includes("NEVER_RENDER"));
       assert.equal(calls(app, "audit.verify").length, 0);
     });
