@@ -11,7 +11,9 @@ function rig() {
   return { backend, audit, store: createSecretStore({ keyring: backend, file: createMemoryBackend({ available: false }), fileFallback: () => false, audit }) };
 }
 test('descriptions refuse any contiguous eight-character part of the secret', () => {
-  assert.throws(() => checkDescription("full abc exposed", "abc"), invalid);
+  // A value shorter than eight characters is not looked for (#652): "abc" occurs in ordinary words, it is not a leak.
+  assert.equal(checkDescription("full abc exposed", "abc"), "full abc exposed");
+  assert.throws(() => checkDescription("full token-12345678-private exposed", "token-12345678-private"), invalid);
   assert.throws(() => checkDescription('prefix 12345678 suffix', 'token-12345678-private'), invalid);
   assert.equal(checkDescription('seven: 1234567', 'token-12345678-private'), 'seven: 1234567');
   assert.throws(() => checkDescription('Emoji: 😀😃😄😁😆😅😂🤣', 'start-😀😃😄😁😆😅😂🤣-end'), invalid);
@@ -111,4 +113,13 @@ test('a retained description check registers a retired value read from a previou
   const store = createSecretStore({ keyring: createMemoryBackend({ available: false }), file: backend, fileFallback: () => true, audit: createMemoryAuditSink() });
   await store.set(owner, 'billing', 'replacement-credential-value');
   assert.equal(store.redaction.redactor().text('retired-value-from-another-process').includes('retired-value-from-another-process'), false);
+});
+test('a description edit needs the same connection floor as set, delete and reveal (#652 surface gate), and a short value can still be described', async () => {
+  const { store } = rig();
+  await store.set(owner, 'pin', 'abc', 'Door code');
+  const t0 = { kind: 'owner' as const, id: 'owner', surface: 0 as const };
+  const t1 = { kind: 'owner' as const, id: 'owner', surface: 1 as const };
+  await assert.rejects(() => store.describe(t0, 'pin', 'Changed'), (e: unknown) => e instanceof SecretError && e.code === 'denied');
+  assert.equal((await store.meta(owner, 'pin')).description, 'Door code');
+  assert.equal((await store.describe(t1, 'pin', 'Cabinet code')).description, 'Cabinet code');
 });

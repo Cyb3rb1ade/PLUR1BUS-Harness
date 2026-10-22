@@ -1,6 +1,8 @@
 // M2 secret store (ADR-005 §"Secret storage"). Nothing in this directory ever puts a secret value into a message, a log
 // line, an audit detail or an error: values travel only as the return value of `reveal` and of a lease.
 
+import type { SurfaceTrustLevel } from "../rbac/surface.ts";
+
 /** `[A-Za-z0-9]` first, then `[A-Za-z0-9._:/@-]`, at most 128 characters. */
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 export const MAX_VALUE_BYTES = 64 * 1024;
@@ -10,9 +12,21 @@ export const isSecretName = (v: unknown): v is string => typeof v === "string" &
 /** Who is asking. The RPC layer derives it from the connection (a client cannot supply it); `core` is the in-process
  *  engine lease path; `agent` is any agent-side caller. Anything that is not exactly `owner` or `core` is refused. */
 export type SecretPrincipal =
-  | { kind: "owner"; id?: string }
+  /** `surface`: the trust level (T0-T3, rbac/surface.ts) of the connection the owner came in on. Only the RPC layer sets it, from facts
+   *  the core established itself; an owner without one is an in-process caller (no connection) and is not asked for it. */
+  | { kind: "owner"; id?: string; surface?: SurfaceTrustLevel }
   | { kind: "core" }
   | { kind: "agent"; agentId?: string };
+
+/**
+ * What a connection must have to write, delete or reveal a secret over RPC (D109 section 5; audit rbac #1). T1 is the
+ * token-authenticated local connection (`UNATTESTED_LOCAL_SURFACE`), which is where `plur1bus secret get --reveal` and the
+ * web UI arrive; T0 (an agent, a connection that is no person, anything malformed) is refused. This is a floor, not a
+ * defence against an agent that runs as the same OS user and reads `run/core.token`: that peer is T1 as well, and the core
+ * cannot tell it from the CLI until the CLI can be attested (docs/approvals.md section 3.2, docs/rbac.md threat model).
+ * Raising the constant to 2 is the one change needed once it can.
+ */
+export const MIN_SECRET_SURFACE: SurfaceTrustLevel = 1;
 
 export type BackendKind = "keyring" | "file" | "memory";
 
@@ -42,6 +56,20 @@ export function checkName(name: unknown): string {
   return name;
 }
 
+/** The shortest value the log redactor masks. A shorter value is accepted like any other (#652), but masking a three-letter value would
+ *  blank ordinary words in every log line, so it is not looked for in logs: `secret.set` answers with `shortValueWarning` instead. */
+export const MIN_REDACTED_VALUE_CHARS = 8;
+
+/** What `secret.set` returns beside the metadata when the value is too short for the redactor to mask (never the value itself). */
+export interface SecretWarning { code: "short-value-unmasked"; minMaskedChars: number; message: string }
+
+export function shortValueWarning(value: string): SecretWarning | undefined {
+  if (value.length >= MIN_REDACTED_VALUE_CHARS) return undefined;
+  return { code: "short-value-unmasked", minMaskedChars: MIN_REDACTED_VALUE_CHARS, message: `The value has fewer than ${MIN_REDACTED_VALUE_CHARS} characters: it was stored, but the log redactor does not mask values this short, so it could appear in a log line.` };
+}
+/** A value shorter than this is not looked for in a description (a letter or a word that happens to occur in prose is not a leak). */
+export const MIN_DESCRIPTION_VALUE_CHARS = 8;
+
 export function checkValue(value: unknown): string {
   if (typeof value !== "string" || value.length === 0) throw new SecretError("invalid-value", "secret value must be a non-empty string");
   if (value.includes("\u0000")) throw new SecretError("invalid-value", "secret value must not contain NUL");
@@ -63,9 +91,10 @@ export function checkDescription(description: unknown, value?: string): string |
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(text)) throw new SecretError("invalid-description", "secret description must be one line of plain text");
   if (value !== undefined) {
-    if (value.length > 0 && text.includes(value)) throw new SecretError("invalid-description", "secret description must not contain the secret value");
+    if (value.length >= MIN_DESCRIPTION_VALUE_CHARS && text.includes(value)) throw new SecretError("invalid-description", "secret description must not contain the secret value");
+    // A contiguous fragment of eight or more code points of the value is as much a leak as the whole value.
     const chars = [...text];
-    for (let i = 0; i + 8 <= chars.length; i++) if (value.includes(chars.slice(i, i + 8).join("")))
+    for (let i = 0; i + MIN_DESCRIPTION_VALUE_CHARS <= chars.length; i++) if (value.includes(chars.slice(i, i + MIN_DESCRIPTION_VALUE_CHARS).join("")))
       throw new SecretError("invalid-description", "secret description must not contain a secret fragment");
   }
   return text;
@@ -86,8 +115,13 @@ export interface SecretBackend {
   put(name: string, value: string, now: Date, updatedBy?: string, description?: string, register?: (value: string) => void): Promise<SecretMeta>;
   /** Changes only metadata, validating inside the backend's serialized operation. Values never leave this callback. */
   describe(name: string, description: string, now: Date, updatedBy?: string, register?: (value: string) => void): Promise<SecretMeta>;
-  /** True when something was removed. */
-  delete(name: string): Promise<boolean>;
+  /** True when something was removed. A backend that keeps tombstones (the file backend) also records `tombstoneAt` for a name it removed. */
+  delete(name: string, tombstoneAt?: Date): Promise<boolean>;
+  /** Optional (file backend): names deleted while another backend could not be reached, with the time of the delete. A copy of such a
+   *  name in the other backend that is not newer than this time has been deleted too and must not come back. */
+  tombstones?(): Promise<Record<string, string>>;
+  /** Optional (file backend): forgets one tombstone. */
+  clearTombstone?(name: string): Promise<void>;
   /** Names and metadata; never decrypts. */
   list(): Promise<SecretMeta[]>;
 }

@@ -71,14 +71,20 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
     get: (name) => serial(() => guarded("reading from the keyring", async () => (await entry(name)).getPassword())),
     put: (name, value, now, updatedBy, description, register) => serial(async () => {
       const idx = await readIndex();
-      const current = await guarded("reading from the keyring", async () => (await entry(name)).getPassword());
+      const e = await entry(name);
+      // The value and the index are two writes. When the second fails, the first is undone, so a failed `put` leaves the old state
+      // (value and index entry agree, and the caller's stale-copy cleanup, which a thrown `put` skips, has nothing to clean).
+      const before = await guarded("reading from the keyring", async () => e.getPassword());
       const kept = nextDescription(Object.hasOwn(idx.entries, name) ? idx.entries[name]?.description : undefined, description);
-      checkDescription(kept, value); if (current !== null) { register?.(current); checkDescription(kept, current); }
-      await guarded("writing to the keyring", async () => (await entry(name)).setPassword(value));
+      checkDescription(kept, value); if (before !== null) { register?.(before); checkDescription(kept, before); }
+      await guarded("writing to the keyring", async () => e.setPassword(value));
       const at = now.toISOString();
       const createdAt = (Object.hasOwn(idx.entries, name) ? idx.entries[name]?.createdAt : undefined) ?? at;
       idx.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
-      await writeIndex(idx);
+      try { await writeIndex(idx); } catch (err) {
+        try { await guarded("restoring the keyring", async () => { if (before !== null) e.setPassword(before); else if (typeof e.deletePassword === "function") e.deletePassword(); else e.deleteCredential?.(); }); } catch { /* the original failure is the one to report */ }
+        throw err;
+      }
       return { name, backend: "keyring" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
     }),
     describe: (name, description, now, updatedBy, register) => serial(async () => {

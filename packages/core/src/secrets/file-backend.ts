@@ -11,13 +11,19 @@ const TAG_BYTES = 16;
 
 /** `description` is optional and sits outside the ciphertext (it is metadata, like `updatedBy`); files written before it existed have none and stay readable under the same schema id. */
 interface Entry { createdAt: string; updatedAt: string; updatedBy?: string; description?: string; nonce: string; ct: string; tag: string }
-interface Doc { schema: typeof FILE_SCHEMA; entries: Record<string, Entry> }
+/** `tombstones` (name -> ISO time of the delete) is optional and additive under the same schema id: a delete made while the OS keyring was
+ *  unreachable, so that its older copy there does not come back. A file written without it reads unchanged, and an older reader keeps it. */
+interface Doc { schema: typeof FILE_SCHEMA; entries: Record<string, Entry>; tombstones?: Record<string, string> }
+/** The oldest go first; a core that never had a keyring would otherwise record every delete forever. */
+export const MAX_TOMBSTONES = 512;
 
 export interface FileBackendOptions {
   /** `<home>/state/secrets`. */
   dir: string;
   /** The core's `securePath` (chmod 0600 on POSIX, a protected user + SYSTEM DACL on Windows). */
   secure: SecurePath;
+  /** At most this many tombstones are kept (default `MAX_TOMBSTONES`). */
+  maxTombstones?: number;
   /** Test seams. */
   random?: (n: number) => Buffer;
   rename?: (from: string, to: string) => void;
@@ -65,6 +71,11 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
     for (const [name, e] of Object.entries(d.entries)) {
       const x = e as Partial<Entry>;
       if (!isSecretName(name) || typeof x?.createdAt !== "string" || typeof x.updatedAt !== "string" || typeof x.nonce !== "string" || typeof x.ct !== "string" || typeof x.tag !== "string" || (x.description !== undefined && typeof x.description !== "string")) throw corrupt("bad-entry", name);
+    }
+    if (d.tombstones !== undefined) {
+      const t = d.tombstones as unknown;
+      if (!t || typeof t !== "object" || Array.isArray(t)) throw corrupt("bad-tombstones");
+      for (const [name, at] of Object.entries(t)) if (!isSecretName(name) || typeof at !== "string") throw corrupt("bad-tombstones", name);
     }
     return d as Doc;
   }
@@ -165,6 +176,7 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
       const ct = Buffer.concat([c.update(Buffer.from(value, "utf8")), c.final()]);
       const at = now.toISOString();
       const createdAt = (has(doc, name) ? doc.entries[name]?.createdAt : undefined) ?? at;
+      if (doc.tombstones && Object.hasOwn(doc.tombstones, name)) { delete doc.tombstones[name]; if (Object.keys(doc.tombstones).length === 0) delete doc.tombstones; }
       doc.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}), nonce: nonce.toString("base64"), ct: ct.toString("base64"), tag: c.getAuthTag().toString("base64") };
       writeDoc(doc);
       return { name, backend: "file" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), ...(kept ? { description: kept } : {}) };
@@ -180,12 +192,27 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
       const { nonce: _nonce, ct: _ct, tag: _tag, ...meta } = entry;
       return { name, backend: "file", ...meta };
     }),
-    delete: (name) => serial("deleting from the encrypted store", () => {
+    delete: (name, tombstoneAt) => serial("deleting from the encrypted store", () => {
       const doc = readDoc();
       if (!has(doc, name)) return false;
       delete doc.entries[name];
+      if (tombstoneAt) {
+        const t = { ...(doc.tombstones ?? {}), [name]: tombstoneAt.toISOString() };
+        const names = Object.keys(t);
+        const max = o.maxTombstones ?? MAX_TOMBSTONES;
+        if (names.length > max) for (const old of names.sort((a, b) => (t[a]! < t[b]! ? -1 : t[a]! > t[b]! ? 1 : 0)).slice(0, names.length - max)) delete t[old];
+        doc.tombstones = t;
+      }
       writeDoc(doc);
       return true;
+    }),
+    tombstones: () => serial("reading the encrypted store", () => ({ ...(readDoc().tombstones ?? {}) })),
+    clearTombstone: (name) => serial("writing the encrypted store", () => {
+      const doc = readDoc();
+      if (!doc.tombstones || !Object.hasOwn(doc.tombstones, name)) return;
+      delete doc.tombstones[name];
+      if (Object.keys(doc.tombstones).length === 0) delete doc.tombstones;
+      writeDoc(doc);
     }),
     list: () => serial("listing the encrypted store", (): SecretMeta[] =>
       Object.entries(readDoc().entries).map(([name, e]) => ({ name, backend: "file" as const, createdAt: e.createdAt, updatedAt: e.updatedAt, ...(e.updatedBy ? { updatedBy: e.updatedBy } : {}), ...(e.description ? { description: e.description } : {}) })).sort((a, b) => a.name.localeCompare(b.name))),

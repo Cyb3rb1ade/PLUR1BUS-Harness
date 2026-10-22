@@ -10,13 +10,14 @@ export function seedSecrets(rpc: MockRpc, initial: Meta[] = [meta("anthropic.api
   rpc.handle("secret.list", () => ({ secrets: s.secrets }), { write: false });
   rpc.handle("secret.status", () => ({ backend: "keyring", degraded: false, keyring: { available: true }, file: { enabled: false, available: null }, count: s.secrets.length, activeLeases: 2, secrets: s.secrets }), { write: false });
   rpc.handle("secret.set", (p) => {
-    const { name, description } = p as { name: string; value: string; description?: string };
+    const { name, value, description } = p as { name: string; value: string; description?: string };
     const old = s.secrets.find((m) => m.name === name);
     // Same rule as the core: omitted keeps the stored text, an empty one removes it.
     const kept = description === undefined ? old?.description : description === "" ? undefined : description;
     const next = meta(name, { ...(old ? { createdAt: old.createdAt } : {}), updatedAt: "2026-10-07T08:00:00.000Z", ...(kept ? { description: kept } : {}) });
     s.secrets = [...s.secrets.filter((m) => m.name !== name), next];
-    return next;
+    // Same rule as the core (#652): a short value is stored and comes back with a warning.
+    return value.length < 8 ? { ...next, warning: { code: "short-value-unmasked", minMaskedChars: 8, message: "The value has fewer than 8 characters." } } : next;
   });
   rpc.handle("secret.delete", (p) => {
     const { name } = p as { name: string };

@@ -19,7 +19,7 @@ the entry's ciphertext, nonce, authentication tag and store key. The keyring bac
 The audit event is `secret.describe` and contains the name/backend, never the description or value. Audit failure refuses
 the write. Both new RPC methods also have explicit human-only guards; token scopes can only narrow access.
 
-Descriptions are trimmed, one line, at most 200 Unicode code points. A complete current value is forbidden even if short;
+Descriptions are trimmed, one line, at most 200 Unicode code points. A complete current value of eight or more code points is forbidden (a shorter value is accepted by `secret.set` since #652 and is not looked for in prose, so a letter or a word is never a leak);
 any contiguous fragment of eight or more code points is also forbidden. Set/rotation checks both the new value and the
 old one, including a retained description. The backend rechecks inside its serialized update so that a concurrent rotation
 cannot be reverted by a description edit. Values read internally for validation are registered with the existing redactor.

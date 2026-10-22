@@ -363,7 +363,7 @@ fn method_fixture(name: &str, f: &Value) {
         "secret.list" => pair::<SecretListParams, SecretListResult>(name, f),
         "secret.describe" => pair::<SecretDescribeParams, SecretDescribeResult>(name, f),
         "secret.grants.list" => pair::<SecretGrantsListParams, SecretGrantsListResult>(name, f),
-        "secret.set" => pair::<SecretSetParams, SecretMeta>(name, f),
+        "secret.set" => pair::<SecretSetParams, SecretSetOutcome>(name, f),
         "secret.get" => pair::<SecretGetParams, SecretGetResult>(name, f),
         "secret.delete" => pair::<SecretDeleteParams, SecretDeleteResult>(name, f),
         "grant.list" => pair::<GrantListParams, GrantListResult>(name, f),

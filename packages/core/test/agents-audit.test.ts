@@ -2,7 +2,7 @@
 // lifecycle on registration failure, and raw errors at the module boundary.
 import { describe, it, test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { defaults } from "@plur1bus/config-schema";
@@ -132,10 +132,92 @@ describe("registerAgentConfig", () => {
   });
 });
 
-test("KNOWN GAP: re-creating an agent under the name of a deleted agent leaves it unusable", { todo: "needs a lifecycle reset hook in AgentCreationDeps and its wiring in the composition root (outside this module)" }, () => {
-  const lc = new AgentLifecycle({ path: ":memory:" });
-  lc.set("alpha", { deleted: true });
-  // After a successful agent.create("alpha") the lifecycle row must no longer say deleted.
-  assert.equal(lc.usable("alpha"), true);
-  lc.close();
+describe("re-creating an agent under the name of a deleted agent", () => {
+  /** A deleted agent as the admin surface leaves it: tombstone, config entry, data directory and rights stay behind. */
+  function deletedAlpha() {
+    const lc = new AgentLifecycle({ path: ":memory:" }), rights = new Map<string, string>();
+    const s = creationSetup({
+      isDeleted: id => lc.state(id).deleted,
+      setDeleted: (id, deleted) => { lc.set(id, deleted ? { deleted: true, archived: true } : { deleted: false, archived: false, paused: false }); },
+      removeConfig: async id => { delete s.config.agents[id]; },
+      setRight: (id, user, right) => { if (right) rights.set(`${id}:${user}`, right); else rights.delete(`${id}:${user}`); },
+      clearRights: id => { for (const k of [...rights.keys()]) if (k.startsWith(`${id}:`)) rights.delete(k); },
+    });
+    s.config.agents.alpha = { persona: "old" } as never;
+    mkdirSync(join(s.l.agentDir("alpha"), "workspace"), { recursive: true });
+    writeFileSync(join(s.l.agentDir("alpha"), "SOUL.md"), "old persona");
+    writeFileSync(join(s.l.agentDir("alpha"), "workspace", "MEMORY.md"), "old secret memory");
+    rights.set("alpha:person-two", "manage");
+    lc.set("alpha", { archived: true, deleted: true });
+    const archives = () => readdirSync(s.l.agents).filter(n => n.startsWith(".deleted-alpha-"));
+    return { ...s, lc, rights, archives };
+  }
+  it("is usable afterwards (the lifecycle row no longer says deleted)", async () => {
+    const s = deletedAlpha();
+    assert.equal(s.lc.usable("alpha"), false);
+    assert.equal(s.svc.validate({ name: "alpha" }, owner).valid, true);
+    await s.svc.create({ name: "alpha", persona: "new persona" }, owner);
+    assert.equal(s.lc.usable("alpha"), true);
+    assert.equal((s.config.agents.alpha as { persona?: string }).persona, "new persona");
+    s.lc.close();
+  });
+  it("does not take over the old data, and keeps the old data in an archive under a unique name", async () => {
+    const s = deletedAlpha();
+    await s.svc.create({ name: "alpha", persona: "new persona" }, owner);
+    assert.equal(readFileSync(join(s.l.agentDir("alpha"), "SOUL.md"), "utf8"), "new persona");
+    assert.equal(existsSync(join(s.l.agentDir("alpha"), "workspace", "MEMORY.md")), false, "the old memory file must not reappear");
+    const [archive, ...more] = s.archives();
+    assert.ok(archive && more.length === 0);
+    assert.equal(readFileSync(join(s.l.agents, archive, "workspace", "MEMORY.md"), "utf8"), "old secret memory");
+    assert.equal(readFileSync(join(s.l.agents, archive, "SOUL.md"), "utf8"), "old persona");
+    s.lc.close();
+  });
+  it("does not hand the new agent to the people of the old one", async () => {
+    const s = deletedAlpha();
+    await s.svc.create({ name: "alpha" }, owner);
+    assert.equal(s.rights.has("alpha:person-two"), false);
+    assert.equal(s.rights.get("alpha:person-one"), "manage");
+    s.lc.close();
+  });
+  it("keeps one archive per incarnation when the name is reused and deleted again", async () => {
+    const s = deletedAlpha();
+    await s.svc.create({ name: "alpha", persona: "second" }, owner);
+    writeFileSync(join(s.l.agentDir("alpha"), "workspace", "NOTE.md"), "second life");
+    s.lc.set("alpha", { archived: true, deleted: true });
+    await s.svc.create({ name: "alpha", persona: "third" }, owner);
+    assert.equal(s.archives().length, 2);
+    assert.equal(readFileSync(join(s.l.agentDir("alpha"), "SOUL.md"), "utf8"), "third");
+    assert.ok(s.archives().some(a => existsSync(join(s.l.agents, a, "workspace", "NOTE.md"))));
+    assert.ok(s.archives().some(a => existsSync(join(s.l.agents, a, "workspace", "MEMORY.md"))));
+    s.lc.close();
+  });
+  it("puts the old incarnation back, deleted, when the new registration fails", async () => {
+    const s = deletedAlpha();
+    const svc = agentCreation({ config: () => s.config, layout: s.l, clock: () => 1000, audit: memoryAuditSink(), people: () => ["person-one"],
+      set: async (id, v) => { if ((v as { persona?: string }).persona !== "old") throw new RpcError("E_STORAGE", "refused"); s.config.agents[id] = v; }, setRight: () => {}, secrets: async () => [], requiredSecrets: () => [], importMemory: async () => {}, pause: () => {},
+      isDeleted: id => s.lc.state(id).deleted, setDeleted: (id, deleted) => { s.lc.set(id, deleted ? { deleted: true, archived: true } : { deleted: false, archived: false, paused: false }); },
+      removeConfig: async id => { delete s.config.agents[id]; } });
+    await assert.rejects(svc.create({ name: "alpha" }, owner));
+    assert.equal(s.lc.state("alpha").deleted, true);
+    assert.equal(readFileSync(join(s.l.agentDir("alpha"), "workspace", "MEMORY.md"), "utf8"), "old secret memory");
+    assert.deepEqual(s.config.agents.alpha, { persona: "old" });
+    assert.deepEqual(s.archives(), []);
+    s.lc.close();
+  });
+  it("still refuses the name of an agent that was not deleted", async () => {
+    const s = deletedAlpha();
+    s.lc.set("alpha", { archived: false, deleted: false });
+    const r = s.svc.validate({ name: "alpha" }, owner);
+    assert.equal(r.valid, false);
+    assert.ok(r.errors.some(e => e.code === "E_AGENT_EXISTS"));
+    await assert.rejects(s.svc.create({ name: "alpha" }, owner), (e: unknown) => e instanceof RpcError && e.error === "E_AGENT_EXISTS");
+    assert.equal(readFileSync(join(s.l.agentDir("alpha"), "SOUL.md"), "utf8"), "old persona");
+    assert.deepEqual(s.archives(), []);
+    s.lc.close();
+  });
+  it("keeps the old behaviour when the deployment cannot retire a deleted name (no lifecycle hooks)", async () => {
+    const s = creationSetup();
+    s.config.agents.alpha = { persona: "old" } as never;
+    await assert.rejects(s.svc.create({ name: "alpha" }, owner), (e: unknown) => e instanceof RpcError && e.error === "E_AGENT_EXISTS");
+  });
 });
