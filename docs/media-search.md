@@ -37,10 +37,10 @@ reference with defaults is [config.md](config.md).
 | `caption.maxChars` / `caption.perSegment` | `280` / `false` |
 | `backfill` | `auto` (or `manual`) |
 
-Validation (`packages/core/src/media-search/validate.ts`) checks capability, licence, the runtime privacy pin, function-specific privacy acknowledgments and availability.
+Validation (`packages/core/src/media-search/validate.ts`) checks capability, licence, “Only local models” (`privacy.localOnly`), function-specific privacy acknowledgments and availability.
 There are no lists of allowed provider combinations. Failures use the `E_MEDIA_*` codes in [errors.md](errors.md).
-The privacy pin forces local processing: a cloud embedding or caption provider together with the pin fails with `E_MEDIA_PRIVACY`
-before any request is sent. The config schema has no pin key yet; the composition takes it as a callback that defaults to "not pinned" and hands it both to the provider choice and to the caption service, which checks it again on every call.
+“Only local models” forces local processing: a cloud embedding or caption provider while the switch is on fails with `E_MEDIA_PRIVACY`
+before any request is sent. The composition reads the switch (`privacy.localOnly`) through a callback that defaults to "off" and hands it both to the provider choice and to the caption service, which checks it again on every call.
 An index call that hit the hook timeout cannot be cancelled in the port; if the medium is deleted afterwards, the hook removes it again once the late call settles.
 
 ## Ports and engine independence

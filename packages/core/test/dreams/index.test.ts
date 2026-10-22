@@ -52,11 +52,11 @@ describe("dreams/index: createDreams", () => {
     await dreams.stop();
   });
 
-  it("the diary path is <workspace>/dreaming.md of the registered agent, and null for an agent without a workspace", async () => {
+  it("the diary path is <workspace>/DREAMS.md of the registered agent, and null for an agent without a workspace", async () => {
     const { home, dreams } = make({ ws: { alpha: "/ws/alpha" } });
     dreams.scheduler.recordCapture("alpha");
     const st = dreams.scheduler.status("alpha").agents[0]!;
-    assert.equal(st.diary!.path, path.join("/ws/alpha", "dreaming.md")); assert.equal(st.diary!.exists, false);
+    assert.equal(st.diary!.path, path.join("/ws/alpha", "DREAMS.md")); assert.equal(st.diary!.exists, false);
     assert.equal(dreams.scheduler.status("nobody").agents[0]!.diary, null, home);
     await dreams.stop();
   });

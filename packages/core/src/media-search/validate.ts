@@ -33,7 +33,7 @@ const ALL_KINDS: MediaKind[] = ["image", "video", "audio"];
 async function checkModel(provider: string, model: string, ctx: MediaValidationContext, extra?: (info: MediaModelInfo) => void): Promise<void> {
   const info = ctx.catalog.lookup(provider, model);
   if (!info) throw mediaError("E_MEDIA_UNAVAILABLE", `Unknown media provider/model: ${provider}/${model}`, { reason: "unknown-provider" });
-  if (ctx.privacyPinned && !info.local) throw mediaError("E_MEDIA_PRIVACY", `Privacy pin is set; provider ${provider} is not local`, { reason: "privacy-pin" });
+  if (ctx.privacyPinned && !info.local) throw mediaError("E_MEDIA_PRIVACY", `“Only local models” is on; provider ${provider} is not local`, { reason: "privacy-pin" });
   extra?.(info);
   if (info.licence.nonCommercial && !ctx.licenceAccepted(model)) throw mediaError("E_MEDIA_LICENSE", `Licence ${info.licence.id} of ${model} is not accepted`, { reason: info.licence.id });
   if (!(await ctx.available(provider, model))) throw mediaError("E_MEDIA_UNAVAILABLE", `${provider}/${model} is not installed or not configured`, { reason: "not-available" });

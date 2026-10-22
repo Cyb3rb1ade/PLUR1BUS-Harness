@@ -1091,7 +1091,7 @@ The authenticated person's own direct chat: its model profile and reasoning choi
 
 **Served by:** core
 
-Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by Nur lokal is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).
+Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by “Only local models” is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).
 
 **params**
 
@@ -8259,7 +8259,7 @@ Disables one phase schedule; cron and importance triggers stop, run-now still wo
 
 **Served by:** core
 
-The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
+The private engine-owned dreaming diary (DREAMS.md at the agent workspace root; A5 amendment to D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
 
 **params**
 
@@ -10079,7 +10079,7 @@ The running configuration (spec §6.1, B5): the whole value, one key (dotted pat
 
 **Served by:** supervisor
 
-Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it.
+Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it. A chain that refuses the audit rows does not block the set; `warnings` then lists audit-chain-unavailable. A failure to write audit.log still refuses it (E_INTERNAL).
 
 **params**
 
@@ -10176,6 +10176,15 @@ Validates and applies all changes or none, writes config.json atomically and not
         ]
       },
       "description": "Estimated restart time (ms) per unit, null when unknown."
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "audit-chain-unavailable"
+        ]
+      },
+      "description": "Present only when the set was applied with a caveat. `audit-chain-unavailable`: the configuration is saved, but the audit hash chain refused the audit rows (anchor missing or invalid, integrity mismatch, lock timeout); they are in audit.log with chain=refused and wait in the pending journal until the chain accepts appends again."
     }
   }
 }
@@ -14767,7 +14776,7 @@ All channels, compact: id, enabled, state, health and the last error. Owner/Admi
 
 **Served by:** core
 
-Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, privacy pin, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.
+Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, “Only local models”, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.
 
 **params**
 
@@ -22693,7 +22702,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+  "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: “Only local models” is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
   "x-stability": "experimental",
   "x-since": "1.7.0",
   "type": "object",
