@@ -232,10 +232,12 @@ fn reanchor(out: &Out, layout: &Layout, reason: Option<String>, dry_run: bool) {
 
 pub fn run(out: &Out, layout: &Layout, cmd: AuditCmd) {
     match cmd {
-        AuditCmd::Verify => {
+        AuditCmd::Verify { pin } => {
             let mut client = connect_core(out, layout, "audit", Duration::from_secs(30));
             require_supports(out, &client, "audit.verify");
-            match client.call("audit.verify", json!({})) {
+            let params =
+                pin.map_or_else(|| json!({}), |p| json!({"pin":{"seq":p.seq,"hash":p.hash}}));
+            match client.call("audit.verify", params) {
                 Ok(v) => {
                     if v["ok"].as_bool() != Some(true) {
                         out.ok_but_failed(

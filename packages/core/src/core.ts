@@ -607,6 +607,14 @@ export function createCore(o: CoreOptions): Core {
       // B5: the hash-chained audit file (logs/audit-chain*.jsonl). The core's own writers tee into it besides audit.log.
       auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p) });
       const chain = auditChain;
+      // Startup check: report-only. A broken or unreadable chain is logged (finding codes, files, line and seq numbers: no record content)
+      // and never blocks the core from starting; `plur1bus audit verify` and the append refusals carry the enforcement.
+      try {
+        const startupAudit = chain.verify();
+        if (!startupAudit.ok) log.error("audit chain integrity findings at startup", { findings: startupAudit.findings, findingsTotal: startupAudit.findingsTotal });
+      } catch (e) {
+        log.error("audit chain could not be verified at startup", { reason: e instanceof Error ? e.message : String(e) });
+      }
       const identityLog = createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock });
       identity = createIdentityService({
         dbPath: path.join(l.state, "identity.sqlite"), clock,
