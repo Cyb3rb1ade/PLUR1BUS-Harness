@@ -47,7 +47,7 @@ standardmäßig ausgeschaltet. Sie arbeitet mit den Rangplätzen beider Ergebnis
 
 Text- und Medienanbieter wählst du unabhängig voneinander. Es gibt keine feste Liste erlaubter Kombinationen. Beim
 Speichern der Einrichtung prüft Plur1bus nur vier Dinge: ob der Anbieter die Medienart verarbeiten kann, ob die Lizenz
-des Modells bestätigt ist, ob der Datenschutz-Schutz den Anbieter zulässt und ob der Anbieter verfügbar ist. Hier sind
+des Modells bestätigt ist, ob „Nur lokale Modelle“ den Anbieter zulässt und ob der Anbieter verfügbar ist. Hier sind
 drei Beispiele.
 
 **Nur EmbeddingGemma 2 lokal für Text und Medien.** Das ist die einfachste Einrichtung. Dasselbe lokale Modell bedient den
@@ -83,11 +83,12 @@ kommerzielle Nutzung lässt Jina-Modelle nicht zu. Die Einrichtung fragt dich vo
 Lizenz für jedes Modell. Ohne diese Bestätigung kommt sie nicht weiter. Der Schritt „Memory & Mediensuche“ lässt sich
 insgesamt überspringen; du kannst ihn später unter Einstellungen → Memory einrichten.
 
-## Datenschutz-Schutz
+## Nur lokale Modelle
 
-Ist der Datenschutz-Schutz eingeschaltet, werden Cloud-Anbieter weder für die Einbettung noch für die Unterschriften
-verwendet. Plur1bus sendet dann gar keine Anfrage an sie. Lokale Anbieter arbeiten weiter. Ist ein Cloud-Anbieter trotz
-eingeschaltetem Schutz konfiguriert, bricht die betroffene Indexierung mit einer Fehlermeldung ab (siehe unten).
+Ist „Nur lokale Modelle“ (`privacy.localOnly`, siehe [datenschutz.md](datenschutz.md)) eingeschaltet, werden Cloud-Anbieter
+weder für die Einbettung noch für die Unterschriften verwendet. Plur1bus sendet dann gar keine Anfrage an sie. Lokale
+Anbieter arbeiten weiter. Ist ein Cloud-Anbieter trotz eingeschaltetem Schalter konfiguriert, bricht die betroffene
+Indexierung mit einer Fehlermeldung ab (siehe unten).
 
 ## Nachindexieren und Neuindexieren
 
@@ -124,7 +125,7 @@ Bestätigung. Bis der Vorgang fertig ist, findet die Suche nur einen Teil deiner
 |---|---|---|
 | Der Anbieter kann diese Medienart nicht verarbeiten (E_MEDIA_CAPABILITY) | Der gewählte Anbieter unterstützt Bilder, Videos oder Audio nicht. OpenAI etwa kann den Medien-Index nicht bedienen. | Für den Medien-Index einen Anbieter wählen, der diese Medienart unterstützt. |
 | Die Lizenz ist nicht bestätigt (E_MEDIA_LICENSE) | Das Modell, etwa ein Jina-Modell, braucht eine Lizenzbestätigung, die fehlt. | Die Einrichtung öffnen und die Lizenz bestätigen. |
-| Der Datenschutz-Schutz blockiert einen Cloud-Anbieter (E_MEDIA_PRIVACY) | Der Schutz ist eingeschaltet, und für Einbettung oder Unterschriften ist ein Cloud-Anbieter konfiguriert. Es wurde keine Anfrage gesendet. | Einen lokalen Anbieter nutzen oder den Schutz ausschalten, wenn du Cloud-Anbieter willst. |
+| „Nur lokale Modelle“ blockiert einen Cloud-Anbieter (E_MEDIA_PRIVACY) | „Nur lokale Modelle“ ist eingeschaltet, und für Einbettung oder Unterschriften ist ein Cloud-Anbieter konfiguriert. Es wurde keine Anfrage gesendet. | Einen lokalen Anbieter nutzen oder „Nur lokale Modelle“ ausschalten, wenn du Cloud-Anbieter willst. |
 | Das Modell ist nicht verfügbar (E_MEDIA_UNAVAILABLE) | Das Modell ist nicht installiert, ein Schlüssel fehlt, oder diese Engine hat keinen Medien-Index. | Das Modell installieren, den Schlüssel eintragen oder die Engine prüfen. |
 | Die Dimension passt nicht (E_MEDIA_DIMENSION) | Anfrage und gespeicherte Medien verwenden unterschiedliche Dimensionen, oder das Modell unterstützt die gewählte Dimension nicht. | Nach einem Modellwechsel den Medien-Index neu aufbauen oder eine unterstützte Dimension wählen. |
 | Format oder Komponente unbekannt (E_MEDIA_UNSUPPORTED_KIND) | Plur1bus kann dieses Dateiformat nicht verarbeiten, oder eine dafür nötige Komponente fehlt. Das Medium zählt als nicht unterstützt. | Die Datei in ein gängiges Format umwandeln, oder das Medium als nicht unterstützt hinnehmen. |
