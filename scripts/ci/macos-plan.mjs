@@ -12,8 +12,7 @@
 //   macos=true     run the non-unit macOS legs: any non-PR event, label `ci:macos`, or a platform-sensitive path changed
 //   python_matrix  the python-host matrix, with the macOS entry only when macos=true
 import { execFileSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { appendFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 export const LABEL = "ci:macos";
@@ -91,4 +90,4 @@ function main() {
   console.error(`macos-plan: event=${event} files=${files.length} -> ${out.trim().split("\n").slice(0, 2).join(" ")}`);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main();

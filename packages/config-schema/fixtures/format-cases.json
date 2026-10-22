@@ -157,7 +157,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -629,7 +651,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -1101,7 +1145,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -1573,7 +1639,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -2045,7 +2133,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -2517,7 +2627,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -2989,7 +3121,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -3461,7 +3615,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -3933,7 +4109,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -4405,7 +4603,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -4877,7 +5097,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -5349,7 +5591,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -5821,7 +6085,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -6293,7 +6579,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -6765,7 +7073,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -7237,7 +7567,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -7709,7 +8061,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -8181,7 +8555,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -8653,7 +9049,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -9125,7 +9543,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -9597,7 +10037,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -10069,7 +10531,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -10541,7 +11025,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -11013,7 +11519,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -11485,7 +12013,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -11957,7 +12507,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -12429,7 +13001,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -12901,7 +13495,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -13373,7 +13989,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -13842,7 +14480,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
@@ -14311,7 +14971,29 @@
         }
       },
       "oauth": {},
-      "decision": {},
+      "decision": {
+        "backend": "role",
+        "timeoutMs": 200,
+        "budgets": {
+          "triage": 200,
+          "routing": 200,
+          "pruning": 100,
+          "skills": 100,
+          "placement": 200,
+          "zoom": 150,
+          "compaction": 200
+        },
+        "confidence": {
+          "triage": 0,
+          "routing": 0.7,
+          "pruning": 0.7,
+          "skills": 0.7,
+          "placement": 0.7,
+          "zoom": 0.35,
+          "compaction": 0.7
+        },
+        "classProfiles": {}
+      },
       "modelRoles": {},
       "modelProfiles": {},
       "models": {
