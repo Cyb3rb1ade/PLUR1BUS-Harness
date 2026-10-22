@@ -1,0 +1,17 @@
+{
+  "params": {
+    "caller": {
+      "channel": "cli",
+      "accountId": "macbooker",
+      "userId": "cyberblade"
+    },
+    "sessionId": "ses_1"
+  },
+  "result": {
+    "sessionId": "ses_1",
+    "profile": null,
+    "defaultProfile": "default",
+    "revision": 0,
+    "reasoning": "default"
+  }
+}

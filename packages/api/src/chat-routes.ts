@@ -6,7 +6,7 @@ import { ApiError, errors, fromCoreError } from "./errors.ts";
 
 const defs=(SCHEMA as any).$defs;
 /** RPC JSON Schema is the only result source. Inline local references for standalone OpenAPI validation. */
-function inlineSchema(value:any,refs:readonly string[]=[]):any {
+export function inlineSchema(value:any,refs:readonly string[]=[]):any {
   if(Array.isArray(value))return value.map(v=>inlineSchema(v,refs));
   if(!value||typeof value!=="object")return value;
   if(value.$ref){const ref=value.$ref;if(typeof ref!=="string"||!ref.startsWith("#/$defs/")||refs.includes(ref))throw Error("unsupported chat schema reference");const target=ref.slice(2).split("/").reduce((v:any,key:string)=>v[key],SCHEMA);const {$ref:_,...rest}=value;return inlineSchema({...target,...rest},[...refs,ref]);}
@@ -35,7 +35,7 @@ const routes = [
   // Per-chat model and reasoning choice; the person is the authenticated principal, never a caller in the body.
   ["model-get","GET","/api/v1/chats/{sessionId}/model","read"], ["model-set","PATCH","/api/v1/chats/{sessionId}/model","write"],
 ] as const;
-export const CHAT_ROUTES: readonly RouteSpec[] = routes.map(([name,method,path,scope]) => ({ id:`chats.${name}`,method,path,summary:`Own direct chat ${name}`,tag:"chats",auth:"any",authz:{action:`chat:${scope}`},csrf:method!=="GET",rate:method==="GET"?"read":"write",stability:"experimental",since:"1.0.0",...(method!=="GET"?{requestBody:bodySchema(name)}:{}),...(method==="GET"?{extra:{400:{description:"Unknown, duplicate or invalid chat query",schema:{$ref:"#/components/schemas/Error"}}}}:{}),successStatus:name==="create"||name==="create-agent"||name==="fork"?201:200,success:{description:"Principal-bound direct-chat result; incognito transcripts are volatile.",schema:inlineSchema(defs.methods[`chat.${rpcMethod(name)}`].result)} }));
+export const CHAT_ROUTES: readonly RouteSpec[] = routes.map(([name,method,path,scope]) => ({ id:`chats.${name}`,method,path,summary:`Own direct chat ${name}`,tag:"chats",auth:"any",authz:{action:`chat:${scope}`},csrf:method!=="GET",rate:method==="GET"?"read":name==="submit"?"expensive":"write",stability:"experimental",since:"1.0.0",...(method!=="GET"?{requestBody:bodySchema(name)}:{}),...(method==="GET"?{extra:{400:{description:"Unknown, duplicate or invalid chat query",schema:{$ref:"#/components/schemas/Error"}}}}:{}),successStatus:name==="create"||name==="create-agent"||name==="fork"?201:200,success:{description:"Principal-bound direct-chat result; incognito transcripts are volatile.",schema:inlineSchema(defs.methods[`chat.${rpcMethod(name)}`].result)} }));
 function query(i: HandlerInput, fields: readonly string[]) {
   const result: Record<string, unknown>={};
   for(const [key,value] of i.query ?? []) {

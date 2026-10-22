@@ -13,9 +13,11 @@ import {
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { scaffoldFiles } from "../../agents.ts";
+import { assertKnowledgeTarget, formatImportedKnowledge, writeImportedKnowledge } from "../../knowledge/file.ts";
+import { KNOWLEDGE_RELATIVE_PATH } from "../../paths.ts";
 import type { Layout } from "../../paths.ts";
 import { isDir } from "../readonly.ts";
-import { readSourceFileSafe } from "../fs-safe.ts";
+import { readSourceFileSafe, decodeSourceText } from "../fs-safe.ts";
 import {
   agentIdempotencyKey,
   fileIdempotencyKey,
@@ -180,8 +182,10 @@ export function planAndMigrateAgent(
   const fileReports: ImportedFileReport[] = [];
   const usedTargetNames = new Set<string>();
 
-  const processFile = (src: string, initialTargetFileName: string) => {
+  const processFile = (src: string, initialTargetFileName: string, additionalSources: string[] = []) => {
     let targetFileName = initialTargetFileName;
+    const canonicalKnowledge = initialTargetFileName === KNOWLEDGE_RELATIVE_PATH;
+    if (canonicalKnowledge) assertKnowledgeTarget(wsTarget, l.home);
 
     // Check if target name already used by another file in this migration run
     if (usedTargetNames.has(targetFileName)) {
@@ -199,19 +203,25 @@ export function planAndMigrateAgent(
 
     let srcBuffer: Buffer;
     try {
-      // O_NOFOLLOW only protects the leaf; reject linked directories within the source tree too.
-      const root = resolve([sourceRoot, agent.workspace, agent.agentDir].find((candidate) => {
-        if (!candidate) return false;
-        const rel = relative(candidate, src);
-        return !isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`);
-      }) ?? dirname(src));
-      for (let dir = resolve(dirname(src)); ; dir = dirname(dir)) {
-        if (lstatSync(dir).isSymbolicLink()) {
-          throw new ImportError("E_IMPORT_FAILED", "unsafe-symlink", `${relative(root, dir) || "."}: unsafe-symlink`);
+      const buffers: Buffer[] = [];
+      for (const source of [src, ...additionalSources]) {
+        // O_NOFOLLOW only protects the leaf; reject linked directories within the source tree too.
+        const root = resolve([sourceRoot, agent.workspace, agent.agentDir].find((candidate) => {
+          if (!candidate) return false;
+          const rel = relative(candidate, source);
+          return !isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`);
+        }) ?? dirname(source));
+        for (let dir = resolve(dirname(source)); ; dir = dirname(dir)) {
+          if (lstatSync(dir).isSymbolicLink()) {
+            throw new ImportError("E_IMPORT_FAILED", "unsafe-symlink", `${relative(root, dir) || "."}: unsafe-symlink`);
+          }
+          if (dir === root || dirname(dir) === dir) break;
         }
-        if (dir === root || dirname(dir) === dir) break;
+        buffers.push(readSourceFileSafe(source, MAX_FILE_BYTES));
       }
-      srcBuffer = readSourceFileSafe(src, MAX_FILE_BYTES);
+      srcBuffer = buffers.length === 1 ? buffers[0]! : Buffer.from(buffers.map(decodeSourceText).join("\n\n"));
+      if (canonicalKnowledge) srcBuffer = Buffer.from(formatImportedKnowledge(decodeSourceText(srcBuffer), "agent-curated-import"));
+      if (srcBuffer.length > MAX_FILE_BYTES) throw new ImportError("E_IMPORT_FAILED", "file-too-large", "Combined knowledge exceeds the file size limit");
     } catch (error) {
       let reason = error instanceof ImportError ? error.reason : "source-unreadable";
       if (reason === "unsafe-symlink") {
@@ -238,8 +248,8 @@ export function planAndMigrateAgent(
       const prev = ledger.get(idKey)!;
       fileReports.push({
         sourceFile: src,
-        targetFile: prev.targetRef ? basename(prev.targetRef) : targetFileName,
-        targetPath: join(wsTarget, prev.targetRef ? basename(prev.targetRef) : targetFileName),
+        targetFile: prev.targetRef ? join(dirname(initialTargetFileName), basename(prev.targetRef)) : targetFileName,
+        targetPath: join(wsTarget, dirname(initialTargetFileName), prev.targetRef ? basename(prev.targetRef) : basename(targetFileName)),
         action: "matched-existing",
         bytes: srcBuffer.length,
       });
@@ -294,7 +304,11 @@ export function planAndMigrateAgent(
 
     if (apply) {
       if (action === "created" || action === "rename" || action === "replace") {
-        writeAtomicSync(targetPath, srcBuffer, 0o600);
+        if (canonicalKnowledge && targetFileName === KNOWLEDGE_RELATIVE_PATH) writeImportedKnowledge(wsTarget, srcBuffer, l.home);
+        else {
+          if (canonicalKnowledge) assertKnowledgeTarget(wsTarget, l.home);
+          writeAtomicSync(targetPath, srcBuffer, 0o600);
+        }
       }
 
       if (ledger) {
@@ -336,27 +350,24 @@ export function planAndMigrateAgent(
         ],
       },
       {
-        targetFileName: "memories.md",
-        sourceCandidates: [join(srcWs, "MEMORY.md"), join(srcWs, "memory.md")],
-      },
-      {
         targetFileName: "USER.md",
         sourceCandidates: [join(srcWs, "USER.md"), join(srcWs, "user.md")],
       },
       {
-        targetFileName: "knowledgepool.md",
-        sourceCandidates: [
-          join(srcWs, "KNOWLEDGE.md"),
-          join(srcWs, "knowledge.md"),
-          join(sourceRoot, "KNOWLEDGE.md"),
-          join(sourceRoot, "knowledge.md"),
-        ],
-      },
-      {
-        targetFileName: "dreaming.md",
+        targetFileName: "DREAMS.md",
         sourceCandidates: [join(srcWs, "DREAMS.md"), join(srcWs, "dreams.md")],
       },
     ];
+
+    // Both curated sources share one canonical target and one conflict decision.
+    // Read every selected source through the same source-tree/symlink checks.
+    const memorySource = findFirstFile([join(srcWs, "MEMORY.md"), join(srcWs, "memory.md")]);
+    const knowledgeSource = findFirstFile([
+      join(srcWs, "memory", "KNOWLEDGE.md"), join(srcWs, "KNOWLEDGE.md"), join(srcWs, "knowledge.md"),
+      join(sourceRoot, "KNOWLEDGE.md"), join(sourceRoot, "knowledge.md"),
+    ]);
+    const curatedSources = [...new Set([memorySource, knowledgeSource].filter((s): s is string => s !== null))];
+    if (curatedSources.length > 0) processFile(curatedSources[0]!, "memory/KNOWLEDGE.md", curatedSources.slice(1));
 
     for (const c of candidates) {
       const src = findFirstFile(c.sourceCandidates);
@@ -370,7 +381,7 @@ export function planAndMigrateAgent(
       try {
         const entries = readdirSync(memoryDir).sort();
         for (const entry of entries) {
-          if (!entry.endsWith(".md")) continue;
+          if (!entry.endsWith(".md") || entry.toLowerCase() === "knowledge.md") continue;
           const srcPath = join(memoryDir, entry);
           const match = entry.match(/^(\d{4}-\d{2}-\d{2})(?:_(\d{6}))?\.md$/);
           const targetName = match

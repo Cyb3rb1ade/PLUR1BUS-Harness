@@ -9,7 +9,7 @@ export type MessageRole = "system" | "user" | "assistant" | "tool";
 
 /** The events a turn emits (the submit/event contract, ADR-010 L2). `tool.call`/`tool.result` are placeholders: the
  *  loop persists and relays what a provider reports and executes nothing (tools come with M2). */
-export const EVENT_TYPES = ["turn.started", "delta", "tool.call", "tool.result", "turn.completed", "turn.failed", "decision.completed"] as const;
+export const EVENT_TYPES = ["turn.started", "delta", "tool.call", "tool.result", "turn.completed", "turn.failed", "session.model.changed", "decision.completed", "model.selected"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 export interface SessionRecord {

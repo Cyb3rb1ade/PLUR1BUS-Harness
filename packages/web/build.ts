@@ -35,6 +35,21 @@ registerChunkCss(${JSON.stringify(name)}, ${JSON.stringify(minified.trim())});
   },
 };
 
+// The wizard only reads provider/model/approval/discovery from the shipped inventory (config/shipped-models.ts). The
+// provenance `source` links (and the prose definition) are release documentation, not UI data, and must not put remote
+// origins into the bundle (CSP, test/build.test.ts), so they are dropped when the one shared file is bundled.
+const shippedModelsPlugin: Plugin = {
+  name: "shipped-models-web",
+  setup(b) {
+    b.onLoad({ filter: /config[\\/]shipped-models\.json$/ }, async (args) => {
+      const inventory = JSON.parse(await readFile(args.path, "utf8")) as { definition?: unknown; models: Record<string, unknown>[] };
+      delete inventory.definition;
+      for (const m of inventory.models) delete m.source;
+      return { contents: JSON.stringify(inventory), loader: "json" };
+    });
+  },
+};
+
 import { bundleDocs } from "./scripts/bundle-user-docs.ts";
 
 export type BuildOptions = {
@@ -62,7 +77,7 @@ export async function buildWeb(outdir: string = here("./dist"), opts: BuildOptio
     legalComments: "none",
     sourcemap: false,
     define: { __GALLERY__: String(opts.gallery === true) },
-    plugins: [pageCssPlugin],
+    plugins: [pageCssPlugin, shippedModelsPlugin],
     logLevel: "warning",
   });
 }

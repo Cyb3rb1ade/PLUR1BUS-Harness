@@ -4,7 +4,7 @@
 // re-check all agree on one number.
 import { createHash } from "node:crypto";
 import { lstatSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { basename, dirname, extname, join, sep } from "node:path";
+import { basename, dirname, extname, join, relative, sep } from "node:path";
 import { isSecretFileName } from "./readonly.ts";
 import { frontmatter } from "./yaml-lite.ts";
 import type { SkillRoot } from "./types.ts";
@@ -173,6 +173,11 @@ export function scanSkill(dir: string, root: Pick<SkillRoot, "tier" | "agentId" 
         if (!inside(realRoot, target)) { skipped.symlinkEscapes.push(r); continue; }
         try { st = statSync(target); } catch { skipped.symlinkEscapes.push(r); continue; }
         if (st.isDirectory()) { skipped.symlinkDirs.push(r); continue; }
+        // A link under a harmless name must not carry a credential or VCS file of the same skill into the copy: the name
+        // check above saw only the link's own name, so the resolved target's name (and, for VCS metadata, every folder on
+        // its way, as the walk skips those folders) is checked too. Fail closed: such a link is left out and counted.
+        if (isSecretFileName(basename(target))) { skipped.secretFiles++; continue; }
+        if (relative(realRoot, target).split(sep).some((n) => SKIP_NAMES.has(n))) { skipped.vcs++; continue; }
         source = target;
       }
       if (st.isDirectory()) { walk(a, r, depth + 1); continue; }

@@ -1,4 +1,4 @@
-export const pairingErrors = ["cli-missing", "denied", "insecure-origin", "installation-mismatch", "incompatible", "network", "trust-unavailable", "revoked", "keychain-memory-only", "keychain-denied", "keychain-unavailable", "keychain-error", "cert-changed", "ca-untrusted", "untrusted", "proof-mismatch", "unauthorized", "protocol", "invalid", "storage", "pairing-needed"] as const;
+export const pairingErrors = ["cli-missing", "denied", "insecure-origin", "installation-mismatch", "incompatible", "network", "trust-unavailable", "revoked", "keychain-memory-only", "keychain-denied", "keychain-unavailable", "keychain-error", "cert-changed", "ca-untrusted", "untrusted", "proof-mismatch", "unauthorized", "protocol", "invalid", "storage", "pairing-needed", "timeout"] as const;
 export type PairingError = typeof pairingErrors[number];
 export type PairingState = {
     phase: "idle" | "pairing" | "paired";

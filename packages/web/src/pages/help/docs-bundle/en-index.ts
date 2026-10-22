@@ -5,6 +5,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Agent creation and model licences"
   },
   {
+    "slug": "agents",
+    "title": "Managing agents"
+  },
+  {
     "slug": "approvals",
     "title": "Approvals and grants"
   },
@@ -25,8 +29,16 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Chat models and reasoning levels"
   },
   {
+    "slug": "chat",
+    "title": "Chat"
+  },
+  {
     "slug": "cloud-embeddings",
     "title": "Cloud embeddings and rerankers"
+  },
+  {
+    "slug": "command-palette",
+    "title": "Command palette"
   },
   {
     "slug": "containers",
@@ -37,8 +49,32 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Desktop bundles and migration"
   },
   {
+    "slug": "diagnostics",
+    "title": "Status, logs and audit trail"
+  },
+  {
+    "slug": "dreams",
+    "title": "Dreams"
+  },
+  {
     "slug": "extensions",
     "title": "Skills and plugins"
+  },
+  {
+    "slug": "general-settings",
+    "title": "General settings"
+  },
+  {
+    "slug": "help",
+    "title": "Help and user handbook"
+  },
+  {
+    "slug": "home",
+    "title": "Home page"
+  },
+  {
+    "slug": "host-tools",
+    "title": "Local host tools and sandbox status"
   },
   {
     "slug": "import-rollback",
@@ -53,6 +89,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Inviting people"
   },
   {
+    "slug": "library",
+    "title": "Media library"
+  },
+  {
     "slug": "long-conversations",
     "title": "Long conversations (compaction)"
   },
@@ -63,6 +103,14 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "media",
     "title": "Generating images"
+  },
+  {
+    "slug": "memories",
+    "title": "Memories"
+  },
+  {
+    "slug": "network-settings",
+    "title": "Network settings"
   },
   {
     "slug": "operations",
@@ -78,7 +126,11 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   },
   {
     "slug": "privacy",
-    "title": "Privacy and \"Local only\" mode"
+    "title": "Privacy and \"Only local models\" mode"
+  },
+  {
+    "slug": "project-commands",
+    "title": "Project commands"
   },
   {
     "slug": "projects",
@@ -109,6 +161,14 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Managing secrets"
   },
   {
+    "slug": "users-and-roles",
+    "title": "Users and roles"
+  },
+  {
+    "slug": "voice-commands",
+    "title": "Voice commands"
+  },
+  {
     "slug": "voice",
     "title": "Voice features"
   }
@@ -117,25 +177,38 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
 export async function loadDoc(slug: string): Promise<{ slug: string; title: string; content: string } | null> {
   switch (slug) {
     case "agent-provisioning": return import("./en/agent-provisioning.ts").then(m => m.doc);
+    case "agents": return import("./en/agents.ts").then(m => m.doc);
     case "approvals": return import("./en/approvals.ts").then(m => m.doc);
     case "breakglass": return import("./en/breakglass.ts").then(m => m.doc);
     case "budgets": return import("./en/budgets.ts").then(m => m.doc);
     case "channels": return import("./en/channels.ts").then(m => m.doc);
     case "chat-models": return import("./en/chat-models.ts").then(m => m.doc);
+    case "chat": return import("./en/chat.ts").then(m => m.doc);
     case "cloud-embeddings": return import("./en/cloud-embeddings.ts").then(m => m.doc);
+    case "command-palette": return import("./en/command-palette.ts").then(m => m.doc);
     case "containers": return import("./en/containers.ts").then(m => m.doc);
     case "desktop": return import("./en/desktop.ts").then(m => m.doc);
+    case "diagnostics": return import("./en/diagnostics.ts").then(m => m.doc);
+    case "dreams": return import("./en/dreams.ts").then(m => m.doc);
     case "extensions": return import("./en/extensions.ts").then(m => m.doc);
+    case "general-settings": return import("./en/general-settings.ts").then(m => m.doc);
+    case "help": return import("./en/help.ts").then(m => m.doc);
+    case "home": return import("./en/home.ts").then(m => m.doc);
+    case "host-tools": return import("./en/host-tools.ts").then(m => m.doc);
     case "import-rollback": return import("./en/import-rollback.ts").then(m => m.doc);
     case "inbox": return import("./en/inbox.ts").then(m => m.doc);
     case "invitations": return import("./en/invitations.ts").then(m => m.doc);
+    case "library": return import("./en/library.ts").then(m => m.doc);
     case "long-conversations": return import("./en/long-conversations.ts").then(m => m.doc);
     case "media-search": return import("./en/media-search.ts").then(m => m.doc);
     case "media": return import("./en/media.ts").then(m => m.doc);
+    case "memories": return import("./en/memories.ts").then(m => m.doc);
+    case "network-settings": return import("./en/network-settings.ts").then(m => m.doc);
     case "operations": return import("./en/operations.ts").then(m => m.doc);
     case "os-confirmation": return import("./en/os-confirmation.ts").then(m => m.doc);
     case "passkeys": return import("./en/passkeys.ts").then(m => m.doc);
     case "privacy": return import("./en/privacy.ts").then(m => m.doc);
+    case "project-commands": return import("./en/project-commands.ts").then(m => m.doc);
     case "projects": return import("./en/projects.ts").then(m => m.doc);
     case "providers": return import("./en/providers.ts").then(m => m.doc);
     case "quickstart": return import("./en/quickstart.ts").then(m => m.doc);
@@ -143,6 +216,8 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "reembed": return import("./en/reembed.ts").then(m => m.doc);
     case "remote-access": return import("./en/remote-access.ts").then(m => m.doc);
     case "secrets": return import("./en/secrets.ts").then(m => m.doc);
+    case "users-and-roles": return import("./en/users-and-roles.ts").then(m => m.doc);
+    case "voice-commands": return import("./en/voice-commands.ts").then(m => m.doc);
     case "voice": return import("./en/voice.ts").then(m => m.doc);
     default: return null;
   }

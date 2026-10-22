@@ -1,3 +1,4 @@
+import { SessionModelRouting } from './model-routing.ts';
 import { DecisionClient } from '../decision/client.ts';
 import { createSystemOneBackend } from '../decision/system-one.ts';
 import { decisionPruningPort } from '../decision/pruning.ts';
@@ -80,6 +81,7 @@ export interface CompositionOptions {
   tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media' | 'documents'>>;
 }
 export interface CompositionDeps {
+  mediaHostFetchReady?: boolean;
   supervised?: boolean;
   systemJobs?: import('../system-jobs/index.ts').SystemJobs;
   resolveCollaborationPerson?: (id: string) => import("../rbac/types.ts").Principal | null;
@@ -181,7 +183,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => hostctl.close());
     const audit = createPolicyAudit({ sink: d.audit, clock: { now: d.clock }, ...(d.secrets.redaction ? { redactor: d.secrets.redaction.redactor() } : {}) });
     const execOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'exec', version: '0.1.0' }, now: d.clock });
-    disposers.push(d.secrets.redaction?.subscribe(value => execOutput.registerSecret(value)) ?? (() => {}), () => execOutput.close());
+    disposers.push(d.secrets.redaction?.subscribe((value, info) => execOutput.registerSecret(value, info)) ?? (() => {}), () => execOutput.close());
     const grants: GrantSource = { maxGrantDays: () => d.config().approvals?.maxGrantDays ?? 90, list: q => d.permissions.current()?.grants.list(q) ?? [], get: id => d.permissions.current()?.grants.get(id) };
     const mcp = isolated('turn MCP', () => createMcpRegistry({ logger: d.logger, secrets: d.secrets, egress: d.egress, policy: { allowedCommands: ((cfg.providers.mcp as { allowedCommands?: string[] } | undefined)?.allowedCommands ?? []) } }));
     const servers: string[] = [];
@@ -221,7 +223,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => mediaSurface.close());
     // The media index is shared like the engine: its cloud tiers (media embedding, captioning) are pinned off while the
     // installation or any agent is local-only (the existing privacy-pin refusal, E_MEDIA_PRIVACY reason privacy-pin).
-    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget, privacyPinned: () => localOnlyShared(d.config()), ...(d.inbox ? { emit: (name, payload) => { d.logger.info(name, payload); mediaToInbox(d.inbox!, name, payload); } } : {}) }); disposers.push(() => mediaSearch.close());
+    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, hostFetchReady: d.mediaHostFetchReady === true, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget, privacyPinned: () => localOnlyShared(d.config()), ...(d.inbox ? { emit: (name, payload) => { d.logger.info(name, payload); mediaToInbox(d.inbox!, name, payload); } } : {}) }); disposers.push(() => mediaSearch.close());
     const profiles = options.providers?.profiles ?? (d.provider ? { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: legacyAdapter(d.provider) }] } : auth?.profiles ?? {});
     // privacy.localOnly: a chat/role provider is local when its endpoint is loopback or listed in privacy.localEndpoints.
     // No base_url means the vendor's cloud default; a managed OpenAI login is always cloud. The in-process test provider
@@ -281,7 +283,28 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const maintenance = sessionMaintenance(d.home, cfg);
     // D105: a configured decision role is required for every foreground message (failure/timeout = default profile, core set only);
     // without modelRoles.decision the rule triage selects the shortlist as before.
-    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, onExecution: execution => { try { workflowEvidence.record(execution); } catch { d.logger.warn('mining execution evidence unavailable'); } }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 200, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
+    const modelRouting = new SessionModelRouting({ decision: () => decisions, agent: id => d.config().agents[id], localOnly: agentId => localOnlyFor(d.config(), agentId), isLocal: isLocalProvider,
+      restore: request => {
+        const store = sessions.forSession(request.sessionId).store, session = store.getSession(request.sessionId);
+        if (!session || session.archivedAt !== null || session.agentId !== request.agentId || session.owner !== request.principal) return undefined;
+        // Walk metadata pages backwards; a large streamed reply must not hide its earlier selection event.
+        for (let after = Math.max(0, (store.lastEventSeq(session.id) ?? 0) - 2000);; after = Math.max(0, after - 2000)) {
+          const events = store.listEvents(session.id, after, 2000);
+          for (const event of events.reverse()) {
+            if (event.type !== 'model.selected' || event.data.source !== 'auto' || !event.turnId || store.getTurn(event.turnId)?.state !== 'completed') continue;
+            const { profile, provider, model } = event.data;
+            if (typeof profile === 'string' && typeof provider === 'string' && typeof model === 'string') return { profile, provider, model };
+          }
+          if (after === 0) return undefined;
+        }
+      },
+    });
+    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, modelRouting, onModelRouting: (event, turn) => {
+      const service = sessions.forSession(turn.sessionId), session = service.store.getSession(turn.sessionId);
+      if (!session || session.agentId !== turn.agentId || session.owner !== turn.principal || service.store.getTurn(turn.turnId)?.sessionId !== session.id) return;
+      const stored = service.store.appendEvent(turn.turnId, 'model.selected', { ...event });
+      d.notify('session.event', { agentId: session.agentId, event: toWireEvent(stored) }, { optIn: true });
+    }, onExecution: execution => { try { workflowEvidence.record(execution); } catch { d.logger.warn('mining execution evidence unavailable'); } }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 200, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
       const dir = join(d.home, 'state', 'tool-results'); await mkdir(dir, { recursive: true, mode: 0o700 });
       const id = randomUUID(); await writeFile(join(dir, `${id}.json`), JSON.stringify(value), { flag: 'wx', mode: 0o600 }); return `tool-result:${id}`;
     } } }) : null;
@@ -347,10 +370,11 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       return testModel(p.model, profiles, selected => (options.createTurnProvider ?? createTurnProvider)({
         profiles: selected, profile: 'probe', profileForClass: () => 'probe', registry: new ToolRegistry(), budget,
         principal: () => budgetPrincipal, grants, approval: { async request() { throw new Error('tools-disabled'); } },
+        localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider,
         log: () => {}, resultStore: { async put() { throw new Error('tools-disabled'); } }, maxTokens: 16, maxRounds: 1,
         system: ['Reply with OK. Do not call tools.'],
         router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {} },
-      }), budgetPrincipal, Object.keys(d.config().agents)[0] ?? 'model-test', AbortSignal.any([ctx.signal, d.signal]));
+      }), budgetPrincipal, Object.keys(d.config().agents)[0] ?? 'model-test', AbortSignal.any([ctx.signal, d.signal]), { localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider });
     }, ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
       await collab?.shutdown();

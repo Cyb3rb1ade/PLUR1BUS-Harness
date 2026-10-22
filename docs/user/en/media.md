@@ -121,7 +121,7 @@ A job goes through the states `queued` and `running`, and ends in `succeeded`, `
 ## Costs and limits
 
 - Cloud providers bill their images themselves. Plur1bus does not compute in money: it neither estimates nor shows costs.
-- If the budget is used up, Plur1bus does not send the job to the provider at all.
+- If the budget is used up, Plur1bus does not send the job to the provider at all. Media has its own limits in images and video seconds (see [budgets.md](budgets.md)); a request for more images than are left is refused whole.
 - Reference and mask images lose their metadata before sending, for example the location from EXIF.
 - If a provider refuses a job on content grounds, it is not routed around through another provider and not retried
   automatically.

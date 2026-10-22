@@ -9,7 +9,7 @@ All methods are experimental. Tests use scratch stores, deterministic clocks and
 | F39 lifecycle | `agent.pause`, `agent.resume`, `agent.archive`, `agent.unarchive` | `plur1bus agent pause/resume/archive/unarchive <id>` | Pause admits no new turns or agent jobs; in-flight work finishes. Archive makes the agent unusable and retains data. Unarchive preserves the pause flag. |
 | F39 export | `agent.export` | `plur1bus agent export <id> [--offer-only]` | Secret-redacted JSON, signed manifest; ten-minute actor-bound export offer. |
 | F39 delete | `agent.delete` | `plur1bus agent delete <id> --confirm-name <name> --export-offer <offer-id>` | Requires archive and exact configured display name (or id). Current engine cannot hard-erase: returns `E_NOT_AVAILABLE`, reason `engine-erasure-unavailable`, without deleting anything. |
-| F40 people | `user.list`, `user.role.set` | `plur1bus user list`, `plur1bus user role <user-id> <preset>` | Five presets. Only Owner may change an Owner or promote one. Last Owner cannot be demoted. No user-delete RPC exists. |
+| F40 people | `user.list`, `user.role.set` | `plur1bus user list`, `plur1bus user role <user-id> <preset>` | Five presets. Only Owner may change an Owner; nobody can be promoted to Owner (ADR-007: exactly one Owner, no transfer operation yet; reason `single-owner`). Last Owner cannot be demoted. No user-delete RPC exists. |
 | F40 invitations | `user.invite.create/list/revoke` | `plur1bus user invite create <name> --role <preset> --channel <channel> [--minutes <1-60>]`, `list`, `revoke <id>` | One-time code, fixed non-owner role, Identity claim/confirm proof. Revoking a claimed invitation prevents confirmation. |
 | F40 agent rights | `agent.rights.get/set` | `plur1bus agent rights get <agent>`, `set <agent> <user> use/manage/none` | Explicit rights are intersected with role permissions; session writes require `agent.use`. Owner/Admin retain rights by role. |
 | F41 break-glass | `breakglass.request/list/revoke/notices` | `plur1bus breakglass request <user> --reason <text> [--minutes <1-60>]`, `list`, `revoke <id>`, `notices` | Reason 10–500 trimmed characters. Read-only, holder/target bound, audited per read, revoked or expired grants cannot be reused. |
@@ -20,6 +20,8 @@ Every CLI supports `--json`, emits the original RPC value with its `<method>/1` 
 The legacy `agent remove` command still removes configuration while retaining data; it is not hard deletion.
 
 ## Lifecycle and persistence
+
+The name of a deleted agent can be used for a new agent (`agent.create`, `agent.import`). The old incarnation is retired first: its data directory moves to `agents/.deleted-<id>-<unique suffix>` (kept, not erased and not bound to the new agent), its config entry and rights are dropped, and the lifecycle tombstone is cleared. If the creation fails, the old incarnation is put back as it was. The new agent starts with no files, rights or memory of the old one. Sessions of the old agent keep their `agentId` (immutable) and stay visible to their owners under the new agent of that name.
 
 `state/agent-lifecycle.sqlite` stores pause/archive/deletion state. The complete agent registry still supports list/status;
 those RPCs include an additive `lifecycle` field. Execution uses an active registry in the host, turn composition, dreaming,

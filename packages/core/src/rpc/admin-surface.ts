@@ -11,7 +11,7 @@ import type { BreakGlass } from "../rbac/break-glass.ts";
 import { BreakGlassError } from "../rbac/break-glass.ts";
 import type { AdminStore } from "../identity/admin-store.ts";
 import type { IdentityService, Actor } from "../identity/service.ts";
-import { IdentityError } from "../identity/service.ts";
+import { IdentityError, isChannelName } from "../identity/service.ts";
 import type { AgentLifecycle } from "../agents/lifecycle.ts";
 import type { SessionStore } from "../session/store.ts";
 import { mapSessionError, toWireSession } from "../session/methods.ts";
@@ -139,13 +139,17 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
     "user.role.set": bind("admin.users.write", (p, a) => {
       const id = user(text(p, "userId")), role = preset(p.role), before = d.people.role(id);
       if ((before === "owner" || role === "owner") && a.role !== "owner") throw new RpcError("E_DENIED", "only an Owner may change ownership", { reason: "owner-only" });
+      // ADR-007: exactly one Owner. Promotion is refused outright; there is no ownership transfer operation yet (owner decision pending), so the sole Owner stays until one exists.
+      if (role === "owner" && before !== "owner") throw new RpcError("E_DENIED", "there is exactly one Owner; promotion to Owner is not possible", { reason: "single-owner" });
       d.people.setRole(id, role, () => audit(a, "user.role.set", id, { previous: before, role }));
       d.rightsChanged?.(id);
       return { userId: id, role };
     }),
     "user.invite.create": bind("admin.users.write", (p, a) => {
       const displayName = text(p, "displayName"), channel = text(p, "channel", 32), role = preset(p.role);
-      // Invitations never create another Owner: ownership transfer is a separate, audited operation.
+      // Checked before the person is created: the pairing below refuses a malformed channel name, and by then the person would already exist without pairing or role.
+      if (!isChannelName(channel)) throw new RpcError("E_INVALID_PARAMS", "invalid channel");
+      // Invitations never create another Owner (ADR-007: exactly one). An ownership transfer operation does not exist yet.
       if (role === "owner") throw new RpcError("E_DENIED", "an invitation cannot grant ownership");
       if (p.ttlMinutes !== undefined && p.expiresInMinutes !== undefined) throw new RpcError("E_INVALID_PARAMS", "give either ttlMinutes or expiresInMinutes");
       const minutes = p.ttlMinutes ?? p.expiresInMinutes ?? INVITE_TTL_DEFAULT_MINUTES;

@@ -1,6 +1,8 @@
 # Portable encrypted backup / portables verschlüsseltes Backup
 
-The ordinary `plur1bus backup` archive deliberately excludes secrets. For M8 full-state recovery,
+The ordinary `plur1bus backup` archive never reads the secret store (keyring, encrypted fallback file, `run/`) and replaces a
+webhook secret kept in `config.json` by a placeholder (a restore draws a fresh one). It does contain the API account database
+`state/api/accounts.db`, with password hashes, TOTP seeds and token hashes, and it is not encrypted. For M8 full-state recovery,
 `scripts/release/portable-backup.mjs` wraps that verified archive and owner-readable vault values in
 one encrypted `.p1backup` file. Release payloads also ship `portable-backup.mjs` beside `core.js`.
 No engine or secret-backend changes are required. Node 24.21 and the candidate CLI are required.

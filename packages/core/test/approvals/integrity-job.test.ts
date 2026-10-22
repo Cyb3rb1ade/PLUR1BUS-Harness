@@ -37,6 +37,18 @@ describe("approvals.integrity system job (D109 §9.7)", () => {
     assert.equal(d.signatures.report, "unsigned (legacy)");
   });
 
+  it("overlapping runs (start run, timer, manual jobs.run) verify once: the second is skipped with already_running", T, async () => {
+    const s = setup(dirs);
+    let release!: () => void; let verifies = 0;
+    s.jobs.register(createApprovalsIntegrityJob({ verify: () => { verifies++; return new Promise<VerifyResult>((r) => { release = () => r({ ok: true } as VerifyResult); }); }, clock: s.clock }));
+    const first = s.jobs.run("approvals.integrity", {}, { trigger: "harness" });
+    await new Promise((r) => setImmediate(r));
+    const second = await s.jobs.run("approvals.integrity", {}, { trigger: "manual" });
+    assert.equal(second.record.outcome, "skipped"); assert.equal(second.record.reason, "already_running");
+    release(); const firstRes = await first;
+    assert.equal(second.record.runningRunId, firstRes.record.runId); assert.equal(verifies, 1);
+  });
+
   it("fails when a signed decision was manipulated", T, async () => {
     const s = setup(dirs);
     const secrets = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() });

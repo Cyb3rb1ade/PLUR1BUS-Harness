@@ -1,4 +1,7 @@
-use base64::{engine::general_purpose::STANDARD, Engine};
+use base64::{
+    engine::general_purpose::{STANDARD, URL_SAFE},
+    Engine,
+};
 use chrono::{DateTime, TimeDelta, Utc};
 use plur1bus_desktop::logging::*;
 use serde_json::{json, Value};
@@ -667,6 +670,53 @@ fn encoded_secrets_preserve_case_and_unpadded_forms_are_redacted() {
             "encoded secret survived"
         );
     }
+}
+
+fn registered_formatter(secret: &str) -> Formatter {
+    let registry = Arc::new(SecretRegistry::default());
+    registry.register(secret).unwrap();
+    Formatter::new(
+        registry,
+        Arc::new(CredentialPaths::new("/synthetic/home")),
+        false,
+    )
+}
+
+#[test]
+fn hex_lower_and_upper_forms_of_a_registered_secret_are_redacted() {
+    let planted = "hx-secret-0123";
+    let fmt = registered_formatter(planted);
+    let lower: String = planted.bytes().map(|b| format!("{b:02x}")).collect();
+    let upper = lower.to_ascii_uppercase();
+    assert_ne!(lower, upper);
+    assert_eq!(
+        fmt.redact_text(&format!("a {lower} b {upper} c")).unwrap(),
+        "a [REDACTED:secret] b [REDACTED:secret] c"
+    );
+    // A hash-like hex run that is not the secret's hex stays untouched.
+    let other = "00112233445566778899aabbccddeeff";
+    assert_eq!(fmt.redact_text(other).unwrap(), other);
+}
+
+#[test]
+fn padded_base64url_of_a_registered_secret_is_redacted() {
+    // 13 bytes: base64 needs padding, and the URL-safe alphabet differs from the standard one.
+    let planted = "SynthetIC/+?~x";
+    let fmt = registered_formatter(planted);
+    let padded = URL_SAFE.encode(planted);
+    assert!(padded.ends_with('='), "fixture must need padding");
+    assert_eq!(
+        fmt.redact_text(&format!("x {padded} y")).unwrap(),
+        "x [REDACTED:secret] y"
+    );
+}
+
+#[test]
+fn a_short_value_gets_no_hex_form() {
+    // Seven characters: below the minimum, so neither the raw value nor its hex form is registered.
+    let fmt = registered_formatter("abcdefg");
+    let hexed = "61626364656667";
+    assert_eq!(fmt.redact_text(hexed).unwrap(), hexed);
 }
 
 #[test]

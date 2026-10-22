@@ -93,10 +93,25 @@ pub fn parse_request(line: &str) -> Result<Request, ProtocolError> {
     })
 }
 
-/// The dialog text is shown by the OS; it must not carry control characters (line breaks, escapes) or grow without bound.
+/// Invisible Unicode format characters (category Cf) that change what a dialog shows without being visible themselves:
+/// bidirectional marks, embeddings, overrides and isolates (they reorder the text around them), zero-width characters,
+/// the word joiner and invisible operators, the byte order mark, the soft hyphen, the Arabic letter mark, the Mongolian
+/// vowel separator, interlinear annotation marks, language tags (hidden text) and musical formatting controls. Visible
+/// Cf characters (the Arabic number signs, for instance) are not listed: they are part of real text.
+fn is_invisible_format(c: char) -> bool {
+    matches!(c,
+        '\u{00ad}' | '\u{061c}' | '\u{180e}' | '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}'
+        | '\u{2060}'..='\u{206f}' | '\u{feff}' | '\u{fff9}'..='\u{fffb}' | '\u{1d173}'..='\u{1d17a}'
+        | '\u{e0000}'..='\u{e007f}')
+}
+
+/// The dialog text is shown by the OS; it must not carry control characters (line breaks, escapes), invisible format
+/// characters (bidirectional overrides, zero-width characters, the byte order mark) or grow without bound. Control
+/// characters become a blank; invisible format characters are dropped, so the dialog shows exactly the visible text.
 pub fn clean_text(text: &str) -> String {
     let flat: String = text
         .chars()
+        .filter(|c| !is_invisible_format(*c))
         .map(|c| if c.is_control() { ' ' } else { c })
         .collect();
     let squeezed = flat.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -202,6 +217,18 @@ mod tests {
     fn dialog_text_has_no_control_characters_and_is_bounded() {
         assert_eq!(clean_text("a\n\tb\u{1b}[31mc"), "a b [31mc");
         assert_eq!(clean_text(&"x".repeat(1000)).chars().count(), 300);
+    }
+
+    #[test]
+    fn dialog_text_drops_invisible_format_characters_and_keeps_real_text() {
+        assert_eq!(
+            clean_text("Allow \u{202e}tnega\u{2066}x\u{2069}\u{200b}\u{feff}"),
+            "Allow tnegax"
+        );
+        assert_eq!(
+            clean_text("Bäume 日本語 \u{1f600} Größe"),
+            "Bäume 日本語 \u{1f600} Größe"
+        );
     }
 
     #[test]

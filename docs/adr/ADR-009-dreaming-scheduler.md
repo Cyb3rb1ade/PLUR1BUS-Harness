@@ -294,7 +294,7 @@ The harness-owned scheduler landed in `packages/core/src/dreams/` (operator guid
 
 * **Q1** cost is measured (tokens per run), not capped; `cost_micros` stays NULL until a price table exists. **Q2** both triggers
   ship: importance accumulation (a stored capture weighs 5; thresholds light 150, rem 300, deep 450; minimum gap 1 h / 6 h / 12 h)
-  with cron as the floor. **Q3/D15** the diary is `dreaming.md` (a constant; the pinned engine still writes `DREAMS.md`).
+  with cron as the floor. **Q3/D15 (historical, superseded by A5 below)** the implementation then read `dreaming.md` while the engine wrote `DREAMS.md`.
   **Q4** a schedule's timezone is the host's IANA zone at creation, stored explicitly (UTC when unknown). **Q5** M1 dreams the
   agent-private partition only. **Q6** `0 */4 * * *` plus the importance trigger; no extra post-session pass. **Q7** ledger rows 365
   days, per-run logs 30 days, diary forever.
@@ -322,3 +322,26 @@ Owner decision of 2026-10-07, answering the open question of the module catalogu
 
 * **Why not a module.** A module can crash while the core keeps running; dreaming and every scheduled task would then stop silently, which is exactly the "failure without durable evidence" this ADR exists to prevent. Jobs call `engine.jobs.run()` in-process, with the ledger row written before every step and the budget checked before each LLM call; as a module every step would need IPC and crash-recovery rules of its own. The triggers (a task done, a quota reset) and catch-up time are core events anyway.
 * **Extensibility: job kinds, not schedulers.** Modules contribute **job kinds** through the module API (proposed call `jobs.register`; the name is not final). They never schedule on their own: the core plans, ledgers, enforces budgets and runs the breakers for every job, whatever its origin. `dreaming` is one such job kind, not a process of its own.
+
+## Amendment A2 (2026-10-20): one curated knowledge path
+
+The Großpaket 3 decision supersedes the D15 split between `memories.md` and `knowledgepool.md` for active curated agent
+knowledge. Import, runtime migration and the Engine now share `<agent workspace>/memory/KNOWLEDGE.md`.
+The model-free `knowledge.update` Harness system job delegates to Engine contract 1.17.0's `knowledge-update` job;
+`engine.schicht15.maxPromotionsPerRun` controls the Engine's cap, with 0 meaning unlimited. The Harness neither
+implements a competing promotion algorithm nor registers an unguarded `knowledge_update` model tool.
+
+Point 8 remains partially open: A2 implements the canonical agent-knowledge runtime path and reversible migration;
+A5 addresses the engine-owned diary read path. Other D15 files, daily-note runtime writers and D116 tree mirrors are
+not claimed complete here. Person-bound `USER.md` and private/person memory scopes retain their existing isolation.
+
+## Amendment A5 (2026-10-20): read the engine-owned diary
+
+The Großpaket 3 A5 decision supersedes the D15 diary filename mapping: the runtime diary is
+`<agent workspace>/DREAMS.md`, the file the engine actually writes. `dreams.status` and `dreams.diary` now agree on that
+path; the Web Dreams tab can load its redacted content on demand. The older D15 statements and owner quotations above
+record the historical decision. Imports now copy source `DREAMS.md` (or `dreams.md`) to the same workspace-root
+`DREAMS.md`; existing files use the established skip/rename/replace strategy. Skip preserves the runtime diary, rename
+keeps imported history in `DREAMS.openclaw.md`, and explicit replace retains a backup for rollback. An existing legacy
+`dreaming.md` is left untouched; A5 introduces no second runtime writer and performs no automatic legacy-file migration.
+Point 8 remains open for the other curated files and the later D116 work.

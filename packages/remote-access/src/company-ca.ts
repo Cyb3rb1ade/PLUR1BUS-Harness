@@ -8,7 +8,7 @@
 import { X509Certificate, createPrivateKey } from "node:crypto";
 import type { KeyObject } from "node:crypto";
 import { pemEncode } from "./x509.ts";
-import { inspectCertificate } from "./certs.ts";
+import { inspectCertificate, unknownCriticalExtensions } from "./certs.ts";
 import { certPin } from "./fingerprint.ts";
 import type { Pin } from "./fingerprint.ts";
 import type { Note, SecretPort } from "./types.ts";
@@ -117,6 +117,15 @@ export async function importCompanyCa(req: CompanyCaRequest): Promise<ImportResu
 
   const ekus = leaf.keyUsage ?? [];
   if (ekus.length > 0 && !ekus.includes(SERVER_AUTH) && !ekus.includes(ANY_EKU)) add("eku-no-server-auth", "the certificate is not valid for TLS server authentication");
+
+  // Clients (rustls) refuse a server certificate with a critical extension they do not understand, but only when they connect:
+  // refuse it here, while the operator is still looking at the upload. An extension block that cannot be read fails closed.
+  try {
+    const unknown = unknownCriticalExtensions(leaf);
+    if (unknown.length > 0) add("critical-extension-unsupported", `the server certificate has critical extension(s) ${unknown.join(", ")} that TLS clients do not understand and will refuse at connect time`);
+  } catch {
+    add("critical-extension-unsupported", "the extensions of the server certificate could not be read, so its critical extensions cannot be checked");
+  }
 
   const time = (c: X509Certificate, prefix: "" | "ca-") => {
     const info = inspectCertificate(c, req.now);

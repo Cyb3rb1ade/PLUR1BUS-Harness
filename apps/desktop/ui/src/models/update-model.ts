@@ -25,3 +25,17 @@ export const VERIFY_FAILURE_CODES=["update-signature","update-digest","update-ma
 export function isVerifyFailure(error:unknown):boolean{return typeof error==="string"&&(VERIFY_FAILURE_CODES as readonly string[]).includes(error);}
 /** The section of docs/desktop.md that explains how updates are signed and checked. */
 export const UPDATE_VERIFY_DOCS="https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/main/docs/desktop.md#signed-desktop-update-metadata-wp10";
+/** Download progress the shell reports while `update_install` runs (`desktop-update-progress`). `total` is null while the server sends no length. */
+export type UpdateProgress={downloaded:number;total:number|null};
+/** The payload crosses the IPC boundary: anything but two finite, non-negative numbers is dropped. */
+export function parseUpdateProgress(payload:unknown):UpdateProgress|null{
+ if(typeof payload!=="object"||payload===null)return null;
+ const {downloaded,total}=payload as Record<string,unknown>;
+ const count=(value:unknown):value is number=>typeof value==="number"&&Number.isFinite(value)&&value>=0;
+ if(!count(downloaded))return null;
+ return {downloaded,total:count(total)&&total>0?total:null};
+}
+/** Whole percent for a known length, capped at 100; null while the length is unknown. */
+export function progressPercent(progress:UpdateProgress):number|null{
+ return progress.total===null?null:Math.min(100,Math.floor(progress.downloaded*100/progress.total));
+}

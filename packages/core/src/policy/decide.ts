@@ -428,11 +428,10 @@ function grantApplies(
   }
   if (g.match.kind === "action") return false; // an action-bound grant is `once` by construction
   if (batch || flags.privileged === true || effect === "money") return false;
-  if (g.match.kind === "capability") {
-    if (flags.outsideRoots) return false;
-    if (def.id === "shell.exec" && flags.sandboxed !== true && g.acknowledgedUnsandboxed !== true) return false;
-    return true;
-  }
+  // Q17: the roots bind `shell.exec` only through the OS sandbox (arguments cannot be parsed), so a standing grant of either kind
+  // (capability or path) never stands in for it: without a sandbox it applies only when the person knowingly accepted "not sandboxed".
+  if (def.id === "shell.exec" && flags.sandboxed !== true && g.acknowledgedUnsandboxed !== true) return false;
+  if (g.match.kind === "capability") return !flags.outsideRoots;
   const m = g.match;
   if (!call.targets || call.targets.length === 0 || call.access === undefined) return false;
   if (m.access === "read" && call.access === "write") return false;

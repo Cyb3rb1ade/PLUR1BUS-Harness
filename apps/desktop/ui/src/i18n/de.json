@@ -421,5 +421,15 @@
   "integration.menu": "AppImage-Menüintegration",
   "integration.failed": "Die Verknüpfung konnte nicht geändert werden. Ein vorhandener fremder Eintrag wurde beibehalten.",
   "integration.store": "Windows verwaltet den Store-Autostart unter Einstellungen → Apps → Autostart. Deaktiviere dort PLUR1BUS; deine Wahl bleibt erhalten. Entferne das Desktop-Symbol im Explorer. Store-Schalter in der App sind noch nicht verfügbar.",
-  "advanced.sandboxed": "Installiere die native Host-CLI separat. Flatpak kann die Host-CLI und den PATH deiner Shell nicht ändern."
+  "advanced.sandboxed": "Installiere die native Host-CLI separat. Flatpak kann die Host-CLI und den PATH deiner Shell nicht ändern.",
+  "pair.error.timeout": "Der Harness antwortet nicht rechtzeitig. Dein Code wurde möglicherweise schon verwendet: Sieh zuerst unter Verbindungen nach und fordere bei Bedarf einen neuen Code an.",
+  "connections.loadTimeout": "Das Laden der Verbindungen dauert zu lange.",
+  "connections.retry": "Erneut versuchen",
+  "runtime.logsLoading": "Logs werden geladen…",
+  "runtime.logsFailed": "Die Logs konnten nicht geladen werden.",
+  "runtime.logsTimeout": "Das Laden der Logs dauert zu lange.",
+  "runtime.logsRetry": "Erneut versuchen",
+  "update.installing": "Update wird installiert… Lass die App geöffnet: Sie startet neu, sobald das Update bereit ist.",
+  "update.downloading": "Download: {percent} %",
+  "update.progressLabel": "Fortschritt des Update-Downloads"
 }

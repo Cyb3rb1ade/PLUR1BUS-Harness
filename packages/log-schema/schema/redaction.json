@@ -8,9 +8,9 @@
       "id": "secret",
       "kind": "registry",
       "section": "§4 rule 1",
-      "description": "Exact secret-store values and leases the process holds (ADR-005), plus their base64 and URL-encoded forms; the registry is in memory only.",
+      "description": "Exact secret-store values and leases the process holds (ADR-005), plus their base64, base64url, hex and URL-encoded forms (base64 and base64url with and without padding, hex in lower and upper case); the registry is in memory only. The minimum length is checked on the registered value, before the forms are derived.",
       "minLength": 8,
-      "encodings": ["raw", "base64", "url"]
+      "encodings": ["raw", "base64", "base64url", "hex", "url"]
     },
     {
       "id": "key",
@@ -32,12 +32,13 @@
         { "id": "sk", "pattern": "sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}", "leftBoundary": true, "description": "sk-…, sk-ant-…, sk-proj-… API keys" },
         { "id": "ek", "pattern": "ek_[A-Za-z0-9_-]{16,}", "leftBoundary": true, "description": "ek_… values (D110)" },
         { "id": "ghp", "pattern": "ghp_[A-Za-z0-9]{36,}", "leftBoundary": true, "description": "GitHub personal access token" },
+        { "id": "github-token", "pattern": "gh[ousr]_[A-Za-z0-9]{36,}", "leftBoundary": true, "description": "GitHub OAuth (gho_), app (ghs_, ghu_) and refresh (ghr_) tokens" },
         { "id": "github-pat", "pattern": "github_pat_[A-Za-z0-9_]{22,}", "leftBoundary": true, "description": "GitHub fine-grained token" },
         { "id": "slack", "pattern": "xox[abpr]-[A-Za-z0-9-]{10,}", "leftBoundary": true, "description": "Slack token" },
         { "id": "aws-access-key", "pattern": "AKIA[0-9A-Z]{16}", "leftBoundary": true, "description": "AWS access key id" },
         { "id": "google-api-key", "pattern": "AIza[0-9A-Za-z_-]{35}", "leftBoundary": true, "description": "Google API key" },
         { "id": "jwt", "pattern": "eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+", "description": "JSON Web Token" },
-        { "id": "pem-private-key", "pattern": "-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\\s\\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|$)", "description": "PEM private-key block; an unterminated block is redacted to the end of the text" },
+        { "id": "pem-private-key", "pattern": "-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----[\\s\\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----|$)", "description": "PEM / PGP private-key block; an unterminated block is redacted to the end of the text. A child process prints a key over many lines and the writer sees one line at a time, so the output framer (packages/core/src/logs/output.ts) applies the same BEGIN and END markers across lines." },
         { "id": "plur1bus-env", "pattern": "PLUR1BUS_[A-Z0-9_]+=(\\S+)", "valueGroup": 1, "description": "the value of a PLUR1BUS_* environment assignment; the name stays" },
         { "id": "base64url-run", "pattern": "[A-Za-z0-9_-]{43,}", "exemptWhenWholeMatchIs": "^[0-9A-Fa-f]+$", "description": "base64url runs of 43 or more characters, unless the run is pure hex (SHA-256, git ids and the extension audit's sha256 stay readable)" }
       ]
@@ -46,12 +47,16 @@
       "id": "url",
       "kind": "url",
       "section": "§4 rule 4",
-      "description": "Inside any URL: userinfo removed, query values and the fragment replaced, parameter names kept.",
+      "description": "Inside any URL: userinfo removed, query values and the fragment replaced, parameter names kept. A credential that lives in the path of a well-known bot or webhook API (Telegram, Slack, Discord, Teams) is replaced too; the rest of the path stays.",
       "find": "[A-Za-z][A-Za-z0-9+.-]*://[^\\s\"'<>]+",
       "steps": [
         { "id": "userinfo", "pattern": "(://)([^/\\s?#@]+@)", "valueGroup": 2, "replacement": "", "description": "user:pass@ removed" },
         { "id": "query-value", "pattern": "([?&][^=&#\\s]*=)([^&#\\s]*)", "valueGroup": 2, "description": "query values replaced" },
-        { "id": "fragment", "pattern": "(#)(.+)$", "valueGroup": 2, "description": "fragment replaced" }
+        { "id": "fragment", "pattern": "(#)(.+)$", "valueGroup": 2, "description": "fragment replaced" },
+        { "id": "path-telegram-bot", "pattern": "(/bot[0-9]{5,}:)([A-Za-z0-9_-]{30,})", "valueGroup": 2, "description": "the token of a Telegram Bot API path (/bot<id>:<token>/method, also /file/bot<id>:<token>/…); the bot id stays" },
+        { "id": "path-slack-webhook", "pattern": "(/services/[A-Z0-9]+/[A-Z0-9]+/)([A-Za-z0-9]{20,})", "valueGroup": 2, "description": "the secret of a Slack incoming-webhook path (/services/T…/B…/<secret>)" },
+        { "id": "path-discord-webhook", "pattern": "(/api(?:/v[0-9]+)?/webhooks/[0-9]+/)([A-Za-z0-9_-]{20,})", "valueGroup": 2, "description": "the token of a Discord webhook path (/api/webhooks/<id>/<token>)" },
+        { "id": "path-teams-webhook", "pattern": "(/webhook(?:b2)?/)([0-9A-Fa-f-]{36}@[0-9A-Fa-f-]{36}/IncomingWebhook/[0-9A-Za-z]+/[0-9A-Fa-f-]{36})", "valueGroup": 2, "description": "the whole credential part of a Microsoft Teams incoming-webhook path (/webhookb2/<guid>@<guid>/IncomingWebhook/<id>/<guid>)" }
       ]
     },
     {

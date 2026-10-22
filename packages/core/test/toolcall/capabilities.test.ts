@@ -454,6 +454,14 @@ describe("SqliteCapabilityRegistry", () => {
     } finally { r.close(); }
   });
 
+  it("names inherited from Object.prototype are refused as unknown statistics, never reaching SQL", () => {
+    const r = open();
+    try {
+      r.upsert(e("x"));
+      for (const ev of ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"]) assert.throws(() => r.record("x", "a", ev as never), /unknown capability statistic/, ev);
+    } finally { r.close(); }
+  });
+
   it("unknown event names are refused and change nothing (including names inherited from Object.prototype)", () => {
     const r = open();
     try {

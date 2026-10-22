@@ -161,3 +161,8 @@ test("definitions are closed: no stray schedule keys and no control characters i
     r.jobs.close();
   }
 });
+
+test('delivery validation is enforced at create, run and runAs-changing update',async()=>{
+ let valid=true;const r=rig({validateDelivery:(_id,person)=>{if(!valid||person!=='member')throw new Error('delivery denied');}});
+ try{const j=r.jobs.create({...input,deliveryTarget:'own-target'},member);valid=false;const run=await r.jobs.run(j.id,member);assert.equal(run.outcome,'failed');assert.equal(r.calls.length,0);valid=true;assert.throws(()=>r.jobs.update({id:j.id},owner),/delivery denied/);assert.throws(()=>r.jobs.create({...input,deliveryTarget:'foreign'},owner),/delivery denied/);}finally{r.jobs.close();}
+});

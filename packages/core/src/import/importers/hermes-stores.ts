@@ -1,3 +1,4 @@
+import { importEnginePorts } from "../engine-ports.ts";
 // Store take-over for Hermes and existing PLUR1BUS stores (docs/import.md §2.3, M7 Batch 3).
 // Evaluates store schema and embedding identity via Engine.stores.adopt.
 // Apply order (all under withTargetLock, BEFORE any engine opens or initialises the target store):
@@ -17,7 +18,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
-  renameSync,
   rmSync,
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -26,6 +26,7 @@ import type { Layout } from "../../paths.ts";
 import { isDir } from "../readonly.ts";
 import { storeIdempotencyKey, type ImportLedger, type ConflictStrategy } from "../ledger.ts";
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
+import { renameRetry } from "../fs-retry.ts";
 import { readSourceFileSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
@@ -51,7 +52,7 @@ export interface StoreAdoptReport {
   hint?: string | undefined;
 }
 
-export function createTempHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
+export function createTempHost(stateDir: string, workspaceDir: (id: string) => Promise<string>, targetHome = dirname(stateDir)): HostServices {
   return {
     logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
     stateDir,
@@ -66,6 +67,7 @@ export function createTempHost(stateDir: string, workspaceDir: (id: string) => P
       ...platformCapabilities,
     },
     runtime: null,
+    ...importEnginePorts(targetHome),
   } as unknown as HostServices;
 }
 
@@ -103,6 +105,7 @@ export async function inspectStoreAdopt(opts: {
   expectedIdentity?: any;
   /** Target harness config: the identity a copied store must match is the TARGET engine's identity. */
   targetConfig?: unknown;
+  targetHome?: string | undefined;
   testInternals?: Record<string, unknown> | undefined;
 }): Promise<{
   verdict: "ok" | "incompatible";
@@ -115,7 +118,7 @@ export async function inspectStoreAdopt(opts: {
   const tmpL = layout(tmpDir);
 
   const engine = createEngine(
-    createTempHost(tmpL.state, async (id: string) => tmpL.workspaceDir(id)),
+    createTempHost(tmpL.state, async (id: string) => tmpL.workspaceDir(id), opts.targetHome),
     buildEngineConfig((targetConfig ?? defaults()) as any, tmpL) as any,
     testInternals ? { internals: testInternals } : undefined,
   );
@@ -215,7 +218,7 @@ export async function prepareStoreAdopt(opts: {
   }
 
   if (!isApply) {
-    const check = await inspectStoreAdopt({ storePath: resolvedSource, expectedIdentity, targetConfig, testInternals });
+    const check = await inspectStoreAdopt({ storePath: resolvedSource, expectedIdentity, targetConfig, targetHome: l.home, testInternals });
     if (check.verdict === "ok") {
       return {
         report: { ...base, verdict: "ok", action: "preview-ok", identitySource: check.identitySource, schemaVersion: check.schemaVersion },
@@ -252,7 +255,7 @@ export async function prepareStoreAdopt(opts: {
 
   let check: Awaited<ReturnType<typeof inspectStoreAdopt>>;
   try {
-    check = await inspectStoreAdopt({ storePath: stagingDir, expectedIdentity, targetConfig, testInternals });
+    check = await inspectStoreAdopt({ storePath: stagingDir, expectedIdentity, targetConfig, targetHome: l.home, testInternals });
   } catch (err) {
     rmSync(stagingDir, { recursive: true, force: true });
     throw err;
@@ -320,26 +323,45 @@ export function abortStoreAdopt(prepared: PreparedStoreAdopt | undefined): void 
   }
 }
 
-/** Swaps a verified staged copy into state/lancedb (apply mode, after snapshot + ledger exist). */
+/**
+ * Swaps a verified staged copy into state/lancedb (apply mode, after snapshot + ledger exist). When a store is replaced
+ * that is two renames (live store aside, staged copy in). If either fails the live store is put back at once and the
+ * error is rethrown with no ledger entry: nothing was taken over. Should even the put-back fail (the process dies or the
+ * lock persists), the live store stays in `replacedBackupDir/lancedb` with state/lancedb missing and rollback restores it
+ * from there (rollback.ts). `opts.rename` is a test seam; the default retries transient Windows locks (fs-retry.ts).
+ */
 export function commitStoreAdopt(
   prepared: PreparedStoreAdopt,
-  opts: { l: Layout; ledger?: ImportLedger | undefined; replacedBackupDir?: string | undefined; extraDetails?: Record<string, unknown> | undefined },
+  opts: {
+    l: Layout; ledger?: ImportLedger | undefined; replacedBackupDir?: string | undefined; extraDetails?: Record<string, unknown> | undefined;
+    rename?: ((from: string, to: string) => void) | undefined;
+  },
 ): StoreAdoptReport {
   const { l, ledger, replacedBackupDir, extraDetails } = opts;
+  const rename = opts.rename ?? ((from: string, to: string) => renameRetry(from, to));
   const stagingDir = prepared.stagingDir;
   if (!stagingDir) return prepared.report;
   const targetStore = l.lancedb;
   const replacing = existsSync(targetStore);
+  let bkp: string | undefined;
   if (replacing) {
     if (!replacedBackupDir) {
       throw new ImportError("E_STORE_INCOMPATIBLE", "store-backup-unavailable", "cannot replace a store without a backup location");
     }
     mkdirSync(replacedBackupDir, { recursive: true, mode: 0o700 });
-    const bkp = join(replacedBackupDir, "lancedb");
+    bkp = join(replacedBackupDir, "lancedb");
     rmSync(bkp, { recursive: true, force: true });
-    renameSync(targetStore, bkp);
   }
-  renameSync(stagingDir, targetStore);
+  let movedAside = false;
+  try {
+    if (bkp) { rename(targetStore, bkp); movedAside = true; }
+    rename(stagingDir, targetStore);
+  } catch (err) {
+    if (movedAside && bkp) {
+      try { rename(bkp, targetStore); } catch { /* the store stays in replaced/lancedb; rollback restores it */ }
+    }
+    throw err;
+  }
   prepared.stagingDir = undefined;
 
   ledger?.record({

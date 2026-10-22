@@ -45,6 +45,40 @@ describe("session store", () => {
     assert.throws(() => store.createSession({ kind: "direct", agentId: "b", owner: ALICE, chatKey: "x" }), code("invalid", "chat-key"));
   });
 
+  it("D21: replaceActive replaces only the caller's own session and never one with a running turn", () => {
+    const { store } = mk();
+    const hers = store.createSession({ kind: "channel", agentId: "bernd", owner: ALICE, chatKey: "telegram:-100" });
+    // another owner cannot replace (= archive) her session, idle or mid-turn
+    assert.throws(() => store.createSession({ kind: "channel", agentId: "bernd", owner: BOB, chatKey: "telegram:-100", replaceActive: true }), code("conflict", "active-chat-session"));
+    assert.equal(store.getSession(hers.id)!.archivedAt, null);
+    assert.equal(store.activeForChat("telegram:-100")!.id, hers.id);
+    // the owner herself does not cancel her own running turn by replacing
+    const { turn } = store.beginTurn(hers.id, "working", 1);
+    assert.throws(() => store.createSession({ kind: "channel", agentId: "bernd", owner: ALICE, chatKey: "telegram:-100", replaceActive: true }), code("conflict", "turn-in-progress"));
+    assert.equal(store.getSession(hers.id)!.archivedAt, null);
+    assert.equal(store.runningTurn(hers.id)?.id, turn.id);
+    // once idle, the owner replaces as before
+    store.completeTurn(turn.id, { text: "done", tokens: 1 });
+    const next = store.createSession({ kind: "channel", agentId: "bernd", owner: ALICE, chatKey: "telegram:-100", replaceActive: true });
+    assert.notEqual(next.id, hers.id);
+    assert.notEqual(store.getSession(hers.id)!.archivedAt, null);
+  });
+
+  it("listMessages: a cut-off keeps the newest messages in ascending order, with and without beforeSeq/afterSeq", () => {
+    const { store } = mk();
+    const s = store.createSession({ kind: "direct", agentId: "bernd", owner: ALICE });
+    for (let i = 1; i <= 5; i++) { const { turn } = store.beginTurn(s.id, `q${i}`, 1); store.completeTurn(turn.id, { text: `a${i}`, tokens: 1 }); }
+    const texts = (o: Parameters<SessionStore["listMessages"]>[1]) => store.listMessages(s.id, o).map(m => m.text);
+    assert.deepEqual(texts({}), ["q1", "a1", "q2", "a2", "q3", "a3", "q4", "a4", "q5", "a5"], "uncut: everything, oldest first");
+    assert.deepEqual(texts({ limit: 3 }), ["a4", "q5", "a5"], "cut: the newest, not the oldest");
+    const seqs = store.listMessages(s.id).map(m => m.seq);
+    assert.deepEqual(texts({ limit: 2, afterSeq: seqs[3]! }), ["q5", "a5"], "afterSeq: the newest of the later ones (q3 a3 q4 a4 q5 a5 → tail)");
+    assert.deepEqual(texts({ limit: 4, afterSeq: seqs[1]! }), ["q4", "a4", "q5", "a5"], "afterSeq with a cut keeps the tail");
+    assert.deepEqual(texts({ limit: 2, beforeSeq: seqs[6]! }), ["q3", "a3"], "beforeSeq: the newest below the bound (unchanged behaviour)");
+    assert.deepEqual(texts({ limit: 3, keep: "oldest" }), ["q1", "a1", "q2"], "keep oldest: forward order, the cut-off drops the newest (chat.get's legacy reading)");
+    assert.deepEqual(texts({ limit: 2, keep: "oldest", afterSeq: seqs[1]! }), ["q2", "a2"], "keep oldest with afterSeq");
+  });
+
   it("archive-first: archive hides, keeps rows, erasure refuses until archived and leaves a content-free tombstone", () => {
     const { store } = mk();
     const s = store.createSession({ kind: "direct", agentId: "bernd", owner: ALICE });

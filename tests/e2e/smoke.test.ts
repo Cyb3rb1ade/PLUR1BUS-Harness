@@ -52,6 +52,10 @@ describe("E3 — CLI → daemon → core smoke", () => {
       try {
         setupOut = execFileSync(installedBinary, ["--json", "--home", h1, "setup", "--non-interactive", "--no-service", "--core-from", payload], { encoding: "utf8", env: installedEnv, timeout: 300_000 });
       } catch (e) {
+        // `setup` answers a failure with a JSON document on stdout (`reason`: not-ready, core-crashed, ... and the last supervisor status);
+        // without it a red run only says "exit 1".
+        const failure = (e as { stdout?: unknown }).stdout;
+        if (typeof failure === "string" && failure !== "") console.error(`--- setup stdout (tail) ---\n${failure.slice(-4000)}`);
         // A crashed core reports only "gave-up"; its log says why.
         for (const name of ["core.log", "supervisor.log"]) {
           const file = join(h1, "logs", name);

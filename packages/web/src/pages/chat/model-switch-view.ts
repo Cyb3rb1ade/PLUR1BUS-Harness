@@ -1,9 +1,9 @@
 // Chat head: model and reasoning of this chat, two native selects (keyboard and screen reader for free). Only configured
-// profiles are offered; locked ones ("Nur lokal", gone from the catalog) stay visible, disabled, with the reason. The
+// profiles are offered; locked ones ("Nur lokale Modelle", gone from the catalog) stay visible, disabled, with the reason. The
 // reasoning select offers only the levels the model supports; a stored level the model lacks is shown with the level it
 // becomes, never silently replaced. A change applies from the next reply and leaves a quiet note in the transcript.
 import { h } from "preact";
-import { useEffect, useId, useState } from "preact/hooks";
+import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { isApiError } from "../../api/index.ts";
 import { t, type Key } from "../../i18n.ts";
 import type { View } from "../../view.ts";
@@ -41,7 +41,7 @@ function costText(o: ChatModelOption | undefined, r: ChatModelSet): string {
   return parts.join(" ");
 }
 
-export function ModelSwitch({ sessionId, running, onChanged }: { sessionId: string; running: boolean; onChanged?: (note: string) => void }): View | null {
+export function ModelSwitch({ sessionId, optionsVersion = 0, running, onChanged }: { sessionId: string; optionsVersion?:number; running: boolean; onChanged?: (note: string) => void }): View | null {
   const modelId = useId(), reasoningId = useId(), hintId = useId();
   const [state, setState] = useState<ChatModelState | null>(null);
   const [failed, setFailed] = useState<"hidden" | "error" | false>(false);
@@ -49,12 +49,14 @@ export function ModelSwitch({ sessionId, running, onChanged }: { sessionId: stri
   const [error, setError] = useState<Key | null>(null);
   const [status, setStatus] = useState("");
 
+  const reloadGeneration = useRef(0);
   const reload = async (signal?: AbortSignal): Promise<void> => {
-    try { const s = await loadChatModel(getChatApi(), sessionId, signal); if (!signal?.aborted) { setState(s); setFailed(false); } }
+    const generation=++reloadGeneration.current;
+    try { const s = await loadChatModel(getChatApi(), sessionId, signal); if (!signal?.aborted && generation===reloadGeneration.current) { setState(s); setFailed(false); } }
     // A backend without the route (older API) shows no picker at all; any other failure says so.
-    catch (e) { if (!signal?.aborted) setFailed(isApiError(e) && e.kind === "unavailable" ? "hidden" : "error"); }
+    catch (e) { if (!signal?.aborted && generation===reloadGeneration.current) setFailed(isApiError(e) && e.kind === "unavailable" ? "hidden" : "error"); }
   };
-  useEffect(() => { const ctl = new AbortController(); void reload(ctl.signal); return () => { ctl.abort(); }; }, [sessionId]);
+  useEffect(() => {const ctl=new AbortController();void reload(ctl.signal);return ()=>{ctl.abort();};},[sessionId,optionsVersion]);
 
   if (failed === "hidden") return null;
   if (failed) return h("p", { class: "chat-note chat-model-note" }, t("chat.model.loadError"));

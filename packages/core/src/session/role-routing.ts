@@ -1,3 +1,4 @@
+import { currentAgentScope } from '../agents/scope.ts';
 // Additive summarize-role adapter over the existing composition router: admission, auth,
 // retries, cross-billing and D109 remain owned by that router, never reimplemented here.
 import type { ChatRequest as WireRequest, StreamingAdapter } from '../../../providers/src/index.ts';
@@ -47,12 +48,15 @@ export function createSessionRoleProvider(create: typeof createTurnProvider, opt
   };
   return { id: main.id, telemetry: main.telemetry,
     roleModels() { return (candidates ?? []).map(c => ({ provider:c.provider,model:c.model })); },
+    defaultModelProfile(agentId) { return options.profileForAgent?.(agentId) ?? options.profile ?? "default"; },
     modelProfiles() { return Object.keys(options.profiles).filter(name => options.profiles[name]?.length); },
     contextModels(_text, profile) {
       // A session-selected model profile (session.setModel) is the turn's profile; reserve for it alone.
       if (profile) return (options.profiles[profile] ?? []).map(c => ({ provider: c.provider, model: c.model }));
       // Context reservation is conservative over configured class profiles; it never invokes triage a second time.
       const names = new Set([options.profile ?? 'default']);
+      const scope = currentAgentScope();
+      if (scope && options.modelRouting) for (const name of options.modelRouting.contextProfiles(scope.agentId)) names.add(name);
       for (const modelClass of MODEL_CLASSES) try { const name = options.profileForClass?.(modelClass); if (name) names.add(name); } catch { /* invalid file falls back at the turn boundary */ }
       return [...new Map([...names].flatMap(name => options.profiles[name] ?? []).map(c => [`${c.provider}/${c.model}`, { provider: c.provider, model: c.model }])).values()];
     },

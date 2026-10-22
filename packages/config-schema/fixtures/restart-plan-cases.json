@@ -69,6 +69,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -203,6 +204,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -564,6 +572,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 250,
@@ -698,6 +707,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -1072,6 +1088,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -1206,6 +1223,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -1567,6 +1591,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -1703,6 +1728,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -2077,6 +2109,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -2211,6 +2244,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -2572,6 +2612,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -2710,6 +2751,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -3086,6 +3134,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -3224,6 +3273,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -3585,6 +3641,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -3719,6 +3776,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -4095,6 +4159,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -4233,6 +4298,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -4594,6 +4666,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -4732,6 +4805,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -5110,6 +5190,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -5244,6 +5325,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -5605,6 +5693,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -5743,6 +5832,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -6119,6 +6215,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -6253,6 +6350,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -6614,6 +6718,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "debug",
         "recall": {
           "softBudgetMs": 400,
@@ -6748,6 +6853,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -7125,6 +7237,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -7259,6 +7372,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -7625,6 +7745,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -7759,6 +7880,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -8140,6 +8268,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -8274,6 +8403,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -8635,6 +8771,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -8769,6 +8906,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {

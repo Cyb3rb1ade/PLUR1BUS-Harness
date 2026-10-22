@@ -40,6 +40,9 @@ struct Ran {
 }
 
 fn run(bin: &Path, layout: &Layout, args: &[&str], timeout: Duration) -> Result<Ran, String> {
+    // `daemon start` leaves a supervisor behind: it must not inherit the pipes this process itself was started with.
+    #[cfg(windows)]
+    crate::supervisor::keep_std_handles_private();
     let mut child = Command::new(bin)
         .arg("--home")
         .arg(&layout.home)
@@ -168,6 +171,16 @@ impl Host for SystemHost {
 
     fn reenable_addons(&self, layout: &Layout, names: &[String]) -> Vec<(String, String)> {
         super::addons::reenable(layout, names)
+    }
+
+    fn redisable_addons(
+        &self,
+        layout: &Layout,
+        names: &[String],
+        from: &str,
+        to: &str,
+    ) -> Vec<String> {
+        super::addons::redisable_after_rollback(layout, names, from, to)
     }
 }
 

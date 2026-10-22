@@ -22,17 +22,29 @@ for open pull requests (in this repo and in the sibling repos `plur1bus-hermes-s
 
 Wait for these, they are the reliable signal:
 
-- `unit (ubuntu-24.04)` (lint, `pnpm test`, cargo, `docs:check`)
+- `ci-gate` (workflow `ci`): THE gate for `ci.yml`, one check instead of the single job names. It is the
+  `Required check` of `docs/ci.md`: it fails unless the `changes` plan succeeded and every job the plan selected for
+  this pull request succeeded. It covers `docs-hygiene` (hygiene checks and `docs:check`), `unit (ubuntu-24.04)`
+  (toolchain check, config fixture drift, lint, `pnpm test`, release-script tests, cargo fmt/clippy/test), `wsl` and
+  `web-browser` (the merge gate over `web-browser-build` and the four `web-browser shard i/4` jobs, including the check
+  that every `packages/web` test file ran in exactly one shard). A job the plan did not select (for example everything but
+  `docs-hygiene` on a docs-only change) is skipped on purpose and counts as passed. Wait for `ci-gate`, not for the single jobs: a skipped matrix never reports
+  `unit (ubuntu-24.04)`, `ci-gate` always reports.
+- `quality` (workflow `release-quality`, macos-15): third-party notices, `pnpm lint`, the release checklist and the dependency audit policy
 - `build + smoke (amd64)` (workflow `container`)
-- `wsl`
+
+`build + smoke (amd64)` only runs for pull requests that touch the paths in `container.yml`; a check that is absent is not a red one.
+`ci-gate (label no-op)` is what a run for a label other than `ci:macos` reports: it is not the gate, ignore it.
 
 Do not wait for these, and do not treat them as blocking. They are slow, flaky or already
-red on `main`, and are meant to be fixed on `main` separately:
+red on `main`, and are meant to be fixed on `main` separately. `ci-gate` does not depend on any of them:
 
-- `unit (windows-2025)` (slow, often red)
-- `unit (macos-15)` (known failing package: `packages/core`)
-- `python-host (windows-11-arm, 3.13, true)` (experimental)
+- `unit (windows-2025)` (slow, often red) and `unit (macos-15)`, the job `unit-os`; macOS disables in-line browser suites so Core can run.
+- `python-host (windows-11-arm, 3.13, true)` (experimental), and the other `ci` jobs outside the gate: `python-host`, `system`, `service`, `sandbox`, `release-scripts`, `documents-golden` (inspect relevant failures, but they do not decide)
 - the `desktop` workflow (`desktop.yml`)
+- advisory jobs: `startup (…)` and `budget catalogue (…, advisory)` in `ci`, `reproducible` in `container` and `real-image` in `desktop real-image compatibility` (the last two are `continue-on-error`)
+
+The macOS browser shards are explicitly registered as an advisory dependency of `ci-gate`: the gate waits for their result, accepts success/failure/skipped, and rejects missing/cancelled outcomes. Linux `web-browser` remains required.
 
 Use judgement: if the same job is red on `main` and in an unrelated PR, it is not the PR's
 fault. If a reliable job is red, or a normally green job fails only in this PR, it counts.

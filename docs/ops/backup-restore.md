@@ -19,9 +19,22 @@ Ohne `--out` schreibt `backup create` das Archiv nach
 sich ein anderer, noch nicht vorhandener Zielpfad wählen.
 
 Das Archiv enthält den Memory-Store und SQLite-Datenbanken (durch den Core konsistent kopiert) sowie Konfiguration,
-Agents, Skills, Module, Extensions, Katalog, Capture-Journal und Systemjob-Ledger. Laufzeittokens und API-Schlüssel
-sind nicht enthalten. Das Archiv ist weder signiert noch verschlüsselt; bewahre es entsprechend geschützt auf.
-Ein externes Obsidian-Vault ist nicht Teil des Backups.
+Agents, Skills, Module, Extensions, Katalog, Capture-Journal und Systemjob-Ledger. Der Secret-Store wird nie gelesen:
+Laufzeittokens (`run/`), API-Schlüssel im Schlüsselbund und die verschlüsselte Fallback-Datei sind nicht enthalten.
+Ein Webhook-Secret, das in `config.json` selbst steht (`channels.telegram.webhook.secret`), wird im Archiv durch einen
+Platzhalter ersetzt; die Live-Datei bleibt unverändert. Beim Restore erzeugt `backup restore` dafür einen neuen
+Zufallswert, der Telegram-Kanal meldet ihn beim nächsten Start per `setWebhook` an; der alte Wert wird nicht wiederhergestellt
+(die Konfiguration bleibt gültig). **Nicht** geschützt ist die API-Kontendatenbank `state/api/accounts.db`: Sie wird
+mitgesichert, damit Konten nach einem Restore wieder da sind, und enthält Passwort-Hashes (Argon2id), TOTP-Seeds, deren
+Backup-Code-Hashes und Hashes persönlicher Tokens. Wer das Archiv besitzt, kann Hashes offline angreifen und den zweiten
+Faktor nachbilden. Das Archiv ist weder signiert noch verschlüsselt; bewahre es entsprechend geschützt auf (für eine
+verschlüsselte Variante siehe [portables Backup](../portable-backup.md)). Ein externes Obsidian-Vault ist nicht Teil des
+Backups. Ist `config.json` kein gültiges JSON, bricht `create` mit `config-unreadable` ab, statt die Datei ungeprüft zu
+archivieren; `plur1bus 1staid repair` stellt sie wieder her.
+
+Dateirechte: Das Manifest hält die Rechte der Quelldateien fest (ein ausführbares Skill-Skript bleibt für den Besitzer
+ausführbar). Beim Restore bleiben nur die Rechte des Besitzers erhalten, nichts wird breiter; `<home>/backups/` und
+`pre-restore-<id>/` sind `0700`.
 
 ## Backup erstellen und prüfen
 
@@ -117,16 +130,38 @@ gestoppt sein. `restore` prüft das Archiv vor dem Anwenden und bewahrt ersetzte
    der Befehl benötigt die aktuelle und die Ziel-Schema-Version als `--from` und `--to`. Die ersetzten Dateien
    bleiben im genannten `pre-restore`-Verzeichnis.
 
+### Vergessene Erinnerungen nach einem Restore
+
+Die Tombstone-Registry (`<home>/state/_tombstones`, Geschwister des Stores) ist bewusst nicht Teil eines Backups und wird
+von `restore` weder ersetzt noch verschoben: Was nach dem Backup vergessen wurde, bleibt dort als committed Tombstone
+vermerkt. Die wiederhergestellten Store-Zeilen sind aber der Stand des Backups, eine danach vergessene Erinnerung ist in
+ihnen wieder aktiv. Deshalb legt `restore` vor dem Austausch die Marker-Datei `<home>/state/.restore-reapply-tombstones`
+an (ein fehlgeschlagener, zurückgerollter Restore entfernt sie wieder). Beim nächsten Start des Cores, vor dem Öffnen des
+Sockets und damit vor dem ersten Recall, spielt der Core die committed Tombstones über die Engine neu ein
+(`reapplyCommittedTombstones`) und löscht den Marker erst, wenn das vollständig und verifiziert gelungen ist. Das Log nennt
+dabei nur Anzahlen, nie Inhalte.
+
+**KNOWN GAP:** Die gepinnte Engine liefert `lib/tombstone-reapply.js` noch nicht (Engine-PR #259). Solange sie fehlt, bleibt
+der Marker liegen, der Core startet trotzdem und warnt bei jedem Start, dass nach dem Backup vergessene Erinnerungen
+wieder recallbar sein können. Einen harness-seitigen Recall-Filter über die Registry gibt es nicht. Nach dem Anheben des
+Engine-Pins erledigt der nächste Start das Einspielen von selbst; der Test `KNOWN GAP: the pinned engine does not ship
+lib/tombstone-reapply.js yet` (`packages/core/test/restore-reapply.test.ts`) wird dann rot und erinnert daran, diesen
+Absatz und den Test zu entfernen. Bis dahin lässt sich das Einspielen bei gestopptem Core von Hand ausführen:
+`node scripts/reapply-tombstones.mjs --apply --base-db-path <home>/state/lancedb` aus dem Engine-Paket
+(`@cyb3rb1ade/plur1bus-memory`); endet es ohne Fehler, kann der Marker gelöscht werden.
+
 ## Typische Fehler
 
 | Meldung oder Grund | Bedeutung und nächster Schritt |
 |---|---|
 | `create` erreicht den Core nicht (`E_CORE_UNAVAILABLE`) | `create` benötigt den laufenden Core. `plur1bus daemon status` prüfen und den Supervisor bei Bedarf mit `plur1bus daemon start` starten. |
+| `create` meldet `config-unreadable` | `config.json` ist kein gültiges JSON und kann nicht auf Secret-Werte geprüft werden; das Archiv wird nicht geschrieben. Datei korrigieren oder `plur1bus 1staid repair` ausführen und `create` wiederholen. |
 | Ziel existiert bereits (`exists`) | Das Ziel wird nicht überschrieben. Einen anderen Pfad mit `--out <FILE>` wählen. |
 | Restore meldet `E_LOCKED` / `core-running` | Ein Supervisor oder Core antwortet noch oder der Core-Lock ist belegt. `plur1bus daemon stop` ausführen und sicherstellen, dass kein Prozess für dieses Home mehr läuft. |
 | `verify` meldet `archive-corrupt`, `truncated`, `manifest-invalid`, `unsupported-format`, `unexpected-entry`, `checksum-mismatch` oder `missing-entry` | Das Archiv ist beschädigt, unvollständig oder wird nicht unterstützt. Nicht wiederherstellen; eine intakte Kopie verwenden. |
 | Snapshot meldet `source-busy` | Der Store änderte sich während der Snapshot-Erstellung. Erneut versuchen, wenn weniger Schreibaktivität stattfindet. |
 | Snapshot meldet `insufficient-disk` | Für den Snapshot ist nicht genug Speicherplatz verfügbar. Speicher freigeben und erneut versuchen. |
+| Der Core warnt beim Start vor einem Restore, der noch Tombstones einzuspielen hat | Der Marker `state/.restore-reapply-tombstones` liegt noch, weil die Engine das Einspielen nicht (vollständig) ausführen konnte. Die Warnung nennt den Grund. Siehe „Vergessene Erinnerungen nach einem Restore“. |
 | Snapshot meldet `store-outside-home` | Der konfigurierte Store liegt außerhalb des Home-Verzeichnisses; dieser Backup-Befehl verweigert ihn, statt den Pfad zu erraten. |
 
 Weitere Angaben zu Verzeichnissen und Dienststeuerung enthält das [Operations-Handbuch](../user/en/operations.md);

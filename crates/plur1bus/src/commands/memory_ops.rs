@@ -3,7 +3,7 @@
 //! `memory.correct`, `memory.share`, `memory.state`, `memory.propose`,
 //! `memory.proposals.list|accept|reject`). Unlike `memory add`/`memory recall` (`memory.rs`),
 //! these never journal: a core that cannot be reached fails fast with `E_CORE_UNAVAILABLE`.
-use crate::cli::{MemoryCmd, ProposalStatus, ProposalsCmd, ShareTarget};
+use crate::cli::{CurationCmd, MemoryCmd, ProposalStatus, ProposalsCmd, ShareTarget};
 use crate::commands::daemon::supervisor_detail;
 use crate::commands::memory::{connect, degraded_line, require_agent};
 use crate::identity;
@@ -392,6 +392,63 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 },
             );
         }
+        MemoryCmd::Curation { sub } => match &sub {
+            CurationCmd::List { agent, limit } => {
+                require_agent(out, &config, agent);
+                let mut params = json!({ "agentId": agent });
+                if let Some(limit) = limit {
+                    params["limit"] = json!(limit);
+                }
+                call(
+                    out,
+                    layout,
+                    "memory.curation.list",
+                    params,
+                    "memory.curation.list/1",
+                    |v| {
+                        v["items"]
+                            .as_array()
+                            .map(|items| {
+                                items
+                                    .iter()
+                                    .map(|item| {
+                                        format!(
+                                            "{} [{}] {}",
+                                            item["id"].as_str().unwrap_or(""),
+                                            item["status"].as_str().unwrap_or(""),
+                                            item["text"].as_str().unwrap_or("")
+                                        )
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join("\n")
+                            })
+                            .unwrap_or_default()
+                    },
+                );
+            }
+            CurationCmd::Keep { agent, id } | CurationCmd::Drop { agent, id } => {
+                require_agent(out, &config, agent);
+                let action = if matches!(sub, CurationCmd::Keep { .. }) {
+                    "keep"
+                } else {
+                    "drop"
+                };
+                call(
+                    out,
+                    layout,
+                    "memory.curation.resolve",
+                    json!({ "agentId": agent, "id": id, "action": action }),
+                    "memory.curation.resolve/1",
+                    |v| {
+                        format!(
+                            "{}: {}",
+                            v["id"].as_str().unwrap_or(""),
+                            v["status"].as_str().unwrap_or("")
+                        )
+                    },
+                );
+            }
+        },
         MemoryCmd::Proposals { sub } => match sub {
             ProposalsCmd::List {
                 agent,

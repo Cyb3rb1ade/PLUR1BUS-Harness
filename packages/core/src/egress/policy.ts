@@ -11,6 +11,8 @@ export interface EgressConfig {
   readonly allowPorts: readonly number[];
   /** Permit plain http and loopback targets, but only for hosts that are themselves loopback spellings and are listed. */
   readonly allowLoopback: boolean;
+  /** Named, opt-out exception exclusively for credential-free engine model artifact downloads. */
+  readonly modelDownloads?: { readonly enabled: boolean; readonly allowHosts: readonly string[] };
 }
 
 export const DEFAULT_EGRESS_CONFIG: EgressConfig = Object.freeze({ allowHosts: Object.freeze([]), allowPorts: Object.freeze([443]), allowLoopback: false });

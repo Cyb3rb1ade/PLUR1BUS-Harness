@@ -57,7 +57,7 @@ smoke (below) is how a row becomes "live-verified".
 | `tei` | `POST /embed` | none (use prefixes) | 32 / 512 | root-array response, `truncate:false` | documented |
 | `mtplx` | `POST {baseURL}/v1/embeddings` (daemon, default `http://127.0.0.1:8000`) | none (an `instruction` field exists server-side, unused) | 32 / 8192 | OpenAI shape; `dimensions` sent, the server truncates (Matryoshka) and answers 400 above the native width; embedding models are opt-in on the daemon (`--embedding-model`), otherwise 404 | source-verified (`mtplx/server/openai.py`), not live |
 
-Limits are conservative defaults, not provider maxima; every one is overridable (`maxBatch`, `maxInputTokens`, `maxBatchTokens`).
+Limits are conservative defaults, not provider maxima; every one is overridable (`maxBatch`, `maxInputTokens`, `maxBatchTokens`). A resolved `maxBatchTokens` below the resolved `maxInputTokens` (explicit or inherited from the provider default) is refused as a `ConfigError` on `embedding.maxBatchTokens`, so an input that passes the per-input check always fits a batch budget.
 Token counts are an estimate (`ceil(ascii/4 + other/1.5)`); an input over `maxInputTokens` fails with `too_large` before any request.
 Models that need a client-side prefix (e5 style) use `queryPrefix` / `passagePrefix`; both are part of the identity.
 
@@ -159,6 +159,14 @@ core's `ProbeInput.targetProbe`; it also carries the fingerprint, identity hash 
 
 `egressHosts({ embedding, rerank })` returns `{ host, port, tls, loopback }[]` (IPv6 hosts bracketed). `toEgressConfig()` maps that onto the shape of core's
 `EgressConfig` and reports plain-http, non-loopback hosts (core refuses those). The package only *declares* hosts; enforcement stays in `packages/core/src/egress`.
+
+## privacy.localOnly
+
+The adapters do not read the harness configuration. The integration injects the rule as `deps.policy` (`{ localOnly(): boolean, localEndpoints?(): string[] }`, both read on every decision).
+With the switch on, `createEmbeddingAdapter` and `createRerankAdapter` accept only a resolved `baseURL` that is loopback (`localhost`, `127.0.0.0/8`, `::1`) or has the exact origin of a `localEndpoints` entry;
+anything else, including the default cloud base URLs of openai, google, cohere, jina, voyage and openrouter, throws a `ConfigError` on `<path>.baseURL` before any request or secret lookup.
+The returned adapter checks again before every call, so a switch turned on later fails the call with `invalid_request` and sends nothing. The rule is fail-closed: a `localOnly` that throws or does not answer `false` counts as on.
+No policy, or the switch off, leaves cloud providers working. A refused provider is never replaced by another model.
 
 ## Tests
 

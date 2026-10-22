@@ -14,12 +14,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { ERROR_CODES } from "@plur1bus/rpc-schema";
-import { statusOfCode } from "../src/errors.ts";
+import { ERROR_CODES, type ErrorCode } from "@plur1bus/rpc-schema";
+import { STATUS_OF_CODE, fromCoreError, statusOfCode } from "../src/errors.ts";
 import { buildOpenApi } from "../src/openapi.ts";
 import { ROUTES, type RouteSpec } from "../src/routes.ts";
 import { totpCodeAt } from "../src/totp.ts";
 import { validate, type Doc } from "./openapi-validate.ts";
+import { miniCore, withBreakGlass } from "./mini-core.ts";
+import { FakeClock } from "../src/clock.ts";
 import { OWNER_TOKEN, fakeCore, addUser, csrfToken, FIXTURE_PASSWORD, jsonHeaders, login, loginAs, raw, start, write, type FakeCore, type Harness, type Res } from "./helpers.ts";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -74,9 +76,34 @@ test("the Error schema's code list is the closed ErrorCode enum it says it is", 
   assert.deepEqual([...listed].sort(), [...ERROR_CODES].sort(), `missing: ${ERROR_CODES.filter((c) => !listed.includes(c)).join(", ")}`);
 });
 
-test("KNOWN GAP: every closed error code has its own HTTP status, none falls back to a bare 500", { todo: "KNOWN GAP: statusOfCode has no entry for E_PROJECT_WIP_LIMIT, E_INBOX_CURSOR, E_INVITE_INVALID, E_VOICE_*; see SICHERHEIT in the PR" }, () => {
+test("the status table and the closed ErrorCode enum list exactly the same codes (no missing and no stale key)", () => {
+  // `Record<ErrorCode, number>` checks nothing because `ErrorCode` is `string`; the enum itself (`ERROR_CODES`, from the schema) is the source of truth.
+  const keys = Object.keys(STATUS_OF_CODE);
+  assert.deepEqual(ERROR_CODES.filter((c) => !keys.includes(c)), [], "codes of the enum without an entry in STATUS_OF_CODE");
+  assert.deepEqual(keys.filter((k) => !(ERROR_CODES as readonly string[]).includes(k)), [], "keys of STATUS_OF_CODE that are not in the enum");
+  assert.equal(new Set(ERROR_CODES).size, ERROR_CODES.length, "ERROR_CODES has no duplicates");
+});
+
+test("every closed error code has its own HTTP status, none falls back to a bare 500", () => {
   const unmapped = ERROR_CODES.filter((c) => statusOfCode(c) === 500 && c !== "E_INTERNAL" && c !== "E_STORAGE");
   assert.deepEqual(unmapped, [], "a core refusal that is the caller's fault would reach the client as a 500");
+});
+
+test("the status of every code is a deliberate 4xx/5xx, the previously unmapped codes answer as documented, and a core refusal keeps its code and mapped status", () => {
+  for (const c of ERROR_CODES) { const s = statusOfCode(c); assert.ok(Number.isInteger(s) && s >= 400 && s <= 599, `${c} -> ${s}`); }
+  const want: Record<string, number> = {
+    E_AGENT_EXISTS: 409, E_AGENT_RIGHTS: 422, E_AGENT_SECRETS_MISSING: 422, E_PROJECT_WIP_LIMIT: 409, E_INBOX_CURSOR: 400, E_INVITE_INVALID: 400,
+    E_VOICE_BUDGET: 422, E_VOICE_LICENSE: 403, E_VOICE_LICENCE: 403, E_VOICE_UNAVAILABLE: 503,
+  };
+  for (const [c, status] of Object.entries(want)) {
+    assert.equal(statusOfCode(c as ErrorCode), status, c);
+    const e = fromCoreError(Object.assign(new Error("host path /srv/secret"), { error: c, reason: "probe" }));
+    assert.deepEqual([e.status, e.error, e.reason], [status, c, "probe"], c);
+    assert.equal(e.message.includes("/srv/secret"), false, `${c}: the core's text is not forwarded`);
+  }
+  // The server-fault codes keep their handling: the core's own failure is a 502 for the caller, never its 500.
+  for (const c of ["E_INTERNAL", "E_STORAGE"]) { const e = fromCoreError(Object.assign(new Error("x"), { error: c })); assert.deepEqual([e.status, e.error], [502, "E_CORE_UNAVAILABLE"], c); }
+  assert.equal(statusOfCode("E_NOT_FOUND"), 404); assert.equal(statusOfCode("E_UNAUTHORIZED"), 401); assert.equal(statusOfCode("E_CONFLICT"), 409);
 });
 
 // ---- real answers against the document -----------------------------------------------------------------------------
@@ -115,7 +142,8 @@ const pwLogin = (h: Harness, username: string, extra: Record<string, string> = {
 test("every route, driven through its success and failure paths on the real server, answers as the document says", async () => {
   problems.length = 0; seen.length = 0;
   const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) });
-  const core = fakeCore(); const inviteCode = randomBytes(32).toString("base64url"); let consumed = false;
+  // Break-glass is the core's registry: the break-glass routes are driven against `miniCore` (real registry, admin surface, RPC guard).
+  const clock = new FakeClock(); const mini = miniCore({ clock }); const core = withBreakGlass(fakeCore(), mini); const inviteCode = randomBytes(32).toString("base64url"); let consumed = false;
   Object.assign(core, { serviceCall: async (method: string, p: { token?: string }) => {
     const identity={deviceId:"dev_00000000-0000-0000-0000-000000000001",userId:"desktop-person",scopes:["chat:read"],expiresAt:Date.now()+86400000};
     if(method==="admin.api.desktop.redeem")return {device:JSON.parse(readFileSync(path.join(repo,"packages/rpc-schema/fixtures/methods/admin.api.device.pair.json"),"utf8")).result.device,token:"d".repeat(43),expiresAt:identity.expiresAt};
@@ -126,7 +154,7 @@ test("every route, driven through its success and failure paths on the real serv
   // and durable rollover are covered by remote-pairing(-tls).test.ts.
   const fixtureMethods = ["status", "offer", "proof", "pair", "getTrust", "challenge", "ack", "rotate"];
   const remotePairing = Object.fromEntries(fixtureMethods.map(method => [method, async () => ({ contract: method })])) as unknown as RemotePairingController;
-  const h = await start({ rateClasses: wide, accounts, core, remotePairing, remoteCertificates: { importCompany: async (cert) => { if (cert !== "fixture-cert") throw new Error("invalid fixture certificate"); return { certPin: "sha256:" + "a".repeat(43), staged: true }; } } });
+  const h = await start({ rateClasses: wide, clock, accounts, core, remotePairing, remoteCertificates: { importCompany: async (cert) => { if (cert !== "fixture-cert") throw new Error("invalid fixture certificate"); return { certPin: "sha256:" + "a".repeat(43), staged: true }; } } });
   try {
     await anon(h,"desktop.meta");
     for(const id of ["desktop.pair","desktop.redeem","desktop.ticket"])await anon(h,id,"malformed native request");
@@ -135,7 +163,7 @@ test("every route, driven through its success and failure paths on the real serv
     const nativeTicket=await rt(h,"","desktop.redeem","native redemption",{body:{token:"d".repeat(43),origin:h.url}});
     rec("desktop.ticket","native SPA cookie",await raw(h,{method:"POST",path:"/api/v1/desktop/ticket",headers:{...jsonHeaders(),origin:h.url},body:JSON.stringify({ticket:nativeTicket.json.ticket,deviceId:nativeTicket.json.deviceId})}));
 
-    for (const [id, role] of [["u-alice", "member"], ["u-vera", "viewer"], ["u-ada", "admin"], ["u-dana", "member"], ["u-carol", "member"]] as const) await addUser(h, { id, username: id.slice(2), role });
+    for (const [id, role] of [["u-alice", "member"], ["u-vera", "viewer"], ["u-ada", "admin"], ["u-dana", "member"], ["u-carol", "member"]] as const) { await addUser(h, { id, username: id.slice(2), role }); mini.addPerson(id, role); }
     const owner = (await login(h)).cookie; const alice = (await loginAs(h, "alice")).cookie; const vera = (await loginAs(h, "vera")).cookie; const ada = (await loginAs(h, "ada")).cookie;
 
     const registration = (body: object, headers: Record<string, string> = {}) => raw(h, { method: "POST", path: "/api/v1/invitations/redeem", headers: { ...jsonHeaders(), ...headers }, body: JSON.stringify(body) });
@@ -239,6 +267,20 @@ test("every route, driven through its success and failure paths on the real serv
       if (spec.csrf) await noCsrf(h, alice, spec.id);
       else await rt(h, owner, spec.id, "unknown query refused", { path: concrete + "?unknown=true" });
     }
+    // Read roles are allowed at the route boundary, but per-agent ownership may still deny them in Core.
+    const chatContract = core.impl;
+    core.impl = async (method, params) => method.startsWith('chat.') ? Promise.reject({error:'E_DENIED'}) : chatContract(method, params);
+    for (const spec of ROUTES.filter(r => r.id.startsWith('chats.') && r.method === 'GET')) await rt(h, alice, spec.id, 'object denied by Core', {path: spec.path.replace('{sessionId}', 'contract-chat')});
+    core.impl = async (method, params) => method.startsWith('channel.history.') || method.startsWith('channel.handoff.') ? JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`,import.meta.url),'utf8')).result : chatContract(method,params);
+    for (const spec of ROUTES.filter(r => r.id.startsWith('channel.'))) {
+      const method = spec.id;
+      const fixture = JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`,import.meta.url),'utf8'));
+      const concrete = spec.path.replace('{sessionId}','channel-session');
+      await rt(h, alice, spec.id, 'own channel contract result', {path:concrete,...(spec.requestBody?{body:fixture.params}:{})});
+      await anon(h, spec.id);
+      if (spec.csrf) {await noCsrf(h,alice,spec.id);await rt(h,alice,spec.id,'unknown fields refused',{path:concrete,body:{unexpected:true}});}
+      else {await rt(h,alice,spec.id,'query refused',{path:concrete+'?unexpected=true'}); const impl=core.impl;core.impl=async()=>{throw {error:'E_DENIED'};};await rt(h,alice,spec.id,'object denied by Core',{path:concrete});core.impl=impl;}
+    }
     await rt(h, owner, "ws.ticket", "one-use upgrade ticket"); await anon(h, "ws.ticket"); await noCsrf(h, owner, "ws.ticket");
     await rt(h, owner, "ws.reserved", "normal request requires upgrade"); await anon(h, "ws.reserved"); await rt(h, alice, "ws.reserved", "member cannot upgrade");
 
@@ -271,17 +313,19 @@ test("every route, driven through its success and failure paths on the real serv
     await anon(h, "session.delete"); await noCsrf(h, ada, "session.delete"); await rt(h, ada, "session.delete", "ends the session");
     const two = (await loginAs(h, "alice")).cookie; await anon(h, "sessions.revoke-all"); await noCsrf(h, two, "sessions.revoke-all"); await rt(h, two, "sessions.revoke-all", "ends every session");
     await rt(h, vera, "sessions.revoke-all", "viewer may sign out");
-  } finally { await h.close(); }
+  } finally { await h.close(); mini.close(); }
   assert.deepEqual(problems, [], `${problems.length} answers differ from the document:\n${problems.join("\n")}`);
 });
 
 test("the same, for the paths that need another server: audit down, a hung core, an empty login bucket", async () => {
   problems.length = 0;
-  const noAudit = await start({ rateClasses: wide, noAudit: true });
+  const noAuditClock = new FakeClock();
+  const noAuditCore = miniCore({ clock: noAuditClock, auditSink: { append() { throw new Error("audit-chain: lock timeout"); } } });
+  const noAudit = await start({ rateClasses: wide, clock: noAuditClock, core: noAuditCore });
   try {
-    await addUser(noAudit, { id: "u-alice", username: "alice", role: "member" }); const owner = (await login(noAudit)).cookie;
-    await rt(noAudit, owner, "breakglass.request", "no audit sink, no grant", { body: { targetUserId: "u-alice", reason: "redact-probe-alpha reason text" } });
-  } finally { await noAudit.close(); }
+    await addUser(noAudit, { id: "u-alice", username: "alice", role: "member" }); noAuditCore.addPerson("u-alice", "member"); const owner = (await login(noAudit)).cookie;
+    await rt(noAudit, owner, "breakglass.request", "the core cannot audit, no grant", { body: { targetUserId: "u-alice", reason: "redact-probe-alpha reason text" } });
+  } finally { await noAudit.close(); noAuditCore.close(); }
   const passkeys = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) });
   const p = await start({ accounts: passkeys, rateClasses: wide });
   try {

@@ -61,10 +61,17 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory proposals list`↴](#plur1bus-memory-proposals-list)
 * [`plur1bus memory proposals accept`↴](#plur1bus-memory-proposals-accept)
 * [`plur1bus memory proposals reject`↴](#plur1bus-memory-proposals-reject)
+* [`plur1bus memory curation`↴](#plur1bus-memory-curation)
+* [`plur1bus memory curation list`↴](#plur1bus-memory-curation-list)
+* [`plur1bus memory curation keep`↴](#plur1bus-memory-curation-keep)
+* [`plur1bus memory curation drop`↴](#plur1bus-memory-curation-drop)
 * [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
 * [`plur1bus session`↴](#plur1bus-session)
 * [`plur1bus session list`↴](#plur1bus-session-list)
 * [`plur1bus session show`↴](#plur1bus-session-show)
+* [`plur1bus session model`↴](#plur1bus-session-model)
+* [`plur1bus session model get`↴](#plur1bus-session-model-get)
+* [`plur1bus session model set`↴](#plur1bus-session-model-set)
 * [`plur1bus session archive`↴](#plur1bus-session-archive)
 * [`plur1bus chat`↴](#plur1bus-chat)
 * [`plur1bus acp`↴](#plur1bus-acp)
@@ -160,12 +167,14 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus audit`↴](#plur1bus-audit)
 * [`plur1bus audit verify`↴](#plur1bus-audit-verify)
+* [`plur1bus audit reanchor`↴](#plur1bus-audit-reanchor)
 * [`plur1bus logs`↴](#plur1bus-logs)
 * [`plur1bus logs query`↴](#plur1bus-logs-query)
 * [`plur1bus logs tail`↴](#plur1bus-logs-tail)
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
+* [`plur1bus secret describe`↴](#plur1bus-secret-describe)
 * [`plur1bus secret get`↴](#plur1bus-secret-get)
 * [`plur1bus secret rm`↴](#plur1bus-secret-rm)
 * [`plur1bus secret ls`↴](#plur1bus-secret-ls)
@@ -316,7 +325,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
-* `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
+* `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
 * `logs` — [experimental] Diagnostic logs: query and tail through the core
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `device` — [experimental] Paired devices: list, revoke and rename (F44)
@@ -875,6 +884,7 @@ Memory: add and recall through the core
 * `state` — [experimental] Memory subsystem state
 * `propose` — [experimental] Propose a correction to a shared memory
 * `proposals` — [experimental] List, accept or reject shared-memory correction proposals
+* `curation` — [experimental] Human curation of memory candidates (separate from correction proposals)
 * `reembed` — [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
 
 
@@ -1095,6 +1105,65 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 
 
+## `plur1bus memory curation`
+
+[experimental] Human curation of memory candidates (separate from correction proposals)
+
+**Usage:** `plur1bus memory curation <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the human curation queue
+* `keep` — [experimental] Keep a curation record
+* `drop` — [experimental] Drop a curation record
+
+
+
+## `plur1bus memory curation list`
+
+[experimental] List the human curation queue
+
+**Usage:** `plur1bus memory curation list [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--limit <LIMIT>`
+
+
+
+## `plur1bus memory curation keep`
+
+[experimental] Keep a curation record
+
+**Usage:** `plur1bus memory curation keep --agent <AGENT> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus memory curation drop`
+
+[experimental] Drop a curation record
+
+**Usage:** `plur1bus memory curation drop --agent <AGENT> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
 ## `plur1bus memory reembed`
 
 [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
@@ -1132,6 +1201,7 @@ Chat sessions: list, show, archive
 
 * `list` — [experimental] List your chat sessions (pinned first, then by last turn)
 * `show` — [experimental] Show one session and its last messages
+* `model` — [experimental] Read or change this session's model and reasoning level
 * `archive` — [experimental] Archive a session (nothing is deleted)
 
 
@@ -1179,6 +1249,52 @@ Chat sessions: list, show, archive
 
 
 
+## `plur1bus session model`
+
+[experimental] Read or change this session's model and reasoning level
+
+**Usage:** `plur1bus session model <COMMAND>`
+
+###### **Subcommands:**
+
+* `get` — [experimental] Read the model profile, default and reasoning level
+* `set` — [experimental] Preview and confirm a model or reasoning change
+
+
+
+## `plur1bus session model get`
+
+[experimental] Read the model profile, default and reasoning level
+
+**Usage:** `plur1bus session model get <SESSION>`
+
+###### **Arguments:**
+
+* `<SESSION>`
+
+
+
+## `plur1bus session model set`
+
+[experimental] Preview and confirm a model or reasoning change
+
+**Usage:** `plur1bus session model set [OPTIONS] <--model <PROFILE>|--reasoning <REASONING>> <SESSION>`
+
+###### **Arguments:**
+
+* `<SESSION>`
+
+###### **Options:**
+
+* `--model <PROFILE>`
+* `--reasoning <REASONING>`
+
+  Possible values: `default`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`
+
+* `--yes` — Confirm the cache and cost warning for scripts
+
+
+
 ## `plur1bus session archive`
 
 [experimental] Archive a session (nothing is deleted)
@@ -1202,6 +1318,10 @@ Chat sessions: list, show, archive
 * `<MESSAGE>` — One message to send; without it, lines are read from stdin until EOF
 
 ###### **Options:**
+
+* `--reasoning <REASONING>` — Reasoning level for this session (default leaves control to the provider)
+
+  Possible values: `default`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`
 
 * `--model <PROFILE>` — Configured model profile for this session; warns and asks before switching
 * `--yes` — Confirm the model switch for scripts (including --json)
@@ -1776,7 +1896,7 @@ Serving lasts only as long as this core process: it ends when the core stops or 
 
 [experimental] Create a consistent, checksummed archive of this installation (needs a running core)
 
-The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are copied. The archive is private to the user. The secret store is never read: API keys stay in the OS keyring and `run/` (tokens) is never archived, and a webhook secret kept in `config.json` is replaced by a placeholder. The API account database (`state/api/accounts.db`) is archived with its password hashes and TOTP seeds. Checksums detect corruption; the archive is not signed or encrypted.
 
 **Usage:** `plur1bus backup create [OPTIONS]`
 
@@ -2512,7 +2632,7 @@ One-time invitations through the existing identity pairing path
 
 [experimental] Set or clear a limit, or the time zone budget periods follow
 
-A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Values are input + output tokens (output includes reported reasoning tokens). A bound left out stays as it is.
+A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Values are whole numbers in the metric: input + output tokens (output includes reported reasoning tokens), generated images, or seconds of generated video. A bound left out stays as it is.
 
 **Usage:** `plur1bus budget set [OPTIONS]`
 
@@ -2524,9 +2644,9 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
   Possible values: `day`, `month`
 
-* `--metric <METRIC>` — what is counted: input + output tokens (the only metric; may be left out)
+* `--metric <METRIC>` — what is counted: input + output tokens (the default), generated images, or seconds of generated video
 
-  Possible values: `tokens`
+  Possible values: `tokens`, `images`, `video-seconds`
 
 * `--soft <VALUE>` — warn (once per period) above this value
 * `--hard <VALUE>` — refuse calls that would exceed this value
@@ -2538,13 +2658,14 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 ## `plur1bus audit`
 
-[experimental] Audit trail: verify the hash-chained audit file (B5)
+[experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
 
 **Usage:** `plur1bus audit <COMMAND>`
 
 ###### **Subcommands:**
 
 * `verify` — [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
+* `reanchor` — [experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
 
 
 
@@ -2552,9 +2673,28 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
 
-Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
+Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result also names the era boundary and checks the set-aside chain up to its first deviation. `--pin SEQ:HASH` also checks a sequence/hash pair recorded outside this host (rotated files included).
 
-**Usage:** `plur1bus audit verify`
+**Usage:** `plur1bus audit verify [OPTIONS]`
+
+###### **Options:**
+
+* `--pin <SEQ:HASH>` — Check an externally recorded sequence/hash pair, including older rotated files (no external transmission)
+
+
+
+## `plur1bus audit reanchor`
+
+[experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
+
+Writers refuse to append when the anchor is missing or invalid, when the chain is shorter than the anchor, when its end does not match the anchor, or when its last line is not a chain line. This command repairs that state under the same lock the writers use, also while the core is stopped: the chain files and the anchor are renamed to `<name>.pre-reanchor-<ms>` (never deleted), and a new chain begins with an `audit.chain.reanchored` event that records the old anchor, the old end, your reason (secrets redacted), the actor and the set-aside files. It refuses with "nothing to repair" when writers accept the chain. Run it as the user that owns the home. `--dry-run` shows the finding and changes nothing.
+
+**Usage:** `plur1bus audit reanchor [OPTIONS]`
+
+###### **Options:**
+
+* `--reason <TEXT>` — Why the chain is repaired; recorded in the first event of the new chain (secrets are redacted)
+* `--dry-run` — Show what is wrong and what would be set aside; change nothing
 
 
 
@@ -2634,6 +2774,7 @@ Values are read from stdin, never from arguments, and are printed only by `get -
 
 * `status` — [experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
 * `set` — [experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+* `describe` — [experimental] Change only a secret's description (owner only); never reads its value back to the caller
 * `get` — [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
 * `rm` — [experimental] Delete a secret from every available backend
 * `ls` — [experimental] List secret names (never values)
@@ -2664,6 +2805,23 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 ###### **Options:**
 
 * `--description <DESCRIPTION>` — what the secret is for (one line, at most 200 characters, never the value); the agent sees it in `secret_names`. Omitted, a replacement keeps the stored text; an empty text removes it
+
+
+
+## `plur1bus secret describe`
+
+[experimental] Change only a secret's description (owner only); never reads its value back to the caller
+
+**Usage:** `plur1bus secret describe [OPTIONS] <NAME> [TEXT]`
+
+###### **Arguments:**
+
+* `<NAME>`
+* `<TEXT>` — new description, one line of at most 200 characters
+
+###### **Options:**
+
+* `--clear` — remove the description
 
 
 
