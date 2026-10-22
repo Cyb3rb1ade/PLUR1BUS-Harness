@@ -29,6 +29,7 @@ export interface RouterDeps {
   /** Applied to every error text before it is logged (the host masks secret values here). */
   redact?: (text: string) => string;
   command?: (msg: InboundMessage, person: string, send: Send) => Promise<boolean>;
+  observed?: (msg: InboundMessage, person: string, sessionId: string) => void;
   behaviour?: (msg: InboundMessage) => ResolvedBehaviour;
 }
 export type Send = (msg: OutboundMessage) => Promise<void>;
@@ -125,6 +126,7 @@ export class ChannelRouter {
       // A group is one shared conversation (anyone in the room continues it), so there the owner is not compared.
       const forOwner = msg.chatKind === "direct" ? { userId } : undefined;
       const sessionId = (await this.#d.sessions.findActive(chat, forOwner)) ?? (await this.#d.sessions.create(chat, { userId }));
+      this.#d.observed?.(msg, userId, sessionId);
       const out = await channelOrigin.run({ ...chat, ...(msg.accountId ? { accountId: msg.accountId } : {}), senderId: msg.senderId, humanId: userId, chatKind: msg.chatKind }, () => channelBehaviour.run(profile, () => this.#d.sessions.submit(sessionId, { userId, text: msg.text })));
       await this.#reply(send, msg, clipReply(out.text, profile.rateLimits.maxReplyChars));
     } catch (e) {

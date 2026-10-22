@@ -449,6 +449,7 @@
       "description": "Settings for the core process, including logging, memory operation budgets, and shutdown.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
+        "webHandoffBaseUrl": {"type": "string", "default": "", "maxLength": 2048, "description": "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment.", "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$"},
         "logLevel": { "description": "Minimum severity written to the core log.", "enum": ["debug", "info", "warn", "error"], "default": "info", "x-restart": "live", "x-tier": "advanced" },
         "recall": {
           "description": "Time and response-size limits for memory recall.",

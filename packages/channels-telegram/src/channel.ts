@@ -592,7 +592,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       ...(attachments.length ? { attachments } : {}),
       ...(cmd ? { command: { name: cmd[1]!.toLowerCase(), argument: cmd[3] ?? "" } } : {}),
     };
-    if (message.command?.name === "web") {
+    if (message.command?.name === "web" && !this.#host) {
       let reply = "/web nicht konfiguriert";
       if (message.chatKind !== "direct") reply = "Bitte /web im privaten Chat verwenden.";
       else if (this.#o.webLinkProvider) {

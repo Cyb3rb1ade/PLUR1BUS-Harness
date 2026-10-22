@@ -74,6 +74,302 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `channel.history.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Read only own channel DMs observed through trusted ingress. Groups and legacy unknown-kind sessions are excluded. Current identity and agent rights are required.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "agentId": {
+            "$ref": "#/$defs/AgentId"
+          },
+          "title": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "readOnly": {
+            "const": true
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "title",
+          "channel",
+          "updatedAt",
+          "readOnly"
+        ]
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "sessions",
+    "truncated"
+  ]
+}
+```
+
+### `channel.history.get`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Read only own channel DM transcript. No mutation or submit operation exists on this surface.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "agentId": {
+          "$ref": "#/$defs/AgentId"
+        },
+        "title": {
+          "type": "string"
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "updatedAt": {
+          "type": "integer"
+        },
+        "readOnly": {
+          "const": true
+        }
+      },
+      "required": [
+        "id",
+        "agentId",
+        "title",
+        "channel",
+        "updatedAt",
+        "readOnly"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "text",
+          "createdAt"
+        ]
+      }
+    }
+  },
+  "required": [
+    "session",
+    "messages"
+  ]
+}
+```
+
+### `channel.handoff.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Issue a person-bound ten-minute one-use Web continuation path for an own channel DM. Never log the path.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "path": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "path",
+    "expiresAt"
+  ]
+}
+```
+
+### `channel.handoff.redeem`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Redeem once as the same authenticated person; create a separate direct chat with quoted untrusted context. Expiry, current link and rights are checked before consumption. Never log the token.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "handoffFrom": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "sessionId",
+        "channel"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "handoffFrom"
+  ]
+}
+```
+
 ### `delivery.target.list`
 
 **Stability:** experimental · since 1.6.0

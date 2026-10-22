@@ -51,6 +51,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "tools.hostctl.env.allow", type: "array", tier: "advanced", help: "Environment names eligible for inheritance; secrets and injection variables remain blocked." },
   { key: "tools.hostctl.denyPatterns", type: "array", tier: "advanced", help: "Additional case-insensitive literal command substrings to refuse." },
   { key: "tools.hostctl.search.maxResults", type: "integer", tier: "advanced", help: "Maximum matches per search." },
+  { key: "core.webHandoffBaseUrl", type: "string", tier: "advanced", help: "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment." },
   { key: "core.logLevel", type: "enum", tier: "advanced", help: "Minimum severity written to the core log." },
   { key: "core.recall.softBudgetMs", type: "integer", tier: "advanced", help: "Soft target duration for a recall, in milliseconds." },
   { key: "core.recall.hardBudgetMs", type: "integer", tier: "advanced", help: "Maximum duration allowed for a recall before it is aborted, in milliseconds." },

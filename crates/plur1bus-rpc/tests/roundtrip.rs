@@ -399,6 +399,22 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "channel.handoff.create" => check_pair::<
+                types::ChannelHandoffCreateParams,
+                types::ChannelHandoffCreateResult,
+            >(name, fixture, &root_schema),
+            "channel.handoff.redeem" => check_pair::<
+                types::ChannelHandoffRedeemParams,
+                types::ChannelHandoffRedeemResult,
+            >(name, fixture, &root_schema),
+            "channel.history.get" => check_pair::<
+                types::ChannelHistoryGetParams,
+                types::ChannelHistoryGetResult,
+            >(name, fixture, &root_schema),
+            "channel.history.list" => check_pair::<
+                types::ChannelHistoryListParams,
+                types::ChannelHistoryListResult,
+            >(name, fixture, &root_schema),
             "channel.list" => check_pair::<types::ChannelListParams, types::ChannelListResult>(
                 name,
                 fixture,

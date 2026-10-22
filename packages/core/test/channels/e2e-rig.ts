@@ -11,6 +11,7 @@ import { makeRig, flush, type Rig } from "./switchboard-rig.ts";
 export { flush };
 
 export interface E2eOptions {
+  command?: import("../../src/channels/router.ts").RouterDeps["command"];
   /** `discord`, `slack`, `matrix`, `signal` or `email`. */
   id: string;
   /** Test seams for the adapter (`fetch`, `webSocket`, `baseUrl`, `sleep`, `connect`, …): they point it at the fake server. */
@@ -32,7 +33,7 @@ export interface E2e extends Rig {
 export async function startE2e(o: E2eOptions): Promise<E2e> {
   const binding = DEFAULT_BINDINGS.find((b) => b.id === o.id);
   if (!binding) throw new Error(`no binding for ${o.id}`);
-  const rig = makeRig({ ids: [o.id], switchboard: { bindings: [binding], adapterDeps: { [o.id]: o.adapterDeps } } });
+  const rig = makeRig({ ids: [o.id], switchboard: { bindings: [binding], ...(o.command ? { command: o.command } : {}), adapterDeps: { [o.id]: o.adapterDeps } } });
   for (const [name, value] of Object.entries(o.secrets ?? {})) rig.secrets.put(name, value);
   rig.config.set(o.id, { enabled: true, ...(o.config ?? {}) });
 
