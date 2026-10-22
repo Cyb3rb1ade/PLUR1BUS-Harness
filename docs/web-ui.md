@@ -262,11 +262,12 @@ Pages depend on the `Api` interface (`rpc`, `get`, `post`, `put`, `patch`, `dele
 
 - **Decision-model hint** (`src/pages/common/decision-hint.ts`, keys `shared.decisionHint.*`). Without `modelRoles.decision` the built-in
   rule triage runs (a normal mode, not an error), but model-based message triage, tool pre-selection and the model class and effort
-  per task are limited. The notice names these three and the way to set the role (Settings, Models & providers, and
+  per task are limited, as are the further consumers of ADR-015 (model routing, tool-output pruning, automatic skill choice, memory placement and zoom
+  recall, compaction choice), each of which falls back as the ADR's table says. The notice lists all nine with their fallback and the way to set the role (Settings, Models & providers, and
   `plur1bus config set modelRoles.decision <provider/model>`). It shows in the setup wizard (model step and summary, reading
   `modelRoles.decision` with `config.get`; a failed read still shows it; the optional Decision step can set the role) and on the Models & providers
-  settings section; it disappears once the role is a non-empty string. The same three features are listed by `plur1bus setup`
-  (`config` step, `detail.decisionRole`) and by the `models.decision` row of `1staid check` (`info`, never a warning). Tests:
+  settings section; it disappears once the role is a non-empty string. The same nine features are listed by `plur1bus setup`
+  (`config` step, `detail.decisionRole.notice`, which also carries the Windows/Laya recommendation; the web wizard cannot know the server OS and shows no Windows notice); the `models.decision` row of `1staid check` (`info`, never a warning) still names the first three. Tests:
   `test/decision-hint.test.ts`. The `modelRoles` values are edited with catalog selectors in the settings form; the CLI remains available on the
   command line for now.
 
