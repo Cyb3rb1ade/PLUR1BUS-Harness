@@ -97,8 +97,13 @@ stdout and stderr through `OutputLines` into a writer with role `core.out` (`cor
 secretish names or explicitly requested non-locale values of eight or more characters are redacted,
 via a per-exec snapshot so one child's env cannot rewrite later children; PATH, TERM, LANG, TZ,
 TEMP, TMP, HOME and lookup variables are not registered. The exec writer flushes on its 1s timer
-and again after each run. MCP-stdio spawn lives in `packages/core/src/mcp/` (out of this
-remainder's allowed paths): KNOWN GAP — wrap there or at the composition that holds the child streams.
+and again after each run. A stdio MCP server's stderr takes the same road: `McpConnection` splits it into lines,
+removes the server's declared secrets (ADR-014 §7), and passes the lines through `OutputLines` into a second writer
+of role `core.out` whose source is `harness` / `mcp` (`composition/`), so a line is a `process.output.line` with
+`stream: "stderr"` and `untrusted: true`, capped, redacted and rate-limited like exec output. The protocol stdout
+is never written as output lines. Without a writer (`RegistryOptions.output` unset, as in unit tests of the registry)
+the older `mcp.server.stderr` debug record is written instead, never both. The record does not name the server;
+the `mcp.server.started` record carries the pid and the name.
 
 Each stream assembles UTF-8 lines across reads, strips ANSI/OSC and C0/C1 controls (tabs survive),
 redacts and truncates. A partial line is emitted after one second idle (`tick` from the exec timer,
@@ -146,7 +151,7 @@ CLI filter mapping (`--trace` → `traceId`), `E_INVALID_PARAMS` exit 2 and sign
 | 1 | New TS diagnostic/output records, key order, existing level maps | Rust writer parity; legacy caller migration |
 | 2 | Writer rejects unregistered events in strict mode, release fallback | Whole-repo event-literal migration/static scan |
 | 3 | Internal live snapshots, precedence, fake-clock expiry; `logs.levels` RPC (live-only) | Persistent `logs.levels.*` config keys, supervisor/modules |
-| 4 | Chunk/UTF-8 boundaries, forged JSON/ERROR, ANSI/OSC, 1 MiB line, flood, secret; `exec.run` stdout/stderr as `process.output.line` | MCP-stdio wrapping (KNOWN GAP); Rust raw-pump integration |
+| 4 | Chunk/UTF-8 boundaries, forged JSON/ERROR, ANSI/OSC, 1 MiB line, flood, secret; `exec.run` stdout/stderr as `process.output.line` | Rust raw-pump integration; per-server attribution of MCP stderr lines |
 | 5 | Exit, signal, HTTP and typed protocol classifier | Provider/MCP/ACP call-site wiring |
 | 6 | Writer secret-pattern/encoding canaries and reader defense | Audit/payload/CLI/error/bundle/export/desktop outputs; secret-store registration; physical path canonicalisation |
 | 7 | 340 occurrences, exact summary, fatal bypass | Audit remains independently owned |

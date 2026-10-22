@@ -137,9 +137,8 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 | Datei:Zeile | Lücke |
 |---|---|
 | tests/acceptance/d111-known-gaps.test.mjs:4 | Q/config: source-level settings persist across restart with bounded trace expiry and live reload |
-| tests/acceptance/d111-known-gaps.test.mjs:5 | Q/MCP: stderr uses the D111 process.output.line envelope while stdout stays protocol-only |
-| tests/acceptance/d111-known-gaps.test.mjs:6 | Q/supervisor: D111 writer parity, trusted attribution, trace, live levels and child-output redaction |
-| tests/acceptance/d111-known-gaps.test.mjs:7 | Q/spec-section-8: named D111 suite passes on all five native release targets |
+| tests/acceptance/d111-known-gaps.test.mjs:7 | Q/supervisor: D111 writer parity, trusted attribution, trace, live levels and child-output redaction |
+| tests/acceptance/d111-known-gaps.test.mjs:8 | Q/spec-section-8: named D111 suite passes on all five native release targets |
 
 ### scripts/release
 
@@ -166,10 +165,11 @@ Diese Tabellen erzeugen ihre Todos aus Daten; die Zahl ergibt nur ein Lauf der D
 | packages/core/test/import/provenance-imported.test.ts:86 | Prüft absichtlich den heutigen Zustand (die Bearbeitung einer Karte verliert die Herkunft, `provenance` bleibt `undefined`) und schlägt an dem Tag fehl, an dem die Engine das behebt. Braucht die echte Engine. Bewusst kein todo: das Flag würde diesen Alarm abschalten. docs/import.md Abschnitt 11 |
 | packages/core/test/import/provenance-imported.test.ts:105 | Kommentar: Rollback je Import-Lauf ist ohne Engine-Undo nicht möglich |
 | packages/core/test/import/hermes-acceptance3.test.ts:2, 47 | Kommentar: Hermes-Cron wird nicht importiert, bewusst zurückgestellt (docs/import.md) |
-| packages/core/src/logs/output.ts:61 | Kommentar: der MCP-stdio-Spawn liegt in `packages/core/src/mcp/` und ist dort nicht gekapselt |
 | packages/channels-matrix/test/split-property.test.ts:588, 692, 748, 759, 770 | Kommentare zu Produktabweichungen der Fence-Aufteilung (Properties 3b, 4, 4b, 4c) |
 
 Geschlossen und umbenannt am 2026-10-20: `packages/core/test/composition/inbox.test.ts` (Migration überspringt eine ungültige Altmeldung und kopiert die folgenden) und `packages/core/test/dreams/scheduler-time.test.ts` (`runPhase` für einen entfernten Agenten läuft nicht). Beide Tests prüfen das gewünschte Verhalten und liefen bereits grün; nur der Name sprach noch von einer Lücke.
+
+Geschlossen am 2026-10-21: das todo „Q/MCP: stderr uses the D111 process.output.line envelope while stdout stays protocol-only“ in `tests/acceptance/d111-known-gaps.test.mjs` und der Kommentar zum MCP-stdio-Spawn in `packages/core/src/logs/output.ts` (die stderr-Zeilen laufen jetzt über `OutputLines`; Test: `packages/core/test/mcp/stderr-d111.test.ts`).
 Ebenfalls geschlossen: `packages/embedding-adapters/test/audit-c15.test.ts` (Cloud-Provider unter `privacy.localOnly`) und die Probe `models.test` unter `privacy.localOnly` (`packages/core/test/composition/model-test.test.ts`, `open.test.ts`). Früher geschlossen: `packages/hostctl/test/hardening-hostctl.test.ts`.
 
 ## 4. Rust: `#[ignore]` mit KNOWN GAP
