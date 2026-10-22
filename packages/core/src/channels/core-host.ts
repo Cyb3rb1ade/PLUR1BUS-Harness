@@ -16,6 +16,7 @@ import type { ChannelLogger } from "./types.ts";
 
 export interface CoreHostDeps {
   command?: import("./router.ts").RouterDeps["command"];
+  observed?: import("./router.ts").RouterDeps["observed"];
   layout: Layout;
   config: ConfigPort;
   secrets: SecretStore;
@@ -29,6 +30,7 @@ export interface CoreHostDeps {
   log: ChannelLogger;
   /** Tests of the core wiring replace the real adapters. */
   bindings?: readonly ChannelBinding[];
+  recheckMs?: number;
   adapterDeps?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 }
 
@@ -48,7 +50,7 @@ export function channelSecrets(store: SecretStore): SecretsPort {
   return { read, has: async (name) => (await read(name)) !== null };
 }
 
-function agentIdOf(agents: AgentRegistry): string {
+export function channelAgentId(agents: AgentRegistry): string {
   const ids = agents.list();
   if (ids.length === 1) return ids[0]!; // D92 §6: a single agent is the agent
   if (ids.includes("main")) return "main";
@@ -60,13 +62,14 @@ export function openChannelSwitchboard(d: CoreHostDeps): Switchboard {
   let outputs: OutputStore | null = null;
   return createSwitchboard({
     config: d.config,
+    ...(d.observed ? { observed: d.observed } : {}),
     ...(d.command ? { command: d.command } : {}),
     secrets: channelSecrets(d.secrets),
     identity: d.identity,
     ...(d.personActive ? { personActive: d.personActive } : {}),
     turns: () => {
       const s = d.sessions();
-      return s ? { store: s.store, runner: s.runner, agentId: () => agentIdOf(d.agents) } : null;
+      return s ? { store: s.store, runner: s.runner, agentId: () => channelAgentId(d.agents) } : null;
     },
     approvals: () => d.permissions()?.current()?.service ?? null,
     outputs: { store: () => (outputs ??= new OutputStore(join(d.layout.home, "media", "outputs"))) },
@@ -74,6 +77,7 @@ export function openChannelSwitchboard(d: CoreHostDeps): Switchboard {
     log: d.log,
     bindings: d.bindings ?? DEFAULT_BINDINGS,
     ...(d.adapterDeps ? { adapterDeps: d.adapterDeps } : {}),
+    ...(d.recheckMs !== undefined ? { recheckMs: d.recheckMs } : {}),
     stateDir: join(d.layout.state, "channels"),
   });
 }

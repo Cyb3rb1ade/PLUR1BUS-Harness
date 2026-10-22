@@ -1,3 +1,4 @@
+import { CHANNEL_HANDOFF_ROUTES, channelHandoffHandlers } from "./channel-handoff-routes.ts";
 import { buildDesktopAttachHandlers } from "./desktop-attach-routes.ts";
 import { DESKTOP_ATTACH_ROUTES } from "./desktop-attach-contract.ts";
 import { WEBAUTHN_ROUTES, buildWebAuthnHandlers } from "./webauthn-routes.ts";
@@ -83,7 +84,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
-  ...DESKTOP_ATTACH_ROUTES, ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...REMOTE_ROUTES, ...REMOTE_PAIRING_ROUTES,
+  ...DESKTOP_ATTACH_ROUTES, ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...REMOTE_ROUTES, ...REMOTE_PAIRING_ROUTES, ...CHANNEL_HANDOFF_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with a local account or an explicitly configured compatibility credential; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
@@ -354,6 +355,7 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
     ...buildWebAuthnHandlers(d, undefined, () => "http://localhost"),
     ...buildTransportHandlers(d.core),
     ...buildChatHandlers(d.core,d.audit),
+    ...channelHandoffHandlers(d.core),
     ...buildRemoteHandlers({core:d.core,now:()=>d.clock.now()}),
     ...buildRemotePairingHandlers(undefined),
     "ws.ticket": () => ({body:{}}), "ws.reserved": () => ({body:{}}),

@@ -1,5 +1,21 @@
 {
   "methods": {
+    "channel.history.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "channel.history.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "channel.handoff.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "channel.handoff.redeem": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "delivery.target.list": {
       "stability": "experimental",
       "since": "1.6.0"

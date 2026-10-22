@@ -162,6 +162,16 @@ fn method_fixture(name: &str, f: &Value) {
         "breakglass.revoke" => pair::<BreakglassRevokeParams, BreakglassRevokeResult>(name, f),
         "pairing.qr" => pair::<PairingQrParams, PairingQrResult>(name, f),
         "auth.status" => pair::<AuthStatusParams, AuthStatusResult>(name, f),
+        "channel.handoff.create" => {
+            pair::<ChannelHandoffCreateParams, ChannelHandoffCreateResult>(name, f)
+        }
+        "channel.handoff.redeem" => {
+            pair::<ChannelHandoffRedeemParams, ChannelHandoffRedeemResult>(name, f)
+        }
+        "channel.history.get" => pair::<ChannelHistoryGetParams, ChannelHistoryGetResult>(name, f),
+        "channel.history.list" => {
+            pair::<ChannelHistoryListParams, ChannelHistoryListResult>(name, f)
+        }
         "channel.list" => pair::<ChannelListParams, ChannelListResult>(name, f),
         "channel.crypto" => pair::<ChannelCryptoParams, ChannelCryptoResult>(name, f),
         "channel.get" => pair::<ChannelGetParams, ChannelGetResult>(name, f),

@@ -1,3 +1,5 @@
+import { ChannelHandoff } from "./channel-handoff/service.ts";
+import { handoffMethods } from "./channel-handoff/rpc.ts";
 import { DeliveryTargets } from "./delivery/service.ts";
 import { deliveryMethods } from "./delivery/rpc.ts";
 import { deliveryAllowed } from "./delivery/policy.ts";
@@ -123,7 +125,7 @@ import { armKnowledgeUpdate, createKnowledgeUpdateJob } from "./knowledge/job.ts
 import { armApprovalsIntegrity, createApprovalsIntegrityJob } from "./approvals/integrity-job.ts";
 import { createPermissionNotifier, type PermissionNotifier } from "./approvals/notify.ts";
 import { grantRecordOf } from "./approvals/wire.ts";
-import { openChannelSwitchboard } from "./channels/core-host.ts";
+import { openChannelSwitchboard, channelAgentId } from "./channels/core-host.ts";
 import type { Switchboard } from "./channels/switchboard.ts";
 import { createPermissionRuntime, type PermissionRuntime } from "./approvals/runtime.ts";
 import type { ApprovalService } from "./approvals/service.ts";
@@ -186,6 +188,8 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** Trusted in-process channel test seams; never accepted from RPC or config. */
+  channels?: Pick<import("./channels/core-host.ts").CoreHostDeps, "bindings" | "adapterDeps" | "recheckMs">;
   /** Test seam: the engine's tombstone re-apply a backup restore's marker asks for (restore-reapply.ts); default: the engine's `lib/tombstone-reapply.js`, when it has one. */
   tombstoneReapply?: LoadEngineReapply;
   /** Legacy injected provider seam, adapted through composition; absent, configured provider definitions supply the pipeline. */
@@ -284,6 +288,7 @@ export function createCore(o: CoreOptions): Core {
   let metricsHttp: MetricsServer | null = null;
   let userJobs: UserJobs | null = null;
   let delivery: DeliveryTargets | null = null;
+  let handoff: ChannelHandoff | null = null;
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
@@ -673,7 +678,16 @@ export function createCore(o: CoreOptions): Core {
       });
       permissionNotifier = notifier;
       const board = switchboard = openChannelSwitchboard({
-        command: async (msg, person) => delivery?.confirmMessage(msg, person) ?? false,
+        observed: (msg, person, sessionId) => handoff?.observe(msg, person, sessionId),
+        command: async (msg, person, send) => {
+          if (delivery?.confirmMessage(msg, person)) return true;
+          if (msg.text.trim().toLowerCase() !== '/web') return false;
+          let text: string;
+          try { if (!handoff) throw new Error(); text = handoff.issueMessage(msg, person); }
+          catch { text = (cfg().channels as unknown as Record<string, {locale?: string}>)[msg.channel]?.locale === 'de' ? 'Web-Fortsetzung nicht verfügbar. Bitte im eigenen DM verwenden; die Web-Adresse muss eingerichtet sein.' : 'Web continuation unavailable. Use your own DM; the Web address must be configured.'; }
+          try { await send({ chatId: msg.chatId, text }); } catch { log.warn("channel.handoff.send.failed", { channel: msg.channel }); } return true;
+        },
+        ...(o.channels ?? {}),
         layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
@@ -874,7 +888,14 @@ export function createCore(o: CoreOptions): Core {
           return outcome;
         },
       });
+      handoff = new ChannelHandoff({ path: path.join(l.state, 'channel-handoff.sqlite'), store: () => sessions?.store ?? null, identity: () => identity,
+        resolve: id => {
+          if (people.person(id)?.disabled) return null;
+          const current = o.rbac?.resolvePerson ? o.rbac.resolvePerson(id) : identityService.list({}).humans.some(h => h.id === id) ? { kind: 'person' as const, userId: id, role: people.role(id, 'member') } : null;
+          return current?.kind === 'person' && current.userId === id ? people.resolve(current) : null;
+        }, clock, audit: rbacAudit, agentId: () => channelAgentId(executionRegistry), baseUrl: () => cfg().core.webHandoffBaseUrl });
       const rawMethods = {
+        ...handoffMethods(() => handoff),
         ...deliveryMethods(() => delivery),
         ...buildMethods({ hostEvalHome: l.home,
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
@@ -1084,7 +1105,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
       if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
-      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null;
+      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
@@ -1171,7 +1192,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
-      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null;
+      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;
       await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
       await step(logger, "rpc drain", async () => {

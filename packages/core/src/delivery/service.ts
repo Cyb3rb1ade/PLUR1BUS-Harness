@@ -88,7 +88,7 @@ export class DeliveryTargets {
         this.#audit(p.userId, 'delivery.target.challenge', id);
         this.#save(t);
         // Never return or log the code. Confirmation must come back through the exact linked target DM.
-        if (!await this.#o.send(t.identity.channel, t.chatId, `Confirm delivery in this DM: /delivery ${code}`))
+        if (!await this.#o.send(t.identity.channel, t.chatId, `Confirm delivery in this DM: /delivery ${code}`).catch(() => false))
             throw new RpcError('E_NOT_AVAILABLE', 'confirmation could not be sent');
         return { awaitingChannel: true };
     }
@@ -124,7 +124,7 @@ export class DeliveryTargets {
         if (current.chatId !== destination || current.identity.accountId !== t.identity.accountId)
             throw denied();
         this.#audit(person, 'delivery.attempt', id);
-        const sent = await this.#o.send(t.identity.channel, t.chatId, text);
+        const sent = await this.#o.send(t.identity.channel, t.chatId, text).catch(() => false);
         if (!sent)
             throw new RpcError('E_NOT_AVAILABLE', 'delivery unavailable');
         return { sent: true };

@@ -267,6 +267,20 @@ test("every route, driven through its success and failure paths on the real serv
       if (spec.csrf) await noCsrf(h, alice, spec.id);
       else await rt(h, owner, spec.id, "unknown query refused", { path: concrete + "?unknown=true" });
     }
+    // Read roles are allowed at the route boundary, but per-agent ownership may still deny them in Core.
+    const chatContract = core.impl;
+    core.impl = async (method, params) => method.startsWith('chat.') ? Promise.reject({error:'E_DENIED'}) : chatContract(method, params);
+    for (const spec of ROUTES.filter(r => r.id.startsWith('chats.') && r.method === 'GET')) await rt(h, alice, spec.id, 'object denied by Core', {path: spec.path.replace('{sessionId}', 'contract-chat')});
+    core.impl = async (method, params) => method.startsWith('channel.history.') || method.startsWith('channel.handoff.') ? JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`,import.meta.url),'utf8')).result : chatContract(method,params);
+    for (const spec of ROUTES.filter(r => r.id.startsWith('channel.'))) {
+      const method = spec.id;
+      const fixture = JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`,import.meta.url),'utf8'));
+      const concrete = spec.path.replace('{sessionId}','channel-session');
+      await rt(h, alice, spec.id, 'own channel contract result', {path:concrete,...(spec.requestBody?{body:fixture.params}:{})});
+      await anon(h, spec.id);
+      if (spec.csrf) {await noCsrf(h,alice,spec.id);await rt(h,alice,spec.id,'unknown fields refused',{path:concrete,body:{unexpected:true}});}
+      else {await rt(h,alice,spec.id,'query refused',{path:concrete+'?unexpected=true'}); const impl=core.impl;core.impl=async()=>{throw {error:'E_DENIED'};};await rt(h,alice,spec.id,'object denied by Core',{path:concrete});core.impl=impl;}
+    }
     await rt(h, owner, "ws.ticket", "one-use upgrade ticket"); await anon(h, "ws.ticket"); await noCsrf(h, owner, "ws.ticket");
     await rt(h, owner, "ws.reserved", "normal request requires upgrade"); await anon(h, "ws.reserved"); await rt(h, alice, "ws.reserved", "member cannot upgrade");
 
