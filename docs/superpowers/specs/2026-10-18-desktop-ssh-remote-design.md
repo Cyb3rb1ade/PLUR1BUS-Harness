@@ -1,6 +1,6 @@
 # Desktop: install and manage PLUR1BUS on a remote host over SSH — design
 
-**Status:** Owner decisions Q1–Q5 decided 2026-10-18 (D113); S0 partial; agent-only RSA decision verified, remaining audit/acceptance gates open · **Date:** 2026-10-18 ·
+**Status:** Owner decisions Q1–Q5 decided 2026-10-18 (D113); S0 partial; agent-only RSA decision verified, remaining audit/acceptance gates open; transport choice (Tailscale/direct) added by owner decision 2026-10-21, §13 · **Date:** 2026-10-18 ·
 **Owner:** Christian (Cyb3rb1ade) · **Track:** D (desktop), follow-up to D1 · **Plan:**
 [`2026-10-18-desktop-ssh-remote.md`](../plans/2026-10-18-desktop-ssh-remote.md)
 
@@ -66,6 +66,7 @@ OpenSSH key whose private half lives only in the OS keychain.
 | R10 | Storage | New **`ssh-hosts.json`** (public metadata only, separate from `connections.json`); secrets only in the OS keychain under service `app.plur1bus.desktop`. | Adding rows to `connections.json`: an older app build would quarantine the whole file on an unknown kind (closed schema, `.corrupt-*` rule), i.e. a downgrade would hide all connections. |
 | R11 | Command execution | Closed `RemoteCommand` enum; arguments limited to a quoting-free safe charset; no secret in argv or environment; bounded output; per-command timeout. | Free-form command strings or shell-quoting at runtime: the login shell (bash, zsh, dash, fish) parses the exec string; one quoting bug is remote code execution. |
 | R12 | Tests | In-process `russh` server for unit/integration tests on all five targets; an **OpenSSH container** (pinned digest, built in CI) for protocol truth; a real-install e2e against the Linux runner's own `sshd` + `systemd --user`. Keys generated at runtime, never committed. | Mocks only: would not catch OpenSSH behaviour (algorithms, `authorized_keys` options, `permitopen`). |
+| R13 | Path to the host (owner 2026-10-21) | Per profile **„Über Tailscale“ or „Direkt“**, free choice; public direct targets get a banner and an explicit confirmation, Tailscale targets a reachability check; the SSH session connects only to the checked addresses. Detail in [`2026-10-21-desktop-transport-choice-design.md`](2026-10-21-desktop-transport-choice-design.md). | Forcing one path: contradicts the owner decision. |
 
 ## 3. Target systems (R1, R2)
 
@@ -389,6 +390,8 @@ as a normal remote connection (the GUI offers *Also pair over the network* if th
 
 ```text
 { id (UUIDv7), name, host, port, user,
+  transport: tailscale | direct,                                   // §13, required in v1
+  publicAck?: { atMs, classifier },                                // §13, no addresses
   auth: { kind: password | keyFile | agent | generated, keyPath?, agentKeyFingerprint?, generatedPublicKey? },
   jump: <profile id>?,
   hostKeys: [ { algorithm, publicKey, fingerprint, confirmedAt, source } ],
@@ -526,3 +529,16 @@ outside the committed dependency graph. S0 remains partial because five-target,
 proxy/jump, supported OpenSSH-version and installed-size evidence is still open.
 Whole-workspace audit findings remain separate gates. See the
 [S0 evidence and remaining gates](../../handoff/status/2026-10-18-dssh-s0.md).
+
+## 13. Transport choice — owner decision 2026-10-21
+
+Each host profile records how the person reaches it: **„Über Tailscale“** or **„Direkt“** (R13, `transport` in §7.4).
+The choice selects checks and notices only; R4 (host keys), R5 (authentication) and R8/R9 (loopback API behind the
+tunnel) are unchanged. Before the first SSH packet the app resolves the host once, classifies every address against the
+IANA special-purpose registries (public direct target ⇒ banner and explicit confirmation, no block; mixed ⇒ public),
+runs the Tailscale reachability check for `*.ts.net` names and tailnet addresses, and hands **exactly the checked
+socket addresses** to the SSH session (WP1 `SessionConfig` takes pre-resolved addresses; the SSH crate does no DNS).
+A jump host is checked as the first hop; a target behind it is resolved by the jump host and not locally (transport spec §6.1,
+`target-via-jump`). Reconnects repeat the check. Detail, codes, texts and security analysis:
+[`2026-10-21-desktop-transport-choice-design.md`](2026-10-21-desktop-transport-choice-design.md); plan:
+[`2026-10-21-desktop-transport-choice.md`](../plans/2026-10-21-desktop-transport-choice.md), package T6.
