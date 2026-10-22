@@ -72,7 +72,7 @@ describe("evaluateLicense", () => {
 
 describe("exceptions", () => {
   const entry = { ecosystem: "cargo", name: "dual", version: "1.0.0", license: "Zlib" };
-  const ex = (o = {}) => ({ ecosystem: "cargo", name: "dual", license: "Zlib", reason: "reviewed, permissive in substance", ...o });
+  const ex = (o = {}) => ({ ecosystem: "cargo", name: "dual", license: "Zlib", reason: "reviewed, permissive in substance", expires: "2099-01-01", ...o });
 
   it("turns a failing entry into an exception, keeping the reason", () => {
     const { rows, stale } = judge([entry], policy, [ex()]);
@@ -103,6 +103,16 @@ describe("exceptions", () => {
     assert.throws(() => parseExceptions("{}"), /exceptions/);
     assert.throws(() => parseExceptions(JSON.stringify({ exceptions: [ex({ reason: " " })] })), /reason/);
     assert.throws(() => parseExceptions(JSON.stringify({ exceptions: [ex({ ecosystem: "npm" })] })), /ecosystem/);
+  });
+  it("requires an expiry date and rejects impossible or expired UTC dates", () => {
+    const parse = (expires, now = Date.parse("2026-10-21T00:00:00Z")) => parseExceptions(JSON.stringify({ exceptions: [ex({ expires })] }), now);
+    for (const expires of [undefined, "", "tomorrow", "2027-02-29", "2026-13-01", "2026-10-20", "2026-10-21"]) {
+      assert.throws(() => parse(expires), /expir/, String(expires));
+    }
+    assert.equal(parse("2026-10-22").length, 1);
+    assert.equal(parse("2028-02-29").length, 1);
+    assert.equal(parse("2026-10-22", Date.parse("2026-10-21T23:59:59.999Z")).length, 1);
+    assert.throws(() => parse("2026-10-22", Date.parse("2026-10-22T00:00:00Z")), /expired/);
   });
   it("ships a valid, empty exceptions file", () => {
     assert.deepEqual(parseExceptions(readFileSync(join(REPO, "docs/dependency-exceptions.json"), "utf8")), []);
@@ -235,12 +245,21 @@ describe("CLI on a fixture tree", () => {
     reset();
     const exFile = join(root, "ex.json");
     writeFileSync(exFile, JSON.stringify({ exceptions: [
-      { ecosystem: "cargo", name: "dep", license: "GPL-3.0-only OR Zlib", reason: "dual licensed, we pick Zlib" },
-      { ecosystem: "cargo-desktop", name: "dep", license: "GPL-3.0-only OR Zlib", reason: "same crate" },
+      { ecosystem: "cargo", name: "dep", license: "GPL-3.0-only OR Zlib", reason: "dual licensed, we pick Zlib", expires: "2099-01-01" },
+      { ecosystem: "cargo-desktop", name: "dep", license: "GPL-3.0-only OR Zlib", reason: "same crate", expires: "2099-01-01" },
     ] }));
     assert.equal(main(["--root", root, "--only", "cargo,cargo-desktop", "--exceptions", exFile], io(fakeRun({ cargo: "GPL-3.0-only OR Zlib" }))), 0);
     assert.match(text(), /EXCEPTION/);
     assert.match(text(), /we pick Zlib/);
+  });
+  it("refuses expired exceptions before invoking a collector", () => {
+    reset();
+    const exFile = join(root, "expired.json");
+    writeFileSync(exFile, JSON.stringify({ exceptions: [{ ecosystem: "cargo", name: "dep", license: "Zlib", reason: "old approval", expires: "2000-01-01" }] }));
+    let calls = 0;
+    assert.equal(main(["--root", root, "--exceptions", exFile], io(() => { calls++; throw new Error("must not collect"); })), 2);
+    assert.equal(calls, 0);
+    assert.match(out.err.join("\n"), /expired/);
   });
   it("exits 3 when an ecosystem cannot be collected, and 0 with --allow-incomplete", () => {
     reset();

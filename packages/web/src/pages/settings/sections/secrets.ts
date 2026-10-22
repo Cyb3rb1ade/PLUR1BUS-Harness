@@ -18,6 +18,7 @@ import "../../../styles/secrets.css";
 registerArea("secrets", secretsArea);
 
 type Meta = { name: string; backend: string; createdAt?: string; updatedAt?: string; description?: string };
+type SetResult = { warning?: { code?: string; minMaskedChars?: number } } | null | undefined;
 type Status = { secrets?: Meta[]; backend: string; degraded: boolean; count: number | null; activeLeases: number };
 type Data = { secrets: Meta[]; status: Status | null };
 type Dlg = null | { kind: "create" } | { kind: "rotate"; name: string } | { kind: "delete"; name: string };
@@ -42,13 +43,18 @@ const saveFailure = (e: unknown): SaveResult => {
 function Body({ data, reload }: { data: Data; reload: () => void }): View {
   const [dlg, setDlg] = useState<Dlg>(null);
   const [notice, setNotice] = useState("");
+  const [warning, setWarning] = useState("");
   const close = (): void => { setDlg(null); };
   const names = data.secrets.map((s) => s.name);
 
   const save = async (name: string, value: string, description?: string): Promise<SaveResult> => {
     const rotated = names.includes(name);
     // The description travels only when the dialog changed it; a rotation without one keeps the stored text.
-    try { await getApi().rpc("secret.set", description === undefined ? { name, value } : { name, value, description }); } catch (e) { return saveFailure(e); }
+    let result: SetResult;
+    try { result = await getApi().rpc("secret.set", description === undefined ? { name, value } : { name, value, description }) as SetResult; } catch (e) { return saveFailure(e); }
+    // The core stored the value either way; a value the log redactor cannot mask comes back with a warning (#652).
+    const short = result?.warning?.code === "short-value-unmasked";
+    setWarning(short ? t("secrets.warn.shortValue", { name, min: String(result?.warning?.minMaskedChars ?? 8) }) : "");
     let updatedAt: string | undefined;
     if (rotated) {
       try {
@@ -65,7 +71,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
       const f = failureOf(e);
       return { ok: false as const, message: f.kind === "forbidden" ? t("secrets.err.forbidden") : f.kind === "unavailable" ? t("shared.unavailable.inline") : t("secrets.delete.failed") };
     }
-    setNotice(t("secrets.deleted", { name })); reload();
+    setNotice(t("secrets.deleted", { name })); setWarning(""); reload();
     return { ok: true as const };
   };
 
@@ -81,6 +87,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
       h("h3", { class: "card-title" }, t("secrets.list")),
       h("button", { type: "button", class: "btn btn-primary", onClick: () => { setDlg({ kind: "create" }); } }, t("secrets.create"))),
     h("p", { class: "secrets-notice", role: "status", "aria-live": "polite" }, notice),
+    warning ? h("p", { class: "secrets-notice secrets-warning", role: "status", "aria-live": "polite" }, warning) : null,
     data.secrets.length === 0
       ? h(PageState, { state: "empty", title: t("secrets.empty.title"), detail: t("secrets.empty.body") })
       : h("div", {}, h("table", { class: "data-table secrets-table" },

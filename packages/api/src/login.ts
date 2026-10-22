@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Clock } from "./clock.ts";
 import { normalizeUsername } from "./memory-stores.ts";
-import { hashPassword, needsRehash, verifyPassword } from "./password.ts";
+import { hashPassword, needsRehash, rehashParams, verifyPassword } from "./password.ts";
 import type { UserDirectory, UserRecord } from "./ports.ts";
 
 export interface LockoutPolicy {
@@ -78,7 +78,7 @@ export class PasswordLogin {
     this.#attempts.delete(key);
     let rehashed = false;
     if (needsRehash(user.passwordHash!)) {
-      try { await this.#users.updatePasswordHash(user.id, await this.#hash(password)); rehashed = true; } catch { /* the login stands, the next one retries */ }
+      try { await this.#users.updatePasswordHash(user.id, await this.#hash(password, rehashParams(user.passwordHash!))); rehashed = true; } catch { /* the login stands, the next one retries */ }
     }
     const current = await this.#users.findById(user.id);
     if (!current || current.disabled) return { ok: false, locked: false };

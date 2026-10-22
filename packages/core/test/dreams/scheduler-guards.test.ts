@@ -285,17 +285,22 @@ describe("dreams scheduler: llmRoute and diary", () => {
 });
 
 describe("dreams scheduler: candidate guards", () => {
-  const src = (items: { content: string; recalls?: number; uniqueQueries?: number; score?: number }[]) => ({ pull: () => items });
+  const src = (items: { content: string; recalls?: number; uniqueQueries?: number; score?: number }[]) => ({
+    pull: () => items.map((item) => ({ ...item, memoryId: item.content })),
+    promote: async (agentId: string, ids: readonly string[]) => ({ agentId, items: ids.map((id) => ({ id, outcome: "promoted" as const, reason: "integrated" })) }),
+  });
 
-  it("a deep run needs at least one promotable candidate; without one it is skipped/no_candidates and the engine is not called", async () => {
+  it("a deep run completes its maintenance without promoting an unfit candidate", async () => {
     const h = harness(dirs, { over: { candidates: src([{ content: "a", recalls: 0, score: 0.99 }]) } }); h.sched = h.make(); h.captures("alpha", 3);
     const r = await manual(h, "deep");
-    assert.equal(r.outcome, "skipped"); assert.equal(r.reason, "no_candidates"); assert.equal(h.engine.calls.length, 0);
+    assert.equal(r.outcome, "completed"); assert.equal(r.reason, null);
+    assert.deepEqual(h.engine.calls.map((c) => c.job), ["consolidate-daily", "auto-accept-stale", "gc-run"]);
+    assert.equal(h.store.listCandidates("alpha", "promoted").length, 0);
     assert.equal(h.store.listCandidates("alpha", "shortlisted").length, 1, "a failing candidate stays shortlisted with its gate record");
     assert.equal((h.store.listCandidates("alpha")[0]!.decision as { rejectedBy: string }).rejectedBy, "utility");
   });
 
-  it("a promotable candidate is marked promoted only after the engine's run completed, with the decision record", async () => {
+  it("a promotable candidate is marked promoted only after Engine completion and its explicit promotion receipt", async () => {
     const h = harness(dirs, { over: { candidates: src([{ content: "good", recalls: 3, uniqueQueries: 3, score: 0.8 }, { content: "weak", recalls: 1, uniqueQueries: 1, score: 0.8 }]) } });
     h.sched = h.make(); h.captures("alpha", 3);
     const r = await manual(h, "deep");
@@ -313,10 +318,11 @@ describe("dreams scheduler: candidate guards", () => {
     assert.equal(h.store.listCandidates("alpha", "promoted").length, 0);
   });
 
-  it("a candidate source that throws fails the run (engine_error) without calling the engine", async () => {
+  it("a candidate source that throws reports engine_error after independent deep maintenance", async () => {
     const h = harness(dirs, { over: { candidates: { pull: () => { throw new Error("source down"); } } } }); h.sched = h.make(); h.captures("alpha", 3);
     const r = await manual(h, "deep");
-    assert.equal(r.outcome, "failed"); assert.equal(r.reason, "engine_error"); assert.match(r.error!.message, /source down/); assert.equal(h.engine.calls.length, 0);
+    assert.equal(r.outcome, "failed"); assert.equal(r.reason, "engine_error"); assert.match(r.error!.message, /source down/);
+    assert.deepEqual(h.engine.calls.map((c) => c.job), ["consolidate-daily", "auto-accept-stale", "gc-run"]);
   });
 
   it("candidates are dedupe-counted on a repeat pull and expire after the TTL (72 h) whatever their score", async () => {
