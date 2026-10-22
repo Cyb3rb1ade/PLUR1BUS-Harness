@@ -2,10 +2,10 @@ name: desktop
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
-    paths: ["apps/desktop/**", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
+    paths: ["apps/desktop/**", "packages/core/src/tools/web/ip.ts", "packages/core/test/fixtures/net/ip-classification-vectors.json", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
   push:
     branches: [main]
-    paths: ["apps/desktop/**", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
+    paths: ["apps/desktop/**", "packages/core/src/tools/web/ip.ts", "packages/core/test/fixtures/net/ip-classification-vectors.json", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
   schedule:
     - cron: "23 3 * * *"
   workflow_dispatch:
@@ -123,7 +123,7 @@ jobs:
         timeout-minutes: 15
         working-directory: apps/desktop
       - name: Windows libtest loader failure evidence
-        if: runner.os == 'Windows' && failure() && steps.desktop-rust-tests.outcome == 'failure'
+        if: always() && runner.os == 'Windows' && failure() && steps.desktop-rust-tests.outcome == 'failure'
         timeout-minutes: 10
         run: node apps/desktop/scripts/windows-libtest-loader.mjs --output "$RUNNER_TEMP/plur1bus-libtest-loader"
       - name: Windows libtest loader evidence artifacts
@@ -135,10 +135,12 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - name: Native fixture tests
+        if: always() && (runner.os == 'Windows' || success())
         timeout-minutes: 10
         run: cargo test --locked -p plur1bus-desktop --example transport_spike --example production_spa --example production_driver --example production_job
         working-directory: apps/desktop
       - name: Native probe and Windows startup diagnostic tests
+        if: always() && (runner.os == 'Windows' || success())
         id: native-diagnostics
         timeout-minutes: 5
         run: node --test apps/desktop/scripts/owned-process.test.mjs apps/desktop/scripts/fixture-job.test.mjs apps/desktop/scripts/lifecycle-report.test.mjs apps/desktop/scripts/windows-focus-summary.test.mjs apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
@@ -147,7 +149,7 @@ jobs:
         timeout-minutes: 10
         run: xvfb-run -a node apps/desktop/scripts/transport-spike.mjs
       - name: Native transport spike (WKWebView and WebView2)
-        if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        if: always() && (runner.os == 'Windows' || (runner.os == 'macOS' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))))
         timeout-minutes: 10
         run: node apps/desktop/scripts/transport-spike.mjs
       - name: Native deep-link startup and second-instance delivery (Linux)
@@ -156,10 +158,11 @@ jobs:
         # Own session bus like the lifecycle step: the singleton forwards over D-Bus, never via the runner's user bus.
         run: xvfb-run -a dbus-run-session -- node apps/desktop/scripts/native-deeplink.mjs
       - name: Native deep-link startup and second-instance delivery (macOS and Windows)
-        if: runner.os != 'Linux'
+        if: always() && (runner.os == 'Windows' || (runner.os == 'macOS' && success()))
         timeout-minutes: 8
         run: node apps/desktop/scripts/native-deeplink.mjs
       - name: Packaging script unit tests
+        if: always() && (runner.os == 'Windows' || success())
         run: node --test apps/desktop/scripts/test/*.test.mjs
       - name: Native transport observations
         if: always()
@@ -174,7 +177,7 @@ jobs:
         timeout-minutes: 15
         run: xvfb-run -a node apps/desktop/scripts/native-spa.mjs --output "$RUNNER_TEMP/plur1bus-native-spa-observations"
       - name: Native SPA login, restart and isolation (WKWebView and WebView2)
-        if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        if: always() && (runner.os == 'Windows' || (runner.os == 'macOS' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))))
         timeout-minutes: 15
         run: node apps/desktop/scripts/native-spa.mjs --output "$RUNNER_TEMP/plur1bus-native-spa-observations"
       - name: Native lifecycle and isolated second instance (Linux)
@@ -188,7 +191,7 @@ jobs:
             node apps/desktop/scripts/native-lifecycle.mjs
           '
       - name: Native lifecycle and isolated second instance (macOS and Windows)
-        if: runner.os != 'Linux'
+        if: always() && (runner.os == 'Windows' || (runner.os == 'macOS' && success()))
         timeout-minutes: 8
         run: node apps/desktop/scripts/native-lifecycle.mjs
       - name: Retain Windows lifecycle coverage
@@ -210,7 +213,7 @@ jobs:
             node apps/desktop/scripts/native-diagnostics.mjs
           '
       - name: Native crash restart, Shell acknowledgment and diagnostics Quit (macOS and Windows)
-        if: runner.os != 'Linux'
+        if: always() && (runner.os == 'Windows' || (runner.os == 'macOS' && success()))
         timeout-minutes: 8
         run: node apps/desktop/scripts/native-diagnostics.mjs
       - name: Native AppKit tray headers, tooltip and template fallback (macOS)
@@ -226,17 +229,21 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - run: pnpm tauri build --debug --no-bundle -- --locked
+        if: always() && (runner.os == 'Windows' || success())
         working-directory: apps/desktop
       - name: Unsigned online bundles
+        if: always() && (runner.os == 'Windows' || success())
         run: pnpm tauri build --bundles "${{ matrix.bundles }}" -- --locked
         working-directory: apps/desktop
       - name: Prove fixture switches absent from release executable
+        if: always() && (runner.os == 'Windows' || success())
         shell: bash
         run: |
           suffix=""
           if [[ "${{ runner.os }}" == "Windows" ]]; then suffix=".exe"; fi
           node apps/desktop/scripts/check-release-seams.mjs "apps/desktop/target/debug/plur1bus-desktop${suffix}" "apps/desktop/target/release/plur1bus-desktop${suffix}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && (runner.os == 'Windows' || success())
         with:
           name: desktop-unsigned-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: |
@@ -399,7 +406,7 @@ jobs:
         with: { node-version: 24.21.0 }
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with: { toolchain: "1.95" }
-      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev
       - run: pnpm install --frozen-lockfile && pnpm --filter @plur1bus/desktop-ui build
       - name: Compile actual shell with experimental runtime (advisory)
         shell: bash

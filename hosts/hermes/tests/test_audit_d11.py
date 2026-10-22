@@ -187,7 +187,8 @@ class BindChildOutputTest(unittest.TestCase):
         with mock.patch.dict(os.environ, {"PATH": on_path}):
             doc = self._bind(runner, bin="plur1bus")
         self.assertTrue(doc["ok"], doc)
-        self.assertEqual(calls[0][0], exe)
+        # Windows: the lookup returns the canonical path (PATHEXT spelling and 8.3 names such as RUNNER~1 resolved).
+        self.assertEqual(os.path.normcase(os.path.realpath(calls[0][0])), os.path.normcase(os.path.realpath(exe)))
 
 
 @requires_core

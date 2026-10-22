@@ -76,7 +76,7 @@ Rights are explicit: `grants: { <agentId>: [<action>…] }` with `card.read`, `t
 
 Cancel aborts the turn's `AbortSignal` (and `TurnRunner.cancel` when a session port is wired). Artifacts are the turn's text reply as `parts` (`kind: "text"`). Incoming parts: `text`, `file` (`bytes`/`data` or `uri` — a `uri` is stored, never fetched; `bytes` must be canonical base64; control characters in `name`, `mimeType` and `uri` are replaced by spaces), `data`. Unknown kinds are `ContentTypeNotSupported` (-32005).
 
-The store is **in-memory**: live cap per peer, stored cap, TTL on terminal tasks. A persistent store is a follow-up. A task left in `input-required` or `auth-required` for the terminal-task retention time (1 h) is canceled, so an unanswered pause cannot hold a live slot forever.
+The store is **in-memory**: live cap per peer, stored cap (shared fairly between peers, see Limits), TTL on terminal tasks, a size cap on each reply and on each task's event log. A persistent store is a follow-up. A task left in `input-required` or `auth-required` for the terminal-task retention time (1 h) is canceled, so an unanswered pause cannot hold a live slot forever.
 
 ## Streaming
 
@@ -98,7 +98,13 @@ A2A 0.3: `-32001` TaskNotFound, `-32002` TaskNotCancelable, `-32003` PushNotific
 
 ## Limits (`A2aLimits`, defaults)
 
-Body 1 MiB (enforced while streaming, 413), message text 64 KiB, file part 256 KiB, data part 64 KiB, 16 parts, 60 requests/min per peer, 240/min per remote address, 10 failed authentications/min per address (then 429 before any key is compared), 8 live tasks per peer, 8 live streams per peer, 1000 stored tasks, terminal tasks kept 1 h, reply timeout 120 s, history 20, push 3 attempts.
+Body 1 MiB (enforced while streaming, 413), message text 64 KiB, file part 256 KiB, data part 64 KiB, 16 parts, 60 requests/min per peer, 240/min per remote address, 10 failed authentications/min per address (then 429 before any key is compared), 8 live tasks per peer, 8 live streams per peer, 1000 stored tasks, terminal tasks kept 1 h, reply timeout 120 s, history 20, push 3 attempts, reply 256 KiB (`maxReplyBytes`), 1024 stream events per task (`maxEventsPerTask`).
+
+**Reply size.** A reply is kept up to `maxReplyBytes` UTF-8 bytes (cut on a character boundary). Past that the reply ends in `[reply truncated: size limit]`, the turn is cancelled instead of drained, and the task completes normally (it does not fail). The marker is the only way a client learns of the cut; the 120 s reply timeout still applies.
+
+**Event log.** A task's log holds at most `maxEventsPerTask` events. Reply chunks use the log until a reserve for status transitions and the closing events is left; after that the remaining reply text is coalesced into one tail event sent just before the last artifact chunk. A stream or `tasks/resubscribe` replay therefore always carries the whole reply and ends in the final status, but a live subscriber of a very chatty reply sees the last part in one piece rather than chunk by chunk. A task that cycles through `input-required` hundreds of times can lose later non-final status events from the log once it is full; the final status is never dropped.
+
+**Store fairness.** `maxStoredTasksPerPeer` (default: `maxStoredTasks` divided by the number of configured peers, at least 1) is each peer's fair share. While the store has free slots any peer may use them. When it is full, a peer at or above its share is refused (`-32000` task-limit) until retention frees a slot; a peer below its share takes a slot from the peer furthest above its own share by dropping that peer's oldest finished task (a later `tasks/get` for it answers TaskNotFound). Running and paused tasks are never dropped and nobody is pushed below their share, so one peer can no longer lock the others out for the retention time. A store full of one peer's *running* tasks is still bounded only by that peer's live cap (`maxLiveTasksPerPeer`).
 
 **Loopback bind only.** The Host header must be one the server listens on (DNS-rebinding guard). Binding `0.0.0.0` / a public address is refused. TLS-only exposure beyond loopback is a later slice.
 
@@ -108,8 +114,8 @@ Body 1 MiB (enforced while streaming, 413), message text 64 KiB, file part 256 K
 
 ## Known limits (Bekannte Grenzen)
 
-- A turn's reply and its stream event log are held in memory without a size cap (bounded only by the 120 s reply timeout).
-- The stored-task cap refuses new work while the store is full of terminal tasks still inside their retention time; one peer can use up the slots for every peer for up to an hour (its own request rate still applies).
+- A task's history (messages, not the reply) grows with each `input-required` / `auth-required` follow-up; `tasks/get` and the stream only ever show the last `maxHistoryLength` messages, but all are held until the task expires. Bounded by the peer's request rate and the 1 h retention.
+- If more peers hold running tasks than the stored cap can fit (peers x `maxLiveTasksPerPeer` > `maxStoredTasks`), a store full of running tasks refuses everyone; finished tasks are the only thing reclaimed.
 - An expiring paused task is only noticed on the next store access, so an open stream on it ends then, not at the exact deadline.
 
 ## Follow-ups

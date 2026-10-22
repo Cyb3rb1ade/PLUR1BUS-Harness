@@ -50,7 +50,7 @@ pub const DECISION_USES: [DecisionUse; 9] = [
     DecisionUse {
         id: "skillSelection",
         feature: "automatic skill choice (D69)",
-        fallback: "no additional dynamic skill is injected; explicit pins and blocks stay authoritative",
+        fallback: "the rule shortlist (top 3) is used; explicit pins and blocks stay authoritative",
     },
     DecisionUse {
         id: "memoryPlacement",

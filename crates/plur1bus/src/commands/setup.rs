@@ -67,6 +67,12 @@ pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
                     if !args.no_service {
                         child_args.push("--no-service".into());
                     }
+                    // The child starts the supervisor; Rust's `CreateProcessW` inherits every inheritable handle, so without
+                    // this the supervisor would keep our caller's stdout/stderr pipes open and the caller (a script, a
+                    // test's `Command::output()`) would wait for EOF for as long as the daemon runs. The child's own
+                    // piped stdio below is duplicated for it explicitly and is unaffected.
+                    #[cfg(windows)]
+                    crate::supervisor::keep_std_handles_private();
                     let output = std::process::Command::new(&binary)
                         .args(child_args)
                         .env("PLUR1BUS_HM4_PARENT", std::process::id().to_string())
@@ -265,7 +271,7 @@ mod tests {
         let none = describe(&[step(json!({}), "linux")], None);
         assert!(none.contains("depend on a decision model"), "{none}");
         assert!(
-            none.contains("automatic skill choice (D69): no additional dynamic skill"),
+            none.contains("automatic skill choice (D69): the rule shortlist (top 3) is used"),
             "{none}"
         );
         assert_eq!(none.matches("to enable them").count(), 1, "{none}");

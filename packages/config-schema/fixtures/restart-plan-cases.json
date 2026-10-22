@@ -69,6 +69,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -154,6 +155,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -194,6 +204,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -555,6 +572,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 250,
@@ -640,6 +658,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -680,6 +707,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -1054,6 +1088,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -1139,6 +1174,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -1179,6 +1223,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -1540,6 +1591,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -1627,6 +1679,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -1667,6 +1728,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -2041,6 +2109,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -2126,6 +2195,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -2166,6 +2244,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -2527,6 +2612,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -2616,6 +2702,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -2656,6 +2751,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -3032,6 +3134,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -3121,6 +3224,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -3161,6 +3273,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -3522,6 +3641,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -3607,6 +3727,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -3647,6 +3776,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -4023,6 +4159,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -4112,6 +4249,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -4152,6 +4298,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -4513,6 +4666,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -4602,6 +4756,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -4642,6 +4805,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -5020,6 +5190,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -5105,6 +5276,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -5145,6 +5325,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -5506,6 +5693,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -5595,6 +5783,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -5635,6 +5832,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -6011,6 +6215,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -6096,6 +6301,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -6136,6 +6350,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -6497,6 +6718,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "debug",
         "recall": {
           "softBudgetMs": 400,
@@ -6582,6 +6804,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -6622,6 +6853,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -6999,6 +7237,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -7084,6 +7323,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -7124,6 +7372,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -7490,6 +7745,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -7575,6 +7831,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -7615,6 +7880,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -7996,6 +8268,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -8081,6 +8354,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -8121,6 +8403,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {
@@ -8482,6 +8771,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -8567,6 +8857,15 @@
       },
       "oauth": {},
       "decision": {
+        "systemOne": {
+          "jev": {
+            "enabled": false,
+            "model": "jev-1.13.0"
+          },
+          "kev": {
+            "enabled": false
+          }
+        },
         "backend": "role",
         "timeoutMs": 200,
         "budgets": {
@@ -8607,6 +8906,13 @@
         "allowPorts": [
           443
         ],
+        "modelDownloads": {
+          "enabled": true,
+          "allowHosts": [
+            "huggingface.co",
+            "us.aws.cdn.hf.co"
+          ]
+        },
         "allowLoopback": false
       },
       "privacy": {

@@ -74,6 +74,509 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `channel.history.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Read only own channel DMs observed through trusted ingress. Groups and legacy unknown-kind sessions are excluded. Current identity and agent rights are required.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "agentId": {
+            "$ref": "#/$defs/AgentId"
+          },
+          "title": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "readOnly": {
+            "const": true
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "title",
+          "channel",
+          "updatedAt",
+          "readOnly"
+        ]
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "sessions",
+    "truncated"
+  ]
+}
+```
+
+### `channel.history.get`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Read only own channel DM transcript. No mutation or submit operation exists on this surface.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "agentId": {
+          "$ref": "#/$defs/AgentId"
+        },
+        "title": {
+          "type": "string"
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "updatedAt": {
+          "type": "integer"
+        },
+        "readOnly": {
+          "const": true
+        }
+      },
+      "required": [
+        "id",
+        "agentId",
+        "title",
+        "channel",
+        "updatedAt",
+        "readOnly"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "text",
+          "createdAt"
+        ]
+      }
+    }
+  },
+  "required": [
+    "session",
+    "messages"
+  ]
+}
+```
+
+### `channel.handoff.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Issue a person-bound ten-minute one-use Web continuation path for an own channel DM. Never log the path.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "path": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "path",
+    "expiresAt"
+  ]
+}
+```
+
+### `channel.handoff.redeem`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Redeem once as the same authenticated person; create a separate direct chat with quoted untrusted context. Expiry, current link and rights are checked before consumption. Never log the token.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "handoffFrom": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "sessionId",
+        "channel"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "handoffFrom"
+  ]
+}
+```
+
+### `delivery.target.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.add`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel",
+        "accountId",
+        "userId"
+      ],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "accountId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    }
+  },
+  "required": [
+    "identity"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.confirm`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.remove`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.subscribe`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "system",
+        "dreams"
+      ]
+    },
+    "job": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  },
+  "required": [
+    "id",
+    "source",
+    "job",
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `chat.promote.links`
 
 **Stability:** experimental · since 1.6.0
@@ -1091,7 +1594,7 @@ The authenticated person's own direct chat: its model profile and reasoning choi
 
 **Served by:** core
 
-Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by Nur lokal is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).
+Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by “Only local models” is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).
 
 **params**
 
@@ -1228,6 +1731,11 @@ Human-only user-job create. Current agent.manage rights are required; system and
     },
     "enabled": {
       "type": "boolean"
+    },
+    "deliveryTarget": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Own validated delivery target; empty disables delivery."
     }
   },
   "required": [
@@ -1312,6 +1820,11 @@ Human-only user-job update. Current agent.manage rights are required; system and
       "type": "string",
       "minLength": 1,
       "maxLength": 128
+    },
+    "deliveryTarget": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Own validated delivery target; empty disables delivery."
     }
   },
   "required": [
@@ -6403,6 +6916,130 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `memory.curation.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human curation queue (Engine contract 1.17.0). Separate from D31 memory.proposals.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "items",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryCurationRecord"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `memory.curation.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human keep/drop of a visible Neo curation record. Never accepts caller identity in params.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "id",
+    "action"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "action": {
+      "enum": [
+        "keep",
+        "drop"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "id",
+    "status"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "promoted",
+        "demoted"
+      ]
+    }
+  }
+}
+```
+
 ### `memory.proposals.list`
 
 **Stability:** experimental · since 1.1.0
@@ -8135,7 +8772,7 @@ Disables one phase schedule; cron and importance triggers stop, run-now still wo
 
 **Served by:** core
 
-The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
+The private engine-owned dreaming diary (DREAMS.md at the agent workspace root; A5 amendment to D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
 
 **params**
 
@@ -8797,7 +9434,7 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
 
 **Served by:** core
 
-B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE.
+B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE. An optional external pin (a sequence and hash recorded elsewhere) is checked under the same lock against the whole chain, rotated files included; pin-missing or pin-mismatch is a finding, and it detects a chain that was rewritten consistently.
 
 **params**
 
@@ -8805,7 +9442,28 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "hash"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "description": "Externally recorded sequence/hash pair; pin-missing or pin-mismatch is a finding."
+    }
+  }
 }
 ```
 
@@ -8901,7 +9559,9 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
               "anchor-missing",
               "anchor-invalid",
               "anchor-mismatch",
-              "truncated"
+              "truncated",
+              "pin-missing",
+              "pin-mismatch"
             ]
           },
           "file": {
@@ -9955,7 +10615,7 @@ The running configuration (spec §6.1, B5): the whole value, one key (dotted pat
 
 **Served by:** supervisor
 
-Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it.
+Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it. A chain that refuses the audit rows does not block the set; `warnings` then lists audit-chain-unavailable. A failure to write audit.log still refuses it (E_INTERNAL).
 
 **params**
 
@@ -10052,6 +10712,15 @@ Validates and applies all changes or none, writes config.json atomically and not
         ]
       },
       "description": "Estimated restart time (ms) per unit, null when unknown."
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "audit-chain-unavailable"
+        ]
+      },
+      "description": "Present only when the set was applied with a caveat. `audit-chain-unavailable`: the configuration is saved, but the audit hash chain refused the audit rows (anchor missing or invalid, integrity mismatch, lock timeout); they are in audit.log with chain=refused and wait in the pending journal until the chain accepts appends again."
     }
   }
 }
@@ -11360,6 +12029,83 @@ Human-only Owner/Admin bounded decision probe for one agent. Fixed synthetic par
 }
 ```
 
+### `admin.engine.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin test of the active engine embedder or reranker through engine ports. Fixed small inputs, ten second deadline, no memory or session writes. May contact the configured provider or download local model artifacts under the host policy. Captioner is unsupported: this engine has no captioner role. Returns only safe failure classifications; never provider error messages or credentials.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "embedder",
+        "reranker",
+        "captioner"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "ok",
+    "durationMs"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "embedder",
+        "reranker",
+        "captioner"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "dimensions": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "errorClass": {
+      "enum": [
+        "egress",
+        "key",
+        "download",
+        "provider",
+        "timeout",
+        "unsupported"
+      ]
+    }
+  }
+}
+```
+
 ### `models.test`
 
 **Stability:** experimental · since 1.6.0
@@ -11781,6 +12527,16 @@ Usage per period (the current local day and month in the configured time zone) a
               "cacheWriteTokens": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "images": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Generated images (media units; absent from an older core)"
+              },
+              "videoSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
               }
             }
           },
@@ -11828,6 +12584,16 @@ Usage per period (the current local day and month in the configured time zone) a
                     "cacheWriteTokens": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "images": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Generated images (media units; absent from an older core)"
+                    },
+                    "videoSeconds": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
                     }
                   }
                 },
@@ -11865,6 +12631,14 @@ Usage per period (the current local day and month in the configured time zone) a
                         "minimum": 0
                       },
                       "cacheWriteTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "images": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "videoSeconds": {
                         "type": "integer",
                         "minimum": 0
                       }
@@ -11996,7 +12770,7 @@ The outgoing-network policy in force (B4): normalised host allowlist, ports, loo
 
 **Served by:** core
 
-Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are input + output tokens (output includes reported reasoning tokens); there is no money dimension.
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.
 
 **params**
 
@@ -12035,7 +12809,9 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
         },
         "metric": {
           "enum": [
-            "tokens"
+            "tokens",
+            "images",
+            "videoSeconds"
           ]
         },
         "soft": {
@@ -14782,7 +15558,7 @@ All channels, compact: id, enabled, state, health and the last error. Owner/Admi
 
 **Served by:** core
 
-Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, privacy pin, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.
+Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, “Only local models”, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.
 
 **params**
 
@@ -15009,13 +15785,131 @@ Sets the caption of a medium (source `user`); the caption is a memory entry of t
 }
 ```
 
+### `secret.describe`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Owner and human only. Changes a secret description without supplying or exposing its value. Empty description clears it. Rejects any contiguous secret fragment of at least eight characters. Backend validates under its serialization; credential bytes and existing leases are unchanged. Audited before mutation.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "description"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SecretMeta"
+}
+```
+
+### `secret.grants.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Owner and human only. Read-only effective agent lease grants and separately labelled config references. Agent leases are currently disabled, so grants is empty; a configuration reference never grants authority. No secret values or lease handles.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentLeasesEnabled",
+    "grants",
+    "references"
+  ],
+  "properties": {
+    "agentLeasesEnabled": {
+      "const": false
+    },
+    "grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agentId",
+          "name",
+          "scope",
+          "present",
+          "leaseAllowed"
+        ],
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+          },
+          "scope": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "present": {
+            "type": "boolean"
+          },
+          "leaseAllowed": {
+            "const": false
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### `secret.set`
 
 **Stability:** experimental · since 1.5.0
 
 **Served by:** core
 
-Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
+Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. A value of fewer than 8 characters is accepted, but the log redactor does not mask values that short, so the result then carries a `warning`. Owner only; every call is audited (M2, ADR-005).
 
 **params**
 
@@ -15050,7 +15944,7 @@ Creates or replaces a secret, with an optional description; leases on the old va
 
 ```json
 {
-  "$ref": "#/$defs/SecretMeta"
+  "$ref": "#/$defs/SecretSetOutcome"
 }
 ```
 
@@ -18251,6 +19145,44 @@ D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a su
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
 
+### `MemoryCurationRecord`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "status",
+    "text",
+    "category"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "conflict",
+        "stale"
+      ]
+    },
+    "text": {
+      "type": "string"
+    },
+    "category": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
 ### `UserJob`
 
 ```json
@@ -18350,6 +19282,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "skipped_no_rights",
         "skipped_agent_missing"
       ]
+    },
+    "deliveryTarget": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Own validated delivery target; empty disables delivery."
     }
   }
 }
@@ -22120,7 +23057,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.5.0). A budget limit. Bounds count input + output tokens (output includes reported reasoning tokens).",
+  "description": "Experimental (1.5.0). A budget limit. Bounds count the metric: input + output tokens (output includes reported reasoning tokens), generated images, or seconds of generated video.",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -22150,7 +23087,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "tokens"
+        "tokens",
+        "images",
+        "videoSeconds"
       ]
     },
     "soft": {
@@ -22207,7 +23146,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "metric": {
       "enum": [
-        "tokens"
+        "tokens",
+        "images",
+        "videoSeconds"
       ]
     },
     "soft": {
@@ -22666,7 +23607,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+  "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: “Only local models” is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
   "x-stability": "experimental",
   "x-since": "1.7.0",
   "type": "object",
@@ -22967,8 +23908,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "turn.failed",
     "session.model.changed",
     "decision.completed",
-    "compaction.prune",
-    "skills.selected"
+    "model.selected"
   ]
 }
 ```
@@ -23757,6 +24697,14 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "overrides"
   ],
   "properties": {
+    "toolUse": {
+      "enum": [
+        "supported",
+        "limited tool use",
+        "unknown"
+      ],
+      "description": "D97 host-eval status; missing, stale, fake or incomplete evidence is unknown."
+    },
     "provider": {
       "type": "string"
     },
@@ -24675,6 +25623,72 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "string",
       "maxLength": 200,
       "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value."
+    }
+  }
+}
+```
+
+### `SecretSetOutcome`
+
+```json
+{
+  "description": "Experimental (1.5.0). What `secret.set` returns: the same fields as SecretMeta, plus a `warning` when the value is too short for the log redactor to mask. Never the value.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "backend",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "backend": {
+      "$ref": "#/$defs/SecretBackend"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    },
+    "updatedBy": {
+      "type": "string",
+      "description": "Person ID of the last writer, when known; never a secret value."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value."
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "minMaskedChars",
+        "message"
+      ],
+      "description": "Present when the stored value has fewer characters than the redactor masks: the value was stored, but it could appear unmasked in a log line.",
+      "properties": {
+        "code": {
+          "const": "short-value-unmasked"
+        },
+        "minMaskedChars": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The shortest value the log redactor masks (8)."
+        },
+        "message": {
+          "type": "string",
+          "description": "English text for clients without a message catalogue; the code is the stable part."
+        }
+      }
     }
   }
 }

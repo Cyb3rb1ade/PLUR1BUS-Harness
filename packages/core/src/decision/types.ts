@@ -7,6 +7,8 @@ export type DecisionFailure = 'unavailable' | 'timeout' | 'invalid' | 'low-confi
 export interface DecisionContext {
   agentId: string; sessionId?: string; turnId?: string; principal?: string; signal: AbortSignal;
   locale?: string; deadline?: number; forceLocal?: boolean;
+  /** Trusted content admission, never read from RPC/tool params. Cloud System One defaults to denied. */
+  cloudEligible?: boolean;
   /** Trusted caller context for the existing router, never serialized to a backend. */
   chat?: ChatRequest;
 }

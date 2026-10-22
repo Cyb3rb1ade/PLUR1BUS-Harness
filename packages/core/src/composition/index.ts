@@ -1,5 +1,7 @@
 import { ruleSkills, selectDecisionSkills } from '../decision/skills.ts';
+import { SessionModelRouting } from './model-routing.ts';
 import { DecisionClient } from '../decision/client.ts';
+import { createSystemOneBackend } from '../decision/system-one.ts';
 import { decisionPruningPort } from '../decision/pruning.ts';
 import { DEFAULT_PRUNE_CONFIDENCE } from '../session/pruning.ts';
 import { toWireEvent } from '../session/methods.ts';
@@ -65,6 +67,8 @@ import { mediaToInbox } from '../inbox/producers.ts';
 import { isLocalEndpoint, localEndpoints, localOnlyFor, localOnlyShared, LOCAL_ONLY_REASON, LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
 
 export interface CompositionOptions {
+  /** Internal loopback-only System One test endpoint; never a configuration or RPC field. */
+  decisionTestOrigin?: string;
   projectWorktrees?: import("../collab/coding-surface.ts").ProjectWorktreePort;
   delegationTargets?: readonly import("../collab/target.ts").DelegationTarget[];
   /** Trusted in-process surfaces register here; no auth RPC is added. */
@@ -181,7 +185,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => hostctl.close());
     const audit = createPolicyAudit({ sink: d.audit, clock: { now: d.clock }, ...(d.secrets.redaction ? { redactor: d.secrets.redaction.redactor() } : {}) });
     const execOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'exec', version: '0.1.0' }, now: d.clock });
-    disposers.push(d.secrets.redaction?.subscribe(value => execOutput.registerSecret(value)) ?? (() => {}), () => execOutput.close());
+    disposers.push(d.secrets.redaction?.subscribe((value, info) => execOutput.registerSecret(value, info)) ?? (() => {}), () => execOutput.close());
     const grants: GrantSource = { maxGrantDays: () => d.config().approvals?.maxGrantDays ?? 90, list: q => d.permissions.current()?.grants.list(q) ?? [], get: id => d.permissions.current()?.grants.get(id) };
     const mcp = isolated('turn MCP', () => createMcpRegistry({ logger: d.logger, secrets: d.secrets, egress: d.egress, policy: { allowedCommands: ((cfg.providers.mcp as { allowedCommands?: string[] } | undefined)?.allowedCommands ?? []) } }));
     const servers: string[] = [];
@@ -260,8 +264,12 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       reasoning: reasoningFor, config: () => d.config(),
       ...(d.chatModels?.catalog ? { catalog: d.chatModels.catalog } : {}), ...(d.chatModels?.endpoint ? { endpoint: d.chatModels.endpoint } : {}),
     };
-    let decisions = new DecisionClient({ config: d.config, backends: {} });
+    const decisionOptions = { config: d.config, egress: d.egress, secrets: d.secrets, budget,
+      ...(options.decisionTestOrigin ? { testOrigin: options.decisionTestOrigin } : {}) };
+    const decisionBackends = { jev: createSystemOneBackend('jev', decisionOptions), kev: createSystemOneBackend('kev', decisionOptions) };
+    let decisions = new DecisionClient({ config: d.config, backends: decisionBackends });
     const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, d.config, {
+      backends: decisionBackends,
       onClient: client => { decisions = client; },
       emit: (context, event) => {
         // Raw state and model prose never enter telemetry. Incognito uses the volatile store.
@@ -277,7 +285,28 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const maintenance = sessionMaintenance(d.home, cfg);
     // D105: a configured decision role is required for every foreground message (failure/timeout = default profile, core set only);
     // without modelRoles.decision the rule triage selects the shortlist as before.
-    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, onExecution: execution => { try { workflowEvidence.record(execution); } catch { d.logger.warn('mining execution evidence unavailable'); } }, selectSkills: async (request,candidates,signal) => {
+    const modelRouting = new SessionModelRouting({ decision: () => decisions, agent: id => d.config().agents[id], localOnly: agentId => localOnlyFor(d.config(), agentId), isLocal: isLocalProvider,
+      restore: request => {
+        const store = sessions.forSession(request.sessionId).store, session = store.getSession(request.sessionId);
+        if (!session || session.archivedAt !== null || session.agentId !== request.agentId || session.owner !== request.principal) return undefined;
+        // Walk metadata pages backwards; a large streamed reply must not hide its earlier selection event.
+        for (let after = Math.max(0, (store.lastEventSeq(session.id) ?? 0) - 2000);; after = Math.max(0, after - 2000)) {
+          const events = store.listEvents(session.id, after, 2000);
+          for (const event of events.reverse()) {
+            if (event.type !== 'model.selected' || event.data.source !== 'auto' || !event.turnId || store.getTurn(event.turnId)?.state !== 'completed') continue;
+            const { profile, provider, model } = event.data;
+            if (typeof profile === 'string' && typeof provider === 'string' && typeof model === 'string') return { profile, provider, model };
+          }
+          if (after === 0) return undefined;
+        }
+      },
+    });
+    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, modelRouting, onModelRouting: (event, turn) => {
+      const service = sessions.forSession(turn.sessionId), session = service.store.getSession(turn.sessionId);
+      if (!session || session.agentId !== turn.agentId || session.owner !== turn.principal || service.store.getTurn(turn.turnId)?.sessionId !== session.id) return;
+      const stored = service.store.appendEvent(turn.turnId, 'model.selected', { ...event });
+      d.notify('session.event', { agentId: session.agentId, event: toWireEvent(stored) }, { optIn: true });
+    }, onExecution: execution => { try { workflowEvidence.record(execution); } catch { d.logger.warn('mining execution evidence unavailable'); } }, selectSkills: async (request,candidates,signal) => {
       const selection = d.config().agents[request.agentId]?.skills ?? {};
       const work = async (signal:AbortSignal) => selectDecisionSkills(decisions,{query:request.messages.filter(m=>m.role==='user').at(-1)?.text ?? '',candidates,...selection,maxMs:Math.min(Number(d.config().decision.timeoutMs ?? 200),Number((d.config().decision.budgets as Record<string,number>|undefined)?.skills ?? 100))},{agentId:request.agentId,sessionId:request.sessionId,...(request.turnId?{turnId:request.turnId}:{}),...(request.principal?{principal:request.principal}:{}),signal,chat:request});
       const selected=request.turnProfile ? await request.turnProfile.run('decisionService',work,ruleSkills({query:'',candidates,...selection}),signal) : await work(signal);
@@ -340,7 +369,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     return { budget, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
       if (!d.agents.has(p.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'Unknown agent');
       const principal = deriveUserPrincipal(authenticatedPrincipal(ctx).userId);
-      const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, signal: AbortSignal.any([ctx.signal, d.signal]) });
+      const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, cloudEligible: true, signal: AbortSignal.any([ctx.signal, d.signal]) });
       return { ok: result.ok && result.value.id === 'even', durationMs: result.elapsedMs, outcome: result.ok ? (result.value.id === 'even' ? 'accepted' : 'invalid') : result.reason, ...(result.ok ? { backend: result.backend } : {}) };
     }, ...(promotions ? promotionMethods(promotions) : {}), ...(coding ? codingMethods(coding) : {}), "models.test": async (p: { model: string }, ctx) => {
       if (!budget) throw new RpcError('E_NOT_AVAILABLE', 'Model budget unavailable');

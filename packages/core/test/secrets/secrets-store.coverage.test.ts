@@ -27,6 +27,11 @@ function memBackend(kind: BackendKind, probeResult: BackendProbe = { available: 
       items.set(name, { ...meta, value });
       return meta;
     },
+    async describe(name, description, now) {
+      const old = items.get(name); if (!old) throw new SecretError("not-found", "secret does not exist");
+      old.description = description; old.updatedAt = now.toISOString();
+      const { value: _value, ...meta } = old; return meta;
+    },
     async delete(name) { return items.delete(name); },
     async list() {
       if (b.failList) throw new SecretError("storage", "list failed");

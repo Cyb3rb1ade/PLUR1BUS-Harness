@@ -41,12 +41,16 @@ export class DecisionClient {
     const fail = (reason: DecisionFailure) => finish({ ok: false, requestId, elapsedMs: performance.now() - started, reason, attempted: [...attempted] });
     if (context.signal.aborted) return fail('cancelled');
     if (!this.#validInput(primitive, input) || !Number.isFinite(deadline)) return fail('invalid');
-    const order: DecisionBackendName[] = selected === 'auto' ? ['jev', 'kev', 'laya', 'role'] : [...new Set([selected as DecisionBackendName, 'role' as const])];
+    const order: DecisionBackendName[] = primitive === 'triage-compat' ? ['role'] : selected === 'auto' ? ['jev', 'kev', 'laya', 'role'] : [...new Set([selected as DecisionBackendName, 'role' as const])];
     let failure: DecisionFailure = 'unavailable';
     for (const name of order) {
       if (context.signal.aborted) return fail('cancelled');
       if (performance.now() >= deadline) return fail('timeout');
       const backend = this.#options.backends[name]; if (!backend) continue;
+      if (name === 'jev' && context.cloudEligible !== true) {
+        if (selected === 'jev') return fail('privacy');
+        failure = 'privacy'; continue;
+      }
       if (selected === 'auto' && (name === 'laya' || name === 'kev') && !backend.eligible) continue;
       let local: boolean | undefined;
       try {

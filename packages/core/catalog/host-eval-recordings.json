@@ -1,0 +1,5 @@
+{
+  "schema": "plur1bus.host-eval-recordings/1",
+  "models": [],
+  "note": "Only real nightly captures may be reviewed into this file. Empty until real evidence exists; never substitute oracle transcripts or refresh recordedAt during replay."
+}

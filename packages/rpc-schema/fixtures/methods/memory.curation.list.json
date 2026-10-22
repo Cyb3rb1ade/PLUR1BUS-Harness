@@ -1,0 +1,18 @@
+{
+  "params": {
+    "agentId": "anna",
+    "limit": 100
+  },
+  "result": {
+    "agentId": "anna",
+    "items": [
+      {
+        "id": "mem_0123456789abcdefabcd",
+        "status": "conflict",
+        "text": "Quoted curation evidence",
+        "category": null
+      }
+    ],
+    "truncated": false
+  }
+}

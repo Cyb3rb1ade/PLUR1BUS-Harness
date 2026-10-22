@@ -6,7 +6,7 @@ import { assertLocalEndpoint, isLoopbackEndpoint } from "../privacy/local-only.t
  * Which embedding/reranker provider the engine is built with (owner decision 2026-10-18: cloud embeddings and cloud
  * reranking must work, no provider is privileged). The checks follow only from the provider:
  * - required details (model, dimensions, key reference, endpoint) are present, otherwise a clear refusal;
- * - a key never stands in the configuration: only the name of the environment variable that holds it (`apiKeyEnv`);
+ * - a key never stands in the configuration: a harness secret name (`apiKeyRef`) or the name of its environment variable (`apiKeyEnv`);
  * - a remote text embedding needs the function-specific privacy acknowledgment (`memory.embedding.privacyAck`),
  *   bound to provider and endpoint; a loopback endpoint is local and needs none;
  * - never a silent substitution: no `fallback` model, no unknown key spelling the engine would ignore and so route to
@@ -19,17 +19,19 @@ import { assertLocalEndpoint, isLoopbackEndpoint } from "../privacy/local-only.t
  *
  * Production path in the pinned engine: embeddings other than local-transformers go through its OpenAI-compatible
  * client (`baseUrl`, `model`, `dimensions`, `apiKeyEnv`), which covers OpenAI, OpenRouter, Cohere's compatibility API,
- * Jina, Gemini's OpenAI endpoint and self-hosted servers. Remote reranking exists only for the Cohere API.
+ * Jina, Gemini's OpenAI endpoint and self-hosted servers. HTTP reranking supports Cohere, Jina, Voyage and generic endpoints with a declared protocol (contract 1.15).
  */
 export type ProviderPlan = { kind: "local" } | { kind: "remote"; block: Record<string, unknown> };
 export interface ProviderPolicy { localOnly?: boolean; localEndpoints?: readonly string[] }
 
 /** The endpoint the pinned engine's OpenAI-compatible client calls when `baseUrl` is left out (openai only). */
 export const OPENAI_DEFAULT_ENDPOINT = "https://api.openai.com/v1";
-/** The fixed endpoint of the pinned engine's Cohere reranker (`engine/providers/runtime-reranker.js`). */
+/** Default Cohere endpoint; a configured baseUrl overrides it from contract 1.15 onward. */
 export const COHERE_RERANK_ENDPOINT = "https://api.cohere.com/v2/rerank";
 
 const PROVIDER_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const SECRET_REF = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
+const RERANK_ENDPOINTS: Record<string, string> = { cohere: COHERE_RERANK_ENDPOINT, jina: "https://api.jina.ai/v1/rerank", voyage: "https://api.voyageai.com/v1/rerank" };
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const isLocal = (p: unknown) => p === undefined || p === "local-transformers";
 
@@ -37,11 +39,13 @@ function incomplete(role: string, message: string, reason = "engine-provider-con
   return new RpcError("E_INVALID_PARAMS", `${role}: ${message}`, { reason });
 }
 
-function common(v: Record<string, unknown>, role: "embedding" | "reranker"): string {
+function common(v: Record<string, unknown>, role: "embedding" | "reranker", keyRequired = true): string {
   const provider = v.provider;
   if (typeof provider !== "string" || !PROVIDER_ID.test(provider)) throw incomplete(role, "provider must be a provider id (letters, digits, '.', '_', '-')", "engine-provider-invalid");
-  if (v.apiKey !== undefined) throw incomplete(role, "apiKey is refused: a key never stands in the configuration; set apiKeyEnv to the name of the environment variable that holds it", "secret-in-config");
-  if (typeof v.apiKeyEnv !== "string" || !ENV_NAME.test(v.apiKeyEnv)) throw incomplete(role, `provider ${provider} needs apiKeyEnv, the name of the environment variable that holds its key`);
+  if (v.apiKey !== undefined) throw incomplete(role, "apiKey is refused: a key never stands in the configuration; set apiKeyRef to its harness secret name or apiKeyEnv to its environment variable", "secret-in-config");
+  if (v.apiKeyRef !== undefined && (typeof v.apiKeyRef !== "string" || !SECRET_REF.test(v.apiKeyRef))) throw incomplete(role, "apiKeyRef must be a valid harness secret name (1–128 characters)");
+  if (v.apiKeyEnv !== undefined && (typeof v.apiKeyEnv !== "string" || !ENV_NAME.test(v.apiKeyEnv))) throw incomplete(role, "apiKeyEnv must be an environment variable name");
+  if (keyRequired && v.apiKeyRef === undefined && v.apiKeyEnv === undefined) throw incomplete(role, `provider ${provider} needs apiKeyRef (harness secret name) or apiKeyEnv (environment variable name)`);
   if (v.baseURL !== undefined) throw incomplete(role, "use baseUrl; the engine ignores baseURL and would call its default endpoint instead");
   return provider;
 }
@@ -76,16 +80,18 @@ export function resolveEmbeddingProvider(v: Record<string, unknown>, privacyAck?
 export function resolveRerankerProvider(v: Record<string, unknown>, privacyAck?: PrivacyAcknowledgment, policy: ProviderPolicy = {}): ProviderPlan {
   if (isLocal(v.provider)) return { kind: "local" };
   const role = "reranker";
-  if (typeof v.provider === "string" && PROVIDER_ID.test(v.provider) && v.provider !== "cohere") {
-    throw new RpcError("E_NOT_AVAILABLE", `${role}: the pinned engine reranks remotely only through the Cohere API; provider ${v.provider} has no engine adapter yet, and it is not replaced by another model`, { reason: "engine-adapter-factory-unavailable" });
+  if (typeof v.provider === "string" && PROVIDER_ID.test(v.provider) && !["cohere", "jina", "voyage", "remote"].includes(v.provider)) {
+    throw new RpcError("E_NOT_AVAILABLE", `${role}: provider ${v.provider} has no engine adapter; use cohere, jina, voyage or remote with an explicit protocol`, { reason: "engine-adapter-factory-unavailable" });
   }
-  const provider = common(v, role);
-  if (v.baseUrl !== undefined) throw incomplete(role, "the pinned engine calls the Cohere endpoint itself; a configured baseUrl would be ignored");
+  const provider = common(v, role, v.provider !== "remote");
+  if (v.baseUrl === undefined && provider === "remote") throw incomplete(role, "remote needs baseUrl");
+  const url = v.baseUrl === undefined ? undefined : endpoint(v.baseUrl, role);
+  if (v.protocol !== undefined && !["cohere", "jina", "voyage", "tei"].includes(v.protocol as string)) throw incomplete(role, "protocol must be cohere, jina, voyage or tei");
   if (v.fallbackProvider !== undefined && v.fallbackProvider !== "disabled") throw incomplete(role, "fallbackProvider is refused: no silent switch to another reranker model", "reranker-fallback-refused");
   if (v.model !== undefined && (typeof v.model !== "string" || !v.model.trim())) throw incomplete(role, "model must be a non-empty string");
-  assertLocalEndpoint({ active: policy.localOnly === true, what: `${role} provider ${provider}`, endpoint: COHERE_RERANK_ENDPOINT, listed: policy.localEndpoints ?? [] });
-  // The endpoint is fixed by the engine, so the acknowledgment binds the provider alone (no endpoint field).
-  const failure = privacyAcknowledgmentError({ function: "text", provider, local: false, ack: privacyAck });
+  assertLocalEndpoint({ active: policy.localOnly === true, what: `${role} provider ${provider}`, endpoint: url?.href ?? RERANK_ENDPOINTS[provider], listed: policy.localEndpoints ?? [] });
+  // Presets bind the provider alone; a custom endpoint must be acknowledged explicitly.
+  const failure = privacyAcknowledgmentError({ function: "text", provider, local: url ? loopback(url) : false, ...(url ? { endpoint: v.baseUrl as string } : {}), ack: privacyAck });
   if (failure) throw new RpcError(failure.code, `${role}: provider ${provider} sends recalled memory text off this machine; ${failure.reason === "privacy-acknowledgment-required" ? "record memory.reranker.privacyAck for it" : `memory.reranker.privacyAck does not admit it (${failure.reason})`}`, { reason: failure.reason });
   const { local: _local, ...block } = v;
   return { kind: "remote", block: { ...block, provider, enabled: true, fallbackProvider: "disabled" } };
@@ -105,12 +111,12 @@ export function engineModelEndpoints(engineConfig: Record<string, unknown>): Eng
   const out: EngineEndpoint[] = [];
   const emb = engineConfig.embedding as Record<string, unknown> | undefined, rer = engineConfig.reranker as Record<string, unknown> | undefined;
   if (emb && !isLocal(emb.provider)) out.push({ role: "embedding", endpoint: typeof emb.baseUrl === "string" ? emb.baseUrl : OPENAI_DEFAULT_ENDPOINT });
-  if (rer && !isLocal(rer.provider)) out.push({ role: "reranker", endpoint: COHERE_RERANK_ENDPOINT });
+  if (rer && !isLocal(rer.provider)) out.push({ role: "reranker", endpoint: typeof rer.baseUrl === "string" ? rer.baseUrl : RERANK_ENDPOINTS[String(rer.provider)] });
   const walk = (node: unknown, path: string, depth: number): void => {
     if (depth > MAX_DEPTH || node === null || typeof node !== "object" || Array.isArray(node)) return;
     const o = node as Record<string, unknown>;
     if (typeof o.baseUrl === "string") out.push({ role: path, endpoint: o.baseUrl });
-    else if ((o.apiKey !== undefined && o.apiKey !== null && o.apiKey !== "") || typeof o.apiKeyEnv === "string") out.push({ role: path, endpoint: undefined });
+    else if ((o.apiKey !== undefined && o.apiKey !== null && o.apiKey !== "") || typeof o.apiKeyEnv === "string" || typeof o.apiKeyRef === "string") out.push({ role: path, endpoint: undefined });
     for (const [k, v] of Object.entries(o)) if (k !== "__proto__" && k !== "headers") walk(v, `${path}.${k}`, depth + 1);
   };
   for (const [k, v] of Object.entries(engineConfig)) if (k !== "embedding" && k !== "reranker" && k !== "__proto__") walk(v, k, 1);

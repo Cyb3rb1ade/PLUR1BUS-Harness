@@ -1,3 +1,4 @@
+import { CHANNEL_HANDOFF_ROUTES, channelHandoffHandlers } from "./channel-handoff-routes.ts";
 import { buildDesktopAttachHandlers } from "./desktop-attach-routes.ts";
 import { DESKTOP_ATTACH_ROUTES } from "./desktop-attach-contract.ts";
 import { WEBAUTHN_ROUTES, buildWebAuthnHandlers } from "./webauthn-routes.ts";
@@ -83,7 +84,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
-  ...DESKTOP_ATTACH_ROUTES, ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...REMOTE_ROUTES, ...REMOTE_PAIRING_ROUTES,
+  ...DESKTOP_ATTACH_ROUTES, ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...REMOTE_ROUTES, ...REMOTE_PAIRING_ROUTES, ...CHANNEL_HANDOFF_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with a local account or an explicitly configured compatibility credential; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
@@ -264,6 +265,8 @@ export interface HandlerDeps {
   totp?: TotpService | undefined;
   challenges?: LoginChallenges | undefined;
   limiter?: RateLimiter | undefined;
+  /** All clients reach the API from one address (tailnet mode): login attempts are then also bucketed per account name. */
+  sharedAddress?: boolean | undefined;
   audit: AuditEmitter;
 }
 
@@ -352,6 +355,7 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
     ...buildWebAuthnHandlers(d, undefined, () => "http://localhost"),
     ...buildTransportHandlers(d.core),
     ...buildChatHandlers(d.core,d.audit),
+    ...channelHandoffHandlers(d.core),
     ...buildRemoteHandlers({core:d.core,now:()=>d.clock.now()}),
     ...buildRemotePairingHandlers(undefined),
     "ws.ticket": () => ({body:{}}), "ws.reserved": () => ({body:{}}),
@@ -359,6 +363,12 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
       const b = loginBody(i.body);
       if (!b) throw errors.badRequest("body", "body must be {\"token\": string} or {\"username\": string, \"password\": string}");
       let principal: Principal; let authVersion = 0;
+      if (d.sharedAddress && d.limiter) {
+        // The address bucket is only an upper bound here; five wrong passwords for one name stop that name, not every client.
+        const key = `login:${b.kind === "token" ? "owner-token" : nameHandle(b.username)}`;
+        const v = d.limiter.take("auth", key);
+        if (!v.ok) { d.audit.emit("auth.rate-limited", "anonymous", key, { class: "auth", route: "session.create", ip: i.ip }); throw errors.rateLimited(v.retryAfterSec); }
+      }
       if (b.kind === "token") {
         if (!d.verifyOwner(b.token)) {
           d.log.warn("login refused");

@@ -14,6 +14,8 @@ const caller = { channel: "cli", accountId: "a", userId: "u" };
 const SCHEMA = JSON.parse(readFileSync(fileURLToPath(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url)), "utf8"));
 
 const params: Record<string, unknown> = {
+  "memory.curation.list": { agentId: "bernd" },
+  "memory.curation.resolve": { agentId: "bernd", id: "mem_0123456789abcdefabcd", action: "keep" },
   "events.subscribe": {},
   "voice.session.create": { agentId: "bernd" },
   "jobs.create": { agentId: "bernd" }, "jobs.update": { id: "user:fixture" }, "jobs.delete": { id: "user:fixture", confirm: true },

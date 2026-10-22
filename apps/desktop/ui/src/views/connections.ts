@@ -9,13 +9,16 @@ import { pairingFailure } from "../models/pairing-model.ts";
 export function connectionsView(transport: DesktopTransport, translate: Translate, snapshot: () => ConnectionSnapshot, refresh: () => Promise<void>): () => HTMLElement {
     let data: ConnectionList = { connections: [], active: null, tokenStore: null };
     let error: unknown = null;
-    let mode: "list" | "add" | "native" = "list";
+    // Every screen that has input or a pending decision is a mode: the shell rebuilds this view on each late load.
+    let mode: "list" | "add" | "native" | "rename" | "remove" = "list";
     let repair: Connection | undefined;
+    let subject: string | null = null;
+    let renameDraft = "";
     let selected: string | null = null;
     let opened = false;
     let mount: HTMLElement | null = null;
     // Guards live here, not in a rendered button: the shell rebuilds this view on every late load.
-    let nativeBusy = false, openBusy = false, removeBusy = false;
+    let nativeBusy = false, openBusy = false, removeBusy = false, renameBusy = false;
     let t = translate;
     function paired(result: Paired) { mode = "list"; repair = undefined; selected = result.connection.id; error = null; void refresh(); paint(); }
     function fail(e: unknown) { opened = false; error = e; void refresh(); paint(); }
@@ -27,8 +30,10 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         mount.replaceChildren();
         const state = snapshot();
         data = state.data ?? { connections: [], active: null, tokenStore: null };
-        if (state.status !== "ready")
-            mount.append(banner(t(state.status === "loading" ? "connections.loading" : "connections.loadError"), state.status === "error" ? "error" : "info"));
+        if (state.status === "loading")
+            mount.append(banner(t("connections.loading")));
+        if (state.status === "error")
+            mount.append(banner(t(state.timedOut ? "connections.loadTimeout" : "connections.loadError"), "error"), button(t("connections.retry"), () => void refresh()));
         if (data.tokenStore === "memory-only")
             mount.append(banner(t("pair.error.keychain-memory-only")));
         if (error) {
@@ -37,6 +42,15 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         }
         if (opened)
             mount.append(banner(t("connections.selected")));
+        if (mode === "rename" || mode === "remove") {
+            const target = data.connections.find(c => c.id === subject);
+            if (target) {
+                mount.append(mode === "rename" ? renameForm(target) : removeCard(target));
+                return;
+            }
+            mode = "list";
+            subject = null;
+        }
         if (mode === "add") {
             mount.append(addRemote(t, transport, paired, () => { mode = "list"; paint(); mount?.querySelector<HTMLButtonElement>("button")?.focus(); }, repair));
             return;
@@ -119,7 +133,7 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
                 fail(e);
             } }, "primary");
             openButton.disabled = openBusy;
-            append(buttons, openButton, button(t("pair.repair"), () => startAdd(row)), button(t("connections.rename"), () => rename(row)), button(t("connections.remove"), () => remove(row)));
+            append(buttons, openButton, button(t("pair.repair"), () => startAdd(row)), button(t("connections.rename"), () => startRename(row)), button(t("connections.remove"), () => startRemove(row)));
             main.append(buttons);
             append(detail, element("p", undefined, t(data.tokenStore === null ? "connections.unchecked" : data.tokenStore === "memory-only" ? "connections.memory" : "connections.keychain")), element("p", undefined, `${t("connections.device")}: ${row.tokenHint}`));
             for (const [label, value] of [["connections.currentPin", row.certPin ?? row.caPin], ["connections.observedPin", row.observedCertPin], ["connections.nextPin", row.nextCertPin ?? row.nextCaPin]] as const) {
@@ -146,24 +160,73 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         append(layout, list, main, detail);
         mount.append(layout);
     }
-    function rename(row: Connection) { opened = false; if (!mount)
-        return; const form = element("form", "page-card pairing-form"); const label = element("label", "field"); label.htmlFor = "rename-name"; const input = element("input"); input.id = "rename-name"; input.value = row.name; input.required = true; input.maxLength = 120; append(label, element("span", undefined, t("pair.name")), input); form.append(label); const save = button(t("connections.save"), () => { }, "primary"); save.type = "submit"; append(form, save, button(t("pair.cancel"), paint)); form.addEventListener("submit", async (e) => { e.preventDefault(); save.disabled = true; try {
-        await transport.connectionsRename(row.id, input.value);
-        await refresh();
+    function startRename(row: Connection) { opened = false; error = null; mode = "rename"; subject = row.id; renameDraft = row.name; paint(); formFocus(); }
+    function startRemove(row: Connection) { opened = false; error = null; mode = "remove"; subject = row.id; paint(); queueMicrotask(() => mount?.querySelector<HTMLButtonElement>(".page-card button")?.focus()); }
+    function leave() { mode = "list"; subject = null; paint(); }
+    function renameForm(row: Connection): HTMLElement {
+        const form = element("form", "page-card pairing-form");
+        const label = element("label", "field");
+        label.htmlFor = "rename-name";
+        const input = element("input");
+        input.id = "rename-name";
+        input.value = renameDraft;
+        input.required = true;
+        input.maxLength = 120;
+        input.addEventListener("input", () => { renameDraft = input.value; });
+        append(label, element("span", undefined, t("pair.name")), input);
+        form.append(label);
+        const save = button(t("connections.save"), () => { }, "primary");
+        save.type = "submit";
+        save.disabled = renameBusy;
+        append(form, save, button(t("pair.cancel"), leave));
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (renameBusy) return;
+            renameBusy = true;
+            save.disabled = true;
+            try {
+                await transport.connectionsRename(row.id, renameDraft);
+                renameBusy = false;
+                mode = "list";
+                subject = null;
+                error = null;
+                await refresh();
+                paint();
+            }
+            catch (e) {
+                renameBusy = false;
+                error = e;
+                void refresh();
+                paint();
+                formFocus();
+            }
+        });
+        return form;
     }
-    catch (e) {
-        fail(e);
-    } }); mount.replaceChildren(form); formFocus(); }
-    function remove(row: Connection) { opened = false; if (!mount)
-        return; const card = element("section", "page-card"); append(card, element("h2", undefined, t("connections.remove")), element("p", undefined, t("connections.removeConfirm", { name: row.name })), button(t("pair.cancel"), paint), button(t("connections.remove"), async () => { if (removeBusy) return; removeBusy = true; try {
-        await transport.connectionsRemove(row.id);
-        selected = null;
-        removeBusy = false;
-        await refresh();
+    function removeCard(row: Connection): HTMLElement {
+        const card = element("section", "page-card");
+        const confirm = button(t("connections.remove"), async () => {
+            if (removeBusy) return;
+            removeBusy = true;
+            try {
+                await transport.connectionsRemove(row.id);
+                selected = null;
+                removeBusy = false;
+                mode = "list";
+                subject = null;
+                await refresh();
+                paint();
+            }
+            catch (e) {
+                removeBusy = false;
+                mode = "list";
+                subject = null;
+                fail(e);
+            }
+        }, "primary");
+        confirm.disabled = removeBusy;
+        append(card, element("h2", undefined, t("connections.remove")), element("p", undefined, t("connections.removeConfirm", { name: row.name })), button(t("pair.cancel"), leave), confirm);
+        return card;
     }
-    catch (e) {
-        removeBusy = false;
-        fail(e);
-    } }, "primary")); mount.replaceChildren(card); queueMicrotask(() => card.querySelector<HTMLButtonElement>("button")?.focus()); }
     return () => { t = translate; mount = element("div", "connections-workspace"); paint(); mount.querySelectorAll<HTMLElement>("button").forEach((node, index) => { node.dataset.focusKey = `connections-${index}`; }); return mount; };
 }

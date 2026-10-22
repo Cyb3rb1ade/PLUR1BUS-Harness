@@ -12,6 +12,7 @@ const s = (key: string): FieldMeta => ({ key, kind: "string", restart: "live" })
 const o = (key: string): FieldMeta => ({ key, kind: "json", restart: "live" });
 
 export const META: readonly FieldMeta[] = [
+  { key: "core.webHandoffBaseUrl", kind: "string", def: "", restart: "live" },
   { key: "core.logLevel", kind: "enum", def: "info", options: ["debug", "info", "warn", "error"], restart: "live" },
   n("core.recall.softBudgetMs", 400, 50, "core"), n("core.recall.hardBudgetMs", 600, 100, "live"), n("core.recall.capChars", 17000, 1000, "core"),
   n("core.capture.waitMs", 60000, 1000, "live"), n("core.shutdownBudgetMs", 30000, 1000, "live"),
@@ -24,8 +25,14 @@ export const META: readonly FieldMeta[] = [
   { key: "embedding.useClass", kind: "enum", def: "general", options: ["general", "research", "commercial"], restart: "core" },
   b("embedding.acceptedNcLicence", false, "core"), { key: "embedding.acceptedNcLicenceAt", kind: "string", restart: "core" },
   { key: "engine.baseDbPathOverride", kind: "string", restart: "core" },
+  { key: "engine.schicht15", kind: "json", restart: "core" },
+  n("engine.schicht15.maxPromotionsPerRun", 0, 0, "core"),
   o("providers"), o("oauth"),
   o("decision"),
+  o("decision.systemOne"), o("decision.systemOne.jev"), b("decision.systemOne.jev.enabled", false),
+  { key: "decision.systemOne.jev.model", kind: "enum", def: "jev-1.13.0", options: ["jev-1.13.0"], restart: "live" },
+  o("decision.systemOne.kev"), b("decision.systemOne.kev.enabled", false),
+  { key: "decision.systemOne.kev.model", kind: "string", restart: "live" }, { key: "decision.systemOne.kev.endpoint", kind: "string", restart: "live" },
   { key: "decision.backend", kind: "enum", def: "role", options: ["role", "laya", "kev", "jev", "auto"], restart: "live" }, n("decision.timeoutMs", 200, 1, "live", 60000),
   o("decision.budgets"), n("decision.budgets.triage", 200, 1, "live", 60000), n("decision.budgets.routing", 200, 1, "live", 60000), n("decision.budgets.pruning", 100, 1, "live", 60000), n("decision.budgets.skills", 100, 1, "live", 60000), n("decision.budgets.placement", 200, 1, "live", 60000), n("decision.budgets.zoom", 150, 1, "live", 60000), n("decision.budgets.compaction", 200, 1, "live", 60000),
   o("decision.confidence"), f("decision.confidence.triage", 0), f("decision.confidence.routing", 0.7), f("decision.confidence.pruning", 0.7), f("decision.confidence.skills", 0.7), f("decision.confidence.placement", 0.7), f("decision.confidence.zoom", 0.35), f("decision.confidence.compaction", 0.7),
@@ -34,6 +41,8 @@ export const META: readonly FieldMeta[] = [
   b("models.scan.enabled", true), n("models.scan.intervalHours", 24, 1, "live", 168),
   { key: "egress.allowHosts", kind: "strings", def: [], restart: "live" },
   { key: "egress.allowPorts", kind: "ints", def: [443], min: 1, max: 65535, restart: "live" },
+  o("egress.modelDownloads"), b("egress.modelDownloads.enabled", true),
+  { key: "egress.modelDownloads.allowHosts", kind: "strings", def: ["huggingface.co", "us.aws.cdn.hf.co"], restart: "live" },
   b("egress.allowLoopback", false),
   b("privacy.localOnly", false, "live"),
   { key: "privacy.localEndpoints", kind: "strings", def: [], restart: "live" },
