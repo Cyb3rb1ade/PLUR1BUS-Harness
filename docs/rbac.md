@@ -95,6 +95,12 @@ exec sandbox from writing to it; a signature check of the helper (macOS code sig
 session (UI automation) could in principle click an OS dialog itself; the `ui.control` capability is T2 and `os.privilege` /
 `remote.control` are T3 for that reason.
 
+**Secrets and the same threat.** `secret.set`, `secret.get` with `reveal` and `secret.delete` (owner only, `secrets.reveal` and `secrets.write`) also
+check the connection's trust level: below T1 they are refused and audited. An agent that holds `run/core.token` is T1, exactly like `plur1bus secret get
+--reveal` and the web UI, so for it the plaintext of a secret is not behind the OS confirmation that a T2 approval needs. The core cannot tell the two apart
+until the CLI can be attested; the one-line change then is `MIN_SECRET_SURFACE` in `packages/core/src/secrets/types.ts`. Until then keep the exec sandbox
+away from `run/` and `state/`, as for the approval chain key.
+
 ## Privacy (ADR-007 §Privacy)
 
 * `user`-scope cards: only the owning user. Owner and Admin can read **another** user's cards only through break-glass;
