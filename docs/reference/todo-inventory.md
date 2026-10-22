@@ -64,15 +64,11 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 | packages/core/test/toolcall/results.test.ts:527 | idempotency key collides for scope 'a:b' + operation 'c' and scope 'a' + operation 'b:c' |
 | packages/core/test/toolcall/results.test.ts:536 | a cached approved result of another scope is served without a new approval |
 | packages/core/test/toolcall/dialects.test.ts:39 | names such as constructor and __proto__ bypass the conservative fallback |
-| packages/core/test/a2a/audit-b01.test.ts:208 | a turn reply and its event log are unbounded in memory |
-| packages/core/test/a2a/audit-b01.test.ts:209 | a full store of terminal tasks lets one peer block every other peer until retention passes (pinned by limits.test.ts) |
-| packages/core/test/agents-audit.test.ts:135 | re-creating an agent under the name of a deleted agent leaves it unusable |
 | packages/core/test/media-search/audit-c08.test.ts:177 | MediaIndexPort.remove and setCaption carry no scope, so the port cannot refuse a caller that does not own the medium |
 | packages/core/test/engine-config.test.ts:233 | a key from the harness secret store reaches the engine as a reference |
 | packages/core/test/composition/model-test.test.ts:63 | engine embedding/reranker role probes require the Phase D host ports |
 | packages/core/test/host-tools/audit-b07.test.ts:66 | apps.open can launch executables but is registered as sys.read/low (auto-allowed) |
 | packages/core/test/audit/chain-hardening.test.ts:47 | secrets inside 'detail' are written as given (redaction belongs to the event producers in rbac/identity) |
-| packages/core/test/platform.test.ts:58 | a unix socket path over the platform limit is not detected or shortened by ipcAddress |
 | packages/core/test/journal-hardening.test.ts:79 | a replaying file is read whole into memory (needs a streaming line reader and a per-line bound) |
 | packages/core/test/channels/behaviour-runtime.test.ts:84 | engine per-request allowedScopes and searchable provenance-only capture are absent on pin 6868b7b1; restrictive profiles suppress engine memory calls |
 | packages/core/test/warmup.test.ts:201 | models.warm() itself has no deadline (a first-run model download may legitimately take minutes); a hung provider keeps recallWarmPending true until... |
@@ -83,11 +79,8 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 
 | Datei:Zeile | Lücke |
 |---|---|
-| packages/api/test/hardening-login.test.ts:67 | a hash made with stronger parameters than the current ones is replaced by the weaker current ones at the next login |
-| packages/api/test/hardening-static.test.ts:99 | Windows reserved device names (CON, NUL, AUX, COM1, LPT1, with or without an extension) are not rejected as path segments |
 | packages/api/test/remote-runtime.test.ts:80 | native Tailscale Serve, CA-verified edge and desktop pairing acceptance require a disposable joined host |
 | packages/api/test/m3-agent-licences-e2e.test.ts:37 | EmbeddingGemma 2 selection and validated Jina migration over HTTP require pinned-engine target/validation support; existing test proves explicit re... |
-| packages/api/test/hardening-openapi.test.ts:77 | every closed error code has its own HTTP status, none falls back to a bare 500 |
 | packages/api/test/hardening-session.test.ts:171 | the 64-session cap is global, so one account holder can push every other person's session out |
 
 ### @plur1bus/remote-access
@@ -136,10 +129,6 @@ Tests that are marked `todo` (`test.todo`, `it.todo`, `{ todo: true }` or `{ tod
 | apps/desktop/transport-spike/known-gaps.test.mjs:7 | H/transport: real SPA proxy HTTP/SSE/WS, jump host and LAN p95 overhead |
 | apps/desktop/transport-spike/known-gaps.test.mjs:8 | H/agent: Windows pipe, isolated 1Password/FIDO fixture and hashed known_hosts |
 | apps/desktop/transport-spike/known-gaps.test.mjs:9 | H/size: installed desktop binary delta on five release targets |
-| apps/desktop/ui/test/d13-known-gaps.test.ts:4 | harness_logs_tail returns raw container output; native redaction is needed besides the UI mask |
-| apps/desktop/ui/test/d13-known-gaps.test.ts:5 | invoke calls carry no deadline or cancel; a hung pair_code, connections_list or harness_logs_tail keeps its view loading until the native side answers |
-| apps/desktop/ui/test/d13-known-gaps.test.ts:6 | the rename form is not a view mode, so any shell re-render drops it together with the typed name |
-| apps/desktop/ui/test/d13-known-gaps.test.ts:7 | update_install gives no progress events to the offer dialog; the button stays disabled with no feedback until the app restarts |
 
 ### tests/acceptance
 
@@ -191,7 +180,6 @@ Ebenfalls geschlossen: `packages/embedding-adapters/test/audit-c15.test.ts` (Clo
 | crates/plur1bus-log-schema/tests/events.rs:708 | SICHERHEIT, latent: `config.schema.json` ohne `x-sensitive`, das Webhook-Secret wird nicht redigiert |
 | crates/plur1bus/src/backup/hardening.rs:524 | SICHERHEIT: `config.json` liegt im Backup im Klartext, mit dem Telegram-Webhook-Secret |
 | crates/plur1bus/tests/firstaid_bundle_hardening.rs:408 | SICHERHEIT, niedrig: ein hex-kodiertes registriertes Secret wird im Bundle nicht redigiert |
-| crates/plur1bus/tests/supervisor_children.rs:814 | der Supervisor beendet den Core per PID, nicht per Prozessgruppe |
 | crates/plur1bus/tests/coverage_login.rs:128 | UNKLAR: soll ein nur aus Leerraum bestehender API-Key abgelehnt werden? (docs/testing/coverage-2026-10-wave2.md, offene Frage 9) |
 
 Weitere `#[ignore]` sind Umgebungs- oder Opt-in-Marker und keine Lücken: `apps/desktop/src-tauri/tests/controller_e2e.rs` (3, Docker, Podman, lokale Registry), `upgrade_e2e.rs` (2), `secrets.rs` (1, echter Keychain), `apps/desktop/src-tauri/examples/production_job.rs` (4 Subprozess-Einstiege) und `crates/plur1bus-ext/tests/fuzz.rs` (2, Nightly-Job).

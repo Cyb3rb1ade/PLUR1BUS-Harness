@@ -123,6 +123,11 @@ export const MIGRATIONS: readonly string[] = [
   `CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL);`,
   // v5: the chat's reasoning choice beside its model profile (NULL = provider default).
   `ALTER TABLE session_model_profiles ADD COLUMN reasoning TEXT;`,
+  // v6: pruning overlays and counters only; original messages/events are append-only.
+  `ALTER TABLE tool_visibility ADD COLUMN mode TEXT NOT NULL DEFAULT 'drop' CHECK(mode IN ('drop','truncate'));
+   ALTER TABLE tool_visibility ADD COLUMN confidence REAL;
+   ALTER TABLE tool_visibility ADD COLUMN tokens_saved INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE tool_visibility ADD COLUMN refetches INTEGER NOT NULL DEFAULT 0;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

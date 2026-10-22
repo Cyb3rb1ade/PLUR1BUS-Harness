@@ -48,7 +48,7 @@ describe("schema bounds", () => {
     ["core.capture.waitMs", MS], ["core.shutdownBudgetMs", MS], ["supervisor.graceMs", MS], ["supervisor.healthIntervalMs", MS],
     ["session.compaction.summaryMaxTokens", 2_000_000], ["session.compaction.maxMessageTokens", 2_000_000], ["session.compaction.prune.keepLastTurns", 1000],
     ["memory.mediaEmbedding.dimensions", 16384], ["memory.mediaEmbedding.video.segmentSec", 3600], ["memory.mediaEmbedding.video.maxFrames", 4096],
-    ["memory.mediaEmbedding.audio.segmentSec", 3600], ["memory.mediaEmbedding.audio.maxSeconds", 604_800], ["memory.mediaEmbedding.caption.maxChars", 10_000],
+    ["memory.mediaEmbedding.audio.segmentSec", 3600], ["memory.mediaEmbedding.audio.maxSeconds", 604_800], ["memory.mediaEmbedding.caption.maxChars", 10_000], ["engine.schicht15.maxPromotionsPerRun", 1_000_000],
   ];
   for (const [path, max, siblings = []] of numbers) {
     it(`${path} accepts ${max} and refuses ${max + 1}`, () => {

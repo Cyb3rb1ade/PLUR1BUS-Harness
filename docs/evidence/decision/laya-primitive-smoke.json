@@ -1,0 +1,59 @@
+{
+  "modelRevision": "dd0f4db73e24ef4c646d47d0e48e74024f439e6c",
+  "requests": [
+    {
+      "primitive": "noul",
+      "question": "Does this message contain a greeting?",
+      "state": "Hello, how are you?",
+      "options": [
+        {
+          "id": "true",
+          "description": "The statement is true"
+        },
+        {
+          "id": "false",
+          "description": "The statement is false"
+        }
+      ]
+    },
+    {
+      "primitive": "score",
+      "question": "How urgent is this issue?",
+      "state": "All production servers are down. Restore service immediately.",
+      "options": [
+        {
+          "id": "low",
+          "description": "No action is needed"
+        },
+        {
+          "id": "medium",
+          "description": "Action can wait until tomorrow"
+        },
+        {
+          "id": "high",
+          "description": "Immediate response is needed"
+        }
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "probabilities": {
+        "true": 0.9307824470414717,
+        "false": 0.06921755295852841
+      },
+      "confidence": 0.637003095324618,
+      "confidenceSource": "derived"
+    },
+    {
+      "probabilities": {
+        "low": 0.0025627630646872356,
+        "medium": 0.004189522050546113,
+        "high": 0.9932477148847667
+      },
+      "confidence": 0.9590766126179082,
+      "confidenceSource": "derived"
+    }
+  ],
+  "note": "Native qtype 2/1 smoke only, no accuracy or calibration claim"
+}

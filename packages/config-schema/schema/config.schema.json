@@ -454,6 +454,7 @@
       "description": "Settings for the core process, including logging, memory operation budgets, and shutdown.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
+        "webHandoffBaseUrl": {"type": "string", "default": "", "maxLength": 2048, "description": "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment.", "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$"},
         "logLevel": { "description": "Minimum severity written to the core log.", "enum": ["debug", "info", "warn", "error"], "default": "info", "x-restart": "live", "x-tier": "advanced" },
         "recall": {
           "description": "Time and response-size limits for memory recall.",
@@ -819,6 +820,72 @@
             "localOnly": {"description": "Only local models for this agent; overrides privacy.localOnly in both directions. The shared memory engine and media index stay local while the installation or any agent is local-only.", "type": "boolean", "x-restart": "live", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true}
           }},
           "persona": {"description": "Inline persona text for a new agent (also scaffolded into SOUL.md).", "type": "string", "maxLength": 4000, "x-restart": "live", "x-tier": "basic"},
+          "modelPolicy": {
+            "description": "Per-agent model routing. Omitted preserves existing D105 routing; fixed uses the agent model; auto selects among ordered named profiles once per session unless perTurn is explicitly enabled. Explicit session model selection wins.",
+            "type": "object",
+            "additionalProperties": false,
+            "x-restart": "live",
+            "x-tier": "advanced",
+            "properties": {
+              "mode": {
+                "description": "Fixed agent model or decision-service tier selection.",
+                "enum": [
+                  "fixed",
+                  "auto"
+                ],
+                "default": "fixed",
+                "x-restart": "live",
+                "x-tier": "advanced"
+              },
+              "tiers": {
+                "description": "Ordered allowed provider-profile names for auto selection and subsequent failover. Earlier tiers are never revisited after selecting a later tier.",
+                "type": "array",
+                "default": [],
+                "uniqueItems": true,
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S"
+                },
+                "x-restart": "live",
+                "x-tier": "advanced"
+              },
+              "perTurn": {
+                "description": "Opt in to selecting again each turn. False keeps the served model stable across a session.",
+                "type": "boolean",
+                "default": false,
+                "x-restart": "live",
+                "x-tier": "advanced"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "mode": {
+                      "const": "auto"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "tiers"
+                  ],
+                  "properties": {
+                    "tiers": {
+                      "type": "array",
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            ]
+          },
           "model": {"description": "Named model profile selected for this agent.", "type": "string", "minLength": 1, "maxLength": 128, "x-restart": "live", "x-tier": "basic"},
           "channels": {"description": "Channel names selected for this agent. Does not enable installation channels.", "type": "array", "uniqueItems": true, "maxItems": 32, "items": {"type": "string", "minLength": 1, "maxLength": 32}, "x-restart": "live", "x-tier": "basic"},
           "createdAt": { "description": "Timestamp when the agent was created, in date-time format.", "type": "string", "maxLength": 64, "format": "date-time" },
@@ -836,7 +903,7 @@
             "mediaEmbedding": {"description": "Per-agent override of the media index settings; unset keys inherit the installation values.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "basic", "properties": {
               "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "x-restart": "core", "x-tier": "basic"},
               "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "maxLength": 128, "x-restart": "core", "x-tier": "basic"},
-              "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
+              "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
               "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "maxLength": 256, "x-restart": "core", "x-tier": "basic"},
               "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "maximum": 16384, "x-restart": "core", "x-tier": "advanced"},
               "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "maxItems": 3, "x-restart": "core", "x-tier": "basic"},
@@ -852,7 +919,7 @@
               "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "properties": {
                 "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "x-restart": "core", "x-tier": "advanced"},
                 "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "maxLength": 128, "x-restart": "core", "x-tier": "advanced"},
-                "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
+                "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
                 "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "maximum": 10000, "x-restart": "core", "x-tier": "advanced"},
                 "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"}
               }},
@@ -888,12 +955,12 @@
       }
     },
     "memory": {"description": "Memory settings that the harness owns; the media index is separate from the text index.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
-      "embedding": {"description": "Text embedding privacy acknowledgment: a remote engine embedding provider (engine.embedding with a non-loopback endpoint) needs it, bound to provider and endpoint.", "type": "object", "additionalProperties": false, "properties": {"privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}}}},
-      "reranker": {"description": "Reranker privacy acknowledgment: a remote engine reranker (engine.reranker, e.g. Cohere) receives the recalled memory texts and needs it, bound to provider and endpoint.", "type": "object", "additionalProperties": false, "properties": {"privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}}}},
+      "embedding": {"description": "Text embedding privacy acknowledgment: a remote engine embedding provider (engine.embedding with a non-loopback endpoint) needs it, bound to provider and endpoint.", "type": "object", "additionalProperties": false, "properties": {"privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}}}},
+      "reranker": {"description": "Reranker privacy acknowledgment: a remote engine reranker (engine.reranker, e.g. Cohere) receives the recalled memory texts and needs it, bound to provider and endpoint.", "type": "object", "additionalProperties": false, "properties": {"privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}}}},
       "mediaEmbedding": {"description": "Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "basic", "properties": {
         "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "default": true, "x-restart": "core", "x-tier": "basic"},
         "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "maxLength": 128, "default": "local-transformers", "x-restart": "core", "x-tier": "basic"},
-        "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
+        "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
         "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "maxLength": 256, "default": "google/embeddinggemma-2", "x-restart": "core", "x-tier": "basic"},
         "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "maximum": 16384, "default": 768, "x-restart": "core", "x-tier": "advanced"},
         "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "maxItems": 3, "default": ["image", "video", "audio"], "x-restart": "core", "x-tier": "basic"},
@@ -909,7 +976,7 @@
         "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
           "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "default": "prompt-then-user-then-auto", "x-restart": "core", "x-tier": "advanced"},
           "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "maxLength": 128, "x-restart": "core", "x-tier": "advanced"},
-          "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
+          "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
           "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "maximum": 10000, "default": 280, "x-restart": "core", "x-tier": "advanced"},
           "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced"}
         }},
@@ -920,6 +987,16 @@
       "description": "Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
       "type": "object", "default": {}, "x-restart": "core", "x-tier": "advanced",
       "properties": {
+        "schicht15": {
+          "description": "Curated knowledge promotion settings passed to the Engine.",
+          "type": "object", "additionalProperties": true, "x-restart": "core", "x-tier": "advanced",
+          "properties": {
+            "maxPromotionsPerRun": {
+              "description": "Maximum memories promoted by one knowledge-update run; 0 means unlimited.",
+              "type": "integer", "minimum": 0, "maximum": 1000000, "default": 0, "x-restart": "core", "x-tier": "advanced"
+            }
+          }
+        },
         "baseDbPathOverride": { "type": "string", "maxLength": 4096, "pattern": "^(?:[ \\t\\r\\n]*$|/|[A-Za-z]:[\\\\/]|\\\\\\\\)", "x-restart": "core", "x-tier": "advanced", "description": "Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default." }
       },
       "additionalProperties": true
@@ -1070,7 +1147,349 @@
       }
     },
     "oauth":     { "description": "Reserved namespace for OAuth configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D16)", "additionalProperties": true },
-    "decision":  { "description": "Reserved namespace for decision model configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D18)", "additionalProperties": true },
+    "decision": {
+      "description": "Decision service contract (ADR-015). Selection does not install or activate an unavailable backend.",
+      "type": "object",
+      "default": {},
+      "additionalProperties": false,
+      "properties": {
+        "systemOne": {
+          "description": "System One backends. Both are disabled until explicitly enabled; credentials alone do not enable a backend.",
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "jev": {
+              "description": "Cloud System One. Content also requires trusted caller admission; never arbitrary tool or triage text.",
+              "type": "object",
+              "default": {},
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "description": "Explicit opt-in for Jev; does not authorize cloud content by itself.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "model": {
+                  "description": "Pinned documented System One model id.",
+                  "type": "string",
+                  "enum": [
+                    "jev-1.13.0"
+                  ],
+                  "default": "jev-1.13.0",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "secretRef": {
+                  "description": "Secret-store name for the API key. No inline values.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              },
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "kev": {
+              "description": "Local Kev preparation. Native spike admission remains mandatory and is not configurable here.",
+              "type": "object",
+              "default": {},
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "description": "Explicit opt-in; remains unavailable until the native spike gate passes.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "model": {
+                  "description": "Explicit model name accepted by the local System One server.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9._/@-]+$",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "endpoint": {
+                  "description": "Literal loopback System One endpoint; localhost and remote addresses are refused.",
+                  "type": "string",
+                  "maxLength": 256,
+                  "pattern": "^https?://(?:127(?:\\.[0-9]{1,3}){3}|\\[::1\\])(?::[0-9]{1,5})?/v1/systemone$",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "required": [
+                      "enabled"
+                    ],
+                    "properties": {
+                      "enabled": {
+                        "const": true
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "model",
+                      "endpoint"
+                    ],
+                    "properties": {
+                      "model": {
+                        "description": "Explicit model name accepted by the local System One server.",
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[A-Za-z0-9._/@-]+$",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "endpoint": {
+                        "description": "Literal loopback System One endpoint; localhost and remote addresses are refused.",
+                        "type": "string",
+                        "maxLength": 256,
+                        "pattern": "^https?://(?:127(?:\\.[0-9]{1,3}){3}|\\[::1\\])(?::[0-9]{1,5})?/v1/systemone$",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      }
+                    }
+                  }
+                }
+              ],
+              "x-restart": "live",
+              "x-tier": "advanced"
+            }
+          },
+          "x-restart": "live",
+          "x-tier": "advanced"
+        },
+        "backend": {
+          "description": "Preferred backend. role preserves the existing decision model role; auto selects only installed and eligible backends.",
+          "enum": [
+            "role",
+            "laya",
+            "kev",
+            "jev",
+            "auto"
+          ],
+          "default": "role",
+          "x-restart": "live",
+          "x-tier": "advanced"
+        },
+        "timeoutMs": {
+          "description": "Overall request deadline in milliseconds, including all fallback attempts. The caller may impose a shorter deadline.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000,
+          "default": 200,
+          "x-restart": "live",
+          "x-tier": "advanced"
+        },
+        "budgets": {
+          "description": "Maximum milliseconds per use case, also bounded by timeoutMs and the remaining caller budget.",
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "triage": {
+              "description": "Maximum triage decision time in milliseconds.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000,
+              "default": 200,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "routing": {
+              "description": "Maximum routing decision time in milliseconds.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000,
+              "default": 200,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "pruning": {
+              "description": "Maximum pruning decision time in milliseconds.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000,
+              "default": 100,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "skills": {
+              "description": "Maximum skills decision time in milliseconds.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000,
+              "default": 100,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "placement": {
+              "description": "Maximum placement decision time in milliseconds.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000,
+              "default": 200,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "zoom": {
+              "description": "Maximum zoom decision time in milliseconds.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000,
+              "default": 150,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "compaction": {
+              "description": "Maximum compaction decision time in milliseconds.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000,
+              "default": 200,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            }
+          },
+          "x-restart": "live",
+          "x-tier": "advanced"
+        },
+        "confidence": {
+          "description": "Minimum calibrated confidence per use case. An uncertain answer invokes the conservative consumer fallback.",
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "triage": {
+              "description": "Minimum confidence for triage. Consumer safety rules and stricter D116 thresholds still apply.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "routing": {
+              "description": "Minimum confidence for routing. Consumer safety rules and stricter D116 thresholds still apply.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "pruning": {
+              "description": "Minimum confidence for pruning. Consumer safety rules and stricter D116 thresholds still apply.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "skills": {
+              "description": "Minimum confidence for skills. Consumer safety rules and stricter D116 thresholds still apply.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "placement": {
+              "description": "Minimum confidence for placement. Consumer safety rules and stricter D116 thresholds still apply.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "zoom": {
+              "description": "Minimum confidence for zoom. Consumer safety rules and stricter D116 thresholds still apply.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.35,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "compaction": {
+              "description": "Minimum confidence for compaction. Consumer safety rules and stricter D116 thresholds still apply.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7,
+              "x-restart": "live",
+              "x-tier": "advanced"
+            }
+          },
+          "x-restart": "live",
+          "x-tier": "advanced"
+        },
+        "classProfiles": {
+          "description": "Existing D105 model-class to provider-profile mapping. Session stability and explicit model overrides are owned by the caller.",
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "small": {
+              "description": "Provider profile for the small model class.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S",
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "medium": {
+              "description": "Provider profile for the medium model class.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S",
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "large": {
+              "description": "Provider profile for the large model class.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S",
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "frontier": {
+              "description": "Provider profile for the frontier model class.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S",
+              "x-restart": "live",
+              "x-tier": "advanced"
+            }
+          },
+          "x-restart": "live",
+          "x-tier": "advanced"
+        }
+      },
+      "x-restart": "live",
+      "x-tier": "advanced"
+    },
     "modelRoles": {
       "description": "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest.",
       "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15, D18)",
@@ -1157,7 +1576,7 @@
       }
     },
     "egress": {
-      "description": "Outgoing network policy (B4). Default deny: nothing is reachable until a host is listed. https only (plain http only to a listed loopback host when allowLoopback is on); private, link-local and metadata addresses are refused after name resolution whatever is listed.",
+      "description": "Outgoing network policy (B4). Ordinary traffic defaults to deny until a host is listed; named model-catalog file downloads use modelDownloads. https only (plain http only to a listed loopback host when allowLoopback is on); private, link-local and metadata addresses are refused after name resolution whatever is listed.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
         "allowHosts": {
@@ -1171,6 +1590,14 @@
           "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "default": [443],
           "items": { "type": "integer", "minimum": 1, "maximum": 65535 },
           "x-restart": "live", "x-tier": "advanced"
+        },
+        "modelDownloads": {
+          "description": "Named exception for credential-free GET/HEAD model artifact downloads. Ordinary provider/web traffic stays under allowHosts. Remove a host or disable to block subsequent downloads; DNS pinning and private-address refusal always apply.",
+          "type": "object", "additionalProperties": false, "default": {}, "x-restart": "live", "x-tier": "advanced",
+          "properties": {
+            "enabled": { "description": "Permit the named public model-catalog download policy. Turn off for an offline installation.", "type": "boolean", "default": true, "x-restart": "live", "x-tier": "advanced" },
+            "allowHosts": { "description": "Exact catalogue/CDN hosts admitted for engine model files; no wildcards or inference endpoints.", "type": "array", "uniqueItems": true, "maxItems": 2, "default": ["huggingface.co", "us.aws.cdn.hf.co"], "items": { "enum": ["huggingface.co", "us.aws.cdn.hf.co"] }, "x-restart": "live", "x-tier": "advanced" }
+          }
         },
         "allowLoopback": {
           "description": "Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused.",

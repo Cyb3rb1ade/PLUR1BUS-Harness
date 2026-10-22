@@ -1,4 +1,5 @@
-import { SecretError, checkDescription, checkName, checkValue, isSecretName, type BackendKind, type SecretBackend, type SecretMeta, type SecretPrincipal } from "./types.ts";
+import { surfaceSatisfies } from "../rbac/surface.ts";
+import { MIN_SECRET_SURFACE, MIN_DESCRIPTION_VALUE_CHARS, SecretError, checkDescription, checkName, checkValue, isSecretName, type BackendKind, type SecretBackend, type SecretMeta, type SecretPrincipal } from "./types.ts";
 import { createLeaseTable, type Lease, type LeaseInfo } from "./leases.ts";
 import type { AuditAction, AuditDetail, AuditSink } from "./audit.ts";
 import { createSecretRedaction } from "./redaction.ts";
@@ -45,6 +46,16 @@ export function createSecretStore(o: SecretStoreOptions) {
   /** Fail closed: anything not named in `kinds` is refused, and the attempt is audited (best effort: a refusal needs no audit to hold). */
   function gate(p: SecretPrincipal, action: string, name: string | null, kinds: readonly string[]): void {
     if (allowed(p, kinds)) return;
+    deny(p, action, name);
+  }
+  /** The write, delete and reveal paths: an owner who came in on a connection must have the level `MIN_SECRET_SURFACE` asks
+   *  for. A level that is present but not exactly 1, 2 or 3 (`NaN`, a string, `null`) fails. An owner with no `surface` at all
+   *  is an in-process caller (the engine's own stores) and has no connection to judge. */
+  function gateSurface(p: SecretPrincipal, action: string, name: string | null): void {
+    if (p.kind !== "owner" || p.surface === undefined) return;
+    if (!surfaceSatisfies(p.surface, MIN_SECRET_SURFACE)) deny(p, action, name);
+  }
+  function deny(p: SecretPrincipal, action: string, name: string | null): never {
     // The target is only ever a well-formed name (a refused caller's free text, which may itself be a pasted secret, is not
     // written), and the principal is only ever one of the known kinds.
     const known = p && typeof p === "object" && (p.kind === "owner" || p.kind === "core" || p.kind === "agent");
@@ -76,15 +87,113 @@ export function createSecretStore(o: SecretStoreOptions) {
   }
   const need = (s: Selection): SecretBackend => { if (!s.backend) throw new SecretError("no-backend", NO_BACKEND); return s.backend; };
 
-  /** The selected backend first, then the other one when it is enabled and available (a keyring that appears later must not hide file entries). */
+  const ms = (iso: unknown): number => { const t = typeof iso === "string" ? Date.parse(iso) : Number.NaN; return Number.isFinite(t) ? t : 0; };
+  const core: SecretPrincipal = { kind: "core" };
+  /** One writer at a time: a write, a delete and the sync below read a copy and then change it, so they must not interleave. */
+  let tail: Promise<unknown> = Promise.resolve();
+  const exclusive = <T>(fn: () => Promise<T>): Promise<T> => { const run = tail.then(fn, fn); tail = run.then(() => undefined, () => undefined); return run; };
+  /** Runs a change of one name with the lease bookkeeping around it: a lease read that overlapped it is redone, and what was leased from the old value is revoked. */
+  async function changing<T>(name: string, fn: () => Promise<T>): Promise<T> {
+    epoch++; writing++;
+    try { return await fn(); } finally { epoch++; writing--; leases.revokeName(name); }
+  }
+
+  /** Names deleted while the keyring was away (file backend, read while the keyring serves again). */
+  async function tombstonesOf(s: Selection): Promise<Record<string, string>> {
+    if (!s.other?.tombstones) return {};
+    try { return await s.other.tombstones(); } catch { o.logger?.warn("secret tombstones could not be read"); return {}; }
+  }
+  const buried = (tomb: Record<string, string>, m: SecretMeta | undefined): boolean => !!m && Object.hasOwn(tomb, m.name) && ms(m.updatedAt) <= ms(tomb[m.name]);
+
+  /**
+   * The value of `name`, and where it came from. With the file fallback on, a name can exist in both backends (a keyring that was
+   * away while the name was rotated or deleted: audit secrets #1): the newer `updatedAt` wins, a keyring copy not newer than a
+   * tombstone of the file is a deleted one, and on a tie the keyring wins. Only the winner is decrypted.
+   */
   async function find(name: string): Promise<{ value: string; from: SecretBackend } | null> {
     const s = await select();
-    for (const b of [need(s), s.other]) {
-      if (!b) continue;
-      const value = await b.get(name);
-      if (value !== null) { redaction.register(value); return { value, from: b }; }
+    const primary = need(s);
+    const other = s.other;
+    const take = (value: string, from: SecretBackend) => { redaction.register(value, name); return { value, from }; };
+    if (!other) { const v = await primary.get(name); return v === null ? null : take(v, primary); }
+    const om = (await other.list()).find((m) => m.name === name);
+    const tomb = await tombstonesOf(s);
+    let pv = await primary.get(name);
+    let pm: SecretMeta | undefined;
+    if (pv !== null && (om || Object.hasOwn(tomb, name))) {
+      pm = (await primary.list()).find((m) => m.name === name);
+      if (buried(tomb, pm ?? { name, backend: primary.kind, createdAt: "", updatedAt: "" })) pv = null;
     }
-    return null;
+    if (pv !== null && !(om && ms(om.updatedAt) > ms(pm?.updatedAt))) return take(pv, primary);
+    if (!om) return null;
+    const ov = await other.get(name);
+    return ov === null ? null : take(ov, other);
+  }
+
+  interface Plan { purge: string[]; promote: string[]; dropOther: string[]; clear: string[] }
+  /** Every name the owner can see, newest version winning, plus what the two backends owe each other (see `settle`). */
+  async function merged(s: Selection): Promise<{ metas: Map<string, SecretMeta>; primary: SecretMeta[]; plan: Plan }> {
+    const primary = s.backend ? await s.backend.list() : [];
+    const other = s.other ? await s.other.list() : [];
+    const tomb = await tombstonesOf(s);
+    const plan: Plan = { purge: [], promote: [], dropOther: [], clear: Object.keys(tomb) };
+    const metas = new Map<string, SecretMeta>();
+    for (const m of primary) { if (buried(tomb, m)) plan.purge.push(m.name); else metas.set(m.name, m); }
+    for (const m of other) {
+      const mine = metas.get(m.name);
+      if (!mine) metas.set(m.name, m);
+      else if (ms(m.updatedAt) > ms(mine.updatedAt)) { metas.set(m.name, m); plan.promote.push(m.name); }
+      else plan.dropOther.push(m.name);
+    }
+    return { metas, primary: primary.filter((m) => !buried(tomb, m)), plan };
+  }
+  const idle = (p: Plan): boolean => p.purge.length + p.promote.length + p.dropOther.length + p.clear.length === 0;
+
+  /**
+   * The keyring is serving and the file holds something that happened while it was not: bring the keyring in line (a rotated
+   * value moves in, a deleted name is purged, a stale file copy is dropped) and forget the tombstones that have done their work.
+   * Audited like any other change, never fatal: a failed step is retried by the next owner read, and `find` already answers right.
+   */
+  async function settle(plan: Plan): Promise<void> {
+    if (idle(plan)) return;
+    await exclusive(async () => {
+      const s = await select();
+      if (s.kind !== "keyring" || !s.other) return;
+      const { plan: fresh } = await merged(s);
+      const keyring = s.backend!; const file = s.other;
+      const done = new Set<string>();
+      const step = async (name: string, action: AuditAction, detail: AuditDetail, fn: () => Promise<unknown>): Promise<boolean> => {
+        try { audited(core, action, name, { reason: "keyring-sync", ...detail }); await changing(name, fn); return true; }
+        catch { o.logger?.warn("secret copies could not be brought in line", { name }); return false; }
+      };
+      for (const name of fresh.purge) if (await step(name, "secret.delete", { backend: "keyring" }, () => keyring.delete(name))) done.add(name);
+      for (const name of fresh.promote) {
+        const meta = (await file.list()).find((m) => m.name === name);
+        const value = meta ? await file.get(name).catch(() => null) : null;
+        if (!meta || value === null) continue;
+        // the time of the rotation is kept, not the time of the sync
+        await step(name, "secret.set", { backend: "keyring" }, async () => { await keyring.put(name, value, new Date(ms(meta.updatedAt) || clock()), meta.updatedBy, meta.description ?? ""); await file.delete(name); });
+      }
+      for (const name of fresh.dropOther) await step(name, "secret.delete", { backend: "file" }, () => file.delete(name));
+      for (const name of fresh.clear) {
+        const wasPurged = fresh.purge.includes(name);
+        if (wasPurged && !done.has(name)) continue; // the keyring copy is still there: the tombstone keeps hiding it
+        try { await file.clearTombstone?.(name); } catch { o.logger?.warn("a secret tombstone could not be cleared", { name }); }
+      }
+    }).catch(() => { /* a sync that cannot run is not a failure of the read that asked for it */ });
+  }
+
+  /** A description may not carry any value the store holds: not the one being written (checked with the text), not another secret's, not an older one of this name. */
+  async function assertDescriptionHoldsNoValue(text: string, s: Selection): Promise<void> {
+    const leak = (): never => { throw new SecretError("invalid-description", "secret description must not contain a secret value"); };
+    if (redaction.contains(text)) leak();
+    let names: string[];
+    try { names = [...(await merged(s)).metas.keys()]; } catch { return; }
+    for (const n of names) {
+      let hit: { value: string } | null = null;
+      try { hit = await find(n); } catch { continue; } // an entry that cannot be read cannot be compared; the others still are
+      if (hit && hit.value.length >= MIN_DESCRIPTION_VALUE_CHARS && text.includes(hit.value)) leak();
+    }
   }
 
   return {
@@ -96,11 +205,10 @@ export function createSecretStore(o: SecretStoreOptions) {
       let secrets: SecretMeta[] | undefined;
       if (s.backend) {
         try {
-          const primary = await s.backend.list();
-          count = primary.length;
-          const names = new Map(primary.map(meta => [meta.name, meta]));
-          if (s.other) for (const meta of await s.other.list()) if (!names.has(meta.name)) names.set(meta.name, meta);
-          secrets = [...names.values()].sort((a, b) => a.name.localeCompare(b.name));
+          const m = await merged(s);
+          count = m.primary.length;
+          secrets = [...m.metas.values()].sort((a, b) => a.name.localeCompare(b.name));
+          await settle(m.plan);
         } catch { secrets = undefined; }
       }
       return {
@@ -108,32 +216,57 @@ export function createSecretStore(o: SecretStoreOptions) {
         keyring: { available: s.keyring.available, ...(s.keyring.reason ? { reason: s.keyring.reason } : {}) },
         file: { enabled: o.fileFallback(), available: s.fileAvailable, ...(s.fileReason ? { reason: s.fileReason } : {}) },
         count, activeLeases: leases.active().length,
-        ...(secrets ? { secrets: secrets.map(m => ({ name: m.name, backend: m.backend, ...(typeof m.createdAt === "string" && m.createdAt ? { createdAt: m.createdAt } : {}), ...(typeof m.updatedAt === "string" && m.updatedAt ? { updatedAt: m.updatedAt } : {}), ...(typeof m.updatedBy === "string" && m.updatedBy ? { updatedBy: m.updatedBy } : {}), ...(typeof m.description === "string" && m.description ? { description: m.description } : {}) })) } : {}),
+        ...(secrets ? { secrets: secrets.map(m => ({ name: m.name, backend: m.backend, ...(typeof m.createdAt === "string" && m.createdAt ? { createdAt: m.createdAt } : {}), ...(typeof m.updatedAt === "string" && m.updatedAt ? { updatedAt: m.updatedAt } : {}), ...(typeof m.updatedBy === "string" && m.updatedBy ? { updatedBy: m.updatedBy } : {}), ...(typeof m.description === "string" && m.description ? { description: redaction.mask(m.description) } : {}) })) } : {}),
         ...(s.kind === "none" ? { remedy: NO_BACKEND } : {}),
       };
     },
 
-    /** `description` is optional: omitted, a rotation keeps the stored one; an empty one removes it. */
+    /** `description` is optional: omitted, a rotation keeps the stored one; an empty one removes it. A short value is accepted (see `shortValueWarning`). */
     async set(p: SecretPrincipal, name: string, value: string, description?: string): Promise<SecretMeta> {
       gate(p, "set", typeof name === "string" ? name : null, ["owner"]);
+      gateSurface(p, "set", typeof name === "string" ? name : null);
       checkName(name); checkValue(value);
       const text = checkDescription(description, value);
-      redaction.register(value);
-      const s = await select();
-      const backend = need(s);
-      audited(p, "secret.set", name, { backend: backend.kind });
-      epoch++; writing++;
-      try {
-        const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text);
-        // A copy of the old value in the other backend would come back when this one goes away: rotation removes it.
-        if (s.other) {
-          try { await s.other.delete(name); } catch { o.logger?.warn("stale secret copy could not be removed", { name }); }
+      return exclusive(async () => {
+        const s = await select();
+        const backend = need(s);
+        if (text) {
+          await assertDescriptionHoldsNoValue(text, s);
+          // The text may also not echo an older value of this very name, which `put` replaces (and which the other names' check above
+          // sees only in full): fragments of it are refused too.
+          const previous = await find(name);
+          if (previous) checkDescription(text, previous.value);
         }
-        return meta;
-      } finally {
-        epoch++; writing--;
-        leases.revokeName(name); // a rotated secret invalidates what was leased from the old value
-      }
+        redaction.register(value, name);
+        audited(p, "secret.set", name, { backend: backend.kind });
+        return changing(name, async () => {
+          const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text, previous => redaction.register(previous));
+          // A copy of the old value in the other backend would come back when this one goes away: rotation removes it, and a
+          // tombstone of an earlier delete has nothing left to hide.
+          if (s.other) {
+            try { await s.other.delete(name); await s.other.clearTombstone?.(name); } catch { o.logger?.warn("stale secret copy could not be removed", { name }); }
+          }
+          return meta;
+        });
+      });
+    },
+
+    /** Owner-only metadata edit; the backend never writes the credential or revokes its leases. */
+    async describe(p: SecretPrincipal, name: string, description: string): Promise<SecretMeta> {
+      gate(p, "describe", typeof name === "string" ? name : null, ["owner"]);
+      gateSurface(p, "describe", typeof name === "string" ? name : null);
+      checkName(name); const text = checkDescription(description);
+      if (text === undefined) throw new SecretError("invalid-description", "description is required");
+      return exclusive(async () => {
+        const s = await select();
+        need(s);
+        const found = await find(name);
+        if (!found) throw new SecretError("not-found", "secret does not exist");
+        if (text) await assertDescriptionHoldsNoValue(text, s);
+        checkDescription(text, found.value);
+        audited(p, "secret.describe", name, { backend: found.from.kind });
+        return found.from.describe(name, text, now(), p.kind === "owner" ? p.id : undefined, value => redaction.register(value));
+      });
     },
 
     /** Metadata only: no value is read. */
@@ -142,14 +275,15 @@ export function createSecretStore(o: SecretStoreOptions) {
       checkName(name);
       audited(p, "secret.get", name);
       const s = await select();
-      const hit = [s.backend, s.other].flatMap((b) => (b ? [b] : []));
-      for (const b of hit) { const m = (await b.list()).find((x) => x.name === name); if (m) return m; }
+      const m = s.backend ? (await merged(s)).metas.get(name) : undefined;
+      if (m) return m;
       throw new SecretError("not-found", `no secret named ${name}`, { name });
     },
 
     /** The one call that returns a value to the owner (`secret get --reveal`). */
     async reveal(p: SecretPrincipal, name: string): Promise<{ meta: SecretMeta; value: string }> {
       gate(p, "reveal", typeof name === "string" ? name : null, ["owner"]);
+      gateSurface(p, "reveal", typeof name === "string" ? name : null);
       checkName(name);
       audited(p, "secret.reveal", name);
       const hit = await find(name);
@@ -160,25 +294,28 @@ export function createSecretStore(o: SecretStoreOptions) {
 
     async delete(p: SecretPrincipal, name: string): Promise<{ removed: true }> {
       gate(p, "delete", typeof name === "string" ? name : null, ["owner"]);
+      gateSurface(p, "delete", typeof name === "string" ? name : null);
       checkName(name);
-      const s = await select();
-      need(s);
-      audited(p, "secret.delete", name);
-      let removed = false;
-      epoch++; writing++;
-      try {
-        for (const b of [s.backend, s.other]) if (b && (await b.delete(name))) removed = true;
-        // An entry in the file backend stays on disk when the fallback is switched off or the file is not the backend in use:
-        // a delete must not leave it to reappear when the flag is turned back on.
-        if (s.backend !== o.file && s.other !== o.file) {
-          try { if (await o.file.delete(name)) removed = true; } catch { o.logger?.warn("file backend copy could not be checked", { name }); }
-        }
-      } finally {
-        epoch++; writing--;
-        leases.revokeName(name);
-      }
-      if (!removed) throw new SecretError("not-found", `no secret named ${name}`, { name });
-      return { removed: true };
+      return exclusive(async () => {
+        const s = await select();
+        need(s);
+        audited(p, "secret.delete", name);
+        let removed = false;
+        await changing(name, async () => {
+          // The file is all that can be changed while the keyring is away, so a delete there leaves a tombstone: the keyring's older
+          // copy would otherwise come back with the keyring (audit secrets #1).
+          const at = s.backend === o.file ? now() : undefined;
+          for (const b of [s.backend, s.other]) if (b && (await b.delete(name, b === o.file ? at : undefined))) removed = true;
+          if (s.other) { try { await s.other.clearTombstone?.(name); } catch { o.logger?.warn("a secret tombstone could not be cleared", { name }); } }
+          // An entry in the file backend stays on disk when the fallback is switched off or the file is not the backend in use:
+          // a delete must not leave it to reappear when the flag is turned back on.
+          if (s.backend !== o.file && s.other !== o.file) {
+            try { if (await o.file.delete(name)) removed = true; } catch { o.logger?.warn("file backend copy could not be checked", { name }); }
+          }
+        });
+        if (!removed) throw new SecretError("not-found", `no secret named ${name}`, { name });
+        return { removed: true as const };
+      });
     },
 
     /** Names and metadata, never values. */
@@ -187,9 +324,9 @@ export function createSecretStore(o: SecretStoreOptions) {
       const s = await select();
       const b = need(s);
       audited(p, "secret.list", null, { backend: b.kind });
-      const seen = new Map<string, SecretMeta>();
-      for (const x of [s.backend, s.other]) if (x) for (const m of await x.list()) if (!seen.has(m.name)) seen.set(m.name, m);
-      return [...seen.values()].sort((a, b2) => a.name.localeCompare(b2.name));
+      const m = await merged(s);
+      await settle(m.plan);
+      return [...m.metas.values()].sort((a, b2) => a.name.localeCompare(b2.name));
     },
 
     /** ADR-005 action 6: a short-lived, revocable lease for the engine. In-process only (there is no RPC for it). */

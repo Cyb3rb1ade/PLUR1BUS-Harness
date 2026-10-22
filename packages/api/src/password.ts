@@ -49,8 +49,19 @@ export async function verifyPassword(stored: string, password: string): Promise<
   try { return timingSafeEqual(await derive(password, phc.salt, phc), phc.tag); } catch { return false; }
 }
 
-/** True when the record was made with other parameters than `current` (or cannot be read): rehash after the next good login. */
+/** True when the record cannot be read or is weaker than `current` in at least one parameter: rehash after the next good
+ *  login. Compared per parameter, and never the other way round: a hash that is stronger than the current parameters is
+ *  left alone, so raising or lowering the default cannot downgrade anyone's record. */
 export function needsRehash(stored: string, current: Argon2Params = ARGON2_PARAMS): boolean {
   const p = parsePhc(stored);
-  return !p || p.memoryKiB !== current.memoryKiB || p.passes !== current.passes || p.parallelism !== current.parallelism;
+  return !p || p.memoryKiB < current.memoryKiB || p.passes < current.passes || p.parallelism < current.parallelism;
+}
+
+/** The parameters for a replacement of `stored`: the per-parameter maximum of the stored and the current ones, so a
+ *  hash that is stronger in one parameter and weaker in another keeps the strong one while the weak one is raised.
+ *  Unreadable records get `current`. */
+export function rehashParams(stored: string, current: Argon2Params = ARGON2_PARAMS): Argon2Params {
+  const p = parsePhc(stored);
+  if (!p) return { ...current };
+  return { memoryKiB: Math.max(p.memoryKiB, current.memoryKiB), passes: Math.max(p.passes, current.passes), parallelism: Math.max(p.parallelism, current.parallelism) };
 }

@@ -748,3 +748,11 @@ step-up (text fallbacks work without it).
     `teilbar` entries move (as agent knowledge with origin label) and its `vertraulich`/`privat` entries are excluded,
     because the agent promised that person discretion. Alternative: everything moves regardless (as point 10 literally
     reads for the giver's own relationship).
+
+### F7 port preparation (2026-10-20)
+
+The additive [DecisionTreeChooser adapter](../../../packages/core/src/decision/tree-adapter.ts)
+implements the store-free `TreeChooser` boundary through the F2 DecisionClient. See
+[contract and limits](../../decision-service.md#treechooser-port-f7-c3c4-noch-offen).
+This does not implement or activate C3/C4: the future caller must supply an authorised visible
+shortlist and one shared absolute deadline. No TreeStore handles enter the decision backend.

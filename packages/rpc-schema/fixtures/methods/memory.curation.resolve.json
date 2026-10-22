@@ -1,0 +1,12 @@
+{
+  "params": {
+    "agentId": "anna",
+    "id": "mem_0123456789abcdefabcd",
+    "action": "keep"
+  },
+  "result": {
+    "agentId": "anna",
+    "id": "mem_0123456789abcdefabcd",
+    "status": "promoted"
+  }
+}

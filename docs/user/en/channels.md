@@ -1,6 +1,6 @@
 # Channels
 
-Channels connect chat platforms to Plur1bus. You write to the assistant on Telegram, Discord, Slack, Matrix, Signal or
+Channels connect chat platforms to Plur1bus. You write to the assistant on Telegram, Discord, Slack, Matrix, Buzz, Signal or
 by e-mail, and the reply comes back there. This page shows how to set up a channel, link an account to the assistant and
 manage channels. Each channel's setup in full is on its own page under [../../channels/](../../channels/). The German
 version of this page is [../de/channels.md](../de/channels.md).
@@ -25,7 +25,8 @@ takes effect only in a build that includes the host. If that note is missing, th
 | Telegram | direct messages, groups | mature |
 | Discord | direct messages, server channel, thread | new |
 | Slack | direct messages, channel, group | new |
-| Matrix | direct messages, room, thread | new; unencrypted rooms only |
+| Matrix | direct messages, room, thread | plaintext by default; experimental non-persistent E2EE |
+| Buzz | one-to-one text DMs | review build; NIP-17 encrypted |
 | Signal | direct messages, group | new; needs signal-cli |
 | E-mail | direct, in the mail thread | new |
 
@@ -133,3 +134,11 @@ Always store keys with `plur1bus secret set <name>`, then pass only the name.
 | Status `not-registered` | The build has no switchboard host. | See "First" above. |
 
 The full list is in [../../errors.md](../../errors.md).
+
+## M4 review additions
+
+The Draft M4 build adds [Buzz / Nostr](../../channels/buzz.md), text-only encrypted one-to-one DMs with normalized hex/npub allowlists and SecretStore-only private keys. Matrix has an explicit experimental memory-crypto switch, off by default: keys are **not persistent**, and restart requires verification again. Persistent Matrix E2EE is blocked; see [Matrix setup](../../channels/matrix.md).
+
+For `/web`, an Owner/Admin must set `core.webHandoffBaseUrl` to the actual Web UI address. A linked person gets a ten-minute, one-use link in their own DM and must log in as that same person. The new Web chat contains quoted context; the channel thread remains active. Channel DMs in Web history are read only and offer **Continue in Web**. Groups and old sessions without trusted DM provenance are excluded; `/new` starts a fresh channel session when needed. Links are never authentication credentials and should still be kept private.
+
+Recurring → Delivery destinations supports own linked DMs confirmed by a reply in that exact target. Only validated destinations appear in the user-job editor. Removing a destination or revoking identity/rights stops future delivery.

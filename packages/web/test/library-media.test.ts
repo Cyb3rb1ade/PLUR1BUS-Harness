@@ -91,9 +91,9 @@ describe("Library: generate", opts, () => {
     });
   });
 
-  test("privacy pin, budget and unavailable adapter are shown with their codes", async () => {
+  test("only-local-models rule, budget and unavailable adapter are shown with their codes", async () => {
     const failures: [() => never, string, string][] = [
-      [() => { throw rpcError("E_MEDIA_PRIVACY", "pin"); }, "privacy pin forbids", "E_MEDIA_PRIVACY"],
+      [() => { throw rpcError("E_MEDIA_PRIVACY", "pin"); }, "only local models", "E_MEDIA_PRIVACY"],
       [() => { throw rpcError("E_DENIED", "media budget exceeded", "budget_exceeded"); }, "media budget is used up", "budget_exceeded"],
       [() => { throw rpcError("E_NOT_AVAILABLE", "media request refused", "backend_unavailable"); }, "adapter is not available", "backend_unavailable"],
       [() => { throw rpcError("E_MEDIA_LICENSE", "licence"); }, "licence of this model", "E_MEDIA_LICENSE"],

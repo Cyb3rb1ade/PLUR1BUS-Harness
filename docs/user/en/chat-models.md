@@ -40,7 +40,7 @@ plur1bus session show <ID>
 - **Reasoning levels (from the next release):** the scale is default, off, minimal, low, medium, high and extra high. A model offers only some of them. If your choice is not offered, the nearest supported level is used and the chat says so, never silently. A model without a reasoning setting ignores the choice, and the provider decides. A model switch alone keeps the chosen level.
 - **Cost:** reasoning tokens are billed as output tokens, so a higher level can use more tokens per reply. For models with a token budget the chat shows how many output tokens thinking can add at most; Plur1bus never shows prices. The first reply after a switch can cost more because the cache is rebuilt.
 - **People only:** switching the model of a chat is reserved for people. Agents and WebMCP tools cannot change it.
-- **Local only (from the next release):** if "Local only" applies to the agent, cloud profiles are listed as locked and refused ([privacy.md](privacy.md)).
+- **Only local models (from the next release):** if "Only local models" applies to the agent, cloud profiles are listed as locked and refused ([privacy.md](privacy.md)).
 - **Not remembered:** such a chat saves nothing to memory. Its transcript and its model and reasoning choice stay in memory only and are not written to disk.
 
 ## Error messages
@@ -48,10 +48,10 @@ plur1bus session show <ID>
 - `E_NOT_AVAILABLE` with reason `model-profile-unavailable`: the profile is not configured. Check the profile names in [providers.md](providers.md).
 - `E_DENIED` with reason `agent-principal`: an agent or tool tried to change the chat's model; only a person may.
 - `E_CONFLICT`: the choice was changed elsewhere in the meantime. From the next release the reasons are `stale-model-preview` (look at the current state and choose again) and `session-busy` (a reply is still running).
-- From the next release: `E_DENIED` with reason `local-only` (the profile is cloud-based while "Local only" applies), `E_NOT_AVAILABLE` with reason `model-unavailable`, and `E_INVALID_PARAMS` for a reasoning level that is not on the scale.
+- From the next release: `E_DENIED` with reason `local-only` (the profile is cloud-based while "Only local models" applies), `E_NOT_AVAILABLE` with reason `model-unavailable`, and `E_INVALID_PARAMS` for a reasoning level that is not on the scale.
 
 ## Next
 
 - Manage model profiles and providers: [providers.md](providers.md)
-- Privacy and Local only: [privacy.md](privacy.md)
+- Privacy and "Only local models": [privacy.md](privacy.md)
 - Managing long conversations: [long-conversations.md](long-conversations.md)

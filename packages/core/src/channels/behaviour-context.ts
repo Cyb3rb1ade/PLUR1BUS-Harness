@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { permitsName, type EffectiveBehaviour } from './behaviour.ts';
 
 /** Host-only turn policy; neither RPC parameters nor provider output can populate this context. */
-export const channelOrigin = new AsyncLocalStorage<{ channel: string; chatId: string }>();
+export const channelOrigin = new AsyncLocalStorage<{ channel: string; chatId: string; accountId?: string; senderId?: string; humanId?: string; chatKind?: string }>();
 export const channelBehaviour = new AsyncLocalStorage<EffectiveBehaviour>();
 
 export function permitsTool(name: string, capability: string): boolean {

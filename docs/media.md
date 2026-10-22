@@ -15,7 +15,7 @@ ADR-017 proposal was not present on the implementation's `origin/main` base.
 ```text
 Caller -> Registry / ImageAdapter -> HTTP provider or Core ML child
        -> JobRunner -> JobPersistence (file default; replaceable port)
-                    -> BudgetPort (optional; core integration follows)
+                    -> BudgetPort (optional; the core's surfaces use the call budget's media units, below)
                     -> OutputStore -> job directory / images + manifest.json
 ```
 
@@ -130,8 +130,10 @@ reference/mask hashes, seed, duration, origin and
 partial-result flag. Reference bytes and mask bytes are not duplicated into the
 manifest. Job persistence retains request bytes to enable polling recovery.
 Quota includes images and manifest bytes and is checked under an exclusive store
-lock. Quota refusal leaves no output directory. A put that finds the lock held fails fast with `backend_unavailable`
-instead of waiting, so two jobs finishing at the same moment may not both publish (not yet enforced: waiting for the lock). Only
+lock. Quota refusal leaves no output directory. A put, delete or prune that finds the lock held waits for it with
+capped exponential backoff (5 ms doubling to 100 ms) and gives up with `backend_unavailable` after `lockWaitMs`
+(default 5000 ms; `0` fails fast), so two jobs finishing at the same moment both publish, one after the other, while a lock that
+never goes away (for example left by a crashed process; `recoverStaging()` removes it) is a clear, bounded failure. Only
 stable error codes leave the store; raw file-system or parse errors are mapped to one. With metadata embedding off, `put()` stores the
 bytes after checking that they start with the magic bytes of the declared image format (`invalid_response` otherwise; the adapters also
 check provider output themselves). A job runner never waits on an adapter that missed the abort: the caller's signal wins and the job ends as `timeout` or `cancelled`. `prune()` removes expired jobs;
@@ -318,9 +320,13 @@ verify both embedding states and removal of a synthetic GPS/device canary in all
 three containers. Manifests always retain the prompt independently of embedding.
 
 The media package counts video in seconds (`requestedUnits`/`deliveredUnits`: measured stored seconds, not one unit
-per file). The core call budget admits a generation as a call of 0 tokens; it has no image or video-second metric, and
-there is no money dimension (owner decision 2026-10-19: no cost field, no price table, no cost estimate). A cost a vendor
-reports is not copied into the manifest. Cancellation can leave remote usage uncertain; submitted video errors retain a
+per file). The core call budget has the metrics `images` and `videoSeconds` beside `tokens` (owner decision 2026-10-19,
+[budgets.md](budgets.md#media-units-images-and-video-seconds)): `media.generate`/`media.edit` and the turn tools
+reserve the requested units before the provider is called (`n` images, or `durationSeconds` rounded up to whole
+seconds; no tokens) and settle at the delivered units when the job succeeds. A hard image or video-second limit refuses
+the request before submission (RPC `E_DENIED` with reason `budget_exceeded`; the turn tool throws
+`CallBudgetExceededError`). There is no money dimension (no cost field, no price table, no cost estimate). A cost a
+vendor reports is not copied into the manifest. Cancellation can leave remote usage uncertain; submitted video errors retain a
 reservation for the existing reconciliation/expiry policy.
 
 Telegram's existing sendOutput supports MP4 via sendVideo and MOV/WebM as documents,
@@ -337,7 +343,7 @@ Base: origin/main `433ca5b3` (refreshed 2026-10-10).
 | Store quota and atomic publication | buffered images | bounded streaming, measured video fields, poster |
 | Cloud protocols | image adapters | OpenRouter, Replicate, fal, xAI, Google video; OpenAI false |
 | Metadata preferences and reference sanitization | images | video remux stripping and optional container comments/Tags |
-| Budget media units | videoSecond available | duration-based units in the media package (no cost since 2026-10-19) |
+| Budget media units | videoSecond available | duration-based units in the media package; image and video-second limits in the core call budget (no cost since 2026-10-19) |
 | RPC/CLI, Media RBAC | image surfaces | kind video, edit refs, bounded file ranges, CLI options |
 | Telegram output port | photos | video/document delivery within existing sending path |
 | ADR-017 | absent; owner decisions in docs | accepted decision record |

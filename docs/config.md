@@ -42,6 +42,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `tools.hostctl.env.allow` | array | `["PATH","LANG","LC_ALL","TZ","TERM","SystemRoot","PATHEXT","TEMP","TMP"]` | core | Environment names eligible for inheritance; secrets and injection variables remain blocked. |
 | `tools.hostctl.denyPatterns` | array | `[]` | core | Additional case-insensitive literal command substrings to refuse. |
 | `tools.hostctl.search.maxResults` | integer | `100` | core | Maximum matches per search. |
+| `core.webHandoffBaseUrl` | string | `""` | live | Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment. |
 | `core.logLevel` | enum | `"info"` | live | Minimum severity written to the core log. |
 | `core.recall.softBudgetMs` | integer | `400` | core | Soft target duration for a recall, in milliseconds; must not exceed hardBudgetMs. |
 | `core.recall.hardBudgetMs` | integer | `600` | live | Maximum duration allowed for a recall before it is aborted, in milliseconds; must not be below softBudgetMs. |
@@ -60,8 +61,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `extensions.limits.skillBytes` | integer | `16777216` | live | Maximum size of an installed skill folder, in bytes. |
 | `embedding.acceptedNcLicence` | boolean | `false` | core | Whether the owner has accepted the model's non-commercial licence terms. |
 | `embedding.acceptedNcLicenceAt` | string |  | core | Date-time when the non-commercial licence was accepted. |
-| `memory.embedding.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport. |
-| `memory.reranker.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport. |
+| `memory.embedding.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport. |
+| `memory.reranker.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport. |
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
 | `auth.requireSecondFactor` | string | `"remote"` | core | Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides. |
 | `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |
@@ -74,13 +75,14 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `auth.openai.storeBackend` | string | `"auto"` | core | Use the existing secret service. auto permits only its explicitly enabled encrypted-file fallback. |
 | `auth.openai.federated` | object | `{}` | core | External bearer supplier: one executable or file, explicit arguments and environment. |
 | `oauth` | object | `{}` | live | Reserved namespace for OAuth configuration. |
-| `decision` | object | `{}` | live | Reserved namespace for decision model configuration. |
+| `decision` | object | `{}` | live | Decision service contract (ADR-015). Selection does not install or activate an unavailable backend. |
 | `modelProfiles` | object | `{}` | live | Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order. |
 | `models.scan.enabled` | boolean | `true` | live | Whether periodic model discovery scans are enabled. |
 | `models.scan.intervalHours` | integer | `24` | live | Hours between periodic model discovery scans. |
 | `secrets.fileFallback.enabled` | boolean | `false` | live | Use the encrypted file store (AES-256-GCM, machine-bound key file next to it) when the OS keyring is unavailable. Off until the owner decides ADR-005 Q3. |
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
 | `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
+| `egress.modelDownloads` | object | `{}` | live | Named exception for credential-free GET/HEAD model artifact downloads. Ordinary provider/web traffic stays under allowHosts. Remove a host or disable to block subsequent downloads; DNS pinning and private-address refusal always apply. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
 | `privacy.localEndpoints` | array | `[]` | live | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
 | `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |

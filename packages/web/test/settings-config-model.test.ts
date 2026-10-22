@@ -110,6 +110,22 @@ describe("helpers", () => {
   });
 });
 
+describe("curated knowledge promotion cap", () => {
+  test("offers the default and configured cap, accepts zero, rejects negative counts and records a core restart", () => {
+    const memory = sectionById("memory")!;
+    const field = buildFields({}, memory).find(f => f.key === "engine.schicht15.maxPromotionsPerRun");
+    assert.ok(field, "the palette target must have an editable field");
+    assert.equal(field.readOnly, false);
+    assert.equal(initialDraft([field])[field.key], "0");
+    const configured = buildFields({ engine: { schicht15: { maxPromotionsPerRun: 3 } } }, memory).find(f => f.key === field.key)!;
+    assert.equal(initialDraft([configured])[field.key], "3");
+    assert.equal(parseDraft(configured, "-1").ok, false);
+    assert.deepEqual(collectChanges([configured], { [field.key]: "0" }), {
+      changes: [{ key: "engine.schicht15.maxPromotionsPerRun", old: 3, value: 0, restartClass: "core" }], errors: {},
+    });
+  });
+});
+
 describe("palette alignment", () => {
   test("every catalogued setting of a config section has a field with the id the deep link targets (engine is the one documented gap)", () => {
     const gaps: string[] = [];

@@ -4,7 +4,8 @@
 > price table, no cost field, no cost limit and no cost display in CLI, Web UI or RPC. A maintained price table per
 > vendor and model would be needed, subscription plans (Claude, ChatGPT, Codex) make the figure wrong anyway, and internal
 > reasoning cost is not reported. Budgets count **tokens** (input + output, where output includes the reasoning tokens a
-> provider reports), **calls** (reservations) and, where a feature has them, **turns** and **time** (voice seconds).
+> provider reports), **calls** (reservations), **media units** (generated images and video seconds, see
+> [Media units](#media-units-images-and-video-seconds)) and, where a feature has them, **turns** and **time** (voice seconds).
 
 The budget module owns accounting, admission, allocation and retry/return policies. This change supplies an internal call port, not new RPC methods. **End-to-end M2 acceptance 10 remains pending until the turn-loop and provider follow-ups wire every model call through this port.** No source under `prompt/`, `session/`, `providers/` or `media/` is changed.
 
@@ -47,7 +48,7 @@ if (decision.kind === 'refuse') {
 
 `checkBeforeCall` checks **and reserves**, returning `allow { reservationId, estimatedTokens }` or `refuse { code, reason, scope, id, metric, limit, used, estimate, resetsAt }`. A reservation is an admission for one invocation only. Never reuse it for a retry. All matching agent, project, user and global limits apply; the tightest remaining capacity wins. IDs are canonical, trusted host identities; project/user cannot be inferred from old agent-only ledger entries.
 
-Token ceilings count input plus maximum output at admission and input plus actual output at settlement (output includes reported reasoning tokens; cache tokens are recorded but not counted). `tokens` is the only metric; a limit row with metric `cost` left by an older core is ignored, never enforced. Input and output caps are never mutated. `run(request, invoke)` performs admission, throws `CallBudgetExceededError` (`budget_exceeded`) before invocation on refusal, and settles successful usage.
+Token ceilings count input plus maximum output at admission and input plus actual output at settlement (output includes reported reasoning tokens; cache tokens are recorded but not counted). The metrics are `tokens`, `images` and `videoSeconds` (next section); a limit row with metric `cost` left by an older core is ignored, never enforced. Input and output caps are never mutated. `run(request, invoke)` performs admission, throws `CallBudgetExceededError` (`budget_exceeded`) before invocation on refusal, and settles successful usage.
 
 The same SQLite database stores legacy usage/RPC limits and the lazily initialized version-1 call extension (`budget_call`, `budget_call_limit`, `budget_call_notice`, version in `settings`). Initialization, admission and settlement use `BEGIN IMMEDIATE`, serializing separate connections and processes. A future call-extension schema is refused. The unchanged legacy service can still open databases without initializing the extension. All persisted values are identifiers and numeric counts; no prompt/response payload is stored here. The legacy money columns (`usage_event`'s cost and price-table version, `budget_call.cost`) stay in the schema so no migration is needed and an older core can still open the store; new rows leave them NULL/empty.
 
@@ -56,6 +57,21 @@ Legacy agent/global RPC limits and legacy recorded usage participate in admissio
 Settlement replaces the estimate atomically with actual usage, returning `recorded` and explicit `overages`. Underestimation is accounted honestly even above a hard ceiling; subsequent calls refuse. Duplicate settlement is a no-op. Emitters run after commit and cannot interrupt accounting if they throw. Durable ledger updates are authoritative; event delivery is best effort, not a transactional outbox.
 
 Failed/aborted calls without authoritative usage keep their reservation. `run` throws `CallUsagePendingError` (`budget_usage_pending`, original error in `cause`, `reservationId` for reconciliation). Call `settle` with measured usage (or an estimate) when known; `releaseUnused` only when the host can prove nothing billable was sent. Pending reservations survive restart and count across calendar rollover until `reservationTtlMs` (default 30 minutes, longer than any provider call): an older reservation is an orphan, no longer counts, and is released with an `expire` event on open or by `reconcileExpired()`. `reservation(id)` and `pendingReservations()` are read-only diagnostics. Settled calls belong to their admission timestamp; this convention avoids moving in-flight work into a later accounting period. Hosts using the lower-level hook already hold the reservation ID.
+
+## Media units: images and video seconds
+
+Owner decision 2026-10-19: media is limited in its own units, not in tokens and never in money. `CallRequest` takes optional `images` and `videoSeconds`, `ActualCallUsage` the delivered ones, and every limit (`setLimit`, RPC `budget.set`) may use `metric: 'images'` or `'videoSeconds'` with the same scopes, periods, hierarchy and soft/hard rules as tokens.
+
+- **What is reserved.** `media.generate`, `media.edit` and the turn tools `image.generate`/`image.edit`/`media.*` reserve `requestedUnits` of the media package before the provider call: `n` images (default 1), or the requested `durationSeconds` (default 8) rounded up to whole seconds (`mediaCallUnits`), and no tokens.
+- **Refusal.** A hard limit refuses before the provider is called, with the existing refusal (`budget_exceeded`; RPC `E_DENIED`, reason `budget_exceeded`; turn tool `CallBudgetExceededError`). A request is admitted whole or not at all: `n = 3` with 2 images left is refused. Landing exactly on the limit is allowed.
+- **Settlement.** A finished job settles at `deliveredUnits` (stored images, measured video seconds). Fewer than requested frees the rest; more than reserved is accounted honestly and reported as an overage. A failed image job releases its reservation; an aborted one settles with nothing delivered; a failed video job keeps its reservation for reconciliation (as for tokens).
+- **Which limits apply.** Token limits apply to every call, as before (a media call adds 0 tokens). An image or video-second limit applies only to a call that reserves or delivers that unit, so an exhausted image limit never stops a chat or a video, and vice versa.
+- **Hierarchy.** All matching global, user, project, agent, turn and session limits apply; the tightest wins (a project limit refuses although the agent still has images left). RPC `budget.set` sets global and agent limits; the other scopes are internal port state, as for tokens.
+- **Status.** `budget.status` reports `images` and `videoSeconds` per period, agent and model (settled usage), and unit limits with their `used` and `state`. CLI: `plur1bus budget set --metric images|video-seconds`, `budget status`. Web: *Usage & Quota* (metric choice in the limit dialog, images and video seconds in the usage tab).
+
+Live check (manual, never in CI): `OPENAI_API_KEY=... node scripts/live/media-budget-openai.mjs` sets a hard limit of 2 images in a throwaway home and asks the real OpenAI Images API for three images through the `media.generate` surface; the third must be refused without a network call. The script reads the key only from the environment, never prints it, and refuses any third provider request whatever happens; `packages/core/test/live/media-budget-openai-script.test.ts` dry-runs it against a loopback stub.
+
+Store schema 2 (additive migration): `budget_limit` is rebuilt with the widened metric check (every row kept, SQLite cannot widen a `CHECK` in place); `usage_event` and `budget_call` gain integer columns `images` and `video_seconds`, 0 on every older row; the call extension's version becomes 2. An older core refuses a schema-2 store (`newer-schema`) rather than misreading it.
 
 ## Periods and warnings
 
@@ -87,10 +103,10 @@ A value that cannot be serialised (circular, BigInt) is a `RangeError` before an
 
 ## Media
 
-Media generation reports no tokens. Its admission is a call reservation of 0 tokens: it is refused once a matching hard
-token limit is already exhausted, and it is recorded as a call. The media package counts its own native units (images, video
-seconds; `requestedUnits`/`deliveredUnits` in `packages/media`), but the call budget has no image or video-second metric;
-such a limit would be a new metric and needs an owner decision. There are no media prices.
+Media generation reports no tokens. Its admission reserves 0 tokens plus its own units, images or video seconds
+(`requestedUnits`/`deliveredUnits` in `packages/media`, mapped by `mediaCallUnits`); it is refused once a matching hard token
+limit is already exhausted or a matching image or video-second limit has no room for the request, and it is recorded as a
+call. See [Media units](#media-units-images-and-video-seconds). There are no media prices.
 
 ## Follow-ups and verification boundaries
 

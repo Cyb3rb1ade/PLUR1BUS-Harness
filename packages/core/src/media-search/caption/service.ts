@@ -44,7 +44,7 @@ export function createCaptionService(o: CaptionServiceOptions): CaptionService {
       if (u || cfg.source === "user-only") return u;
       const provider = o.provider();
       if (!provider) return null;
-      if (!provider.local && o.pinned?.()) throw mediaError("E_MEDIA_PRIVACY", "privacy pin is set: cloud captioning is not allowed", { reason: "privacy-pin" });
+      if (!provider.local && o.pinned?.()) throw mediaError("E_MEDIA_PRIVACY", "“Only local models” is on: cloud captioning is not allowed", { reason: "privacy-pin" });
       req.signal?.throwIfAborted();
       return pick(await provider.caption({ kind: req.kind, mime: req.mime, source: req.source, ...(req.signal ? { signal: req.signal } : {}) }), "auto");
     },
@@ -69,7 +69,7 @@ export function resolveCaptionProvider(o: { config: Pick<CaptionConfig, "provide
   const id = o.config.provider;
   if (id === "off") return undefined;
   const cloud = id !== undefined && id !== "local";
-  if (cloud && o.pinned) throw mediaError("E_MEDIA_PRIVACY", "privacy pin is set: cloud captioning is not allowed");
+  if (cloud && o.pinned) throw mediaError("E_MEDIA_PRIVACY", "“Only local models” is on: cloud captioning is not allowed");
   if (cloud) {
     const failure = privacyAcknowledgmentError({ function: "caption", provider: id, local: false, ack: o.config.privacyAck });
     if (failure) throw mediaError("E_MEDIA_PRIVACY", "Captioning privacy acknowledgment required", { reason: failure.reason });

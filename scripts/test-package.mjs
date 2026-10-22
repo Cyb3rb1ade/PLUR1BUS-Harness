@@ -18,5 +18,5 @@ if (process.env.PLUR1BUS_TEST_SHARD !== undefined) {
   console.log(`shard ${shard.index}/${shard.total}: ${files.length} test files`);
 }
 if (files.length === 0) { console.log("no tests"); process.exit(0); }
-const r = spawnSync(process.execPath, ["--experimental-strip-types", "--conditions=source", "--no-warnings=ExperimentalWarning", "--test", "--test-concurrency=1", `--test-timeout=${TEST_TIMEOUT_MS}`, ...files], { stdio: "inherit" });
+const r = spawnSync(process.execPath, ["--import", new URL("./test-prerequisites.mjs", import.meta.url).href, "--experimental-strip-types", "--conditions=source", "--no-warnings=ExperimentalWarning", "--test", "--test-concurrency=1", `--test-timeout=${TEST_TIMEOUT_MS}`, ...files], { stdio: "inherit" });
 process.exit(r.status ?? 1);

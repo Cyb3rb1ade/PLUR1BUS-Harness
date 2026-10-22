@@ -168,14 +168,18 @@ test("at most 64 sessions live at once (oldest first), checked through the HTTP 
   } finally { await h.close(); }
 });
 
-test("KNOWN GAP: the 64-session cap is global, so one account holder can push every other person's session out", { todo: "KNOWN GAP: no per-user session cap; see SICHERHEIT in the PR" }, async () => {
+test("the session cap is per account: one account holder's own logins never push another person's session out, and the displaced own session is audited", async () => {
   const h = await start({ rateClasses: wide });
   try {
     await addUser(h, { id: "u-mallory", username: "mallory", role: "viewer" });
     const owner = await login(h);
-    for (let i = 0; i < 64; i++) await loginAs(h, "mallory");
-    // Wanted: a member's own logins never end the owner's session. Today the owner's session is the oldest and is gone.
-    assert.equal((await whoami(h, owner.cookie)).status, 200);
+    const mallory: string[] = [];
+    for (let i = 0; i < 65; i++) mallory.push((await loginAs(h, "mallory")).cookie);
+    assert.equal((await whoami(h, owner.cookie)).status, 200, "a member's logins never end the owner's session");
+    assert.equal((await whoami(h, mallory[0]!)).status, 401, "mallory's own oldest session is the one that went");
+    assert.equal((await whoami(h, mallory[64]!)).status, 200);
+    const ev = h.audit.events.filter(e => e.action === "auth.session.evicted");
+    assert.equal(ev.length, 1); assert.equal(ev[0]!.actor.user, "u-mallory"); assert.equal((ev[0]!.detail as { reason?: string }).reason, "principal-cap");
   } finally { await h.close(); }
 });
 

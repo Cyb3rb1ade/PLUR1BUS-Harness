@@ -106,11 +106,11 @@ describe("Hermes memory mirror rename idempotence", () => {
       const l = layout(join(root, "home"));
       const ws = l.workspaceDir("default");
       mkdirSync(join(profileDir, "memories"), { recursive: true });
-      mkdirSync(ws, { recursive: true });
+      mkdirSync(join(ws,"memory"), { recursive: true });
       writeFileSync(join(profileDir, "memories", "MEMORY.md"), "synthetic memory\n");
-      writeFileSync(join(ws, "memories.md"), "existing curated memory\n");
-      const mirrorName = legacy ? "memories.imported.md" : "memories.imported-1.md";
-      if (legacy) writeFileSync(join(ws, mirrorName), "synthetic memory\n");
+      writeFileSync(join(ws, "memory", "KNOWLEDGE.md"), "existing curated memory\n");
+      const mirrorName = legacy ? "KNOWLEDGE.imported.md" : "KNOWLEDGE.imported-1.md";
+      if (legacy) writeFileSync(join(ws, "memory", mirrorName), "synthetic memory\n");
       const engine = {
         memory: { import: async (r: any) => ({
           created: 0, matchedExisting: r.cards.length, rejected: 0,
@@ -128,9 +128,10 @@ describe("Hermes memory mirror rename idempotence", () => {
         const mirror = entries.find((e) => e.entity === "file");
         assert.equal(mirror.action, run === 0 && !legacy ? "rename" : "matched-existing");
         assert.ok(mirror.targetRef.endsWith(`/${mirrorName}`));
-        assert.deepEqual(readdirSync(ws).filter((n) => n.startsWith("memories.imported")), [mirrorName]);
-        assert.equal(readFileSync(join(ws, mirrorName), "utf8"), "synthetic memory\n");
-        assert.equal(readFileSync(join(ws, "memories.md"), "utf8"), "existing curated memory\n");
+        assert.deepEqual(readdirSync(join(ws,"memory")).filter((n) => n.startsWith("KNOWLEDGE.imported")), [mirrorName]);
+        const expectedMirror = legacy ? "synthetic memory\n" : `<!-- plur1bus-imported-knowledge:${createHash("sha256").update("hermes-agent-memory-import\0synthetic memory\n").digest("hex")} -->\n## Imported agent knowledge\n\n> synthetic memory\n> \n`;
+        assert.equal(readFileSync(join(ws, "memory", mirrorName), "utf8"), expectedMirror);
+        assert.equal(readFileSync(join(ws, "memory", "KNOWLEDGE.md"), "utf8"), "existing curated memory\n");
       }
     });
   }
@@ -313,17 +314,17 @@ describe("PR #100 B3–B6", () => {
       const fx = await buildM7HermesFixture();
       const home = tempDir(`p1b-pr100-b6-${strategy}-`);
       const l = layout(home);
-      mkdirSync(l.workspaceDir("default"), { recursive: true });
-      writeFileSync(join(l.workspaceDir("default"), "memories.md"), "MINE\n");
+      mkdirSync(join(l.workspaceDir("default"),"memory"), { recursive: true });
+      writeFileSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md"), "MINE\n");
       const report = await importHermes({ home, source: fx.root, onConflict: strategy, apply: true, testInternals: { embeddings: embedder(0) } });
-      const now = readFileSync(join(l.workspaceDir("default"), "memories.md"), "utf8");
+      const now = readFileSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md"), "utf8");
       if (strategy === "replace") {
         assert.notEqual(now, "MINE\n");
-        assert.equal(readFileSync(join(home, "imports", report.runId, "replaced", "agents", "default", "workspace", "memories.md"), "utf8"), "MINE\n");
+        assert.equal(readFileSync(join(home, "imports", report.runId, "replaced", "agents", "default", "workspace", "memory", "KNOWLEDGE.md"), "utf8"), "MINE\n");
       } else {
         assert.equal(now, "MINE\n", `${strategy} must not overwrite the user's memories.md`);
       }
-      if (strategy === "rename") assert.ok(existsSync(join(l.workspaceDir("default"), "memories.imported-1.md")));
+      if (strategy === "rename") assert.ok(existsSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.imported-1.md")));
     }
   });
 
@@ -336,7 +337,7 @@ describe("PR #100 B3–B6", () => {
     assert.ok(report.errors.some((e) => e.reason === "memory-import-failed:storage"));
     assert.ok(report.counts.memoryCardsRejected > 0);
     assert.equal(report.counts.memoryCardsImported, 0);
-    assert.ok(!existsSync(join(l.workspaceDir("default"), "memories.md")));
+    assert.ok(!existsSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md")));
     assert.ok(!JSON.stringify(report.errors).includes("must not leak"), "error message text is never reported");
   });
 });

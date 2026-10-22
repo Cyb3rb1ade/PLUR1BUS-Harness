@@ -1,0 +1,16 @@
+{
+  "params": {},
+  "result": {
+    "sessions": [
+      {
+        "id": "channel-session",
+        "agentId": "main",
+        "title": "Direct conversation",
+        "channel": "telegram",
+        "updatedAt": 0,
+        "readOnly": true
+      }
+    ],
+    "truncated": false
+  }
+}
