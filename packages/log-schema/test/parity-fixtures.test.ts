@@ -35,7 +35,7 @@ test("every vector gives its expected verdict in TypeScript", () => {
 // The redaction data is data only; this checks that each pattern compiles in ECMAScript and does what its entry says.
 // (The Rust test runs the same canaries through the `regex` crate.)
 const patterns = new Map<string, any>();
-for (const rule of REDACTION.rules) for (const p of rule.patterns ?? []) patterns.set(p.id, p);
+for (const rule of REDACTION.rules) for (const p of [...(rule.patterns ?? []), ...(rule.steps ?? [])]) patterns.set(p.id, p); // the url rule's steps carry patterns too (Rust: rule_patterns("url"))
 
 test("redaction patterns compile and match their canaries (joined at run time, never committed whole)", () => {
   for (const c of committed.redactionCanaries) {

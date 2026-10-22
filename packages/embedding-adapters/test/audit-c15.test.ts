@@ -1,5 +1,6 @@
 // Audit round C (agent c15): regression tests for defects found in the shared pipeline.
 import { test } from "node:test";
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { createEmbeddingAdapter, createRerankAdapter } from "../src/registry.ts";
 import { resolveEmbeddingSettings, ConfigError } from "../src/config.ts";
@@ -152,5 +153,28 @@ test("privacy.localOnly: a switch that throws or answers anything but false is o
   const broken = kit(ok2, { policy: { localOnly: () => true, localEndpoints: () => { throw new Error("x"); } } }).deps;
   assert.throws(() => createEmbeddingAdapter({ provider: "tei", model: "m", dimensions: 2, baseURL: "https://nas.lan:8443" }, broken), ConfigError);
 });
-test.todo("KNOWN GAP: an input over maxBatchTokens but within maxInputTokens is sent alone (documented, pinned by an existing test); config does not reject maxBatchTokens < maxInputTokens");
-test.todo("KNOWN GAP: docs/embedding-adapters.md says zero vectors are rejected 'when normalising'; the code now rejects them always (docs are outside this package)");
+test("config refuses a batch budget smaller than the per-input limit, explicit or inherited from the provider defaults", () => {
+  const refused = () => (e: unknown) => e instanceof ConfigError && e.issues.some((i) => i.path === "embedding.maxBatchTokens" && i.message.includes("maxInputTokens"));
+  assert.throws(() => resolveEmbeddingSettings({ ...embedCfg, maxInputTokens: 512, maxBatchTokens: 256 }), refused());
+  assert.throws(() => resolveEmbeddingSettings({ ...embedCfg, maxBatchTokens: 100 }), refused()); // tei default maxInputTokens is 512
+  assert.throws(() => resolveEmbeddingSettings({ provider: "voyage", model: "m", dimensions: 2, secretName: "k", maxInputTokens: 200_000 }), refused()); // voyage default batch budget is 100000
+});
+
+test("config accepts maxBatchTokens equal to or above maxInputTokens, and every provider default still resolves", () => {
+  assert.equal(resolveEmbeddingSettings({ ...embedCfg, maxInputTokens: 512, maxBatchTokens: 512 }).maxBatchTokens, 512);
+  assert.equal(resolveEmbeddingSettings({ ...embedCfg, maxInputTokens: 100, maxBatchTokens: 5000 }).maxBatchTokens, 5000);
+  assert.equal(resolveEmbeddingSettings(embedCfg).maxBatchTokens, undefined); // no batch budget: nothing to compare
+  assert.equal(resolveEmbeddingSettings({ ...embedCfg, maxInputTokens: 99_999 }).maxInputTokens, 99_999);
+  for (const [provider, extra] of [["openai", { secretName: "k" }], ["voyage", { secretName: "k" }]] as const) {
+    const r = resolveEmbeddingSettings({ provider, model: "m", dimensions: 2, ...extra });
+    assert.ok(r.maxBatchTokens! >= r.maxInputTokens, provider);
+  }
+});
+test("a zero vector is a bad response with normalisation on as well, and the docs say so (always, not 'when normalising')", async () => {
+  const { deps } = kit({ status: 200, json: [[0, 0], [0, 5]] });
+  const a = createEmbeddingAdapter({ ...embedCfg, normalize: true }, deps);
+  await assert.rejects(a.embed(["a", "b"], { inputType: "document" }), (e: unknown) => e instanceof AdapterError && e.kind === "bad_response" && e.message.includes("zero vector"));
+  const docs = await readFile(new URL("../../../docs/embedding-adapters.md", import.meta.url), "utf8");
+  assert.match(docs, /zero vectors always rejected as `bad_response`/);
+  assert.doesNotMatch(docs, /when normali[sz]ing/i);
+});

@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { SystemJobsLedger } from "../../src/system-jobs/ledger.ts";
-import { scriptedHandler, setup, T0, useTempDirs, gap } from "./helpers.ts";
+import type { SystemJobOutcome } from "../../src/system-jobs/index.ts";
+import { scriptedHandler, setup, T0, useTempDirs } from "./helpers.ts";
 
 const dirs = useTempDirs();
 
@@ -103,7 +104,65 @@ describe("system-jobs audit: args aliasing", () => {
 });
 
 describe("system-jobs audit: overlap of one job", () => {
-  // The registry declares `singleton` but only the handler enforces it (models.scan: per provider, in discovery). Serialising
-  // here would also serialise different providers, and contradicts the characterization test in run.test.ts.
-  it.todo(gap("run", "a second concurrent run of a singleton job without handler-side locking is skipped with already_running", "both handlers run at once"));
+  // `exclusive` is the registry-side lock (process-wide; one core per home is guaranteed by state/core.lock, so no lock file).
+  // A job that enforces its own granularity (models.scan: per provider, in discovery) does not set it and keeps running in
+  // parallel: see "characterization" in run.test.ts.
+  const hold = () => { const releases: (() => void)[] = []; return { releases, run: () => new Promise<SystemJobOutcome>((r) => { releases.push(() => r({ outcome: "completed", detail: null })); }) }; };
+  const tick = () => new Promise((r) => setImmediate(r));
+
+  it("a second concurrent run of an exclusive job is skipped with already_running and points at the running run; the handler runs once", async () => {
+    const s = setup(dirs); const g = hold(); const h = scriptedHandler({ exclusive: true, run: g.run }); s.jobs.register(h.handler);
+    const first = s.jobs.run("test.job", {}, { trigger: "cron" });
+    await tick();
+    const second = await s.jobs.run("test.job", {}, { trigger: "manual" });
+    assert.equal(h.calls.length, 1, "the handler ran for the first run only");
+    assert.equal(second.record.outcome, "skipped"); assert.equal(second.record.reason, "already_running");
+    assert.equal(second.record.runningRunId, h.calls[0]!.ctx.runId);
+    assert.equal(second.record.trigger, "manual");
+    for (const r of g.releases) r();
+    const firstRes = await first;
+    assert.equal(firstRes.record.outcome, "completed"); assert.equal(firstRes.record.runId, second.record.runningRunId);
+    assert.deepEqual(s.jobs.history({}).map((r) => r.outcome), ["skipped", "completed"], "the skip is recorded like any other run");
+    assert.deepEqual(s.failed, [], "a skip is not a failure");
+  });
+
+  it("the lock is released when the run ends: a later run starts (also after a failed or throwing run)", async () => {
+    const s = setup(dirs); let mode: "ok" | "throw" | "failed" = "throw";
+    const h = scriptedHandler({ exclusive: true, run: async () => { if (mode === "throw") throw new Error("boom"); return mode === "failed" ? { outcome: "failed", reason: "x", detail: null } : { outcome: "completed", detail: null }; } });
+    s.jobs.register(h.handler);
+    await assert.rejects(s.jobs.run("test.job", {}, { trigger: "manual" }), /boom/);
+    mode = "failed"; assert.equal((await s.jobs.run("test.job", {}, { trigger: "manual" })).record.outcome, "failed");
+    mode = "ok"; assert.equal((await s.jobs.run("test.job", {}, { trigger: "manual" })).record.outcome, "completed");
+    assert.equal(h.calls.length, 3);
+  });
+
+  it("an invalid second request is still rejected as invalid params, not recorded as a skip", async () => {
+    const s = setup(dirs); const g = hold();
+    const h = scriptedHandler({ exclusive: true, run: g.run, validateArgs: (a) => { if ((a as { bad?: boolean } | undefined)?.bad) throw new Error("invalid"); return {}; } }); s.jobs.register(h.handler);
+    const first = s.jobs.run("test.job", {}, { trigger: "manual" }); await tick();
+    await assert.rejects(s.jobs.run("test.job", { bad: true }, { trigger: "manual" }), /invalid/);
+    for (const r of g.releases) r(); await first;
+    assert.equal(s.jobs.history({}).length, 1);
+  });
+
+  it("counter-test: jobs that are not exclusive run in parallel, also with the same name and different args", async () => {
+    const s = setup(dirs); const g = hold();
+    const h = scriptedHandler({ run: g.run, validateArgs: (a) => ({ ...(a as object) }) }); s.jobs.register(h.handler);
+    const a = s.jobs.run("test.job", { provider: "p1" }, { trigger: "cron" }), b = s.jobs.run("test.job", { provider: "p2" }, { trigger: "cron" });
+    await tick();
+    assert.equal(h.calls.length, 2, "both handlers run at once");
+    for (const r of g.releases) r();
+    assert.deepEqual((await Promise.all([a, b])).map((r) => r.record.outcome), ["completed", "completed"]);
+  });
+
+  it("counter-test: the lock is per job; two different exclusive jobs run side by side", async () => {
+    const s = setup(dirs); const g = hold();
+    const x = scriptedHandler({ name: "x", exclusive: true, run: g.run }), y = scriptedHandler({ name: "y", exclusive: true, run: g.run });
+    s.jobs.register(x.handler); s.jobs.register(y.handler);
+    const a = s.jobs.run("x", {}, { trigger: "manual" }), b = s.jobs.run("y", {}, { trigger: "manual" });
+    await tick();
+    assert.equal(x.calls.length + y.calls.length, 2);
+    for (const r of g.releases) r();
+    assert.deepEqual((await Promise.all([a, b])).map((r) => r.record.outcome), ["completed", "completed"]);
+  });
 });

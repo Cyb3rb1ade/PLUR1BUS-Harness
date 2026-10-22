@@ -284,6 +284,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       else throw new WebFailure("robots-disallowed", `robots.txt is unavailable (${r.status}); treated as disallow`);
     } catch (err) {
       if (err instanceof WebFailure && (err.code === "private-address" || err.code === "robots-disallowed")) throw err;
+      if (signal?.aborted) throw new WebFailure("timeout", "the request exceeded its time limit or was cancelled");
       throw new WebFailure("robots-disallowed", "robots.txt could not be fetched; treated as disallow");
     }
     robotsCache.set(url.origin, { robots, at: now() });
@@ -294,6 +295,53 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
     const { part, next } = chunk(text, offset, maxTokens * 4);
     const cursor = next === undefined ? undefined : `${docId ?? store.put(agent, { text, meta, requestedUrl })}.${next}`;
     return { ...meta, markdown: part, ...(cursor ? { cursor } : {}), renderUsed: false, fromCache };
+  }
+
+  /** One station of a crawl (the page asked for, or a redirect target): robots.txt for its host, then its turn at that host. */
+  async function crawlStation(url: URL, signal: AbortSignal, requested: string): Promise<void> {
+    const robots = await robotsFor(url, signal);
+    if (!robotsAllows(robots, userAgent, `${url.pathname}${url.search}`)) throw new WebFailure("robots-disallowed", `robots.txt disallows ${url.pathname}`, { url: requested });
+    try { await pacer.wait(url.host, (robots.crawlDelaySeconds(userAgent) ?? 0) * 1000, signal); }
+    catch { throw new WebFailure("timeout", "the request ran out of time or was cancelled while waiting its turn for this host"); }
+  }
+
+  /**
+   * The network part of a fetch. One deadline (`timeoutMs`, default 30 s) runs over everything it does: the robots.txt
+   * checks, the pacing waits, every redirect hop and the body. With `crawl`, each station (the first URL and every
+   * redirect target) passes robots.txt and the per-host pacer before it is requested.
+   */
+  async function load(args: WebFetchArgs, ctx: WebFetchContext): Promise<HttpResponse> {
+    const totalMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const started = performance.now();
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), totalMs);
+    const onCallerAbort = (): void => deadline.abort();
+    if (ctx.signal?.aborted) deadline.abort();
+    else ctx.signal?.addEventListener("abort", onCallerAbort, { once: true });
+    try {
+      let target: URL | undefined;
+      try {
+        target = new URL(args.url);
+      } catch {
+        /* guardedRequest reports invalid-url */
+      }
+      const crawl = args.crawl === true;
+      if (crawl && target && (target.protocol === "http:" || target.protocol === "https:")) await crawlStation(target, deadline.signal, args.url);
+      return await guardedRequest(args.url, {
+        ...base(deadline.signal),
+        maxBytes: cfg.maxBytes ?? DEFAULT_MAX_BYTES,
+        timeoutMs: Math.max(1, totalMs - (performance.now() - started)),
+        errorBodyBytes: 128 * 1024,
+        acceptType: (ct) => {
+          const mime = mimeOf(ct);
+          return mime === undefined || kindOf(mime) !== null || UNKNOWN_TYPES.has(mime);
+        },
+        ...(crawl ? { onRedirect: (next: URL, signal: AbortSignal) => crawlStation(next, signal, next.href) } : {}),
+      });
+    } finally {
+      clearTimeout(timer);
+      ctx.signal?.removeEventListener("abort", onCallerAbort);
+    }
   }
 
   async function run(args: WebFetchArgs, ctx: WebFetchContext, probe: { bytes?: number; finalUrl?: string; status?: number; fromCache?: boolean }): Promise<WebFetchResult> {
@@ -311,29 +359,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       return present(entry.meta, entry.text, offset, maxTokens, agent, args.url, true, m![1]);
     }
 
-    let target: URL | undefined;
-    try {
-      target = new URL(args.url);
-    } catch {
-      /* guardedRequest reports invalid-url */
-    }
-    if (args.crawl && target && (target.protocol === "http:" || target.protocol === "https:")) {
-      const robots = await robotsFor(target, ctx.signal);
-      if (!robotsAllows(robots, userAgent, `${target.pathname}${target.search}`)) throw new WebFailure("robots-disallowed", `robots.txt disallows ${target.pathname}`, { url: args.url });
-      try { await pacer.wait(target.host, (robots.crawlDelaySeconds(userAgent) ?? 0) * 1000, ctx.signal); }
-      catch { throw new WebFailure("timeout", "the request was cancelled while waiting its turn for this host"); }
-    }
-
-    const r = await guardedRequest(args.url, {
-      ...base(ctx.signal),
-      maxBytes: cfg.maxBytes ?? DEFAULT_MAX_BYTES,
-      timeoutMs: cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      errorBodyBytes: 128 * 1024,
-      acceptType: (ct) => {
-        const mime = mimeOf(ct);
-        return mime === undefined || kindOf(mime) !== null || UNKNOWN_TYPES.has(mime);
-      },
-    });
+    const r = await load(args, ctx);
     probe.finalUrl = r.url;
     probe.status = r.status;
     probe.bytes = r.body.length;

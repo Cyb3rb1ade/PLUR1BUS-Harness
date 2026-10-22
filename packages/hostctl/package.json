@@ -10,5 +10,5 @@
     "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outfile=dist/index.js",
     "test": "vitest run --maxWorkers=1 --testTimeout=30000"
   },
-  "devDependencies": { "vitest": "4.0.18" }
+  "devDependencies": { "vitest": "4.1.12" }
 }
