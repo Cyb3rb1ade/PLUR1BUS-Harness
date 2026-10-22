@@ -93,6 +93,7 @@ async function hermesCardMode(o: {
 /** The engine's identity check on the harness store (state/lancedb) itself: matching -> link, another model's space ->
  *  parked (pending-reembed), unverifiable -> deferred. */
 async function checkHarnessStore(o: {
+  importsDir: string;
   lancedb: string;
   priorLinks: ReadonlyMap<string, PriorCardLink>;
   targetConfig: unknown;
