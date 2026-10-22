@@ -34,7 +34,7 @@ export function parsePolicy(markdown) {
 const ECOSYSTEMS = ["pnpm", "cargo", "cargo-desktop", "python"];
 
 /** Validates docs/dependency-exceptions.json; throws with a precise message on a malformed entry. */
-export function parseExceptions(text) {
+export function parseExceptions(text, now = Date.now()) {
   let doc;
   try { doc = JSON.parse(text); } catch (e) { throw new Error(`exceptions: not valid JSON (${e.message})`); }
   if (!doc || !Array.isArray(doc.exceptions)) throw new Error('exceptions: expected {"exceptions": [...]}');
@@ -45,6 +45,10 @@ export function parseExceptions(text) {
     for (const k of ["name", "license", "reason"]) {
       if (typeof x[k] !== "string" || x[k].trim() === "") throw new Error(`${at}: "${k}" must be a non-empty string`);
     }
+    if (typeof x.expires !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x.expires)) throw new Error(`${at}: "expires" must be a UTC YYYY-MM-DD date`);
+    const expiry = Date.parse(`${x.expires}T00:00:00Z`);
+    if (!Number.isFinite(expiry) || new Date(expiry).toISOString().slice(0, 10) !== x.expires) throw new Error(`${at}: invalid expires date`);
+    if (expiry <= now) throw new Error(`${at}: licence exception expired at ${x.expires} 00:00 UTC`);
     if (x.version !== undefined && (typeof x.version !== "string" || x.version === "")) throw new Error(`${at}: "version" must be a non-empty string`);
   });
   return doc.exceptions;
