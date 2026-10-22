@@ -2,7 +2,7 @@
 use crate::paths::Layout;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
-use std::io::{self, Write};
+use std::io;
 
 pub fn schema() -> &'static Value {
     static SCHEMA: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
@@ -244,27 +244,46 @@ pub fn prepare(
 }
 
 /// A durable pre-write audit record. Its target revision distinguishes an intended write from a later I/O failure.
-/// Failure refuses the config write; dry runs never append. No credentials or sensitive old/new values are written.
+/// No credentials or sensitive old/new values are written: `entries` arrive already redacted by field (`changes`),
+/// and every row goes through the one writer of `audit.log` (`crate::audit`), so it joins the hash chain with the same
+/// line and the central detail redaction applies. Dry runs never append.
+///
+/// Failure handling (owner decision 20.10.: a person must always be able to save the configuration safely; the chain must
+/// not block it). `config.set` is a user action; the other callers of `audit::append` record machine events and stay
+/// fail-closed.
+/// * `audit.log` cannot be written (I/O, disk full): `Err`, the config write is refused, as it always was.
+/// * Only the chain refuses (anchor missing or invalid, tail does not match the anchor, lock timeout): the rows still go
+///   to `audit.log` (`chain: "refused"`, `chainReason`) and into the pending journal, which joins the chain once it
+///   accepts appends again (`audit::drain_pending`). The result is `Ok(Some(refusal))` and the caller reports the
+///   `audit-chain-unavailable` warning.
 pub fn audit(
     layout: &Layout,
     person: &str,
     entries: &[AuditChange],
     revision: &str,
-) -> io::Result<()> {
-    if entries.is_empty() {
-        return Ok(());
-    }
-    std::fs::create_dir_all(layout.logs())?;
-    let path = layout.audit_log();
-    drop(crate::audit::create_private(&path, false)?);
-    let mut f = std::fs::OpenOptions::new().append(true).open(path)?;
+) -> io::Result<Option<crate::audit::ChainRefusal>> {
+    let mut refusal: Option<crate::audit::ChainRefusal> = None;
     for entry in entries {
-        let line = json!({ "at": super::now_ms(), "actor": { "user": person, "host": "supervisor" }, "action": "audit.config.set", "target": entry.key, "detail": { "personId": person, "oldValue": entry.old, "newValue": entry.new, "targetRevision": revision, "phase": "prepare" } });
-        let mut bytes = serde_json::to_vec(&line).map_err(io::Error::other)?;
-        bytes.push(b'\n');
-        f.write_all(&bytes)?;
+        let detail = json!({ "personId": person, "oldValue": entry.old, "newValue": entry.new, "targetRevision": revision, "phase": "prepare" });
+        let row = crate::audit::append_as_degrading(
+            layout,
+            (person, "supervisor"),
+            "audit.config.set",
+            &entry.key,
+            detail,
+        )?;
+        if let Some(row) = row {
+            refusal = Some(match refusal {
+                None => row,
+                Some(first) => crate::audit::ChainRefusal {
+                    reason: first.reason,
+                    queued: first.queued && row.queued,
+                    dropped: first.dropped + row.dropped,
+                },
+            });
+        }
     }
-    f.sync_all()
+    Ok(refusal)
 }
 
 #[cfg(test)]
@@ -386,6 +405,276 @@ mod tests {
         std::fs::remove_file(layout.audit_log()).unwrap();
         std::fs::create_dir(layout.audit_log()).unwrap();
         assert!(audit(&layout, "trusted-person", &changes, "revision-after").is_err());
+    }
+    /// The chain's lines checked the way `audit verify` does: `seq` counts up from 1, every `prev` is the SHA-256 of the
+    /// line before it (the genesis hash for the first) and the anchor pins the newest (seq, hash). Returns each chain
+    /// line as written, with its parsed `rec`.
+    fn verified_chain(layout: &Layout) -> Vec<(String, Value)> {
+        use sha2::{Digest, Sha256};
+        let hash = |line: &str| format!("{:x}", Sha256::digest(line.as_bytes()));
+        let text = std::fs::read_to_string(layout.logs().join("audit-chain.jsonl"))
+            .expect("a config audit must join the shared chain");
+        let mut prev = "0".repeat(64);
+        let mut rows = Vec::new();
+        for (i, raw) in text.lines().enumerate() {
+            let line: Value = serde_json::from_str(raw).unwrap();
+            assert_eq!(line["seq"], i as u64 + 1);
+            assert_eq!(line["prev"], prev.as_str());
+            prev = hash(raw);
+            rows.push((raw.to_string(), line["rec"].clone()));
+        }
+        let anchor: Value = serde_json::from_str(
+            std::fs::read_to_string(layout.logs().join("audit-chain.anchor"))
+                .unwrap()
+                .trim(),
+        )
+        .unwrap();
+        assert_eq!(anchor["seq"], rows.len() as u64);
+        assert_eq!(anchor["hash"], prev.as_str());
+        rows
+    }
+
+    fn log_lines(layout: &Layout) -> Vec<String> {
+        std::fs::read_to_string(layout.audit_log())
+            .unwrap()
+            .lines()
+            .map(str::to_string)
+            .collect()
+    }
+
+    /// A config change as `config.set` sees it: the schema marks what is audited and what is sensitive, `changes`
+    /// redacts by field, `audit` writes.
+    fn changed_config_rows() -> Vec<AuditChange> {
+        let schema = json!({"properties":{
+            "security":{"properties":{
+                "max":{"x-audit":true},
+                "secret":{"x-sensitive":true,"properties":{"value":{"x-audit":true}}}}},
+            "endpoint":{"x-audit":true},
+            "login":{"x-audit":true}}});
+        let before = json!({
+            "security":{"max":90,"secret":{"value":"old-marker"}},
+            "endpoint":"https://service.invalid/v1",
+            "login":{"user":"alice","api_key":"old-marker"}});
+        let after = json!({
+            "security":{"max":5,"secret":{"value":"new-marker"}},
+            "endpoint":"https://service.invalid/v2",
+            "login":{"user":"bob","api_key":"new-marker"}});
+        let rows = changes(&schema, &before, &after, "owner").unwrap();
+        assert_eq!(rows.len(), 4);
+        rows
+    }
+
+    fn row<'a>(rows: &'a [(String, Value)], target: &str) -> &'a Value {
+        &rows
+            .iter()
+            .find(|(_, rec)| rec["target"] == target)
+            .unwrap_or_else(|| panic!("no audit row for {target}"))
+            .1
+    }
+
+    #[test]
+    fn config_audit_rows_join_the_hash_chain_and_audit_log_holds_the_same_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap();
+        // A second config set continues the same chain: seq and prev carry on from the first.
+        audit(&layout, "trusted-person", &changed_config_rows(), "rev-2").unwrap();
+        let chain = verified_chain(&layout);
+        let log = log_lines(&layout);
+        assert_eq!(chain.len(), 8);
+        assert_eq!(log.len(), 8, "one audit.log line per chain line");
+        for ((raw_chain, rec), raw_log) in chain.iter().zip(&log) {
+            assert_eq!(rec, &serde_json::from_str::<Value>(raw_log).unwrap());
+            assert!(
+                raw_chain.ends_with(&format!("\"rec\":{raw_log}}}")),
+                "the chain line carries the audit.log line byte for byte"
+            );
+            assert_eq!(rec["action"], "audit.config.set");
+            assert_eq!(rec["actor"]["user"], "trusted-person");
+            assert_eq!(rec["actor"]["host"], "supervisor");
+            assert_eq!(rec["detail"]["personId"], "trusted-person");
+            assert_eq!(rec["detail"]["phase"], "prepare");
+            assert_eq!(rec.as_object().unwrap().len(), 5);
+        }
+        assert_eq!(chain[0].1["detail"]["targetRevision"], "rev-1");
+        assert_eq!(chain[7].1["detail"]["targetRevision"], "rev-2");
+    }
+
+    #[test]
+    fn secret_config_fields_stay_redacted_in_the_chain_and_the_audit_log() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap();
+        let chain_text = std::fs::read_to_string(layout.logs().join("audit-chain.jsonl")).unwrap();
+        let log_text = std::fs::read_to_string(layout.audit_log()).unwrap();
+        for text in [&chain_text, &log_text] {
+            assert!(!text.contains("old-marker"), "{text}");
+            assert!(!text.contains("new-marker"), "{text}");
+        }
+        let chain = verified_chain(&layout);
+        let secret = row(&chain, "security.secret.value");
+        assert_eq!(secret["detail"]["oldValue"], "[REDACTED]");
+        assert_eq!(secret["detail"]["newValue"], "[REDACTED]");
+        // A credential-named field: masked here by field name, and the central key rule may re-mask the mask with its own
+        // tag (`[REDACTED:key]`), so only the marker's prefix is fixed.
+        let login = row(&chain, "login");
+        for side in ["oldValue", "newValue"] {
+            let masked = login["detail"][side]["api_key"].as_str().unwrap();
+            assert!(masked.starts_with("[REDACTED"), "{masked}");
+        }
+    }
+
+    #[test]
+    fn ordinary_config_values_are_kept_in_the_chain_and_the_audit_log() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap();
+        let chain = verified_chain(&layout);
+        let max = row(&chain, "security.max");
+        assert_eq!(max["detail"]["oldValue"], 90);
+        assert_eq!(max["detail"]["newValue"], 5);
+        let endpoint = row(&chain, "endpoint");
+        assert_eq!(endpoint["detail"]["oldValue"], "https://service.invalid/v1");
+        assert_eq!(endpoint["detail"]["newValue"], "https://service.invalid/v2");
+        let login = row(&chain, "login");
+        assert_eq!(login["detail"]["oldValue"]["user"], "alice");
+        assert_eq!(login["detail"]["newValue"]["user"], "bob");
+        let logged: Vec<Value> = log_lines(&layout)
+            .iter()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert!(logged
+            .iter()
+            .any(|l| l["target"] == "security.max" && l["detail"]["newValue"] == 5));
+    }
+
+    /// Owner decision 20.10. (replaces the earlier "a chain that refuses the append fails the config audit, so `config.set`
+    /// stops"): a person must always be able to save the configuration, so a chain that refuses the rows (here: its
+    /// anchor is gone) no longer blocks it. The rows still reach `audit.log`, flagged `chain: "refused"` with a short
+    /// reason, and wait byte for byte in the pending journal; the chain itself is not touched.
+    #[test]
+    fn a_chain_that_refuses_the_append_does_not_block_the_config_audit() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        assert_eq!(
+            audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap(),
+            None
+        );
+        std::fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
+        let log_before = log_lines(&layout);
+        let chain_before = std::fs::read(layout.logs().join("audit-chain.jsonl")).unwrap();
+        let refusal = audit(&layout, "trusted-person", &changed_config_rows(), "rev-2")
+            .unwrap()
+            .expect("the chain refused");
+        assert_eq!(refusal.reason, "anchor-missing");
+        assert!(refusal.queued);
+        assert_eq!(
+            std::fs::read(layout.logs().join("audit-chain.jsonl")).unwrap(),
+            chain_before,
+            "a refusing chain is never written to"
+        );
+        let log = log_lines(&layout);
+        assert_eq!(log.len(), log_before.len() + 4);
+        assert_eq!(&log[..log_before.len()], &log_before[..]);
+        let refused = &log[log_before.len()..];
+        for raw in refused {
+            let line: Value = serde_json::from_str(raw).unwrap();
+            assert_eq!(line["action"], "audit.config.set");
+            assert_eq!(line["actor"]["user"], "trusted-person");
+            assert_eq!(line["detail"]["targetRevision"], "rev-2");
+            assert_eq!(line["chain"], "refused");
+            assert_eq!(line["chainReason"], "anchor-missing");
+            assert!(
+                !raw.contains("old-marker") && !raw.contains("new-marker"),
+                "{raw}"
+            );
+        }
+        let pending =
+            std::fs::read_to_string(layout.logs().join("audit-chain.pending.jsonl")).unwrap();
+        let pending: Vec<String> = pending.lines().map(str::to_string).collect();
+        assert_eq!(pending, refused, "the journal holds the audit.log lines");
+    }
+
+    /// `audit.log` is still the fail-closed part: a row it cannot hold refuses the config write, whether or not the
+    /// chain refuses too, and nothing is queued for it.
+    #[test]
+    fn an_unwritable_audit_log_still_fails_the_config_audit_when_the_chain_refuses_too() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap();
+        std::fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
+        std::fs::remove_file(layout.audit_log()).unwrap();
+        std::fs::create_dir(layout.audit_log()).unwrap();
+        assert!(audit(&layout, "trusted-person", &changed_config_rows(), "rev-2").is_err());
+        assert!(!layout.logs().join("audit-chain.pending.jsonl").exists());
+    }
+
+    /// The repair side: with the anchor back, the next config audit joins the chain and takes the waiting rows along, in
+    /// their original order, and the chain verifies.
+    #[test]
+    fn after_the_anchor_is_restored_the_waiting_config_rows_join_the_chain_in_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap();
+        std::fs::remove_file(layout.logs().join("audit-chain.anchor")).unwrap();
+        audit(&layout, "trusted-person", &changed_config_rows(), "rev-2").unwrap();
+        let waiting: Vec<Value> = log_lines(&layout)[4..8]
+            .iter()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        // What a repair does: the anchor is written again from the chain's newest line.
+        {
+            use sha2::{Digest, Sha256};
+            let text = std::fs::read_to_string(layout.logs().join("audit-chain.jsonl")).unwrap();
+            let last = text.lines().last().unwrap();
+            let seq = serde_json::from_str::<Value>(last).unwrap()["seq"]
+                .as_u64()
+                .unwrap();
+            std::fs::write(
+                layout.logs().join("audit-chain.anchor"),
+                json!({"v": 1, "seq": seq, "hash": format!("{:x}", Sha256::digest(last.as_bytes()))})
+                    .to_string(),
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            audit(&layout, "trusted-person", &changed_config_rows(), "rev-3").unwrap(),
+            None
+        );
+        let chain = verified_chain(&layout);
+        let in_rev_2: Vec<&Value> = chain
+            .iter()
+            .map(|(_, rec)| rec)
+            .filter(|rec| rec["detail"]["targetRevision"] == "rev-2")
+            .collect();
+        assert_eq!(in_rev_2.len(), 4);
+        for (rec, original) in in_rev_2.iter().zip(&waiting) {
+            assert_eq!(*rec, original, "original order, time and flag");
+        }
+        assert_eq!(
+            chain
+                .iter()
+                .filter(|(_, rec)| rec["detail"]["targetRevision"] == "rev-3")
+                .count(),
+            4
+        );
+        let drained: Vec<&Value> = chain
+            .iter()
+            .map(|(_, rec)| rec)
+            .filter(|rec| rec["action"] == "audit.chain.pending_drained")
+            .collect();
+        assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0]["detail"]["count"], 4);
+        assert!(!layout.logs().join("audit-chain.pending.jsonl").exists());
+    }
+
+    #[test]
+    fn no_changes_write_no_audit_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        audit(&layout, "trusted-person", &[], "rev-1").unwrap();
+        assert!(!layout.audit_log().exists());
+        assert!(!layout.logs().join("audit-chain.jsonl").exists());
     }
     #[test]
     fn removal_of_a_root_is_retained_and_writer_only_changes_are_authenticated() {

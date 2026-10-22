@@ -840,6 +840,14 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "memory.curation.list" => check_pair::<
+                types::MemoryCurationListParams,
+                types::MemoryCurationListResult,
+            >(name, fixture, &root_schema),
+            "memory.curation.resolve" => check_pair::<
+                types::MemoryCurationResolveParams,
+                types::MemoryCurationResolveResult,
+            >(name, fixture, &root_schema),
             "memory.proposals.list" => check_pair::<
                 types::MemoryProposalsListParams,
                 types::MemoryProposalsListResult,
@@ -1009,6 +1017,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "admin.reembed.abort" => check_pair::<
                 types::AdminReembedAbortParams,
                 types::AdminReembedAbortResult,
+            >(name, fixture, &root_schema),
+            "admin.engine.test" => check_pair::<
+                types::AdminEngineTestParams,
+                types::AdminEngineTestResult,
             >(name, fixture, &root_schema),
             "models.test" => check_pair::<types::ModelsTestParams, types::ModelsTestResult>(
                 name,

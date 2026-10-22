@@ -275,6 +275,12 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.share" => pair::<MemoryShareParams, MemoryShareResult>(name, f),
         "memory.state" => pair::<MemoryStateParams, MemoryStateResult>(name, f),
         "memory.propose" => pair::<MemoryProposeParams, MemoryProposeResult>(name, f),
+        "memory.curation.list" => {
+            pair::<MemoryCurationListParams, MemoryCurationListResult>(name, f)
+        }
+        "memory.curation.resolve" => {
+            pair::<MemoryCurationResolveParams, MemoryCurationResolveResult>(name, f)
+        }
         "memory.proposals.list" => {
             pair::<MemoryProposalsListParams, MemoryProposalsListResult>(name, f)
         }
@@ -338,6 +344,7 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
         "models.test" => pair::<ModelsTestParams, ModelsTestResult>(name, f),
+        "admin.engine.test" => pair::<AdminEngineTestParams, AdminEngineTestResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),

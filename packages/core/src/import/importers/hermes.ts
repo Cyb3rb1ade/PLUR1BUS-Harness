@@ -9,7 +9,7 @@
 // writes pre-apply snapshot for rollback, records atomic ledger.jsonl, and supports conflict strategies.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { defaults, validate } from "@plur1bus/config-schema";
 import { layout } from "../../paths.ts";
 import {
@@ -38,13 +38,13 @@ import {
   prepareStoreAdopt,
   type PreparedStoreAdopt,
   type StoreAdoptReport,
+  createTempHost,
 } from "./hermes-stores.ts";
 import { lastTakenOverStoreKey, PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode, type PriorCardLink } from "./card-links.ts";
 import { ROUTED_REASONS } from "./openclaw-stores.ts";
 import { storeIdempotencyKey } from "../ledger.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
 import { buildEngineConfig } from "../../engine-config.ts";
-import { platformCapabilities } from "../../platform.ts";
 import type { AgentImportReport } from "./openclaw-agents.ts";
 import type { Engine, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
@@ -82,7 +82,7 @@ async function hermesCardMode(o: {
   let check: Awaited<ReturnType<typeof inspectStoreAdopt>>;
   try {
     // Engine.stores.adopt dry run: reads the store, never writes it (the same check a dry run runs on a source store).
-    check = await inspectStoreAdopt({ storePath: o.lancedb, targetConfig: o.targetConfig, testInternals: o.testInternals });
+    check = await inspectStoreAdopt({ storePath: o.lancedb, targetConfig: o.targetConfig, targetHome: dirname(o.importsDir), testInternals: o.testInternals });
   } catch (err) {
     const code = (err as { code?: unknown } | null)?.code;
     o.errors.push({ sourceRef: "state/lancedb", reason: `store-check-failed:${typeof code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(code) ? code : "engine-unavailable"}` });
@@ -93,21 +93,7 @@ async function hermesCardMode(o: {
 }
 
 function createImportHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
-  return {
-    logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
-    stateDir,
-    configPath: () => join(stateDir, "config.json"),
-    workspaceDir: async (id: string) => workspaceDir(id),
-    config: () => ({} as any),
-    platform: {
-      os: process.platform,
-      arch: process.arch,
-      memoryTotalBytes: () => 0,
-      memoryFreeBytes: () => 0,
-      ...platformCapabilities,
-    },
-    runtime: null,
-  } as unknown as HostServices;
+  return createTempHost(stateDir, workspaceDir);
 }
 
 export interface HermesImportOptions {
