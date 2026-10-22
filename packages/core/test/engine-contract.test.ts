@@ -21,12 +21,11 @@ function fixture(contract: string): Parameters<typeof assertEngineContract>[0] {
 }
 
 describe("assertEngineContract", () => {
-  it("accepts 1.8.0, 1.11.0, 1.12.0, 1.16.0 and 1.99.0", () => {
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.8.0")));
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.11.0")));
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.12.0")));
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.16.0")));
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.99.0")));
+  it("accepts 1.15.0, 1.16.0 and later compatible minors", () => {
+    for (const contract of ["1.15.0", "1.16.0", "1.99.0"]) assert.doesNotThrow(() => assertEngineContract(fixture(contract)));
+  });
+  it("refuses engines that would ignore the mandatory fetch and secret ports", () => {
+    for (const contract of ["1.8.0", "1.12.0", "1.14.0"]) assert.throws(() => assertEngineContract(fixture(contract)), (e: any) => e.reason === "engine-contract-minor");
   });
 
   it("refuses 2.0.0 with E_RPC_VERSION engine-contract-major", () => {
@@ -42,7 +41,7 @@ describe("assertEngineContract", () => {
     }
   });
 
-  it("refuses a 1.x contract older than 1.8.0 with E_RPC_VERSION engine-contract-minor (S18)", () => {
+  it("refuses a 1.x contract older than 1.15.0 with E_RPC_VERSION engine-contract-minor (S18)", () => {
     try {
       assertEngineContract(fixture("1.7.0"));
       assert.fail("expected assertEngineContract to throw");

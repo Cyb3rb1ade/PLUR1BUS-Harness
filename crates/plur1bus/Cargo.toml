@@ -14,6 +14,8 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 plur1bus-containers = { path = "../plur1bus-containers" }
 plur1bus-rpc = { path = "../plur1bus-rpc" }
 plur1bus-config = { path = "../plur1bus-config" }
+plur1bus-log-schema = { path = "../plur1bus-log-schema" }
+regex = "1"
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -57,7 +57,7 @@ describe("config-schema", () => {
   });
 
   it("reserved namespaces exist and are live", () => {
-    for (const ns of ["providers", "oauth", "decision"]) {
+    for (const ns of ["providers", "oauth"]) {
       assert.equal(restartClassOf(ns), "live", ns);
       assert.deepEqual((defaults() as any)[ns], {});
     }

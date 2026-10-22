@@ -1,3 +1,4 @@
 {
+  "$schema": "./dependency-exceptions.schema.json",
   "exceptions": []
 }

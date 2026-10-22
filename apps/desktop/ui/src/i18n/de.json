@@ -470,5 +470,15 @@
   "transport.path.tailscale-attention": "Tailscale getrennt",
   "transport.detail": "Weg: {path}",
   "transport.change": "Weg ändern…",
-  "transport.confirm-connect": "Bestätigen und verbinden"
+  "transport.confirm-connect": "Bestätigen und verbinden",
+  "pair.error.timeout": "Der Harness antwortet nicht rechtzeitig. Dein Code wurde möglicherweise schon verwendet: Sieh zuerst unter Verbindungen nach und fordere bei Bedarf einen neuen Code an.",
+  "connections.loadTimeout": "Das Laden der Verbindungen dauert zu lange.",
+  "connections.retry": "Erneut versuchen",
+  "runtime.logsLoading": "Logs werden geladen…",
+  "runtime.logsFailed": "Die Logs konnten nicht geladen werden.",
+  "runtime.logsTimeout": "Das Laden der Logs dauert zu lange.",
+  "runtime.logsRetry": "Erneut versuchen",
+  "update.installing": "Update wird installiert… Lass die App geöffnet: Sie startet neu, sobald das Update bereit ist.",
+  "update.downloading": "Download: {percent} %",
+  "update.progressLabel": "Fortschritt des Update-Downloads"
 }

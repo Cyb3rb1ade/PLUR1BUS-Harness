@@ -1,7 +1,7 @@
 import { translate } from "./i18n.ts";
 import { showBackgroundHint } from "./views/background-hint.ts";
 import { createShell } from "./shell.ts";
-import { nativeTransport } from "./ipc.ts";
+import { nativeTransport, withDeadlines } from "./ipc.ts";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openQuitDialog, type QuitOffer } from "./views/quit-dialog.ts";
@@ -18,7 +18,7 @@ if(window.location.hash==="#/approvals") {
     onChanged:listener=>listen("desktop-approvals-changed",listener),
   }));
 } else {
-  createShell(shellRoot, nativeTransport);
+  createShell(shellRoot, withDeadlines(nativeTransport));
   void nativeTransport.updateCheck?.(true).catch(()=>{});
 }
 if(window.location.hash!=="#/approvals") {

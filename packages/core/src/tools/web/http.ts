@@ -24,6 +24,14 @@ export interface HttpOptions {
   errorBodyBytes?: number | undefined;
   /** One deadline for the whole call, all hops and the body. Default 30 s. */
   timeoutMs?: number | undefined;
+  /** Return the decoded body as a bounded stream (engine downloads), without buffering it all in memory. */
+  streamResponse?: boolean;
+  /** Internal purpose selected only for validated engine model-file GET/HEAD requests. */
+  modelDownload?: boolean;
+  /** Engine downloads may carry harmless Accept/User-Agent/Range headers; credentials and bodies never redirect. */
+  safeRedirectHeaders?: boolean;
+  /** Fetch redirect semantics; provider requests still never forward caller headers or bodies. */
+  redirect?: "follow" | "manual" | "error";
   userAgent: string;
   accept?: string | undefined;
   /** Called with the Content-Type of a 2xx answer before its body is read; false → `unsupported-type`. */
@@ -86,6 +94,7 @@ export interface HttpResponse {
   headers: http.IncomingHttpHeaders;
   /** Empty for 3xx, and for status >= 400 unless `errorBodyBytes` asked for a (possibly cut-off) copy. */
   body: Buffer;
+  stream?: ReadableStream<Uint8Array>;
   /** Every URL requested before `url`, in order. */
   redirects: string[];
 }
@@ -163,7 +172,7 @@ function mapError(err: unknown): WebFailure {
 }
 
 /** One hop. Resolves with the response, its headers and (for 2xx) the capped, decoded body. */
-function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number; parts: ReturnType<typeof requestParts> }, signal: AbortSignal): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: Buffer }> {
+function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number; parts: ReturnType<typeof requestParts>; onStreamEnd: () => void }, signal: AbortSignal): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: Buffer; stream?: ReadableStream<Uint8Array> }> {
   return new Promise((resolve, reject) => {
     const secure = url.protocol === "https:";
     const hostname = url.hostname.startsWith("[") ? url.hostname.slice(1, -1) : url.hostname;
@@ -193,6 +202,32 @@ function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number
         if (status >= 300 && status < 400) {
           res.destroy();
           return resolve({ status, headers, body: Buffer.alloc(0) });
+        }
+        if (o.streamResponse && o.parts.method !== "HEAD" && status !== 204 && status !== 205 && status !== 304) {
+          let stream: Readable = res;
+          try {
+            const stages = decoders(headers["content-encoding"]);
+            for (const d of stages) { stream.on("error", e => d.destroy(e)); stream = stream.pipe(d); }
+            const iterator = stream[Symbol.asyncIterator]();
+            let total = 0;
+            const abort = () => res.destroy(new WebFailure("timeout", "the request exceeded its time limit"));
+            signal.addEventListener("abort", abort, { once: true });
+            const finish = () => { signal.removeEventListener("abort", abort); o.onStreamEnd(); };
+            const body = new ReadableStream<Uint8Array>({
+              async pull(controller) {
+                try {
+                  const next = await iterator.next();
+                  if (next.done) { finish(); controller.close(); return; }
+                  total += next.value.length;
+                  if (total > o.maxBytes) throw new WebFailure("too-large", `response exceeds ${o.maxBytes} bytes`);
+                  controller.enqueue(new Uint8Array(next.value));
+                } catch (err) { finish(); res.destroy(); stream.destroy(); controller.error(mapError(err)); }
+              },
+              async cancel() { finish(); res.destroy(); stream.destroy(); await iterator.return?.(); },
+            });
+            if (signal.aborted) abort();
+            return resolve({ status, headers, body: Buffer.alloc(0), stream: body });
+          } catch (err) { res.destroy(); reject(err); return; }
         }
         if (status < 200 || status >= 400) {
           const peek = status >= 400 ? (o.errorBodyBytes ?? 0) : 0;
@@ -254,10 +289,12 @@ export async function guardedRequest(rawUrl: string, options: HttpOptions): Prom
   const resolver = options.resolver ?? systemResolver;
   const policy = options.policy ?? makeAddressPolicy([]);
   const parts = requestParts(options);
-  // Only a plain GET/HEAD without caller headers follows redirects: a provider call's body and headers stay with its host.
-  const follows = (parts.method === "GET" || parts.method === "HEAD") && parts.body === undefined && Object.keys(parts.headers).length === 0;
+  // Only credential-free GET/HEAD requests redirect; the engine explicitly admits its harmless download headers.
+  const follows = (options.redirect ?? "follow") === "follow" && (parts.method === "GET" || parts.method === "HEAD") && parts.body === undefined && (Object.keys(parts.headers).length === 0 || (options.safeRedirectHeaders === true && Object.keys(parts.headers).every(name => ["accept", "user-agent", "range"].includes(name))));
   const maxRedirects = follows ? (options.maxRedirects ?? 10) : 0;
-  const o = { ...options, maxBytes: options.maxBytes ?? DEFAULT_MAX_BYTES, parts };
+  let streaming = false;
+  const cleanup = () => { clearTimeout(timer); options.signal?.removeEventListener("abort", onCallerAbort); };
+  const o = { ...options, maxBytes: options.maxBytes ?? DEFAULT_MAX_BYTES, parts, onStreamEnd: cleanup };
 
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
@@ -275,6 +312,7 @@ export async function guardedRequest(rawUrl: string, options: HttpOptions): Prom
       options.gate?.afterResolve(url, pin);
       const r = await hop(url, pin, o, ac.signal);
       const location = r.headers.location;
+      if (REDIRECT.has(r.status) && options.redirect === "error") throw new WebFailure("invalid-url", "redirect refused");
       if (follows && REDIRECT.has(r.status) && typeof location === "string" && location !== "") {
         if (redirects.length >= maxRedirects) throw new WebFailure("too-many-redirects", `more than ${maxRedirects} redirects`);
         redirects.push(url.href);
@@ -287,14 +325,14 @@ export async function guardedRequest(rawUrl: string, options: HttpOptions): Prom
         if (options.onRedirect) await raceAbort(Promise.resolve(options.onRedirect(url, ac.signal)), ac.signal);
         continue;
       }
-      return { url: url.href, status: r.status, headers: r.headers, body: r.body, redirects };
+      streaming = r.stream !== undefined;
+      return { url: url.href, status: r.status, headers: r.headers, body: r.body, ...(r.stream ? { stream: r.stream } : {}), redirects };
     }
   } catch (err) {
     if (ac.signal.aborted && !(err instanceof WebFailure && err.code === "timeout")) throw new WebFailure("timeout", "the request exceeded its time limit");
     throw mapError(err);
   } finally {
-    clearTimeout(timer);
-    options.signal?.removeEventListener("abort", onCallerAbort);
+    if (!streaming) cleanup();
   }
 }
 

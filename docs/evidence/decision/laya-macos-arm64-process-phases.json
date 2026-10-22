@@ -1,0 +1,2906 @@
+{
+  "schema": "plur1bus.decision-spike/1",
+  "at": "2026-10-20T17:08:40.613Z",
+  "node": "v24.21.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "os": "27.2.0",
+  "cpu": "Apple M5 Pro",
+  "logicalCpus": 18,
+  "totalMemoryBytes": 51539607552,
+  "freeMemoryBeforeBytes": 2155757568,
+  "freeMemoryAfterBytes": 364838912,
+  "fileCacheState": "uncontrolled",
+  "threads": 1,
+  "manifest": {
+    "schema": "plur1bus.laya-artifacts/1",
+    "repository": "inferenceprince/laya-onnx",
+    "revision": "dd0f4db73e24ef4c646d47d0e48e74024f439e6c",
+    "license": "Apache-2.0",
+    "source": "https://huggingface.co/inferenceprince/laya-onnx",
+    "files": [
+      {
+        "file": "config.json",
+        "size": 2063,
+        "sha256": "7f7ac00d9f70a2d5e8f41a10b6984d4a0833405984b3bf859ff1d49f1bced359"
+      },
+      {
+        "file": "rl_agent_config.json",
+        "size": 745,
+        "sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"
+      },
+      {
+        "file": "tokenizer/tokenizer_config.json",
+        "size": 308,
+        "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+      },
+      {
+        "file": "tokenizer/tokenizer.json",
+        "size": 3583228,
+        "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+      },
+      {
+        "file": "model.onnx",
+        "size": 3336214,
+        "sha256": "75d37762009e57b03b28877d330a2a466acd576eb444b0fdd00ee2a3221f8761"
+      },
+      {
+        "file": "model.onnx.data",
+        "size": 842587136,
+        "sha256": "356764eb3ab760468479e6fa732217d8ccaa84ab38f2ca9e2ed174ae22aaf1b4"
+      }
+    ]
+  },
+  "fixtureSha256": "4fdd03e69e2647ba604d783bed8d702497a43f345f706c6b72b14e5b1c61ba15",
+  "labelSource": "agent-authored candidate labels; not independently human-validated",
+  "loadMs": 963.852625,
+  "firstInferenceMs": 381.53383399999996,
+  "warmLatency": {
+    "n": 179,
+    "p50": 276.51350000000093,
+    "p95": 496.6086670000004
+  },
+  "latency": {
+    "n": 180,
+    "p50": 276.51350000000093,
+    "p95": 496.1044170000023
+  },
+  "fiveQuestionBatch": {
+    "n": 10,
+    "p50": 916.674334000003,
+    "p95": 1010.5871249999982
+  },
+  "maxRssKiB": 1338640,
+  "germanGate": {
+    "passed": false,
+    "complete": true,
+    "accuracyGap": 0.18333333333333335,
+    "brierGap": 0.1904004343055412
+  },
+  "automaticGermanEligibility": false,
+  "eligibilityReason": "Requires independent label validation, role comparison and native Linux/Windows evidence",
+  "perUseCase": {
+    "routing:de": {
+      "n": 15,
+      "accuracy": 0.5333333333333333,
+      "brier": 0.6289224704808749
+    },
+    "routing:en": {
+      "n": 15,
+      "accuracy": 0.5333333333333333,
+      "brier": 0.5133970661046428
+    },
+    "sensitivity:de": {
+      "n": 15,
+      "accuracy": 0.4,
+      "brier": 0.6578393169337792
+    },
+    "sensitivity:en": {
+      "n": 15,
+      "accuracy": 0.8,
+      "brier": 0.4063797875782127
+    },
+    "model-tier:de": {
+      "n": 15,
+      "accuracy": 0.5333333333333333,
+      "brier": 0.6325018019704572
+    },
+    "model-tier:en": {
+      "n": 15,
+      "accuracy": 0.7333333333333333,
+      "brier": 0.43479691828041117
+    },
+    "pruning:de": {
+      "n": 15,
+      "accuracy": 0.4,
+      "brier": 0.6699863765644436
+    },
+    "pruning:en": {
+      "n": 15,
+      "accuracy": 0.5333333333333333,
+      "brier": 0.473074456764124
+    },
+    "triage:de": {
+      "n": 6,
+      "accuracy": 0.3333333333333333,
+      "brier": 0.722604321168033
+    },
+    "triage:en": {
+      "n": 6,
+      "accuracy": 0.3333333333333333,
+      "brier": 0.8223338774392867
+    },
+    "skills:de": {
+      "n": 6,
+      "accuracy": 0.5,
+      "brier": 0.6163702180945128
+    },
+    "skills:en": {
+      "n": 6,
+      "accuracy": 0.5,
+      "brier": 0.6371829916420652
+    },
+    "placement:de": {
+      "n": 6,
+      "accuracy": 0.6666666666666666,
+      "brier": 0.4442419199704994
+    },
+    "placement:en": {
+      "n": 6,
+      "accuracy": 0.8333333333333334,
+      "brier": 0.2808769684118145
+    },
+    "zoom:de": {
+      "n": 6,
+      "accuracy": 0.8333333333333334,
+      "brier": 0.2768780804142914
+    },
+    "zoom:en": {
+      "n": 6,
+      "accuracy": 1,
+      "brier": 0.01655487611041014
+    },
+    "compaction:de": {
+      "n": 6,
+      "accuracy": 0.6666666666666666,
+      "brier": 0.44464285796231073
+    },
+    "compaction:en": {
+      "n": 6,
+      "accuracy": 0.3333333333333333,
+      "brier": 0.5363561024538893
+    }
+  },
+  "rows": [
+    {
+      "id": "routing-01",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.48266389711928714,
+        "tool": 0.2198081381298743,
+        "workflow": 0.29752796475083865
+      },
+      "confidence": 0.048548852057329506,
+      "confidenceSource": "derived",
+      "elapsedMs": 381.53383399999996
+    },
+    {
+      "id": "routing-01",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.8196529971641026,
+        "tool": 0.06615569843890941,
+        "workflow": 0.11419130439698809
+      },
+      "confidence": 0.4625481237122666,
+      "confidenceSource": "derived",
+      "elapsedMs": 175.912916
+    },
+    {
+      "id": "routing-02",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.43920716499642765,
+        "tool": 0.3108294242482886,
+        "workflow": 0.24996341075528386
+      },
+      "confidence": 0.025006615640527308,
+      "confidenceSource": "derived",
+      "elapsedMs": 319.54212500000017
+    },
+    {
+      "id": "routing-02",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.29847869804894217,
+        "tool": 0.13930402714773468,
+        "workflow": 0.5622172748033232
+      },
+      "confidence": 0.12687881098731202,
+      "confidenceSource": "derived",
+      "elapsedMs": 171.5479170000001
+    },
+    {
+      "id": "routing-03",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.48279992254683896,
+        "tool": 0.20776542290754926,
+        "workflow": 0.3094346545456119
+      },
+      "confidence": 0.05244742404175606,
+      "confidenceSource": "derived",
+      "elapsedMs": 319.2367079999999
+    },
+    {
+      "id": "routing-03",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.3595685226247827,
+        "tool": 0.18026096790088694,
+        "workflow": 0.46017050947433036
+      },
+      "confidence": 0.05899466617767102,
+      "confidenceSource": "derived",
+      "elapsedMs": 175.43787500000008
+    },
+    {
+      "id": "routing-04",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.37966270994883583,
+        "tool": 0.26776646950589716,
+        "workflow": 0.3525708205452671
+      },
+      "confidence": 0.009596960674540966,
+      "confidenceSource": "derived",
+      "elapsedMs": 331.23849999999993
+    },
+    {
+      "id": "routing-04",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.3825801596186521,
+        "tool": 0.36160180713944334,
+        "workflow": 0.25581803324190466
+      },
+      "confidence": 0.013146840993689901,
+      "confidenceSource": "derived",
+      "elapsedMs": 182.978834
+    },
+    {
+      "id": "routing-05",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.4209650674641086,
+        "tool": 0.24325841012514382,
+        "workflow": 0.33577652241074746
+      },
+      "confidence": 0.021916112496527806,
+      "confidenceSource": "derived",
+      "elapsedMs": 302.7427499999999
+    },
+    {
+      "id": "routing-05",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.31782099153553867,
+        "tool": 0.27590350971325356,
+        "workflow": 0.40627549875120766
+      },
+      "confidence": 0.011906388384365085,
+      "confidenceSource": "derived",
+      "elapsedMs": 162.229417
+    },
+    {
+      "id": "routing-06",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.31909020062002696,
+        "tool": 0.22498278416525047,
+        "workflow": 0.45592701521472256
+      },
+      "confidence": 0.03678480122270433,
+      "confidenceSource": "derived",
+      "elapsedMs": 326.4585830000001
+    },
+    {
+      "id": "routing-06",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.21323446514273545,
+        "tool": 0.37319907613373715,
+        "workflow": 0.4135664587235275
+      },
+      "confidence": 0.032853567801945927,
+      "confidenceSource": "derived",
+      "elapsedMs": 178.3175409999999
+    },
+    {
+      "id": "routing-07",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.30684410586163924,
+        "tool": 0.21541351066046022,
+        "workflow": 0.47774238347790055
+      },
+      "confidence": 0.047787123591098934,
+      "confidenceSource": "derived",
+      "elapsedMs": 317.01970900000015
+    },
+    {
+      "id": "routing-07",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.16226681672034016,
+        "tool": 0.38555524454277085,
+        "workflow": 0.452177938736889
+      },
+      "confidence": 0.07025419533279531,
+      "confidenceSource": "derived",
+      "elapsedMs": 170.75212499999998
+    },
+    {
+      "id": "routing-08",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.3257055556394087,
+        "tool": 0.25574392371736826,
+        "workflow": 0.41855052064322307
+      },
+      "confidence": 0.018188030202702987,
+      "confidenceSource": "derived",
+      "elapsedMs": 317.6012499999997
+    },
+    {
+      "id": "routing-08",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.15600791967185096,
+        "tool": 0.1576699360228102,
+        "workflow": 0.6863221443053388
+      },
+      "confidence": 0.23591574219464806,
+      "confidenceSource": "derived",
+      "elapsedMs": 174.84412499999962
+    },
+    {
+      "id": "routing-09",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.45755394285674555,
+        "tool": 0.2663829025174816,
+        "workflow": 0.2760631546257727
+      },
+      "confidence": 0.030187363398656797,
+      "confidenceSource": "derived",
+      "elapsedMs": 323.99866700000075
+    },
+    {
+      "id": "routing-09",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.21543031471171983,
+        "tool": 0.2971289964530769,
+        "workflow": 0.4874406888352033
+      },
+      "confidence": 0.051920547297830466,
+      "confidenceSource": "derived",
+      "elapsedMs": 178.9789579999997
+    },
+    {
+      "id": "routing-10",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.44851032884864017,
+        "tool": 0.31580324370790935,
+        "workflow": 0.2356864274434505
+      },
+      "confidence": 0.03126985723270803,
+      "confidenceSource": "derived",
+      "elapsedMs": 330.6990830000004
+    },
+    {
+      "id": "routing-10",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "tool",
+      "probabilities": {
+        "chat": 0.08810506749439115,
+        "tool": 0.5192557851282407,
+        "workflow": 0.3926391473773682
+      },
+      "confidence": 0.16131453942734053,
+      "confidenceSource": "derived",
+      "elapsedMs": 183.47008299999925
+    },
+    {
+      "id": "routing-11",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.28256572961200166,
+        "tool": 0.2621561993482479,
+        "workflow": 0.45527807103975043
+      },
+      "confidence": 0.02938300560646323,
+      "confidenceSource": "derived",
+      "elapsedMs": 346.2465420000008
+    },
+    {
+      "id": "routing-11",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.2543523224361859,
+        "tool": 0.08963980423548121,
+        "workflow": 0.6560078733283329
+      },
+      "confidence": 0.23450166402177852,
+      "confidenceSource": "derived",
+      "elapsedMs": 200.42883299999994
+    },
+    {
+      "id": "routing-12",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.23947607469079904,
+        "tool": 0.36802573787229387,
+        "workflow": 0.39249818743690706
+      },
+      "confidence": 0.01945711626197033,
+      "confidenceSource": "derived",
+      "elapsedMs": 363.73154199999954
+    },
+    {
+      "id": "routing-12",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.08026044579597215,
+        "tool": 0.192931226838921,
+        "workflow": 0.7268083273651069
+      },
+      "confidence": 0.31565711794131723,
+      "confidenceSource": "derived",
+      "elapsedMs": 208.7988749999995
+    },
+    {
+      "id": "routing-13",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.3746307950210244,
+        "tool": 0.27134298966771775,
+        "workflow": 0.3540262153112579
+      },
+      "confidence": 0.00841703728204346,
+      "confidenceSource": "derived",
+      "elapsedMs": 382.22704200000044
+    },
+    {
+      "id": "routing-13",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.09960835598263584,
+        "tool": 0.16183698945761085,
+        "workflow": 0.7385546545597532
+      },
+      "confidence": 0.3188624662876126,
+      "confidenceSource": "derived",
+      "elapsedMs": 220.75224999999955
+    },
+    {
+      "id": "routing-14",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.3752269557237342,
+        "tool": 0.2738247819233066,
+        "workflow": 0.35094826235295923
+      },
+      "confidence": 0.007869808667633316,
+      "confidenceSource": "derived",
+      "elapsedMs": 354.1374590000005
+    },
+    {
+      "id": "routing-14",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.2695336849538814,
+        "tool": 0.2581754878843934,
+        "workflow": 0.47229082716172516
+      },
+      "confidence": 0.03763257590676783,
+      "confidenceSource": "derived",
+      "elapsedMs": 204.6022920000005
+    },
+    {
+      "id": "routing-15",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.19101257941171215,
+        "tool": 0.4040336452576755,
+        "workflow": 0.4049537753306123
+      },
+      "confidence": 0.04567359591118958,
+      "confidenceSource": "derived",
+      "elapsedMs": 359.7272499999999
+    },
+    {
+      "id": "routing-15",
+      "useCase": "routing",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "workflow",
+      "probabilities": {
+        "chat": 0.12113247983388767,
+        "tool": 0.4072554879183328,
+        "workflow": 0.4716120322477794
+      },
+      "confidence": 0.11160519703935912,
+      "confidenceSource": "derived",
+      "elapsedMs": 203.0973750000012
+    },
+    {
+      "id": "sensitivity-01",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.21803371018549086,
+        "confidential": 0.23173475451804826,
+        "private": 0.5502315352964608
+      },
+      "confidence": 0.0900891236273037,
+      "confidenceSource": "derived",
+      "elapsedMs": 378.99766699999964
+    },
+    {
+      "id": "sensitivity-01",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.9258319639226177,
+        "confidential": 0.037797135509890126,
+        "private": 0.03637090056749227
+      },
+      "confidence": 0.7126511650872874,
+      "confidenceSource": "derived",
+      "elapsedMs": 251.03483300000153
+    },
+    {
+      "id": "sensitivity-02",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.3521413627613074,
+        "confidential": 0.268130882900914,
+        "private": 0.3797277543377786
+      },
+      "confidence": 0.009510549017624936,
+      "confidenceSource": "derived",
+      "elapsedMs": 351.20024999999987
+    },
+    {
+      "id": "sensitivity-02",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.8531553644445523,
+        "confidential": 0.06832885984139152,
+        "private": 0.07851577571405627
+      },
+      "confidence": 0.5279246011101186,
+      "confidenceSource": "derived",
+      "elapsedMs": 229.24449999999888
+    },
+    {
+      "id": "sensitivity-03",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.15496500310516453,
+        "confidential": 0.22305669279409743,
+        "private": 0.6219783041007381
+      },
+      "confidence": 0.1635394342059745,
+      "confidenceSource": "derived",
+      "elapsedMs": 334.22316599999976
+    },
+    {
+      "id": "sensitivity-03",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.16521666411441566,
+        "confidential": 0.2928144179687873,
+        "private": 0.541968917916797
+      },
+      "confidence": 0.0996888805088969,
+      "confidenceSource": "derived",
+      "elapsedMs": 232.74474999999984
+    },
+    {
+      "id": "sensitivity-04",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.7754275235814759,
+        "confidential": 0.1013811875611005,
+        "private": 0.12319128885742353
+      },
+      "confidence": 0.37445120011009725,
+      "confidenceSource": "derived",
+      "elapsedMs": 371.68554199999926
+    },
+    {
+      "id": "sensitivity-04",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.6435999836389471,
+        "confidential": 0.21598411399805056,
+        "private": 0.1404159023630022
+      },
+      "confidence": 0.18962874568183075,
+      "confidenceSource": "derived",
+      "elapsedMs": 244.5188330000001
+    },
+    {
+      "id": "sensitivity-05",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.452086317799858,
+        "confidential": 0.14583098843712267,
+        "private": 0.4020826937630194
+      },
+      "confidence": 0.08429095374904161,
+      "confidenceSource": "derived",
+      "elapsedMs": 356.651084000001
+    },
+    {
+      "id": "sensitivity-05",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "shareable",
+      "probabilities": {
+        "shareable": 0.6425812155833379,
+        "confidential": 0.21583918262044047,
+        "private": 0.14157960179622153
+      },
+      "confidence": 0.18816527661502525,
+      "confidenceSource": "derived",
+      "elapsedMs": 243.89408300000105
+    },
+    {
+      "id": "sensitivity-06",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.35198023885890645,
+        "confidential": 0.1424008969568749,
+        "private": 0.5056188641842186
+      },
+      "confidence": 0.09895086626793692,
+      "confidenceSource": "derived",
+      "elapsedMs": 351.99524999999994
+    },
+    {
+      "id": "sensitivity-06",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.7284233620730247,
+        "confidential": 0.1489832754478133,
+        "private": 0.12259336247916208
+      },
+      "confidence": 0.2974964219920918,
+      "confidenceSource": "derived",
+      "elapsedMs": 253.25729200000023
+    },
+    {
+      "id": "sensitivity-07",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.16133398408507793,
+        "confidential": 0.2421591134278112,
+        "private": 0.5965069024871108
+      },
+      "confidence": 0.13897513806146988,
+      "confidenceSource": "derived",
+      "elapsedMs": 361.009
+    },
+    {
+      "id": "sensitivity-07",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.1236752522320554,
+        "confidential": 0.5551599912482693,
+        "private": 0.32116475651967535
+      },
+      "confidence": 0.13528776842270784,
+      "confidenceSource": "derived",
+      "elapsedMs": 246.58745799999997
+    },
+    {
+      "id": "sensitivity-08",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.23154271925796352,
+        "confidential": 0.24673816955484884,
+        "private": 0.5217191111871876
+      },
+      "confidence": 0.0683873861131038,
+      "confidenceSource": "derived",
+      "elapsedMs": 342.93016700000044
+    },
+    {
+      "id": "sensitivity-08",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.18269767105703483,
+        "confidential": 0.4211535064921449,
+        "private": 0.39614882245082017
+      },
+      "confidence": 0.05190594202076748,
+      "confidenceSource": "derived",
+      "elapsedMs": 234.9860410000001
+    },
+    {
+      "id": "sensitivity-09",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.17056165171276144,
+        "confidential": 0.2009237897215253,
+        "private": 0.6285145585657133
+      },
+      "confidence": 0.16622682704426506,
+      "confidenceSource": "derived",
+      "elapsedMs": 363.74483299999883
+    },
+    {
+      "id": "sensitivity-09",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.025021531835999054,
+        "confidential": 0.8888925538397899,
+        "private": 0.08608591432421114
+      },
+      "confidence": 0.6285399422632998,
+      "confidenceSource": "derived",
+      "elapsedMs": 250.27966699999888
+    },
+    {
+      "id": "sensitivity-10",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.43688979221108887,
+        "confidential": 0.18606407000858768,
+        "private": 0.3770461377803234
+      },
+      "confidence": 0.05112961098348612,
+      "confidenceSource": "derived",
+      "elapsedMs": 359.49916700000176
+    },
+    {
+      "id": "sensitivity-10",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "confidential",
+      "probabilities": {
+        "shareable": 0.6352889067034563,
+        "confidential": 0.14711274011059308,
+        "private": 0.2175983531859506
+      },
+      "confidence": 0.17894149853837615,
+      "confidenceSource": "derived",
+      "elapsedMs": 248.00158399999964
+    },
+    {
+      "id": "sensitivity-11",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.19589941262845095,
+        "confidential": 0.22305407901744456,
+        "private": 0.5810465083541045
+      },
+      "confidence": 0.1175524160483008,
+      "confidenceSource": "derived",
+      "elapsedMs": 320.6551670000008
+    },
+    {
+      "id": "sensitivity-11",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.1185085515422708,
+        "confidential": 0.23648634196259477,
+        "private": 0.6450051064951344
+      },
+      "confidence": 0.20211553973775465,
+      "confidenceSource": "derived",
+      "elapsedMs": 230.78195899999992
+    },
+    {
+      "id": "sensitivity-12",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.18037920195195503,
+        "confidential": 0.17748389416965665,
+        "private": 0.6421369038783884
+      },
+      "confidence": 0.1805854789555773,
+      "confidenceSource": "derived",
+      "elapsedMs": 352.3148339999989
+    },
+    {
+      "id": "sensitivity-12",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.17957133203608092,
+        "confidential": 0.2395346711538534,
+        "private": 0.5808939968100657
+      },
+      "confidence": 0.12052724145145122,
+      "confidenceSource": "derived",
+      "elapsedMs": 235.4287919999988
+    },
+    {
+      "id": "sensitivity-13",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.05201989945177971,
+        "confidential": 0.059622165371523615,
+        "private": 0.8883579351766967
+      },
+      "confidence": 0.6112731432338396,
+      "confidenceSource": "derived",
+      "elapsedMs": 371.892167
+    },
+    {
+      "id": "sensitivity-13",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.12717652810180308,
+        "confidential": 0.38554103421220404,
+        "private": 0.48728243768599294
+      },
+      "confidence": 0.10793298917915695,
+      "confidenceSource": "derived",
+      "elapsedMs": 249.85662500000217
+    },
+    {
+      "id": "sensitivity-14",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.49872448006517245,
+        "confidential": 0.14802287297015967,
+        "private": 0.35325264696466796
+      },
+      "confidence": 0.09219176862336986,
+      "confidenceSource": "derived",
+      "elapsedMs": 372.9462500000009
+    },
+    {
+      "id": "sensitivity-14",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.10615966519325001,
+        "confidential": 0.08926157579199305,
+        "private": 0.8045787590147571
+      },
+      "confidence": 0.42772058323068307,
+      "confidenceSource": "derived",
+      "elapsedMs": 276.51350000000093
+    },
+    {
+      "id": "sensitivity-15",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.3162665016157438,
+        "confidential": 0.17211081732818395,
+        "private": 0.5116226810560722
+      },
+      "confidence": 0.08084162480056789,
+      "confidenceSource": "derived",
+      "elapsedMs": 397.637999999999
+    },
+    {
+      "id": "sensitivity-15",
+      "useCase": "sensitivity",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "private",
+      "probabilities": {
+        "shareable": 0.1911029084403575,
+        "confidential": 0.2782678450339738,
+        "private": 0.5306292465256687
+      },
+      "confidence": 0.08204920720781972,
+      "confidenceSource": "derived",
+      "elapsedMs": 270.8212500000009
+    },
+    {
+      "id": "model-tier-01",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.3079823086664732,
+        "medium": 0.28739787225258867,
+        "large": 0.23405872554602772,
+        "frontier": 0.17056109353491042
+      },
+      "confidence": 0.017071196055870708,
+      "confidenceSource": "derived",
+      "elapsedMs": 496.6086670000004
+    },
+    {
+      "id": "model-tier-01",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.7536838917271202,
+        "medium": 0.13411994978033714,
+        "large": 0.04233970452354009,
+        "frontier": 0.06985645396900236
+      },
+      "confidence": 0.4212142150684296,
+      "confidenceSource": "derived",
+      "elapsedMs": 312.89174999999886
+    },
+    {
+      "id": "model-tier-02",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.32973438115314313,
+        "medium": 0.2908679689842875,
+        "large": 0.1932963717688496,
+        "frontier": 0.1861012780937197
+      },
+      "confidence": 0.02211995727728766,
+      "confidenceSource": "derived",
+      "elapsedMs": 476.48712499999965
+    },
+    {
+      "id": "model-tier-02",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.7940418599465773,
+        "medium": 0.09633783005110212,
+        "large": 0.054161580130631486,
+        "frontier": 0.055458729871689115
+      },
+      "confidence": 0.47568272897128316,
+      "confidenceSource": "derived",
+      "elapsedMs": 265.86320799999885
+    },
+    {
+      "id": "model-tier-03",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.3988843004381227,
+        "medium": 0.2532614733808204,
+        "large": 0.16202607297050717,
+        "frontier": 0.1858281532105497
+      },
+      "confidence": 0.04634692725010392,
+      "confidenceSource": "derived",
+      "elapsedMs": 479.89079200000197
+    },
+    {
+      "id": "model-tier-03",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.6403072121528753,
+        "medium": 0.20147736329255028,
+        "large": 0.05749896617747337,
+        "frontier": 0.10071645837710104
+      },
+      "confidence": 0.2760255934956195,
+      "confidenceSource": "derived",
+      "elapsedMs": 265.7212500000023
+    },
+    {
+      "id": "model-tier-04",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.41849280196198996,
+        "medium": 0.2691231815400695,
+        "large": 0.1543363333730661,
+        "frontier": 0.15804768312487447
+      },
+      "confidence": 0.06385948840678812,
+      "confidenceSource": "derived",
+      "elapsedMs": 440.9187920000004
+    },
+    {
+      "id": "model-tier-04",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.8054091708381642,
+        "medium": 0.1365117768098737,
+        "large": 0.026510788640735083,
+        "frontier": 0.03156826371122686
+      },
+      "confidence": 0.5300685270927437,
+      "confidenceSource": "derived",
+      "elapsedMs": 251.91549999999916
+    },
+    {
+      "id": "model-tier-05",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.3421392529678053,
+        "medium": 0.297171505778795,
+        "large": 0.19681660643277799,
+        "frontier": 0.16387263482062175
+      },
+      "confidence": 0.030601590659996014,
+      "confidenceSource": "derived",
+      "elapsedMs": 435.9355830000022
+    },
+    {
+      "id": "model-tier-05",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "small",
+      "probabilities": {
+        "small": 0.5771352391568592,
+        "medium": 0.2360894772367184,
+        "large": 0.08689171124167722,
+        "frontier": 0.09988357236474527
+      },
+      "confidence": 0.20620332733804736,
+      "confidenceSource": "derived",
+      "elapsedMs": 278.559709000001
+    },
+    {
+      "id": "model-tier-06",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "medium",
+      "probabilities": {
+        "small": 0.13330048171838996,
+        "medium": 0.5219194017718305,
+        "large": 0.23443022859888876,
+        "frontier": 0.11034988791089084
+      },
+      "confidence": 0.14067290490943762,
+      "confidenceSource": "derived",
+      "elapsedMs": 474.8532500000001
+    },
+    {
+      "id": "model-tier-06",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "medium",
+      "probabilities": {
+        "small": 0.14122181882986415,
+        "medium": 0.6214802666761495,
+        "large": 0.1722351232633501,
+        "frontier": 0.06506279123063612
+      },
+      "confidence": 0.24059428085525214,
+      "confidenceSource": "derived",
+      "elapsedMs": 256.8865000000005
+    },
+    {
+      "id": "model-tier-07",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "medium",
+      "probabilities": {
+        "small": 0.3523020995500906,
+        "medium": 0.3057650816372251,
+        "large": 0.13829719054380366,
+        "frontier": 0.20363562826888063
+      },
+      "confidence": 0.04239073387311665,
+      "confidenceSource": "derived",
+      "elapsedMs": 480.8725000000013
+    },
+    {
+      "id": "model-tier-07",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "medium",
+      "probabilities": {
+        "small": 0.46302107398417097,
+        "medium": 0.4779144897604064,
+        "large": 0.02983835951131591,
+        "frontier": 0.029226076744106547
+      },
+      "confidence": 0.3382274016496467,
+      "confidenceSource": "derived",
+      "elapsedMs": 258.6684170000008
+    },
+    {
+      "id": "model-tier-08",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "medium",
+      "probabilities": {
+        "small": 0.3238111416583856,
+        "medium": 0.3220452924389631,
+        "large": 0.20964676749892924,
+        "frontier": 0.14449679840372212
+      },
+      "confidence": 0.03549211004623787,
+      "confidenceSource": "derived",
+      "elapsedMs": 425.74033300000156
+    },
+    {
+      "id": "model-tier-08",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "medium",
+      "probabilities": {
+        "small": 0.26018687986015826,
+        "medium": 0.45044087730990556,
+        "large": 0.18055479397886912,
+        "frontier": 0.10881744885106702
+      },
+      "confidence": 0.09112449903463926,
+      "confidenceSource": "derived",
+      "elapsedMs": 249.4290000000001
+    },
+    {
+      "id": "model-tier-09",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "medium",
+      "probabilities": {
+        "small": 0.21004934948320436,
+        "medium": 0.24244109259993707,
+        "large": 0.34098293816895714,
+        "frontier": 0.20652661974790149
+      },
+      "confidence": 0.016130310424042005,
+      "confidenceSource": "derived",
+      "elapsedMs": 456.1870000000017
+    },
+    {
+      "id": "model-tier-09",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "medium",
+      "probabilities": {
+        "small": 0.6169696946758176,
+        "medium": 0.2759932578955663,
+        "large": 0.05999318763409651,
+        "frontier": 0.04704385979451959
+      },
+      "confidence": 0.3032832901464464,
+      "confidenceSource": "derived",
+      "elapsedMs": 259.2550420000007
+    },
+    {
+      "id": "model-tier-10",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "large",
+      "probabilities": {
+        "small": 0.25083548861291305,
+        "medium": 0.22127579425618268,
+        "large": 0.3840566855735858,
+        "frontier": 0.1438320315573184
+      },
+      "confidence": 0.04270682918335622,
+      "confidenceSource": "derived",
+      "elapsedMs": 430.343667000001
+    },
+    {
+      "id": "model-tier-10",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "large",
+      "probabilities": {
+        "small": 0.14256324907283813,
+        "medium": 0.29064255118216714,
+        "large": 0.39517821729993063,
+        "frontier": 0.17161598244506396
+      },
+      "confidence": 0.05777025704501626,
+      "confidenceSource": "derived",
+      "elapsedMs": 252.33741700000246
+    },
+    {
+      "id": "model-tier-11",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "large",
+      "probabilities": {
+        "small": 0.2731287399886018,
+        "medium": 0.3045589510513342,
+        "large": 0.27181124602554724,
+        "frontier": 0.15050106293451687
+      },
+      "confidence": 0.02210672855155693,
+      "confidenceSource": "derived",
+      "elapsedMs": 461.92262499999924
+    },
+    {
+      "id": "model-tier-11",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "large",
+      "probabilities": {
+        "small": 0.17465706014489066,
+        "medium": 0.4618611470298058,
+        "large": 0.21822144489470172,
+        "frontier": 0.14526034793060172
+      },
+      "confidence": 0.08102141131483998,
+      "confidenceSource": "derived",
+      "elapsedMs": 253.5565830000014
+    },
+    {
+      "id": "model-tier-12",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "large",
+      "probabilities": {
+        "small": 0.21958166783063116,
+        "medium": 0.2868279428083243,
+        "large": 0.28744614809802815,
+        "frontier": 0.20614424126301656
+      },
+      "confidence": 0.008141601238315421,
+      "confidenceSource": "derived",
+      "elapsedMs": 488.57416699999885
+    },
+    {
+      "id": "model-tier-12",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "large",
+      "probabilities": {
+        "small": 0.28809728150498387,
+        "medium": 0.4332058914230825,
+        "large": 0.21507206960120406,
+        "frontier": 0.06362475747072942
+      },
+      "confidence": 0.11511645595738218,
+      "confidenceSource": "derived",
+      "elapsedMs": 259.4259579999998
+    },
+    {
+      "id": "model-tier-13",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "frontier",
+      "probabilities": {
+        "small": 0.2892204956078337,
+        "medium": 0.26726797722393186,
+        "large": 0.2066030257663108,
+        "frontier": 0.2369085014019237
+      },
+      "confidence": 0.0056732924428956055,
+      "confidenceSource": "derived",
+      "elapsedMs": 462.0682080000006
+    },
+    {
+      "id": "model-tier-13",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "frontier",
+      "probabilities": {
+        "small": 0.20998438534521524,
+        "medium": 0.3087924015809572,
+        "large": 0.09882168276924466,
+        "frontier": 0.38240153030458296
+      },
+      "confidence": 0.07169923808567025,
+      "confidenceSource": "derived",
+      "elapsedMs": 262.8254159999997
+    },
+    {
+      "id": "model-tier-14",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "frontier",
+      "probabilities": {
+        "small": 0.2254008566621357,
+        "medium": 0.25660528583915926,
+        "large": 0.33855644329966456,
+        "frontier": 0.17943741419904047
+      },
+      "confidence": 0.019113878795857686,
+      "confidenceSource": "derived",
+      "elapsedMs": 486.84129199999734
+    },
+    {
+      "id": "model-tier-14",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "frontier",
+      "probabilities": {
+        "small": 0.10406469439741257,
+        "medium": 0.33265956423650095,
+        "large": 0.25236282092252965,
+        "frontier": 0.31091292044355684
+      },
+      "confidence": 0.05337172296753734,
+      "confidenceSource": "derived",
+      "elapsedMs": 259.21050000000105
+    },
+    {
+      "id": "model-tier-15",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "frontier",
+      "probabilities": {
+        "small": 0.29970579162339217,
+        "medium": 0.20675184332391497,
+        "large": 0.22592486486304084,
+        "frontier": 0.26761750018965197
+      },
+      "confidence": 0.007520292870438872,
+      "confidenceSource": "derived",
+      "elapsedMs": 525.2117909999979
+    },
+    {
+      "id": "model-tier-15",
+      "useCase": "model-tier",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "frontier",
+      "probabilities": {
+        "small": 0.12167593933316506,
+        "medium": 0.2208561485249917,
+        "large": 0.21258963208486428,
+        "frontier": 0.444878280056979
+      },
+      "confidence": 0.07714602239538604,
+      "confidenceSource": "derived",
+      "elapsedMs": 283.42341699999815
+    },
+    {
+      "id": "pruning-01",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.312249083516044,
+        "truncate": 0.39034817888395784,
+        "drop": 0.2974027375999982
+      },
+      "confidence": 0.006654812902909257,
+      "confidenceSource": "derived",
+      "elapsedMs": 538.8218329999982
+    },
+    {
+      "id": "pruning-01",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.23243154530033733,
+        "truncate": 0.38071581998162085,
+        "drop": 0.38685263471804177
+      },
+      "confidence": 0.022210890607978317,
+      "confidenceSource": "derived",
+      "elapsedMs": 308.7909579999978
+    },
+    {
+      "id": "pruning-02",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.35798674164990946,
+        "truncate": 0.34477508323820977,
+        "drop": 0.2972381751118807
+      },
+      "confidence": 0.0028336520882668026,
+      "confidenceSource": "derived",
+      "elapsedMs": 498.7641250000015
+    },
+    {
+      "id": "pruning-02",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.29199172147001967,
+        "truncate": 0.29073207839031706,
+        "drop": 0.4172762001396634
+      },
+      "confidence": 0.013929116271603648,
+      "confidenceSource": "derived",
+      "elapsedMs": 331.46662500000093
+    },
+    {
+      "id": "pruning-03",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.38070569216492356,
+        "truncate": 0.33739676603224383,
+        "drop": 0.2818975418028325
+      },
+      "confidence": 0.006764732357920855,
+      "confidenceSource": "derived",
+      "elapsedMs": 492.0448329999999
+    },
+    {
+      "id": "pruning-03",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.40278295451884455,
+        "truncate": 0.25684498793288135,
+        "drop": 0.340372057548274
+      },
+      "confidence": 0.014918187448102693,
+      "confidenceSource": "derived",
+      "elapsedMs": 303.1012499999997
+    },
+    {
+      "id": "pruning-04",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.4191544645179788,
+        "truncate": 0.3092074623718434,
+        "drop": 0.2716380731101778
+      },
+      "confidence": 0.0156552769306898,
+      "confidenceSource": "derived",
+      "elapsedMs": 517.1667500000003
+    },
+    {
+      "id": "pruning-04",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.32878918485458297,
+        "truncate": 0.2714743503214341,
+        "drop": 0.399736464823983
+      },
+      "confidence": 0.011266128051492186,
+      "confidenceSource": "derived",
+      "elapsedMs": 303.9617499999986
+    },
+    {
+      "id": "pruning-05",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.4309764600183724,
+        "truncate": 0.30851538607368933,
+        "drop": 0.2605081539079382
+      },
+      "confidence": 0.020602883742096623,
+      "confidenceSource": "derived",
+      "elapsedMs": 478.9801660000012
+    },
+    {
+      "id": "pruning-05",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.4003662146185294,
+        "truncate": 0.15602770410131384,
+        "drop": 0.44360608128015677
+      },
+      "confidence": 0.0743661993277549,
+      "confidenceSource": "derived",
+      "elapsedMs": 299.783875000001
+    },
+    {
+      "id": "pruning-06",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.35406641587495286,
+        "truncate": 0.3194246666226198,
+        "drop": 0.3265089175024273
+      },
+      "confidence": 0.0009070196518924378,
+      "confidenceSource": "derived",
+      "elapsedMs": 510.12050000000454
+    },
+    {
+      "id": "pruning-06",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.2690955556130695,
+        "truncate": 0.5382904141034415,
+        "drop": 0.19261403028348897
+      },
+      "confidence": 0.08622824901877879,
+      "confidenceSource": "derived",
+      "elapsedMs": 305.0759160000016
+    },
+    {
+      "id": "pruning-07",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.5096023404113651,
+        "truncate": 0.28302295394440297,
+        "drop": 0.20737470564423197
+      },
+      "confidence": 0.06516388868067347,
+      "confidenceSource": "derived",
+      "elapsedMs": 496.1044170000023
+    },
+    {
+      "id": "pruning-07",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.4173348276950081,
+        "truncate": 0.27291623125039954,
+        "drop": 0.30974894105459233
+      },
+      "confidence": 0.015007435930934121,
+      "confidenceSource": "derived",
+      "elapsedMs": 308.3162500000035
+    },
+    {
+      "id": "pruning-08",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.4016270936369333,
+        "truncate": 0.28690410700813795,
+        "drop": 0.3114687993549287
+      },
+      "confidence": 0.009730707196985544,
+      "confidenceSource": "derived",
+      "elapsedMs": 491.63474999999744
+    },
+    {
+      "id": "pruning-08",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.4766887217671967,
+        "truncate": 0.3542547341431067,
+        "drop": 0.16905654408969656
+      },
+      "confidence": 0.07037235203325565,
+      "confidenceSource": "derived",
+      "elapsedMs": 310.7213330000013
+    },
+    {
+      "id": "pruning-09",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.4079725470199667,
+        "truncate": 0.28640053443985564,
+        "drop": 0.30562691854017754
+      },
+      "confidence": 0.011332709163922039,
+      "confidenceSource": "derived",
+      "elapsedMs": 486.5533329999962
+    },
+    {
+      "id": "pruning-09",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.40572801220462634,
+        "truncate": 0.22894097016155074,
+        "drop": 0.3653310176338229
+      },
+      "confidence": 0.024776782492464067,
+      "confidenceSource": "derived",
+      "elapsedMs": 286.1109579999975
+    },
+    {
+      "id": "pruning-10",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.40813184996686147,
+        "truncate": 0.31382479876119995,
+        "drop": 0.2780433512719385
+      },
+      "confidence": 0.012080154998964088,
+      "confidenceSource": "derived",
+      "elapsedMs": 475.26750000000175
+    },
+    {
+      "id": "pruning-10",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "truncate",
+      "probabilities": {
+        "keep": 0.3026371760483668,
+        "truncate": 0.4537917227776115,
+        "drop": 0.24357110117402173
+      },
+      "confidence": 0.03125652139783408,
+      "confidenceSource": "derived",
+      "elapsedMs": 296.2364170000001
+    },
+    {
+      "id": "pruning-11",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.3137391909905189,
+        "truncate": 0.3324100585901437,
+        "drop": 0.3538507504193375
+      },
+      "confidence": 0.0010992767997546338,
+      "confidenceSource": "derived",
+      "elapsedMs": 487.6022909999956
+    },
+    {
+      "id": "pruning-11",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.061915138022379294,
+        "truncate": 0.17570283240233436,
+        "drop": 0.7623820295752864
+      },
+      "confidence": 0.376825018262374,
+      "confidenceSource": "derived",
+      "elapsedMs": 290.29787500000384
+    },
+    {
+      "id": "pruning-12",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.32034817561485074,
+        "truncate": 0.2694449335959655,
+        "drop": 0.4102068907891839
+      },
+      "confidence": 0.01371228562714455,
+      "confidenceSource": "derived",
+      "elapsedMs": 513.3852499999994
+    },
+    {
+      "id": "pruning-12",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.17039831208655604,
+        "truncate": 0.07797024963589351,
+        "drop": 0.7516314382775504
+      },
+      "confidence": 0.3491126615925281,
+      "confidenceSource": "derived",
+      "elapsedMs": 310.5542920000007
+    },
+    {
+      "id": "pruning-13",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.2973762981951415,
+        "truncate": 0.4605956524642421,
+        "drop": 0.2420280493406163
+      },
+      "confidence": 0.03416289619679069,
+      "confidenceSource": "derived",
+      "elapsedMs": 485.4357499999969
+    },
+    {
+      "id": "pruning-13",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.0815582468093091,
+        "truncate": 0.20313355592196555,
+        "drop": 0.7153081972687253
+      },
+      "confidence": 0.30107128138277095,
+      "confidenceSource": "derived",
+      "elapsedMs": 295.0445830000026
+    },
+    {
+      "id": "pruning-14",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.3461042737456418,
+        "truncate": 0.31291781316504114,
+        "drop": 0.34097791308931713
+      },
+      "confidence": 0.0008801430906052454,
+      "confidenceSource": "derived",
+      "elapsedMs": 523.2355409999946
+    },
+    {
+      "id": "pruning-14",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.2097773361663512,
+        "truncate": 0.13089815009150876,
+        "drop": 0.6593245137421401
+      },
+      "confidence": 0.2095431416401623,
+      "confidenceSource": "derived",
+      "elapsedMs": 325.9988750000048
+    },
+    {
+      "id": "pruning-15",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "de",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.39047473887131134,
+        "truncate": 0.2937769368200102,
+        "drop": 0.31574832430867844
+      },
+      "confidence": 0.006879302939032161,
+      "confidenceSource": "derived",
+      "elapsedMs": 547.4879169999986
+    },
+    {
+      "id": "pruning-15",
+      "useCase": "pruning",
+      "coreGate": true,
+      "locale": "en",
+      "gold": "drop",
+      "probabilities": {
+        "keep": 0.05895795355031974,
+        "truncate": 0.05349347268583847,
+        "drop": 0.8875485737638418
+      },
+      "confidence": 0.6091226082400902,
+      "confidenceSource": "derived",
+      "elapsedMs": 335.53625000000466
+    },
+    {
+      "id": "triage-01",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.30545410173900656,
+        "single": 0.315031172913935,
+        "multi": 0.20815643072762938,
+        "followup": 0.1713582946194291
+      },
+      "confidence": 0.022492936212659465,
+      "confidenceSource": "derived",
+      "elapsedMs": 269.2419169999994
+    },
+    {
+      "id": "triage-01",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.14683231508685768,
+        "single": 0.5184079253281811,
+        "multi": 0.13324905286388727,
+        "followup": 0.20151070672107374
+      },
+      "confidence": 0.12453401147612075,
+      "confidenceSource": "derived",
+      "elapsedMs": 191.76400000000285
+    },
+    {
+      "id": "triage-02",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "single",
+      "probabilities": {
+        "chat": 0.17785803621195506,
+        "single": 0.5171006610552593,
+        "multi": 0.13355933046623608,
+        "followup": 0.17148197226654954
+      },
+      "confidence": 0.12038158422532086,
+      "confidenceSource": "derived",
+      "elapsedMs": 262.622374999999
+    },
+    {
+      "id": "triage-02",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "single",
+      "probabilities": {
+        "chat": 0.1432595851266886,
+        "single": 0.5255156811858592,
+        "multi": 0.14130222086824487,
+        "followup": 0.18992251281920736
+      },
+      "confidence": 0.12827559729167404,
+      "confidenceSource": "derived",
+      "elapsedMs": 176.7781249999971
+    },
+    {
+      "id": "triage-03",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "multi",
+      "probabilities": {
+        "chat": 0.15111052713995668,
+        "single": 0.4258939759870841,
+        "multi": 0.2211006710687652,
+        "followup": 0.2018948258041939
+      },
+      "confidence": 0.058069492872610984,
+      "confidenceSource": "derived",
+      "elapsedMs": 284.98666599999706
+    },
+    {
+      "id": "triage-03",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "multi",
+      "probabilities": {
+        "chat": 0.061158697426498855,
+        "single": 0.6721578566337476,
+        "multi": 0.1739842078187921,
+        "followup": 0.0926992381209614
+      },
+      "confidence": 0.30559126441830997,
+      "confidenceSource": "derived",
+      "elapsedMs": 195.4620419999992
+    },
+    {
+      "id": "triage-04",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "followup",
+      "probabilities": {
+        "chat": 0.18153620081243535,
+        "single": 0.3524829016536063,
+        "multi": 0.26007045616202856,
+        "followup": 0.20591044137192985
+      },
+      "confidence": 0.0240350898467262,
+      "confidenceSource": "derived",
+      "elapsedMs": 300.505333000001
+    },
+    {
+      "id": "triage-04",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "followup",
+      "probabilities": {
+        "chat": 0.20298371899575302,
+        "single": 0.44585149804123503,
+        "multi": 0.16323899125964633,
+        "followup": 0.18792579170336554
+      },
+      "confidence": 0.06667494196155055,
+      "confidenceSource": "derived",
+      "elapsedMs": 207.54187500000262
+    },
+    {
+      "id": "triage-05",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.1407846910159192,
+        "single": 0.5251980344812326,
+        "multi": 0.17264983612365611,
+        "followup": 0.16136743837919212
+      },
+      "confidence": 0.12584794848492808,
+      "confidenceSource": "derived",
+      "elapsedMs": 277.5393750000003
+    },
+    {
+      "id": "triage-05",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "chat",
+      "probabilities": {
+        "chat": 0.10783712906769988,
+        "single": 0.5872662312255483,
+        "multi": 0.1286926402767077,
+        "followup": 0.17620399943004394
+      },
+      "confidence": 0.19026708558402528,
+      "confidenceSource": "derived",
+      "elapsedMs": 198.13012500000332
+    },
+    {
+      "id": "triage-06",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "single",
+      "probabilities": {
+        "chat": 0.17760659504800008,
+        "single": 0.33970427748149895,
+        "multi": 0.17737343335906058,
+        "followup": 0.30531569411144033
+      },
+      "confidence": 0.03144303724675723,
+      "confidenceSource": "derived",
+      "elapsedMs": 292.0734169999996
+    },
+    {
+      "id": "triage-06",
+      "useCase": "triage",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "single",
+      "probabilities": {
+        "chat": 0.15237435421948745,
+        "single": 0.5153252795877743,
+        "multi": 0.12748780827996006,
+        "followup": 0.20481255791277828
+      },
+      "confidence": 0.12307801264324125,
+      "confidenceSource": "derived",
+      "elapsedMs": 204.98945800000365
+    },
+    {
+      "id": "skills-01",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "none",
+      "probabilities": {
+        "none": 0.7519207821897882,
+        "rust": 0.14483596818999203,
+        "media": 0.10324324962021976
+      },
+      "confidence": 0.3367384529570254,
+      "confidenceSource": "derived",
+      "elapsedMs": 257.6793749999997
+    },
+    {
+      "id": "skills-01",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "none",
+      "probabilities": {
+        "none": 0.7136495819175882,
+        "rust": 0.25035682328752873,
+        "media": 0.03599359479488303
+      },
+      "confidence": 0.3563444334619589,
+      "confidenceSource": "derived",
+      "elapsedMs": 161.93958399999974
+    },
+    {
+      "id": "skills-02",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "rust",
+      "probabilities": {
+        "none": 0.06805159554821194,
+        "rust": 0.9268963935676978,
+        "media": 0.0050520108840902585
+      },
+      "confidence": 0.7451632970344102,
+      "confidenceSource": "derived",
+      "elapsedMs": 259.2415420000034
+    },
+    {
+      "id": "skills-02",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "rust",
+      "probabilities": {
+        "none": 0.1070511452146927,
+        "rust": 0.8828852392462397,
+        "media": 0.010063615539067655
+      },
+      "confidence": 0.6400428435044556,
+      "confidenceSource": "derived",
+      "elapsedMs": 167.19966700000077
+    },
+    {
+      "id": "skills-03",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "media",
+      "probabilities": {
+        "none": 0.6503870045701722,
+        "rust": 0.05354415526393122,
+        "media": 0.29606884016589663
+      },
+      "confidence": 0.2746397652162015,
+      "confidenceSource": "derived",
+      "elapsedMs": 255.69279200000165
+    },
+    {
+      "id": "skills-03",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "media",
+      "probabilities": {
+        "none": 0.4796912168099925,
+        "rust": 0.2911365208244944,
+        "media": 0.22917226236551297
+      },
+      "confidence": 0.04490950717731079,
+      "confidenceSource": "derived",
+      "elapsedMs": 160.45699999999488
+    },
+    {
+      "id": "skills-04",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "none",
+      "probabilities": {
+        "none": 0.1764095310845238,
+        "rust": 0.7489967254192356,
+        "media": 0.07459374349624058
+      },
+      "confidence": 0.34812342353589987,
+      "confidenceSource": "derived",
+      "elapsedMs": 259.1001660000038
+    },
+    {
+      "id": "skills-04",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "none",
+      "probabilities": {
+        "none": 0.15819824161706061,
+        "rust": 0.751534478595594,
+        "media": 0.09026727978734533
+      },
+      "confidence": 0.3414776799043183,
+      "confidenceSource": "derived",
+      "elapsedMs": 175.00158299999748
+    },
+    {
+      "id": "skills-05",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "rust",
+      "probabilities": {
+        "none": 0.21692824262119306,
+        "rust": 0.7459586712543005,
+        "media": 0.0371130861245065
+      },
+      "confidence": 0.3879740878930166,
+      "confidenceSource": "derived",
+      "elapsedMs": 266.2437920000011
+    },
+    {
+      "id": "skills-05",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "rust",
+      "probabilities": {
+        "none": 0.15288404302689038,
+        "rust": 0.817317908990308,
+        "media": 0.029798047982801577
+      },
+      "confidence": 0.49327634161453904,
+      "confidenceSource": "derived",
+      "elapsedMs": 166.10050000000047
+    },
+    {
+      "id": "skills-06",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "media",
+      "probabilities": {
+        "none": 0.6766661035562155,
+        "rust": 0.22247085715968423,
+        "media": 0.10086303928410015
+      },
+      "confidence": 0.24447046632802605,
+      "confidenceSource": "derived",
+      "elapsedMs": 272.8339160000032
+    },
+    {
+      "id": "skills-06",
+      "useCase": "skills",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "media",
+      "probabilities": {
+        "none": 0.7728823591101258,
+        "rust": 0.1173312460384606,
+        "media": 0.1097863948514136
+      },
+      "confidence": 0.36913991740342555,
+      "confidenceSource": "derived",
+      "elapsedMs": 163.19637499999953
+    },
+    {
+      "id": "placement-01",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "environment",
+      "probabilities": {
+        "knowledge": 0.15649939300547977,
+        "environment": 0.7417139653126896,
+        "self": 0.10178664168183064
+      },
+      "confidence": 0.3223744864186202,
+      "confidenceSource": "derived",
+      "elapsedMs": 251.77316699999938
+    },
+    {
+      "id": "placement-01",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "environment",
+      "probabilities": {
+        "knowledge": 0.26433970283395664,
+        "environment": 0.599950420389897,
+        "self": 0.13570987677614632
+      },
+      "confidence": 0.1541387217310971,
+      "confidenceSource": "derived",
+      "elapsedMs": 162.89270899999974
+    },
+    {
+      "id": "placement-02",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "knowledge",
+      "probabilities": {
+        "knowledge": 0.2030310362768309,
+        "environment": 0.32767158925337075,
+        "self": 0.4692973744697983
+      },
+      "confidence": 0.04939931355415417,
+      "confidenceSource": "derived",
+      "elapsedMs": 250.26329100000294
+    },
+    {
+      "id": "placement-02",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "knowledge",
+      "probabilities": {
+        "knowledge": 0.23985810589158565,
+        "environment": 0.7092336738904848,
+        "self": 0.05090822021792962
+      },
+      "confidence": 0.3285075752978568,
+      "confidenceSource": "derived",
+      "elapsedMs": 173.21458300000086
+    },
+    {
+      "id": "placement-03",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "self",
+      "probabilities": {
+        "knowledge": 0.28689035884346836,
+        "environment": 0.16546028959562514,
+        "self": 0.5476493515609065
+      },
+      "confidence": 0.1028274101873965,
+      "confidenceSource": "derived",
+      "elapsedMs": 269.64887499999895
+    },
+    {
+      "id": "placement-03",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "self",
+      "probabilities": {
+        "knowledge": 0.07785786914466071,
+        "environment": 0.06891819915750129,
+        "self": 0.8532239316978381
+      },
+      "confidence": 0.5280037729442767,
+      "confidenceSource": "derived",
+      "elapsedMs": 175.29462500000227
+    },
+    {
+      "id": "placement-04",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "environment",
+      "probabilities": {
+        "knowledge": 0.06814386723859653,
+        "environment": 0.9011433533294794,
+        "self": 0.03071277943192425
+      },
+      "confidence": 0.6506325497551373,
+      "confidenceSource": "derived",
+      "elapsedMs": 275.5074999999997
+    },
+    {
+      "id": "placement-04",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "environment",
+      "probabilities": {
+        "knowledge": 0.07064075471682532,
+        "environment": 0.8585886795659345,
+        "self": 0.07077056571724008
+      },
+      "confidence": 0.5398413106887531,
+      "confidenceSource": "derived",
+      "elapsedMs": 190.2260000000024
+    },
+    {
+      "id": "placement-05",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "knowledge",
+      "probabilities": {
+        "knowledge": 0.4336707024660221,
+        "environment": 0.30793687843691864,
+        "self": 0.25839241909705934
+      },
+      "confidence": 0.021764392636201335,
+      "confidenceSource": "derived",
+      "elapsedMs": 268.8116249999948
+    },
+    {
+      "id": "placement-05",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "knowledge",
+      "probabilities": {
+        "knowledge": 0.6224345280387469,
+        "environment": 0.1917620589155285,
+        "self": 0.18580341304572462
+      },
+      "confidence": 0.15846459223386022,
+      "confidenceSource": "derived",
+      "elapsedMs": 165.76512499999808
+    },
+    {
+      "id": "placement-06",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "self",
+      "probabilities": {
+        "knowledge": 0.3661379666862073,
+        "environment": 0.3591713200519504,
+        "self": 0.2746907132618423
+      },
+      "confidence": 0.007310081115382117,
+      "confidenceSource": "derived",
+      "elapsedMs": 324.2350829999996
+    },
+    {
+      "id": "placement-06",
+      "useCase": "placement",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "self",
+      "probabilities": {
+        "knowledge": 0.12413790295909523,
+        "environment": 0.10254059322128221,
+        "self": 0.7733215038196225
+      },
+      "confidence": 0.3707308604026648,
+      "confidenceSource": "derived",
+      "elapsedMs": 171.73295799999323
+    },
+    {
+      "id": "zoom-01",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "network",
+      "probabilities": {
+        "network": 0.8899329838857131,
+        "cooking": 0.03722842343393381,
+        "none": 0.0728385926803531
+      },
+      "confidence": 0.6203550521853003,
+      "confidenceSource": "derived",
+      "elapsedMs": 238.57154099999752
+    },
+    {
+      "id": "zoom-01",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "network",
+      "probabilities": {
+        "network": 0.8739826869648901,
+        "cooking": 0.025987918198977913,
+        "none": 0.100029394836132
+      },
+      "confidence": 0.5968762070381399,
+      "confidenceSource": "derived",
+      "elapsedMs": 192.9603749999951
+    },
+    {
+      "id": "zoom-02",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "cooking",
+      "probabilities": {
+        "network": 0.16465016350860606,
+        "cooking": 0.49521546647273007,
+        "none": 0.34013437001866376
+      },
+      "confidence": 0.07898138811590116,
+      "confidenceSource": "derived",
+      "elapsedMs": 255.12483300000167
+    },
+    {
+      "id": "zoom-02",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "cooking",
+      "probabilities": {
+        "network": 0.01247541775853105,
+        "cooking": 0.9573184900676434,
+        "none": 0.030206092173825475
+      },
+      "confidence": 0.8159840398804422,
+      "confidenceSource": "derived",
+      "elapsedMs": 177.2127079999991
+    },
+    {
+      "id": "zoom-03",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "none",
+      "probabilities": {
+        "network": 0.14400164456488704,
+        "cooking": 0.3952769745881564,
+        "none": 0.4607213808469566
+      },
+      "confidence": 0.0870388694087133,
+      "confidenceSource": "derived",
+      "elapsedMs": 252.68304199999693
+    },
+    {
+      "id": "zoom-03",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "none",
+      "probabilities": {
+        "network": 0.0027034753580175955,
+        "cooking": 0.0035736978213592725,
+        "none": 0.9937228268206233
+      },
+      "confidence": 0.9614254882642058,
+      "confidenceSource": "derived",
+      "elapsedMs": 169.5009579999969
+    },
+    {
+      "id": "zoom-04",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "network",
+      "probabilities": {
+        "network": 0.8950063553791782,
+        "cooking": 0.06134959163059687,
+        "none": 0.04364405299022496
+      },
+      "confidence": 0.6293554972101194,
+      "confidenceSource": "derived",
+      "elapsedMs": 238.46137499999895
+    },
+    {
+      "id": "zoom-04",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "network",
+      "probabilities": {
+        "network": 0.8116545435614063,
+        "cooking": 0.028003440500672657,
+        "none": 0.1603420159379209
+      },
+      "confidence": 0.4875369922531313,
+      "confidenceSource": "derived",
+      "elapsedMs": 183.34237500000017
+    },
+    {
+      "id": "zoom-05",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "cooking",
+      "probabilities": {
+        "network": 0.36740854868245565,
+        "cooking": 0.3489955728359283,
+        "none": 0.2835958784816161
+      },
+      "confidence": 0.005423152341956006,
+      "confidenceSource": "derived",
+      "elapsedMs": 279.63945799999783
+    },
+    {
+      "id": "zoom-05",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "cooking",
+      "probabilities": {
+        "network": 0.020458999219162628,
+        "cooking": 0.929940539609147,
+        "none": 0.049600461171690424
+      },
+      "confidence": 0.7304732701570584,
+      "confidenceSource": "derived",
+      "elapsedMs": 195.56883299999754
+    },
+    {
+      "id": "zoom-06",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "none",
+      "probabilities": {
+        "network": 0.06768783202943501,
+        "cooking": 0.20518004147226945,
+        "none": 0.7271321264982956
+      },
+      "confidence": 0.32737907639981034,
+      "confidenceSource": "derived",
+      "elapsedMs": 229.79783300000418
+    },
+    {
+      "id": "zoom-06",
+      "useCase": "zoom",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "none",
+      "probabilities": {
+        "network": 0.003203570988995851,
+        "cooking": 0.0033042826308999585,
+        "none": 0.9934921463801042
+      },
+      "confidence": 0.960165983716107,
+      "confidenceSource": "derived",
+      "elapsedMs": 165.18408400000044
+    },
+    {
+      "id": "compaction-01",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.6084566768807895,
+        "summarize": 0.3915433231192104
+      },
+      "confidence": 0.03421170957071629,
+      "confidenceSource": "derived",
+      "elapsedMs": 291.29812500000116
+    },
+    {
+      "id": "compaction-01",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.809597377612103,
+        "summarize": 0.1904026223878969
+      },
+      "confidence": 0.29768704468210305,
+      "confidenceSource": "derived",
+      "elapsedMs": 163.01516700000502
+    },
+    {
+      "id": "compaction-02",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "summarize",
+      "probabilities": {
+        "keep": 0.5055085922889893,
+        "summarize": 0.49449140771101074
+      },
+      "confidence": 0.00008755774747393197,
+      "confidenceSource": "derived",
+      "elapsedMs": 323.1420419999995
+    },
+    {
+      "id": "compaction-02",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "summarize",
+      "probabilities": {
+        "keep": 0.5471475735607213,
+        "summarize": 0.45285242643927875
+      },
+      "confidence": 0.0064234543493151275,
+      "confidenceSource": "derived",
+      "elapsedMs": 166.12895800000115
+    },
+    {
+      "id": "compaction-03",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.5217934540579177,
+        "summarize": 0.47820654594208234
+      },
+      "confidence": 0.0013708636648598338,
+      "confidenceSource": "derived",
+      "elapsedMs": 336.4152499999982
+    },
+    {
+      "id": "compaction-03",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.24824162348547207,
+        "summarize": 0.751758376514528
+      },
+      "confidence": 0.1915207501176408,
+      "confidenceSource": "derived",
+      "elapsedMs": 168.14724999999453
+    },
+    {
+      "id": "compaction-04",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "summarize",
+      "probabilities": {
+        "keep": 0.5014483158439689,
+        "summarize": 0.49855168415603124
+      },
+      "confidence": 0.0000060524568983311156,
+      "confidenceSource": "derived",
+      "elapsedMs": 370.4971250000017
+    },
+    {
+      "id": "compaction-04",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "summarize",
+      "probabilities": {
+        "keep": 0.03376348923536971,
+        "summarize": 0.9662365107646304
+      },
+      "confidence": 0.787072135683944,
+      "confidenceSource": "derived",
+      "elapsedMs": 183.0813330000019
+    },
+    {
+      "id": "compaction-05",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.5298717863686029,
+        "summarize": 0.47012821363139706
+      },
+      "confidence": 0.002576235561065454,
+      "confidenceSource": "derived",
+      "elapsedMs": 323.9388340000005
+    },
+    {
+      "id": "compaction-05",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "keep",
+      "probabilities": {
+        "keep": 0.3801653159663393,
+        "summarize": 0.6198346840336607
+      },
+      "confidence": 0.04184130393594765,
+      "confidenceSource": "derived",
+      "elapsedMs": 172.05970800000068
+    },
+    {
+      "id": "compaction-06",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "de",
+      "gold": "summarize",
+      "probabilities": {
+        "keep": 0.4732134949817514,
+        "summarize": 0.5267865050182486
+      },
+      "confidence": 0.002071307468735739,
+      "confidenceSource": "derived",
+      "elapsedMs": 326.59362500000134
+    },
+    {
+      "id": "compaction-06",
+      "useCase": "compaction",
+      "coreGate": false,
+      "locale": "en",
+      "gold": "summarize",
+      "probabilities": {
+        "keep": 0.568303630201217,
+        "summarize": 0.43169636979878306
+      },
+      "confidence": 0.013503642492136203,
+      "confidenceSource": "derived",
+      "elapsedMs": 156.38091699999495
+    }
+  ]
+}

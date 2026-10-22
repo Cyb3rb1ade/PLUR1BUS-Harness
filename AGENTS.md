@@ -48,11 +48,38 @@ Root scripts (`package.json`). `gen` and `build` fan out with `pnpm -r --workspa
 |---|---|
 | `pnpm gen` | Regenerates generated sources: `packages/rpc-schema/generated/*` (from `schema/rpc.schema.json`) plus the Python client's `_schema.py` (`scripts/gen-python-client.mjs`, which also verifies the committed address vectors and never writes them), `packages/config-schema/fixtures/*` (from `schema/config.schema.json` via `src/index.ts`), `packages/log-schema/fixtures/vectors.json` and `packages/web/src/palette/settings-index.ts` (from the config schema). Run before `build` after touching a schema. |
 | `pnpm build` | Bundles each TypeScript package to `dist/` (`esbuild`, ESM, `--packages=external`, Node 24 target; `packages/web` has its own `build.ts`). |
+| `pnpm test:prep` | Installs the frozen workspace dependencies, runs `pnpm gen` and `pnpm build`, then checks the audit source imports, built Core entry and private Engine entry. See “Tests lokal” below. |
 | `pnpm test` | `scripts/run-ts-tests.mjs`: runs every package's `test` script (`pnpm -r --workspace-concurrency=1 --no-bail`, `@plur1bus/desktop-ui` excluded, its tests run in `desktop.yml`) and fails when pnpm matched nothing or no test ran. The `test` script of `config-schema`, `log-schema` and `rpc-schema` regenerates before testing. |
 | `pnpm typecheck` | `tsc -p tsconfig.base.json --noEmit` across all package sources. |
 | `pnpm lint` | `pnpm typecheck`, then `scripts/release/check-source-quality.mjs`, `scripts/lint-hygiene.mjs` (below), `scripts/check-i18n.mjs` (de/en catalogue completeness) and the node tests of those scripts. |
 | `pnpm docs:gen` | Builds the CLI (`cargo build -q -p plur1bus`), then regenerates `docs/config-engine-keys.md` (`scripts/gen-engine-keys.mjs`), `docs/rpc.md` + `docs/cli.md` + `docs/config.md` + `docs/log-schema.md` (`scripts/gen-docs.mjs`), `docs/openapi.json` + `docs/api-surface.md` (`scripts/gen-openapi.mjs`) and the web settings index. |
 | `pnpm docs:check` | Builds the CLI, then fails when a generated doc differs from what the schemas, the clap tree and the API route table produce (`gen-docs.mjs --check`, `gen-openapi.mjs --check`, the settings-index check), and runs `check-docs-commands.mjs` (commands quoted in `docs/user/**` exist in `docs/cli.md`), `check-doc-links.mjs`, the bundled user docs check and `check-cli-exit-codes.mjs --check` (exit codes against `docs/errors.md`). CI runs it. |
+
+## Tests lokal
+
+Stelle Node 24.21 und pnpm 10 auf `PATH` bereit und führe im Repository-Root aus:
+
+```bash
+pnpm test:prep
+```
+
+`scripts/test-prep.mjs` führt nacheinander `pnpm install --frozen-lockfile`, `pnpm gen` und
+`pnpm build` aus. Danach prüft es die tatsächlichen Audit-Quellimports, `packages/core/dist/core.js`
+und die Auflösung der privaten Engine aus `packages/core`. So entstehen auch die generierten
+RPC-Dateien und die `dist`-Dateien der Schema-Pakete. Jeder Fehler stoppt die Vorbereitung mit
+einem Fehlercode; ein fehlender Befehl oder eine fehlende Abhängigkeit ist kein Skip.
+
+Du brauchst authentifizierten Lesezugriff auf das private Engine-Repository oder dessen bereits
+zwischengespeichertes, exakt gepinntes Paket. Ohne diese Abhängigkeit können die Core-Integrationstests
+und die Engine-abhängigen TS-Tests nicht laufen. Die Vorbereitung nennt das ausdrücklich. Sie
+entfernt oder ersetzt die Engine nicht und verwendet das bestehende Lockfile mit `--frozen-lockfile`.
+
+Danach laufen die gewünschten Tests, zum Beispiel `cargo test --workspace` oder `pnpm test`.
+Die gemischten Rust/TS-Audit-Tests prüfen ihre Workspace-Voraussetzungen vor dem Kindprozessstart;
+`repair_never_removes_a_live_endpoint` prüft zuerst den gebauten Core. Der Paket-Testrunner ergänzt
+bei `ERR_MODULE_NOT_FOUND` für die Engine den Vorbereitungsbefehl und lässt den Fehler bestehen.
+Für Browser- und native Systemtests gelten zusätzlich ihre unten bzw. in `docs/ci.md` beschriebenen
+Voraussetzungen. `test:prep` baut keinen Rust-Binary und installiert keinen Browser.
 
 One crate (from the repo root):
 
@@ -256,7 +283,7 @@ Env vars that matter when driving the core directly instead of through the CLI:
 | `packages/remote-access` | TypeScript | `@plur1bus/remote-access` (private) | The library behind remote access (`docs/remote-access.md`): exposure modes, TLS material, pairing with certificate pinning, pair-proof for typed codes, trust rollover, the client-subnet allow-list, the security notice and the `1staid` warnings. Injected ports (clock, exec, secret store); it opens no listener. The API applies it (`remote-runtime.ts`), the core's device store uses it. |
 | `packages/channels-{telegram,discord,slack,matrix,signal,email,buzz}` | TypeScript | `@plur1bus/channels-*` | Telegram, Discord, Slack, Matrix, Signal, E-mail and Buzz (Nostr direct messages) channel adapters implementing the shared `Channel` lifecycle. See each package README and `docs/channels/`. |
 | `packages/hostctl` | TypeScript | `@plur1bus/hostctl` | Local-only file, process, system, application and clipboard control through the Harness ToolDispatcher and D109 policy. See `docs/hostctl.md`. |
-| `packages/web` | TypeScript | `@plur1bus/web` (private) | M3 web UI: Preact + Signals SPA built to static files (no inline script, strict CSP), app shell (sidebar groups, hash routes, rail/overlay/full layout), Glow tokens with light/dark/system, de/en catalogues, sign-in through `SessionApi` (`src/session.ts`, `HttpSessionApi` against the Harness API's session routes), and the pages listed in `docs/web-ui.md` (some nav items are still placeholders). Authored with `h()` in `.ts` (no JSX). Tests (`node:test`, mock server, Chromium via Playwright (CI installs the lockfile-matched one), axe, structural responsive snapshots) skip the browser suites when no Chromium is found; `PLUR1BUS_WEB_E2E_REQUIRED=1` makes that a failure. See `docs/web-ui.md`, `docs/ui/web-shell.md`, `docs/ui/framework-spike.md`. |
+| `packages/web` | TypeScript | `@plur1bus/web` (private) | M3 web UI: Preact + Signals SPA built to static files (no inline script, strict CSP), app shell (sidebar groups, hash routes, rail/overlay/full layout), Glow tokens with light/dark/system, de/en catalogues, sign-in through `SessionApi` (`src/session.ts`, `HttpSessionApi` against the Harness API's session routes), and the pages listed in `docs/web-ui.md` (some nav items are still placeholders). Authored with `h()` in `.ts` (no JSX). Tests (`node:test`, mock server, Chromium via Playwright (CI installs the lockfile-matched one), axe, structural responsive snapshots) skip the browser suites when no Chromium is found; `PLUR1BUS_WEB_E2E_REQUIRED=1` makes that a failure, and `PLUR1BUS_WEB_BROWSER=off` is the one explicit switch that turns them off (used only by `unit (macos-15)`; they run in `web-browser (macos-15, i/2)`, not gating, docs/ci.md). See `docs/web-ui.md`, `docs/ui/web-shell.md`, `docs/ui/framework-spike.md`. |
 | `packages/webmcp` | TypeScript | `@plur1bus/webmcp` | WebMCP mapping in both directions (D55): core capabilities + RPC schema → WebMCP tools for the M3 GUI (`buildWebMcpTools`, `registerPlur1busTools`), and page tools → `webmcp:<origin>/<tool>` MCP descriptors plus the origin allowlist for the browser bridge. `FORBIDDEN_PREFIX` includes `"admin."`: every `admin.*` method is refused as a WebMCP tool regardless of its stability or `x-server`, tested even against a hypothetical future `admin.*` method (B15). Platform-neutral (no Node/DOM imports); WebMCP draft differences live in `src/adapter.ts`. |
 | `packages/log-schema` | JSON Schema + TS | `@plur1bus/log-schema` | D111 (docs/superpowers/specs/2026-10-01-logging-and-diagnostics-design.md): `schema/record.schema.json` (the JSONL diagnostic record, key order, limits), `schema/audit.schema.json` (the audit record: HB12 v1 fields kept, R1), `schema/catalogue.json` (the versioned event catalogue: name → kinds, stream, levels, attrs group, required attrs, one example record each), `schema/levels.json` (OTel `SeverityNumber` and syslog map), `schema/redaction.json` (patterns as data). `validateRecord`/`validateLine` and `validateAuditRecord`/`validateAuditLine` are the validators. `pnpm gen` writes `fixtures/vectors.json` (committed; the Rust parity test reads it). Edit the JSON, run `pnpm gen` and `pnpm docs:gen`; a new event needs an entry with an example. No logger, writer, OTLP or viewer lives here (later D111 parts). |
 | `packages/config-schema` | JSON Schema | `@plur1bus/config-schema` | `config.json` schema with `x-restart` per key, now including the `modules.<name>` namespace (`x-restart: "module:$key"`, `enabled` default `true`); `pnpm gen` writes `fixtures/defaults.json` and `fixtures/restart-plan-cases.json`. |

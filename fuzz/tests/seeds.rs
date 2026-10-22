@@ -87,6 +87,77 @@ fn drive(target: &str, run: fn(&[u8])) {
 fn rpc_message() {
     drive("rpc_message", plur1bus_fuzz::rpc_message::run);
 }
+/// libFuzzer rejects a dictionary line it cannot parse and the whole target then exits 1 (nightly run 39389723993:
+/// `ParseDictionaryFile: error in line 29`). A line is empty, a `#` comment, or `[name]="value"` where the value only knows
+/// the escapes `\\`, `\"` and `\xHH`: no `\n`, `\t`, `\r` and no raw control byte.
+#[test]
+fn dictionaries_parse_like_libfuzzer() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("dicts");
+    let mut n = 0;
+    for entry in std::fs::read_dir(&dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|e| e.to_str()) != Some("dict") {
+            continue;
+        }
+        n += 1;
+        let text = std::fs::read_to_string(&path).unwrap();
+        for (i, line) in text.lines().enumerate() {
+            let at = format!("{}:{}: {line}", path.display(), i + 1);
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let (name, value) = line
+                .split_once('=')
+                .unwrap_or_else(|| panic!("no `=`: {at}"));
+            assert!(
+                name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'),
+                "bad name: {at}"
+            );
+            let body = value
+                .strip_prefix('"')
+                .and_then(|v| v.strip_suffix('"'))
+                .unwrap_or_else(|| panic!("value not quoted: {at}"));
+            let b = body.as_bytes();
+            let mut j = 0;
+            while j < b.len() {
+                match b[j] {
+                    b'\\' => match b.get(j + 1) {
+                        Some(b'\\' | b'"') => j += 2,
+                        Some(b'x')
+                            if b.get(j + 2..j + 4)
+                                .is_some_and(|h| h.iter().all(u8::is_ascii_hexdigit)) =>
+                        {
+                            j += 4
+                        }
+                        _ => panic!("escape libFuzzer does not know: {at}"),
+                    },
+                    b'"' => panic!("unescaped quote: {at}"),
+                    c if c < 0x20 || c == 0x7f => panic!("raw control byte: {at}"),
+                    _ => j += 1,
+                }
+            }
+        }
+    }
+    assert!(n >= 6, "dictionaries not found in {}", dir.display());
+}
+
+/// Nightly crash (run 39389723993): a repeated key. `Value` keeps the last one, a derived struct read from bytes refuses it,
+/// which is not an inconsistency of the wire type (`Client` reads every line through `Value`, last one wins).
+#[test]
+fn rpc_message_repeated_key() {
+    let dup = br#"{"jsonrpc":"2.0","method":"a","method":"b","params":{}}"#;
+    assert!(serde_json::from_slice::<plur1bus_rpc::types::Notification>(dup).is_err());
+    let v: serde_json::Value = serde_json::from_slice(dup).unwrap();
+    assert!(serde_json::from_value::<plur1bus_rpc::types::Notification>(v).is_ok());
+    // every selector (wire type) with the repeated key, plus the original crash input
+    for sel in 0..9u8 {
+        plur1bus_fuzz::rpc_message::run(&[&[sel][..], dup].concat());
+    }
+    plur1bus_fuzz::rpc_message::run(
+        b"\x02{\"jsonrpc\": \"2.0\", \"method\": \"core.js\\\"\", \"method\": \"codnevent\", \"params\": {\"x\": 0}}",
+    );
+}
 #[test]
 fn config_parse() {
     drive("config_parse", plur1bus_fuzz::config_parse::run);

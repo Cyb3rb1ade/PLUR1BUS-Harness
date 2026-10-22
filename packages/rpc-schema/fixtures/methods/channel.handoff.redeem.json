@@ -1,0 +1,12 @@
+{
+  "params": {
+    "token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  "result": {
+    "sessionId": "direct-session",
+    "handoffFrom": {
+      "sessionId": "channel-session",
+      "channel": "telegram"
+    }
+  }
+}

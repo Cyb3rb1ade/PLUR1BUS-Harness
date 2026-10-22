@@ -3,7 +3,7 @@
 // sent: a browser cannot supply an identity, so the Harness API has to derive it from the session cookie (open point).
 export type MemoryMode = "remember" | "incognito";
 export type TurnState = "running" | "completed" | "failed";
-export type SessionEventType = "turn.started" | "delta" | "tool.call" | "tool.result" | "turn.completed" | "turn.failed" | "session.model.changed";
+export type SessionEventType = "turn.started" | "delta" | "tool.call" | "tool.result" | "turn.completed" | "turn.failed" | "session.model.changed" | "decision.completed";
 
 export type SessionRecord = {
   id: string;

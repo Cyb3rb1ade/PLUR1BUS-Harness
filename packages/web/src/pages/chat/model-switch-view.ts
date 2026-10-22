@@ -1,5 +1,5 @@
 // Chat head: model and reasoning of this chat, two native selects (keyboard and screen reader for free). Only configured
-// profiles are offered; locked ones ("Nur lokal", gone from the catalog) stay visible, disabled, with the reason. The
+// profiles are offered; locked ones ("Nur lokale Modelle", gone from the catalog) stay visible, disabled, with the reason. The
 // reasoning select offers only the levels the model supports; a stored level the model lacks is shown with the level it
 // becomes, never silently replaced. A change applies from the next reply and leaves a quiet note in the transcript.
 import { h } from "preact";

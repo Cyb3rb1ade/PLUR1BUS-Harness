@@ -1,0 +1,105 @@
+# Projekt-Befehle
+
+`plur1bus project` verwaltet Projekte, ihre Mitglieder und Agenten sowie das Kanban-Board jedes Projekts im Terminal. Es tut dasselbe wie die Projektseite (`#/projects`), die in [projekte.md](projekte.md) beschrieben ist. Die englische Version dieser Seite ist [../en/project-commands.md](../en/project-commands.md). Die technischen Einzelheiten des Boards stehen in [../../projects-board.md](../../projects-board.md).
+
+Alle 21 Befehle sprechen mit dem laufenden Core, der Daemon muss also laufen. Sonst brechen sie mit `E_CORE_UNAVAILABLE` ab; starte ihn mit `plur1bus daemon start`. Jeder Befehl ist in `plur1bus project --help` als experimentell markiert.
+
+## Ausgabe und IDs
+
+- Ohne `--json` gibt ein Befehl das Ergebnis als eingerücktes JSON aus. Nur `plur1bus project board` gibt einfachen Text aus.
+- Mit `--json` ist das Ergebnis ein JSON-Dokument mit einem Feld `schema`, zum Beispiel `project.card.move/1`. `--json` funktioniert vor und nach dem Befehl.
+- Projekte, Karten und Spalten werden über undurchsichtige IDs benannt. Du bekommst sie mit `plur1bus project list`, `plur1bus project column list` und `plur1bus project card list`.
+- Positionen zählen ab 0. Eine Position hinter der letzten setzt die Karte ans Ende.
+
+## Wer was darf
+
+Der Core entscheidet, nicht der Befehl. Die CLI handelt als angemeldete Person, und die Projektrolle wird aus der gespeicherten Mitgliedschaft gelesen, nie aus der Kommandozeile.
+
+| Was | Erlaubt |
+|---|---|
+| Ein Projekt anlegen | Owner und Admin |
+| Ein Board lesen, Karten auflisten und anzeigen | Jedes Mitglied des Projekts, auch Viewer; Owner und Admin |
+| Karten anlegen, zuweisen und archivieren, Projekt-Agenten hinzufügen oder entfernen | Projektmitglieder (Member oder Lead), deren Kontorolle Member oder Operator ist; Owner und Admin |
+| Karten kommentieren und verschieben | Dieselben Personen; ein Projekt-Agent darf ebenfalls kommentieren und nur Karten verschieben, die ihm zugewiesen sind |
+| Ein Projekt archivieren, Mitglieder und Rollen ändern, Spalten verwalten, ein WIP-Limit übergehen | Projektleiter (Lead); Owner und Admin |
+
+Viewer darf immer nur lesen. Ein Member, Operator oder Viewer, der nicht zum Projekt gehört, kann dessen Board nicht lesen. Ein Agent nutzt nie Verwaltungsrechte oder `--override-wip`. Eine Ablehnung ist `E_DENIED`; ein unbekanntes Projekt, eine unbekannte Karte oder Spalte ist `E_NOT_FOUND`.
+
+## Projekte
+
+| Befehl | Was er tut |
+|---|---|
+| `plur1bus project create <name>` | Legt ein Projekt an und macht dich zu seinem Lead. Der Name wird gekürzt (Leerraum am Rand entfällt) und hat 1 bis 256 Zeichen. Das Projekt beginnt mit einem Board aus vier Spalten: Backlog, In Arbeit, Review und Erledigt. |
+| `plur1bus project list` | Listet die Projekte, die du sehen darfst. Owner, Admin und Operator sehen alle; die übrigen sehen die Projekte, zu denen sie gehören. |
+| `plur1bus project show <id>` | Zeigt ein Projekt mit seinen Mitgliedern und Agenten. |
+| `plur1bus project archive <id>` | Markiert ein Projekt als archiviert. |
+| `plur1bus project board <project>` | Gibt das Board als Text aus: jede Spalte als `Name [ID]`, darunter ihre aktiven Karten als `ID  Titel`. Die Standardspalten zeigen ihren Schlüssel (zum Beispiel `project.board.backlog`) statt eines übersetzten Titels. Mit `--json` kommt `project.board/1` zurück, die Karten stehen in ihren Spalten. |
+
+## Mitglieder und Agenten
+
+| Befehl | Was er tut |
+|---|---|
+| `plur1bus project member add <project> <user> --role lead` | Fügt eine Person hinzu. `--role` ist `member` (Standard) oder `lead`. Wer schon Mitglied ist, bekommt die neue Rolle. |
+| `plur1bus project member role <project> <user> <role>` | Ändert die Rolle auf `member` oder `lead`. Eine Person, die kein Mitglied ist, ergibt `E_NOT_FOUND`. |
+| `plur1bus project member remove <project> <user>` | Entfernt eine Person. Ihr Zugriff auf das Board endet sofort. |
+| `plur1bus project agent add <project> <agent>` | Weist dem Projekt einen Agenten zu. Der Agent muss existieren (sonst `E_AGENT_UNKNOWN`), und du brauchst das Recht „Nutzen“ auf ihn. |
+| `plur1bus project agent remove <project> <agent>` | Entfernt den Agenten aus dem Projekt. |
+
+Wer ein Projekt angelegt hat, ist sein Eigentümer und bleibt immer Lead: Den Eigentümer auf `member` zu setzen, wird mit `E_CONFLICT` abgelehnt.
+
+## Karten
+
+| Befehl | Was er tut |
+|---|---|
+| `plur1bus project card list <project>` | Listet Karten, sortiert nach Spalte und Position. |
+| `plur1bus project card show <project> <card>` | Zeigt eine Karte. |
+| `plur1bus project card create <project> <column> <title>` | Legt eine Karte in einer Spalte an. |
+| `plur1bus project card move <project> <card> <column> <position>` | Verschiebt eine Karte in eine Spalte und an eine Position. |
+| `plur1bus project card assign <project> <card> <kind> <assignee>` | Weist eine Person oder einen Agenten zu. `<kind>` ist `person` oder `agent`. |
+| `plur1bus project card comment <project> <card> <text>` | Fügt einen Markdown-Kommentar hinzu. |
+| `plur1bus project card archive <project> <card>` | Archiviert eine Karte; `--undo` holt sie zurück. |
+
+Optionen von `card list`:
+
+- `--column <id>`, `--label <label>` und `--text <text>` filtern nach Spalte, Label und einem Text (wörtlich, ohne Beachtung der Groß- und Kleinschreibung).
+- `--assignee <id>` filtert nach Zuständigen; `--assignee-kind person|agent` sagt, was die ID ist (Standard `person`).
+- `--archived` listet archivierte statt aktiver Karten.
+- `--limit <n>` liegt zwischen 1 und 100 (Standard 50). Passen mehr Karten, enthält das Ergebnis einen `nextCursor`; gib ihn als `--cursor <cursor>` für die nächste Seite an. Ändert sich dazwischen eine passende Karte, wird der Cursor mit `E_INVALID_PARAMS` abgelehnt: beginne wieder bei der ersten Seite.
+
+Optionen von `card create`:
+
+- `--description <text>` ist reiner Markdown-Text (standardmäßig leer).
+- `--label <label>` lässt sich wiederholen.
+- `--priority` ist `none`, `low`, `normal` (Standard), `high` oder `urgent`.
+- `--due-at <ms>` ist das Fälligkeitsdatum in Epoch-Millisekunden.
+- `--position <n>` fügt an dieser Position ein, statt anzuhängen.
+- `--override-wip` legt die Karte an, obwohl die Spalte voll ist. Dafür brauchst du Lead-Rechte im Projekt.
+
+`card move` kennt dasselbe `--override-wip`. `card assign --remove` hebt die Zuweisung auf. Zugewiesen werden können nur aktuelle Projektmitglieder und zugewiesene Projekt-Agenten. `card archive --undo --override-wip` holt eine Karte in eine volle Spalte zurück; `--override-wip` gilt nur zusammen mit `--undo`.
+
+## Spalten
+
+| Befehl | Was er tut |
+|---|---|
+| `plur1bus project column list <project>` | Listet die Spalten der Reihe nach. |
+| `plur1bus project column create <project> <title>` | Fügt eine Spalte hinzu. `--wip-limit <n>` setzt ein Limit von 1 oder mehr Karten, `--position <n>` platziert sie. Mit `--title-key` wird der Titel als Übersetzungsschlüssel gelesen, nicht als Anzeigetitel. |
+| `plur1bus project column move <project> <column> <position>` | Verschiebt eine Spalte an eine Position. |
+| `plur1bus project column delete <project> <column>` | Löscht eine Spalte. Ohne `--target <column>` muss sie leer sein; archivierte Karten zählen mit. Mit `--target` ziehen zuerst alle ihre Karten dorthin um. `--override-wip` erlaubt den Umzug in eine volle Spalte. |
+
+Eine Karte in eine andere Spalte zu verschieben, eine Karte anzulegen, eine Karte zurückzuholen und die Karten einer gelöschten Spalte umzuziehen prüfen das WIP-Limit der Zielspalte. Eine Karte, die es überschreiten würde, wird mit `E_PROJECT_WIP_LIMIT` abgelehnt, und nichts ändert sich. Umsortieren innerhalb einer Spalte geht immer. Nur aktive Karten zählen zum Limit.
+
+## Beispiel
+
+```sh
+plur1bus project create "Website-Relaunch"
+plur1bus project column list <project>
+plur1bus project card create <project> <column> "Text schreiben" --priority high --label content
+plur1bus project card assign <project> <card> agent <agent>
+plur1bus project card move <project> <card> <column> 0
+plur1bus project board <project>
+```
+
+## Weiter
+
+- Das Board in der Weboberfläche: [projekte.md](projekte.md)
+- Fehler: [../../errors.md](../../errors.md)

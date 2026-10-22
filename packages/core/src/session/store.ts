@@ -157,9 +157,12 @@ export class SessionStore {
     let archivedId: string | undefined;
     const result = this.#tx(() => {
       if (i.chatKey !== undefined) {
-        const active = this.#get("SELECT id FROM sessions WHERE chat_key = ? AND archived_at IS NULL", i.chatKey);
+        const active = this.#get("SELECT id, owner FROM sessions WHERE chat_key = ? AND archived_at IS NULL", i.chatKey);
         if (active) {
-          if (!i.replaceActive) throw new SessionError("conflict", `chat ${i.chatKey} already has an active session`, "active-chat-session");
+          // Replacing is archiving: only the session's own owner may do it (anyone else gets the plain "already active" answer, no oracle
+          // beyond the one the non-replacing path already gives), and never under a running turn (archiveSession refuses that too).
+          if (!i.replaceActive || active.owner !== i.owner) throw new SessionError("conflict", `chat ${i.chatKey} already has an active session`, "active-chat-session");
+          if (this.runningTurn(active.id as string)) throw new SessionError("conflict", `session ${active.id as string} has a running turn`, "turn-in-progress");
           archivedId = active.id as string;
           this.#run("UPDATE sessions SET archived_at = ?, updated_at = ? WHERE id = ?", now, now, active.id as string);
         }
@@ -172,6 +175,16 @@ export class SessionStore {
     });
     if (archivedId) this.#archived(archivedId);
     return result;
+  }
+
+  /** Host-only continuation: immutable new direct chat plus quoted user-context preamble in one transaction. */
+  createContinuation(i: { agentId: string; owner: string; title: string; context: string }): SessionRecord {
+    if (typeof i.context !== 'string' || i.context.length > 8000) throw new SessionError('invalid', 'invalid continuation', 'context');
+    return this.#tx(() => {
+      const session = this.createSession({ kind: 'direct', agentId: i.agentId, owner: i.owner, title: i.title });
+      this.#insertMessage(session.id, null, 'user', i.context, Math.ceil(i.context.length / 4));
+      return session;
+    });
   }
 
   getSession(id: string): SessionRecord | null {
@@ -451,10 +464,12 @@ export class SessionStore {
     return this.#all("SELECT * FROM events WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, afterSeq, Math.min(Math.max(limit, 1), 2000)).map(toEvent);
   }
 
-  listMessages(sessionId: string, o: { afterSeq?: number; beforeSeq?: number; limit?: number } = {}): MessageRecord[] {
+  listMessages(sessionId: string, o: { afterSeq?: number; beforeSeq?: number; limit?: number; keep?: "newest" | "oldest" } = {}): MessageRecord[] {
     const limit = Math.min(Math.max(o.limit ?? 10_000, 1), 100_000);
-    if (o.beforeSeq !== undefined) return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq DESC LIMIT ?", sessionId, o.beforeSeq, o.afterSeq ?? 0, limit).map(toMessage).reverse();
-    return this.#all("SELECT * FROM messages WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, o.afterSeq ?? 0, limit).map(toMessage);
+    // `keep: "oldest"` is the forward-paging reading (chat.get's documented legacy order): a cut-off keeps the first `limit` messages after `afterSeq`.
+    if (o.keep === "oldest") return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq LIMIT ?", sessionId, o.beforeSeq ?? Number.MAX_SAFE_INTEGER, o.afterSeq ?? 0, limit).map(toMessage);
+    // Ascending result, but a cut-off keeps the NEWEST `limit` messages (never the oldest): the readers want the tail of a long session.
+    return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq DESC LIMIT ?", sessionId, o.beforeSeq ?? Number.MAX_SAFE_INTEGER, o.afterSeq ?? 0, limit).map(toMessage).reverse();
   }
 
   tokenCalibration(model: string): number | null { return (this.#get("SELECT factor FROM token_calibration WHERE model=?", model)?.factor as number | undefined) ?? null; }
@@ -462,14 +477,35 @@ export class SessionStore {
   setTokenFactor(model: string, factor: number): void { this.#run("INSERT INTO token_calibration(model,factor) VALUES (?,?) ON CONFLICT(model) DO UPDATE SET factor=excluded.factor", model, factor); }
   recordMessageUsage(id: string, model: string, tokens: number): void { this.#run("INSERT OR REPLACE INTO message_usage(message_id,model,tokens) VALUES (?,?,?)", id, model, tokens); }
   messageUsage(id: string, model: string, text: string): number | undefined { return this.#get("SELECT u.tokens FROM message_usage u JOIN messages m ON m.id=u.message_id WHERE message_id=? AND model=? AND m.text=?", id, model, text)?.tokens as number | undefined; }
-  toolVisibility(sessionId: string): { ref: string; hidden: boolean; reason: string }[] {
-    return this.#all("SELECT ref,hidden,reason FROM tool_visibility WHERE session_id=? ORDER BY ref", sessionId).map(r => ({ ref: r.ref as string, hidden: r.hidden === 1, reason: r.reason as string }));
+  toolVisibility(sessionId: string): { ref: string; hidden: boolean; reason: string; mode?: 'truncate' }[] {
+    return this.#all("SELECT ref,hidden,reason,mode FROM tool_visibility WHERE session_id=? ORDER BY ref", sessionId).map(r => ({ ref: r.ref as string, hidden: r.hidden === 1, reason: r.reason as string, ...(r.mode === "truncate" ? { mode: "truncate" as const } : {}) }));
   }
-  setToolVisibility(sessionId: string, ref: string, hidden: boolean, reason: string): void {
+  setToolVisibility(sessionId: string, ref: string, hidden: boolean, reason: string, detail?: { mode: "truncate" | "drop"; confidence: number; tokensSaved: number }): void {
     this.#run("INSERT INTO tool_visibility(session_id,ref,hidden,reason) VALUES (?,?,?,?) ON CONFLICT(session_id,ref) DO UPDATE SET hidden=excluded.hidden,reason=excluded.reason", sessionId, ref, hidden ? 1 : 0, reason);
+    if (detail) this.#run("UPDATE tool_visibility SET mode=?,confidence=?,tokens_saved=? WHERE session_id=? AND ref=?", detail.mode, detail.confidence, detail.tokensSaved, sessionId, ref);
   }
-  setToolVisibilities(sessionId: string, changes: { ref: string; hidden: boolean; reason: string }[]): void {
-    this.#tx(() => { for (const change of changes) this.setToolVisibility(sessionId,change.ref,change.hidden,change.reason); });
+  /** Administrative transcript replies are not semantic references to original tool output. */
+  latestAssistantContext(sessionId: string): string {
+    return this.#get("SELECT m.text FROM messages m WHERE m.session_id=? AND m.role='assistant' AND NOT EXISTS (SELECT 1 FROM events e WHERE e.session_id=m.session_id AND e.turn_id=m.turn_id AND e.type='turn.completed' AND json_extract(e.data,'$.provider')='harness-command') ORDER BY m.seq DESC LIMIT 1",sessionId)?.text as string ?? '';
+  }
+  pruneExplanation(sessionId: string): {ref:string;hidden:boolean;verdict:string;confidence:number|null;tokensSaved:number}[] {
+    return this.#all("SELECT ref,hidden,mode,confidence,tokens_saved FROM tool_visibility WHERE session_id=? ORDER BY ref",sessionId).map(r=>({ref:String(r.ref),hidden:r.hidden===1,verdict:String(r.mode),confidence:r.confidence===null?null:Number(r.confidence),tokensSaved:Number(r.tokens_saved)}));
+  }
+  recordToolRefetch(sessionId: string, ref: string): void { this.#run("UPDATE tool_visibility SET refetches=refetches+1 WHERE session_id=? AND ref=?",sessionId,ref); }
+  pruneMetrics(sessionId: string): { pruned: number; tokensSaved: number; refetches: number; refetchRate: number } {
+    const r=this.#get("SELECT COUNT(*) AS pruned,COALESCE(SUM(tokens_saved),0) AS saved,COALESCE(SUM(refetches),0) AS refetches FROM tool_visibility WHERE session_id=?",sessionId)!;
+    const pruned=Number(r.pruned),refetches=Number(r.refetches);
+    return {pruned,tokensSaved:Number(r.saved),refetches,refetchRate:pruned?refetches/pruned:0};
+  }
+  setToolVisibilities(sessionId: string, changes: { ref: string; hidden: boolean; reason: string; turnId?: string; detail?: { mode: "truncate" | "drop"; confidence: number; tokensSaved: number } }[]): void {
+    this.#tx(() => { for (const change of changes) {
+      this.setToolVisibility(sessionId,change.ref,change.hidden,change.reason,change.detail);
+      if(change.detail && change.turnId) {
+        const turn=this.#get("SELECT session_id,state FROM turns WHERE id=?",change.turnId);
+        if(!turn || turn.session_id!==sessionId || turn.state!=='completed') throw new SessionError('conflict','pruning turn is not completed','turn-not-running');
+        this.#insertEvent(sessionId,change.turnId,'compaction.prune',{ref:change.ref,...change.detail});
+      }
+    } });
   }
   /** Internal read-only background scan; event pagination never drops older tool pairs. */
   toolEvents(sessionId: string): EventRecord[] { return this.#all("SELECT * FROM events WHERE session_id=? AND type IN ('tool.call','tool.result') ORDER BY seq", sessionId).map(toEvent); }

@@ -1,0 +1,134 @@
+[
+  {
+    "name": "accelerate",
+    "version": "1.15.0",
+    "source": "https://pypi.org/pypi/accelerate/1.15.0/json",
+    "licenseExpression": null,
+    "license": "Apache",
+    "licenseClassifiers": [
+      "License :: OSI Approved :: Apache Software License"
+    ]
+  },
+  {
+    "name": "datasets",
+    "version": "5.0.1",
+    "source": "https://pypi.org/pypi/datasets/5.0.1/json",
+    "licenseExpression": null,
+    "license": "Apache 2.0",
+    "licenseClassifiers": [
+      "License :: OSI Approved :: Apache Software License"
+    ]
+  },
+  {
+    "name": "fastapi",
+    "version": "0.141.1",
+    "source": "https://pypi.org/pypi/fastapi/0.141.1/json",
+    "licenseExpression": "MIT",
+    "license": null,
+    "licenseClassifiers": []
+  },
+  {
+    "name": "huggingface-hub",
+    "version": "1.32.0",
+    "source": "https://pypi.org/pypi/huggingface-hub/1.32.0/json",
+    "licenseExpression": null,
+    "license": "Apache-2.0",
+    "licenseClassifiers": [
+      "License :: OSI Approved :: Apache Software License"
+    ]
+  },
+  {
+    "name": "mlx",
+    "version": "0.32.2",
+    "source": "https://pypi.org/pypi/mlx/0.32.2/json",
+    "licenseExpression": null,
+    "license": "MIT",
+    "licenseClassifiers": []
+  },
+  {
+    "name": "mlx-lm",
+    "version": "0.31.3",
+    "source": "https://pypi.org/pypi/mlx-lm/0.31.3/json",
+    "licenseExpression": null,
+    "license": "MIT",
+    "licenseClassifiers": []
+  },
+  {
+    "name": "networkx",
+    "version": "3.6.1",
+    "source": "https://pypi.org/pypi/networkx/3.6.1/json",
+    "licenseExpression": "BSD-3-Clause",
+    "license": null,
+    "licenseClassifiers": []
+  },
+  {
+    "name": "numpy",
+    "version": "2.5.3",
+    "source": "https://pypi.org/pypi/numpy/2.5.3/json",
+    "licenseExpression": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+    "license": null,
+    "licenseClassifiers": []
+  },
+  {
+    "name": "peft",
+    "version": "0.21.0",
+    "source": "https://pypi.org/pypi/peft/0.21.0/json",
+    "licenseExpression": null,
+    "license": "Apache",
+    "licenseClassifiers": [
+      "License :: OSI Approved :: Apache Software License"
+    ]
+  },
+  {
+    "name": "pydantic",
+    "version": "2.13.5",
+    "source": "https://pypi.org/pypi/pydantic/2.13.5/json",
+    "licenseExpression": "MIT",
+    "license": null,
+    "licenseClassifiers": []
+  },
+  {
+    "name": "scikit-learn",
+    "version": "1.9.1",
+    "source": "https://pypi.org/pypi/scikit-learn/1.9.1/json",
+    "licenseExpression": "BSD-3-Clause",
+    "license": null,
+    "licenseClassifiers": []
+  },
+  {
+    "name": "torch",
+    "version": "2.8.0",
+    "source": "https://pypi.org/pypi/torch/2.8.0/json",
+    "licenseExpression": null,
+    "license": "BSD-3-Clause",
+    "licenseClassifiers": [
+      "License :: OSI Approved :: BSD License"
+    ]
+  },
+  {
+    "name": "transformers",
+    "version": "5.17.0",
+    "source": "https://pypi.org/pypi/transformers/5.17.0/json",
+    "licenseExpression": null,
+    "license": "Apache 2.0 License",
+    "licenseClassifiers": []
+  },
+  {
+    "name": "typesafe-sdk",
+    "version": "0.6.0",
+    "source": "https://pypi.org/pypi/typesafe-sdk/0.6.0/json",
+    "licenseExpression": "MIT",
+    "license": null,
+    "licenseClassifiers": [
+      "License :: OSI Approved :: MIT License"
+    ]
+  },
+  {
+    "name": "uvicorn",
+    "version": "0.53.0",
+    "source": "https://pypi.org/pypi/uvicorn/0.53.0/json",
+    "licenseExpression": "BSD-3-Clause",
+    "license": null,
+    "licenseClassifiers": []
+  }
+]
