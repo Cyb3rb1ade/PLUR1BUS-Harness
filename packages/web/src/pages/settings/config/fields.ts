@@ -79,7 +79,7 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
   }
   return h("div", { class: "cfg-field", "data-key": f.key, ...(highlighted ? { "data-focus": "true" } : {}) },
     h("div", { class: "cfg-head" },
-      h("label", { for: id }, humanize(f.key)),
+      h("label", { for: id }, f.key === "decision.backend" ? t("settings.decision.backend") : humanize(f.key)),
       h(RestartBadge, { cls: f.restartClass })),
     h("p", { class: "cfg-key", id: `${id}-key` }, h("span", { class: "sr-only" }, `${t("settings.cfg.key")}: `), h("code", null, f.key)),
     control,
@@ -96,4 +96,4 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
 
 /** Group heading text: the first key segment ("core.recall.softBudgetMs" is in "Core"); single-segment keys share "Other". */
 export const groupOf = (key: string): string => (key.includes(".") ? key.split(".")[0]! : "");
-export const groupTitle = (g: string): string => (g === "" ? t("settings.cfg.groupOther") : humanize(g));
+export const groupTitle = (g: string): string => (g === "decision" ? t("settings.decision.title") : g === "" ? t("settings.cfg.groupOther") : humanize(g));

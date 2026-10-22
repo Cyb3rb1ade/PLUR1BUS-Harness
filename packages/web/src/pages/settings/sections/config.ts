@@ -83,7 +83,7 @@ type FormProps = { data: Loaded; section: SectionProps["section"]; focus?: strin
 function Form({ data, section, focus, onSaved, reload }: FormProps): View {
   const role = currentRole();
   const canWrite = roleIn(role, ["owner", "admin"]);
-  const fields = useMemo(() => [...buildFields(data.config, section, data.restart).filter(f => section.id !== "models" || f.key !== "modelRoles"), ...(section.id === "models" ? roleFields(data.config, data.catalog, data.licenceBlocked) : [])], [data, section]);
+  const fields = useMemo(() => [...buildFields(data.config, section, data.restart).filter(f => section.id !== "models" || f.key !== "modelRoles").filter(f => section.id !== "decision" || f.key !== "decision"), ...(section.id === "models" ? roleFields(data.config, data.catalog, data.licenceBlocked) : [])], [data, section]);
   const [draft, setDraft] = useState<Draft>(() => initialDraft(fields));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [review, setReview] = useState<Review | null>(null);

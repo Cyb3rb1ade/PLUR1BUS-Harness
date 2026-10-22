@@ -1,3 +1,4 @@
+import { guardMethods } from "../../core/src/rbac/guard.ts";
 import { SessionStore, OWNER } from "../src/session.ts";
 import { FakeClock } from "../src/clock.ts";
 import { webPrincipal, webConnection, forgetWebConnection } from "../src/principal.ts";
@@ -93,6 +94,20 @@ test("NC config mutations preflight through authenticated core and refuse before
   const core = { callAs: async (method: string) => { calls.push(method); if(method==="model.licence.check") throw {error:"E_DENIED",reason:"model-licence-required"}; } } as unknown as CoreRpc;
   const r=await rpcRoute(core,{jsonrpc:"2.0",id:1,method:"config.set",params:{changes:[{key:"modelRoles.rerank",value:"jinaai/jina-reranker-v2-base-multilingual"}]}},person);
   assert.equal((r.error as any).data.error,"E_DENIED");assert.deepEqual(calls,["model.licence.check"]);
+});
+
+test('decision diagnostics have explicit web exposure and retain human settings guards', async () => {
+  assert.equal(webEndpoint('decision.status'), 'core'); assert.equal(webEndpoint('decision.test'), 'core');
+  let calls = 0;
+  const core: CoreRpc = { call: async () => { throw Error('legacy'); }, callAs: async (method, params, principal) => {
+    const methods = guardMethods({ [method]: async () => { calls++; return {}; } }, { resolve: () => principal as never, now: () => 0 });
+    return await methods[method]!(params, { requestId: 'probe', connectionId: 'web', signal: AbortSignal.timeout(1000) }) as never;
+  } };
+  for (const principal of [{ userId: 'alice', kind: 'person', role: 'member' }, { userId: 'bot', kind: 'agent', agentId: 'a' }]) {
+    const result = await rpcRoute(core, { jsonrpc: '2.0', id: 1, method: 'decision.test', params: { agentId: 'default' } }, principal as never);
+    assert.ok('error' in result);
+  }
+  assert.equal(calls, 0);
 });
 
 test("engine role tests route explicit closed params and authenticated principal to core", async () => {
