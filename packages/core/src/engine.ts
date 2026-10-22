@@ -5,11 +5,8 @@ import { RpcError } from "./rpc/errors.ts";
 export const CORE_CONTRACT = "1.16.0";
 /** The engine contract's supported major version (ADR-016 §1): the core accepts major 1 only. */
 export const SUPPORTED_CONTRACT_MAJOR = 1;
-/** The lowest minor the core runs on (S18): 1.8.0 (E4) adds `Engine.models` and the model-derived `EngineStatus`.
- *  The pinned engine is 1.16.0 (plugin #253: memory.link, Engine.capabilities; #252: 1.15.0 host fetch/secret ports, HTTP
- *  reranker, unimport by sourceRef run). The floor stays 1.8.0: the importer feature-tests `engine.capabilities.memoryLink`
- *  before it calls memory.link (import/importers/card-links.ts) and falls back to the ledger-only link without it (HB2). */
-export const MIN_CONTRACT_MINOR = 8;
+/** Contract 1.15 is required: older engines ignore host.fetch and host.secrets and bypass per-request egress. */
+export const MIN_CONTRACT_MINOR = 15;
 
 /** Refuses to start against an engine whose `contract` isn't a `<int>.<int>.<int>` string with the
  *  supported major (G20): throws E_RPC_VERSION reason=engine-contract-major, detail=<contract>; and against

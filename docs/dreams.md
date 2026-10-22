@@ -36,7 +36,7 @@ by `hash(agentId, phase) % 1800 s` so many agents do not start together; at most
 | Circuit breaker | 3 LLM sessions per agent per UTC day across rem and deep; the 4th is not started, the run is `aborted`, the breaker stays open to the next UTC midnight | `breaker_sessions`, then `breaker_open` |
 | Minimum corpus | see Triggers | `min_corpus` |
 | Concurrency | 3 phase runs at once; a second run of the same agent and phase is refused | `already_running` |
-| Candidates | dedupe by content hash, 72 h expiry, utility gate (never `recalls = 0`; ≥ 3 recalls, ≥ 3 queries, score ≥ 0.75) with a gate-by-gate decision record. Producer: `packages/core/src/dreams/producer.ts` (`createCandidateSource` / `itemsFromEngineList`), driven by `Engine.memory.list` in production (agent-private cards only, ADR-009 Q5; content + optional score; never invents recalls/uniqueQueries; a truncated listing fails closed). Pinned engine 1.12.0 has no recall/query stats API — KNOWN GAP, see Open points. Test: `packages/core/test/dreams/producer.test.ts` "Producer yields candidates against a fake engine." / "a workspace/user card is not ingested as agent-private" | `no_candidates` |
+| Candidates | dedupe by content hash and 72 h expiry remain. Candidate gates authorize only the explicit promotion step; `consolidate-daily`, `auto-accept-stale` and `gc-run` run with zero candidates too. Real recall counters come from public Engine 1.17.0 `memory.stats` when present: ≥ 3 recalls, ≥ 3 distinct queries, score ≥ 0.75 when a public query result reports one. A `since` listing has no similarity score; `score = null` passes that optional gate while the observed recall/query thresholds still apply. Without counters, a diagnostic fallback field records age ≥ 24 h plus either importance ≥ 0.75 (only if publicly reported) or at least two distinct private source cards with identical normalized content. Search score is never importance; repeated scheduler pulls never count as repeated evidence. This field changes neither shortlist membership nor promotion eligibility; it only explains available evidence. | gate-by-gate candidate decision; no phase-level `no_candidates` skip |
 | No LLM route | the engine's `no_llm_*` skip | `no_llm_route` |
 
 An engine job that fails, comes back `incomplete` or `abandoned`, or a diary the engine says it did not write, is recorded
@@ -59,7 +59,7 @@ plur1bus dreams log --agent A [--phase P]     the phase ledger; --run ID shows o
 plur1bus dreams schedule get --agent A
 plur1bus dreams schedule set <phase> --agent A [--cron "…"] [--timezone Z] [--enabled true|false]
 plur1bus dreams enable|disable <phase> --agent A
-plur1bus dreams diary --agent A               private diary (`dreaming.md`); owner or agent.manage; `--json`
+plur1bus dreams diary --agent A               private diary (`DREAMS.md`); owner or agent.manage; `--json`
 ```
 
 `dreams run <job>` with an engine job name (for example `gc-run`) and `dreams log --job` keep working as before. The RPC
@@ -172,7 +172,7 @@ input. Inner whitespace is **not** collapsed: `"a  b"`, `"a\nb"` and `"a b"` are
   (`reason: "dreams-unavailable"`, plus `detail` when a cause is known). `dreams.schedule.set` validates before writing and
   maps a bad cron or timezone to `E_INVALID_PARAMS` with `detail: "cron"` or `"timezone"`; the row stays unchanged.
   `dreams.log` with an unknown `runId` is `E_NOT_FOUND`. A failing engine job is an answered run (`failed`), not an RPC
-  error. `dryRun` writes no ledger row and calls no engine job. `dreams.diary` reads `dreaming.md` (capped at 262 144 bytes,
+  error. `dryRun` writes no ledger row and calls no engine job. `dreams.diary` reads `DREAMS.md` (capped at 262 144 bytes,
   redacted); unlimited diary retention is unchanged. Tests: `methods.test.ts` (all `describe` blocks).
 * Doctor (`1staid check` id `dreams.last-runs`, append-only after `models.roles`): last run per phase and agent, error
   state, missed windows (`enabled && nextRunAt <= now`). Injectable clock (`Env.now`). Test: `doctor_reports_a_missed_window`
@@ -195,7 +195,7 @@ Fixed in the 2026-10-14 consistency wave (test references above):
 8. **Candidate producer** ships (`packages/core/src/dreams/producer.ts`); test
    `packages/core/test/dreams/producer.test.ts` "Producer yields candidates against a fake engine." Production wiring maps
    `Engine.memory.list` agent-private cards only (ADR-009 Q5; workspace/user cards are not ingested as `agent-private`)
-   and never invents recalls/uniqueQueries. A truncated listing throws (`failed/engineError`). Score is copied only when
+   and never invents recalls/uniqueQueries. The public 100-card time listing is paged with overlapping inclusive boundaries and ids are deduplicated. If more than 100 cards share one boundary timestamp, the cursor-less API cannot prove completeness: candidate reading fails closed (`failed/engine_error`) after independent maintenance. Score is copied only when
    present; a `since` listing does not include scores (no topic query).
 9. **`plur1bus dreams diary`** / RPC `dreams.diary` (agent.manage, redacted, `--json`):
    `methods.test.ts` "Diary only with the right (viewer sees nothing foreign)."
@@ -209,3 +209,23 @@ Still open (deliberately):
   topic-search score, not recall counts or unique-query stats. The producer does not fake scoring. Owner question: attach
   the content-only producer now (deep then skip/`no_candidates`, fail closed) — done on this branch — or wait for an engine
   stats API before wiring production? The module is driven by a fake engine in tests either way.
+* **Controller pin pending (A1):** the current Engine pin has no public recall-statistics or explicit promotion API. The optional compatibility adapter uses Engine contract **1.17.0** `memory.stats(ids, principal, context)` and `memory.promote({ ids }, principal, context)` when available. Until the Controller pins that contract, maintenance works and candidates remain unpromoted. Both fixture regressions and strict source acceptance are required; final installed-pin promotion acceptance remains mandatory after that pin. No statistics are fabricated.
+
+## Promotion confirmation (A3)
+
+The producer retains the Engine's currently visible agent-private memory id; a ledger content hash cannot reconstruct an id or confer access. It joins `memory.stats` by that id and refuses foreign-agent, duplicate or malformed counter responses. Shared workspace/user cards stay outside this producer. An incomplete listing fails closed for promotion; the independent light/deep maintenance jobs still run, then the run reports `failed/engine_error` for the candidate read.
+
+Statistics and promotion requests use batches of at most 500 source ids, respecting both Engine admission limits. After the jobs complete, the scheduler submits eligible source ids to the Engine's explicit promotion operation. Every batch receipt must validate before any ledger row advances; cancellation or a later failed batch leaves the ledger open for reconciliation. The ledger advances to `promoted` only for a matching same-agent `promoted/integrated` receipt. `skipped/already-promoted` is also positive confirmation: A1 found its durable source marker, allowing reconciliation after a crash between the Engine write and the ledger write. Other skips, missing receipts, errors and cancellation leave the candidate shortlisted; the Engine result/reason is kept with its gate decision. Receipts are validated before a single ledger transaction records them.
+
+The host operation uses the existing proved agent/workspace principal and `AgentContext { origin: "system", background: false }`, matching A1's explicit host transaction contract. Here `background: false` describes that authorized transaction; the enclosing sweep may originate from cron. Model calls never receive this context. Engine ACL, lifecycle, source scope and promotion caps remain authoritative.
+
+## Diary path and web reader (A5, 2026-10-20)
+
+The engine owns `<agent workspace>/DREAMS.md`. The scheduler status and `dreams.diary` read that same file; the older
+D15 `dreaming.md` mapping is superseded for this runtime path. On the Memories → Dreams tab, **Read diary** loads the
+redacted RPC text on demand. The reader preserves line breaks and displays content as text, with explicit missing,
+empty, forbidden, unavailable and truncated states. Existing diary authorization and redaction remain enforced by the
+core; the browser receives no filesystem access.
+
+The integration regression runs the real pinned engine with a flat embedder and a stub LLM, generates a light dream
+through capture, then reads the actual engine-written diary through `dreams.diary`. No live provider is called.

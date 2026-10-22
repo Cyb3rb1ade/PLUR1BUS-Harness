@@ -150,7 +150,9 @@ describe("Hermes memory cards with --adopt-store (owner decision 2026-10-19, sam
     assert.match(linked[0].sourceRef, /^hermes:default:memories\/MEMORY\.md#1;run=/);
     assert.match(renderHermes(r), /1 linked/);
     assert.ok(!JSON.stringify(r).includes(CONTENT_MARKER), "the report carries no card text");
-    assert.equal(readFileSync(join(l.workspaceDir("default"), "memories.md"), "utf8"), `${CONTENT_MARKER} 1\n\n§\n\n${CONTENT_MARKER} a new fact 7\n`);
+    const rawMirror = `${CONTENT_MARKER} 1\n\n§\n\n${CONTENT_MARKER} a new fact 7\n`;
+    const marker = createHash("sha256").update(`hermes-agent-memory-import\0${rawMirror}`).digest("hex");
+    assert.equal(readFileSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md"), "utf8"), `<!-- plur1bus-imported-knowledge:${marker} -->\n## Imported agent knowledge\n\n> ${CONTENT_MARKER} 1\n> \n> §\n> \n> ${CONTENT_MARKER} a new fact 7\n> \n`);
 
     // A second run with the same --adopt-store: the harness store is that store (last recorded take-over), so it is not
     // copied again and the link is reused; nothing is written to the store.
@@ -175,10 +177,10 @@ describe("Hermes memory cards with --adopt-store (owner decision 2026-10-19, sam
     assert.equal(userCards(first).every((c) => c.reason === "unresolved-user-scope"), true, "USER.md without a binding is not parked");
     assert.deepEqual([first.counts.memoryCardsPendingReembed, first.counts.memoryCardsImported, first.counts.memoryCardsLinked, first.counts.unresolvedUserScope], [2, 0, 0, 2]);
     assert.equal(treeDigest(l.lancedb), treeDigest(src), "nothing embedded into the foreign-space store: it is exactly the source copy");
-    assert.ok(!existsSync(join(l.workspaceDir("default"), "memories.md")), "no mirror for parked cards");
+    assert.ok(!existsSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md")), "no mirror for parked cards");
     const parked = ledgerOf(first).filter((e) => e.entity === "memory" && e.action === "pending-reembed");
     assert.deepEqual(parked.map((e) => e.sourceRef.replace(/;run=.*$/, "")), ["hermes:default:memories/MEMORY.md#1", "hermes:default:memories/MEMORY.md#2"]);
-    assert.ok(parked.every((e) => e.targetRef === "agents/default/workspace/memories.md" && /^[0-9a-f]{64}$/.test(e.sha256)));
+    assert.ok(parked.every((e) => e.targetRef === "agents/default/workspace/memory/KNOWLEDGE.md" && /^[0-9a-f]{64}$/.test(e.sha256)));
     assert.match(renderHermes(first), /2 pending-reembed/);
 
     // Not migrated yet: a re-run keeps them parked and leaves the store as it is (the identity check only reads it).

@@ -62,7 +62,7 @@ jobs:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -154,10 +154,13 @@ jobs:
         run: cargo test --workspace --no-fail-fast
         timeout-minutes: 20
   # Not gated: macOS (Core qualification remains unproven) and Windows (slow) legs, named as before, `unit (macos-15)` etc.
+  # Every leg here is non-Linux, so the whole job follows the full-platform policy (`changes.macos`: push to main, schedule,
+  # dispatch, label `ci:macos`, platform-sensitive paths; docs/ci.md) instead of excluding matrix entries (an all-excluded
+  # matrix is not used). The Linux leg is `unit` above.
   unit-os:
     name: unit (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true')
+    if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true') && needs.changes.outputs.macos == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -169,7 +172,7 @@ jobs:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -358,7 +361,7 @@ jobs:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -416,7 +419,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -464,7 +467,7 @@ jobs:
       PLUR1BUS_TEST_SHARD_MANIFEST: ${{ github.workspace }}/web-browser-shard-${{ matrix.shard }}.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -604,7 +607,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
-        exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}
+        exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"},{"os":"windows-2025"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -683,7 +686,7 @@ jobs:
         shell: bash
         timeout-minutes: 10
         run: '"$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests -t hosts/hermes'
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -788,7 +791,7 @@ jobs:
             exit 1
           fi
       - if: steps.wsl_setup_status.outputs.ready == 'true'
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - if: steps.wsl_setup_status.outputs.ready == 'true'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -874,6 +877,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0 }
       - run: node --test scripts/release/test/*.test.mjs scripts/ci/cache-policy.test.mjs
+      - run: node --test scripts/ci/timings.test.mjs
       - name: install pinned actionlint (setup only)
         run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
       - name: lint workflows locally
@@ -889,9 +893,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-15, ubuntu-24.04, ubuntu-24.04-arm, windows-2025, windows-11-arm]
+        exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"},{"os":"windows-2025"},{"os":"windows-11-arm"}]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0 }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
         with: { toolchain: "1.95" }
@@ -899,6 +904,37 @@ jobs:
       - run: cargo build -p plur1bus --bin plur1bus-sandbox-limits
       - name: kernel sandbox adversarial probes (explicit skip when unavailable)
         run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 packages/core/test/tools/sandbox/sandbox.test.ts
+
+  host-tool-eval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - name: generate RPC schema types
+        run: node packages/rpc-schema/src/build.mjs
+      - name: deterministic host tool/policy scenarios (safe fake OS ports)
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/tool-eval-host.ts
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: always()
+        with: { name: host-tool-eval-fixture, path: artifacts/tool-eval/ }
 
   # Independent advisory job. Existing jobs/gates are intentionally untouched.
   perf-startup:
@@ -908,17 +944,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: macos-15, target: darwin-arm64 }
-          - { os: windows-2025, target: win32-x64 }
-          - { os: windows-11-arm, target: win32-arm64 }
-          - { os: ubuntu-24.04, target: linux-x64 }
-          - { os: ubuntu-24.04-arm, target: linux-arm64 }
+        # `exclude` cannot remove `include` entries, so the non-Linux legs are chosen by the full-platform policy here.
+        include: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[{"os":"macos-15","target":"darwin-arm64"},{"os":"windows-2025","target":"win32-x64"},{"os":"windows-11-arm","target":"win32-arm64"},{"os":"ubuntu-24.04","target":"linux-x64"},{"os":"ubuntu-24.04-arm","target":"linux-arm64"}]' || '[{"os":"ubuntu-24.04","target":"linux-x64"},{"os":"ubuntu-24.04-arm","target":"linux-arm64"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with: { node-version: 24.21.0, cache: pnpm }
@@ -987,13 +1019,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-15, windows-2025, windows-11-arm, ubuntu-24.04, ubuntu-24.04-arm]
+        exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"},{"os":"windows-2025"},{"os":"windows-11-arm"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
         with: { toolchain: '1.95' }
@@ -1023,7 +1056,7 @@ jobs:
           else
             exit "$result"
           fi
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: budgets-${{ matrix.os }}
@@ -1049,7 +1082,7 @@ jobs:
       CHROME_VERSION: 141.0.7390.54
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }

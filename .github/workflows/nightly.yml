@@ -25,7 +25,7 @@ jobs:
       PLUR1BUS_MODELS_CACHE: ${{ github.workspace }}/.models-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -91,7 +91,7 @@ jobs:
       PLUR1BUS_SEARXNG_LIVE_URL: ${{ vars.PLUR1BUS_SEARXNG_LIVE_URL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -122,6 +122,42 @@ jobs:
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - name: fuzz the inspect pipeline (600 s)
         run: PLUR1BUS_FUZZ_SECONDS=600 cargo test -p plur1bus-ext --features testkit --test fuzz -- --ignored --nocapture
+
+  host-tool-eval-live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - name: generate RPC schema types
+        run: node packages/rpc-schema/src/build.mjs
+      - name: live host-tool choice (safe fixture OS ports; missing credentials recorded as skipped)
+        env:
+          PLUR1BUS_HOST_EVAL_MODELS: ${{ vars.PLUR1BUS_HOST_EVAL_MODELS }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          PLUR1BUS_HOST_EVAL_OUT: artifacts/tool-eval
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/tool-eval-host.ts --live
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: always()
+        with: { name: host-tool-eval-live, path: artifacts/tool-eval/ }
 
   m2-live-proof:
     # Independent, non-gating acceptance: never called from the pull-request workflow.
@@ -176,9 +212,9 @@ jobs:
       PLUR1BUS_LIVE_MTPLX_RERANK_MODEL: ${{ vars.PLUR1BUS_LIVE_MTPLX_RERANK_MODEL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - name: engine git access over https
         shell: bash
@@ -222,7 +258,7 @@ jobs:
           PLUR1BUS_B5_MODEL: ${{ vars.PLUR1BUS_B5_MODEL }}
       - name: publish redacted cache usage
         if: ${{ always() }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: b5-provider-cache
           path: artifacts/b5-provider.json

@@ -158,7 +158,7 @@ const MAX_DEPTH = 64;
 export interface RedactOptions {
   /** Rule `pii` (`logs.redactPii`); default false. */
   pii?: boolean;
-  /** Rule `secret`: exact secret values this process holds (≥ 8 characters), with their base64 and URL-encoded forms. */
+  /** Rule `secret`: exact secret values this process holds (≥ 8 characters), with their base64, base64url, hex and URL-encoded forms. */
   secrets?: Iterable<string>;
 }
 
@@ -168,11 +168,21 @@ export interface Redactor {
   value<T>(v: T): T;
 }
 
+/** Rule `secret` forms of one registered value (same set as the Rust first-aid redactor): raw, base64 and base64url each with and
+ *  without padding, hex in lower and upper case, and URL-encoded. The length check happens before this derivation. Duplicates
+ *  (no padding needed, an ASCII value with nothing to encode) are dropped. */
+function secretFormsOf(s: string): string[] {
+  const buf = Buffer.from(s);
+  const std = buf.toString("base64"); const url = buf.toString("base64url");
+  const hex = buf.toString("hex");
+  return [...new Set([s, std, std.replace(/=+$/, ""), url, url + "=".repeat((4 - (url.length % 4)) % 4), hex, hex.toUpperCase(), encodeURIComponent(s)])];
+}
+
 export function createRedactor(o: RedactOptions = {}): Redactor {
   const secretForms: string[] = [];
   for (const s of o.secrets ?? []) {
     if (typeof s !== "string" || s.length < (rule("secret").minLength as number)) continue;
-    secretForms.push(s, Buffer.from(s).toString("base64"), encodeURIComponent(s));
+    secretForms.push(...secretFormsOf(s));
   }
   secretForms.sort((a, b) => b.length - a.length);
 

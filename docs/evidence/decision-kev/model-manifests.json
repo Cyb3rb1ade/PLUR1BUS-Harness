@@ -1,0 +1,352 @@
+[
+  {
+    "repository": "jaredpalmer/kev-0.8b",
+    "revision": "bf75a6a8848ea6960ff2ed108d9ed44c2941174f",
+    "license": "apache-2.0",
+    "files": [
+      {
+        "file": ".gitattributes",
+        "size": 1570,
+        "sha256": null,
+        "gitBlobId": "52373fe24473b1aa44333d318f578ae6bf04b49b"
+      },
+      {
+        "file": "README.md",
+        "size": 24767,
+        "sha256": null,
+        "gitBlobId": "fe70d102ac32ad5867059d932f6314696aa8ac80"
+      },
+      {
+        "file": "adapter_config.json",
+        "size": 1273,
+        "sha256": null,
+        "gitBlobId": "3ac292566c8fde0555aaab8ba38823ec40bca355"
+      },
+      {
+        "file": "adapter_model.safetensors",
+        "size": 43338624,
+        "sha256": "9b908623acb162118575f4e7a94524f9c139c335be4bfb74d6cfceca01e1885a",
+        "gitBlobId": "3c552e9a779d2ce122304cd5c8d760a81bf441f0"
+      },
+      {
+        "file": "head.pt",
+        "size": 2103999,
+        "sha256": "f400bd12802b2b105ae45d6b03774a158a3db4fccff42413734ddca2e5c920b6",
+        "gitBlobId": "877500c2f6d97ac201139bea37e95af0432b86ea"
+      },
+      {
+        "file": "provenance.json",
+        "size": 4221,
+        "sha256": null,
+        "gitBlobId": "04f136272c9d32646ada2ab24a5c04992247127b"
+      },
+      {
+        "file": "result.json",
+        "size": 80760,
+        "sha256": null,
+        "gitBlobId": "8ef90227db7de4444454ab07fb88afb45e992620"
+      },
+      {
+        "file": "tokenizer.json",
+        "size": 19989325,
+        "sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "gitBlobId": "5520bfd2dd834ce386c1312c410fa71af56db5ad"
+      },
+      {
+        "file": "tokenizer_config.json",
+        "size": 1128,
+        "sha256": null,
+        "gitBlobId": "fa833096a2f03c2ff89094eb1ba7716fbd98b102"
+      },
+      {
+        "file": "train.log",
+        "size": 18427,
+        "sha256": null,
+        "gitBlobId": "15b728bb230b08d259698294db8014c54be4b229"
+      },
+      {
+        "file": "training_config.json",
+        "size": 1767,
+        "sha256": null,
+        "gitBlobId": "1b638d8212ebe6e278d2f65b6586109f7293b30e"
+      },
+      {
+        "file": "training_metrics.json",
+        "size": 326,
+        "sha256": null,
+        "gitBlobId": "124879b74bf9062e6f4f70d86575c1ea0d0a0561"
+      }
+    ],
+    "totalBytes": 65566187
+  },
+  {
+    "repository": "jaredpalmer/kev-4b",
+    "revision": "6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
+    "license": "apache-2.0",
+    "files": [
+      {
+        "file": ".gitattributes",
+        "size": 1570,
+        "sha256": null,
+        "gitBlobId": "52373fe24473b1aa44333d318f578ae6bf04b49b"
+      },
+      {
+        "file": "README.md",
+        "size": 24981,
+        "sha256": null,
+        "gitBlobId": "20ab650c92dbec5f963efaa32cb6c2979f4c39cb"
+      },
+      {
+        "file": "adapter_config.json",
+        "size": 1271,
+        "sha256": null,
+        "gitBlobId": "ea5c33529f3e0e9521f52b42485d44a23d333ba7"
+      },
+      {
+        "file": "adapter_model.safetensors",
+        "size": 129924032,
+        "sha256": "90e817356246e7f18bfa7ca3d31794cd4fbeb3332a66a84cb51d9ceae925f2b2",
+        "gitBlobId": "efcc553500df019ea7957460d200a406c7f41572"
+      },
+      {
+        "file": "added_tokens.json",
+        "size": 707,
+        "sha256": null,
+        "gitBlobId": "b54f9135e44c1e81047e8d05cb027af8bc039eed"
+      },
+      {
+        "file": "head.pt",
+        "size": 5249791,
+        "sha256": "dd633435998ecc751ac538717a3742e32149500fabf7d7276287dbf0693f347c",
+        "gitBlobId": "6204a1c6e0bc7680dd69a2e7929e2b37d6d004f8"
+      },
+      {
+        "file": "merges.txt",
+        "size": 1671853,
+        "sha256": null,
+        "gitBlobId": "31349551d90c7606f325fe0f11bbb8bd5fa0d7c7"
+      },
+      {
+        "file": "provenance.json",
+        "size": 4265,
+        "sha256": null,
+        "gitBlobId": "5c34f812efe4ad2983c4db3fe3c50f243ed420f1"
+      },
+      {
+        "file": "result.json",
+        "size": 80553,
+        "sha256": null,
+        "gitBlobId": "1a18548b8d47bd0260021fdd7c30237c17f27bb1"
+      },
+      {
+        "file": "special_tokens_map.json",
+        "size": 616,
+        "sha256": null,
+        "gitBlobId": "17305b3603dfb19ccc0f658ec2cd2cd3adff4a58"
+      },
+      {
+        "file": "tokenizer.json",
+        "size": 19989325,
+        "sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "gitBlobId": "5520bfd2dd834ce386c1312c410fa71af56db5ad"
+      },
+      {
+        "file": "tokenizer_config.json",
+        "size": 1128,
+        "sha256": null,
+        "gitBlobId": "fa833096a2f03c2ff89094eb1ba7716fbd98b102"
+      },
+      {
+        "file": "train.log",
+        "size": 12759,
+        "sha256": null,
+        "gitBlobId": "8448598a9e08f830447f890c3079c9770c1018db"
+      },
+      {
+        "file": "training_config.json",
+        "size": 1845,
+        "sha256": null,
+        "gitBlobId": "2abc7a274e9ba1cb7290bc51ff20a6df4dbb4886"
+      },
+      {
+        "file": "training_metrics.json",
+        "size": 324,
+        "sha256": null,
+        "gitBlobId": "8f551b88fa7f46a5201d7b0d4d281ffcec6940d8"
+      },
+      {
+        "file": "vocab.json",
+        "size": 2776833,
+        "sha256": null,
+        "gitBlobId": "4783fe10ac3adce15ac8f358ef5462739852c569"
+      }
+    ],
+    "totalBytes": 159741853
+  },
+  {
+    "repository": "Qwen/Qwen3.5-0.8B-Base",
+    "revision": "dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68",
+    "license": "apache-2.0",
+    "files": [
+      {
+        "file": ".gitattributes",
+        "size": 1570,
+        "sha256": null,
+        "gitBlobId": "52373fe24473b1aa44333d318f578ae6bf04b49b"
+      },
+      {
+        "file": "LICENSE",
+        "size": 11343,
+        "sha256": null,
+        "gitBlobId": "1d5180a42f1c3383ba7c7bd0a50f0837ef0168df"
+      },
+      {
+        "file": "README.md",
+        "size": 3727,
+        "sha256": null,
+        "gitBlobId": "ab7a3ee4374f56bf96f351fa086bcc3c5b67dfde"
+      },
+      {
+        "file": "config.json",
+        "size": 2907,
+        "sha256": null,
+        "gitBlobId": "715f0448b9d38103211f0ad88bbb4d6e4f4be8c9"
+      },
+      {
+        "file": "merges.txt",
+        "size": 3353259,
+        "sha256": null,
+        "gitBlobId": "a494e019ca1502219fd0128658b979e5f05ae8e8"
+      },
+      {
+        "file": "model.safetensors-00001-of-00001.safetensors",
+        "size": 1746942600,
+        "sha256": "c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c",
+        "gitBlobId": "72035f19778e5eb7a0ba3f389dbb088ab72b9928"
+      },
+      {
+        "file": "model.safetensors.index.json",
+        "size": 50900,
+        "sha256": null,
+        "gitBlobId": "1ca6a83e1a122cd074f12a1258d480de42e2e19b"
+      },
+      {
+        "file": "preprocessor_config.json",
+        "size": 390,
+        "sha256": null,
+        "gitBlobId": "2ea84a437d448ff71b08df68fdd949d5cc4ebb64"
+      },
+      {
+        "file": "tokenizer.json",
+        "size": 12807196,
+        "sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+        "gitBlobId": "468a6a46bcda7cfedbbda773b0176b8284724e6f"
+      },
+      {
+        "file": "tokenizer_config.json",
+        "size": 16712,
+        "sha256": null,
+        "gitBlobId": "34e1f7a59c40a7a4197ce3dbb242b94dc5bef1dd"
+      },
+      {
+        "file": "video_preprocessor_config.json",
+        "size": 386,
+        "sha256": null,
+        "gitBlobId": "37900b3ff9295e1aa7e211378466356b52e64e55"
+      },
+      {
+        "file": "vocab.json",
+        "size": 6722759,
+        "sha256": null,
+        "gitBlobId": "0aa0ce0658d60ac4a5d609f4eadb0e8e43514176"
+      }
+    ],
+    "totalBytes": 1769913749
+  },
+  {
+    "repository": "Qwen/Qwen3.5-4B-Base",
+    "revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "license": "apache-2.0",
+    "files": [
+      {
+        "file": ".gitattributes",
+        "size": 1570,
+        "sha256": null,
+        "gitBlobId": "52373fe24473b1aa44333d318f578ae6bf04b49b"
+      },
+      {
+        "file": "LICENSE",
+        "size": 11343,
+        "sha256": null,
+        "gitBlobId": "1d5180a42f1c3383ba7c7bd0a50f0837ef0168df"
+      },
+      {
+        "file": "README.md",
+        "size": 3722,
+        "sha256": null,
+        "gitBlobId": "f66751fce75ca423e0993107b38d4c5408f677fb"
+      },
+      {
+        "file": "config.json",
+        "size": 3161,
+        "sha256": null,
+        "gitBlobId": "557d961b205319c6a7da5f757f565b69b3967b7d"
+      },
+      {
+        "file": "merges.txt",
+        "size": 3353259,
+        "sha256": null,
+        "gitBlobId": "a494e019ca1502219fd0128658b979e5f05ae8e8"
+      },
+      {
+        "file": "model.safetensors-00001-of-00002.safetensors",
+        "size": 5329398712,
+        "sha256": "df547074dce70532a0493e5433152bd17a65efb89088cfabc2e7e2371a93d712",
+        "gitBlobId": "2cfcaa339b8a52f0097c36248d0209847518e076"
+      },
+      {
+        "file": "model.safetensors-00002-of-00002.safetensors",
+        "size": 3990429344,
+        "sha256": "590fbaac095dd31db886c322d9d2f7df47777966391acf306ddddc3e4e3a15ef",
+        "gitBlobId": "1d4433db164e94681ff92ee5f250ee0a0b159048"
+      },
+      {
+        "file": "model.safetensors.index.json",
+        "size": 76196,
+        "sha256": null,
+        "gitBlobId": "7586335c0c85f13864338166a651bc2afbf49849"
+      },
+      {
+        "file": "preprocessor_config.json",
+        "size": 390,
+        "sha256": null,
+        "gitBlobId": "2ea84a437d448ff71b08df68fdd949d5cc4ebb64"
+      },
+      {
+        "file": "tokenizer.json",
+        "size": 12807196,
+        "sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+        "gitBlobId": "468a6a46bcda7cfedbbda773b0176b8284724e6f"
+      },
+      {
+        "file": "tokenizer_config.json",
+        "size": 16713,
+        "sha256": null,
+        "gitBlobId": "ae8d254e44c51d0cb0907bcb221f18efca829d3e"
+      },
+      {
+        "file": "video_preprocessor_config.json",
+        "size": 386,
+        "sha256": null,
+        "gitBlobId": "37900b3ff9295e1aa7e211378466356b52e64e55"
+      },
+      {
+        "file": "vocab.json",
+        "size": 6722759,
+        "sha256": null,
+        "gitBlobId": "0aa0ce0658d60ac4a5d609f4eadb0e8e43514176"
+      }
+    ],
+    "totalBytes": 9342824751
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "params": {
+    "id": "destination",
+    "source": "dreams",
+    "job": "light",
+    "agentId": "main"
+  },
+  "result": {
+    "subscribed": true
+  }
+}

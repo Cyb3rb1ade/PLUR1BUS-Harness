@@ -21,6 +21,8 @@ The legacy `agent remove` command still removes configuration while retaining da
 
 ## Lifecycle and persistence
 
+The name of a deleted agent can be used for a new agent (`agent.create`, `agent.import`). The old incarnation is retired first: its data directory moves to `agents/.deleted-<id>-<unique suffix>` (kept, not erased and not bound to the new agent), its config entry and rights are dropped, and the lifecycle tombstone is cleared. If the creation fails, the old incarnation is put back as it was. The new agent starts with no files, rights or memory of the old one. Sessions of the old agent keep their `agentId` (immutable) and stay visible to their owners under the new agent of that name.
+
 `state/agent-lifecycle.sqlite` stores pause/archive/deletion state. The complete agent registry still supports list/status;
 those RPCs include an additive `lifecycle` field. Execution uses an active registry in the host, turn composition, dreaming,
 post-turn maintenance and journal replay. Manual job execution passes the same gate. Pausing does not call `agent.close`,

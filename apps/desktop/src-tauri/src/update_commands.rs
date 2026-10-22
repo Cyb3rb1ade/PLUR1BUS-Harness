@@ -402,6 +402,7 @@ pub async fn update_install(window: WebviewWindow) -> Result<(), String> {
     }
     #[cfg(all(feature = "direct-updater", not(feature = "store")))]
     {
+        use tauri::Emitter;
         use tauri_plugin_updater::UpdaterExt;
         let root = dir(&window)?;
         let state = window.state::<UpdateState>();
@@ -451,8 +452,22 @@ pub async fn update_install(window: WebviewWindow) -> Result<(), String> {
         {
             return Err(error(UpdateError::Manifest));
         }
+        // The offer dialog listens to `desktop-update-progress` while this runs; a missing listener is not an error.
+        let progress_app = window.app_handle().clone();
+        let mut progress = DownloadProgress::default();
         let bytes = update
-            .download(|_, _| {}, || {})
+            .download(
+                move |len, total| {
+                    if let Some((downloaded, total)) = progress.chunk(len, total) {
+                        let _ = progress_app.emit_to(
+                            "shell",
+                            "desktop-update-progress",
+                            serde_json::json!({"downloaded": downloaded, "total": total}),
+                        );
+                    }
+                },
+                || {},
+            )
             .await
             .map_err(|_| error(UpdateError::Signature))?;
         // The person may have held, skipped or postponed while the download ran: decide again

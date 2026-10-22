@@ -1,0 +1,55 @@
+{
+    "notes":  "Fresh process measurements, not a flushed OS cache; no bare-metal claim. Owner described 2 vCPU, detected guest topology recorded separately.",
+    "fileCacheState":  "uncontrolled",
+    "sourceSha256":  {
+                         "decision-laya-manifest.json":  "f273fd3c87587f5a5c08bad8d9b568e6647d011b4333bcec8dd170a3df078d51",
+                         "runtime-check.mjs":  "80cfbb2f878a534571b810ca49218594dff45193aa7cc9df7655bcf9ba11ec82",
+                         "decision-laya.mjs":  "051166b8b510440c1c8849ba547314386a59505c93b71c6d88624bf829fd384f",
+                         "decision-laya-paths.mjs":  "ee3aeeaffadc56cfe44d275aed63fa666a0b6fd1ab171a072fb70bc23fce8393",
+                         "decision-eval-cases.json":  "4fdd03e69e2647ba604d783bed8d702497a43f345f706c6b72b14e5b1c61ba15",
+                         "decision-laya-lib.mjs":  "da2af3236e54786541834559db61dd3d77b1f1fa5b3fc81db9428dedb3ac36bf"
+                     },
+    "schema":  "plur1bus.laya-native-environment/1",
+    "operatingSystem":  {
+                            "Caption":  "Microsoft Windows 11 Pro",
+                            "Version":  "10.0.22621",
+                            "OSArchitecture":  "64-Bit",
+                            "TotalVisibleMemorySize":  8381736,
+                            "FreePhysicalMemory":  5768980
+                        },
+    "virtualMachine":  true,
+    "system":  {
+                   "Manufacturer":  "QEMU",
+                   "Model":  "Standard PC (i440FX + PIIX, 1996)",
+                   "NumberOfProcessors":  2,
+                   "NumberOfLogicalProcessors":  16,
+                   "TotalPhysicalMemory":  8582897664
+               },
+    "runtime":  {
+                    "node":  "v24.21.0",
+                    "platform":  "win32",
+                    "arch":  "x64",
+                    "versions":  {
+                                     "onnxruntime-node":  "1.30.0",
+                                     "@huggingface/transformers":  "4.3.1"
+                                 },
+                    "imports":  "ok"
+                },
+    "at":  "2026-10-20T17:08:46.9403096Z",
+    "bareMetalAcceptance":  false,
+    "defenderConfiguration":  "unchanged",
+    "hostRole":  "NAS",
+    "freeDiskBeforeBytes":  3238264832,
+    "processors":  [
+                       {
+                           "Name":  "Intel Core Processor (Haswell, no TSX, IBRS)",
+                           "NumberOfCores":  2,
+                           "NumberOfLogicalProcessors":  8
+                       },
+                       {
+                           "Name":  "Intel Core Processor (Haswell, no TSX, IBRS)",
+                           "NumberOfCores":  2,
+                           "NumberOfLogicalProcessors":  8
+                       }
+                   ]
+}

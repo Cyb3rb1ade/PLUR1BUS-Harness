@@ -57,9 +57,10 @@ is no reason to wait on a name.
 `web-browser-macos` is the sole explicit advisory dependency: the gate waits for its two-shard matrix outcome and accepts completed success, failure or skipped outcomes. Missing, cancelled or malformed results block. It is selected only when `proceed`, `web` and `macos` are all true.
 
 Everything else in `ci.yml` is deliberately outside the gate and not in its `needs`, so it can neither fail nor delay it:
-`unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package),
+`unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
+Actions concurrency change below it only runs under the full-platform policy),
 `python-host` (including the experimental `windows-11-arm` leg), `system`, `service`, `sandbox`, `release-scripts`,
-`documents-golden`, the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
+`documents-golden`, `host-tool-eval` (the deterministic host tool/policy scenarios of D106 P4, fake OS ports, no live model), the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
 `perf-startup` and `perf-budgets` jobs. They still run for their selected suites and show up as checks; a red one is a
 reason to look, not an automatic block. To promote a job, add it to `selections` in `scripts/ci/gate.mjs`, to the gate's
 `needs` and remove it from `UNGATED`; the workflow contract test fails until all three agree. Other workflows
@@ -107,22 +108,50 @@ Local checks: `node --test scripts/ci/*.test.mjs` and
 
 ## macOS runner policy
 
-GitHub allows about five concurrent macOS jobs per account, and every PR push used to start four to six. Linux and
-Windows legs are unchanged; the macOS legs beyond the unit tests are now gated.
+GitHub allows about five concurrent macOS jobs per account, and every PR push used to start four to six. Actions
+concurrency overall is the bottleneck as well (about five concurrent jobs against 80 to 100 queued), and a Rust or core
+PR push started 17 jobs that do not decide a merge (`CLAUDE.md`, "Which CI jobs decide"). Since the owner decision of
+2026-10-22 the non-deciding **non-Linux** legs of `ci.yml` (macOS, Windows, Windows ARM) follow the same full-platform
+policy as the macOS legs; the Linux legs and everything the gate waits for run on every selected push.
+
+The policy output is called `macos` for historical reasons; it now means "run the full platform matrix", and it also
+switches on the Windows and Windows ARM legs listed below. It is not a macOS-only switch.
 
 ## Which macOS legs run
 
 For `ci.yml`, the impact filter above is applied first: a documentation-only PR does not run a unit matrix.
 The table below describes platform selection inside an affected suite.
 
-| Event | `unit (macos-15)` | `system`, `service`, `python-host`, `real-hermes`, `desktop` (macOS legs) |
+| Event | `unit (macos-15)`, `unit (windows-2025)` (job `unit-os`) and the other non-Linux legs listed below | `system`, `service`, `python-host`, `real-hermes`, `desktop` (macOS legs) |
 | --- | --- | --- |
-| PR opened / synchronize / reopened | yes (job `unit-os`) | only if the PR has label `ci:macos`, or it changes a platform-sensitive path (below) |
-| PR `labeled` with `ci:macos` | yes | yes (the run is re-triggered; it replaces any run in progress) |
+| PR opened / synchronize / reopened | only if the PR has label `ci:macos`, or it changes a platform-sensitive path (below) | same |
+| PR `labeled` with `ci:macos` | yes (the run is re-triggered; it replaces any run in progress) | yes |
 | PR `labeled` with any other label | no (the whole run is a no-op) | no |
 | push to `main` | yes | yes |
 | schedule (nightly, 03:23-03:41 UTC) | yes | yes |
 | workflow_dispatch | yes | yes |
+
+Legs of `ci.yml` that follow this policy (everything else in the file, including every `ubuntu-24.04` and
+`ubuntu-24.04-arm` leg, runs whenever its suite is selected):
+
+| Job | Non-Linux legs that wait for the policy | Always on a selected push |
+| --- | --- | --- |
+| `unit-os` | `unit (macos-15)`, `unit (windows-2025)`: the whole job is conditional (`needs.changes.outputs.macos == 'true'`), because all its legs are non-Linux | none (the Linux leg is `unit`) |
+| `system` | `macos-15` | `ubuntu-24.04` |
+| `service` | `macos-15`, `windows-2025` | `ubuntu-24.04` |
+| `sandbox` | `macos-15`, `windows-2025`, `windows-11-arm` | `ubuntu-24.04`, `ubuntu-24.04-arm` |
+| `perf-startup` (`startup (...)`) | `darwin-arm64`, `win32-x64`, `win32-arm64` | `linux-x64`, `linux-arm64` |
+| `perf-budgets` (`budget catalogue (...)`) | `macos-15`, `windows-2025`, `windows-11-arm` | `ubuntu-24.04`, `ubuntu-24.04-arm` |
+
+Not moved: `unit (ubuntu-24.04)`, `wsl` (a required Windows job), `web-browser*`, the `python-host` matrix (its Windows legs
+are unchanged), `docs-hygiene`, and the other workflows (`release-quality`, `container*`, `desktop.yml`, `hermes-host.yml`).
+Nothing in `ci-gate` depends on the moved legs, so a PR without the policy gets the same gate verdict as before. A PR that
+changes nothing platform-sensitive therefore shows no `unit (macos-15)`, `unit (windows-2025)`, `service (windows-2025)`,
+`sandbox (macos-15|windows-*)`, `startup (darwin-arm64|win32-*)` or `budget catalogue (macos-15|windows-*)` check; an absent
+check is not a red one. Add `ci:macos` to get them before merging. The mixed matrices use
+`exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[...]') }}`; `perf-startup` has no base `os` list, so
+it selects its whole `include` list by the same expression (an `exclude` cannot remove `include` entries).
+`scripts/ci/workflow-contract.test.mjs` evaluates these matrices and conditions for both values of the policy.
 
 Workflows: `ci.yml`, `desktop.yml`, `hermes-host.yml`. Their own `paths:` filters on PRs are unchanged (`desktop.yml` and
 `hermes-host.yml` only start for their paths), so adding `ci:macos` to a PR that touches none of them runs nothing extra
@@ -152,8 +181,8 @@ branch, so it starts working once this is merged.
 
 ## Using it
 
-Add the `ci:macos` label to a PR to get the full macOS matrix before merging (for example when a change is
-platform-sensitive in a way the path list misses). A required status check on a gated job name (`system (macos-15)` and
+Add the `ci:macos` label to a PR to get the full platform matrix (macOS, and also the Windows and Windows ARM legs listed
+above) before merging, for example when a change is platform-sensitive in a way the path list misses. A required status check on a gated job name (`system (macos-15)` and
 so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-gate` only after the Windows baseline and open-head refresh gate above. This change does not inspect or modify current protection settings.
 
 ## Job map and failure semantics
@@ -164,16 +193,16 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `docs-hygiene` | Gated. Hygiene, source quality, i18n, doc links and `pnpm docs:check` (generated documents), for every selected run |
 | `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests outside Core, Rust fmt/clippy/tests |
 | `core-unit-shard`, `core-unit` | Gated. Three measured Ubuntu Core shards plus the exact-partition check; missing manifests, failure and cancellation block |
-| `unit-os` | Not gated. Full offline TypeScript workspace tests and the same remaining steps on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)` |
+| `unit-os` | Not gated; only under the full-platform policy. Full offline TypeScript workspace tests and the same remaining steps on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)` |
 | `web-browser-macos` | Explicit advisory dependency: waits for the result, permits completed failure/skipped; selected only for proceed + web + macos |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
-| `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command) |
-| `service` | Not gated. Service manager tests; existing systemd-unavailable handling remains documented in the workflow |
+| `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command); the macOS leg follows the full-platform policy |
+| `service` | Not gated. Service manager tests; existing systemd-unavailable handling remains documented in the workflow; the macOS and Windows legs follow the full-platform policy |
 | `python-host` | Not gated. Python client/Hermes offline and live synthetic-host tests; Windows ARM informational policy is unchanged |
 | `wsl` | Gated. Real WSL setup and synthetic migration/snapshot security tests |
 | `release-scripts` | Not gated. Ubuntu-only offline release tests and local actionlint validation of all workflows |
-| `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners; golden-set visual diff |
-| `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue |
+| `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners (the three non-Linux ones follow the full-platform policy); golden-set visual diff |
+| `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue; the macOS, Windows and Windows ARM legs follow the full-platform policy |
 | `ci-gate` | THE gate: required jobs above plus the explicitly registered macOS browser advisory |
 | nightly `system-real-models` | Real model acceptance and full kill soak; may fetch model weights |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
@@ -250,6 +279,49 @@ isolated compiler misses that justify another pinned tool and cache lifecycle.
 
 ## Local reproduction
 
+Prepare the checkout before running Rust tests with TypeScript child processes or the TS suite:
+
+```bash
+pnpm test:prep
+cargo test --workspace
+pnpm test
+```
+
+Use Node 24.21 and pnpm 10 on `PATH`. `scripts/test-prep.mjs` runs the workspace install with
+`--frozen-lockfile`, then `pnpm gen` and `pnpm build`; this creates generated RPC files, schema
+`dist` files and `packages/core/dist/core.js`. It checks the actual audit source imports, the built
+Core entry and resolution of the private Engine from Core before reporting readiness. A failed
+stage stops preparation with a nonzero exit; no test is skipped or retried by this command.
+
+The pinned private `@cyb3rb1ade/plur1bus-memory` dependency needs authenticated read access to its
+repository or an already cached copy of that exact package. Without it, Core integration and
+Engine-dependent TS tests cannot run. An install or Engine-check failure explains this requirement;
+the dependency and lockfile remain required. The mixed Rust/TS audit tests and live-endpoint repair
+test now diagnose missing workspace/build prerequisites before starting their integration work.
+The package test runner adds setup guidance to a missing-Engine resolution error and preserves
+its failing result.
+
+`test:prep` prepares JavaScript dependencies and artifacts. Rust binaries and the matching browser
+still need the commands documented for their suites below; browser or native acceptance is not
+implied by a successful preparation. The existing CI continues to use the real pinned Engine.
+
+### Actions throughput snapshot (GP5 P1)
+
+`node scripts/ci/timings.mjs --repo Cyb3rb1ade/PLUR1BUS-Harness --workflow ci.yml --runs 50 --out /tmp/ci-baseline`
+reads the most recent 50 runs once through the authenticated `gh api` client. It needs Actions read access and never
+polls for completion or changes repository settings. The output prefix produces raw `.json` and a `.md` summary;
+`--input /tmp/ci-baseline.json` reproduces the summary offline. Workflow and run/job pagination are explicit, and only
+the selected run's latest attempt is measured. An API error fails the collection instead of publishing partial data.
+
+Percentiles use nearest rank. Job wait is `started_at - created_at`, which can include dependency or environment delay
+as well as runner queue time. Skipped jobs and missing/invalid times contribute no timing sample. Incomplete runs are
+reported separately; cancelled jobs can have partial execution times. Runs/day uses the span of selected run creation
+times, with a one-day minimum; a latest-N window is not an unbiased calendar-day sample. A newer different head on the
+same branch/event makes a cancelled run a supersession candidate, not a proven concurrency cancellation. Compare
+equivalent workflow/event mixes after changes; do not claim speedups from a mostly unfinished or cancelled sample.
+
+The initial measurement and its limitations are in [the P1 handoff](handoffs/2026-10-21-ci-baseline.md).
+
 See [the release verification commands](release.md#local-verification) for the complete checklist. In addition:
 
 ```bash
@@ -279,3 +351,24 @@ Since the owner decision of 2026-10-18 the suite runs in four shards. `web-brows
 The registry-driven `shipped-conformance.test.ts` includes every shipped page automatically. Browser reflow at 200% uses 720 CSS px and device scale 2 for the equivalent 1440 physical-pixel window; CSS `zoom` alone leaves media queries unchanged. The shipped-page matrix also checks enlarged text with CSS zoom at 200%; the existing pattern cases remain. Target measurements use the WCAG 2.5.5 inline-prose exception, while standalone links and controls remain measured ([W3C target-size explanation](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html)). Browser fixture tests establish UI accessibility and layout, while served-stack acceptance is recorded independently in `docs/demos/m3.md`.
 
 The macOS unit lint step uses a 4096 MiB V8 heap. This increases the available memory without reducing the checked files or changing the gate. Verification on the local Mac does not prove a hosted runner's memory behavior; CI is not polled.
+
+
+## Superseded-run cancellation (GP5 P3)
+
+The cancellation behavior requested by GP5 was already present on main at `1dae60f2ae` (including #655's workflow
+hygiene work). P3 preserves it and adds offline regression checks; it introduces no concurrency mutation.
+
+- `ci`, `desktop` and `hermes-host` group by workflow and PR number (falling back to ref). That is stable across new
+  commits on one PR and distinct across PRs. Unrelated label events use the existing `-noop` suffix so they cannot
+  cancel a useful run; `ci:macos` intentionally replaces it with the requested platform run.
+- `cancel-in-progress` is true only for `pull_request`, false for main pushes, schedules, manual and merge-group runs.
+- `container` and `release-smoke` already use the same PR-only cancellation. P3 leaves their workflows unchanged.
+  Release-smoke tests a candidate; it does not publish it.
+- `harness-release` explicitly uses `cancel-in-progress: false`, including reusable/manual invocations. `nightly` has
+  no PR trigger, and its schedule/manual events cannot activate its existing PR-only cancellation expression.
+
+`node --test scripts/release/test/concurrency.test.mjs` evaluates the actual concurrency expressions with synthetic
+Actions contexts: different commits/PRs/refs/workflows, all relevant event types and both label cases. It checks the
+existing policy without dispatching or polling Actions. The release-script suite already runs this file in CI.
+
+No repository rules, release policy, controller merging or watcher behavior change in P3.

@@ -65,7 +65,7 @@ The recommendation, stated in one paragraph, then the details.
 | 012 | Process model, languages, RPC contract and the core lock (amends ADR-001's single-stack wording) | `ADR-012-process-model-and-languages.md` | Accepted | Defines process boundaries, implementation languages, RPC contracts, and core locking. |
 | 013 | Configuration and restart classes | `ADR-013-configuration-and-restart-classes.md` | Accepted | Defines configuration ownership and which changes require process restarts. |
 | 014 | MCP host adapter and trust-routing provenance (D17, D19) | `ADR-014-mcp-host-adapter.md` | Proposed | Proposes an MCP host adapter with provenance-aware trust routing. |
-| 015 | Not assigned | — | — | No ADR-015 has been assigned. |
+| 015 | Decision service | `ADR-015-decision-service.md` | Proposed | Defines three primitives, Core client/module boundary, backend eligibility, deadlines, calibration, trace and privacy (D18/D70). |
 | 016 | API stability and versioning | `ADR-016-api-stability-and-versioning.md` | Accepted | Defines API stability levels, compatibility expectations, and versioning policy. |
 
 ADR-017 is a draft on media generation; it has not yet been added to this repository.

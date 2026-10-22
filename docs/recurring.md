@@ -28,6 +28,14 @@ Recurring Tasks has create/edit/delete dialogs, three upcoming runs in the selec
 
 The CLI adds `plur1bus jobs list` (defaults to user tasks) and `plur1bus jobs create --name NAME --agent ID --prompt TEXT --cron '0 9 * * *' --timezone Europe/Berlin [--disabled]`. Their JSON schemas are `jobs.list/1` and `jobs.create/1`.
 
+## Validated channel delivery (M4)
+
+Recurring → Delivery destinations lists only the authenticated person's linked direct identities. Add one and reply to the challenge in that exact channel DM (`/delivery <one-time code>`), then refresh validation. `delivery.target.confirm` only sends another challenge; RPC/browser confirmation alone cannot validate a destination. Challenges expire after ten minutes, allow five attempts and are stored as hashes, never logged.
+
+The job editor offers only validated own targets. `deliveryTarget` is optional; empty disables delivery. Creating/editing still determines `runAs` normally. Editing another person's job cannot retain their target: select an own target or clear it. Every run and every send rechecks the active person, exact identity link, live transport allowlist and current agent-use rights. Removing a destination immediately prevents future delivery; an in-flight transport write cannot be recalled.
+
+`delivery.target.subscribe` can additionally attach a validated target to a Dreams phase (`source: dreams`, job `light`, `rem` or `deep`, explicit agentId) or a system job (`source: system`, exact job name, explicit agentId). System subscriptions require a current Owner/Admin. These emit a fixed completion status, never raw system detail or diary/private contents. No subscriptions are created by default. Remove the target to revoke its subscriptions. User-job delivery contains its assistant result, bound to that job's runAs.
+
 ## System jobs: overlapping runs
 
 System jobs (`kind: system`: `models.scan`, `approvals.integrity`, `capabilities.recheck`) run only inside the core and are started by their own timer, at start, by `jobs.run` and by the CLI. Every job lists `singleton: true`; how that is enforced depends on the job:

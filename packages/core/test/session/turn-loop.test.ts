@@ -166,3 +166,32 @@ describe("turn loop", () => {
     assert.equal((await r.runner.submit({ session: s, caller: CALLER, text: "again" }).done).state, "completed");
   });
 });
+
+describe("turn loop: a cancel that lands after the last chunk", () => {
+  it("still ends the turn as cancelled: nothing is completed, captured or answered with a success", async () => {
+    let atEnd!: () => void; const reachedEnd = new Promise<void>((res) => { atEnd = res; });
+    let finish!: () => void; const mayFinish = new Promise<void>((res) => { finish = res; });
+    const provider: ChatProvider = {
+      id: "slow-end",
+      async *stream() { yield { type: "delta", text: "whole answer" }; atEnd(); await mayFinish; /* the generator's own end ignores the abort */ },
+    };
+    const r = rig({ provider }); const s = r.session();
+    const h = r.runner.submit({ session: s, caller: CALLER, text: "hello" });
+    await reachedEnd; // the last chunk is out; only the end of the generator is pending
+    assert.equal(r.runner.cancel(s.id), h.turnId, "the cancel is acknowledged");
+    finish();
+    const out = await h.done;
+    assert.deepEqual({ state: out.state, error: out.error }, { state: "failed", error: "cancelled" });
+    assert.equal(r.store.runningTurn(s.id), null);
+    assert.equal(r.store.listEvents(s.id).at(-1)!.type, "turn.failed");
+    assert.equal(r.store.listMessages(s.id).some((m) => m.role === "assistant"), false, "no assistant message was stored as a completed answer");
+    await r.runner.idle();
+    assert.equal(r.memory.calls.capture.length, 0, "nothing was captured");
+  });
+
+  it("an undisturbed turn with the same provider shape completes", async () => {
+    const provider: ChatProvider = { id: "plain", async *stream() { yield { type: "delta", text: "ok" }; } };
+    const r = rig({ provider }); const s = r.session();
+    assert.equal((await r.runner.submit({ session: s, caller: CALLER, text: "hello" }).done).state, "completed");
+  });
+});

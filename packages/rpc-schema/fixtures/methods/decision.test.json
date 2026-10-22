@@ -1,0 +1,11 @@
+{
+  "params": {
+    "agentId": "a1"
+  },
+  "result": {
+    "ok": true,
+    "durationMs": 3.25,
+    "outcome": "accepted",
+    "backend": "role"
+  }
+}

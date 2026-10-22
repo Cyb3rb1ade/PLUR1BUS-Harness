@@ -57,7 +57,7 @@ the core sent. The last two are raised by the CLI itself.
 | `E_STORAGE` | 1 | A storage operation failed; `ids` may carry the ids needed to recover a half-finished step. |
 | `E_MEDIA_CAPABILITY` | 1 | The media index's provider or model cannot handle the modality (for example OpenAI embeddings in the media index). |
 | `E_MEDIA_LICENSE` | 1 | The licence of the media model has not been confirmed (for example a non-commercial licence). |
-| `E_MEDIA_PRIVACY` | 1 | The privacy pin is set and a cloud provider is configured for the media index; no request was sent. |
+| `E_MEDIA_PRIVACY` | 1 | “Only local models” is on and a cloud provider is configured for the media index; no request was sent. |
 | `E_MEDIA_UNAVAILABLE` | 1 | The media model is not installed, its key is missing, or the engine has no media index. |
 | `E_MEDIA_DIMENSION` | 1 | The query and the indexed documents differ in dimension, or the model does not support the configured dimension. |
 | `E_MEDIA_UNSUPPORTED_KIND` | 1 | The medium cannot be processed (decoder or frame extractor missing, format unknown). |
@@ -247,3 +247,7 @@ The first collection (#423) found the inconsistencies below. All of them are fix
   `chat` prints one document per turn, so with several lines on stdin only the failed turns carry `error`.
   The exit stays 1; without `--json` nothing changes. A success is unchanged, in particular the documents the desktop
   app parses (`1staid.check/1`, `admin.smoke/1`, `daemon.status`, `state.snapshot/1`).
+
+### D106 sandbox adapter diagnostics (2026-10-15 Draft)
+
+Sandbox failure uses the existing tool error envelope (`tool-failed`); the host adapter may supply `sourceCode: sandbox-unavailable`, and exec retains its existing `spawn-failed` diagnostic inside the adapter failure. These are tool-local diagnostics, not new RPC error codes. Missing isolation never changes into a successful unsandboxed result. The trusted Rust limits launcher exits 125 on setup failure; the CLI exit-code checker already documents that code.

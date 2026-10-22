@@ -375,3 +375,34 @@ fn only_one_install_owns_the_slot_and_the_owner_lock_stays_free() {
     assert!(!owner.installing());
     assert!(owner.begin_install().is_some());
 }
+#[test]
+fn download_progress_reports_once_per_percent_and_clamps_a_wrong_length() {
+    let mut progress = DownloadProgress::default();
+    // 1000 bytes in chunks of 5: one report for each percent step, never one per chunk.
+    let reports: Vec<_> = (0..200)
+        .filter_map(|_| progress.chunk(5, Some(1000)))
+        .collect();
+    assert_eq!(reports.len(), 101);
+    assert_eq!(reports.first(), Some(&(5, Some(1000))));
+    assert_eq!(reports.last(), Some(&(1000, Some(1000))));
+    assert!(reports.windows(2).all(|pair| pair[0].0 < pair[1].0));
+    // A server that sends more than it announced still ends at the last bucket, once.
+    let mut wrong = DownloadProgress::default();
+    assert!(wrong.chunk(900, Some(100)).is_some());
+    assert!(wrong.chunk(900, Some(100)).is_none());
+}
+#[test]
+fn download_progress_without_a_length_reports_per_512_kib_and_never_a_total() {
+    let mut progress = DownloadProgress::default();
+    assert_eq!(progress.chunk(1024, None), Some((1024, None)));
+    assert_eq!(progress.chunk(1024, None), None);
+    assert_eq!(
+        progress.chunk(0, Some(0)),
+        None,
+        "a zero length counts as unknown"
+    );
+    assert_eq!(
+        progress.chunk(512 * 1024, None),
+        Some((1024 + 1024 + 512 * 1024, None))
+    );
+}

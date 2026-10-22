@@ -1,0 +1,39 @@
+{
+  "schema": "plur1bus.laya-artifacts/1",
+  "repository": "inferenceprince/laya-onnx",
+  "revision": "dd0f4db73e24ef4c646d47d0e48e74024f439e6c",
+  "license": "Apache-2.0",
+  "source": "https://huggingface.co/inferenceprince/laya-onnx",
+  "files": [
+    {
+      "file": "config.json",
+      "size": 2063,
+      "sha256": "7f7ac00d9f70a2d5e8f41a10b6984d4a0833405984b3bf859ff1d49f1bced359"
+    },
+    {
+      "file": "rl_agent_config.json",
+      "size": 745,
+      "sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"
+    },
+    {
+      "file": "tokenizer/tokenizer_config.json",
+      "size": 308,
+      "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+    },
+    {
+      "file": "tokenizer/tokenizer.json",
+      "size": 3583228,
+      "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+    },
+    {
+      "file": "model.onnx",
+      "size": 3336214,
+      "sha256": "75d37762009e57b03b28877d330a2a466acd576eb444b0fdd00ee2a3221f8761"
+    },
+    {
+      "file": "model.onnx.data",
+      "size": 842587136,
+      "sha256": "356764eb3ab760468479e6fa732217d8ccaa84ab38f2ca9e2ed174ae22aaf1b4"
+    }
+  ]
+}

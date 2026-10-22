@@ -61,6 +61,10 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory proposals list`↴](#plur1bus-memory-proposals-list)
 * [`plur1bus memory proposals accept`↴](#plur1bus-memory-proposals-accept)
 * [`plur1bus memory proposals reject`↴](#plur1bus-memory-proposals-reject)
+* [`plur1bus memory curation`↴](#plur1bus-memory-curation)
+* [`plur1bus memory curation list`↴](#plur1bus-memory-curation-list)
+* [`plur1bus memory curation keep`↴](#plur1bus-memory-curation-keep)
+* [`plur1bus memory curation drop`↴](#plur1bus-memory-curation-drop)
 * [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
 * [`plur1bus session`↴](#plur1bus-session)
 * [`plur1bus session list`↴](#plur1bus-session-list)
@@ -170,6 +174,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
+* [`plur1bus secret describe`↴](#plur1bus-secret-describe)
 * [`plur1bus secret get`↴](#plur1bus-secret-get)
 * [`plur1bus secret rm`↴](#plur1bus-secret-rm)
 * [`plur1bus secret ls`↴](#plur1bus-secret-ls)
@@ -879,6 +884,7 @@ Memory: add and recall through the core
 * `state` — [experimental] Memory subsystem state
 * `propose` — [experimental] Propose a correction to a shared memory
 * `proposals` — [experimental] List, accept or reject shared-memory correction proposals
+* `curation` — [experimental] Human curation of memory candidates (separate from correction proposals)
 * `reembed` — [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
 
 
@@ -1096,6 +1102,65 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 * `--agent <AGENT>`
 * `--note <NOTE>`
+
+
+
+## `plur1bus memory curation`
+
+[experimental] Human curation of memory candidates (separate from correction proposals)
+
+**Usage:** `plur1bus memory curation <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the human curation queue
+* `keep` — [experimental] Keep a curation record
+* `drop` — [experimental] Drop a curation record
+
+
+
+## `plur1bus memory curation list`
+
+[experimental] List the human curation queue
+
+**Usage:** `plur1bus memory curation list [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--limit <LIMIT>`
+
+
+
+## `plur1bus memory curation keep`
+
+[experimental] Keep a curation record
+
+**Usage:** `plur1bus memory curation keep --agent <AGENT> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus memory curation drop`
+
+[experimental] Drop a curation record
+
+**Usage:** `plur1bus memory curation drop --agent <AGENT> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
 
 
 
@@ -2608,9 +2673,13 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
 
-Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result also names the era boundary and checks the set-aside chain up to its first deviation.
+Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result also names the era boundary and checks the set-aside chain up to its first deviation. `--pin SEQ:HASH` also checks a sequence/hash pair recorded outside this host (rotated files included).
 
-**Usage:** `plur1bus audit verify`
+**Usage:** `plur1bus audit verify [OPTIONS]`
+
+###### **Options:**
+
+* `--pin <SEQ:HASH>` — Check an externally recorded sequence/hash pair, including older rotated files (no external transmission)
 
 
 
@@ -2705,6 +2774,7 @@ Values are read from stdin, never from arguments, and are printed only by `get -
 
 * `status` — [experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
 * `set` — [experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+* `describe` — [experimental] Change only a secret's description (owner only); never reads its value back to the caller
 * `get` — [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
 * `rm` — [experimental] Delete a secret from every available backend
 * `ls` — [experimental] List secret names (never values)
@@ -2735,6 +2805,23 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 ###### **Options:**
 
 * `--description <DESCRIPTION>` — what the secret is for (one line, at most 200 characters, never the value); the agent sees it in `secret_names`. Omitted, a replacement keeps the stored text; an empty text removes it
+
+
+
+## `plur1bus secret describe`
+
+[experimental] Change only a secret's description (owner only); never reads its value back to the caller
+
+**Usage:** `plur1bus secret describe [OPTIONS] <NAME> [TEXT]`
+
+###### **Arguments:**
+
+* `<NAME>`
+* `<TEXT>` — new description, one line of at most 200 characters
+
+###### **Options:**
+
+* `--clear` — remove the description
 
 
 
