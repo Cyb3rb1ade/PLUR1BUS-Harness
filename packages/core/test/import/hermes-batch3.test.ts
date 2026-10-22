@@ -126,8 +126,8 @@ describe("Hermes Importer Batch 3", () => {
     assert.ok(existsSync(join(l.workspaceDir("work"), "SOUL.md")));
 
     // Curated markdown mirror for imported memories
-    assert.ok(existsSync(join(l.workspaceDir("default"), "memories.md")));
-    const memContent = readFileSync(join(l.workspaceDir("default"), "memories.md"), "utf8");
+    assert.ok(existsSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md")));
+    const memContent = readFileSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md"), "utf8");
     assert.ok(memContent.includes("Hermes memory 1"));
     assert.ok(memContent.includes("Hermes memory 2"));
 
@@ -566,7 +566,7 @@ describe("Hermes Importer Batch 3", () => {
     assert.ok(report.errors.length > 0, "engine failure must be in errors[]");
     assert.ok(report.errors.some((e) => e.reason.includes("memory-import-failed")), "reason must be memory-import-failed");
     assert.ok(report.counts.memoryCardsRejected > 0, "cards must be counted as rejected");
-    assert.ok(!existsSync(join(l.workspaceDir("default"), "memories.md")), "mirror should be skipped on engine failure");
+    assert.ok(!existsSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md")), "mirror should be skipped on engine failure");
 
     // CLI returns exit 1 for failed run when import encounters errors (e.g. symlink in memory source)
     const badFx = await buildM7HermesFixture();
@@ -609,7 +609,8 @@ describe("Hermes Importer Batch 3", () => {
     // Pre-create user's own memories.md
     mkdirSync(l.workspaceDir("default"), { recursive: true, mode: 0o700 });
     const userMemories = "# User's Own Memories\nDo not overwrite me!";
-    writeFileSync(join(l.workspaceDir("default"), "memories.md"), userMemories);
+    mkdirSync(join(l.workspaceDir("default"),"memory"),{recursive:true});
+    writeFileSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md"), userMemories);
 
     const report = await importHermes({
       home,
@@ -619,7 +620,7 @@ describe("Hermes Importer Batch 3", () => {
       testInternals: { embeddings: flatEmbedder() },
     });
 
-    const currentMemories = readFileSync(join(l.workspaceDir("default"), "memories.md"), "utf8");
+    const currentMemories = readFileSync(join(l.workspaceDir("default"), "memory", "KNOWLEDGE.md"), "utf8");
     assert.equal(currentMemories, userMemories, "existing memories.md must NOT be overwritten under skip");
 
     const ledgerText = readFileSync(report.ledgerPath!, "utf8");

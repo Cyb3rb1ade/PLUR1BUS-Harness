@@ -1,6 +1,7 @@
 // The egress service (B4): one object the rest of the core asks before it talks to the network. It compiles the live
 // configuration on each call (so `egress.*` config changes apply without a restart), owns the decision counters and
 // wraps the one guarded HTTP client with the gate, so redirects are re-checked and the connect is pinned to the vetted IP.
+import { modelDownloadPolicy } from "./model-downloads.ts";
 import { WebFailure } from "../tools/web/failure.ts";
 import { makeAddressPolicy, resolveGuarded, systemResolver, type Resolver } from "../tools/web/guard.ts";
 import { guardedRequest, type HttpOptions, type HttpResponse } from "../tools/web/http.ts";
@@ -52,7 +53,8 @@ export function createEgress(o: EgressOptions): Egress {
 
   return {
     async request(url, options) {
-      const policy = compileEgressPolicy(o.config());
+      const config = o.config();
+      const policy = compileEgressPolicy(options.modelDownload ? modelDownloadPolicy(config) : config);
       try {
         return await guardedRequest(url, { ...options, resolver, policy: addressPolicy(policy), gate: createGate(policy, { onDecision: record }) });
       } catch (err) {

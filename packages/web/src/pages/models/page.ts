@@ -1,3 +1,4 @@
+import { EngineRoleTests } from "../../components/engine-role-tests.ts";
 // Models page (`/models`, M3 E8): the model catalog of docs/rpc.md (models.list/scan/setOverride/removeManual/acknowledge,
 // notification models.changed) as list + detail. None of it is served by origin/main yet; a 404 shows the "unavailable" state.
 import { getApi } from "../../api/shared.ts";
@@ -60,6 +61,7 @@ function ModelDetail({ model, isNew, canWrite, onEdit, onRemove }: { model: Mode
       model.locked === "local-only" ? [" ", h(Badge, { key: "l", tone: "warn" }, t("models.locked.localOnly"))] : null),
   },
     h("dl", { class: "facts" },
+      h(Row, { label: t("models.field.toolUse") }, t(model.toolUse === "supported" ? "models.toolUse.supported" : model.toolUse === "limited tool use" ? "models.toolUse.limited" : "models.toolUse.unknown")),
       h(Row, { label: t("models.field.provider") }, model.provider),
       h(Row, { label: t("models.field.id") }, h("code", {}, model.id)),
       h(Row, { label: t("models.field.kind") }, model.kind === "unknown" ? unknownText() : kindText(model.kind)),
@@ -99,6 +101,7 @@ function ModelList({ data, isNew, filters: chosen, setFilters, selected }: { dat
         return h("li", { key: modelKey(m) },
           h("a", { class: "nav-link", href: `#/models/${routeFor(m.provider, m.id)}`, ...(isSel ? { "aria-current": "true" } : {}) },
             h("span", {}, m.displayName),
+            m.toolUse === "limited tool use" ? h(Badge, { tone: "warn" }, t("models.toolUse.limited")) : null,
             m.status !== "available" ? h(Badge, { tone: m.status === "unavailable" ? "warn" : "neutral" }, t(`models.status.${m.status}` as Key)) : null,
             isNew.has(modelKey(m)) ? h(Badge, { tone: "info" }, t("models.new")) : null,
             m.locked === "local-only" ? h(Badge, { tone: "warn" }, t("models.locked.localOnly")) : null));
@@ -229,6 +232,7 @@ export function ModelsPage({ sub }: PageProps): View {
   if (data.models.length === 0) {
     return h(Page, { title, actions },
       readOnly,
+      h(EngineRoleTests, {}),
       scanArea,
       h(PageState, { state: "empty", title: t("models.emptyTitle"), detail: t("models.emptyBody") }, scanButton),
       dialog);
@@ -239,6 +243,7 @@ export function ModelsPage({ sub }: PageProps): View {
   const newCount = isNew.size > 0 ? isNew.size : data.newCount;
   return h(Page, { title, lead: t("models.lead"), actions, width: "full" },
     readOnly,
+    h(EngineRoleTests, {}),
     scanArea,
     ackArea,
     newCount > 0 ? h("p", {}, h("button", { type: "button", class: "btn", onClick: () => { void acknowledge(); } }, t("models.ack", { count: newCount }))) : null,

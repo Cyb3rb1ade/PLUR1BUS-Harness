@@ -26,7 +26,7 @@ A page with unsaved edits calls `registerDirtyGuard(isDirty, message)` (or `regi
 
 | Route | Page | Nav group | States | Notes |
 |---|---|---|---|---|
-| `/chat`, `/chat/new`, `/chat/<sessionId>` | Chat | Workspace | all five; a missing session (`E_NOT_FOUND`) and an archived one (`E_CONFLICT`) show as empty with their own text | History column plus conversation (`ListDetail`, the conversation replaces the list in compact). New chat: agent from `GET /api/v1/agents`, "not remembered" switch (`memoryMode: "incognito"`), first message. Transcript follows `session.event` on SSE; without `/events` it polls `session.events` every 1 s, only while a reply is running. Send, cancel, unsent text is put back on failure. Chat head: two selects, model (configured profiles; a profile locked by "Nur lokal" or gone from the catalog stays listed, disabled, with the reason) and reasoning ("Default (provider)" plus only the levels the model offers; a stored level the model lacks is shown with the level it becomes). A change applies from the next reply (a model change asks for a cache-cost confirmation first; see [user/en/chat-models.md](user/en/chat-models.md)), is refused while a reply runs, reloads on a stale revision and adds a "Model changed: … · Reasoning: …" event note that survives reload for remembered chats and stays in RAM for incognito chats. Accepted privacy changes invalidate the picker immediately through `chat.models.changed`; the client rereads its authorized options. |
+| `/chat`, `/chat/new`, `/chat/<sessionId>` | Chat | Workspace | all five; a missing session (`E_NOT_FOUND`) and an archived one (`E_CONFLICT`) show as empty with their own text | History column plus conversation (`ListDetail`, the conversation replaces the list in compact). New chat: agent from `GET /api/v1/agents`, "not remembered" switch (`memoryMode: "incognito"`), first message. Transcript follows `session.event` on SSE; without `/events` it polls `session.events` every 1 s, only while a reply is running. Send, cancel, unsent text is put back on failure. Chat head: two selects, model (configured profiles; a profile locked by "Nur lokale Modelle" or gone from the catalog stays listed, disabled, with the reason) and reasoning ("Default (provider)" plus only the levels the model offers; a stored level the model lacks is shown with the level it becomes). A change applies from the next reply (a model change asks for a cache-cost confirmation first; see [user/en/chat-models.md](user/en/chat-models.md)), is refused while a reply runs, reloads on a stale revision and adds a "Model changed: … · Reasoning: …" event note that survives reload for remembered chats and stays in RAM for incognito chats. Accepted privacy changes invalidate the picker immediately through `chat.models.changed`; the client rereads its authorized options. |
 | `/memories`, `/memories/<cardId>` | Memories | Workspace | per area (agents, health, reviews, search, cards, detail): all five plus `not-found` | Agent picker (from `core.status`, else `GET /api/v1/agents`), health, pending proposals (read-only), recall search with trace, card list ("Show more": 20 at a time up to 100) and detail. Live indicator from `/events`. `dreams` is reserved and never a card id. |
 | `/memories/dreams`, `/memories/dreams/<runId>` | Dreams (tab of Memories) | Workspace | per area, as above | Status per agent and phase, schedule, run log and one run's log, dry-run plan before a run, enable/disable. Run needs role owner/admin/operator, enable/disable owner/admin (client hint from `docs/rbac.md`; a server `E_DENIED` disables the action for the rest of the page session). |
 | `/models`, `/models/<provider>/<id>` | Models | Build | all five; a member gets the forbidden state with no `models.*` request | Providers, filterable list, detail, "new" badges and acknowledge, scan, manual add, override edit, remove manual. Add, edit and remove are offered to owner and admin only (`models.write`). Both id parts are percent-encoded. Unknown fields are shown with secret-named values masked. Live updates on `models.changed`. |
@@ -262,11 +262,12 @@ Pages depend on the `Api` interface (`rpc`, `get`, `post`, `put`, `patch`, `dele
 
 - **Decision-model hint** (`src/pages/common/decision-hint.ts`, keys `shared.decisionHint.*`). Without `modelRoles.decision` the built-in
   rule triage runs (a normal mode, not an error), but model-based message triage, tool pre-selection and the model class and effort
-  per task are limited. The notice names these three and the way to set the role (Settings, Models & providers, and
+  per task are limited, as are the further consumers of ADR-015 (model routing, tool-output pruning, automatic skill choice, memory placement and zoom
+  recall, compaction choice), each of which falls back as the ADR's table says. The notice lists all nine with their fallback and the way to set the role (Settings, Models & providers, and
   `plur1bus config set modelRoles.decision <provider/model>`). It shows in the setup wizard (model step and summary, reading
   `modelRoles.decision` with `config.get`; a failed read still shows it; the optional Decision step can set the role) and on the Models & providers
-  settings section; it disappears once the role is a non-empty string. The same three features are listed by `plur1bus setup`
-  (`config` step, `detail.decisionRole`) and by the `models.decision` row of `1staid check` (`info`, never a warning). Tests:
+  settings section; it disappears once the role is a non-empty string. The same nine features are listed by `plur1bus setup`
+  (`config` step, `detail.decisionRole.notice`, which also carries the Windows/Laya recommendation; the web wizard cannot know the server OS and shows no Windows notice); the `models.decision` row of `1staid check` (`info`, never a warning) still names the first three. Tests:
   `test/decision-hint.test.ts`. The `modelRoles` values are edited with catalog selectors in the settings form; the CLI remains available on the
   command line for now.
 
@@ -281,7 +282,7 @@ pnpm lint                                  # typecheck, hygiene, check-i18n (not
 ```
 
 - **Browser suites** (`e2e`, `a11y`, `responsive`, the per-page suites, palette) need Chromium: `PLUR1BUS_CHROMIUM`, Playwright's
-  install or `/opt/pw-browsers/chromium`; nothing is downloaded. Without one they are skipped; `PLUR1BUS_WEB_E2E_REQUIRED=1` turns
+  install or `/opt/pw-browsers/chromium`; nothing is downloaded. Without one they are skipped; `PLUR1BUS_WEB_BROWSER=off` skips them explicitly (the `unit (macos-15)` job sets it because they run in `web-browser (macos-15)`, see `docs/ci.md`); `PLUR1BUS_WEB_E2E_REQUIRED=1` turns
   that into a failure. `UPDATE_SNAPSHOTS=1` rewrites `test/fixtures/responsive.json`.
 - **Coverage.** axe (WCAG 2.1 AA) per page, state and theme; layout checks at 400, 960, 1440 and 2560 px (1024 where a mode changes),
   no horizontal scroll, 200 % text zoom (a 1440 px window becomes a 720 px viewport), keyboard paths, contrast of the tokens.
@@ -462,7 +463,7 @@ override), `src/pages/surfaces/media.ts` (the search and the "Find similar" butt
 
 - **Free provider choice.** Text and media providers are chosen independently; there is no combination list. Validation checks only
   capability (the media provider must take every chosen modality, so OpenAI can only be the text index), licence (a non-commercial
-  model needs its confirmation, `E_MEDIA_LICENSE`), privacy pin (`E_MEDIA_PRIVACY`) and availability. The pin is not in the wizard's
+  model needs its confirmation, `E_MEDIA_LICENSE`), “Only local models” (`E_MEDIA_PRIVACY`) and availability. The switch is not in the wizard's
   answers: the setup only explains it, and the server refuses the request.
 - **Defaults write nothing.** Config changes are computed against the contract defaults and the loaded values, so an untouched form
   sends no media key. The existing setup test pins the exact `config.set` list of the default flow; this keeps it true.
@@ -494,8 +495,8 @@ override). The config mock writes into the objects it receives, so each test bui
 - **Memory tab.** Done in `src/pages/memory/media-tab.ts`, reached from `src/pages/memory/index.ts`. Re-index needs the typed word
   (`memory.media.reindexWord`) and sends `confirm: true`. The Settings card keeps its own layout and labels.
 - **Setup, media part.** The part already existed. This change adds browser tests for Back, for a reload after the step, and for the
-  rule that at least one media type is needed. Open: the setup has no privacy pin (the text step has none either), so the media
-  validation does not assume a global pin. Setup still offers local text models only; an explicitly selected cloud captioner now requires its own provider-naming privacy acknowledgment. The existing runtime pin takes precedence independently.
+  rule that at least one media type is needed. Open: the setup has no “Only local models” switch (the text step has none either), so the media
+  validation does not assume it is on. Setup still offers local text models only; an explicitly selected cloud captioner now requires its own provider-naming privacy acknowledgment. The “Only local models” switch takes precedence independently.
 - **Media search.** The find-similar button, the segment range and jump, the kind filter and the captions switch already existed.
   This change adds browser tests for the captions switch (`fuseCaptions`), for image hits without a segment, and for clearing a
   similar search. Open: the switch is labelled "Also use captions for ranking"; the owner's name "Captions einbeziehen" is not used,
@@ -529,7 +530,7 @@ override). The config mock writes into the objects it receives, so each test bui
   as the default; the cloud id must match the backend's provider registry.
 - **F52. Agent override clearing.** Clearing a field writes `null`. The contract does not say whether `config.set` accepts `null` for
   an `agents.<id>.memory.mediaEmbedding.*` key; if it does not, clearing needs a dedicated delete.
-- **F53. Privacy pin.** The setup only explains the pin. The Settings panel does not show whether it is set; the server's refusal
+- **F53. “Only local models”.** The setup only explains the switch. The Settings panel does not show whether it is on; the server's refusal
   (`E_MEDIA_PRIVACY`) is the only signal.
 - **F54. Size.** The contract's catalogue has no size; the forms show "not stated". A size field would make the setup's "Größe" useful.
 - **F55. Playback test.** The browser test checks the `#t=` fragment and `data-start`, not actual playback.
@@ -617,14 +618,17 @@ Each role has a de/en purpose text. Embedding identifiers here are role metadata
 The Test button on chat/LLM roles calls `models.test`: a fixed short prompt, 16 output tokens, ten-second deadline, no tools,
 no recalled memory, no session or transcript writes. It uses the configured adapter and production budget; cloud models
 make a cloud call. Provider output and raw provider errors are never displayed. RPC is human-only and forbidden to WebMCP.
-Embedding/reranking have no Test button until the engine ports are wired (Phase D).
+Models and Memory also offer Engine role tests through `admin.engine.test`: a minimal real embedding or rerank call,
+ten-second deadline, current Engine model, latency and embedding dimension, or a fixed error class (egress, key,
+download, provider or timeout). The human Owner/Admin scope is `settings.write`; provider text and key values are
+never returned. A cold model can require a download; remote roles can call their configured provider. Captioning
+has no Engine role contract and is explicitly reported as unsupported.
 
 The setup wizard now has nine standalone/eight bundled steps. Decision follows Main model, defaults to skip, and writes
 only an explicit choice with a revision check. Skipping keeps the existing role, if any. CLI setup offers catalog chat
 models with configured providers; unattended setup never assigns Decision. Doctor's `models.decision` reports last catalog
 availability; unknown is info, unavailable is fail, and no live paid probe is performed by Doctor.
 
-KNOWN GAP: #570's canonical local-only policy is not on this branch's main base; gating in selectors and the model probe
-must be connected after that merge. `composition/model-test.test.ts` has the corresponding todo. Engine-role probes have a
-second todo pending Phase D. The current role schema has no captioning role; captioning remains in its existing media
-settings. These limits are not presented as completed acceptance criteria.
+The Engine tests use the same host fetch, secret store and live egress/privacy checks as production calls. The current
+role schema has no captioning role; captioning remains in its existing media settings. Existing broader role-selector
+acceptance work is tracked separately; these buttons do not claim completion of the whole model-role package.

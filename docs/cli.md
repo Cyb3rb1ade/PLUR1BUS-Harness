@@ -61,6 +61,10 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory proposals list`↴](#plur1bus-memory-proposals-list)
 * [`plur1bus memory proposals accept`↴](#plur1bus-memory-proposals-accept)
 * [`plur1bus memory proposals reject`↴](#plur1bus-memory-proposals-reject)
+* [`plur1bus memory curation`↴](#plur1bus-memory-curation)
+* [`plur1bus memory curation list`↴](#plur1bus-memory-curation-list)
+* [`plur1bus memory curation keep`↴](#plur1bus-memory-curation-keep)
+* [`plur1bus memory curation drop`↴](#plur1bus-memory-curation-drop)
 * [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
 * [`plur1bus session`↴](#plur1bus-session)
 * [`plur1bus session list`↴](#plur1bus-session-list)
@@ -880,6 +884,7 @@ Memory: add and recall through the core
 * `state` — [experimental] Memory subsystem state
 * `propose` — [experimental] Propose a correction to a shared memory
 * `proposals` — [experimental] List, accept or reject shared-memory correction proposals
+* `curation` — [experimental] Human curation of memory candidates (separate from correction proposals)
 * `reembed` — [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
 
 
@@ -1097,6 +1102,65 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 * `--agent <AGENT>`
 * `--note <NOTE>`
+
+
+
+## `plur1bus memory curation`
+
+[experimental] Human curation of memory candidates (separate from correction proposals)
+
+**Usage:** `plur1bus memory curation <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the human curation queue
+* `keep` — [experimental] Keep a curation record
+* `drop` — [experimental] Drop a curation record
+
+
+
+## `plur1bus memory curation list`
+
+[experimental] List the human curation queue
+
+**Usage:** `plur1bus memory curation list [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--limit <LIMIT>`
+
+
+
+## `plur1bus memory curation keep`
+
+[experimental] Keep a curation record
+
+**Usage:** `plur1bus memory curation keep --agent <AGENT> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus memory curation drop`
+
+[experimental] Drop a curation record
+
+**Usage:** `plur1bus memory curation drop --agent <AGENT> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
 
 
 
@@ -2609,9 +2673,13 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
 
-Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result also names the era boundary and checks the set-aside chain up to its first deviation.
+Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result also names the era boundary and checks the set-aside chain up to its first deviation. `--pin SEQ:HASH` also checks a sequence/hash pair recorded outside this host (rotated files included).
 
-**Usage:** `plur1bus audit verify`
+**Usage:** `plur1bus audit verify [OPTIONS]`
+
+###### **Options:**
+
+* `--pin <SEQ:HASH>` — Check an externally recorded sequence/hash pair, including older rotated files (no external transmission)
 
 
 

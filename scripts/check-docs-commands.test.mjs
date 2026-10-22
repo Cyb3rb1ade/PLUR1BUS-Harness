@@ -33,3 +33,16 @@ test("tilde fences and longer backtick fences are fenced code too", () => {
   const nested = "````md\n```sh\nplur1bus agent list\n```\nplur1bus agent make main\n````\nplur1bus outside\n";
   assert.deepEqual(extractCommands(nested).map((c) => c.text), ["plur1bus agent list", "plur1bus agent make main"]);
 });
+
+test("global flags before the subcommand are skipped, so the real command is still checked", () => {
+  assert.deepEqual(checkCommand("plur1bus --json agent create main", cli), { path: "agent create", errs: [] });
+  assert.deepEqual(checkCommand("plur1bus --home <dir> --json agent create", cli), { path: "agent create", errs: [] });
+  assert.deepEqual(checkCommand("plur1bus --home=/srv/p agent create", cli), { path: "agent create", errs: [] });
+  assert.deepEqual(checkCommand("plur1bus --color never update --check", cli), { path: "update", errs: [] });
+  assert.deepEqual(checkCommand("plur1bus agent --json create main", cli), { path: "agent create", errs: [] });
+  // The path now resolves, so a wrong subcommand or flag after the globals is found (before, the whole line was checked against the root).
+  assert.equal(checkCommand("plur1bus --json agent make main", cli).errs.length, 1);
+  assert.equal(checkCommand("plur1bus --json update --apply", cli).errs.length, 1);
+  assert.equal(checkCommand("plur1bus --json backup create", cli).errs.length, 1);
+  assert.equal(checkCommand("plur1bus --json --nope agent create", cli).errs.length, 1);
+});

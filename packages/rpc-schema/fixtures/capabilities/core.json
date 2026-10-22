@@ -1,5 +1,25 @@
 {
   "methods": {
+    "delivery.target.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.add": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.confirm": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.remove": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.subscribe": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "chat.promote.links": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -436,6 +456,14 @@
       "stability": "experimental",
       "since": "1.1.0"
     },
+    "memory.curation.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "memory.curation.resolve": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "memory.proposals.list": {
       "stability": "experimental",
       "since": "1.1.0"
@@ -611,6 +639,10 @@
     "events.unsubscribe": {
       "stability": "stable",
       "since": "1.0.0"
+    },
+    "admin.engine.test": {
+      "stability": "experimental",
+      "since": "1.6.0"
     },
     "models.test": {
       "stability": "experimental",

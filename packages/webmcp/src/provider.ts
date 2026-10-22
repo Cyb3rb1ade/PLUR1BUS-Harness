@@ -50,6 +50,7 @@ export const PAGE_SUPPLIED_PARAMS: readonly string[] = ["caller"];
 /** Methods that are never exposed, even when named in `include`: authentication, process lifecycle,
  *  supervisor/daemon/module control, subscriptions, configuration writes and admin ops (D55: `admin.*`). */
 const FORBIDDEN_EXACT = new Set([
+  "memory.curation.list", "memory.curation.resolve",
   "session.model.get", "session.model.set", "chat.model.set", "task.complete",
   "jobs.create", "jobs.update", "jobs.delete", "doctor.report", "agent.activity.list",
   "core.auth", "core.shutdown", "core.adopt", "memory.checkpoint", "agent.open", "agent.close",
@@ -79,6 +80,7 @@ const FORBIDDEN_EXACT = new Set([
   "session.archive", "session.cancel", "session.create", "session.events", "session.get", "session.resume", "session.submit",
   // humanOnly on the RPC rule itself (guard.ts `humanOnly: true`), not through the action:
   "chat.promote.links", "chat.promote.preview", "chat.promote.commit",
+  "delivery.target.add", "delivery.target.confirm", "delivery.target.list", "delivery.target.remove", "delivery.target.subscribe",
   // voice.session.create is humanOnly too but not listed: provider.test.ts 'Voice V3' asserts every voice.* method that is not one of the
   // seven writes stays open (owner decision pending).
   "model.embedding.select", "model.licence.confirm", "model.licence.list", "model.licence.check",

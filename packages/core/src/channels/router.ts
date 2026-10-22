@@ -28,6 +28,7 @@ export interface RouterDeps {
   identity: IdentityPort; sessions: SessionPort; clock: Clock; log: ChannelLogger;
   /** Applied to every error text before it is logged (the host masks secret values here). */
   redact?: (text: string) => string;
+  command?: (msg: InboundMessage, person: string, send: Send) => Promise<boolean>;
   behaviour?: (msg: InboundMessage) => ResolvedBehaviour;
 }
 export type Send = (msg: OutboundMessage) => Promise<void>;
@@ -113,6 +114,7 @@ export class ChannelRouter {
     }
     const chat = { channel: msg.channel, chatId: msg.chatId };
     try {
+      if (await this.#d.command?.(msg, userId, send)) return;
       if (msg.text.trim() === "/new") {
         const active = await this.#d.sessions.findActive(chat);
         if (active) await this.#d.sessions.archive(active);
@@ -123,7 +125,7 @@ export class ChannelRouter {
       // A group is one shared conversation (anyone in the room continues it), so there the owner is not compared.
       const forOwner = msg.chatKind === "direct" ? { userId } : undefined;
       const sessionId = (await this.#d.sessions.findActive(chat, forOwner)) ?? (await this.#d.sessions.create(chat, { userId }));
-      const out = await channelOrigin.run(chat, () => channelBehaviour.run(profile, () => this.#d.sessions.submit(sessionId, { userId, text: msg.text })));
+      const out = await channelOrigin.run({ ...chat, ...(msg.accountId ? { accountId: msg.accountId } : {}), senderId: msg.senderId, humanId: userId, chatKind: msg.chatKind }, () => channelBehaviour.run(profile, () => this.#d.sessions.submit(sessionId, { userId, text: msg.text })));
       await this.#reply(send, msg, clipReply(out.text, profile.rateLimits.maxReplyChars));
     } catch (e) {
       this.#d.log.error("channel.session.failed", { channel: msg.channel, error: this.#err(e) });

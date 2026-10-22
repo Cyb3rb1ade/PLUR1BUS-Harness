@@ -47,6 +47,7 @@ when anything is wrong).
 | `truncated` | the chain is shorter than the anchor (lines cut off at the end, or files removed) |
 | `anchor-mismatch` | the line at the anchor's `seq` has a different hash (the newest line was changed) |
 | `anchor-missing`, `anchor-invalid` | the anchor was removed or damaged |
+| `pin-missing`, `pin-mismatch` | the externally supplied sequence is absent or its line has a different hash |
 
 Findings carry file name, line and `seq`, never record content. `anchor.status` `behind` (the anchor trails by one
 write that crashed before the anchor moved) is not a finding; the next write moves the anchor up (see [Recovery](#recovery)).
@@ -64,10 +65,12 @@ After a reanchor the result also carries two additive lists. Neither makes `ok` 
 
 The core tees its RBAC sink, identity audit writer and sanitized secret-store records into the chain. Secret records keep their nullable target; no secret value is added to either audit file.
 
-The Rust CLI writes directly, including while the core is stopped (setup, repair, backup, uninstall and extensions). It uses the same line envelope, SHA-256 bytes, anchor and 8 MiB rotation names. The core holds a SQLite `BEGIN EXCLUSIVE` OS lock on `audit-chain.lock`; Rust holds the corresponding pending/reserved/shared byte range (`0x40000000`, 512 bytes), using `fcntl` on Unix and `LockFileEx` on Windows. A Rust process mutex also serializes its own threads because POSIX record locks belong to a process. No SQLite database contents are changed by Rust. The kernel releases either lock when its process exits. Direct writes keep offline operations independent of RPC authentication and core availability. A writer **fails closed**: it refuses to
+The supervisor's `config.set` writes its `audit.config.set` rows (one per changed `x-audit` key, before `config.json` is replaced) through the same Rust writer (`audit::append_as`, `actor` = the authenticated person), so each row is a chain line and the identical `audit.log` line; the field-based `[REDACTED]` of sensitive config values is applied before the append. A chain that refuses the append does **not** fail the config set; only a failed `audit.log` write does (see [Config saves never wait for the chain](#config-saves-never-wait-for-the-chain)).
+
+The Rust CLI writes directly, including while the core is stopped (setup, repair, backup, uninstall and extensions). It uses the same line envelope, SHA-256 bytes, anchor and 8 MiB rotation names. The core holds a SQLite `BEGIN EXCLUSIVE` OS lock on `audit-chain.lock`; Rust holds the corresponding pending/reserved/shared byte range (`0x40000000`, 512 bytes), using `fcntl` on Unix and `LockFileEx` on Windows. A Rust process mutex also serializes its own threads because POSIX record locks belong to a process. No SQLite database contents are changed by Rust. The kernel releases either lock when its process exits. Direct writes keep offline operations independent of RPC authentication and core availability. Every writer except the config audit **fails closed**: it refuses to
 append when the anchor is missing or invalid, when the chain is shorter than the anchor, when the tail does not
 match the anchor (including an anchor behind the tail), or when the last line is not a chain line, so tampering is never
-papered over by new lines. Exactly one state is healed by the writers themselves, and one command repairs the rest:
+papered over by new lines (the config audit queues its lines instead of appending them, see [Config saves never wait for the chain](#config-saves-never-wait-for-the-chain)). Exactly one state is healed by the writers themselves, and one command repairs the rest:
 see [Recovery](#recovery).
 
 ## Recovery
@@ -112,7 +115,7 @@ Under the lock it
    files stay where they are,
 3. starts a new chain (seq 1, the genesis hash) whose first line is `audit.chain.reanchored`. Its `detail` holds the redacted reason
    (secrets removed with the diagnostic bundle's redactor, cut at 500 characters), the actor (the line's `actor`), the disagreement
-   (`anchor-missing`, `anchor-invalid`, `chain-shorter-than-anchor`, `tail-mismatch` or `tail-malformed`), the old anchor
+   (`anchor-missing`, `anchor-invalid`, `chain-shorter-than-anchor`, `tail-mismatch` or `tail-malformed`; a refused append calls the `tail-mismatch` state `tail-anchor-mismatch` in its `chainReason`), the old anchor
    (`ok` with seq and hash, `missing` or `invalid`), the old end (`previousEnd`: seq and hash, `null` when the last line is not a chain
    line), `lines` and `validLines`, `lastValid`, `firstBreak`, `asideSuffix`, the names of the set-aside files (`aside`) and their
    directory (`asideDir`),
@@ -127,6 +130,47 @@ renames and the first line leaves the set-aside files and an empty chain; the ne
 what was wrong, who ran the command and why, and `audit.verify` keeps reporting the era boundary and the state of every set-aside
 chain up to its first deviation. To the verifier a reanchor is an era boundary, not a break; a reanchor nobody asked for is
 recognisable by the event (or by an `announced: false` set).
+
+## Config saves never wait for the chain
+
+`config.set` is something a person does, and saving a configuration safely must always be possible (owner decision 20.10.). The
+other callers of `audit::append` (setup, repair, backup, uninstall, extensions, updates) record machine events, so they stay
+fail-closed: a refused append is an error there, as above. Only the supervisor's config audit (`audit::append_as_degrading`)
+degrades, and only on a refusal:
+
+| What fails | `config.set` |
+|---|---|
+| `audit.log` cannot be written (I/O error, disk full) | fails (`E_INTERNAL`), `config.json` is not written: fail-closed for the log, as always |
+| the chain fails for a storage reason (not a refusal) | fails, as above |
+| only the chain **refuses** (`anchor-missing`, `anchor-invalid`, `chain-shorter-than-anchor`, `tail-anchor-mismatch`, `tail-malformed`, `sequence-exhausted`, `rotation-target-exists`, `lock-timeout` after 5 s) | the configuration is saved |
+
+When only the chain refuses, the chain and its anchor are not touched (tampering is not papered over) and:
+
+1. The redacted line still goes to `audit.log`, with the extra fields `chain: "refused"` and `chainReason` (one of the codes above, never content).
+2. The same line (byte for byte) is appended to the pending journal `logs/audit-chain.pending.jsonl` (0600, fsynced). It keeps at most
+   10,000 lines and 8 MiB; beyond that the oldest lines are discarded, counted in a first line `{"pendingDropped":N}`, and noted in
+   `audit.log` as `audit.chain.pending_overflow` (`dropped`, `limitLines`, `limitBytes`).
+3. The `config.set` result carries `warnings: ["audit-chain-unavailable"]` (the CLI prints it), and the supervisor log an `error` line
+   with the reason, the number of rows and whether they are queued. `daemon.status` has no audit or health section, so it shows nothing.
+
+`audit::drain_pending` runs after every successful append (when there is no journal, that is one `stat`). Once the chain accepts
+appends again (after the anchor is restored, for example), it appends the queued lines to the chain in their original order,
+with their original time (`at`) in `rec` and their `chain: "refused"` fields, so the chain line is still the exact `audit.log` line, and
+then records `audit.chain.pending_drained` with `count`, `dropped` (lines the limit discarded) and `skipped` (unreadable lines). Lines
+are appended in batches of 100 under one lock and one anchor update. The journal is cleared only for lines the chain took: a crash
+between the chain write and the clearing can chain a line a second time, never lose one. While the chain still refuses, a drain
+changes nothing. A drained line is chained late, not backdated: it sits after the line that triggered the drain, and its own time is `rec.at`.
+
+`audit-chain.pending.jsonl` is not part of the chain: `audit.verify` does not read it, and lines waiting in it are not tamper-evident until they
+are drained. A reporting gap while the chain is refused is the price of never blocking the person saving a configuration.
+
+## Durability and an external pin (D2)
+
+The writer keeps the OS lock through the line fsync, the temporary-anchor fsync, the atomic anchor replacement and, on POSIX, the directory fsync. Rotation also fsyncs the directory. Torn-tail evidence is flushed (file and directory entry) before the interrupted bytes are truncated. Both writers loop on short writes and refuse a write that makes no progress, without moving the anchor. These steps do not make two files a single atomic filesystem transaction: a process interrupted between them can still leave the one crash state that [Recovery](#recovery) describes, which the next writer heals and records, or another disagreement, which stays a refusal.
+
+**Windows known gap:** file contents are flushed, but portable Node and Rust `std` provide no guaranteed directory-entry flush on Windows. A native host capability is still needed for equivalent power-loss durability there. Neither writer claims this gap is closed; see the todo-test in `packages/core/test/audit/durability.test.ts`.
+
+Record `lastSeq` and `lastHash` from `plur1bus audit verify --json` somewhere the host cannot change. Later supply that pair as `plur1bus audit verify --pin <seq>:<hash>` (lowercase SHA-256, positive safe integer sequence). The pin may refer to any retained sequence of the current chain, including a rotated file; later appended events do not invalidate it. A missing or mismatching pinned line makes verification fail even when a complete rewrite has an internally consistent anchor. The pin is checked under the verifier's lock, against the files as read in that pass. RPC callers pass `{ "pin": { "seq": 42, "hash": "<64 lowercase hex characters>" } }` to `audit.verify` (closed parameter object). Existing Owner/Admin authorization applies. No pin is transmitted outside the host. Core startup runs the same verification without a pin, logs any findings (codes, files, line and `seq` only, never record content) and never blocks the start, also when the chain cannot be read at all.
 
 ## What it does not protect
 
@@ -150,4 +194,9 @@ recognisable by the event (or by an `announced: false` set).
   (`src/journal.rs`), are tested for append-only writes (no earlier byte is rewritten), one physical line per entry whatever the content,
   eight concurrent writers without interleaved lines, private permissions, and a last line left torn by a crash: the next entry now starts
   a line of its own instead of being glued to the fragment.
-- **Known gaps:** `detail` is redacted by the TypeScript chain writer and the rbac and identity `audit.log` writers only. The Rust CLI's chain and `audit.log` lines and the secret-store `audit.log` copy write `detail` as given (the secret store keeps an allow-list of primitive keys; the Rust callers are not checked by this change). Neither `audit.log` nor the journal rotates. Both chain writers use the same rotation contract.
+- **Detail redaction at the two remaining writers:** the Rust writer behind `audit::append`, `append_as` and `append_as_degrading` (`crates/plur1bus/src/audit.rs`, `audit_redact.rs`; the redaction sits in the shared `append_inner`, so the supervisor's `audit.config.set` rows and the pending journal are covered) and the
+  secret store's `createFileAuditSink` (`packages/core/src/secrets/audit.ts`) run `detail` through the D111 §4 redactor once, before the
+  record goes to the chain and to `audit.log`, so both copies hold the same redacted line and the hash is taken over it. The Rust side reads
+  its patterns from `packages/log-schema/schema/redaction.json` (no list of its own) and is tested against the canaries in `fixtures/vectors.json`;
+  the secret store also masks the values it holds. The Rust chain's own `append` writes the record it is given; the TypeScript chain writer redacts again (idempotent, `audit/redact-detail.ts`).
+- **Known gaps:** none for `detail` redaction at the writers listed above. Neither `audit.log` nor the journal rotates. Both chain writers use the same rotation contract.

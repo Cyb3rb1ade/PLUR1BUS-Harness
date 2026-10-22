@@ -693,6 +693,11 @@ pub enum MemoryCmd {
         #[command(subcommand)]
         sub: ProposalsCmd,
     },
+    /// [experimental] Human curation of memory candidates (separate from correction proposals)
+    Curation {
+        #[command(subcommand)]
+        sub: CurationCmd,
+    },
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
 }
@@ -790,6 +795,28 @@ pub enum ProposalsCmd {
         proposal_id: String,
         #[arg(long)]
         note: Option<String>,
+    },
+}
+#[derive(Subcommand, Debug)]
+pub enum CurationCmd {
+    /// [experimental] List the human curation queue
+    List {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Keep a curation record
+    Keep {
+        #[arg(long)]
+        agent: String,
+        id: String,
+    },
+    /// [experimental] Drop a curation record
+    Drop {
+        #[arg(long)]
+        agent: String,
+        id: String,
     },
 }
 #[derive(Subcommand, Debug)]
@@ -1158,6 +1185,33 @@ pub struct ChatArgs {
     pub message: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub struct AuditPin {
+    pub seq: u64,
+    pub hash: String,
+}
+
+fn parse_audit_pin(text: &str) -> Result<AuditPin, String> {
+    const ERROR: &str =
+        "expected positive safe sequence and 64 lowercase hexadecimal hash (SEQ:HASH)";
+    let (sequence, hash) = text.split_once(':').ok_or(ERROR)?;
+    let seq: u64 = sequence.parse().map_err(|_| ERROR)?;
+    if !sequence.bytes().all(|c| c.is_ascii_digit())
+        || seq == 0
+        || seq > 9_007_199_254_740_991
+        || hash.len() != 64
+        || !hash
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
+        return Err(ERROR.into());
+    }
+    Ok(AuditPin {
+        seq,
+        hash: hash.into(),
+    })
+}
+
 #[derive(Subcommand, Debug)]
 pub enum AuditCmd {
     /// [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
@@ -1165,8 +1219,13 @@ pub enum AuditCmd {
     /// Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must
     /// be gapless across rotated files, and the anchor file must match the newest line. Asks the core
     /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result
-    /// also names the era boundary and checks the set-aside chain up to its first deviation.
-    Verify,
+    /// also names the era boundary and checks the set-aside chain up to its first deviation. `--pin SEQ:HASH` also
+    /// checks a sequence/hash pair recorded outside this host (rotated files included).
+    Verify {
+        /// Check an externally recorded sequence/hash pair, including older rotated files (no external transmission)
+        #[arg(long, value_name = "SEQ:HASH", value_parser = parse_audit_pin)]
+        pin: Option<AuditPin>,
+    },
     /// [experimental] Start a new era of the audit chain when writers refuse the old one (owner only; keeps every old file)
     ///
     /// Writers refuse to append when the anchor is missing or invalid, when the chain is shorter than the anchor,

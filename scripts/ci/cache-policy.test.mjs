@@ -57,8 +57,9 @@ test("standalone cache saves run only after success, with populated content and 
 });
 
 test("Playwright cache keys isolate lockfile changes, runner OS and architecture", () => {
-  const browser = steps().find(step => step.body.includes("path: ~/.cache/ms-playwright"));
-  assert.ok(browser, "the existing browser cache remains enabled");
+  const browsers = steps().filter(step => /path: (?:~\/\.cache|~\/Library\/Caches)\/ms-playwright/.test(step.body));
+  assert.equal(browsers.length, 2, "exercise both Linux and macOS browser caches");
+  for (const browser of browsers) {
   const template = /^          key: (.+)$/m.exec(browser.body)?.[1];
   assert.ok(template);
   const key = ({ os = "Linux", arch = "X64", lock = "lock-one" } = {}) => template.replace(/\$\{\{\s*(.*?)\s*\}\}/g, (_, expression) => {
@@ -70,6 +71,7 @@ test("Playwright cache keys isolate lockfile changes, runner OS and architecture
   assert.notEqual(key(), key({ os: "macOS" }), "another operating system must miss");
   assert.notEqual(key(), key({ arch: "ARM64" }), "another architecture must miss");
   assert.notEqual(key(), key({ lock: "lock-two" }), "another Playwright/browser revision must miss");
+  }
 });
 
 test("existing cache actions cannot opt into failed saves or expanded credential-bearing paths", () => {
@@ -83,7 +85,8 @@ test("existing cache actions cannot opt into failed saves or expanded credential
     if (/^actions\/cache(?:\/save|\/restore)?@/.test(action)) {
       assert.doesNotMatch(step.body, /save-always:\s*["']?true/);
       const path = /^          path: (.+)$/m.exec(step.body)?.[1];
-      assert.ok(["~/.cache/ms-playwright", "${{ github.workspace }}/.models-cache"].includes(path), `${step.file}/${step.job}: unreviewed cache path ${path}`);
+      assert.ok(["~/.cache/ms-playwright", "${{ github.workspace }}/.models-cache"].includes(path) ||
+        (step.file === "ci.yml" && step.job === "web-browser-macos" && path === "~/Library/Caches/ms-playwright"), `${step.file}/${step.job}: unreviewed cache path ${path}`);
       assert.doesNotMatch(step.body, /^          (?:path|key):.*secrets\./m);
     }
   }

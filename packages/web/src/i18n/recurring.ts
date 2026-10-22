@@ -1,5 +1,18 @@
 // Recurring Tasks (Jobs): list, schedule, history, triggers, execution.
 export const en = {
+  "recurring.delivery.title": "Delivery destinations",
+  "recurring.delivery.help": "Add your linked direct identity, reply to the confirmation message there, then refresh. Only validated destinations can receive job results.",
+  "recurring.delivery.identity": "Linked identity",
+  "recurring.delivery.none": "No delivery",
+  "recurring.delivery.add": "Add destination",
+  "recurring.delivery.refresh": "Refresh validation",
+  "recurring.delivery.valid": "Validated",
+  "recurring.delivery.pending": "Awaiting DM confirmation",
+  "recurring.delivery.confirm": "Send a new confirmation",
+  "recurring.delivery.remove": "Remove destination",
+  "recurring.delivery.failed": "Delivery destinations could not be loaded or changed.",
+  "recurring.delivery.destination": "Deliver result to",
+
   "recurring.title": "Recurring Tasks",
   "recurring.intro": "Monitor automated scheduled jobs and trigger background runs.",
   "recurring.tab.jobs": "Scheduled Jobs",
@@ -62,6 +75,19 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "recurring.delivery.title": "Zustellziele",
+  "recurring.delivery.help": "Eigene verknüpfte Direkt-Identität hinzufügen, dort auf die Bestätigungsnachricht antworten und aktualisieren. Nur bestätigte Ziele erhalten Job-Ergebnisse.",
+  "recurring.delivery.identity": "Verknüpfte Identität",
+  "recurring.delivery.none": "Keine Zustellung",
+  "recurring.delivery.add": "Ziel hinzufügen",
+  "recurring.delivery.refresh": "Bestätigung aktualisieren",
+  "recurring.delivery.valid": "Bestätigt",
+  "recurring.delivery.pending": "DM-Bestätigung ausstehend",
+  "recurring.delivery.confirm": "Neue Bestätigung senden",
+  "recurring.delivery.remove": "Ziel entfernen",
+  "recurring.delivery.failed": "Zustellziele konnten nicht geladen oder geändert werden.",
+  "recurring.delivery.destination": "Ergebnis zustellen an",
+
   "recurring.title": "Wiederkehrende Aufgaben",
   "recurring.intro": "Automatisierte geplante Jobs überwachen und Hintergrundläufe ausführen.",
   "recurring.tab.jobs": "Geplante Jobs",
