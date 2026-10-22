@@ -2672,9 +2672,13 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
 
-Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result also names the era boundary and checks the set-aside chain up to its first deviation.
+Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself. After a `reanchor` the result also names the era boundary and checks the set-aside chain up to its first deviation. `--pin SEQ:HASH` also checks a sequence/hash pair recorded outside this host (rotated files included).
 
-**Usage:** `plur1bus audit verify`
+**Usage:** `plur1bus audit verify [OPTIONS]`
+
+###### **Options:**
+
+* `--pin <SEQ:HASH>` — Check an externally recorded sequence/hash pair, including older rotated files (no external transmission)
 
 
 

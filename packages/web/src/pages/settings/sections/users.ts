@@ -224,8 +224,7 @@ function Presets(): View {
       h("h3", null, presetName(sel)),
       h("div", { class: "users-can" },
         h("div", null, h("h4", null, t("users.presets.can")), h("ul", null, CAN.map((c) => h("li", { key: c }, t(key(sel, c)))))),
-        h("div", null, h("h4", null, t("users.presets.cannot")), h("ul", null, NOT.map((c) => h("li", { key: c }, t(key(sel, c)))))))),
-    h("p", { class: "form-notice", role: "note" }, t("users.presets.unavailable")));
+        h("div", null, h("h4", null, t("users.presets.cannot")), h("ul", null, NOT.map((c) => h("li", { key: c }, t(key(sel, c)))))))));
 }
 
 export function UsersSection({ section }: SectionProps): View {

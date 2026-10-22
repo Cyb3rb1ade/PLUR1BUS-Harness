@@ -8921,7 +8921,7 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
 
 **Served by:** core
 
-B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE.
+B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. After `plur1bus audit reanchor` the result also lists the era boundaries (reanchors) and the chains set aside (previousChains, each checked only up to its first deviation); neither makes ok false. An unreadable log directory is E_STORAGE. An optional external pin (a sequence and hash recorded elsewhere) is checked under the same lock against the whole chain, rotated files included; pin-missing or pin-mismatch is a finding, and it detects a chain that was rewritten consistently.
 
 **params**
 
@@ -8929,7 +8929,28 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "hash"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "description": "Externally recorded sequence/hash pair; pin-missing or pin-mismatch is a finding."
+    }
+  }
 }
 ```
 
@@ -9025,7 +9046,9 @@ B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its ancho
               "anchor-missing",
               "anchor-invalid",
               "anchor-mismatch",
-              "truncated"
+              "truncated",
+              "pin-missing",
+              "pin-mismatch"
             ]
           },
           "file": {
