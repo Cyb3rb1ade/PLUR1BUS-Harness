@@ -133,6 +133,23 @@ its failing result.
 still need the commands documented for their suites below; browser or native acceptance is not
 implied by a successful preparation. The existing CI continues to use the real pinned Engine.
 
+### Actions throughput snapshot (GP5 P1)
+
+`node scripts/ci/timings.mjs --repo Cyb3rb1ade/PLUR1BUS-Harness --workflow ci.yml --runs 50 --out /tmp/ci-baseline`
+reads the most recent 50 runs once through the authenticated `gh api` client. It needs Actions read access and never
+polls for completion or changes repository settings. The output prefix produces raw `.json` and a `.md` summary;
+`--input /tmp/ci-baseline.json` reproduces the summary offline. Workflow and run/job pagination are explicit, and only
+the selected run's latest attempt is measured. An API error fails the collection instead of publishing partial data.
+
+Percentiles use nearest rank. Job wait is `started_at - created_at`, which can include dependency or environment delay
+as well as runner queue time. Skipped jobs and missing/invalid times contribute no timing sample. Incomplete runs are
+reported separately; cancelled jobs can have partial execution times. Runs/day uses the span of selected run creation
+times, with a one-day minimum; a latest-N window is not an unbiased calendar-day sample. A newer different head on the
+same branch/event makes a cancelled run a supersession candidate, not a proven concurrency cancellation. Compare
+equivalent workflow/event mixes after changes; do not claim speedups from a mostly unfinished or cancelled sample.
+
+The initial measurement and its limitations are in [the P1 handoff](handoffs/2026-10-21-ci-baseline.md).
+
 See [the release verification commands](release.md#local-verification) for the complete checklist. In addition:
 
 ```bash

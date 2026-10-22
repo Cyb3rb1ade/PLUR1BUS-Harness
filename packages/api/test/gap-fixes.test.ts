@@ -62,7 +62,7 @@ const rpc = async (h: Harness, cookie: string, method: string, params: object = 
 const RPC_PARAMS: Record<string, object> = { "jobs.run": { job: "models.scan" }, "dreams.run": { agentId: "main", phase: "light" }, "voice.realtime.start": { agentId: "main", chatSessionId: "chat-1" }, "session.submit": { sessionId: "ses_1", text: "hello" } };
 
 test("ADR-004: the model-backed methods and the chat submit are class `expensive`, everything else keeps its class", () => {
-  assert.deepEqual([...EXPENSIVE_RPC_METHODS].sort(), ["dreams.run", "jobs.run", "session.submit", "voice.realtime.start"]);
+  assert.deepEqual([...EXPENSIVE_RPC_METHODS].sort(), ["dreams.run", "jobs.run", "media.edit", "media.generate", "session.submit", "voice.realtime.start"]);
   assert.equal(ROUTES.find(r => r.id === "chats.submit")!.rate, "expensive");
   assert.equal(ROUTES.find(r => r.id === "chats.create")!.rate, "write"); assert.equal(ROUTES.find(r => r.id === "chats.messages")!.rate, "read");
   assert.equal(ROUTES.find(r => r.id === "web.rpc")!.rate, "rpc");
@@ -82,6 +82,17 @@ test("model-backed RPC methods share one `expensive` bucket per person; other me
     assert.ok(h.audit.events.some(e => e.action === "auth.rate-limited" && (e.detail as { class?: string }).class === "expensive"));
     const alice = (await raw(h, { method: "POST", path: "/api/v1/session", headers: jsonHeaders(), body: JSON.stringify({ username: "alice", password: FIXTURE_PASSWORD }) })).headers["set-cookie"]![0]!.split(";", 1)[0]!;
     assert.equal((await rpc(h, alice, "jobs.run", RPC_PARAMS["jobs.run"])).status, 200, "somebody else's bucket is full");
+  } finally { await h.close(); }
+});
+
+test("media.generate and media.edit over /rpc draw on the expensive bucket, media.job.list does not", async () => {
+  const h = await start({ rateClasses: { ...wide, expensive: { capacity: 1, refillPerSec: 0.001 } } });
+  try {
+    const owner = (await login(h)).cookie; const request = { prompt: "a cat" };
+    assert.equal((await rpc(h, owner, "media.generate", { agentId: "main", request })).status, 200);
+    const second = await rpc(h, owner, "media.edit", { agentId: "main", request });
+    assert.equal(second.status, 429); assert.equal(second.json.reason, "rate-limited");
+    assert.equal((await rpc(h, owner, "media.job.list")).status, 200);
   } finally { await h.close(); }
 });
 

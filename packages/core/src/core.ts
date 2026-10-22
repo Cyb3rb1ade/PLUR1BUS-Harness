@@ -391,7 +391,7 @@ export function createCore(o: CoreOptions): Core {
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
     const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     // Every secret value the store writes, rotates, reveals or leases is masked in the core log from that moment on.
-    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe(value => createdLog.registerSecret(value)); }
+    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe((value, info) => createdLog.registerSecret(value, info)); }
     // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
     // The sidecar's destination is configuration (sidecars.searxng) or the address the container layer injected; the keyed
     // providers go through the egress policy and read their key from the secret store per call. The trace carries lengths,
@@ -509,7 +509,7 @@ export function createCore(o: CoreOptions): Core {
       } });
       discoveryWriter = createWriter({ dir: l.logs, role: "core", source: { kind: "harness", id: "discovery", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes, keep: config.logs.keep });
       unsubscribeDiscoveryRedaction?.();
-      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe(value => discoveryWriter?.registerSecret(value));
+      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe((value, info) => discoveryWriter?.registerSecret(value, info));
       const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
       const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
       const discEvents = o.discovery?.events ?? createD111Events(discoveryWriter);
@@ -746,6 +746,8 @@ export function createCore(o: CoreOptions): Core {
         setRight: (id, userId, right) => people.setRight(id, userId, right),
         clearRights: id => { for (const { userId } of people.rights(id)) people.setRight(id, userId, null); },
         ready: id => { lifecycle.set(id,{ paused:false }); },
+        isDeleted: id => lifecycle.state(id).deleted,
+        setDeleted: (id, deleted) => { lifecycle.set(id, deleted ? { deleted: true, archived: true } : { deleted: false, archived: false, paused: false }); },
         reserve: async id => { lifecycle.set(id,{ paused:true }); const store = await eng.open(id); reservedAgents.set(id, store); },
         release: async id => { const store = reservedAgents.get(id); if (store) { await store.close(); reservedAgents.delete(id); } },
         removeConfig: async (id, expected) => {
@@ -853,10 +855,12 @@ export function createCore(o: CoreOptions): Core {
         egress,
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
         // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
-        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
+        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`, and an owner
+        // that carries a `surface` must have `MIN_SECRET_SURFACE` to write, delete or reveal: the level is the connection's own
+        // (T1 for a token connection, which is where the CLI and the web UI arrive; an attestation can only raise it).
         secrets: { store: secretStore, principalOf: async (ctx, method, params) => {
           const p = await resolvePrincipal(ctx, method, params);
-          return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId } : { kind: "agent" };
+          return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId, surface: connectionSurface({ principal: p, now: clock(), attestation: o.rbac?.attest?.(ctx) }) } : { kind: "agent" };
         } },
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
