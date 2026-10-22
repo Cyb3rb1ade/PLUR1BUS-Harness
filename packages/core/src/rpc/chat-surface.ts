@@ -69,7 +69,7 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
     },
     get(p,a) {
       const { service,session } = owned(p.sessionId,a,false);
-      return { session: toWireSession(session), modelChanges: service.store.modelChanges(session.id).map(toWireEvent), messages: service.store.listMessages(session.id,{limit:p.limit ?? 200,...(p.beforeSeq!==undefined?{beforeSeq:p.beforeSeq}:{})}).map(({id,seq,turnId,role,text,createdAt})=>({id,seq,turnId,role,text,createdAt})), runningTurnId:service.store.runningTurn(session.id)?.id ?? null, lastEventSeq:service.store.lastEventSeq(session.id) ?? 0 };
+      return { session: toWireSession(session), modelChanges: service.store.modelChanges(session.id).map(toWireEvent), messages: service.store.listMessages(session.id,{limit:p.limit ?? 200,...(p.beforeSeq!==undefined?{beforeSeq:p.beforeSeq}:{keep:"oldest" as const})}).map(({id,seq,turnId,role,text,createdAt})=>({id,seq,turnId,role,text,createdAt})), runningTurnId:service.store.runningTurn(session.id)?.id ?? null, lastEventSeq:service.store.lastEventSeq(session.id) ?? 0 };
     },
     update(p,a) { const {service}=owned(p.sessionId,a,true); if (service.store.runningTurn(p.sessionId)) throw new SessionError("conflict","turn running","turn-running"); record("update",a,p.sessionId); return {session:toWireSession(service.store.updateSession(p.sessionId,{...(p.title !== undefined ? {title:p.title}:{}),...(p.pinned !== undefined ? {pinned:p.pinned}:{})}))}; },
     archive(p,a) { const {service}=owned(p.sessionId,a,true); record("archive",a,p.sessionId);return {session:toWireSession(service.store.archiveSession(p.sessionId))}; },
