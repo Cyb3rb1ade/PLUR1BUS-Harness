@@ -171,7 +171,8 @@ production budget/router with no session, memory or tools. CLI and Web setup off
 unattended setup never assigns it. Doctor reports the selected model and last catalog availability, including unknown and
 unavailable states. New model-role requests reread live role configuration. Tests: `model-roles.test.ts`,
 `composition/model-test.test.ts`, `session/maintenance.test.ts`, Rust setup/model CLI and RPC fixture parity.
-Still open: canonical local-only gating after #570, engine-role probes after Phase D, and a captioning role contract (the
+Engine-role probes are implemented by PR #602 through `admin.engine.test` and Models/Memory buttons, with real-port,
+permission and accessibility tests. Broader selector acceptance and a captioning role contract remain separate (the
 current `modelRoles` schema has eight roles; captioning is configured under `memory.mediaEmbedding.caption`). No milestone
 or full seven-phase package acceptance is claimed.
 

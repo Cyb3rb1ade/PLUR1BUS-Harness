@@ -74,6 +74,213 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `delivery.target.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.add`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel",
+        "accountId",
+        "userId"
+      ],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "accountId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    }
+  },
+  "required": [
+    "identity"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.confirm`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.remove`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.subscribe`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "system",
+        "dreams"
+      ]
+    },
+    "job": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  },
+  "required": [
+    "id",
+    "source",
+    "job",
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `chat.promote.links`
 
 **Stability:** experimental · since 1.6.0
@@ -1091,7 +1298,7 @@ The authenticated person's own direct chat: its model profile and reasoning choi
 
 **Served by:** core
 
-Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by Nur lokal is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).
+Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by “Only local models” is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).
 
 **params**
 
@@ -1228,6 +1435,11 @@ Human-only user-job create. Current agent.manage rights are required; system and
     },
     "enabled": {
       "type": "boolean"
+    },
+    "deliveryTarget": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Own validated delivery target; empty disables delivery."
     }
   },
   "required": [
@@ -1312,6 +1524,11 @@ Human-only user-job update. Current agent.manage rights are required; system and
       "type": "string",
       "minLength": 1,
       "maxLength": 128
+    },
+    "deliveryTarget": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Own validated delivery target; empty disables delivery."
     }
   },
   "required": [
@@ -6403,6 +6620,130 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `memory.curation.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human curation queue (Engine contract 1.17.0). Separate from D31 memory.proposals.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "items",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryCurationRecord"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `memory.curation.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human keep/drop of a visible Neo curation record. Never accepts caller identity in params.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "id",
+    "action"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "action": {
+      "enum": [
+        "keep",
+        "drop"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "id",
+    "status"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "promoted",
+        "demoted"
+      ]
+    }
+  }
+}
+```
+
 ### `memory.proposals.list`
 
 **Stability:** experimental · since 1.1.0
@@ -8135,7 +8476,7 @@ Disables one phase schedule; cron and importance triggers stop, run-now still wo
 
 **Served by:** core
 
-The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
+The private engine-owned dreaming diary (DREAMS.md at the agent workspace root; A5 amendment to D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
 
 **params**
 
@@ -9955,7 +10296,7 @@ The running configuration (spec §6.1, B5): the whole value, one key (dotted pat
 
 **Served by:** supervisor
 
-Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it.
+Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it. A chain that refuses the audit rows does not block the set; `warnings` then lists audit-chain-unavailable. A failure to write audit.log still refuses it (E_INTERNAL).
 
 **params**
 
@@ -10052,6 +10393,15 @@ Validates and applies all changes or none, writes config.json atomically and not
         ]
       },
       "description": "Estimated restart time (ms) per unit, null when unknown."
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "audit-chain-unavailable"
+        ]
+      },
+      "description": "Present only when the set was applied with a caveat. `audit-chain-unavailable`: the configuration is saved, but the audit hash chain refused the audit rows (anchor missing or invalid, integrity mismatch, lock timeout); they are in audit.log with chain=refused and wait in the pending journal until the chain accepts appends again."
     }
   }
 }
@@ -11186,6 +11536,83 @@ Returns every installed extension and subscribes this connection to ext.changed.
       "items": {
         "$ref": "#/$defs/ExtItem"
       }
+    }
+  }
+}
+```
+
+### `admin.engine.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin test of the active engine embedder or reranker through engine ports. Fixed small inputs, ten second deadline, no memory or session writes. May contact the configured provider or download local model artifacts under the host policy. Captioner is unsupported: this engine has no captioner role. Returns only safe failure classifications; never provider error messages or credentials.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "embedder",
+        "reranker",
+        "captioner"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "ok",
+    "durationMs"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "embedder",
+        "reranker",
+        "captioner"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "dimensions": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "errorClass": {
+      "enum": [
+        "egress",
+        "key",
+        "download",
+        "provider",
+        "timeout",
+        "unsupported"
+      ]
     }
   }
 }
@@ -14643,7 +15070,7 @@ All channels, compact: id, enabled, state, health and the last error. Owner/Admi
 
 **Served by:** core
 
-Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, privacy pin, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.
+Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, “Only local models”, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.
 
 **params**
 
@@ -18112,6 +18539,44 @@ D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a su
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
 
+### `MemoryCurationRecord`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "status",
+    "text",
+    "category"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "conflict",
+        "stale"
+      ]
+    },
+    "text": {
+      "type": "string"
+    },
+    "category": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
 ### `UserJob`
 
 ```json
@@ -18211,6 +18676,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "skipped_no_rights",
         "skipped_agent_missing"
       ]
+    },
+    "deliveryTarget": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Own validated delivery target; empty disables delivery."
     }
   }
 }
@@ -22531,7 +23001,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: Nur lokal is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+  "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: “Only local models” is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
   "x-stability": "experimental",
   "x-since": "1.7.0",
   "type": "object",

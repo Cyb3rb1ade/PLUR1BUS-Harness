@@ -353,7 +353,7 @@ export function planAndMigrateAgent(
         ],
       },
       {
-        targetFileName: "dreaming.md",
+        targetFileName: "DREAMS.md",
         sourceCandidates: [join(srcWs, "DREAMS.md"), join(srcWs, "dreams.md")],
       },
     ];

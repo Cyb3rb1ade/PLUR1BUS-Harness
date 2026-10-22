@@ -18,6 +18,7 @@ import type { AgentRegistry } from "../agents.ts";
 import { buildDreamsMethods } from "../dreams/methods.ts";
 import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
+import { buildMemoryCurationMethods } from "../memory-curation.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
 import { buildIdentityMethods } from "../identity/rpc.ts";
@@ -209,6 +210,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       try { return projectCheckpoint(await d.engine.checkpoint(p.agentId, p.reason)); } finally { d.activity.idle(p.agentId); }
     },
 
+    ...buildMemoryCurationMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
     ...buildDreamsMethods({ dreams: () => d.dreams?.() ?? null, agents: d.agents, ...(d.dreamsError ? { unavailableBecause: d.dreamsError } : {}) }),
     ...(d.secrets ? buildSecretMethods(d.secrets) : {}),

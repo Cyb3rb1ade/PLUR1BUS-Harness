@@ -1,3 +1,7 @@
+import { DeliveryTargets } from "./delivery/service.ts";
+import { deliveryMethods } from "./delivery/rpc.ts";
+import { deliveryAllowed } from "./delivery/policy.ts";
+import { buildEngineTestSurface, createEngineTestDiagnostics } from "./rpc/engine-test-surface.ts";
 import { engineModelEndpoints } from "./composition/embedding-policy.ts";
 import { hermesClientAuth } from "./rpc/hermes-client-auth.ts";
 import { authorize } from "./rbac/authorize.ts";
@@ -46,6 +50,7 @@ import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
 import { type HarnessLogger, type Level } from "./logger.ts";
+import { CURATION_METHODS } from "./memory-curation.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
@@ -128,7 +133,7 @@ import { createAttestationService, helperFromEnv, type Attester, type HelperSpec
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
  *  too, so an applied migration or a consumed vault nonce is never left unanswered. */
-const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture", "approval.decide", "approval.cancel", "grant.create", "grant.revoke"] as const;
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...CURATION_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture", "approval.decide", "approval.cancel", "grant.create", "grant.revoke"] as const;
 /** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not. `engine.models` is read fresh on every call
  *  from the synchronous `engine.models.status()`. Only the async `EngineStatus` parts (`degraded`, from which
  *  `engine.ready` follows) are cached, stale-while-revalidate: a call finding the copy older than STATUS_CACHE_MS
@@ -277,6 +282,7 @@ export function createCore(o: CoreOptions): Core {
   let webSearch: SearxngWebSearch | null = null;
   let metricsHttp: MetricsServer | null = null;
   let userJobs: UserJobs | null = null;
+  let delivery: DeliveryTargets | null = null;
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
@@ -469,7 +475,7 @@ export function createCore(o: CoreOptions): Core {
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       checkEngineConfigLicences(engineConfig,l);
-      // Until the engine has a fetch port, its model endpoints are judged by the harness egress policy before it is built.
+      // Preflight feedback; host.fetch also enforces the live egress policy on every request.
       await checkEngineEgress(engineConfig, egress, (message, fields) => log.warn(message, fields));
       const unmapped = new Set<string>();
       const events = (name: string, payload: unknown) => {
@@ -483,8 +489,10 @@ export function createCore(o: CoreOptions): Core {
           server?.notify("engine.event", { name, ...(typeof agentId === "string" && AGENT_ID.test(agentId) ? { agentId } : {}), payload }, { optIn: true });
         }
       };
+      const engineTestDiagnostics = createEngineTestDiagnostics();
       const host = createHarnessHost({
-        layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock,
+        onPortFailure: engineTestDiagnostics.observe,
+        layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock, egress, secrets: secretStore,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
         mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
         canMutateConfig: () => cs.source === "supervisor",
@@ -590,6 +598,7 @@ export function createCore(o: CoreOptions): Core {
         logger,
         engineHasJob: (name) => eng.jobs.list().some((j) => j.name === name),
         onFailed: run => jobFailedToInbox(inboxPort, run),
+        onRecorded: run => { void delivery?.notify("system", run.job, undefined, run.outcome).catch(err => log.warn("delivery notify failed", { err })); },
       });
       systemJobs.register(createModelsScanJob(discovery, discSettings));
 
@@ -646,6 +655,7 @@ export function createCore(o: CoreOptions): Core {
       });
       permissionNotifier = notifier;
       const board = switchboard = openChannelSwitchboard({
+        command: async (msg, person) => delivery?.confirmMessage(msg, person) ?? false,
         layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
@@ -801,7 +811,19 @@ export function createCore(o: CoreOptions): Core {
         },
         // No `erase`: the pinned engine has no hard-erasure API. The handler records/refuses before any mutation.
       });
+      delivery = new DeliveryTargets({
+        path: path.join(l.state, 'delivery.sqlite'), clock, audit: rbacAudit, identity: () => identity,
+        resolve: id => {
+          if (people.person(id)?.disabled) return null;
+          const current = o.rbac?.resolvePerson ? o.rbac.resolvePerson(id) : id === LOCAL_OWNER.userId || identityService.list({}).humans.some(h => h.id === id) ? { kind: 'person' as const, userId: id, role: people.role(id, id === LOCAL_OWNER.userId ? 'owner' : 'member') } : null;
+          return current?.kind === 'person' && current.userId === id ? people.resolve(current) : null;
+        },
+        allowed: who => deliveryAllowed(cfg(), who),
+        target: who => { if (!switchboard) throw new Error('channel unavailable'); return switchboard.view.ownerTarget!(who.channel, { userId: who.userId, accountId: who.accountId }); },
+        send: async (channel, chatId, text) => await switchboard?.view.sendTo(channel, { chatId, text }) ?? false,
+      });
       userJobs = new UserJobs({
+        validateDelivery: (id, person, agentId) => { if (!delivery) throw new Error("delivery unavailable"); delivery.validate(id, person, agentId); },
         path: path.join(l.state, "user-jobs.sqlite"), clock, audit: rbacAudit,
         isStopping: () => shutdown.signal.aborted,
         agentExists: id => registry.has(id) && !lifecycle.state(id).deleted, agents: () => registry.list().filter(id => !lifecycle.state(id).deleted),
@@ -822,14 +844,20 @@ export function createCore(o: CoreOptions): Core {
         submitTurn: async (job, person) => {
           if (!sessions) return "failed";
           if (!executionRegistry.has(job.agentId)) return "skipped_agent_inactive";
+          if (job.deliveryTarget) delivery!.validate(job.deliveryTarget, person.userId, job.agentId);
           const session = sessions.store.createSession({ kind: "direct", agentId: job.agentId, owner: deriveUserPrincipal(person.userId), scope: "user", title: job.name });
           const handle = sessions.runner.submit({ session, caller: { channel: "cli", accountId: "recurring", userId: person.userId }, text: job.prompt, approver: { person: person.userId, surface: 0 }, recurring: { jobId: job.id, jobName: job.name, runAs: person.userId, trigger: "recurring" } });
           const result = await handle.done;
           const outcome = result.error === "approval-timeout" ? "approval_timeout" : result.state === "completed" ? "completed" : result.error === "budget-exceeded" ? "skipped_budget" : "failed";
+          if (outcome === 'completed' && job.deliveryTarget) {
+            const reply = sessions.store.listMessages(session.id).filter(m => m.role === 'assistant').at(-1)?.text;
+            if (reply) await delivery!.deliver(job.deliveryTarget, person.userId, job.agentId, reply);
+          }
           return outcome;
         },
       });
       const rawMethods = {
+        ...deliveryMethods(() => delivery),
         ...buildMethods({ hostEvalHome: l.home,
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
@@ -883,6 +911,7 @@ export function createCore(o: CoreOptions): Core {
         ...buildIdentitySurface(() => identity),
         ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, signal: shutdown.signal, revoked: userId => server?.notify("api.account.changed", {userId}, {audience:apiIdentity.services().map(connectionId=>({connectionId}))}), personVersion: id => { const p=people.person(id); return p && !p.disabled ? p.version : null; }, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,
+        ...buildEngineTestSurface({ embedding: eng.embedding, config: () => engineConfig, diagnostics: engineTestDiagnostics }),
         ...buildLicenceSurface(licenceLedger,cfg),
         ...buildEmbeddingSelectionSurface({ ledger:licenceLedger, currentModel:() => String((engineConfig.embedding as any).local.model), migration, port:reembedEnginePort, audit:rbacAudit, clock }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, breakglass, ownership, personOf }),
@@ -988,7 +1017,7 @@ export function createCore(o: CoreOptions): Core {
               promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
             } : {}),
           },
-          ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
+          scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
         });
         if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
       } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
@@ -1037,7 +1066,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
       if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
-      await userJobs?.drain(); userJobs?.close(); userJobs = null;
+      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
@@ -1124,7 +1153,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
-      await userJobs?.drain(); userJobs?.close(); userJobs = null;
+      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null;
       await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
       await step(logger, "rpc drain", async () => {

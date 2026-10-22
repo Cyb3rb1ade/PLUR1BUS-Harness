@@ -1,3 +1,4 @@
+import { channelOrigin } from "../../src/channels/behaviour-context.ts";
 // A small real core for switchboard tests: the real identity service, session store and turn runner (scripted provider),
 // a fake configuration source and secret store, a fake clock, and fake channel adapters. No network, no timers of its own.
 import { join } from "node:path";
@@ -129,8 +130,9 @@ export function fakeBinding(id: string, made: FakeAdapter[], o: { constructorThr
 export class ScriptedProvider implements ChatProvider {
   readonly id = "scripted";
   requests: ChatRequest[] = [];
+  origins: ReturnType<typeof channelOrigin.getStore>[] = [];
   script: (req: ChatRequest) => ChatChunk[] = (req) => [{ type: "delta", text: `echo:${req.messages.at(-1)?.text ?? ""}` }];
-  async *stream(req: ChatRequest): AsyncGenerator<ChatChunk> { this.requests.push(req); for (const c of this.script(req)) yield c; }
+  async *stream(req: ChatRequest): AsyncGenerator<ChatChunk> { this.requests.push(req); this.origins.push(channelOrigin.getStore()); for (const c of this.script(req)) yield c; }
 }
 
 const memory: TurnMemory = { async recall() { return { text: "", degraded: null }; }, async capture() {}, async checkpoint() {} };
