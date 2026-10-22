@@ -98,9 +98,9 @@ describe("session.* over a real core (fake provider)", () => {
     await core.start();
     const c = await connect({ address: core.address, token: core.token });
     try {
-      const a = (await c.call<any>("session.create", { caller: ALICE, agentId: "bernd", kind: "channel", chatKey: "telegram:7" })).session;
-      await rejects(c.call("session.create", { caller: ALICE, agentId: "bernd", kind: "channel", chatKey: "telegram:7" }), "E_CONFLICT", "active-chat-session");
-      const b = (await c.call<any>("session.create", { caller: ALICE, agentId: "bernd", kind: "channel", chatKey: "telegram:7", replaceActive: true })).session;
+      const a = (await c.call<any>("session.create", { caller: ALICE, agentId: "bernd", kind: "channel", chatKey: "cli:7" })).session;
+      await rejects(c.call("session.create", { caller: ALICE, agentId: "bernd", kind: "channel", chatKey: "cli:7" }), "E_CONFLICT", "active-chat-session");
+      const b = (await c.call<any>("session.create", { caller: ALICE, agentId: "bernd", kind: "channel", chatKey: "cli:7", replaceActive: true })).session;
       assert.notEqual(a.id, b.id);
       assert.equal((await c.call<any>("session.get", { caller: ALICE, sessionId: a.id })).session.archivedAt !== null, true);
     } finally { await c.close(); await core.stop({ budgetMs: 5_000 }); }

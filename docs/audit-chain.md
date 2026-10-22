@@ -47,6 +47,7 @@ when anything is wrong).
 | `truncated` | the chain is shorter than the anchor (lines cut off at the end, or files removed) |
 | `anchor-mismatch` | the line at the anchor's `seq` has a different hash (the newest line was changed) |
 | `anchor-missing`, `anchor-invalid` | the anchor was removed or damaged |
+| `pin-missing`, `pin-mismatch` | the externally supplied sequence is absent or its line has a different hash |
 
 Findings carry file name, line and `seq`, never record content. `anchor.status` `behind` (the anchor trails by one
 write that crashed before the anchor moved) is not a finding; the next write moves the anchor up (see [Recovery](#recovery)).
@@ -127,6 +128,14 @@ renames and the first line leaves the set-aside files and an empty chain; the ne
 what was wrong, who ran the command and why, and `audit.verify` keeps reporting the era boundary and the state of every set-aside
 chain up to its first deviation. To the verifier a reanchor is an era boundary, not a break; a reanchor nobody asked for is
 recognisable by the event (or by an `announced: false` set).
+
+## Durability and an external pin (D2)
+
+The writer keeps the OS lock through the line fsync, the temporary-anchor fsync, the atomic anchor replacement and, on POSIX, the directory fsync. Rotation also fsyncs the directory. Torn-tail evidence is flushed (file and directory entry) before the interrupted bytes are truncated. Both writers loop on short writes and refuse a write that makes no progress, without moving the anchor. These steps do not make two files a single atomic filesystem transaction: a process interrupted between them can still leave the one crash state that [Recovery](#recovery) describes, which the next writer heals and records, or another disagreement, which stays a refusal.
+
+**Windows known gap:** file contents are flushed, but portable Node and Rust `std` provide no guaranteed directory-entry flush on Windows. A native host capability is still needed for equivalent power-loss durability there. Neither writer claims this gap is closed; see the todo-test in `packages/core/test/audit/durability.test.ts`.
+
+Record `lastSeq` and `lastHash` from `plur1bus audit verify --json` somewhere the host cannot change. Later supply that pair as `plur1bus audit verify --pin <seq>:<hash>` (lowercase SHA-256, positive safe integer sequence). The pin may refer to any retained sequence of the current chain, including a rotated file; later appended events do not invalidate it. A missing or mismatching pinned line makes verification fail even when a complete rewrite has an internally consistent anchor. The pin is checked under the verifier's lock, against the files as read in that pass. RPC callers pass `{ "pin": { "seq": 42, "hash": "<64 lowercase hex characters>" } }` to `audit.verify` (closed parameter object). Existing Owner/Admin authorization applies. No pin is transmitted outside the host. Core startup runs the same verification without a pin, logs any findings (codes, files, line and `seq` only, never record content) and never blocks the start, also when the chain cannot be read at all.
 
 ## What it does not protect
 
