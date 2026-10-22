@@ -9499,6 +9499,100 @@
         },
         "result": { "type": "object", "additionalProperties": false, "required": ["ok"], "properties": { "ok": { "const": true } } }
       },
+      "secret.describe": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Owner and human only. Changes a secret description without supplying or exposing its value. Empty description clears it. Rejects any contiguous secret fragment of at least eight characters. Backend validates under its serialization; credential bytes and existing leases are unchanged. Audited before mutation.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "description"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        },
+        "result": {
+          "$ref": "#/$defs/SecretMeta"
+        }
+      },
+      "secret.grants.list": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Owner and human only. Read-only effective agent lease grants and separately labelled config references. Agent leases are currently disabled, so grants is empty; a configuration reference never grants authority. No secret values or lease handles.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentLeasesEnabled",
+            "grants",
+            "references"
+          ],
+          "properties": {
+            "agentLeasesEnabled": {
+              "const": false
+            },
+            "grants": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "references": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "agentId",
+                  "name",
+                  "scope",
+                  "present",
+                  "leaseAllowed"
+                ],
+                "properties": {
+                  "agentId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+                  },
+                  "scope": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "present": {
+                    "type": "boolean"
+                  },
+                  "leaseAllowed": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "secret.set": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. A value of fewer than 8 characters is accepted, but the log redactor does not mask values that short, so the result then carries a `warning`. Owner only; every call is audited (M2, ADR-005).",

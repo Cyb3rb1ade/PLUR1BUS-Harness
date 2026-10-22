@@ -230,11 +230,17 @@ export function createSecretStore(o: SecretStoreOptions) {
       return exclusive(async () => {
         const s = await select();
         const backend = need(s);
-        if (text) await assertDescriptionHoldsNoValue(text, s);
+        if (text) {
+          await assertDescriptionHoldsNoValue(text, s);
+          // The text may also not echo an older value of this very name, which `put` replaces (and which the other names' check above
+          // sees only in full): fragments of it are refused too.
+          const previous = await find(name);
+          if (previous) checkDescription(text, previous.value);
+        }
         redaction.register(value, name);
         audited(p, "secret.set", name, { backend: backend.kind });
         return changing(name, async () => {
-          const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text);
+          const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text, previous => redaction.register(previous));
           // A copy of the old value in the other backend would come back when this one goes away: rotation removes it, and a
           // tombstone of an earlier delete has nothing left to hide.
           if (s.other) {
@@ -242,6 +248,24 @@ export function createSecretStore(o: SecretStoreOptions) {
           }
           return meta;
         });
+      });
+    },
+
+    /** Owner-only metadata edit; the backend never writes the credential or revokes its leases. */
+    async describe(p: SecretPrincipal, name: string, description: string): Promise<SecretMeta> {
+      gate(p, "describe", typeof name === "string" ? name : null, ["owner"]);
+      gateSurface(p, "describe", typeof name === "string" ? name : null);
+      checkName(name); const text = checkDescription(description);
+      if (text === undefined) throw new SecretError("invalid-description", "description is required");
+      return exclusive(async () => {
+        const s = await select();
+        need(s);
+        const found = await find(name);
+        if (!found) throw new SecretError("not-found", "secret does not exist");
+        if (text) await assertDescriptionHoldsNoValue(text, s);
+        checkDescription(text, found.value);
+        audited(p, "secret.describe", name, { backend: found.from.kind });
+        return found.from.describe(name, text, now(), p.kind === "owner" ? p.id : undefined, value => redaction.register(value));
       });
     },
 

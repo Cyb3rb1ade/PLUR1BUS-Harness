@@ -73,7 +73,7 @@ describe("tool naming and selection", () => {
 
   it("secret methods are never offered as WebMCP tools, real or hypothetical (M2)", () => {
     const secret = (Object.keys(caps.methods)).filter((m) => m.startsWith("secret."));
-    assert.equal(secret.length, 5, `the core advertises the secret.* methods: ${secret.join(", ")}`);
+    assert.equal(secret.length, 7, `the core advertises the secret.* methods: ${secret.join(", ")}`);
     const all = [...secret, "secret.future.op"];
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
     const fakeSchema = structuredClone(SCHEMA) as any;

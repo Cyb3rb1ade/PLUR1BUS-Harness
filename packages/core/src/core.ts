@@ -926,7 +926,7 @@ export function createCore(o: CoreOptions): Core {
         // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`, and an owner
         // that carries a `surface` must have `MIN_SECRET_SURFACE` to write, delete or reveal: the level is the connection's own
         // (T1 for a token connection, which is where the CLI and the web UI arrive; an attestation can only raise it).
-        secrets: { store: secretStore, principalOf: async (ctx, method, params) => {
+        secrets: { store: secretStore, config: cfg, principalOf: async (ctx, method, params) => {
           const p = await resolvePrincipal(ctx, method, params);
           return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId, surface: connectionSurface({ principal: p, now: clock(), attestation: o.rbac?.attest?.(ctx) }) } : { kind: "agent" };
         } },

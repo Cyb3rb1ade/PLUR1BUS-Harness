@@ -1,5 +1,16 @@
 // secrets area catalogue (Settings > Secrets): keys `secrets.<topic>`; en and de have the same keys and {placeholders}.
 export const en = {
+  "secrets.describe.title": "Description of {name}",
+  "secrets.describe.save": "Save description",
+  "secrets.describe.edit": "Edit description",
+  "secrets.describe.label": "Edit description of {name}",
+  "secrets.describe.hint": "Leave empty to clear. Never include the secret or any part of it.",
+  "secrets.describe.invalid": "The description must be one line, at most 200 characters, and contain no secret fragment of eight or more characters.",
+  "secrets.grants.title": "Agent secret access",
+  "secrets.grants.disabled": "Agent leases are disabled. Configuration references are not grants.",
+  "secrets.grants.present": "present",
+  "secrets.grants.missing": "missing",
+
   "secrets.unknown": "Unknown",
   "secrets.title": "Secrets",
   "secrets.intro": "Names and metadata only. Values are write-only: they are never shown, never stored in this page and never read back.",
@@ -60,6 +71,17 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "secrets.describe.title": "Beschreibung von {name}",
+  "secrets.describe.save": "Beschreibung speichern",
+  "secrets.describe.edit": "Beschreibung bearbeiten",
+  "secrets.describe.label": "Beschreibung von {name} bearbeiten",
+  "secrets.describe.hint": "Zum Leeren leer lassen. Niemals den Schlüssel oder Teile davon eintragen.",
+  "secrets.describe.invalid": "Die Beschreibung muss einzeilig sein, höchstens 200 Zeichen lang sein und darf keinen Secret-Teil ab acht Zeichen enthalten.",
+  "secrets.grants.title": "Secret-Zugriff der Agenten",
+  "secrets.grants.disabled": "Agent-Leases sind deaktiviert. Konfigurationsverweise sind keine Berechtigungen.",
+  "secrets.grants.present": "vorhanden",
+  "secrets.grants.missing": "fehlt",
+
   "secrets.unknown": "Unbekannt",
   "secrets.title": "Geheimnisse",
   "secrets.intro": "Nur Namen und Metadaten. Werte sind nur schreibbar: Sie werden nie angezeigt, nie in dieser Seite gespeichert und nie zurückgelesen.",

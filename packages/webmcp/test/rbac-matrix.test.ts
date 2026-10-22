@@ -217,7 +217,11 @@ describe("D. the agent-facing secret name tool is neither an RPC method nor a We
     assert.ok(!buildWebMcpTools({ capabilities: buildCapabilities([]), schema: SCHEMA, include: Object.keys(methods), call: async () => ({}) }).some((x) => /secret/i.test(x.name)));
   });
   it("every secret.* method stays owner-only in the store and forbidden in WebMCP", () => {
-    for (const m of coreMethods.filter((n) => n.startsWith("secret."))) { assert.ok(isForbiddenMethod(m), m); assert.ok(m in UNRULED, `${m} is owner-only inside the store`); }
+    for (const m of coreMethods.filter((n) => n.startsWith("secret."))) {
+      assert.ok(isForbiddenMethod(m), m);
+      if (["secret.describe", "secret.grants.list"].includes(m)) assert.equal(RPC_RULES[m]?.humanOnly, true, `${m} also has an explicit human-only RPC guard`);
+      else assert.ok(m in UNRULED, `${m} is owner-only inside the store`);
+    }
   });
 });
 

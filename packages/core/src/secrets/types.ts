@@ -81,8 +81,7 @@ export function checkValue(value: unknown): string {
  * The description to store: trimmed; `undefined` means "not given" (the caller keeps whatever is stored), the empty string
  * clears it. Free text for the agent and the owner, so it holds no control characters (a newline would let it pose as
  * another line of a prompt or a log) and is at most 200 code points. `value` is the secret being written: a description
- * that contains it is refused (the usual slip is pasting the key into the wrong field), but only for values long enough
- * that a hit is not just a letter that happens to occur in prose.
+ * that contains its full value or any contiguous fragment of eight or more code points is refused.
  */
 export function checkDescription(description: unknown, value?: string): string | undefined {
   if (description === undefined) return undefined;
@@ -91,7 +90,13 @@ export function checkDescription(description: unknown, value?: string): string |
   if ([...text].length > MAX_DESCRIPTION_CHARS) throw new SecretError("invalid-description", `secret description exceeds ${MAX_DESCRIPTION_CHARS} characters`);
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(text)) throw new SecretError("invalid-description", "secret description must be one line of plain text");
-  if (value !== undefined && value.length >= MIN_DESCRIPTION_VALUE_CHARS && text.includes(value)) throw new SecretError("invalid-description", "secret description must not contain the secret value");
+  if (value !== undefined) {
+    if (value.length >= MIN_DESCRIPTION_VALUE_CHARS && text.includes(value)) throw new SecretError("invalid-description", "secret description must not contain the secret value");
+    // A contiguous fragment of eight or more code points of the value is as much a leak as the whole value.
+    const chars = [...text];
+    for (let i = 0; i + MIN_DESCRIPTION_VALUE_CHARS <= chars.length; i++) if (value.includes(chars.slice(i, i + MIN_DESCRIPTION_VALUE_CHARS).join("")))
+      throw new SecretError("invalid-description", "secret description must not contain a secret fragment");
+  }
   return text;
 }
 
@@ -107,7 +112,9 @@ export interface SecretBackend {
   /** The value, or null when the name is absent. Throws SecretError `corrupt`/`storage`/`backend-unavailable`. */
   get(name: string): Promise<string | null>;
   /** Creates or replaces; keeps `createdAt` of an existing entry, and its description unless one is given (an empty one clears it). */
-  put(name: string, value: string, now: Date, updatedBy?: string, description?: string): Promise<SecretMeta>;
+  put(name: string, value: string, now: Date, updatedBy?: string, description?: string, register?: (value: string) => void): Promise<SecretMeta>;
+  /** Changes only metadata, validating inside the backend's serialized operation. Values never leave this callback. */
+  describe(name: string, description: string, now: Date, updatedBy?: string, register?: (value: string) => void): Promise<SecretMeta>;
   /** True when something was removed. A backend that keeps tombstones (the file backend) also records `tombstoneAt` for a name it removed. */
   delete(name: string, tombstoneAt?: Date): Promise<boolean>;
   /** Optional (file backend): names deleted while another backend could not be reached, with the time of the delete. A copy of such a

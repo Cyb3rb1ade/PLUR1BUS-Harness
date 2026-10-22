@@ -45,6 +45,20 @@ pub fn run(out: &Out, layout: &Layout, cmd: SecretCmd) {
             );
             out.ok("secret.set/1", &v, || render_set(&v, &name));
         }
+        SecretCmd::Describe { name, text, clear } => {
+            let description = if clear {
+                ""
+            } else {
+                text.as_deref().unwrap_or_default()
+            };
+            let v = call(
+                out,
+                layout,
+                "secret.describe",
+                json!({ "name": name, "description": description }),
+            );
+            out.ok("secret.describe/1", &v, || render_meta(&v));
+        }
         SecretCmd::Get { name, reveal } => {
             let v = call(
                 out,
@@ -270,6 +284,28 @@ fn render_status(v: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn describe_cli_accepts_text_or_clear_and_never_both() {
+        use crate::cli::Cli;
+        use clap::Parser;
+        assert!(Cli::try_parse_from([
+            "plur1bus",
+            "secret",
+            "describe",
+            "billing",
+            "Production account"
+        ])
+        .is_ok());
+        assert!(
+            Cli::try_parse_from(["plur1bus", "secret", "describe", "billing", "--clear"]).is_ok()
+        );
+        assert!(Cli::try_parse_from(["plur1bus", "secret", "describe", "billing"]).is_err());
+        assert!(Cli::try_parse_from([
+            "plur1bus", "secret", "describe", "billing", "text", "--clear"
+        ])
+        .is_err());
+    }
 
     #[test]
     fn value_strips_one_trailing_newline_only() {

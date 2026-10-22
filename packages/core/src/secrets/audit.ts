@@ -7,7 +7,7 @@ import { createSecretRedaction } from "./redaction.ts";
 import { SecretError, type SecretPrincipal } from "./types.ts";
 
 export type AuditAction =
-  | "secret.set" | "secret.get" | "secret.reveal" | "secret.delete" | "secret.list"
+  | "secret.describe" | "secret.set" | "secret.get" | "secret.reveal" | "secret.delete" | "secret.list"
   | "secret.lease" | "secret.lease.read" | "secret.lease.revoke" | "secret.denied";
 
 /** Only these keys, only primitives: the audit detail cannot carry a value even by mistake. */

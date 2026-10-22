@@ -456,6 +456,12 @@ Remote trust challenge and acknowledgement use the additive human-only `remote.d
 | `admin.api.device.prove` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
 | `admin.api.device.announce` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
 
+### Secret metadata and lease read view (Phase E, 2026-10-18)
+
+`secret.describe` adds a human-only `settings.write` guard and `secret.grants.list` a human-only `settings.read` guard.
+The store's principal gate additionally restricts both to the owner; Admin passing the coarse settings permission still
+cannot use them. WebMCP forbids the entire `secret.` namespace. No grant writer or agent lease route exists. Configuration
+references are not grants. See [secret metadata and access](secrets.md).
 ### Model role probe (Phase A, 2026-10-18)
 
 `admin.engine.test` requires `settings.write` and a human Owner/Admin principal, including the existing device scope

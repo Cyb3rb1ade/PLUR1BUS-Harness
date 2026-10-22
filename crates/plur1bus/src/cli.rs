@@ -1597,6 +1597,16 @@ pub enum SecretCmd {
         #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
         rest: Vec<String>,
     },
+    /// [experimental] Change only a secret's description (owner only); never reads its value back to the caller
+    Describe {
+        name: String,
+        /// new description, one line of at most 200 characters
+        #[arg(required_unless_present = "clear", conflicts_with = "clear")]
+        text: Option<String>,
+        /// remove the description
+        #[arg(long)]
+        clear: bool,
+    },
     /// [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
     Get {
         name: String,

@@ -193,6 +193,7 @@ describe("secrets: create, rotate, delete", opts, () => {
       assert.equal(await dlg.getByLabel("New value").getAttribute("readonly"), "");
       assert.equal(await dlg.getByLabel("New value").getAttribute("type"), "password");
       await dlg.getByRole("button", { name: "Rotate now" }).click();
+      await dlg.waitFor({ state: "detached" });
       await app.page.getByText(/^anthropic\.apiKey: updated on /).waitFor();
       assert.deepEqual(calls(app, "secret.set").map((c) => c.params), [{ name: "anthropic.apiKey", value: "new-val" }]);
       // After the rotation the only thing the page says is the update time; the value is nowhere.

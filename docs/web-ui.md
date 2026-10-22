@@ -601,6 +601,12 @@ Secrets timestamps come from the persisted status snapshot; unknown legacy metad
 
 The activity query, secret timestamps, security limits, OS confirmation status, Doctor report, user jobs, cached module offers and setup caption privacy acknowledgment are tested against the typed RPC mock. No authenticated `/rpc` or `/events` HTTP transport is added by this package. Security-limit settings remain read-only; privacy writes declare owner/admin and audit in the schema, with supervisor enforcement provided by the real web transport. Text embedding remains local. Cloud media selection and the default cloud caption binding are not implemented where no adapter exists. See the [handoff report](handoff/2026-10-14-backend-gaps.md) for exact transport requirements, stricter ADR permissions, tests and open owner decisions.
 
+## Secret metadata and agent references (Phase E, 2026-10-18)
+
+The owner can edit a secret description separately from rotating its value. The dialog sends only name and description to
+`secret.describe`; it has no value field. Empty text clears the description. `secret.grants.list` supplies the read-only
+agent access panel: agent leases are currently disabled, effective grants are empty, and provider/channel configuration
+references are explicitly not grants. No grant writer or agent value path is added. Details: [secrets.md](secrets.md).
 ## Model roles and optional Decision setup (Phase A, 2026-10-18)
 
 Settings → Models & providers edits each of the eight schema-defined `modelRoles` through catalog selectors. Unavailable

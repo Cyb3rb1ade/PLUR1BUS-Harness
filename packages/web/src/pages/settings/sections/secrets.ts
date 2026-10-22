@@ -10,6 +10,7 @@ import { formatDateTime, t, type Key } from "../../../i18n.ts";
 import { FailureState } from "../../common/states.ts";
 import { currentRole, failureOf, getApi, roleIn, useLoad } from "../../common/load.ts";
 import type { SectionProps } from "../page.ts";
+import { DescriptionDialog } from "../secrets/description-dialog.ts";
 import { SecretDialog, type SaveResult } from "../secrets/dialogs.ts";
 import { registerArea } from "../../../i18n/index.ts";
 import * as secretsArea from "../../../i18n/secrets.ts";
@@ -20,19 +21,21 @@ registerArea("secrets", secretsArea);
 type Meta = { name: string; backend: string; createdAt?: string; updatedAt?: string; description?: string };
 type SetResult = { warning?: { code?: string; minMaskedChars?: number } } | null | undefined;
 type Status = { secrets?: Meta[]; backend: string; degraded: boolean; count: number | null; activeLeases: number };
-type Data = { secrets: Meta[]; status: Status | null };
-type Dlg = null | { kind: "create" } | { kind: "rotate"; name: string } | { kind: "delete"; name: string };
+type Grants = { agentLeasesEnabled: false; grants: unknown[]; references: { agentId: string; name: string; scope: string[]; present: boolean; leaseAllowed: false }[] };
+type Data = { secrets: Meta[]; status: Status | null; grants: Grants | null };
+type Dlg = null | { kind: "create" } | { kind: "rotate"; name: string } | { kind: "delete"; name: string } | { kind: "describe"; name: string };
 
 const when = (iso: string | undefined): string => { if (!iso) return t("secrets.unknown"); const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : formatDateTime(d); };
 const backendLabel = (b: string): string => (["keyring", "file", "memory", "none"].includes(b) ? t(`secrets.backend.${b}` as Key) : b);
 
 async function load(signal: AbortSignal): Promise<Data> {
   const api = getApi();
-  const [list, status] = await Promise.all([
+  const [list, status, grants] = await Promise.all([
     api.rpc("secret.list", {}, { write: false, signal }) as Promise<{ secrets: Meta[] }>,
     (api.rpc("secret.status", {}, { write: false, signal }) as Promise<Status>).catch(() => null),
+    currentRole() === "owner" ? (api.rpc("secret.grants.list", {}, { write: false, signal }) as Promise<Grants>).catch(() => null) : Promise.resolve(null),
   ]);
-  return { secrets: [...list.secrets].map(m => { const metadata = status?.secrets?.find(s => s.name === m.name); return { ...m, createdAt: metadata?.createdAt ?? "", updatedAt: metadata?.updatedAt ?? "" }; }).sort((a, b) => a.name.localeCompare(b.name)), status };
+  return { grants, secrets: [...list.secrets].map(m => { const metadata = status?.secrets?.find(s => s.name === m.name); return { ...m, createdAt: metadata?.createdAt ?? "", updatedAt: metadata?.updatedAt ?? "" }; }).sort((a, b) => a.name.localeCompare(b.name)), status };
 }
 
 const saveFailure = (e: unknown): SaveResult => {
@@ -66,6 +69,10 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
     reload();
     return { ok: true };
   };
+  const describe = (name: string) => async (description: string): Promise<SaveResult> => {
+    try { await getApi().rpc("secret.describe", { name, description }); reload(); return { ok: true }; }
+    catch (e) { return (e as { reason?: string }).reason === "invalid-description" ? { ok: false, message: t("secrets.describe.invalid") } : saveFailure(e); }
+  };
   const remove = (name: string) => async () => {
     try { await getApi().rpc("secret.delete", { name }); } catch (e) {
       const f = failureOf(e);
@@ -97,8 +104,15 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
           h("td", { class: "secret-about", "data-label": t("secrets.col.description") }, m.description ?? ""),
           h("td", { "data-label": t("secrets.col.backend") }, backendLabel(m.backend)), h("td", { "data-label": t("secrets.col.created") }, when(currentRole() === "owner" ? m.createdAt : undefined)), h("td", { "data-label": t("secrets.col.updated") }, when(currentRole() === "owner" ? m.updatedAt : undefined)),
           h("td", { class: "secret-actions" },
+            currentRole() === "owner" ? h("button", { type: "button", class: "btn", "aria-label": t("secrets.describe.label", { name: m.name }), onClick: () => setDlg({ kind: "describe", name: m.name }) }, t("secrets.describe.edit")) : null,
             h("button", { type: "button", class: "btn", "aria-label": t("secrets.rotate.label", { name: m.name }), onClick: () => { setDlg({ kind: "rotate", name: m.name }); } }, t("secrets.rotate")),
             h("button", { type: "button", class: "btn btn-quiet", "aria-label": t("secrets.delete.label", { name: m.name }), onClick: () => { setDlg({ kind: "delete", name: m.name }); } }, t("secrets.delete")))))))),
+    data.grants ? h("section", { class: "card secret-grants", "aria-labelledby": "secret-grants-h" },
+      h("h3", { id: "secret-grants-h" }, t("secrets.grants.title")),
+      h("p", {}, t("secrets.grants.disabled")),
+      h("ul", { class: "plain-list" }, data.grants.references.map(ref => h("li", { key: `${ref.agentId}:${ref.name}` },
+        `${ref.agentId}: ${ref.name} · ${ref.scope.join(", ")} · ${t(ref.present ? "secrets.grants.present" : "secrets.grants.missing")}`)))) : null,
+    dlg?.kind === "describe" ? h(DescriptionDialog, { name: dlg.name, description: data.secrets.find(s => s.name === dlg.name)?.description ?? "", onSave: describe(dlg.name), onClose: close }) : null,
     dlg?.kind === "create" ? h(SecretDialog, { existing: names, onSave: save, onClose: close }) : null,
     dlg?.kind === "rotate" ? h(SecretDialog, { rotate: dlg.name, description: data.secrets.find((s) => s.name === dlg.name)?.description, existing: names, onSave: save, onClose: close }) : null,
     dlg?.kind === "delete" ? h(ConfirmDialog, { title: t("secrets.delete.title", { name: dlg.name }), confirmLabel: t("secrets.delete.confirm"), danger: true, expected: dlg.name, onConfirm: remove(dlg.name), onClose: close },
