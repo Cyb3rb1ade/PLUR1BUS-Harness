@@ -170,7 +170,8 @@ describe("Audit section", { skip: browserSkip }, () => {
         const tab = app.page.getByRole("tab", { name: "Audit", exact: true });
         await tab.focus(); await app.page.keyboard.press("Home");
         await app.page.keyboard.press("End");
-        await tab.waitFor(); assert.equal(await tab.getAttribute("aria-selected"), "true");
+        // End navigates by hash, so the selection lands after a re-render: wait for it instead of reading it at once.
+        await tab.waitFor(); await app.page.getByRole("tab", { name: "Audit", exact: true, selected: true }).waitFor();
         const button = app.page.getByRole("button", { name: lang === "de" ? "Kette prüfen" : "Verify chain", exact: true });
         await button.focus(); await app.page.keyboard.press("Space");
         await app.page.getByText(lang === "de" ? "Gültig bis seq 41" : "Valid through seq 41", { exact: true }).waitFor();
