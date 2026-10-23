@@ -49,6 +49,12 @@ it becomes configurable when the engine-config schema moves into this crate (RE-
 Every stage checks `cancel` at its boundary; an overrun answers `degraded`, never an error. Texts never enter the
 trace beyond the configured cap; secrets and tokens never.
 
+**Kept at parity on purpose** (plan §1.6). `distanceToScore(d) = 1/(1+d)` over the squared-L2 `_distance` (score floor
+0.2 for unit vectors), `minScore` 0.3 and the `search` defaults, the query-refinement stage (fires only on an empty
+result: present, off, traced as skipped), the additive boosters on that scale, and the absence of any exact-id or
+lexical path. Do not improve any of them here: the goldens encode them, and the changes are RE-10 T7 (RE-D11) and T8
+(RE-D12). A scenario whose expected `score` looks wrong is recorded as the Node engine answers it.
+
 **Modules added by the 2026-10-23 audit** (rows owned by RE-04 in [`MODULE-MAP.md`](MODULE-MAP.md)):
 `engine/identity/principal.js` (137 — the canonical principal module; `memory-request-context.js:332` uses it, T1),
 `lib/relevant-memory-context.js` (504 — T2/T5), `lib/inject-budget.js` (244 — the aggregate char cap across prepend
@@ -222,7 +228,8 @@ pub trait DenialSink { fn denied(&self, row_id: &str, rule: &'static str, ctx: &
 ## Out of scope
 
 Capture-side writes (RE-05) except the two counters a recall touches; the `neo` content itself (RE-05 T5, consumed
-through `NeoPrelude`); the configuration key for the prefilter (RE-11); the recall comparison tooling (RE-09).
+through `NeoPrelude`); the configuration key for the prefilter (RE-11); the recall comparison tooling (RE-09). The score
+function and the threshold calibration (RE-D11) and hybrid retrieval with rank fusion (RE-D12): both RE-10, T7 and T8.
 
 ## Hand-off
 

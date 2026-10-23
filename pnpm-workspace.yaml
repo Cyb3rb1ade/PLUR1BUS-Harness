@@ -8,5 +8,7 @@ patchedDependencies:
 
 overrides:
   adm-zip: 0.6.1
+  body-parser: 2.4.0
   global-agent: 4.1.3
   sharp: 0.35.5
+  zod: 4.6.6

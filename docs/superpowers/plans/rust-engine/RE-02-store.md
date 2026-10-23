@@ -34,6 +34,13 @@ the schema from a real store. No format change, no new column, no new file in Ph
 rename, directory fsync) for every JSON/JSONL/state file. Paths pass the trusted-path check `memory-db.js` applies
 (`_assertTrustedPath`).
 
+**Kept at parity on purpose** (plan §1.6, RE-D11/RE-D12). `Store::search` uses Lance's default metric and never sets
+one: the Node engine sets no `distanceType`, so the `_distance` it consumes is Lance's L2, which is the **squared**
+Euclidean distance (`lance-linalg` takes no square root); T2 pins that with two orthogonal unit vectors answering
+`_distance == 2.0`. RE-04's `distanceToScore` takes the value as it is. No full-text index in Phase 1: the index is
+RE-10 T8, added through one `Store` method, and T2's round trip is then the proof that the Node reader still opens a
+store that carries it.
+
 **Modules added by the 2026-10-23 audit** (rows owned by RE-02 in [`MODULE-MAP.md`](MODULE-MAP.md); the brief is complete
 when each has a Rust module, a fold target or a recorded drop): `lib/registry-lock.js` (496 — the one cross-process lock
 behind `tombstone.js`, `neo-arch.js`, `import-lock.js`, `rebind-ledger.js`, `knowledge-pending.js` and `job-lock.js`: T6
@@ -145,7 +152,8 @@ pub struct JobLock; impl JobLock {
 
 - [ ] **Step 1: failing tests:** `search_orders_by_distance_and_honours_the_filter` (flat vectors: the fixture's
   rows all share one vector, so add two rows with distinct vectors in the test through `upsert` and assert order),
-  `a_write_is_visible_only_after_commit` (open a second `Store` handle, write through the first, the second sees the row
+  `the_distance_is_the_squared_l2_of_lance` (two orthogonal unit vectors answer `_distance == 2.0`, an opposite pair
+  `4.0`; plan §1.6), `a_write_is_visible_only_after_commit` (open a second `Store` handle, write through the first, the second sees the row
   only after `upsert` returns), `read_only_refuses_writes`, `an_identity_mismatch_refuses_read_write_and_allows_read_only`.
 - [ ] **Step 2: implement** `search` (vector search with `limit`, `RowFilter` rendered to the Lance filter expression —
   the same predicates `lib/db-adapter.js` renders; copy its column names and comparison semantics, including
@@ -229,7 +237,7 @@ pub struct JobLock; impl JobLock {
 ## Out of scope
 
 Any recall or capture logic (RE-04, RE-05); `stores.adopt`'s report shape (RE-07, which uses `schema_version` and
-`identity_status` from here); re-embedding generations (RE-07); the Lance version upgrade itself.
+`identity_status` from here); re-embedding generations (RE-07); the Lance version upgrade itself; the full-text index (RE-10 T8, behind RE-D12).
 
 ## Hand-off
 
