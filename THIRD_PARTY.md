@@ -7,7 +7,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 ```
 pnpm-lock.yaml: 723114cbf7965c752863fcaa0c29458296fed66b6e422bd2a27e766adaafc2ba
 Cargo.lock: efd6c368fadc078e40280e2cd8cd39828364a930c77e58f0c32b03b158f94539
-apps/desktop/Cargo.lock: 02a79d156c90d35b62cb4cf2427e3f0be2b5aa26cfbd39ea32b7438b1c02a43a
+apps/desktop/Cargo.lock: 391a5c3afa25f57758d63f07a7b588cdb23bc8e9d2df0b17c26dd0bc14b6dd76
 ```
 
 | Ecosystem | Dependency | Version | Licence | Attribution |
@@ -138,7 +138,7 @@ apps/desktop/Cargo.lock: 02a79d156c90d35b62cb4cf2427e3f0be2b5aa26cfbd39ea32b7438
 | cargo | ct-codecs | 1.1.8 | MIT | Frank Denis <github@pureftpd.org> |
 | cargo | ctor | 1.0.13 | Apache-2.0 OR MIT | Matt Mastracci <matthew@mastracci.com> |
 | cargo | ctr | 0.10.1 | MIT OR Apache-2.0 | RustCrypto Developers |
-| cargo | ctutils | 0.4.2 | Apache-2.0 OR MIT | RustCrypto Developers |
+| cargo | ctutils | 0.4.4 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | curve25519-dalek-derive | 0.1.1 | MIT/Apache-2.0 |  |
 | cargo | curve25519-dalek | 5.0.0 | BSD-3-Clause | Isis Lovecruft <isis@patternsinthevoid.net>, Henry de Valence <hdevalence@hdevalence.ca> |
 | cargo | darling | 0.23.0 | MIT | Ted Driggs <ted.driggs@outlook.com> |

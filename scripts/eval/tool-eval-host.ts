@@ -35,7 +35,7 @@ if (process.argv.includes('--recorded')) {
 } else {
   type Config = ModelRef & {baseUrl:string;keyEnv:string;wireFormat?:string};
   let configs: Config[] = [];
-  try { const raw:unknown=JSON.parse(process.env.PLUR1BUS_HOST_EVAL_MODELS ?? '[]'); if(!Array.isArray(raw)||raw.length>32)throw Error(); configs=raw.filter((x):x is Config=>x&&typeof x.provider==='string'&&typeof x.model==='string'&&typeof x.baseUrl==='string'&&typeof x.keyEnv==='string'&&/^[A-Z][A-Z0-9_]+$/.test(x.keyEnv)); if(configs.length!==raw.length)throw Error(); }
+  try { const raw:unknown=JSON.parse(process.env.PLUR1BUS_HOST_EVAL_MODELS?.trim() || '[]'); if(!Array.isArray(raw)||raw.length>32)throw Error(); configs=raw.filter((x):x is Config=>x&&typeof x.provider==='string'&&typeof x.model==='string'&&typeof x.baseUrl==='string'&&typeof x.keyEnv==='string'&&/^[A-Z][A-Z0-9_]+$/.test(x.keyEnv)); if(configs.length!==raw.length)throw Error(); }
   catch { throw Error('invalid host-eval model configuration; expected provider/model/baseUrl/keyEnv entries'); }
   for(const c of configs) {
     const key=process.env[c.keyEnv];
