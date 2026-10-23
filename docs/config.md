@@ -44,8 +44,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `tools.hostctl.search.maxResults` | integer | `100` | core | Maximum matches per search. |
 | `core.webHandoffBaseUrl` | string | `""` | live | Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment. |
 | `core.logLevel` | enum | `"info"` | live | Minimum severity written to the core log. |
-| `core.recall.softBudgetMs` | integer | `400` | core | Soft target duration for a recall, in milliseconds. |
-| `core.recall.hardBudgetMs` | integer | `600` | live | Maximum duration allowed for a recall before it is aborted, in milliseconds. |
+| `core.recall.softBudgetMs` | integer | `400` | core | Soft target duration for a recall, in milliseconds; must not exceed hardBudgetMs. |
+| `core.recall.hardBudgetMs` | integer | `600` | live | Maximum duration allowed for a recall before it is aborted, in milliseconds; must not be below softBudgetMs. |
 | `core.recall.capChars` | integer | `17000` | core | Maximum number of characters returned by a recall. |
 | `core.capture.waitMs` | integer | `60000` | live | Maximum time to wait for a memory capture, in milliseconds. |
 | `core.shutdownBudgetMs` | integer | `30000` | live | Maximum time the core spends on graceful shutdown, in milliseconds. |

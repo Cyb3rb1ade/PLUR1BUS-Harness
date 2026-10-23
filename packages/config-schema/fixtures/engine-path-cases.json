@@ -1,0 +1,212 @@
+[
+  {
+    "name": "engine.baseDbPathOverride = \"/var/lib/plur1bus/lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "/var/lib/plur1bus/lancedb"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"/\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "/"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"C:\\\\data\\\\lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "C:\\data\\lancedb"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"c:/data/lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "c:/data/lancedb"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"\\\\\\\\server\\\\share\\\\lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "\\\\server\\share\\lancedb"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"/ä/ö\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "/ä/ö"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": ""
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"   \"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "   "
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"\\t\\n\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "\t\n"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "lancedb"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"./lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "./lancedb"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"../lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "../lancedb"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"~/lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "~/lancedb"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \" /abs\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": " /abs"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"\\t/abs\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "\t/abs"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"file:///tmp/lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "file:///tmp/lancedb"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"C:\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "C:"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"C:lancedb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "C:lancedb"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \" \"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": " "
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"﻿\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "﻿"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "engine.baseDbPathOverride = \"/a\\nb\"",
+    "config": {
+      "schemaVersion": 1,
+      "engine": {
+        "baseDbPathOverride": "/a\nb"
+      }
+    },
+    "valid": true
+  }
+]

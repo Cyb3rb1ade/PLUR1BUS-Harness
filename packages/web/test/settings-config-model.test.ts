@@ -61,13 +61,19 @@ describe("drafts", () => {
 describe("integers without an upper bound", () => {
   const g = (config: unknown, id = "general") => buildFields(config, sectionById(id)!);
   test("a number that is not exactly representable is refused, not rounded", () => {
-    const f = g({}).find((x) => x.key === "logs.maxBytes")!;
-    assert.equal(f.max, undefined);
+    // logs.maxBytes has a schema maximum now; drop it here (as for the port list below) so the unsafe-integer guard alone is tested.
+    const { max: _max, ...f } = g({}).find((x) => x.key === "logs.maxBytes")!;
     for (const huge of ["99999999999999999999", "9007199254740993", "-9007199254740993", "1".repeat(400)]) {
       const r = parseDraft(f, huge);
       assert.equal(r.ok, false, huge);
     }
     assert.deepEqual(parseDraft(f, "9007199254740991"), { ok: true, value: 9007199254740991 });
+  });
+  test("the schema maximum of a field is enforced on its own", () => {
+    const f = g({}).find((x) => x.key === "logs.maxBytes")!;
+    assert.equal(f.max, 10737418240);
+    assert.deepEqual(parseDraft(f, "10737418240"), { ok: true, value: 10737418240 });
+    assert.equal(parseDraft(f, "10737418241").ok, false);
   });
   test("the same holds per line of an integer list", () => {
     const ports = g({}, "network").find((x) => x.key === "egress.allowPorts")!;

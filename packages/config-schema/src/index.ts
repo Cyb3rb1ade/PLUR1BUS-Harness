@@ -188,6 +188,8 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
     const c = (copy as HarnessConfig).session.compaction;
     if (c.softRatio >= c.hardRatio) return { ok: false, errors: ["/session/compaction softRatio must be below hardRatio"] };
     const cfg = copy as HarnessConfig;
+    // Cross-field rule shared with crates/plur1bus-config (validate): a soft budget above the hard one can never be reached.
+    if (cfg.core.recall.softBudgetMs > cfg.core.recall.hardBudgetMs) return { ok: false, errors: ["/core/recall softBudgetMs must not exceed hardBudgetMs"] };
     if (cfg.breakglass && cfg.breakglass.reasonMinChars > cfg.breakglass.reasonMaxChars) return { ok: false, errors: ["/breakglass reasonMinChars must not exceed reasonMaxChars"] };
     const mediaLayers = [["/memory/mediaEmbedding", cfg.memory.mediaEmbedding], ...Object.entries(cfg.agents).map(([id, agent]) => {
       const override = agent.memory?.mediaEmbedding;

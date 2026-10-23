@@ -124,6 +124,26 @@ for (const value of ["2026-09-24T00:00:00Z", "yesterday"]) {
 }
 emit("format-cases.json", formatCases);
 
+// Cross-field rule parity: the Rust validator (crates/plur1bus-config) must refuse exactly the budget pairs the core refuses.
+// A missing side takes the schema default (soft 400, hard 600) on both sides. Minimal files: both loaders fill defaults first.
+const crossFieldCases = [];
+for (const [soft, hard] of [[400, 600], [600, 600], [601, 600], [50, 100], [100, 100], [1000, 999], [999, 1000], [700, undefined], [undefined, 300], [undefined, 400], [400, undefined], [undefined, undefined]]) {
+  const recall = {};
+  if (soft !== undefined) recall.softBudgetMs = soft;
+  if (hard !== undefined) recall.hardBudgetMs = hard;
+  const config = { schemaVersion: 1, core: { recall } };
+  crossFieldCases.push({ name: `core.recall soft ${soft ?? "(default)"} / hard ${hard ?? "(default)"}`, config, valid: validate(config).ok });
+}
+emit("cross-field-cases.json", crossFieldCases);
+
+// engine.baseDbPathOverride (absolute path or blank): the same pattern runs in ajv here and in the Rust regex engine there.
+const engineValues = ["/var/lib/plur1bus/lancedb", "/", "C:\\data\\lancedb", "c:/data/lancedb", "\\\\server\\share\\lancedb", "/ä/ö", "", "   ", "\t\n", "lancedb", "./lancedb", "../lancedb", "~/lancedb", " /abs", "\t/abs", "file:///tmp/lancedb", "C:", "C:lancedb", "\u00a0", "\ufeff", "/a\nb"];
+const enginePathCases = engineValues.map((value) => {
+  const config = { schemaVersion: 1, engine: { baseDbPathOverride: value } };
+  return { name: `engine.baseDbPathOverride = ${JSON.stringify(value)}`, config, valid: validate(config).ok };
+});
+emit("engine-path-cases.json", enginePathCases);
+
 const tierKeys = [
   "$schema", "schemaVersion", "core.logLevel", "core.recall.capChars", "supervisor.graceMs",
   "logs.keep", "agents", "agents.bernd", "agents.bernd.displayName", "embedding.useClass",

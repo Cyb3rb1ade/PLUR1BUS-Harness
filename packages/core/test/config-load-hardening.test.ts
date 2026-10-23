@@ -75,8 +75,82 @@ describe("config-load hardening (c10)", () => {
   });
 });
 
-describe("config validation gaps (KNOWN GAP)", () => {
-  it.todo("KNOWN GAP: core.recall.softBudgetMs above hardBudgetMs is accepted (needs the same cross-field rule in crates/plur1bus-config, else core and supervisor disagree)");
-  it.todo("KNOWN GAP: numbers without maximum (logs.keep, core.recall.capChars, session.compaction.*Tokens, media dimensions) and arrays/strings without maxItems/maxLength (auth.openai.federated.args, skills.pinned) need schema bounds");
-  it.todo("KNOWN GAP: engine.baseDbPathOverride has no minLength/absolute-path constraint in the schema (engine-config.ts only ignores blank values)");
+describe("config cross-field rules", () => {
+  // The same rule lives in crates/plur1bus-config (validate); the two must agree or core and supervisor disagree about one file.
+  const recall = (soft: number, hard: number) => { const c: any = defaults(); c.core.recall.softBudgetMs = soft; c.core.recall.hardBudgetMs = hard; return c; };
+
+  it("core.recall.softBudgetMs above hardBudgetMs is refused, at or below it is accepted", () => {
+    for (const [soft, hard] of [[601, 600], [5000, 100], [1_000_000, 999_999]] as const) {
+      const r = validateConfig(recall(soft, hard));
+      assert.equal(r.ok, false, `${soft} > ${hard}`);
+      assert.ok(!r.ok && r.errors.some(e => e === "/core/recall softBudgetMs must not exceed hardBudgetMs"), JSON.stringify(r));
+    }
+    for (const [soft, hard] of [[600, 600], [400, 600], [50, 100], [50, 50_000]] as const) assert.equal(validateConfig(recall(soft, hard)).ok, true, `${soft} <= ${hard}`);
+  });
+
+  it("the rule holds for a config file, with either value taken from the schema default", () => {
+    for (const patch of [{ softBudgetMs: 700 }, { hardBudgetMs: 300 }]) { // default soft 400 / hard 600
+      const p = file();
+      writeFileSync(p, JSON.stringify({ schemaVersion: 1, core: { recall: patch } }));
+      for (const load of [loadConfig, readConfigFile]) assert.throws(() => load(p), (e: any) => e instanceof ConfigInvalid && e.errors.some((s: string) => s.includes("softBudgetMs must not exceed hardBudgetMs")));
+    }
+    const ok = file();
+    writeFileSync(ok, JSON.stringify({ schemaVersion: 1, core: { recall: { softBudgetMs: 500, hardBudgetMs: 800 } } }));
+    assert.equal(loadConfig(ok).config.core.recall.hardBudgetMs, 800);
+  });
+});
+
+describe("config schema bounds", () => {
+  // The limits themselves are pinned in packages/config-schema/test/schema-bounds.test.ts; this is the path a config file takes.
+  const refuses = (patch: Record<string, unknown>, mentions: string) => {
+    const p = file();
+    writeFileSync(p, JSON.stringify({ schemaVersion: 1, ...patch }));
+    for (const load of [loadConfig, readConfigFile]) assert.throws(() => load(p), (e: any) => e instanceof ConfigInvalid && e.errors.some((s: string) => s.includes(mentions)), mentions);
+  };
+
+  it("a config file with an unbounded number, list or string is refused", () => {
+    refuses({ logs: { keep: 2_000_000_000 } }, "/logs/keep");
+    refuses({ core: { recall: { capChars: 1e15 } } }, "/core/recall/capChars");
+    refuses({ session: { compaction: { summaryMaxTokens: 1e12 } } }, "/session/compaction/summaryMaxTokens");
+    refuses({ memory: { mediaEmbedding: { dimensions: 1_000_000 } } }, "/memory/mediaEmbedding/dimensions");
+    refuses({ auth: { openai: { federated: { command: "tool", args: Array.from({ length: 1000 }, () => "x") } } } }, "/auth/openai/federated/args");
+    refuses({ agents: { bernd: { skills: { pinned: Array.from({ length: 5000 }, () => "s") } } } }, "/agents/bernd/skills/pinned");
+    refuses({ modelRoles: { chat: "m".repeat(100_000) } }, "/modelRoles/chat");
+  });
+
+  it("generous but plausible values still load", () => {
+    const p = file();
+    writeFileSync(p, JSON.stringify({ schemaVersion: 1, logs: { keep: 100, maxBytes: 1_073_741_824 }, core: { recall: { capChars: 500_000 } }, session: { compaction: { summaryMaxTokens: 200_000, maxMessageTokens: 200_000 } }, memory: { mediaEmbedding: { dimensions: 3072 } }, agents: { bernd: { skills: { pinned: ["a", "b"] } } } }));
+    const { config } = loadConfig(p);
+    assert.equal(config.logs.keep, 100);
+    assert.equal(config.session.compaction.summaryMaxTokens, 200_000);
+  });
+});
+
+describe("engine.baseDbPathOverride", () => {
+  // The core hands the value to the engine as is (engine-config.ts ignores only a blank one), so anything else that is not an absolute
+  // path would put the database relative to whatever directory the core happens to run in. The same pattern is checked by
+  // crates/plur1bus-config through fixtures/engine-path-cases.json.
+  const withOverride = (value: unknown) => { const c: any = defaults(); c.engine.baseDbPathOverride = value; return c; };
+
+  it("absolute paths and blank values are accepted", () => {
+    for (const v of ["/var/lib/plur1bus/lancedb", "/", "C:\\data\\lancedb", "c:/data/lancedb", "\\\\server\\share\\lancedb", "/ä/ö", "", "   ", "\t\n"]) assert.equal(validateConfig(withOverride(v)).ok, true, JSON.stringify(v));
+  });
+
+  it("a relative, home-relative, padded or non-path value is refused with the key named", () => {
+    for (const v of ["lancedb", "./lancedb", "../lancedb", "~/lancedb", " /abs", "\t/abs", "file:///tmp/lancedb", "C:", "C:lancedb", "\u00a0", "\ufeff", 5, null, ["/x"], {}]) {
+      const r = validateConfig(withOverride(v));
+      assert.equal(r.ok, false, JSON.stringify(v));
+      assert.ok(!r.ok && r.errors.some(e => e.startsWith("/engine/baseDbPathOverride")), JSON.stringify(r));
+    }
+  });
+
+  it("a config file with a relative override does not load, with the path of the value in the message", () => {
+    const p = file();
+    writeFileSync(p, JSON.stringify({ schemaVersion: 1, engine: { baseDbPathOverride: "state/lancedb" } }));
+    for (const load of [loadConfig, readConfigFile]) assert.throws(() => load(p), (e: any) => e instanceof ConfigInvalid && e.errors.some((s: string) => s.startsWith("/engine/baseDbPathOverride")));
+    const ok = file();
+    writeFileSync(ok, JSON.stringify({ schemaVersion: 1, engine: { baseDbPathOverride: "/tmp/p1b-lancedb", recallMinScore: 0.3 } }));
+    assert.equal(loadConfig(ok).config.engine.baseDbPathOverride, "/tmp/p1b-lancedb");
+  });
 });

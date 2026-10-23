@@ -97,3 +97,32 @@ fn the_requested_numeric_keys_are_checked_against_the_schema() {
     .unwrap();
     read(json!({"schemaVersion":1,"core":{"unknownNested":1}}), &[]).unwrap();
 }
+
+#[test]
+fn asking_for_both_recall_budgets_refuses_a_pair_the_core_refuses() {
+    let both = ["/core/recall/softBudgetMs", "/core/recall/hardBudgetMs"];
+    read(
+        json!({"schemaVersion":1,"core":{"recall":{"softBudgetMs":600,"hardBudgetMs":600}}}),
+        &both,
+    )
+    .unwrap();
+    read(json!({"schemaVersion":1}), &both).unwrap(); // defaults: 400 / 600
+    for doc in [
+        json!({"schemaVersion":1,"core":{"recall":{"softBudgetMs":601,"hardBudgetMs":600}}}),
+        json!({"schemaVersion":1,"core":{"recall":{"softBudgetMs":700}}}), // against the hard default
+        json!({"schemaVersion":1,"core":{"recall":{"hardBudgetMs":300}}}), // against the soft default
+    ] {
+        let errs = invalid(read(doc.clone(), &both));
+        assert!(
+            errs.iter()
+                .any(|e| e == "/core/recall softBudgetMs must not exceed hardBudgetMs"),
+            "{doc}: {errs:?}"
+        );
+    }
+    // Asked for one side only, the caller uses nothing but that value: documented limitation, the core validates its own file.
+    read(
+        json!({"schemaVersion":1,"core":{"recall":{"softBudgetMs":700}}}),
+        &["/core/recall/softBudgetMs"],
+    )
+    .unwrap();
+}

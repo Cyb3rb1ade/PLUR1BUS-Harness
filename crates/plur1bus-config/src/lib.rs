@@ -188,6 +188,18 @@ fn ajv_time(s: &str) -> bool {
     (utc_hr == 23 || utc_hr == -1) && (utc_min == 59 || utc_min == -1) && sec < 61.0
 }
 
+/// The cross-field rule `core.recall.softBudgetMs <= core.recall.hardBudgetMs`: a soft budget above the hard one can never be
+/// reached. `validate` in packages/config-schema (`src/index.ts`) enforces the same rule with the same message, or the core and
+/// the supervisor would disagree about one file. Compared as numbers, so `700.0` counts like `700` on both sides.
+fn recall_budget_error(v: &Value) -> Option<String> {
+    let recall = &v["core"]["recall"];
+    let (soft, hard) = (
+        recall["softBudgetMs"].as_f64()?,
+        recall["hardBudgetMs"].as_f64()?,
+    );
+    (soft > hard).then(|| "/core/recall softBudgetMs must not exceed hardBudgetMs".to_string())
+}
+
 pub fn validate(v: &Value) -> Result<(), Vec<String>> {
     let mut errs: Vec<String> = validator()
         .iter_errors(v)
@@ -211,6 +223,9 @@ pub fn validate(v: &Value) -> Result<(), Vec<String>> {
         if min > max {
             errs.push("/breakglass reasonMinChars must not exceed reasonMaxChars".into());
         }
+    }
+    if let Some(e) = recall_budget_error(v) {
+        errs.push(e);
     }
     // Provider-bound acknowledgments are separate for the media index and captioning.
     // There is deliberately no global privacy-pin setting here.
@@ -321,6 +336,7 @@ pub fn read_unvalidated(path: &Path) -> Result<Config, ConfigError> {
 /// and then reports the schema errors like [`read`]; a file that passes is returned without the validator ever being built.
 ///
 /// Passing is not validity: unknown keys or bad values deeper in a section, and keys the caller did not list, are not looked at.
+/// The one cross-field rule is applied when both `/core/recall/softBudgetMs` and `/core/recall/hardBudgetMs` are listed.
 /// Callers must use nothing but what they listed. The supervisor and the core validate the file they run on.
 pub fn read_for_lookup(path: &Path, keys: &[&str]) -> Result<Config, ConfigError> {
     let v = read_unvalidated(path)?;
@@ -359,7 +375,7 @@ fn lookup_shape_ok(v: &Value, keys: &[&str]) -> bool {
             return false;
         }
     }
-    keys.iter().all(|ptr| {
+    let in_range = keys.iter().all(|ptr| {
         let Some(val) = v.pointer(ptr) else {
             return true; // absent: the schema default applies
         };
@@ -386,7 +402,12 @@ fn lookup_shape_ok(v: &Value, keys: &[&str]) -> bool {
                 .get("maximum")
                 .and_then(Value::as_i64)
                 .is_none_or(|m| n <= m)
-    })
+    });
+    // The one cross-field rule a lookup can see: a caller that asks for both budgets must not be handed a pair the core refuses.
+    in_range
+        && !(keys.contains(&"/core/recall/softBudgetMs")
+            && keys.contains(&"/core/recall/hardBudgetMs")
+            && recall_budget_error(v).is_some())
 }
 
 /// [`parse`] without the schema validation (see [`read_unvalidated`]).

@@ -68,7 +68,8 @@ describe("E3 — CLI → daemon → core smoke", () => {
       assert.equal(setup.manifest.node.version, "24.21.0");
       stopDaemon(h1);
       if (process.env.PLUR1BUS_CI_RECALL_HARD_MS) {
-        for (const key of ["core.recall.softBudgetMs", "core.recall.hardBudgetMs"]) cli(h1, ["config", "set", key, process.env.PLUR1BUS_CI_RECALL_HARD_MS, "--yes"]);
+        // Hard first: the soft budget may not exceed the hard one, and each `config set` is validated on its own.
+        for (const key of ["core.recall.hardBudgetMs", "core.recall.softBudgetMs"]) cli(h1, ["config", "set", key, process.env.PLUR1BUS_CI_RECALL_HARD_MS, "--yes"]);
       }
       // RULING: no `init` command; a home comes into being with its first write.
       assert.equal(cli(h1, ["agent", "create", "bernd"]).created, true);

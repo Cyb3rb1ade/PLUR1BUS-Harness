@@ -1,0 +1,151 @@
+[
+  {
+    "name": "core.recall soft 400 / hard 600",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600
+        }
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "core.recall soft 600 / hard 600",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "softBudgetMs": 600,
+          "hardBudgetMs": 600
+        }
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "core.recall soft 601 / hard 600",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "softBudgetMs": 601,
+          "hardBudgetMs": 600
+        }
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "core.recall soft 50 / hard 100",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "softBudgetMs": 50,
+          "hardBudgetMs": 100
+        }
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "core.recall soft 100 / hard 100",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "softBudgetMs": 100,
+          "hardBudgetMs": 100
+        }
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "core.recall soft 1000 / hard 999",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "softBudgetMs": 1000,
+          "hardBudgetMs": 999
+        }
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "core.recall soft 999 / hard 1000",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "softBudgetMs": 999,
+          "hardBudgetMs": 1000
+        }
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "core.recall soft 700 / hard (default)",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "softBudgetMs": 700
+        }
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "core.recall soft (default) / hard 300",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "hardBudgetMs": 300
+        }
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "core.recall soft (default) / hard 400",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "hardBudgetMs": 400
+        }
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "core.recall soft 400 / hard (default)",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {
+          "softBudgetMs": 400
+        }
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "core.recall soft (default) / hard (default)",
+    "config": {
+      "schemaVersion": 1,
+      "core": {
+        "recall": {}
+      }
+    },
+    "valid": true
+  }
+]
