@@ -172,11 +172,18 @@ schema in RE-1/RE-7; a private import is a defect of the current binding, not a 
   `x-server: "engine"`, the fourth server value after `core`, `supervisor`, `module`); `packages/core/src/engine/client.ts`
   implements the TypeScript `Engine` interface over `module-api`'s RPC client. `createEngine()` from the Node package
   and `new EngineClient()` are interchangeable at that interface — the core's 27 call sites stay as they are.
-- Host services become reverse RPC: the engine holds a client connection to the core and calls `host.*` methods that
-  only the engine credential may call (`rbac/guard.ts`, the way the API's delegation credential is trusted in
-  `supervisor/api_transport.rs`). `fetch` is **not** proxied: the engine does its own HTTPS with `ureq`/`rustls` (already
-  in the workspace) and asks `host.egress.decide(url)` per hop, cached per host, invalidated by an `egress.changed`
-  notification — the policy stays the core's, the bytes stay in the engine.
+- Host services become reverse RPC: the engine holds a client connection to the core and calls `host.*` methods. The
+  restriction to the engine is enforced where calls are dispatched, not where capabilities are listed: the connection
+  that authenticated with the engine credential carries the principal kind `engine`, every `host.*` handler requires
+  it, and the dispatcher answers any other connection with `E_DENIED` before a handler runs (the way the API's
+  delegation credential is checked in `supervisor/api_transport.rs`; `rbac/guard.ts` adds the role rules on top).
+  `fetch` is **not** proxied, and it is not a bare client either: the engine does its own HTTPS with `ureq`/`rustls`
+  (already in the workspace) behind the same guard the harness HTTP client applies (`tools/web/`'s resolve-then-pin
+  SSRF guard, `egress.request`): per hop — the first request and every redirect — it asks `host.egress.decide` for the
+  exact `scheme`, `host` and `port`, resolves the name itself, checks every resolved address against the address rules
+  the decision carries (loopback, private ranges, metadata endpoints), and pins the connection to the checked address
+  so the DNS answer cannot change between check and connect. Decisions are cached per `(scheme, host, port)` with a
+  short TTL and dropped on an `egress.changed` notification — the policy stays the core's, the bytes stay in the engine.
 - Logging is direct: the engine writes its own JSONL through `crates/plur1bus-log-schema` (D111) with the catalogue's
   redaction rules; no log callback.
 - No supervisor (ADR-012 §8 developer path, `plur1bus core run`): the core spawns `plur1bus-engine` itself, the way it
@@ -442,7 +449,7 @@ pub trait HostServices: Send + Sync {
     fn workspace_dir(&self, agent: &AgentId) -> Result<Option<PathBuf>, HostError>;
     fn llm(&self) -> Option<&dyn LlmPort>;        // complete(LlmParams) -> Result<LlmResult, HostError>
     fn secrets(&self) -> Option<&dyn SecretPort>;
-    fn egress(&self) -> &dyn EgressGate;          // decide(&Url) -> Decision
+    fn egress(&self) -> &dyn EgressGate;          // decide(&Target { scheme, host, port }) -> Decision; Allow carries the address rules the transport checks after resolving
     fn emit(&self, event: &str, payload: serde_json::Value);
     fn now_ms(&self) -> i64;
     fn platform(&self) -> &PlatformCapabilities;
@@ -518,9 +525,13 @@ the `CC-BY-NC-4.0` entries the harness NC gate (`packages/core/src/licences`) mu
       equals the recorded order on all 50 pairs.
 - [ ] Decide and implement the `ort` binary strategy (RE-D3b): `load-dynamic` with a `libonnxruntime` shipped in the
       payload per target, or `download-binaries` vendored for offline CI. Document in `docs/engine-stores.md`.
-- [ ] Remote providers through `ureq` with `EgressGate::decide` per hop, redirects included; one deadline per call
-      (f.6: no second timer); `rerank-signal`, `chained` and `remote` keep their Node contracts (recorded request and
-      response fixtures, no network in tests).
+- [ ] Remote providers through `ureq` behind one guarded transport (`transport::guarded`, the §2.1 rules):
+      `EgressGate::decide(&Target)` per hop, redirects included, then resolve-and-pin with the address rules the
+      decision carries; one deadline per call (f.6: no second timer). Tests with a resolver seam: a name that answers a
+      public address on the first lookup and `127.0.0.1` on the second (rebinding) is refused; a redirect to the same
+      host on a port the policy does not list is refused although the host was allowed a moment before; a cached
+      decision is dropped on `egress.changed`. `rerank-signal`, `chained` and `remote` keep their Node contracts
+      (recorded request and response fixtures, no network in tests).
 - [ ] `EmbeddingService::serve` replaces the bespoke IPC: `engine.embedding.embed` over RPC with the envelope fields
       `{ dimensions, fingerprintId, model }` preserved in the result so `plur1bus admin embedding serve` keeps its
       `--json` shape (host-contract (d.2)).
@@ -538,10 +549,16 @@ Result<RecallResult, EngineError>`; stage trait `Stage::apply(&mut Candidates, &
 `render::blocks(selected, cap_chars) -> (Vec<ContextBlock>, Vec<Deferral>)` for the six blocks
 `neo | start | memories | time | temporal | reminder`.
 
-- [ ] The twelve stages of `docs/recall-architecture.md` in the engine repository, in order: embedding → vector search →
-      refinement seam (off) → temporal filter → canonical KNOWLEDGE.md search → score and status → graph spread and
-      hydration → budget allocation → optional rerank → deduplication → ACL filtering → finalisation; then the namespace
-      fan-out and the global merge (one pipeline per table, settle all, one merge, one ledger entry).
+- [ ] The twelve stages of `docs/recall-architecture.md` in the engine repository, with one deliberate change of
+      order: the ACL filter runs **before** every provider-backed stage. Order: embedding → vector search → refinement
+      seam (off) → temporal filter → canonical KNOWLEDGE.md search → score and status → graph spread and hydration →
+      ACL filtering (agent, workspace, user-owner and scope; a row the caller may not see leaves the pipeline here) →
+      budget allocation → prefilter (CP-4a) → optional rerank → deduplication → finalisation, which re-asserts the ACL
+      on the final set (a check that costs nothing and turns a regression into a refusal); then the namespace fan-out
+      and the global merge (one pipeline per table, settle all, one merge, one ledger entry). The architecture
+      document's ACL position after rerank is the pre-7.18.28 order; CP-5.6 moved the provider-side check ahead of
+      rerank, and the Rust engine has no stage after which an unauthorised row could still reach a reranker or a
+      decision model.
 - [ ] Budget: `RecallBudget { soft_ms, hard_ms, cap_chars }` from the query, the harness's `core.recall.*` keys mapped
       as `engine-config.ts` maps them today; overrun → `Degraded { reason: "timeout" }` with the blocks on hand; a caller
       cancel → `"aborted"`; `timing.phases` per stage, `namespacePhases` per table (review-focus 1).
@@ -630,8 +647,13 @@ at once and `engine.capture.done` notifies, `engine.capture.wait { id }` long-po
 `host.egress.decide`, `host.secret.get`, `host.workspaceDir`, `host.event`, `host.journalBacklog` callable only with
 the engine credential; `EngineClient implements Engine` in `packages/core/src/engine/client.ts`.
 
-- [ ] Schema first, `pnpm gen`, then both servers; `core.auth` never lists an `engine.*` or `host.*` method to a
-      caller without the engine credential; `engine.auth` lists only `engine.*`.
+- [ ] Schema first, `pnpm gen`, then both servers; `engine.auth` lists only `engine.*`; `core.auth` omits `host.*` for
+      every caller but the engine (a listing check, not the guard).
+- [ ] Dispatch guard: the shared RPC server (`packages/module-api`'s server core) learns a connection principal kind;
+      `host.*` handlers are registered as `requires: "engine"` and the dispatcher answers every other connection with
+      `E_DENIED` before the handler runs, whatever `x-server` says and whatever the capability list advertised. Tests:
+      an ordinary authenticated client calls `host.secret.get` and `host.llm.complete` by name → `E_DENIED`, and the spy
+      secret store and LLM port record no call; the engine connection succeeds; the listing test stays beside them.
 - [ ] Supervisor: health poll `engine.status`, the core's restart policy, adoption of a running engine by peer
       credentials (`adopt.rs`); `daemon status` shows the slot; `1staid check` gains `engine.process` and `engine.store`
       checks (`1staid.check/1` ids are append-only, ADR-016).
@@ -765,7 +787,7 @@ live" row for the crate).
 | RE-R2 | Hop overhead on Windows named pipes exceeds the budget | RE-8 p99 > 5 ms | N-API fallback (§2.2) for Windows only, or request batching in `EngineClient` |
 | RE-R3 | A Node SDK store written after a `@lancedb/lancedb` bump in the engine repository no longer opens in the pinned Rust crate | RE-2 round-trip fails on a pin bump | the harness pin stays until the Rust crate moves in step; the upgrade rule in `docs/engine-stores.md` |
 | RE-R4 | Model artifact drift: a re-download yields different ONNX bytes | `ArtifactCatalogue` sha256 mismatch | refuse to load; `1staid check` `models.cache` reports it (existing id) |
-| RE-R5 | The `host.*` reverse channel becomes a privilege path | an `host.*` call without the engine credential succeeds in a test | RBAC guard test in RE-8; `core.auth` capability test |
+| RE-R5 | The `host.*` reverse channel becomes a privilege path | a `host.*` call from a non-engine connection reaches a handler | the dispatch guard and its negative invocation tests in RE-8; the capability listing is a UX check, never the guard |
 | RE-R6 | CI time: the Rust build of Lance + DataFusion pushes `unit` past its budget | RE-0 measurement | per-crate opt-levels, `rust-cache`, the engine crate's tests in their own job selected by the `changes` plan |
 
 ## 8. Glossary
