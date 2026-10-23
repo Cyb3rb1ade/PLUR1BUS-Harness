@@ -94,8 +94,9 @@ RE-11 Phase 3: retire the Node engine pin, docs and ADR
   larger; the closure is what an engine port has to re-express). `lib/telegram-commands/`, `lib/obsidian-control-room/`
   and the i18n tables are adapter material inside that closure and are not ported (engine-extraction §a.3).
   [`rust-engine/MODULE-MAP.md`](rust-engine/MODULE-MAP.md) (audit 2026-10-23) lists every file of the `.js` closure (322
-  files, 100,593 lines) with its owner brief and disposition: 198 ported, 25 folded into Rust idioms, 15 pending the
-  Obsidian decision, 84 dropped (adapter surface, Node plumbing, or reachable only through adapter files).
+  files, 100,593 lines) with its owner brief and disposition: 232 ported, 26 folded into Rust idioms, 36 pending the
+  Obsidian decision, 28 dropped (adapter surface and Node plumbing, each row saying which; reachability alone never
+  drops a file — on `main` the job bodies are wired through the chat command module and are engine behaviour all the same).
 - **615** test files under `tests/` plus 13 under `test/`. They encode behaviour that is documented nowhere else; porting
   the ones that test engine behaviour is part of the work (RE-9 counts them per subsystem).
 - **57** top-level engine config keys (`engine/config/engine-config.schema.json`; the harness mirror is
