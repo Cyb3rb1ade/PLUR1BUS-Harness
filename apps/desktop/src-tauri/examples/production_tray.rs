@@ -123,7 +123,7 @@ mod fixture {
             (
                 Locale::De,
                 [
-                    "Startet",
+                    "Wird gestartet",
                     "Läuft",
                     "Eingeschränkt",
                     "Gestoppt",

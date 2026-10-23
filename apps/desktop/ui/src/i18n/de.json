@@ -190,7 +190,7 @@
   "wizard.error.pairing": "Die lokale Kopplung muss erneut versucht werden.",
   "runtime.status.unknown": "Status nicht geprüft",
   "runtime.status.not-installed": "Nicht installiert",
-  "runtime.status.ready": "Bereit",
+  "runtime.status.ready": "Läuft",
   "runtime.status.stopped": "Gestoppt",
   "runtime.status.starting": "Wird gestartet",
   "runtime.status.runtime-down": "Runtime nicht verfügbar",
