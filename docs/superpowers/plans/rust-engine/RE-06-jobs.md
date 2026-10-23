@@ -42,6 +42,11 @@ Every job is idempotent per run window and reports `skipped: "already-running"` 
 failure is never cached as a negative decision (CP-7 and coding-standard §6.4). A job that this package has not ported
 yet is listed with `available: false, reason: "not-implemented"` and refused by `run` with `E_NOT_AVAILABLE`.
 
+**Kept at parity on purpose** (plan §1.6, RE-D13). The partition routing of `rem-dream`, `consolidate-daily` and
+`skill-miner`: their `workspace` and `user` partitions read the shared pools under `.plur1bus-shared/` only, so a row
+captured into the agent's own table with `scope: workspace` or `scope: user` belongs to no partition and no job reads
+it. T3, T5 and T6 port the routing as it is and the per-job golden deltas encode it; the change is RE-10 T9.
+
 **Modules added by the 2026-10-23 audit** (rows owned by RE-06 in [`MODULE-MAP.md`](MODULE-MAP.md)). T1: `engine/jobs/job-specs.js`
 (the 19-job table), `lib/feature-cron-specs.js` (205 — the 12 default schedules → `JobSpec.default_schedule`), `engine/jobs/{job-ledger,
 run-state-migration,rem-outcome}.js`, `lib/job-rate-limit.js`, `lib/memory-maintenance-gate.js`. T3: `lib/garbage-collector.js` (184 —
@@ -211,7 +216,7 @@ Jobs: `afterthought` (CP-3), `meta-reflect`, `persona-evolve`, `emotion-refine`,
 ## Out of scope
 
 The scheduler (harness, ADR-009; moves in RE-10); the Obsidian vault writers (RE-07 T7, optional); model routing
-(host); the push buttons (adapter).
+(host); the push buttons (adapter); the partition routing change (RE-D13, RE-10 T9).
 
 ## Hand-off
 

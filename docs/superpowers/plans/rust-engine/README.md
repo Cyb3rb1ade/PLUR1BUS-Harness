@@ -18,14 +18,15 @@ the work. Read the plan's §1 (starting point) and §2 (target architecture) onc
 | [RE-07](RE-07-ops.md) | Memory and admin operations, snapshot, tombstones, re-embedding, models | L | RE-02, RE-03 | RE-06, RE-10 |
 | [RE-08](RE-08-process-rpc.md) | Engine process, RPC schema `x-server: "engine"`, supervisor slot, `EngineClient`, seams | L | RE-01 (RE-04 for the first recall) | RE-09 system runs |
 | [RE-09](RE-09-parity.md) | Parity harness, golden vectors, CI job | M, continuous | RE-01 (format), RE-08 (runs) | Phase 1 exit |
-| [RE-10](RE-10-phase2.md) | Phase 2: memory-facing core paths move into the engine | L | Phase 1 exit | RE-11 |
+| [RE-10](RE-10-phase2.md) | Phase 2: memory-facing core paths move into the engine; the three behaviour changes of plan §1.6 (T7–T9, behind RE-D11…RE-D13) | L | Phase 1 exit | RE-11 |
 | [RE-11](RE-11-phase3.md) | Phase 3: retire the Node engine, ADR-018, docs | M | RE-10 | — |
 | [RE-12](RE-12-forward-port.md) | Forward-port CP-5 and CP-7 to the Node engine `main` now | S | — (independent) | goldens for RE-04/RE-06 |
 | [MODULE-MAP](MODULE-MAP.md) | Module inventory: every file of the engine closure → owner brief and disposition (port / fold / decide / drop) | — | — | the completeness check of every brief |
 
 ## Working assumptions
 
-The plan lists owner decisions RE-D1…RE-D10 (plan §6). Until the owner decides otherwise, every brief assumes the
+The plan lists owner decisions RE-D1…RE-D13 (plan §6; RE-D11…RE-D13 are the three behaviours of plan §1.6 that Phase 1
+keeps at parity on purpose). Until the owner decides otherwise, every brief assumes the
 recommendation. If a decision changes, the briefs named in the last column change; nothing else does.
 
 | Decision | Assumed | Briefs that depend on it |
@@ -41,6 +42,9 @@ recommendation. If a decision changes, the briefs named in the last column chang
 | RE-D8 forward-port | CP-5 and CP-7 go to the Node engine's `main` now | RE-12 |
 | RE-D9 TypeScript core | not part of this programme | — |
 | RE-D10 distribution | the engine binary joins the release payload, the container image and the desktop bundle | RE-08 |
+| RE-D11 recall score | kept at parity in Phase 1; cosine score and calibrated thresholds in RE-10 T7 | RE-02 (metric default), RE-04, RE-10 |
+| RE-D12 hybrid retrieval | kept at parity in Phase 1; full-text index and rank fusion in RE-10 T8 | RE-02, RE-04, RE-10 |
+| RE-D13 job partitions | kept at parity in Phase 1; the agent partition reads its scoped rows in RE-10 T9 | RE-06, RE-10 |
 
 ## How a brief is worked
 
