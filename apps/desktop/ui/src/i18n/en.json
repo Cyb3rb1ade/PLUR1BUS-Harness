@@ -190,7 +190,7 @@
   "wizard.error.pairing": "Local pairing needs another attempt.",
   "runtime.status.unknown": "Status not checked",
   "runtime.status.not-installed": "Not installed",
-  "runtime.status.ready": "Ready",
+  "runtime.status.ready": "Running",
   "runtime.status.stopped": "Stopped",
   "runtime.status.starting": "Starting",
   "runtime.status.runtime-down": "Runtime unavailable",

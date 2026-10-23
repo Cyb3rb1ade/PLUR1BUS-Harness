@@ -273,7 +273,7 @@ impl Language {
             return state.words();
         }
         match state {
-            HarnessState::Starting => "Startet",
+            HarnessState::Starting => "Wird gestartet",
             HarnessState::Ready => "Läuft",
             HarnessState::Degraded => "Eingeschränkt",
             HarnessState::Down => "Gestoppt",

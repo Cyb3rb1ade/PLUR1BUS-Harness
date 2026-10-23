@@ -159,6 +159,13 @@ fn native_tray_words_follow_saved_language_and_system_locale() {
     ] {
         assert_ne!(Language::De.harness(state), Language::En.harness(state));
     }
+    // Same words as `runtime.status.*` in the desktop UI catalogues (#740).
+    assert_eq!(
+        Language::De.harness(HarnessState::Starting),
+        "Wird gestartet"
+    );
+    assert_eq!(Language::De.harness(HarnessState::Ready), "Läuft");
+    assert_eq!(Language::En.harness(HarnessState::Ready), "Running");
 }
 
 #[test]
