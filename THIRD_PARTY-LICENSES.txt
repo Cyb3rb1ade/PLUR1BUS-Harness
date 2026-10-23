@@ -1119,36 +1119,6 @@ SOFTWARE.
 
 ============================================================
 
-SHA256 04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6
-cargo:zip@4.6.1/LICENSE
-
-The MIT License (MIT)
-
-Copyright (c) 2014 Mathijs van de Nes
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-Some files in the "tests/data" subdirectory of this repository are under other
-licences; see files named LICENSE.*.txt for details.
-
-============================================================
-
 SHA256 054aa61c4259f18e0e1355d88d0bb331d4cb7017251920ad3b126ce7dab65e26
 cargo:hex-literal@1.1.0/LICENSE-MIT
 
@@ -2616,41 +2586,6 @@ cargo:powerfmt@0.2.1/LICENSE-Apache
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-
-
-============================================================
-
-SHA256 15656cc11a8331f28c0986b8ab97220d3e76f98e60ed388b5ffad37dfac4710c
-cargo:arbitrary@1.5.0/LICENSE-MIT
-cargo:derive_arbitrary@1.5.0/LICENSE-MIT
-
-MIT License
-
-Copyright (c) 2019 Manish Goregaokar
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
 
 
 ============================================================
@@ -23497,7 +23432,6 @@ END OF TERMS AND CONDITIONS
 
 SHA256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2
 cargo:ahash@0.8.12/LICENSE-APACHE
-cargo:arbitrary@1.5.0/LICENSE-APACHE
 cargo:asn1-rs-derive@0.6.0/LICENSE-APACHE
 cargo:asn1-rs@0.7.2/LICENSE-APACHE
 cargo:async-channel@2.5.0/LICENSE-APACHE
@@ -23533,7 +23467,6 @@ cargo:crossbeam-channel@0.5.17/LICENSE-APACHE
 cargo:crossbeam-utils@0.8.23/LICENSE-APACHE
 cargo:curve25519-dalek-derive@0.1.1/LICENSE-APACHE
 cargo:der-parser@10.0.0/LICENSE-APACHE
-cargo:derive_arbitrary@1.5.0/LICENSE-APACHE
 cargo:displaydoc@0.2.7/LICENSE-APACHE
 cargo:equivalent@1.0.2/LICENSE-APACHE
 cargo:errno@0.3.14/LICENSE-APACHE
@@ -27642,7 +27575,6 @@ cargo:windows-link@0.1.3/license-apache-2.0
 cargo:windows-link@0.2.1/license-apache-2.0
 cargo:windows-numerics@0.3.1/license-apache-2.0
 cargo:windows-registry@0.5.3/license-apache-2.0
-cargo:windows-registry@0.6.1/license-apache-2.0
 cargo:windows-result@0.3.4/license-apache-2.0
 cargo:windows-result@0.4.1/license-apache-2.0
 cargo:windows-strings@0.4.2/license-apache-2.0
@@ -27939,7 +27871,6 @@ cargo:windows-link@0.1.3/license-mit
 cargo:windows-link@0.2.1/license-mit
 cargo:windows-numerics@0.3.1/license-mit
 cargo:windows-registry@0.5.3/license-mit
-cargo:windows-registry@0.6.1/license-mit
 cargo:windows-result@0.3.4/license-mit
 cargo:windows-result@0.4.1/license-mit
 cargo:windows-strings@0.4.2/license-mit

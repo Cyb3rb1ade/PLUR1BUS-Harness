@@ -8,8 +8,8 @@ diff --git a/apps/desktop/src-tauri/Cargo.toml b/apps/desktop/src-tauri/Cargo.to
  
 @@ -25,3 +25,3 @@ minisign-verify = "=0.2.5"
  jsonschema = { version = "=0.26.2", default-features = false }
--tauri-plugin-updater = { version = "=2.13.0", optional = true, default-features = false, features = ["rustls-tls", "zip"] }
-+tauri-plugin-updater = { version = "=3.0.0-alpha.3", optional = true, default-features = false, features = ["rustls-tls", "zip"] }
+-tauri-plugin-updater = { version = "=2.13.0", optional = true, default-features = false, features = ["rustls-tls"] }
++tauri-plugin-updater = { version = "=3.0.0-alpha.3", optional = true, default-features = false, features = ["rustls-tls"] }
  plur1bus-host = { path = "../host-helper", version = "=0.1.0" }
 @@ -32,7 +32,8 @@ plur1bus-desktop-contract = { path = "../desktop-contract", version = "=0.1.0" }
  plur1bus-desktop-net = { path = "../net", version = "=0.1.0" }

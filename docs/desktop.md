@@ -532,7 +532,7 @@ date, and SHA-256 pins for `bundle.json` and a separate Tauri `latest.json`.
 The publisher helper is `apps/desktop/scripts/render-feed.mjs`; it hashes exact
 file bytes, preserves native assets, and refuses mismatched product versions.
 
-`tauri-plugin-updater` is pinned to 2.13.0. Its actual static manifest accepts
+`tauri-plugin-updater` is pinned to 2.13.0 with its `zip` feature disabled: v1-compatible updater artifacts are excluded; Windows/Linux use raw v2 artifacts and macOS `.app.tar.gz` remains supported. The feed publisher rejects Windows/Linux `.zip` and `.tar.gz` artifact URLs. Its actual static manifest accepts
 `notes` as a string and `platforms` keyed by updater target; the bilingual notes
 stay in the signed feed (handoff G7/G8). Installation checks the SHA-256 of
 `latest.json`, its product version, and the plugin's second response against
