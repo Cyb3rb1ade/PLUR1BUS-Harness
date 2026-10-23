@@ -49,6 +49,20 @@ it becomes configurable when the engine-config schema moves into this crate (RE-
 Every stage checks `cancel` at its boundary; an overrun answers `degraded`, never an error. Texts never enter the
 trace beyond the configured cap; secrets and tokens never.
 
+**Modules added by the 2026-10-23 audit** (rows owned by RE-04 in [`MODULE-MAP.md`](MODULE-MAP.md)):
+`engine/identity/principal.js` (137 — the canonical principal module; `memory-request-context.js:332` uses it, T1),
+`lib/relevant-memory-context.js` (504 — T2/T5), `lib/inject-budget.js` (244 — the aggregate char cap across prepend
+blocks, T6), `lib/interpretation-overlay.js` (414 — the read side: overlays rendered into context; the writer is RE-06's
+`overlay-generator`), `lib/pattern-surface.js` (187), `lib/query-refiner.js` (170 — query refinement before search),
+`lib/recall-confidence-framing.js` (65 — hedging text, `recallHedging`), `lib/text-utils.js` (184 — tokenisation, similarity
+and summary helpers; parity-relevant, shared with capture), `lib/frontmatter.js` (55 — KNOWLEDGE.md frontmatter, T5 with
+`knowledge-pending.js`), `lib/importance-status.js`, `lib/prompt-memory-fields.js`, `lib/memory-context-sanitize.js` (render
+helpers, T5), `lib/i18n.js` + `lib/i18n-dictionary.js` (181 + 2,218 — port only the strings the engine renders: block labels,
+hedging, deferral notes, job texts; de/en completeness checked the way `scripts/check-i18n.mjs` does), `lib/runtime-scheduler.js`'s
+`shouldSkipAutoRecallForInternalTurn` (T1 admission); `lib/recall-phase-timer.js` folds into T6's timing. CP attribution: the
+provider-ACL-before-rerank line and `emptyResultIsValid` landed in 7.18.27 (`318197ce`, CP-4a's commit); CP-5 (7.18.28)
+builds on them — the rules in T3 stand.
+
 ## Files
 
 - Create: `src/context.rs`, `src/recall/{mod,pipeline,stages,candidates,acl,temporal,knowledge,score,graph,budget,
@@ -106,12 +120,13 @@ pub trait DenialSink { fn denied(&self, row_id: &str, rule: &'static str, ctx: &
 
 - [ ] **Step 1: failing tests** `tests/recall_context.rs`: `principal_key_equals_the_core_and_the_node_engine`
   (vectors recorded by `record.mjs --principals`: ten `(channel, accountId, userId)` triples and their hashes from
-  `lib/memory-request-context.js`), `build_resolves_workspace_ids_the_way_the_node_engine_does` (recorded for three
+  `engine/identity/principal.js`, the canonical principal module `lib/memory-request-context.js` uses), `build_resolves_workspace_ids_the_way_the_node_engine_does` (recorded for three
   agents, with and without a workspace dir), and `tests/recall_acl.rs`: one test per rule of `lib/acl-middleware.js`
   (agent-private seen only by its agent; workspace rows by the workspace; user rows by the owner; scope filters;
   `incognito` never recalls), `a_denial_reaches_the_sink_with_the_rule_name`.
-- [ ] **Step 2: implement** `src/context.rs` (port `memory-request-context.js`'s pure parts; the host supplies
-  `workspace_dir`), `src/recall/acl.rs` (`allowed(row, ctx) -> Result<(), Rule>`), the sink with a recording test impl.
+- [ ] **Step 2: implement** `src/context.rs` (port `memory-request-context.js`'s pure parts and `engine/identity/principal.js`;
+  the host supplies `workspace_dir`; `shouldSkipAutoRecallForInternalTurn` from `lib/runtime-scheduler.js` decides which turns
+  get no auto-recall), `src/recall/acl.rs` (`allowed(row, ctx) -> Result<(), Rule>`), the sink with a recording test impl.
   Denials are reported by default (f.11): the sink is always called; RE-08 decides the log level.
 - [ ] **Step 3: commit** `RE-04/T1: request context and ACL`.
 

@@ -41,6 +41,19 @@ a row; a forgotten id never returns from any read (tombstone first). Ledgers are
 shapes (RE-02 `JsonlLedger`). Import, rebind, unimport and link are idempotent by their `idempotencyKey` and support
 `dryRun`.
 
+**Modules added by the 2026-10-23 audit** (rows owned by RE-07 in [`MODULE-MAP.md`](MODULE-MAP.md)). T1: `lib/curation-resolve.js`;
+the archive directory is `<state_dir>/memory/_archive` — the host override `HostCapabilities.memoryArchiveDir` (used by
+`engine/memory-ops/context.js:20`) is dropped. T4: `lib/health-watch.js` (274 — two signal sources the health scan cannot see)
+and `engine/store/control-health.js` feed `engine.status`. T6: `host.mutateConfig` (used by `lib/reembedding/runtime-config.js`)
+has no Rust counterpart — `switch` returns the config patch and the core applies it through the supervisor's `config.set`,
+as `packages/core/src/embedding-migrate/switch.ts` does today. T7: `lib/obsidian-bridge.js` (2,359 — the vault bridge, T7b),
+`lib/obsidian-mutation-policy.js` (396), `lib/obsidian-vault-authority.js` (136), `lib/obsidian-vault-confirmation-flow.js` (151 —
+T7a's `confirm` uses it), `lib/obsidian-review-authority.js` (220) and the 30 files under `lib/obsidian/` are the owner-gated
+rows (`decide`). Not ported: `lib/obsidian-control-room.js` (4,006 — the adapter's review flows and chat UI; the morning and
+evening reviews are not engine jobs; a harness equivalent is an owner decision), `lib/security.js` (chat auth/ACL — the owner
+gate is the core's RBAC, the engine receives the caller principal), `lib/memory-doctor.js` (reachable only through the chat
+commands).
+
 ## Files
 
 - Create: `src/ops/{mod,memory,curation,shares,proposals,import,rebind,unimport,link,ledgers,admin,workspace_policy,
@@ -86,13 +99,14 @@ pub fn models(config: &EngineConfig, readiness: &dyn ModelsService) -> Vec<Model
 - [ ] **Step 2: failing tests** `tests/ops_memory.rs`: one per golden; `a_forgotten_id_never_returns_from_list_show_or_recall`;
   `a_principal_without_access_gets_the_memory_op_error_code_the_node_engine_returns` (`MemoryOpErrorCode` parity: record
   the codes per case).
-- [ ] **Step 3: implement** `memory.rs`, `curation.rs`, the tombstone write through `lib/tombstone.js`'s format.
+- [ ] **Step 3: implement** `memory.rs`, `curation.rs`, the tombstone write through `lib/tombstone.js`'s format; the archive
+  directory is fixed to `<state_dir>/memory/_archive` (no host override).
 - [ ] **Step 4: commit** `RE-07/T1: read ops, forget, correct, state, curation`.
 
 ### T2 — Shares, proposals, workspace policy, admin share/forget (one pull request)
 
 - [ ] **Step 1: goldens** `record.mjs --shares`: `share` to workspace and user (with and without `allowSensitive`;
-  the sensitive gate of `shared-memory.js:158-173` — f.10 notes it is duplicated in the adapter; port it once),
+  the sensitive gate `sensitiveSharedMemoryReason` at `lib/shared-memory.js:164` — f.10 notes it is duplicated in the adapter; port it once),
   `propose`, `proposals.list/accept/reject`, `admin.workspacePolicy.get/list/set`, `admin.share`, `admin.forget`.
 - [ ] **Step 2: failing tests** `tests/ops_shares.rs`: one per golden plus `a_sensitive_share_is_refused_without_allow_sensitive`,
   `a_stale_proposal_is_reported_stale_and_cannot_be_accepted`, `proposal_events_are_emitted_through_the_host`.
@@ -117,7 +131,8 @@ pub fn models(config: &EngineConfig, readiness: &dyn ModelsService) -> Vec<Model
   (golden over the RE-02 fixture and over a legacy "0" store the recorder makes), `status_has_every_field_of_core_status_engine`
   (`packages/rpc-schema` `core.status.engine` shape — the core copies the engine status into it), `system_supplement_is_byte_identical`,
   `migrate_0_to_1_applies_once_and_reports_applied_false_the_second_time`, `models_lists_exactly_the_configured_identities_with_licence_and_artifact_status`.
-- [ ] **Step 2: implement** `adopt.rs`, `status.rs`, `supplement.rs`, `admin.rs::migrate`, `models.rs`.
+- [ ] **Step 2: implement** `adopt.rs`, `status.rs` (with the signal sources of `lib/health-watch.js` and `engine/store/control-health.js`),
+  `supplement.rs`, `admin.rs::migrate`, `models.rs`.
 - [ ] **Step 3: commit** `RE-07/T4: adopt, status, supplement, migrate, models`.
 
 ### T5 — Snapshot, verify, tombstone re-apply (one pull request)
@@ -139,7 +154,8 @@ pub fn models(config: &EngineConfig, readiness: &dyn ModelsService) -> Vec<Model
   (`generation-layout.js`).
 - [ ] **Step 2: failing tests** `tests/ops_reembedding.rs`: one per golden; `a_migration_started_by_the_node_engine_resumes_in_rust`
   (the state file is the fixture); `fingerprint_ids_in_the_plan_equal_the_node_plan` (RE-03 T1).
-- [ ] **Step 3: implement** `reembedding/*`; `tests/system/reembed.test.ts` is the acceptance after RE-08.
+- [ ] **Step 3: implement** `reembedding/*`; `switch` returns the config patch (the `embedding.*` keys) instead of writing it,
+  the core applies it through the supervisor's `config.set`; `tests/system/reembed.test.ts` is the acceptance after RE-08.
 - [ ] **Step 4: commit** `RE-07/T6: re-embedding migration`.
 
 ### T7 — Obsidian: detect/prepare/confirm, and the vault bridge (owner-gated; one pull request each)

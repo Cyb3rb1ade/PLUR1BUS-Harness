@@ -49,6 +49,21 @@ and writes no journal line. LLM calls go through `HostServices::llm()` with `Can
 LLM port the row is stored with `importanceStatus`/`emotionStatus = "pending"` and the diagnostic
 `post-turn-refine-unscheduled` is returned — never a blocking wait.
 
+**Modules added by the 2026-10-23 audit** (rows owned by RE-05 in [`MODULE-MAP.md`](MODULE-MAP.md)). T1: `lib/runtime-scheduler.js`
+(687 — turn admission: `isBackgroundTurn`, `shouldSkipAutoCaptureForInternalTurn`, `createBackgroundMemoryScheduler` with
+priorities, timeouts and the pressure skip; the thresholds of `lib/runtime-pressure-gate.js` and the depth bound of
+`lib/bounded-operation-queue.js` come with it), `lib/post-turn-queue.js` + `lib/post-turn-detach.js` (the post-turn work queue),
+`lib/epistemic-capture.js` + `lib/epistemic-cutoff.js` (observed vs untrusted; the restore-safe cutoff). T3: `lib/memory-fact-quality.js`
+(523 — the deterministic fact-quality classifier, also used by import), `lib/categorize.js` (195), `lib/tier1-lexicon.js` (410),
+`lib/tier2-transformer.js` (224 — its model is an RE-03 artifact), `lib/tier3-llm.js` (185), `lib/encoding-llm.js` (283 — emotion and
+meaning in one call), `lib/speaker-segment-schema.js` (313 — a contract type, RE-01), `lib/speaker-proposer.js` (87),
+`lib/reminder-nudge.js`. T4: `lib/retroactive-interference.js` (45), `lib/critical-push-classifier.js` (96 — classification only;
+the push delivery stays dropped). T5: `lib/neo-worker-runtime.js` (338 — a Rust task, not a worker thread). **7.18.25 in the chunk
+decider** (`lib/jev-chunk-decider.js`, the CP-3 commit `0ee6a59b`, plan §3.3 CP-3c): `resolveJevApiKey` reads `captureChunkingJev.apiKey`
+before `apiKeyEnv` (default `TYPESAFE_API_KEY`) — here the key comes from `SecretPort` by name only (RE-01 T3 rejects a
+config-held key); and a failed Jev request logs `timeout` or `request failed`, never the transport error text, which may echo
+the bearer key. Test in T2: `a_failed_chunk_decider_request_never_logs_the_error_body`.
+
 ## Files
 
 - Create: `src/capture/{mod,accept,queue,replay_guard,chunking,chunk_decider,dedupe,row_builder,classify,emotion,
@@ -99,7 +114,8 @@ pub struct Neo; impl Neo { pub fn open(dir: &Path, lock: JobLock) -> Result<Neo,
   `the_same_run_id_twice_stores_once` (idempotency key parity: `record.mjs --keys` records ten keys from
   `turn-replay-guard.js`), `incognito_stores_nothing_and_writes_no_journal_line`, `abort_before_the_commit_stores_nothing_and_resolves_aborted`,
   `two_captures_for_one_agent_run_in_order` (the Node queue is per agent; read `post-turn-work.js`).
-- [ ] **Step 2: implement** `accept.rs`, `queue.rs` (one worker thread per engine; per-agent ordering), `replay_guard.rs`,
+- [ ] **Step 2: implement** `accept.rs`, `queue.rs` (one worker thread per engine; per-agent ordering; the admission rules of
+  `lib/runtime-scheduler.js` — background and internal turns, priorities, the pressure skip), `replay_guard.rs`,
   `journal.rs` (`begin` before any write, `commit` after the Lance commit).
 - [ ] **Step 3: commit** `RE-05/T1: capture acceptance, queue, idempotency, journal`.
 

@@ -21,6 +21,7 @@ the work. Read the plan's §1 (starting point) and §2 (target architecture) onc
 | [RE-10](RE-10-phase2.md) | Phase 2: memory-facing core paths move into the engine | L | Phase 1 exit | RE-11 |
 | [RE-11](RE-11-phase3.md) | Phase 3: retire the Node engine, ADR-018, docs | M | RE-10 | — |
 | [RE-12](RE-12-forward-port.md) | Forward-port CP-5 and CP-7 to the Node engine `main` now | S | — (independent) | goldens for RE-04/RE-06 |
+| [MODULE-MAP](MODULE-MAP.md) | Module inventory: every file of the engine closure → owner brief and disposition (port / fold / decide / drop) | — | — | the completeness check of every brief |
 
 ## Working assumptions
 
@@ -66,6 +67,9 @@ recommendation. If a decision changes, the briefs named in the last column chang
 6. **Report back** in the PR: what the brief said, what was done, every deviation with its reason, and the open
    questions for the owner. A deviation from an interface another brief consumes needs the controller's agreement
    before the PR is opened, because the other brief is written against it.
+7. **Own your rows.** [`MODULE-MAP.md`](MODULE-MAP.md) assigns every file of the engine closure to a brief with a disposition.
+   A brief is complete when each of its rows has a Rust module, a fold target or a recorded drop; a row's disposition or
+   owner changes in the same pull request as the code, with the reason in the PR.
 
 ## Shared vocabulary
 

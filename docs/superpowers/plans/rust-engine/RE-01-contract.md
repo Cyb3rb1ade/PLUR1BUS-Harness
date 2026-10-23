@@ -26,6 +26,15 @@ leaves the 1.17.0 members out and the rest of the brief is unchanged.
   methods: the 1.17.0 expectations), `crates/plur1bus-rpc/build.rs` and `Cargo.toml` (`typify = "0.8"`, `schemars =
   "0.8"`: the generation pattern to copy), `crates/plur1bus-config/src` (how `jsonschema 0.26` is driven).
 - `docs/coding-standard.md` §3.1 (Rust naming), §7.1 (error enums), §8 (types and schemas).
+- Modules this brief owns beyond the contract files ([`MODULE-MAP.md`](MODULE-MAP.md), owner RE-01): `lib/setup/feature-profiles.js`
+  (607 — `setupProfile` → feature flags, read by recall and `create-engine`), `lib/setup/config-contract.js` (324 — which keys a
+  profile sets; it reads `openclaw.plugin.json#configSchema`), `lib/input-limits.js` (91 — limits are contract constants),
+  `lib/speaker-segment-schema.js` (313 — the speaker-segment shape shared with OpenClaw, a contract type), `engine/events.js`
+  (`EngineEventName`), `engine/lifecycle/close-resources.js` (the close path), `engine/runtime/env-config.js`,
+  `engine/config/live-config.js`. The harness-used surface today (grep `engine.` in `packages/core/src`): `embedding.{local,
+  serve,probe,identities}`, `recall`, `status`, `memory.{import,list,show,unimport,unbind,rebind,link}`, `jobs.{list,run,history}`,
+  `capture`, `capabilities.memoryLink`, `models.{warm,status}`, `contract`, `close`, `admin.{reembedding,obsidian,migrate}`,
+  `stores.adopt`, `open`, `checkpoint`, `channels.register` — every one of these is in the trait below.
 
 **Rules that apply.** The schema is the source of truth; `src/contract/generated.rs` is never edited (it is written
 by `build.rs` into `OUT_DIR`). Closed structs: `deny_unknown_fields` on every input type; `camelCase` on the wire.
@@ -68,14 +77,15 @@ pub enum EngineError { Cancelled(Cancelled), Store(StoreError), Embedding(EmbedE
     Invalid { field: String, message: String } }
 // Display: "<kind>: <detail>"; no secret, token or text body in any variant.
 
-// src/contract/engine.rs
+// src/contract/engine.rs — Node members not in the trait, by decision: `tools`, `commands`, `runCommand` (deprecated since
+// contract 1.5.0, removed in 2.0, no harness caller: the chat command surface is adapter code). Everything else maps 1:1.
 pub trait Engine: Send + Sync {
     fn contract(&self) -> ContractVersion;                       // ContractVersion("1.17.0")
     fn capabilities(&self) -> &Capabilities;
-    fn open(&self) -> Result<(), EngineError>;
-    fn close(&self) -> Result<(), EngineError>;
+    fn open(&self, agent: &AgentId) -> Result<AgentStoreHandle, EngineError>;  // Node: open(agentId) → AgentStore { agentId, close() }
+    fn close(&self, budget: Option<Duration>) -> Result<(), EngineError>;     // Node: close({ budgetMs })
     fn status(&self) -> EngineStatus;
-    fn system_supplement(&self, agent: &AgentContext) -> Result<Option<String>, EngineError>;
+    fn system_supplement(&self) -> Vec<String>;                  // Node: systemSupplement(): string[] — no agent, no error
     fn recall(&self, query: RecallQuery, options: RecallOptions, cancel: &Cancel) -> Result<RecallResult, EngineError>;
     fn capture(&self, turn: TurnRecord, options: CaptureOptions) -> Result<CaptureHandle, EngineError>;
     fn checkpoint(&self, agent: &AgentId, reason: CheckpointReason) -> Result<CheckpointResult, EngineError>;
@@ -85,10 +95,16 @@ pub trait Engine: Send + Sync {
     fn memory(&self) -> &dyn MemoryOps;
     fn admin(&self) -> &dyn AdminOps;
     fn stores(&self) -> &dyn StoreOps;                           // adopt(path, expected_schema) -> AdoptReport
+    fn channels(&self) -> &dyn ChannelRegistry;                  // register(ChannelRef) -> String, has, list — the core calls engine.channels.register
     fn events(&self) -> EventReceiver;                           // std::sync::mpsc::Receiver<EngineEvent>
 }
 
-// src/contract/host.rs — what the engine needs from its host (plan §2.4 lists the dropped members)
+// src/contract/host.rs — what the engine needs from its host (plan §2.4 lists the dropped members).
+// Node members without a Rust counterpart: `logger` (the engine writes its own log through plur1bus-log-schema, RE-08 T2),
+// `configPath()` (no non-adapter use), `routing?()` (host model routing and incognito-session classification; incognito
+// comes from CaptureOptions/turn metadata here), `runtime` (HostRuntime), `mutateConfig` (the engine never writes config:
+// RE-07 T6 returns the patch, the core applies it through the supervisor), `fetch` (→ egress + the crate's own client),
+// `clock` (→ now_ms), `events.emit` (→ emit), `capabilities.memoryArchiveDir` (fixed `<state_dir>/memory/_archive`, RE-07 T1).
 pub trait HostServices: Send + Sync {
     fn state_dir(&self) -> &Path;
     fn config(&self) -> EngineConfig;
@@ -167,8 +183,11 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
   `types/engine.d.ts`, doc comments carried into `description`, `additionalProperties: false` on every input type
   (`RecallQuery`, `TurnRecord`, `RecallOptions`, `CaptureOptions`, every `*Request`, every `*Query`), open on
   `DecisionTrace` only. Mark each definition with `x-since: "1.16.0"` or `"1.17.0"`. Drops (not in the schema, the
-  reason in `SOURCES.md`): `HostRuntime`, `HostPathOverrides`, `HostCapabilities.pushCriticalButtons`, `mutateConfig`,
-  `EmbeddingService.serve`'s IPC address type (RE-D4; the method stays, its result loses `address`/`tokenPath`).
+  reason in `SOURCES.md`): `HostRuntime`, `HostPathOverrides`, `HostCapabilities.pushCriticalButtons`,
+  `HostCapabilities.memoryArchiveDir`, `mutateConfig`, `HostServices.logger`, `configPath`, `routing`, `clock`, `events`
+  (→ `emit`), `fetch` (→ egress), `Engine.tools`, `Engine.commands`, `Engine.runCommand`, `ToolSpec`, `CommandSpec`,
+  `CommandResult`, and `EmbeddingService.serve`'s IPC address type (RE-D4; the method stays, its result loses
+  `address`/`tokenPath`). `Engine.channels` and `Engine.open(agentId)` stay — the core calls both.
 - [ ] **Step 5: generate.** `build.rs` after `crates/plur1bus-rpc/build.rs`: `typify` renders the schema to
   `$OUT_DIR/contract.rs`; `src/contract/mod.rs` includes it and re-exports. Add `#[serde(rename_all = "camelCase")]`
   behaviour through the schema's property names (typify keeps them) and verify `deny_unknown_fields` lands on the
@@ -176,8 +195,9 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
 - [ ] **Step 6: run the tests** — Expected: 6 passed.
 - [ ] **Step 7: the drift check.** `scripts/check-engine-contract.mjs <path to types/engine.d.ts>` lists every exported
   interface/type name and every method name in the `.d.ts` and every `$defs` title and method in the schema, and prints
-  the two differences; it exits 1 unless each missing name is in its built-in drop list (`HostRuntime`,
-  `HostPathOverrides`, `pushCriticalButtons`, `mutateConfig`). `scripts/test/check-engine-contract.test.mjs` pins the
+  the two differences; it exits 1 unless each missing name is in its built-in drop list (the step 4 list: `HostRuntime`,
+  `HostPathOverrides`, `pushCriticalButtons`, `memoryArchiveDir`, `mutateConfig`, `logger`, `configPath`, `routing`, `clock`,
+  `events`, `fetch`, `tools`, `commands`, `runCommand`, `ToolSpec`, `CommandSpec`, `CommandResult`). `scripts/test/check-engine-contract.test.mjs` pins the
   drop list and a synthetic mismatch. The script takes the `.d.ts` path as an argument so it needs no engine install in
   the Rust crate's tests; `docs-hygiene` runs it against `packages/core/node_modules/@cyb3rb1ade/plur1bus-memory/types/engine.d.ts`
   (add the step only if the job already has the install; otherwise document the manual command in the README).
@@ -200,7 +220,13 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
 ### T3 — Engine-config validation at parity (one pull request)
 
 - [ ] **Step 1: copy** `engine/config/engine-config.schema.json` from `98dfe2f` to `schema/engine-config.schema.json`
-  byte for byte; `SOURCES.md` records the commit. Add the drift test `the_copied_config_schema_equals_the_pinned_engines`
+  byte for byte; `SOURCES.md` records the commit. Two facts about that file (audit 2026-10-23): on `main` it has 57
+  top-level keys while `openclaw.plugin.json#configSchema` has 58 — `groupReasoningFilter` is manifest-only and read by
+  adapter code (`lib/group-reasoning-filter.js` is not in the engine closure), so `config::validate` accepts it and
+  nothing applies it; and the plugin line (`v7.18.31`) has no `engine-config.schema.json` at all — its contract is the
+  manifest, whose one addition over `main` is `captureChunkingJev.apiKey` (7.18.25). That key is **rejected** with an
+  error naming the secret store: a secret reaches the engine by name (`apiKeyEnv` → `SecretPort`), never inside
+  `config.json` (plan §2.1). Add the drift test `the_copied_config_schema_equals_the_pinned_engines`
   in `tests/config_parity.rs`: when `packages/core/node_modules/@cyb3rb1ade/plur1bus-memory/engine/config/engine-config.schema.json`
   exists, the two files are byte-identical; when it does not exist, the test **fails** with the message
   "run pnpm test:prep (the engine package is not installed)" — no silent skip (AGENTS.md "Tests lokal").
@@ -208,7 +234,7 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
   configurations to the Node validator (`engine/config/engine-config-schema.js` — read its exports) and writes each as
   `{ config, valid, errors: [paths] }`. Choose the invalid ones to cover: unknown top-level key, wrong type, out-of-range
   number, a `namespaces` entry with a wrong shape, a `reranker` block without `provider`, a `recall` budget with
-  `softBudgetMs > hardBudgetMs`.
+  `softBudgetMs > hardBudgetMs`, `captureChunkingJev.apiKey` set (unknown on `main`; the Rust error names the secret store).
 - [ ] **Step 3: failing test** `every_recorded_configuration_gets_the_same_verdict` in `tests/config_parity.rs`.
 - [ ] **Step 4: implement `config::validate`** with `jsonschema 0.26` compiled once (`OnceLock`), the schema embedded
   with `include_str!`; `ConfigError { path, message }` from the validator's instance path; `EngineConfig` is the
@@ -231,7 +257,7 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
 ## Acceptance
 
 - `cargo test -p plur1bus-engine`: all green, including the config drift test with the engine installed.
-- `node scripts/check-engine-contract.mjs <engine>/types/engine.d.ts` exits 0 and prints only the four known drops.
+- `node scripts/check-engine-contract.mjs <engine>/types/engine.d.ts` exits 0 and prints only the drops of T1 step 4.
 - `pnpm docs:check` clean; `cargo doc -p plur1bus-engine --no-deps` without warnings; clippy and fmt clean; hygiene clean.
 - The PR descriptions name the engine commit the schema was written from (`98dfe2f`) and the 1.17.0 commit (`9b935ce`).
 
