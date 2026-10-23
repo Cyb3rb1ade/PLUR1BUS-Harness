@@ -42,6 +42,27 @@ Every job is idempotent per run window and reports `skipped: "already-running"` 
 failure is never cached as a negative decision (CP-7 and coding-standard §6.4). A job that this package has not ported
 yet is listed with `available: false, reason: "not-implemented"` and refused by `run` with `E_NOT_AVAILABLE`.
 
+**Modules added by the 2026-10-23 audit** (rows owned by RE-06 in [`MODULE-MAP.md`](MODULE-MAP.md)). T1: `engine/jobs/job-specs.js`
+(the 19-job table), `lib/feature-cron-specs.js` (205 — the 12 default schedules → `JobSpec.default_schedule`), `engine/jobs/{job-ledger,
+run-state-migration,rem-outcome}.js`, `lib/job-rate-limit.js`, `lib/memory-maintenance-gate.js`. T3: `lib/garbage-collector.js` (184 —
+the `gc-run` body), `lib/pattern-detector.js` + `lib/pattern-detector-embedding.js` (407), `lib/overlay-generator.js` (296 — the
+interpretation-overlay writer). T4: `lib/reply-outcome-tracking.js` (362 — the feedback signals), `lib/open-threads.js`,
+`lib/dream-echo.js`, `lib/time-window.js` (quiet hours), `lib/session-time.js`, `lib/reaction-directive.js`, `lib/llm-failure.js`
+(120 — stable failure reasons, logged and persisted, parity-relevant), `lib/llm-call.js` (fold into the `LlmPort` wrapper, 30 s
+default timeout). T5: `lib/jobs/skill-miner/{proposal-writer (CP-7 `supersedeBase`), llm-extractor (prompt version "3"),
+evidence-aggregator, benefit-backfill, skill-md-renderer, nudge-renderer}.js`, `lib/setup/skill-workshop-dashboard.js`. Not ported:
+`lib/llm-warmth.js` (an OpenClaw cold-start workaround), `lib/internal-cron-reply.js` (the OpenClaw cron reply protocol),
+`lib/feature-crons-hint.js` (OpenClaw cron registration); `lib/featureModels.js`'s `groupModelChoices`/`describeModel` (7.18.27) are
+dashboard code.
+
+**CP-3c — internal outcomes are not feedback (7.18.25, `0ee6a59b`, `lib/persona-voice.js` and `lib/proactive-governor.js`;
+plan §3.3).** `isInternalOutcome` excludes heartbeat, cron, background, dreaming, promotion and subagent turns (session key,
+origin/trigger metadata, prompts starting `[cron:`, `/plur1bus internal`, `__openclaw_memory_core_*`, the HEARTBEAT.md prompts)
+from the persona-evolution evidence (`selectEvolutionEvidence`, `evolvePersonaVoice`) and from the proactive governor's budget
+adjustments (`applyOutcomeAdjustments`). The Rust port keys on the structured `TurnOrigin` (`user | cron | subagent | heartbeat
+| system`) and the job trigger, never on prompt text; T4 tests `internal_outcomes_do_not_count_as_persona_evidence` and
+`the_governor_ignores_internal_outcomes`, goldens from the plugin line's tests of that commit.
+
 ## Files
 
 - Create: `src/jobs/{mod,registry,run_state,history,window,outcome}.rs`, one file per job under `src/jobs/bodies/`
@@ -104,7 +125,9 @@ pub fn cluster_fingerprint(cluster: &[MemoryRow]) -> ClusterFingerprint;  // per
   `two_concurrent_runs_of_one_job_produce_one_run_record_and_one_skipped` (CP-6), `history_returns_runs_newest_first_with_the_filter`,
   `a_run_record_has_every_field_of_the_node_job_run` (round-trip against `record.mjs --run`), `dry_run_writes_nothing_but_a_run_record`.
 - [ ] **Step 2: implement** `registry.rs`, `run_state.rs` (`run-state.json` shape from the Node file — RE-02 `StateFile`),
-  `window.rs`, `history.rs` (where the Node engine keeps history — read `job-registry.js`; same file, same shape),
+  `specs.rs` (the 19-job table of `engine/jobs/job-specs.js` with the 12 default schedules of `lib/feature-cron-specs.js` as
+  `JobSpec.default_schedule`), `window.rs`, `history.rs` (where the Node engine keeps history — read `engine/jobs/job-registry.js`;
+  same file, same shape),
   `outcome.rs` (`completed | skipped | incomplete | failed | abandoned` and `reason`), the `JobBody` trait and a
   `NotImplemented` body for every name until its task lands.
 - [ ] **Step 3: commit** `RE-06/T1: job registry, run state, history`.
@@ -148,7 +171,8 @@ Jobs: `afterthought` (CP-3), `meta-reflect`, `persona-evolve`, `emotion-refine`,
   (`no_run_at_14_59_quiet`, `run_at_15_00_quiet`, `no_run_at_120_01_quiet`, `no_second_run_in_the_same_window`,
   `the_daily_cap_holds`, `request_summary_window_and_chunk_limits_are_60000_12000_16000_32000`), `afterthought_state_file_is_the_node_shape`
   (`.afterthought-reflection.json`), `post_turn_refine_finalises_pending_rows_and_only_those`, `reminder_dispatch_marks_dispatched_and_counts_attempts`
-  (`dispatchCount`, `lastDispatchAttemptAt`, `nextDispatchAttemptAt`), and one golden-delta test per remaining job.
+  (`dispatchCount`, `lastDispatchAttemptAt`, `nextDispatchAttemptAt`), `internal_outcomes_do_not_count_as_persona_evidence` and
+  `the_governor_ignores_internal_outcomes` (CP-3c above), and one golden-delta test per remaining job.
 - [ ] **Step 2: implement** the bodies; `afterthought/quiet_window.rs` with the constants as `const` (MIN 15 min, MAX
   120 min, REQUEST 60 000, SUMMARY 12 000, RECENT 16 000, CHUNK 32 000).
 - [ ] **Step 3: commit** `RE-06/T4: reflection jobs`.

@@ -34,6 +34,17 @@ the schema from a real store. No format change, no new column, no new file in Ph
 rename, directory fsync) for every JSON/JSONL/state file. Paths pass the trusted-path check `memory-db.js` applies
 (`_assertTrustedPath`).
 
+**Modules added by the 2026-10-23 audit** (rows owned by RE-02 in [`MODULE-MAP.md`](MODULE-MAP.md); the brief is complete
+when each has a Rust module, a fold target or a recorded drop): `lib/registry-lock.js` (496 — the one cross-process lock
+behind `tombstone.js`, `neo-arch.js`, `import-lock.js`, `rebind-ledger.js`, `knowledge-pending.js` and `job-lock.js`: T6
+ports it as the one `Lock` type), `lib/namespace-config.js` (185 — `NAMESPACE_PATTERN`, the namespace layout),
+`lib/lancedb-optimize.js` (65 — the compaction policy → `Store::optimize`), `lib/tombstone-write-guard.js` (58),
+`lib/sql-safety.js` (205 — LanceDB filter quoting → `RowFilter` rendering, T2), `lib/filter-parser.js` (305 — the list filter
+grammar `db-adapter.js` uses → the `RowFilter` parser, T2), `lib/score.js` (distance → score), `engine/checkpoint/checkpoint-store.js`
+(56). Folds: `lib/atomic-file.js`, `lib/atomic-json.js`, `lib/fsync-atomic.js` → one `atomic_write` (unique tmp, fsync, rename,
+directory fsync); `lib/jsonl-utils.js` → `JsonlLedger`; `lib/bounded-cache.js`; `lib/directory-capability.js` (the probe at
+store open); `lib/verified-path-directory.js` (397 — T3's trusted paths follow module-api `securePath`'s rules).
+
 ## Files
 
 - Create: `src/store/{mod,lance,row,filter,sqlite,neo_files,ledger,state_file,lock,schema_version,paths}.rs`,

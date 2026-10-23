@@ -39,6 +39,14 @@ the one guarded HTTPS transport every remote call uses. Size L.
 sha256 before loading (RE-R4). The seam is honoured only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1` (RE-08 owns the env
 check; this brief exposes the provider).
 
+**Modules added by the 2026-10-23 audit** (rows owned by RE-03 in [`MODULE-MAP.md`](MODULE-MAP.md)): `lib/host-network.js`
+(203 — the engine's outbound-HTTP and secret ports; folds into `transport::guarded` and `SecretPort`, its address rules
+kept), `lib/provider-error.js` (135 — the error taxonomy behind `EmbedError`/`ProviderError`), `engine/providers/runtime-reranker.js`
+(76 — the reranker factory, T4/T6), `lib/fetch-with-timeout.js` (fold), `lib/model-preparation/coordinator.js` + `state-store.js`
+(393 + 178 — model download and preparation state → T2's artifact catalogue), `lib/providers/legacy-provider-migration.js`
+(233 — legacy config → current provider config, T1). The tier-2 emotion classifier's model (`lib/tier2-transformer.js`, RE-05 T3)
+is a T2 artifact. Not ported: `lib/native/sharp-*.js` (transformers.js workarounds).
+
 ## Files
 
 - Create: `src/embedding/{mod,identity,fingerprint,normalize,artifacts,local_ort,local_rerank,remote_openai,cache,batch,

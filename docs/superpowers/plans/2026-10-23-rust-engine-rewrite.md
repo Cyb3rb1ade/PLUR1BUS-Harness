@@ -93,10 +93,16 @@ RE-11 Phase 3: retire the Node engine pin, docs and ADR
 - Import closure of `engine/create-engine.js`: **323 files, 101,408 lines** of JavaScript (the whole repository is
   larger; the closure is what an engine port has to re-express). `lib/telegram-commands/`, `lib/obsidian-control-room/`
   and the i18n tables are adapter material inside that closure and are not ported (engine-extraction §a.3).
+  [`rust-engine/MODULE-MAP.md`](rust-engine/MODULE-MAP.md) (audit 2026-10-23) lists every file of the `.js` closure (322
+  files, 100,593 lines) with its owner brief and disposition: 232 ported, 26 folded into Rust idioms, 36 pending the
+  Obsidian decision, 28 dropped (adapter surface and Node plumbing, each row saying which; reachability alone never
+  drops a file — on `main` the job bodies are wired through the chat command module and are engine behaviour all the same).
 - **615** test files under `tests/` plus 13 under `test/`. They encode behaviour that is documented nowhere else; porting
   the ones that test engine behaviour is part of the work (RE-9 counts them per subsystem).
 - **57** top-level engine config keys (`engine/config/engine-config.schema.json`; the harness mirror is
-  [`docs/config-engine-keys.md`](../../config-engine-keys.md)): `afterthought autoCapture autoRecall autoRecallMinScore
+  [`docs/config-engine-keys.md`](../../config-engine-keys.md); `openclaw.plugin.json#configSchema` on the same commit has 58 —
+  `groupReasoningFilter` is manifest-only and adapter-facing; the plugin line has no `engine-config.schema.json`, only the
+  manifest, whose one addition is `captureChunkingJev.apiKey` — RE-01 T3 handles both): `afterthought autoCapture autoRecall autoRecallMinScore
   baseDbPath captureChunking captureChunkingJev captureChunkingMode captureMaxChars chatModels continuityEngine
   contradictionDisclosure controlUi conversationReactivationRecall criticalPush dailyConsolidation dreamEcho dreaming
   duplicateThreshold embedding embeddingBatchSize emotion eveningReview featureCronSetup featuresConfirmedAt
@@ -252,13 +258,18 @@ engine state such as `featuresConfirmedAt` becomes an engine state file), `lib/t
 ## 3. Change packages from 7.18.21–7.18.31
 
 Range `v7.18.20..v7.18.31` on the plugin line: 12 commits, +5,043/−202 lines in 91 files. Engine-relevant releases
-become CP-1…CP-7; the rest is §3.9.
+become CP-1…CP-7; the rest is §3.9. The earlier plugin-line releases since the divergence (7.18.5–7.18.20) are already on
+`main`: for each of those commits at least 90 % of its added engine lines exist at `98dfe2f` (measured 2026-10-23), so the
+range starts at 7.18.21. The per-commit measurement also attributes two side changes of 7.18.25 to CP-3c (§3.3) and to
+RE-5 (the chunk decider's key precedence and log hygiene), and puts the provider-ACL-before-rerank line and
+`emptyResultIsValid` in 7.18.27 (`318197ce`) rather than 7.18.28.
 
 | CP | Release(s) | Rule in one line | Owning WP | Pin |
 |---|---|---|---|---|
 | CP-1 | 7.18.23 `dd051ee1` | Haiku routes run without thinking; three tight output ceilings raised | RE-6 (prompts), host routing | table test on `LlmParams` per purpose |
 | CP-2 | 7.18.24 `c3c1cb44` | a session reset never tears the runtime down; only the process lifetime does | RE-1, RE-8 | warm-embedder test over 1,000 `session-end` checkpoints |
 | CP-3 | 7.18.25 `0ee6a59b`, 7.18.26 `e71dd9fe` | afterthought runs after conversation quiet, within bounds, once per quiet window; every job prompt has a cacheable stable prefix | RE-6 | quiet-window state machine; prefix-hash equality |
+| CP-3c | 7.18.25 `0ee6a59b` | internal turns (heartbeat, cron, background, dreaming, promotion, subagent) are never feedback for persona evolution or the proactive governor; the chunk decider takes its key by name and never logs a transport error body | RE-6, RE-5, RE-1 | two outcome-filter tests; a log-hygiene test; a config-held key is rejected |
 | CP-4a | 7.18.27 `318197ce` | decision-model prefilter removes only `irrelevant` ≥ 0.95, bounded, fail-soft; an empty reranker result can be valid | RE-4 | fixture-LLM filter test |
 | CP-4b | 7.18.27 | model catalogue reconciles by provider and keeps referenced models | host (D112 discovery); RE-7 `models()` | `models()` lists exactly the engine's identities |
 | CP-4c | 7.18.27 | recall comparison tooling | RE-9 reporter | n/a |
@@ -303,13 +314,25 @@ the harness builder already has breakpoints). Acceptance: boundary tests at 14:5
 run), a second call in the same window (no run), the daily cap; `sha256(layout.stable)` is identical across two runs
 with different transcripts; `LlmParams.cache_breakpoints` carries exactly one boundary.
 
+**CP-3c (same commit, found by the 2026-10-23 audit).** `lib/persona-voice.js` gains `isInternalOutcome`: heartbeat, cron,
+background, dreaming, promotion and subagent turns (session key, origin/trigger metadata, prompts starting `[cron:`,
+`/plur1bus internal` or `__openclaw_memory_core_*`, the HEARTBEAT.md prompts) are excluded from persona-evolution evidence
+and, through `lib/proactive-governor.js`, from the proactive governor's budget adjustments. `lib/jev-chunk-decider.js` gains
+`resolveJevApiKey` (`captureChunkingJev.apiKey` before `apiKeyEnv`, default `TYPESAFE_API_KEY`) and stops logging the
+transport error text of a failed request (it may echo the bearer key). Rust engine: the outcome filter keys on the
+structured `TurnOrigin` and the job trigger, never on prompt text (RE-6 T4); the chunk decider's key comes from `SecretPort`
+by name and a failure logs only `timeout`/`request failed` (RE-5 T2); a config-held key is rejected (RE-1 T3). The same
+commit's `control-plane-projection.js` change (`jevKeySource`) is dashboard code.
+
 ### 3.4 CP-4a — decision-model recall prefilter seam (7.18.27)
 
 `lib/jev-recall-filter.js`: `createJevRecallFilter({ apiKey, model, timeoutMs = 2500, maxStateChars = 60000 })` asks the
 decision model (OpenClaw's "Jev"; in the harness the decision role) to classify candidates and removes **only** those
 judged `irrelevant` with confidence ≥ 0.95; at most 100 candidates per call, query ≤ 10,000 chars; on timeout or error
 the unfiltered list goes on. `createFilteredReranker(reranker, filter)` wraps a reranker and declares
-`emptyResultIsValid: true`.
+`emptyResultIsValid: true`. The same commit adds the provider-ACL filter immediately before rerank
+(`filterRecallCandidatesByAcl(…, "provider-acl")`) and honours `emptyResultIsValid` in the pipeline — the two rules CP-5
+lists under 7.18.28 start here.
 
 Rust engine (RE-4): `recall::filter::CandidateFilter` is a trait slot between budget allocation and rerank;
 `DecisionRoleFilter` implements it through `HostServices::llm()` with purpose `recall-prefilter`; `Reranker::
@@ -323,7 +346,9 @@ timeout keeps all; with 150 candidates only the first 100 are judged and the oth
 choices by provider, keeps a referenced model that an inventory no longer lists (flagged), stable order. In the harness
 the catalogue is D112's (`packages/core/src/discovery/`); the engine only reports its own needs. Acceptance (RE-7):
 `Engine::models()` lists exactly the configured embedding and reranker identities with licence id and artifact status.
-The recall comparison script becomes a reporter mode of the parity runner (RE-9), not engine code.
+The recall comparison script becomes a reporter mode of the parity runner (RE-9), not engine code. The same commit's
+`groupModelChoices`/`describeModel` in `lib/featureModels.js` group the dashboard's model picker by provider — adapter UI, not
+ported.
 
 ### 3.6 CP-5 — recall core: reranker order, bounded input, cache and graph hygiene (7.18.28)
 
@@ -397,8 +422,9 @@ ends with the standard's PR checklist (coding-standard.md §11): `pnpm lint`, `c
 **Hand-off briefs.** Each package has a self-contained brief for an implementer who has not read this plan, under
 [`rust-engine/`](rust-engine/README.md): files, interfaces consumed and produced, tasks (one pull request each) with
 their failing tests first, acceptance, out of scope. The README there lists the working assumptions (the recommended
-answer to every RE-D decision below) and the status table the controller keeps. The summaries below stay the overview;
-the briefs are the work.
+answer to every RE-D decision below) and the status table the controller keeps. [`rust-engine/MODULE-MAP.md`](rust-engine/MODULE-MAP.md)
+is the completeness check: every file of the engine closure with its owner brief and disposition; a brief is finished when each
+of its rows has a Rust module, a fold target or a recorded drop. The summaries below stay the overview; the briefs are the work.
 
 ### RE-0 — Decisions, crate skeleton, dependency gate (S)
 

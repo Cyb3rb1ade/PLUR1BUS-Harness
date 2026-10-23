@@ -50,6 +50,15 @@ nothing under `generated/` is edited. `host.*` is engine-only **at dispatch** (p
 Every seam is honoured only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`. `--json` outputs of existing commands do not
 change (ruling R13). The pid identity rule (ADR-012 §10.7) applies to the engine child.
 
+**Modules added by the 2026-10-23 audit** (rows owned by RE-08 in [`MODULE-MAP.md`](MODULE-MAP.md), all folds): `lib/platform.js`
+(453 — the four platform decisions become a table in `platform.rs`), `lib/safe-logging.js` + `lib/log-redact.js` (421 + 216 — the
+engine logs through `plur1bus-log-schema`; T2 compares the engine's redaction patterns with `packages/log-schema/schema/redaction.json`
+and adds what is missing there), `lib/peercred.js`, `lib/windows-acl-parse.js`, `lib/private-fs.js`, `lib/process-singleton.js`
+(→ `plur1bus-rpc`'s `acl.rs`/`win.rs` and the supervisor's lock identity), `lib/metrics.js`, `lib/metrics-debounce.js`,
+`lib/event-loop-lag-snapshot.js` (→ `engine.status` counters; scheduler lag instead of event-loop lag), `engine/lifecycle/close-resources.js`
+(the close path, T2). `lib/abort.js` and `lib/with-timeout.js` are RE-01's `Cancel`; `lib/input-limits.js` RE-01's constants.
+Not ported: `lib/host-paths.js`, `lib/host-sdk-loader.js`, `lib/plugin-meta.js` (Node module plumbing).
+
 ## Files
 
 - Create: `crates/plur1bus-engine/src/rpc/{mod,server,methods,host_client,seams,lifeline}.rs`, `crates/plur1bus-engine/src/main.rs`
