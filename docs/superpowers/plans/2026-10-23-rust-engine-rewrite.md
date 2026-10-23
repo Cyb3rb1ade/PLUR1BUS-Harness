@@ -394,6 +394,12 @@ Sizes are relative (S < M < L < XL); an XL is a multi-week package even with sev
 ends with the standard's PR checklist (coding-standard.md §11): `pnpm lint`, `cargo clippy --workspace --all-targets --
 -D warnings`, `cargo fmt --all -- --check`, the package's tests, `pnpm docs:gen` where a schema or clap tree changed.
 
+**Hand-off briefs.** Each package has a self-contained brief for an implementer who has not read this plan, under
+[`rust-engine/`](rust-engine/README.md): files, interfaces consumed and produced, tasks (one pull request each) with
+their failing tests first, acceptance, out of scope. The README there lists the working assumptions (the recommended
+answer to every RE-D decision below) and the status table the controller keeps. The summaries below stay the overview;
+the briefs are the work.
+
 ### RE-0 — Decisions, crate skeleton, dependency gate (S)
 
 **Files:** create `crates/plur1bus-engine/Cargo.toml`, `src/lib.rs`, `src/main.rs`; modify `Cargo.toml` (workspace
