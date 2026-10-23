@@ -6,8 +6,8 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 723114cbf7965c752863fcaa0c29458296fed66b6e422bd2a27e766adaafc2ba
-Cargo.lock: efd6c368fadc078e40280e2cd8cd39828364a930c77e58f0c32b03b158f94539
-apps/desktop/Cargo.lock: 391a5c3afa25f57758d63f07a7b588cdb23bc8e9d2df0b17c26dd0bc14b6dd76
+Cargo.lock: 17ad8a659dd89452bc313866dae4c55c7af58c3f2f76a5ed3c6c9fc5b6735a54
+apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797aeca75eb9f
 ```
 
 | Ecosystem | Dependency | Version | Licence | Attribution |
@@ -656,13 +656,12 @@ apps/desktop/Cargo.lock: 391a5c3afa25f57758d63f07a7b588cdb23bc8e9d2df0b17c26dd0b
 | cargo | tiny-keccak | 2.0.2 | CC0-1.0 | debris <marek.kotewicz@gmail.com> |
 | cargo | tinystr | 0.8.4 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | tinyvec | 1.13.3 | Zlib OR Apache-2.0 OR MIT | Lokathor <zefria@gmail.com> |
-| cargo | tokio-macros | 2.6.1 | MIT | Tokio Contributors <team@tokio.rs> |
+| cargo | tokio-macros | 2.7.2 | MIT | Tokio Contributors <team@tokio.rs> |
 | cargo | tokio-native-tls | 0.3.1 | MIT | Tokio Contributors <team@tokio.rs> |
 | cargo | tokio-rustls | 0.26.6 | MIT OR Apache-2.0 |  |
 | cargo | tokio-tungstenite | 0.28.0 | MIT | Daniel Abramov <dabramov@snapview.de>, Alexey Galakhov <agalakhov@snapview.de> |
 | cargo | tokio-util | 0.7.19 | MIT | Tokio Contributors <team@tokio.rs> |
-| cargo | tokio | 1.48.0 | MIT | Tokio Contributors <team@tokio.rs> |
-| cargo | tokio | 1.53.2 | MIT | Tokio Contributors <team@tokio.rs> |
+| cargo | tokio | 1.53.3 | MIT | Tokio Contributors <team@tokio.rs> |
 | cargo | toml | 0.8.2 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | toml | 1.1.6+spec-1.1.0 | MIT OR Apache-2.0 |  |
 | cargo | toml_datetime | 0.6.3 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |

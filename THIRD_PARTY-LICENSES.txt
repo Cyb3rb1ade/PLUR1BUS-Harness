@@ -1580,7 +1580,7 @@ DEALINGS IN THE SOFTWARE.
 ============================================================
 
 SHA256 0b83dc40cba89b9922bb84b0a9c7d2768ce37c1d7e138b7424fd4549915778c9
-cargo:tokio-macros@2.6.1/LICENSE
+cargo:tokio-macros@2.7.2/LICENSE
 
 MIT License
 
@@ -6646,8 +6646,7 @@ SOFTWARE.
 
 SHA256 253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552
 cargo:tokio-util@0.7.19/LICENSE
-cargo:tokio@1.48.0/LICENSE
-cargo:tokio@1.53.2/LICENSE
+cargo:tokio@1.53.3/LICENSE
 
 MIT License
 
