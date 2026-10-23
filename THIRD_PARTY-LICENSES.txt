@@ -6190,7 +6190,7 @@ according to those terms.
 ============================================================
 
 SHA256 23d466b1b134b415b66fa50c6526b4cf3e7b9258554da88d3abb371721e7ce68
-npm:body-parser@2.3.0/LICENSE
+npm:body-parser@2.4.0/LICENSE
 npm:type-is@2.1.0/LICENSE
 
 (The MIT License)
@@ -10284,7 +10284,7 @@ SOFTWARE.
 ============================================================
 
 SHA256 3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8
-npm:zod@4.6.5/LICENSE
+npm:zod@4.6.6/LICENSE
 
 MIT License
 
@@ -31723,6 +31723,7 @@ freely, subject to the following restrictions:
 
 SHA256 e7dc37bf662d7f786efcb46c545615e70c1daf458a38385521c63cf6607cdfe1
 npm:qs@6.16.0/LICENSE.md
+npm:qs@6.16.1/LICENSE.md
 
 BSD 3-Clause License
 
