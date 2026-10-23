@@ -299,6 +299,9 @@ renamed it; a freshness test keeps it in step with the CLI it documents), `codin
 
 ## Conventions
 
+- **Coding standard**: `docs/coding-standard.md` — naming, comments, code shape, efficiency, errors, logging,
+  security, tests, the enforcement plan (CS-0…CS-5) and the author's PR checklist. The rules below are the ones it
+  builds on; where the two disagree, this file wins.
 - **JSON Schema is the source of truth for RPC and config types**, in both languages. Edit
   `packages/rpc-schema/schema/rpc.schema.json` or `packages/config-schema/schema/config.schema.json`
   and run `pnpm gen`; never hand-edit anything under a package's `generated/` directory — it is
