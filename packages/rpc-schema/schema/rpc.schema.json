@@ -6377,11 +6377,24 @@
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "proposalId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "proposalId": { "$ref": "#/$defs/MemoryId" }, "note": { "type": "string", "maxLength": 500 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "status"], "properties": { "proposalId": { "type": "string" }, "status": { "const": "rejected" } } }
       },
-      "model.embedding.select": {
-        "description": "Make the Memory wizard embedding selection effective via the existing validated migration; refuses unsupported models and unavailable engine validation instead of silently retaining a different model.",
-        "x-server": "core", "x-stability": "experimental", "x-since": "1.6.0",
-        "params": { "type": "object", "additionalProperties": false, "properties": { "model": { "type": "string", "minLength": 1, "maxLength": 256 } }, "required": ["model"] },
-        "result": { "type": "object", "additionalProperties": false, "properties": { "model": { "type": "string" }, "effective": { "type": "boolean" } }, "required": ["model", "effective"] }
+      "model.memory.status": {
+        "description": "The embedding and reranker models the running memory engine was built with (engine.embedding and engine.reranker, or the harness defaults multilingual-e5-small and the BGE reranker), and whether another embedding model can still be written: embeddingSwitch is allowed while the memory store holds no table and migration-required afterwards (plur1bus memory reembed). A reranker holds no stored data and can change at any time. Authenticated Owner/Admin only.",
+        "x-server": "core", "x-stability": "experimental", "x-since": "1.7.0",
+        "params": { "type": "object", "additionalProperties": false, "properties": {}, "required": [] },
+        "result": {
+          "type": "object", "additionalProperties": false, "required": ["embedding", "reranker", "embeddingSwitch"],
+          "properties": {
+            "embedding": {
+              "type": "object", "additionalProperties": false, "required": ["provider", "model", "dimensions", "configured"],
+              "properties": {
+                "provider": { "type": "string" }, "model": { "type": "string" }, "dimensions": { "type": "integer", "minimum": 1 },
+                "configured": { "type": "boolean", "description": "engine.embedding names a provider or a local model; false while the harness default runs." }
+              }
+            },
+            "reranker": { "type": "object", "additionalProperties": false, "required": ["provider"], "properties": { "provider": { "type": "string" }, "model": { "type": "string" } } },
+            "embeddingSwitch": { "enum": ["allowed", "migration-required"] }
+          }
+        }
       },
       "model.licence.confirm": {
         "description": "Persisted audited model licence confirm; authenticated Owner/Admin only.",
@@ -6480,7 +6493,7 @@
         }
       },
       "model.licence.check": {
-        "description": "Persisted audited model licence check; authenticated Owner/Admin only.",
+        "description": "Checks a set of config changes before config.set (the Harness API runs it for every config.set from the web): a non-commercial memory model needs the persisted licence confirmation (E_DENIED reason=model-licence-required), and a change of the engine embedding identity is refused while the memory store holds a table (E_CONFLICT reason=embedding-migration-required; use plur1bus memory reembed) or when the engine cannot load the model (E_INVALID_PARAMS reason=embedding-model-unavailable). Authenticated Owner/Admin only.",
         "x-server": "core",
         "x-stability": "experimental",
         "x-since": "1.6.0",

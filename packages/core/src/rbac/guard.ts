@@ -245,7 +245,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "identity.pair.claim": { ...rule("users.manage", system), humanOnly: true },
   "identity.pair.confirm": { ...rule("users.manage", system), humanOnly: true },
   // D109 grants and approvals (spec 2026-09-28 §4): human-only actions, so an agent principal is refused in every state.
-  "model.embedding.select": { ...rule("settings.write", system), humanOnly: true },
+  "model.memory.status": { ...rule("settings.write", system), humanOnly: true },
   "model.licence.confirm": { ...rule("settings.write", system), humanOnly: true },
   "model.licence.list": { ...rule("settings.write", system), humanOnly: true },
   "model.licence.check": { ...rule("settings.write", system), humanOnly: true },

@@ -363,7 +363,7 @@ describe("person-only (humanOnly) families are never agent tools", () => {
     "project.member.add", "project.member.remove", "project.member.role", "project.update",
     "session.archive", "session.cancel", "session.create", "session.events", "session.get", "session.resume", "session.submit",
     "chat.promote.links", "chat.promote.preview", "chat.promote.commit",
-    "model.embedding.select", "model.licence.confirm", "model.licence.list", "model.licence.check",
+    "model.memory.status", "model.licence.confirm", "model.licence.list", "model.licence.check",
   ];
   it("forbids every one of them, even on explicit inclusion, so no tool and no RPC call is made", async () => {
     const call = fakeCall();

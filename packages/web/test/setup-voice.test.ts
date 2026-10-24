@@ -16,8 +16,6 @@ async function toVoice(app: App): Promise<void> {
   const { page } = app;
   await toSwitchboard(app);
   await skip(page);
-  await stepHeading(page, /Memory/).waitFor();
-  await next(page);
   await stepHeading(page, /Language for voice features/).waitFor();
 }
 
@@ -60,8 +58,11 @@ describe("setup wizard: voice step", opts, () => {
       await openRoute(app.page, "#/setup", "de");
       const { page, server } = app;
 
-      // Navigate through account -> persona -> model -> switchboard -> memory -> voice
+      // Navigate through account -> memory -> persona -> model -> switchboard -> voice
       await stepHeading(page, "Dein Konto").waitFor();
+      await next(page);
+      await stepHeading(page, /Gedächtnis/).waitFor();
+      await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).waitFor();
       await next(page);
       await stepHeading(page, "Name & Persona").waitFor();
       await page.getByLabel("Anzeigename").fill("Hal");
@@ -72,8 +73,6 @@ describe("setup wizard: voice step", opts, () => {
       await stepHeading(page, /Decision-Modell/).waitFor(); await skip(page);
       await stepHeading(page, /Schaltzentrale/).waitFor();
       await skip(page);
-      await stepHeading(page, /Gedächtnis/).waitFor();
-      await next(page);
       await stepHeading(page, /Sprache für Sprachfunktionen/).waitFor();
 
       // German should be selected

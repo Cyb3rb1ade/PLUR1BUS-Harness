@@ -16,7 +16,9 @@ There is no web UI for this. Use the CLI.
 plur1bus memory reembed --plan --model <MODEL> --dimensions <N>
 ```
 
-`--model` is a pinned local embedding model. `--dimensions` is only needed when the model supports more than one size.
+`--model` is a pinned local embedding model, under the memory engine's own id: `google/embeddinggemma-2` (EmbeddingGemma 2), `intfloat/multilingual-e5-small`, `jinaai/jina-embeddings-v5-text-nano-retrieval` or `jinaai/jina-embeddings-v3`. `--dimensions` is only needed when the model supports more than one size.
+
+A memory without data needs no migration: choose the model in the first-run wizard instead ([memories.md](memories.md#embedding-model-and-reranker)).
 
 2. Run it. The command asks for confirmation (`--yes` outside a terminal), starts the migration inside the core and follows its progress. `--no-wait` returns after the start, `--no-switch` copies and validates but does not switch, `--throttle-ms` sets the pause between batches (default 250).
 

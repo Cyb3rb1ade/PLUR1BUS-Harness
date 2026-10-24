@@ -2,11 +2,11 @@ import type { VoiceLanguageSetParams, VoiceLanguage } from '@plur1bus/rpc-schema
 import { RpcError } from '../rpc/errors.ts';
 export const SETUP_STEPS = [
   { id: 'account', skippable: false, unavailable: false },
+  { id: 'memory', skippable: true, unavailable: false },
   { id: 'persona', skippable: false, unavailable: false },
   { id: 'model', skippable: true, unavailable: false },
   { id: 'decision', skippable: true, unavailable: false },
   { id: 'switchboard', skippable: true, unavailable: true },
-  { id: 'memory', skippable: true, unavailable: false },
   { id: 'voice', skippable: true, unavailable: false },
   { id: 'backup', skippable: true, unavailable: false },
   { id: 'import', skippable: true, unavailable: true },

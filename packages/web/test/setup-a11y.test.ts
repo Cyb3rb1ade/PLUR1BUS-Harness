@@ -14,13 +14,13 @@ async function eachStep(app: App, check: (label: string) => Promise<void>): Prom
   seed(app.server.rpc); await open(app);
   const { page } = app;
   await stepHeading(page, "Your account").waitFor(); await check("account"); await next(page);
+  await stepHeading(page, /Memory/).waitFor(); await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).waitFor(); await check("memory"); await next(page);
   await stepHeading(page, "Name & persona").waitFor(); await check("persona");
   await page.getByLabel("Display name").fill("Hal"); await next(page);
   await stepHeading(page, /Main model/).waitFor(); await page.getByLabel("Chat model").waitFor(); await check("model");
   await page.getByLabel("Chat model").selectOption("anthropic/claude-x"); await next(page);
   await stepHeading(page, /Decision model/).waitFor(); await check("decision"); await skip(page);
   await stepHeading(page, /Switchboard/).waitFor(); await check("switchboard"); await skip(page);
-  await stepHeading(page, /Memory/).waitFor(); await check("memory"); await next(page);
   await stepHeading(page, /Language for voice features/).waitFor(); await check("voice"); await skip(page);
   await stepHeading(page, /Backups/).waitFor(); await check("backup");
   await page.getByRole("button", { name: "Create a backup now" }).click(); await page.getByText(/Backup created/).waitFor(); await next(page);
@@ -41,7 +41,12 @@ describe("setup wizard: a11y", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
-      await next(page); await stepHeading(page, "Name & persona").waitFor();
+      await stepHeading(page, "Your account").waitFor(); await next(page);
+      await stepHeading(page, /Memory/).waitFor();
+      await page.getByRole("radio", { name: /Jina v5 Text Nano/ }).click();
+      await page.getByRole("dialog").waitFor(); await expectAxeClean(page, "licence dialog");
+      await page.keyboard.press("Escape"); await page.getByRole("dialog").waitFor({ state: "detached" });
+      await skip(page); await stepHeading(page, "Name & persona").waitFor();
       await next(page); await page.getByText("Enter a display name.").waitFor();
       await expectAxeClean(page, "persona error");
       await page.getByLabel("Display name").fill("Hal");
@@ -50,10 +55,6 @@ describe("setup wizard: a11y", opts, () => {
       app.server.rpc.scenario("agent.create", "success"); await next(page);
       await stepHeading(page, /Main model/).waitFor(); await next(page);
       await page.getByText("Choose a model, or skip this step.").waitFor(); await expectAxeClean(page, "model error");
-      await skip(page); await skip(page); await skip(page);
-      await stepHeading(page, /Memory/).waitFor();
-      await page.getByRole("radio", { name: /Jina v5 Text Nano/ }).click();
-      await page.getByRole("dialog").waitFor(); await expectAxeClean(page, "licence dialog");
     });
   });
 
@@ -77,20 +78,10 @@ describe("setup wizard: a11y", opts, () => {
       await stepHeading(page, "Your account").waitFor();
       await page.locator("main h1").focus();
       await press(/^Next$/);
-      await stepHeading(page, "Name & persona").waitFor();
-      await page.waitForFunction(() => document.activeElement?.textContent === "Name & persona");
-      await page.keyboard.press("Tab"); await page.keyboard.type("hal"); // agent id field is first
-      await page.keyboard.press("Tab"); await page.keyboard.type("Hal Nine Thousand");
-      await press(/^Next$/);
-      await stepHeading(page, /Main model/).waitFor();
-      await page.getByLabel("Chat model").selectOption("anthropic/claude-x");
-      await press(/^Next$/);
-      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
-      await stepHeading(page, /Switchboard/).waitFor();
-      await press(/^Skip this step$/);
       await stepHeading(page, /Memory/).waitFor();
       // The page moves focus to the new step heading in an effect; wait for that before the radio gets focus, or it is taken away.
       await page.waitForFunction(() => document.activeElement?.tagName === "H2" && /Memory/.test(document.activeElement?.textContent ?? ""));
+      await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).waitFor();
       await page.getByRole("radio", { name: "Research, non-commercial" }).focus();
       await page.keyboard.press("ArrowDown");
       // Wait for the checked state instead of reading it right after the key press (under load it can lag behind).
@@ -107,6 +98,19 @@ describe("setup wizard: a11y", opts, () => {
       await page.keyboard.press("Escape");
       await page.getByRole("dialog").waitFor({ state: "detached" });
       assert.equal(await page.evaluate(() => document.activeElement?.id), "setup-embedding-jina-v5-nano");
+      await press(/^Skip this step$/);
+      await stepHeading(page, "Name & persona").waitFor();
+      await page.waitForFunction(() => document.activeElement?.textContent === "Name & persona");
+      await page.keyboard.press("Tab"); await page.keyboard.type("hal"); // agent id field is first
+      await page.keyboard.press("Tab"); await page.keyboard.type("Hal Nine Thousand");
+      await press(/^Next$/);
+      await stepHeading(page, /Main model/).waitFor();
+      await page.getByLabel("Chat model").selectOption("anthropic/claude-x");
+      await press(/^Next$/);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
+      await stepHeading(page, /Switchboard/).waitFor();
+      await press(/^Skip this step$/);
+      await stepHeading(page, /Language for voice features/).waitFor();
     });
   });
 
@@ -128,9 +132,9 @@ describe("setup wizard: a11y", opts, () => {
       });
       await toSwitchboard(app);
       await skip(page);
-      await stepHeading(page, /Memory/).waitFor();
+      await stepHeading(page, /Language for voice features/).waitFor();
       const seen = await page.evaluate(() => (window as unknown as { __steps: { title: string; focused: boolean }[] }).__steps);
-      assert.deepEqual(seen.map((s) => s.title), ["Your account", "Name & persona", "Main model", "Decision model", "Switchboard", "Memory"]);
+      assert.deepEqual(seen.map((s) => s.title), ["Your account", "Memory", "Name & persona", "Main model", "Decision model", "Switchboard", "Language for voice features"]);
       // The first step is drawn on load and keeps the page's own focus; every step reached by a button gets its heading focused in the same draw.
       assert.deepEqual(seen.slice(1).filter((s) => !s.focused).map((s) => s.title), []);
     });
@@ -155,6 +159,10 @@ describe("setup wizard: a11y", opts, () => {
       await app.page.evaluate(() => { location.hash = "#/setup"; });
       await stepHeading(app.page, "Dein Konto").waitFor();
       await app.page.getByRole("button", { name: "Weiter" }).click();
+      await stepHeading(app.page, /Gedächtnis/).waitFor();
+      await app.page.getByRole("radio", { name: /EmbeddingGemma 2/ }).waitFor();
+      await expectAxeClean(app.page, "setup de memory");
+      await app.page.getByRole("button", { name: "Schritt überspringen" }).click();
       await stepHeading(app.page, "Name & Persona").waitFor();
       await app.page.getByRole("button", { name: "Weiter" }).click();
       await app.page.getByText("Gib einen Anzeigenamen ein.").waitFor();

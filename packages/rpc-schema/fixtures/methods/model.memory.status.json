@@ -1,0 +1,16 @@
+{
+  "params": {},
+  "result": {
+    "embedding": {
+      "provider": "local-transformers",
+      "model": "intfloat/multilingual-e5-small",
+      "dimensions": 384,
+      "configured": false
+    },
+    "reranker": {
+      "provider": "local-transformers",
+      "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+    },
+    "embeddingSwitch": "allowed"
+  }
+}

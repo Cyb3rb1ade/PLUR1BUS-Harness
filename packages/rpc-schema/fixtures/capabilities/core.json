@@ -492,9 +492,9 @@
       "stability": "experimental",
       "since": "1.1.0"
     },
-    "model.embedding.select": {
+    "model.memory.status": {
       "stability": "experimental",
-      "since": "1.6.0"
+      "since": "1.7.0"
     },
     "model.licence.confirm": {
       "stability": "experimental",

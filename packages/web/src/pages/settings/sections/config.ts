@@ -45,7 +45,7 @@ async function loadConfig(section: SectionProps["section"], signal: AbortSignal)
     }
   }));
   const catalog = section.id === "models" ? await api.rpc("models.list", undefined, { write: false, signal }).catch(() => null) : undefined;
-  const nc = new Set(MODEL_CHOICES.filter(m => m.nc).map(m => m.hf));
+  const nc = new Set(MODEL_CHOICES.filter(m => m.nc).map(m => m.model));
   const licenceBlocked = (await Promise.all(normalizeList(catalog).models.filter(m => nc.has(m.id)).map(async m => {
     try { await api.rpc("model.licence.check", { changes: [{ key: "modelRoles.embedding", value: m.id }] }, { write: false, signal }); return null; }
     catch { return m.id; }
