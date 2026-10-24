@@ -113,7 +113,9 @@ partial oversized frames, malformed messages and incomplete EOF fail closed.
 stderr is a separate, redacted, length-capped and rate-limited log source: with a log writer wired in (the core does) its lines are D111 `process.output.line` records (`stream: "stderr"`, `untrusted: true`, source `harness`/`mcp`, `docs/logging.md`); stdout carries protocol frames only.
 Unix servers own a detached process group. Windows uses a suspended native launch
 inside a kill-on-close Job Object through the OS PowerShell interop host; script
-and batch commands are refused. Closing stdin allows graceful exit, then bounded
+and batch commands are refused. The launcher turns PowerShell's progress stream off
+before anything else, so the stderr the server shares with it carries only the
+server's own lines. Closing stdin allows graceful exit, then bounded
 termination escalates; descendants are killed even if the direct child exits first.
 The reported Windows process ID identifies the job-owning launcher.
 On Windows a bare command is resolved over `PATH` alone, never over the working
