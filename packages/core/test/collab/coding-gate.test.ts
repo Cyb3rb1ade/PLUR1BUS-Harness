@@ -5,9 +5,14 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { CodingGate, detectVerifiers } from '../../src/collab/coding-gate.ts';
-import { sandboxVerifier } from '../../src/collab/verifier.ts';
+import { sandboxVerifier, type VerifierPort } from '../../src/collab/verifier.ts';
 import { useTempDirs } from '../composition/helpers.ts';
 const tmp = useTempDirs('m5-gate-');
+// Windows has no verifier sandbox backend: every verifier run there is refused before anything starts (fail closed,
+// verifier.ts), so the tests below assert that refusal where Linux and macOS assert what the sandbox does.
+const NO_SANDBOX = process.platform === 'win32';
+const REFUSED = { ok: false, exitCode: null, reason: 'sandbox-unavailable', output: '' };
+const GREEN: VerifierPort = { async run() { return { ok: true, exitCode: 0, output: '' }; } };
 function fixture() {
   const root = tmp.make();
   const git = (...args: string[]) => execFileSync('git', ['-C', root, ...args], { stdio: 'pipe' });
@@ -29,13 +34,16 @@ test('lying delegate reports green, but external sandboxed red tests refuse; hum
   const gate = new CodingGate({ path: ':memory:', audit: e => { audit.push(e); } }); t.after(() => gate.close());
   writeFileSync(join(f.root, '.red'), 'Delegate claims: done, all tests green.');
   const result = await gate.verify({ task: 'p/card', root: f.root, signal: new AbortController().signal });
-  assert.equal(result.ok, false); assert.equal(result.reason, 'verifiers-failed'); assert.equal(result.checks.find(c => c.kind === 'test')!.exitCode, 1);
+  assert.equal(result.ok, false); assert.equal(result.reason, 'verifiers-failed');
+  if (NO_SANDBOX) assert.ok(result.checks.every(c => c.exitCode === null && c.reason === 'sandbox-unavailable'), JSON.stringify(result.checks));
+  else assert.equal(result.checks.find(c => c.kind === 'test')!.exitCode, 1);
   await assert.rejects(gate.verify({ task: 'p/card', root: f.root, signal: new AbortController().signal, override: { person: 'owner', note: '' } }));
   const override = await gate.verify({ task: 'p/card', root: f.root, signal: new AbortController().signal, override: { person: 'owner', note: 'Accept fixture failure for demonstration' } });
   assert.equal(override.ok, true); assert.ok(audit.some(e => (e as { kind: string }).kind === 'coding.override'));
 });
 test('200 changed lines require independent exact-tree reviewer; later edits invalidate pass; documentation gaps listed', async t => {
-  const f = fixture(), gate = new CodingGate({ path: ':memory:', audit() {} }); t.after(() => gate.close());
+  // Without a sandbox every real run is refused (above), so there the review rule is checked behind a port that reports green.
+  const f = fixture(), gate = new CodingGate({ path: ':memory:', audit() {}, ...(NO_SANDBOX ? { verifier: GREEN } : {}) }); t.after(() => gate.close());
   writeFileSync(join(f.root, 'code.ts'), '// base\n' + '// change\n'.repeat(200));
   const first = await gate.verify({ task: 'p/card', root: f.root, signal: new AbortController().signal });
   assert.equal(first.ok, false); assert.equal(first.reason, 'review-required'); assert.ok(first.docGaps.length);
@@ -56,10 +64,11 @@ test('real verifier sandbox blocks network and kills a timed-out process', async
   const address = server.address() as { port: number };
   writeFileSync(join(f.root, 'network.cjs'), `const net=require('node:net');const s=net.connect(${address.port},'127.0.0.1');s.on('connect',()=>process.exit(7));s.on('error',()=>process.exit(0));setTimeout(()=>process.exit(8),1000);`);
   const result = await sandboxVerifier(3000).run(f.root, { kind: 'test', argv: ['node','network.cjs'] }, { signal: new AbortController().signal, networkAllowed: false });
-  assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(connections, 0);
+  if (NO_SANDBOX) assert.deepEqual(result, REFUSED); else assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(connections, 0);
   writeFileSync(join(f.root, 'hang.cjs'), 'setInterval(()=>{},1000)');
   const timeout = await sandboxVerifier(20).run(f.root, { kind: 'test', argv: ['node','hang.cjs'] }, { signal: new AbortController().signal, networkAllowed: false });
-  assert.equal(timeout.ok, false); assert.equal(timeout.reason, 'timeout');
+  if (NO_SANDBOX) assert.deepEqual(timeout, REFUSED); else { assert.equal(timeout.ok, false); assert.equal(timeout.reason, 'timeout'); }
 });
 test('coding_complete tool and task.complete RPC cannot be bypassed by a green report; only an authenticated human lead can use the audited override RPC', async t => {
   const { createCollab } = await import('../../src/collab/service.ts');
@@ -93,7 +102,7 @@ test('sandbox cannot read another private store outside its bound worktree', asy
   const f = fixture(), other = tmp.make(); writeFileSync(join(other, 'private.sqlite'), 'private-store-isolation-marker');
   writeFileSync(join(f.root, 'private.cjs'), `try{require('node:fs').readFileSync(${JSON.stringify(join(other,'private.sqlite'))});process.exit(9)}catch{process.exit(0)}`);
   const result = await sandboxVerifier().run(f.root, { kind: 'test', argv: ['node','private.cjs'] }, { signal: new AbortController().signal, networkAllowed: false });
-  assert.equal(result.ok, true, JSON.stringify(result));
+  if (NO_SANDBOX) assert.deepEqual(result, REFUSED); else assert.equal(result.ok, true, JSON.stringify(result));
 });
 test('repository external-diff and textconv configuration cannot execute a host command during fingerprinting', () => {
   const f = fixture();
