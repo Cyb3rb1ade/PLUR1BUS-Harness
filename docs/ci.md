@@ -233,8 +233,10 @@ workspace build. `unit (ubuntu-24.04)` took 20 min 45 s on `main` (scheduled run
 36 min 08 s on the PR's first run with a cold cache for that closure (run 40060694169), within the 65-minute job
 ceiling (90 on Windows, unchanged). Its `cargo test --workspace --no-fail-fast` step took 16 min 26 s of its 20-minute
 budget on that cold run against 7 min 54 s on `main` (`cargo clippy` 7 min 39 s against 1 min 24 s), too thin a margin
-for a closure that only grows, so the step has 30 minutes in `unit` and `unit-os`. RE-R6 of the Rust-engine plan
-tracks the cost; the next measurement after RE-02, the first code that links Lance, decides whether the engine tests get
+for a closure that only grows, so the step has 30 minutes in `unit` and `unit-os`. The PR's second run (40086339873,
+after a lockfile change) measured the same, job 35 min 17 s, `cargo test` 16 min 06 s, `cargo clippy` 7 min 25 s:
+`rust-cache` did not shorten the Rust steps, so these figures are the working assumption, not a cold-cache outlier.
+RE-R6 of the Rust-engine plan tracks the cost; the next measurement after RE-02, the first code that links Lance, decides whether the engine tests get
 their own job.
 
 To run a weighted Core shard locally after preparation:
