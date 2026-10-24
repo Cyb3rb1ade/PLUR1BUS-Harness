@@ -31,7 +31,8 @@ export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolic
   const started = Date.now();
   const out = new BoundedCapture(p.limits.maxOutputBytes), err = new BoundedCapture(p.limits.maxOutputBytes);
   let timedOut = false, aborted = false;
-  const resources = () => ({ durationMs: Date.now() - started, cpuSeconds: p.limits.cpuSeconds, memoryBytes: p.limits.memoryBytes, measured: false as const });
+  const resources = () => ({ durationMs: Date.now() - started, cpuSeconds: p.limits.cpuSeconds, memoryBytes: p.limits.memoryBytes,
+    maxTasks: detection.tasks.mechanism === 'namespace-limit' && p.limits.maxTasks > 0 ? p.limits.maxTasks : null, measured: false as const });
   const sandbox = { ...detection, network: p.network === 'egress' ? 'none' as const : p.network, warnings: p.network === 'egress' ? ['Egress proxy enforcement unavailable; network forced to none.'] : [] };
   if (options.signal?.aborted) return { exitCode: null, signal: null, stdout: '', stderr: '', stdoutTruncated: false, stderrTruncated: false, timedOut, aborted: true, resources: resources(), sandbox };
   const child = createNodeProcessPort().spawn({ program: p.limitsHelper, args: [String(p.limits.cpuSeconds), String(p.limits.memoryBytes), ...command], cwd: p.cwd, env });
