@@ -6,8 +6,8 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: fa2ca51269055ca94fd88d64176ab03d63c6543ce74f7cc355c312c6c8af6f91
-Cargo.lock: ffd4b45c6631d4f3340f3746423935e779d4809c8563e990c4eb1bb5e91c355f
-apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797aeca75eb9f
+Cargo.lock: 83d8c89449da61ef2b0783cc08a355656d3719884eccb30b79af80689cf745ce
+apps/desktop/Cargo.lock: 366c724719e61b091897735a6ce79cbc20405cf011ad275c7a029adcf054ada8
 ```
 
 | Ecosystem | Dependency | Version | Licence | Attribution |
@@ -173,7 +173,7 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | crossbeam-queue | 0.3.14 | MIT OR Apache-2.0 |  |
 | cargo | crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 |  |
 | cargo | crunchy | 0.2.4 | MIT | Eira Fransham <jackefransham@gmail.com> |
-| cargo | crypto-bigint | 0.7.5 | Apache-2.0 OR MIT | RustCrypto Developers |
+| cargo | crypto-bigint | 0.7.6 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | crypto-common | 0.1.7 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | crypto-common | 0.2.2 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | cssparser-macros | 0.7.1 | MPL-2.0 | Simon Sapin <simon.sapin@exyr.org> |
@@ -183,7 +183,7 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | ct-codecs | 1.1.8 | MIT | Frank Denis <github@pureftpd.org> |
 | cargo | ctor | 1.0.13 | Apache-2.0 OR MIT | Matt Mastracci <matthew@mastracci.com> |
 | cargo | ctr | 0.10.1 | MIT OR Apache-2.0 | RustCrypto Developers |
-| cargo | ctutils | 0.4.4 | Apache-2.0 OR MIT | RustCrypto Developers |
+| cargo | ctutils | 0.4.5 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | curve25519-dalek-derive | 0.1.1 | MIT/Apache-2.0 |  |
 | cargo | curve25519-dalek | 5.0.0 | BSD-3-Clause | Isis Lovecruft <isis@patternsinthevoid.net>, Henry de Valence <hdevalence@hdevalence.ca> |
 | cargo | darling | 0.23.0 | MIT | Ted Driggs <ted.driggs@outlook.com> |
@@ -505,7 +505,7 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | log | 0.4.34 | MIT OR Apache-2.0 | The Rust Project Developers |
 | cargo | loom | 0.7.2 | MIT | Carl Lerche <me@carllerche.com> |
 | cargo | lru-slab | 0.1.3 | MIT OR Apache-2.0 OR Zlib | Benjamin Saunders <ben.e.saunders@gmail.com> |
-| cargo | lru | 0.12.5 | MIT | Jerome Froelich <jeromefroelic@hotmail.com> |
+| cargo | lru | 0.18.5 | MIT | Jerome Froelich <jeromefroelic@hotmail.com> |
 | cargo | lz4-sys | 1.11.1+lz4-1.10.0 | MIT | Jens Heyens <jens.heyens@ewetel.net>, Artem V. Navrotskiy <bozaro@buzzsoft.ru>, Patrick Marks <pmarks@gmail.com> |
 | cargo | lz4 | 1.28.1 | MIT | Jens Heyens <jens.heyens@ewetel.net>, Artem V. Navrotskiy <bozaro@buzzsoft.ru>, Patrick Marks <pmarks@gmail.com> |
 | cargo | lz4_flex | 0.11.6 | MIT | Pascal Seitz <pascal.seitz@gmail.com>, Arthur Silva <arthurprs@gmail.com>, ticki <Ticki@users.noreply.github.com> |

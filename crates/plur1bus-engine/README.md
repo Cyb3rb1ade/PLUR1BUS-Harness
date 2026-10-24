@@ -49,7 +49,48 @@ crates more than the rest of the workspace); the RE-00 pull request records the 
 The crate inherits the workspace lint table of `docs/coding-standard.md` §10 (`[lints] workspace = true`) and adds
 `missing_docs`, `clippy::print_stdout` and `clippy::print_stderr` in `lib.rs`.
 
-## Licence decisions
+## Dependency decisions (PR #759)
 
-The Lance closure brings licences outside today's `deny.toml` allow-list (BSL-1.0, Zlib, MPL-2.0, 0BSD). The owner
-decides them in the RE-00 pull request; this section records the decision once it is applied. Decision pending.
+Decided on 2026-10-24 in the RE-00 pull request (#759): the controller's recommendation, not objected to by the owner;
+the owner can still veto any line in review.
+
+### Licences
+
+- **BSL-1.0**: allowed in `deny.toml` and `docs/dependency-policy.md` (OSI-approved, permissive; `xxhash-rust` via
+  lance-encoding).
+- **Zlib**: allowed in both (OSI-approved, permissive; `foldhash` 0.1.5 and 0.2.0, `zlib-rs`).
+- **MIT-0**: allowed in both (MIT without the attribution requirement; `borrow-or-share` via jsonschema).
+- **CDLA-Permissive-2.0**: allowed in both (permissive data licence of the Mozilla CA bundle; `webpki-roots`,
+  `webpki-root-certs` via ureq).
+- **0BSD**: added to `deny.toml`; `docs/dependency-policy.md` already listed it (`mock_instant` via lance-core).
+- **MPL-2.0**: not allowed globally in `deny.toml`; one per-crate exception for `option-ext` (dirs-sys → dirs 6 →
+  lance-index), matching the policy's "MPL-2.0 only unmodified" rule.
+
+No entry in `docs/dependency-exceptions.json` or `audit-allowlist.json`.
+
+### tantivy patch
+
+`lance-index` 2.0.0 (pinned through `lancedb` 0.26.2, RE-D3) depends on `tantivy` 0.24.2, which pins `lru` 0.12; `lru`
+0.12.5 carries two unsoundness advisories (RUSTSEC-2026-0002, RUSTSEC-2026-0253) with no 0.12.x fix, and the release
+dependency audit blocks on them. The owner chose a fork over an advisory exception: `Cyb3rb1ade/tantivy`, branch
+`plur1bus/0.24.2-lru-0.18.2`, commit `038215a5`, is upstream tag 0.24.2 with one changed line (`lru = "0.18.2"`);
+tantivy's own version stays 0.24.2, and its store tests pass against lru 0.18. The root `Cargo.toml` replaces tantivy
+with it through `[patch.crates-io]` (pinned by `rev`), and `deny.toml` allows the fork as a git source. **Exit
+condition:** remove the patch when the Lance pin moves to a tantivy with lru >= 0.18.2 or to no tantivy at all.
+
+### protoc
+
+`lance` is named with its `protoc` feature, which builds the protobuf compiler from source (`protobuf-src`, cmake and a
+C++ compiler), so no machine needs `protoc` installed. Cost: about six minutes of a cold build (the `protobuf-src` build
+script ran 361 s, on the critical path). **Alternative, open as a follow-up:** install `protobuf-compiler` (apt, and its
+equivalents on macOS and Windows) in every workspace-wide CI job, then drop the feature.
+
+### Measured cost
+
+- Local, 4 cores: cold `cargo build -p plur1bus-engine` 9 min 44 s (slowest: `protobuf-src` build script 361 s,
+  `lance` 78.5 s, `datafusion` 42.0 s); warm rebuild after touching `lib.rs` 0.87 s. `opt-level = 3` for the heaviest
+  lance, datafusion and arrow crates made their rebuild slower (854 s against 536 s), so no `[profile.dev.package.*]`
+  entry exists.
+- CI: `unit (ubuntu-24.04)` 20 min 45 s on `main` → 36 min 08 s on the PR's first run with a cold cache for the
+  closure; its `cargo test --workspace` step 7 min 54 s → 16 min 26 s, which is why that step now has 30 minutes
+  (`docs/ci.md`, "Core sharding and job budgets"; RE-R6).
