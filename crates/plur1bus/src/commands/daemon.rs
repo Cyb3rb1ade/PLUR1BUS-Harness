@@ -570,12 +570,15 @@ pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
         DaemonCmd::Status => {
             let runner = super::service::runner(out);
             let svc = service::status(runner.as_ref(), layout);
-            let (supervisor, children) =
+            let (supervisor, children, cpu) =
                 status_parts(probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT));
             let shared_memory = core_shared_memory(layout);
             let mut doc = json!({ "supervisor": supervisor, "children": children, "service": svc });
             if let (Some(obj), Some(s)) = (doc.as_object_mut(), &shared_memory) {
                 obj.insert("sharedMemory".to_string(), s.clone());
+            }
+            if let (Some(obj), false) = (doc.as_object_mut(), cpu.is_null()) {
+                obj.insert("cpu".to_string(), cpu.clone());
             }
             out.ok("daemon.status/1", &doc, || {
                 let mut lines = vec![
@@ -613,6 +616,9 @@ pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
                 if let Some(s) = &shared_memory {
                     lines.push(format!("shared memory: {}", describe_shared_memory(s)));
                 }
+                if !cpu.is_null() {
+                    lines.push(format!("cpu: {}", describe_cpu(&cpu)));
+                }
                 lines.join("\n")
             });
         }
@@ -621,21 +627,45 @@ pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
 
 /// `daemon status --json` (ruling H3-R25): the supervisor's own entry always sits at `supervisor` (`{ process: {
 /// state, … }, instanceId?, pid?, uptimeMs? }`) and the children always at `children`, whether the supervisor
-/// answered, is not running or is unresponsive — never the nested `daemon.status` result.
-fn status_parts(probe: Probe) -> (Value, Value) {
+/// answered, is not running or is unresponsive — never the nested `daemon.status` result. The third part is the
+/// supervisor's `cpu` (`supervisor.maxCores`), null when it did not answer or predates it.
+fn status_parts(probe: Probe) -> (Value, Value, Value) {
     match probe {
         Probe::Answered(mut v) => {
             let children = match v["children"].take() {
                 Value::Null => json!([]),
                 c => c,
             };
-            (v["supervisor"].take(), children)
+            (v["supervisor"].take(), children, v["cpu"].take())
         }
-        Probe::NotRunning => (json!({ "process": { "state": "stopped" } }), json!([])),
+        Probe::NotRunning => (
+            json!({ "process": { "state": "stopped" } }),
+            json!([]),
+            Value::Null,
+        ),
         Probe::Unresponsive => (
             json!({ "process": { "state": "degraded", "reason": "unresponsive" } }),
             json!([]),
+            Value::Null,
         ),
+    }
+}
+
+/// The `daemon status` human line for `daemon.status.cpu`: how many of the detected cores every PLUR1BUS process may
+/// use, and why a configured limit does not hold.
+fn describe_cpu(cpu: &Value) -> String {
+    let n = |k: &str| cpu[k].as_u64().unwrap_or(0);
+    let (detected, effective, max) = (n("detected"), n("effective"), n("maxCores"));
+    let reason = cpu["reason"].as_str().unwrap_or("unknown");
+    match cpu["state"].as_str() {
+        Some("limited") => format!("{effective} of {detected} cores (supervisor.maxCores)"),
+        Some("unsupported") => {
+            format!("all {detected} cores; supervisor.maxCores {max} is not enforced: {reason}")
+        }
+        Some("failed") => format!(
+            "{effective} of {detected} cores; supervisor.maxCores {max} could not be applied: {reason}"
+        ),
+        _ => format!("all {detected} cores"),
     }
 }
 
@@ -733,23 +763,57 @@ mod tests {
         // Ruling H3-R25: `supervisor.process.state` and `children` sit at the same path whatever the probe found.
         let answered = json!({
             "supervisor": { "process": { "state": "ready", "since": 1 }, "instanceId": "i", "pid": 7, "uptimeMs": 5 },
+            "cpu": { "detected": 8, "maxCores": 4, "effective": 4, "state": "limited" },
             "children": [{ "role": "core", "process": { "state": "ready" } }]
         });
-        let (sup, children) = status_parts(Probe::Answered(answered));
+        let (sup, children, cpu) = status_parts(Probe::Answered(answered));
         assert_eq!(sup["process"]["state"], "ready");
         assert_eq!(sup["pid"], 7);
         assert_eq!(children[0]["role"], "core");
         assert_eq!(core_line(&sup, &children), "ready");
+        assert_eq!(cpu["state"], "limited");
 
-        let (sup, children) = status_parts(Probe::NotRunning);
+        let (sup, children, cpu) = status_parts(Probe::NotRunning);
         assert_eq!(sup["process"]["state"], "stopped");
         assert_eq!(children, json!([]));
         assert!(core_line(&sup, &children).starts_with("unknown"));
+        assert!(cpu.is_null());
 
-        let (sup, children) = status_parts(Probe::Unresponsive);
+        let (sup, children, cpu) = status_parts(Probe::Unresponsive);
         assert_eq!(sup["process"]["state"], "degraded");
         assert_eq!(sup["process"]["reason"], "unresponsive");
         assert_eq!(children, json!([]));
+        assert!(cpu.is_null());
+    }
+
+    #[test]
+    fn the_cpu_line_names_the_limit_or_every_core() {
+        let cpu = |state: &str, effective: u64, reason: Option<&str>| {
+            let mut v =
+                json!({ "detected": 8, "maxCores": 4, "effective": effective, "state": state });
+            if let Some(r) = reason {
+                v["reason"] = json!(r);
+            }
+            v
+        };
+        assert_eq!(
+            describe_cpu(&cpu("limited", 4, None)),
+            "4 of 8 cores (supervisor.maxCores)"
+        );
+        assert_eq!(
+            describe_cpu(
+                &json!({ "detected": 8, "maxCores": 0, "effective": 8, "state": "unlimited" })
+            ),
+            "all 8 cores"
+        );
+        assert_eq!(
+            describe_cpu(&cpu("unsupported", 8, Some("no binding here"))),
+            "all 8 cores; supervisor.maxCores 4 is not enforced: no binding here"
+        );
+        assert_eq!(
+            describe_cpu(&cpu("failed", 8, Some("cannot bind process 1"))),
+            "8 of 8 cores; supervisor.maxCores 4 could not be applied: cannot bind process 1"
+        );
     }
 
     #[test]

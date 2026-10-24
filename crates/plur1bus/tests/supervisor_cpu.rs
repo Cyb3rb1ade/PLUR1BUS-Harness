@@ -7,6 +7,7 @@ mod common;
 use common::{assert_valid, client, start_with_core, wait_child, wait_until, WAIT};
 use plur1bus_rpc::Client;
 use serde_json::{json, Value};
+use std::process::Command;
 
 /// The CPUs one thread may run on (`Cpus_allowed_list` of `/proc/<pid>/task/<tid>/status`).
 fn allowed(status: &str) -> Vec<usize> {
@@ -73,6 +74,24 @@ fn max_cores_binds_the_core_and_a_change_applies_live() {
         assert!(!t.is_empty());
         assert!(t.iter().all(|cpus| *cpus == first), "process {p}: {t:?}");
     }
+    // The CLI shows it: one line for people, the raw object in `--json`.
+    let detected = limited["detected"].as_u64().unwrap();
+    let status = |json: bool| {
+        let mut cmd = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"));
+        cmd.arg("--home").arg(&home).args(["daemon", "status"]);
+        if json {
+            cmd.arg("--json");
+        }
+        String::from_utf8(cmd.output().unwrap().stdout).unwrap()
+    };
+    let human = status(false);
+    assert!(
+        human.contains(&format!("cpu: 1 of {detected} cores (supervisor.maxCores)")),
+        "{human}"
+    );
+    let doc: Value = serde_json::from_str(&status(true)).unwrap();
+    assert_eq!(doc["schema"], "daemon.status/1", "{doc}");
+    assert_eq!(doc["cpu"], limited, "{doc}");
 
     let r = c
         .call(
