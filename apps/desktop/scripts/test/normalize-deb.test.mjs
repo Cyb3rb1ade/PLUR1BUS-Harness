@@ -108,10 +108,12 @@ test('the system tar and ar read what was written, when they exist', async (t) =
     // ar x extracts into the working directory, so run it inside the scratch directory.
     const here = spawnSync('ar', ['x', deb], {cwd: join(root, 'x'), encoding: 'utf8'});
     assert.equal(here.status, 0, here.stderr);
-    const listed = spawnSync('tar', ['-tzf', join(root, 'x', 'data.tar.gz')], {encoding: 'utf8'});
+    // GNU tar reads a colon before the first slash in an archive name as host:file (a Windows C:\ path), so
+    // name the members relative to the scratch directory; bsdtar is fine either way.
+    const listed = spawnSync('tar', ['-tzf', 'data.tar.gz'], {cwd: join(root, 'x'), encoding: 'utf8'});
     assert.equal(listed.status, 0, listed.stderr);
     assert.ok(listed.stdout.split(/\r?\n/).includes(LONG), listed.stdout);
-    const control = spawnSync('tar', ['-xzOf', join(root, 'x', 'control.tar.gz'), 'control'], {encoding: 'utf8'});
+    const control = spawnSync('tar', ['-xzOf', 'control.tar.gz', 'control'], {cwd: join(root, 'x'), encoding: 'utf8'});
     assert.equal(control.stdout, 'Package: demo\n');
   } finally {
     await rm(root, {recursive: true, force: true});
