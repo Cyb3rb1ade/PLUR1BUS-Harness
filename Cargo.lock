@@ -1399,6 +1399,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-engine"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "plur1bus-ext"
 version = "0.1.0"
 dependencies = [

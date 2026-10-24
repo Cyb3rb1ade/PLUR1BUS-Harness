@@ -1,0 +1,25 @@
+[package]
+name = "plur1bus-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The PLUR1BUS memory engine in Rust (rust-engine plan §2): store, embeddings, recall, capture and jobs behind one supervised process. RE-00 skeleton: no engine behaviour yet."
+
+[lib]
+name = "plur1bus_engine"
+path = "src/lib.rs"
+
+[[bin]]
+name = "plur1bus-engine"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
