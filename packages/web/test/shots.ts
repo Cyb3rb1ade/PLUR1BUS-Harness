@@ -231,13 +231,12 @@ const SHOTS: Shot[] = [
   setupShot("setup-step1", async () => {}),
   setupShot("setup-step3", async (p) => {
     await stepHeading(p, "Your account").waitFor(); await next(p);
-    await stepHeading(p, "Name & persona").waitFor(); await p.getByLabel("Display name").fill("Hal"); await next(p);
-    await stepHeading(p, /Main model/).waitFor();
+    await stepHeading(p, /Memory/).waitFor(); await p.getByRole("radio", { name: /EmbeddingGemma 2/ }).waitFor(); await next(p);
+    await stepHeading(p, "Name & persona").waitFor();
   }),
   setupShot("setup-summary", async (p, app) => {
     await toSwitchboard(app);
     await p.getByRole("button", { name: "Skip this step" }).click();
-    await stepHeading(p, /Memory/).waitFor(); await next(p);
     await stepHeading(p, /Language for voice features/).waitFor(); await p.getByRole("button", { name: "Skip this step" }).click();
     await stepHeading(p, /Backups/).waitFor();
     await p.getByRole("button", { name: "Create a backup now" }).click();

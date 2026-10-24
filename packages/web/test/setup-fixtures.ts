@@ -43,6 +43,15 @@ export const stepHeading = (page: Page, name: string | RegExp) => page.getByRole
 export const next = (page: Page) => page.getByRole("button", { name: /^(Next|Finish|Weiter|Abschließen)$/ }).click();
 export const skip = (page: Page, name: string | RegExp = /^(Skip this step|Skip and finish|Schritt überspringen|Überspringen und beenden)$/) => page.getByRole("button", { name }).click();
 
+/** Walks account -> memory and waits until the step shows the engine's models. */
+export async function toMemoryStep(app: App): Promise<void> {
+  const { page } = app;
+  await stepHeading(page, "Your account").waitFor();
+  await next(page);
+  await stepHeading(page, /Memory/).waitFor();
+  await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).waitFor();
+}
+
 /** Walks account -> memory (skipped, so it writes nothing), leaving the page on the persona step. */
 export async function toPersona(app: App): Promise<void> {
   const { page } = app;
