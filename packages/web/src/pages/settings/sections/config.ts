@@ -13,13 +13,14 @@ import { setUnsaved } from "../unsaved.ts";
 import { DecisionHint, decisionRoleMissing } from "../../common/decision-hint.ts";
 import { FieldRow, groupOf, groupTitle, RestartBadge } from "../config/fields.ts";
 import { fieldId } from "../config/meta.ts";
-import { buildFields, localOnlyAgentSources, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type Draft, type Field } from "../config/model.ts";
+import { buildFields, CORES_KEY, coreInfo, localOnlyAgentSources, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type CoreInfo, type Draft, type Field } from "../config/model.ts";
+import { sectionOf } from "../../../settings-sections.ts";
 import { normalizeList } from "../../models/model.ts";
 import { MODEL_CHOICES } from "../../setup/licences.ts";
 import { roleFields } from "../config/roles.ts";
 import "../../../styles/config.css";
 
-type Loaded = { config: unknown; revision: string; restart: Record<string, string | null>; catalog?: unknown; licenceBlocked?: string[] };
+type Loaded = { config: unknown; revision: string; restart: Record<string, string | null>; catalog?: unknown; licenceBlocked?: string[]; cores?: CoreInfo };
 type Plan = { live?: string[]; core?: boolean; modules?: string[] };
 type Review = { changes: Change[]; plan: Plan | null; local: boolean };
 type Banner = { tone: "warn" | "info"; text: string; reload?: boolean };
@@ -44,13 +45,16 @@ async function loadConfig(section: SectionProps["section"], signal: AbortSignal)
       return [key, null];
     }
   }));
+  // The CPU core slider needs the cores the supervisor detected; without them (an older supervisor, a refused call) the field
+  // stays a number input.
+  const cores = sectionOf(CORES_KEY)?.id === section.id ? await api.rpc("daemon.status", undefined, { write: false, signal }).then(coreInfo, () => undefined) : undefined;
   const catalog = section.id === "models" ? await api.rpc("models.list", undefined, { write: false, signal }).catch(() => null) : undefined;
   const nc = new Set(MODEL_CHOICES.filter(m => m.nc).map(m => m.model));
   const licenceBlocked = (await Promise.all(normalizeList(catalog).models.filter(m => nc.has(m.id)).map(async m => {
     try { await api.rpc("model.licence.check", { changes: [{ key: "modelRoles.embedding", value: m.id }] }, { write: false, signal }); return null; }
     catch { return m.id; }
   }))).filter((id): id is string => id !== null);
-  return { config, revision, restart: Object.fromEntries(classes), catalog, licenceBlocked };
+  return { config, revision, restart: Object.fromEntries(classes), catalog, licenceBlocked, ...(cores ? { cores } : {}) };
 }
 
 export function ConfigSection({ section, focus }: SectionProps): View {
@@ -83,7 +87,7 @@ type FormProps = { data: Loaded; section: SectionProps["section"]; focus?: strin
 function Form({ data, section, focus, onSaved, reload }: FormProps): View {
   const role = currentRole();
   const canWrite = roleIn(role, ["owner", "admin"]);
-  const fields = useMemo(() => [...buildFields(data.config, section, data.restart).filter(f => section.id !== "models" || f.key !== "modelRoles").filter(f => section.id !== "decision" || f.key !== "decision"), ...(section.id === "models" ? roleFields(data.config, data.catalog, data.licenceBlocked) : [])], [data, section]);
+  const fields = useMemo(() => [...buildFields(data.config, section, data.restart, data.cores ? { cores: data.cores } : {}).filter(f => section.id !== "models" || f.key !== "modelRoles").filter(f => section.id !== "decision" || f.key !== "decision"), ...(section.id === "models" ? roleFields(data.config, data.catalog, data.licenceBlocked) : [])], [data, section]);
   const [draft, setDraft] = useState<Draft>(() => initialDraft(fields));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [review, setReview] = useState<Review | null>(null);

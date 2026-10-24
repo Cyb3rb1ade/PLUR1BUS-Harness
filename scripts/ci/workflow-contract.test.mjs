@@ -52,13 +52,19 @@ test('the ungated jobs can neither delay nor fail the gate', () => {
     'an ungated job in needs is a contract error, never a silent pass');
 });
 
-test('unit-os preserves every unit step while Ubuntu runs Core only in its measured shards', () => {
+test('unit-os preserves every unit step while Ubuntu and Windows run Core only in their measured shards', () => {
   const jobs = jobBlocks(workflow());
   const coreSplit = '          # The Core files run exactly once in core-unit-shard; every other package stays here.\n' +
     '          node scripts/run-ts-tests.mjs --filter=!@plur1bus/core\n';
+  // macOS keeps the whole workspace; Windows runs Ubuntu's filtered command and leaves Core to core-unit-shard-windows.
+  const osSplit = '          if [ "$RUNNER_OS" = Windows ]; then\n' +
+    '            # The Core files run exactly once in core-unit-shard-windows; every other package stays here.\n' +
+    '            node scripts/run-ts-tests.mjs --filter=!@plur1bus/core\n' +
+    '          else\n' +
+    '            pnpm test\n' +
+    '          fi\n';
   assert.ok(stepsOf(jobs.unit).includes(coreSplit));
-  assert.ok(stepsOf(jobs['unit-os']).includes('          pnpm test\n'));
-  assert.equal(stepsOf(jobs['unit-os']), stepsOf(jobs.unit).replace(coreSplit, '          pnpm test\n'));
+  assert.equal(stepsOf(jobs['unit-os']), stepsOf(jobs.unit).replace(coreSplit, osSplit));
   assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);
   assert.match(jobs['core-unit'], /core-unit-shard/);
   const field = (block, re) => re.exec(block)[0];
@@ -70,6 +76,40 @@ test('unit-os preserves every unit step while Ubuntu runs Core only in its measu
   assert.deepEqual(matrix(jobs['unit-os']), ['macos-15', 'windows-2025']);
   // The check names stay `unit (ubuntu-24.04)`, `unit (macos-15)`, `unit (windows-2025)`.
   assert.match(jobs['unit-os'], /^    name: unit \(\$\{\{ matrix\.os \}\}\)$/m);
+});
+
+test('the Windows Core shards run the Ubuntu partition under the full-platform policy, outside the gate', () => {
+  const jobs = jobBlocks(workflow());
+  const ubuntu = jobs['core-unit-shard'], windows = jobs['core-unit-shard-windows'], check = jobs['core-unit-windows'];
+  const field = (block, re) => re.exec(block)?.[1];
+  for (const re of [/^        shard: (.*)$/m, /^      PLUR1BUS_TEST_SHARD: (.*)$/m, /^      PLUR1BUS_TEST_SHARD_TIMINGS: (.*)$/m]) {
+    assert.ok(field(ubuntu, re), String(re));
+    assert.equal(field(windows, re), field(ubuntu, re), `same partition: ${re}`);
+  }
+  assert.equal(field(windows, /^    runs-on: (.*)$/m), 'windows-2025');
+  assert.equal(field(windows, /^    name: (.*)$/m), 'core unit shard ${{ matrix.shard }}/3 (windows-2025)');
+  assert.match(windows, /^          pnpm --filter @plur1bus\/core test$/m);
+  // Selected like the Ubuntu shards and their check, plus the full-platform policy that also selects unit-os.
+  const ifOf = block => field(block, /^    if: (.*)$/m);
+  assert.equal(ifOf(windows), `${ifOf(ubuntu)} && needs.changes.outputs.macos == 'true'`);
+  assert.equal(ifOf(check), `${ifOf(jobs['core-unit'])} && needs.changes.outputs.macos == 'true'`);
+  for (const macos of [true, false]) {
+    for (const block of [windows, check]) {
+      assert.equal(condition(ifOf(block), { proceed: 'true', 'ts-core': 'true', macos: String(macos) }), macos);
+      assert.equal(condition(ifOf(block), { proceed: 'true', 'ts-core': 'false', macos: String(macos) }), false);
+    }
+  }
+  assert.equal(field(check, /^    needs: (.*)$/m), '[changes, core-unit-shard-windows]');
+  // The Windows manifests reach only the Windows check: the gated Ubuntu `core-unit` download pattern cannot match them.
+  const glob = pattern => new RegExp('^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*') + '$');
+  const pattern = block => field(block, /^          pattern: (.*)$/m);
+  const uploads = [...windows.matchAll(/^          name: (.*)$/gm)].map(m => m[1].replace('${{ matrix.shard }}', '1'));
+  assert.deepEqual(uploads, ['windows-core-unit-manifest-1', 'core-test-timings-windows-2025-1']);
+  assert.ok(glob(pattern(check)).test(uploads[0]));
+  for (const name of uploads) assert.ok(!glob(pattern(jobs['core-unit'])).test(name), name);
+  assert.match(check, /test-shards\.mjs verify --cwd=packages\/core --dir=windows-core-unit-manifests/);
+  assert.match(check, /SHARDS: \$\{\{ needs\.core-unit-shard-windows\.result \}\}/);
+  for (const job of ['core-unit-shard-windows', 'core-unit-windows']) assert.ok(UNGATED.includes(job), job);
 });
 
 test('a label run for another label cannot report a check named ci-gate', () => {

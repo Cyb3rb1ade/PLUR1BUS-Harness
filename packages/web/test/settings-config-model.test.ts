@@ -5,7 +5,7 @@ import { describe, test } from "node:test";
 import { SETTINGS } from "../src/palette/settings-index.ts";
 import { SECTIONS, sectionById, sectionOf } from "../src/settings-sections.ts";
 import { fieldId, META } from "../src/pages/settings/config/meta.ts";
-import { buildFields, collectChanges, initialDraft, mapInvalid, parseDraft, redact } from "../src/pages/settings/config/model.ts";
+import { buildFields, collectChanges, coreDraftValue, coreInfo, coreSliderValue, initialDraft, mapInvalid, parseDraft, redact } from "../src/pages/settings/config/model.ts";
 
 const schema = JSON.parse(readFileSync(new URL("../../config-schema/schema/config.schema.json", import.meta.url), "utf8")) as Record<string, unknown>;
 const node = (key: string): Record<string, unknown> | undefined => key.split(".").reduce<unknown>((n, s) => (n as { properties?: Record<string, unknown> } | undefined)?.properties?.[s], schema) as Record<string, unknown> | undefined;
@@ -136,5 +136,34 @@ describe("palette alignment", () => {
     }
     assert.deepEqual(gaps, ["engine"]);
     assert.equal(fieldId("core.recall.softBudgetMs"), "cfg-core-recall-softBudgetMs");
+  });
+});
+
+describe("CPU core slider (supervisor.maxCores)", () => {
+  test("the right end is every core: 0 and limits at or above the detected count sit there, and it saves 0", () => {
+    assert.equal(coreSliderValue("0", 8), 8);
+    assert.equal(coreSliderValue("8", 8), 8);
+    assert.equal(coreSliderValue("12", 8), 8, "a configuration from a bigger host");
+    assert.equal(coreSliderValue("3", 8), 3);
+    assert.equal(coreSliderValue("", 8), 8);
+    assert.equal(coreDraftValue(8, 8), "0");
+    assert.equal(coreDraftValue(3, 8), "3");
+    assert.equal(coreSliderValue("0", 1), 1, "one core: nothing to move");
+  });
+  test("buildFields gives the detected cores to supervisor.maxCores only", () => {
+    const cores = { detected: 8, effective: 8, state: "unlimited" as const };
+    const general = sectionById("general")!;
+    const fields = buildFields({ supervisor: { maxCores: 0 } }, general, {}, { cores });
+    assert.deepEqual(fields.find((f) => f.key === "supervisor.maxCores")!.cores, cores);
+    assert.ok(fields.filter((f) => f.key !== "supervisor.maxCores").every((f) => f.cores === undefined));
+    assert.equal(buildFields({}, general).find((f) => f.key === "supervisor.maxCores")!.cores, undefined);
+  });
+  test("coreInfo reads daemon.status.cpu and nothing else", () => {
+    assert.deepEqual(coreInfo({ cpu: { detected: 4, maxCores: 1, effective: 1, state: "limited" } }), { detected: 4, effective: 1, state: "limited" });
+    assert.deepEqual(coreInfo({ cpu: { detected: 4, maxCores: 1, effective: 4, state: "unsupported", reason: "no" } }), { detected: 4, effective: 4, state: "unsupported", reason: "no" });
+    assert.equal(coreInfo({ supervisor: {}, children: [] }), undefined, "a supervisor that predates it");
+    assert.equal(coreInfo({ cpu: { detected: 0, maxCores: 0, effective: 1, state: "unlimited" } }), undefined);
+    assert.equal(coreInfo({ cpu: { detected: 4, maxCores: 0, effective: 4, state: "sideways" } }), undefined);
+    assert.equal(coreInfo(null), undefined);
   });
 });

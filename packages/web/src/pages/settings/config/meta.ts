@@ -16,7 +16,7 @@ export const META: readonly FieldMeta[] = [
   { key: "core.logLevel", kind: "enum", def: "info", options: ["debug", "info", "warn", "error"], restart: "live" },
   n("core.recall.softBudgetMs", 400, 50, "core", 3600000), n("core.recall.hardBudgetMs", 600, 100, "live", 3600000), n("core.recall.capChars", 17000, 1000, "core", 10000000),
   n("core.capture.waitMs", 60000, 1000, "live", 3600000), n("core.shutdownBudgetMs", 30000, 1000, "live", 3600000),
-  n("supervisor.graceMs", 60000, 1000, "live", 3600000), n("supervisor.healthIntervalMs", 5000, 1000, "live", 3600000),
+  n("supervisor.graceMs", 60000, 1000, "live", 3600000), n("supervisor.healthIntervalMs", 5000, 1000, "live", 3600000), n("supervisor.maxCores", 0, 0, "live", 1024),
   b("metrics.enabled", false, "core"), n("metrics.port", 9464, 1024, "core", 65535),
   n("logs.maxBytes", 20971520, 1048576, "live", 10737418240), n("logs.keep", 5, 1, "live", 1000),
   o("modules"),
