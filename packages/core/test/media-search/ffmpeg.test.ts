@@ -38,9 +38,14 @@ else if (cfg.mode === "pcm") { const f = new Float32Array(cfg.samples ?? 10); fo
   await writeFile(bin, src); await chmod(bin, 0o755);
   return { bin, record, argvs: async () => (await readFile(record, "utf8").catch(() => "")).split("\n").filter(Boolean).map((l) => JSON.parse(l) as string[]) };
 }
+// Windows starts no script by its shebang, and the fake cannot be a native binary: there the ports' own spawn hook starts
+// it through this node binary. Arguments, pipes, exit codes, kills, limits and temp-dir cleanup are the same as elsewhere.
+const run: typeof spawn = process.platform === "win32"
+  ? ((cmd: string, args: readonly string[], opts: object) => spawn(process.execPath, [cmd, ...args], opts)) as unknown as typeof spawn
+  : spawn;
 async function setup(cfg: Cfg, extra: Record<string, unknown> = {}) {
   const f = await fake(cfg); const tempDir = join(root, `tmp-${n++}`); await mkdir(tempDir);
-  const ports = createFfmpegPorts({ ffmpegPath: f.bin, tempDir, timeoutMs: 5000, ...extra });
+  const ports = createFfmpegPorts({ ffmpegPath: f.bin, tempDir, timeoutMs: 5000, ...(run === spawn ? {} : { spawn: run }), ...extra });
   return { f, tempDir, ports };
 }
 async function collect<T>(it: AsyncIterable<T>): Promise<T[]> { const out: T[] = []; for await (const x of it) out.push(x); return out; }
@@ -78,7 +83,7 @@ describe("createFfmpegPorts resolution", () => {
 describe("frames", () => {
   it("passes argv as an array, path verbatim as one argument, no shell", async () => {
     const calls: Array<{ cmd: string; args: readonly string[]; shell: unknown }> = [];
-    const spy = ((cmd: string, args: readonly string[], opts: { shell?: unknown }) => { calls.push({ cmd, args, shell: opts.shell }); return (spawn as unknown as (...a: unknown[]) => ReturnType<typeof spawn>)(cmd, args, opts); }) as unknown as typeof spawn;
+    const spy = ((cmd: string, args: readonly string[], opts: { shell?: unknown }) => { calls.push({ cmd, args, shell: opts.shell }); return (run as unknown as (...a: unknown[]) => ReturnType<typeof spawn>)(cmd, args, opts); }) as unknown as typeof spawn;
     const { f, ports, tempDir } = await setup({ mode: "frames" }, { spawn: spy });
     const evil = join(root, "my video; rm -rf $(x) `y` & z.mp4");
     await writeFile(evil, MP4HEAD);
