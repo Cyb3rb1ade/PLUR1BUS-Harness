@@ -13,12 +13,14 @@ Groups include:
 | Group | Settings |
 |---|---|
 | Core | `core.logLevel`, recall time budgets and text limit, capture waiting time, shutdown budget |
-| Supervisor | shutdown grace period (`supervisor.graceMs`), health-check interval (`supervisor.healthIntervalMs`) |
+| Supervisor | shutdown grace period (`supervisor.graceMs`), health-check interval (`supervisor.healthIntervalMs`), CPU cores PLUR1BUS may use (`supervisor.maxCores`) |
 | Logs | maximum file size (`logs.maxBytes`), number of retained files (`logs.keep`) |
 | Metrics | enable metrics (`metrics.enabled`), port (`metrics.port`) |
 | Other | `modules` as read-only JSON |
 
 Expand a group using its heading. Structured values appear as JSON and cannot be edited here. Fields whose keys indicate secrets are omitted; use [Secrets](secrets.md).
+
+**CPU cores.** `supervisor.maxCores` is a slider from 1 to the number of cores the supervisor detected on the host. The right end uses every core; that is the default and is stored as `0`. The limit applies at once to every PLUR1BUS process and the programs they start; it does not limit threads. When the supervisor reports no core count, the field is a number input where `0` means every core. When the operating system cannot bind processes to cores (macOS) or the binding fails, a note at the field says so. The CLI does the same with `plur1bus config set supervisor.maxCores`; see [operations.md](operations.md).
 
 ## Review and save changes
 

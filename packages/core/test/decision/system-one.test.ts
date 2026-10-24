@@ -129,6 +129,16 @@ test('deadline and in-flight abort close the real HTTP request, revoke the lease
   assert.equal(r.events.filter(e => e.type === 'settle').length, 2); assert.equal(r.secrets.activeLeases({ kind: 'core' }).length, 0);
 });
 
+test('a deadline timer that fires before performance.now() reaches the deadline still reports timeout', async t => {
+  // Node runs timers on a whole-millisecond loop clock, so the deadline timer can fire a little early; here it fires a minute early.
+  const r = await rig(t); r.reply(() => {}); const early = new AbortController(); t.mock.method(AbortSignal, 'timeout', () => early.signal);
+  const request = { ...input, requestId: 'r', primitive: 'choice', deadline: performance.now() + 60_000, context: ctx() } as DecisionRequest;
+  const pending = createSystemOneBackend('jev', r.options).run(request, signal());
+  while (r.calls.length < 1) await new Promise(resolve => setTimeout(resolve, 1));
+  early.abort(); await assert.rejects(pending, /timeout/); assert.ok(performance.now() < request.deadline);
+  assert.equal(r.events.filter(e => e.type === 'settle').length, 1); assert.equal(r.secrets.activeLeases({ kind: 'core' }).length, 0);
+});
+
 test('invalid distributions, extra fields, out-of-range answers and response-model injection fail closed', async t => {
   const r = await rig(t); const backend = createSystemOneBackend('jev', r.options);
   const choice = { type: 'choice', choice: 'even', confidence: .9, probabilities: { even: .9, odd: .1 } };

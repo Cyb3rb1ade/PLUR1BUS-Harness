@@ -7511,6 +7511,17 @@
           "properties": {
             "supervisor": { "type": "object", "additionalProperties": false, "required": ["process", "instanceId", "pid", "uptimeMs"], "properties": { "process": { "$ref": "#/$defs/ProcessState" }, "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "uptimeMs": { "type": "integer" } } },
             "children": { "type": "array", "items": { "$ref": "#/$defs/ChildStatus" } },
+            "cpu": {
+              "description": "Experimental (1.6.0). The CPU cores every PLUR1BUS process runs on (`supervisor.maxCores`): `detected` cores the system lets the supervisor run on (what a container, cgroup or job allows, not an affinity it inherited; capped by a cgroup CPU quota), `maxCores` as configured (0: no limit), `effective` cores every process may use now, and `state`: `unlimited` (every core), `limited` (bound to `effective` cores), `unsupported` (this OS cannot bind processes to cores) or `failed` (the binding could not be applied; processes keep the binding they had). `reason` explains the last two.",
+              "type": "object", "additionalProperties": false, "required": ["detected", "maxCores", "effective", "state"],
+              "properties": {
+                "detected": { "type": "integer", "minimum": 1 },
+                "maxCores": { "type": "integer", "minimum": 0 },
+                "effective": { "type": "integer", "minimum": 1 },
+                "state": { "enum": ["unlimited", "limited", "unsupported", "failed"] },
+                "reason": { "type": "string" }
+              }
+            },
             "audit": { "$ref": "#/$defs/AuditHealth" },
             "config": {
               "description": "Experimental (1.3.0). The configuration the supervisor runs (B4): `revision` of the running configuration (null when no valid configuration runs, e.g. config.json was invalid at start) and the last hand edit of config.json it rejected (null once a valid file or a config.set replaced it).",

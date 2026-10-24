@@ -27,7 +27,8 @@ export const WEB_CORE_METHODS = new Set([
   "voice.status", "voice.metrics.get", "voice.language.get", "voice.language.list", "voice.language.set", "voice.realtime.profile.get", "voice.realtime.profile.set", "voice.models.list", "voice.models.install", "voice.realtime.start", "voice.realtime.stop",
   "secret.status", "secret.list", "secret.set", "secret.delete", "models.list", "models.setOverride", "models.removeManual",
 ]);
-export const WEB_SUPERVISOR_METHODS = new Set(["config.get", "config.set", "module.list", "module.graph"]);
+// daemon.status: Settings reads `cpu.detected` for the CPU core slider; the supervisor answers it to owner and admin only.
+export const WEB_SUPERVISOR_METHODS = new Set(["config.get", "config.set", "module.list", "module.graph", "daemon.status"]);
 export function webEndpoint(method: string): "core" | "supervisor" | null {
   if (WEB_CORE_METHODS.has(method) && METHODS_BY_SERVER.core.includes(method)) return "core";
   if (WEB_SUPERVISOR_METHODS.has(method) && METHODS_BY_SERVER.supervisor.includes(method)) return "supervisor";

@@ -298,6 +298,107 @@ describe("settings config: values the metadata does not know", opts, () => {
   });
 });
 
+describe("settings config: CPU core slider", opts, () => {
+  const withCores = (app: App, cpu: Record<string, unknown>): void => {
+    app.server.rpc.handle("daemon.status", () => ({ supervisor: { process: { state: "ready", since: 1 }, instanceId: "i", pid: 7, uptimeMs: 5 }, children: [], cpu }), { write: false });
+  };
+  const openSupervisor = async (app: App, lang: "en" | "de" = "en"): Promise<void> => {
+    await openRoute(app.page, "#/settings/general", lang);
+    await app.page.getByRole("button", { name: "Supervisor" }).click();
+  };
+  const slider = (app: App) => app.page.locator("#cfg-supervisor-maxCores");
+  const row = (app: App) => app.page.locator('.cfg-field[data-key="supervisor.maxCores"]');
+
+  test("the detected cores size the slider; arrow keys pick a limit, the right end is every core and saves 0", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc); withCores(app, { detected: 8, maxCores: 0, effective: 8, state: "unlimited" });
+      await openSupervisor(app);
+      const s = slider(app); await s.waitFor();
+      assert.equal(await s.getAttribute("type"), "range");
+      assert.equal(await s.getAttribute("min"), "1"); assert.equal(await s.getAttribute("max"), "8");
+      assert.equal(await s.inputValue(), "8");
+      assert.equal(await s.getAttribute("aria-valuetext"), "All 8 cores");
+      assert.match(await row(app).innerText(), /Cores detected: 8/);
+      assert.match(await row(app).innerText(), /Applies live/);
+      await s.focus(); await app.page.keyboard.press("ArrowLeft"); await app.page.keyboard.press("ArrowLeft");
+      assert.equal(await s.getAttribute("aria-valuetext"), "6 of 8 cores");
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.locator(".cfg-diff").waitFor();
+      assert.deepEqual(sets(app).at(-1)!.params, { changes: [{ key: "supervisor.maxCores", value: 6 }], dryRun: true, ifRevision: "r1" });
+      await app.page.getByRole("button", { name: "Back to editing" }).click();
+      await s.focus(); await app.page.keyboard.press("End");
+      assert.equal(await s.getAttribute("aria-valuetext"), "All 8 cores");
+      await app.page.getByText("No changes yet.").waitFor();
+    });
+  });
+  test("a configured limit sits at its position; one above the host's cores sits at the right end and says so", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc, { supervisor: { maxCores: 2 } }); withCores(app, { detected: 8, maxCores: 2, effective: 2, state: "limited" });
+      await openSupervisor(app);
+      await slider(app).waitFor();
+      assert.equal(await slider(app).inputValue(), "2");
+      assert.equal(await slider(app).getAttribute("aria-valuetext"), "2 of 8 cores");
+    });
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc, { supervisor: { maxCores: 12 } }); withCores(app, { detected: 8, maxCores: 12, effective: 8, state: "unlimited" });
+      await openSupervisor(app);
+      await slider(app).waitFor();
+      assert.equal(await slider(app).inputValue(), "8");
+      assert.match(await row(app).innerText(), /Set to 12, more cores than this host has: every core is used/);
+    });
+  });
+  test("an OS that cannot bind processes to cores, and a binding that failed, are explained at the field", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc, { supervisor: { maxCores: 2 } }); withCores(app, { detected: 8, maxCores: 2, effective: 8, state: "unsupported", reason: "this operating system cannot bind processes to CPU cores" });
+      await openSupervisor(app);
+      await slider(app).waitFor();
+      assert.match(await row(app).innerText(), /cannot bind processes to cores/);
+    });
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc, { supervisor: { maxCores: 2 } }); withCores(app, { detected: 8, maxCores: 2, effective: 8, state: "failed", reason: "cannot bind process 1: Operation not permitted" });
+      await openSupervisor(app);
+      await slider(app).waitFor();
+      assert.match(await row(app).innerText(), /could not be applied: cannot bind process 1: Operation not permitted/);
+    });
+  });
+  test("one core leaves nothing to limit", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc); withCores(app, { detected: 1, maxCores: 0, effective: 1, state: "unlimited" });
+      await openSupervisor(app);
+      await slider(app).waitFor();
+      assert.equal(await slider(app).isDisabled(), true);
+      assert.match(await row(app).innerText(), /1 core: nothing to limit/);
+    });
+  });
+  test("without the supervisor's core count the field stays a number input", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc); // no daemon.status: the mock answers -32601
+      await openSupervisor(app);
+      await slider(app).waitFor();
+      assert.equal(await slider(app).getAttribute("type"), "text");
+      assert.equal(await slider(app).inputValue(), "0");
+    });
+  });
+  test("German, and axe clean with the slider", async () => {
+    await withApp({ locale: "de-DE" }, async (app) => {
+      seedConfig(app.server.rpc); withCores(app, { detected: 8, maxCores: 0, effective: 8, state: "unlimited" });
+      await openSupervisor(app, "de");
+      await slider(app).waitFor();
+      assert.equal(await slider(app).getAttribute("aria-valuetext"), "Alle 8 Kerne");
+      assert.match(await row(app).innerText(), /Erkannte Kerne: 8/);
+      await expectAxeClean(app.page, "cores slider de");
+    });
+  });
+  test("axe clean in dark with the slider and its warning", async () => {
+    await withApp({ colorScheme: "dark" }, async (app) => {
+      seedConfig(app.server.rpc, { supervisor: { maxCores: 2 } }); withCores(app, { detected: 8, maxCores: 2, effective: 8, state: "unsupported", reason: "no binding" });
+      await openSupervisor(app);
+      await slider(app).waitFor();
+      await expectAxeClean(app.page, "cores slider dark");
+    });
+  });
+});
+
 describe("settings config: a11y and layout", opts, () => {
   for (const scheme of ["light", "dark"] as const) {
     test(`axe clean in ${scheme}: form, review and states`, async () => {
