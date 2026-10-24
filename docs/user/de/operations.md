@@ -77,6 +77,29 @@ Unter Linux ist das Log der Einheit auch mit dem üblichen systemd-Werkzeug lesb
 Windows und macOS sind aus dem Code dieses Repositorys beschrieben; sie werden nicht bei jedem Release praktisch
 durchgespielt.
 
+### CPU-Kerne begrenzen
+
+Standardmäßig nutzen alle PLUR1BUS-Prozesse alle Kerne des Rechners. `plur1bus daemon status` zeigt in der Zeile
+`cpu:`, wie viele Kerne der Supervisor erkannt hat und wie viele PLUR1BUS gerade nutzt. So begrenzt du PLUR1BUS auf
+vier Kerne und hebst die Grenze wieder auf:
+
+```sh
+plur1bus config set supervisor.maxCores 4
+plur1bus config set supervisor.maxCores 0
+```
+
+Die Grenze gilt sofort und ohne Neustart für den Supervisor, den Core, die API, die Module und alle Programme, die sie
+starten. Die Zahl der Threads und Prozesse begrenzt sie nicht. Ein Wert ab der erkannten Kernzahl bedeutet alle Kerne.
+Linux und Windows binden die Prozesse an die ersten Kerne. Unter Windows behalten Programme, die vor der Änderung
+gestartet wurden, ihre alte Bindung bis zu ihrem Neustart. macOS kann Prozesse nicht an Kerne binden; dort meldet
+`daemon status`, dass die Grenze nicht durchgesetzt wird. In der Weboberfläche ist es der Schieberegler unter
+**Einstellungen → Allgemein → Supervisor**.
+
+Der Supervisor zählt die Kerne, die das System ihm erlaubt. Eine Grenze von Container oder cgroup, etwa
+`docker run --cpuset-cpus` oder `AllowedCPUs=` einer Unit, gilt deshalb weiter und senkt die erkannte Zahl. Eine engere
+CPU-Affinität, die der Supervisor geerbt hat, etwa durch `taskset` oder `CPUAffinity=` einer Unit, zählt nicht: Der
+Supervisor ersetzt sie beim Start. Nutze stattdessen `supervisor.maxCores`.
+
 ## Aktualisieren
 
 Ein Update spielt ein signiertes Release ein. Der Ablauf ist immer gleich: Plan prüfen, zustimmen, einspielen. Dabei

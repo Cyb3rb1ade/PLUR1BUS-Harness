@@ -474,11 +474,12 @@
       }
     },
     "supervisor": {
-      "description": "Timing settings used by the process supervisor.",
+      "description": "Settings used by the process supervisor: timing, and the CPU cores every PLUR1BUS process may run on.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
         "graceMs": { "description": "Grace period given to a child process to exit during shutdown, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 60000, "x-restart": "live", "x-tier": "advanced" },
-        "healthIntervalMs": { "description": "Interval between child-process health checks, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 5000, "x-restart": "live", "x-tier": "advanced" }
+        "healthIntervalMs": { "description": "Interval between child-process health checks, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 5000, "x-restart": "live", "x-tier": "advanced" },
+        "maxCores": { "description": "Maximum number of CPU cores every PLUR1BUS process (supervisor, core, API, modules and the programs they start) may run on; 0, or a value at or above the host's core count, uses every core. Applied at once through CPU affinity on Linux and Windows; macOS cannot bind processes to cores, so it has no effect there. `plur1bus daemon status` shows the cores the supervisor detected.", "type": "integer", "minimum": 0, "maximum": 1024, "default": 0, "x-restart": "live", "x-tier": "advanced" }
       }
     },
     "metrics": {

@@ -10,7 +10,8 @@ export interface SandboxPolicy {
   network: SandboxNetwork;
   envAllow: readonly string[];
   env?: Readonly<Record<string, string | undefined>>;
-  limits: { timeoutMs: number; cpuSeconds: number; memoryBytes: number; maxProcesses: number; maxOutputBytes: number };
+  /** Per process. There is no process-count limit: RLIMIT_NPROC counts every thread of the user, not one sandbox. */
+  limits: { timeoutMs: number; cpuSeconds: number; memoryBytes: number; maxOutputBytes: number };
   /** Trusted installation path, never model arguments. */
   limitsHelper: string;
 }
@@ -24,7 +25,7 @@ export interface SandboxDetection {
 export interface SandboxResult {
   exitCode: number | null; signal: string | null; stdout: string; stderr: string;
   stdoutTruncated: boolean; stderrTruncated: boolean; timedOut: boolean; aborted: boolean;
-  resources: { durationMs: number; cpuSeconds: number; memoryBytes: number; maxProcesses: number; measured: false };
+  resources: { durationMs: number; cpuSeconds: number; memoryBytes: number; measured: false };
   sandbox: SandboxDetection & { network: SandboxNetwork; warnings: string[] };
 }
 export class SandboxFailure extends Error {

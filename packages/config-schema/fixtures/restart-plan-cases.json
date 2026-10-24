@@ -83,7 +83,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -586,7 +587,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -1102,7 +1104,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -1605,7 +1608,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -2123,7 +2127,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -2626,7 +2631,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -3148,7 +3154,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -3655,7 +3662,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -4173,7 +4181,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -4680,7 +4689,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -5204,7 +5214,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -5707,7 +5718,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -6229,7 +6241,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -6732,7 +6745,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -7251,7 +7265,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -7759,7 +7774,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -8282,7 +8298,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,
@@ -8785,7 +8802,8 @@
       },
       "supervisor": {
         "graceMs": 60000,
-        "healthIntervalMs": 5000
+        "healthIntervalMs": 5000,
+        "maxCores": 0
       },
       "metrics": {
         "enabled": false,

@@ -23,7 +23,7 @@ async function executable(program: string): Promise<string> {
   throw new SandboxFailure('program is unavailable on the sandbox system path');
 }
 function policy(o: SandboxPortsOptions, spec: SpawnSpec): SandboxPolicy {
-  return { home: o.home, userHome: homedir(), cwd: spec.cwd, readRoots: o.roots, writeRoots: o.roots, deny: o.deny, network: 'none', envAllow: DEFAULT_ENV_ALLOW, env: spec.env, limitsHelper: o.sandbox?.limitsHelper ?? join(o.home, 'bin', 'plur1bus-sandbox-limits'), limits: { timeoutMs: 300000, cpuSeconds: 30, memoryBytes: 512 * 1024 ** 2, maxProcesses: 64, maxOutputBytes: 1024 * 1024 } };
+  return { home: o.home, userHome: homedir(), cwd: spec.cwd, readRoots: o.roots, writeRoots: o.roots, deny: o.deny, network: 'none', envAllow: DEFAULT_ENV_ALLOW, env: spec.env, limitsHelper: o.sandbox?.limitsHelper ?? join(o.home, 'bin', 'plur1bus-sandbox-limits'), limits: { timeoutMs: 300000, cpuSeconds: 30, memoryBytes: 512 * 1024 ** 2, maxOutputBytes: 1024 * 1024 } };
 }
 function bypass(o: SandboxPortsOptions): void {
   // A failed audit write throws before spawn. The bypass is trusted configuration, never a tool argument.
