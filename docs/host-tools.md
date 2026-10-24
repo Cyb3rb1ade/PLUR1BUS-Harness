@@ -159,10 +159,12 @@ The earlier inventory/follow-ups above describe the original library. Current ad
 
 `sandboxSpawn(argv, policy)` is reusable by M5/M6; those modules are unchanged. Policy holds canonical read/write roots, immutable credential/runtime denies, network none/egress/full, environment allowlist and resource/output bounds. Egress currently becomes none with a reported warning. Missing backend/launcher refuses execution. Only owner configuration tools.sandbox.required=false enables audited unsandboxed execution, visibly marked by Doctor. No automatic fallback exists.
 
+`tools.sandbox.maxTasks` limits one sandboxed run to 512 tasks (processes and threads) by default; only the owner can change it, and 0 disables the cap. On Linux 5.14+ as a normal user, the launcher sets the limit inside the run's own user namespace, excluding bubblewrap's init; other user processes are not counted. The same cap covers the Linux coding-gate verifier. Older kernels, root and bubblewrap without a new user namespace run without the cap; Doctor's `tools.sandbox.tasks` check reports the measured mechanism and reason. macOS denies forks in the tool sandbox (threads are not counted), but its coding-gate verifier remains uncapped because process limits there count all user processes. Windows has no backend yet; a future backend must use a Job Object process limit. The launcher still needs release/setup delivery in a separate PR; Linux writable roots remain refused.
+
 | Target | Backend | Current strength/evidence |
 |---|---|---|
-| macOS arm64 | deprecated sandbox-exec/Seatbelt | partial; real adversarial probes; fork denied, sampled RSS watchdog |
-| Linux x64/arm64 | /usr/bin/bwrap + existing-libc limits helper | partial; write roots refused pending dynamic credential protection; not locally executed |
+| macOS arm64 | deprecated sandbox-exec/Seatbelt | partial; probed fork denial in tool sandbox; verifier uncapped; sampled RSS watchdog |
+| Linux x64/arm64 | /usr/bin/bwrap + existing-libc limits helper | partial; probed per-run task cap on Linux 5.14+ for normal users; concurrent fork-bomb tests; writable roots still refused |
 | Windows x64/arm64 | restricted token + Job Object still missing | none, refuse; pure detection tests; no real Windows isolation claim |
 
 The five-target CI probe job skips unavailable backends with a reason. CI execution and the owner's Windows VM remain unverified. The helper is not yet delivered by installers. See phase handoffs for attack → protection → test tables and open resource/race gaps.
