@@ -13,6 +13,7 @@ pub mod api_transport;
 pub mod child;
 pub mod config;
 pub mod config_policy;
+pub mod cpu;
 pub mod ext;
 pub mod logfile;
 pub mod modules;
@@ -109,6 +110,8 @@ pub struct SupervisorState {
     /// `PLUR1BUS_SUPERVISOR_NO_CORE_READY_FLOOR=1` (with test internals) drops it.
     pub core_ready_floor: bool,
     pub config: SupervisorConfig,
+    /// `supervisor.maxCores`: the CPUs found at start and the binding every process runs under (`daemon.status.cpu`).
+    pub cpu: cpu::Cores,
     /// One slot per supervised child, the core first: its state, lifeline, backoff and restart schedule.
     pub slots: Vec<Slot>,
     /// Set by `daemon.stop` or a signal; the main thread then stops the children and exits 0.
@@ -166,6 +169,7 @@ impl SupervisorState {
                 "pid": self.pid,
                 "uptimeMs": self.started.elapsed().as_millis() as u64,
             },
+            "cpu": self.cpu.status_json(),
             "children": self
                 .slots
                 .iter()
@@ -805,6 +809,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         );
     }
 
+    // Before anything is bound: the CPUs the OS, a container or the service unit gave this process.
+    let host = cpu::Host::detect();
     let instance_id = uuid::Uuid::new_v4().to_string();
     let pid = std::process::id();
     let token =
@@ -825,6 +831,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             time_scale,
             core_ready_floor,
             config,
+            cpu: cpu::Cores::new(host),
             slots: if opts.no_core {
                 vec![Slot::new(Role::core(), time_scale)]
             } else {
@@ -848,6 +855,11 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         subscribers: subscribers::Subscribers::new(),
         out_logs: Mutex::new(Vec::new()),
     });
+    // supervisor.maxCores binds the supervisor before it starts a thread or a child, so every one inherits it.
+    let running = relock(&shared.config).running.clone();
+    if let Some(running) = running {
+        cpu::apply(&shared, &running);
+    }
 
     // Before the bind: from here on a SIGTERM takes the clean-stop path (the main loop below removes the files).
     #[cfg(unix)]
@@ -1254,6 +1266,8 @@ fn probe_and_adopt(
         adopt::Probe::Absent => false,
         adopt::Probe::Serving { peer, client, .. } => match adopt::adopt(client, role, token) {
             Ok((lifeline, status)) => {
+                // Started by an earlier supervisor, so no descendant of this one: bound on its own.
+                cpu::bind_adopted(shared, peer.pid);
                 match monitors.get_mut(&role.name) {
                     Some(m) => m.attach_adopted(peer, lifeline, &status),
                     None => {
@@ -1377,6 +1391,10 @@ pub(crate) fn test_state() -> SupervisorState {
         time_scale: 1.0,
         core_ready_floor: true,
         config: config::supervisor_config(None),
+        cpu: cpu::Cores::new(cpu::Host {
+            cpus: vec![0],
+            count: 1,
+        }),
         slots: vec![Slot::new(Role::core(), 1.0)],
         stopping: None,
         restart_jobs: VecDeque::new(),
@@ -1495,6 +1513,10 @@ mod tests {
             time_scale: 1.0,
             core_ready_floor: true,
             config: config::supervisor_config(None),
+            cpu: cpu::Cores::new(cpu::Host {
+                cpus: vec![0, 1],
+                count: 2,
+            }),
             slots: vec![Slot::new(Role::core(), 1.0)],
             stopping: None,
             restart_jobs: VecDeque::new(),
@@ -1505,6 +1527,12 @@ mod tests {
             ext_overlays: BTreeMap::new(),
             ext_draining: false,
         };
+        assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
+        st.cpu.max = 1;
+        st.cpu.bound = Some(vec![0]);
+        st.cpu.state = cpu::State::Limited;
+        assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
+        st.cpu.state = cpu::State::Unsupported("no binding".into());
         assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
         st.stopping = Some(StopRequest {
             budget: DEFAULT_STOP_BUDGET,
