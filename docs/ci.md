@@ -228,6 +228,15 @@ Every `ci.yml` job has an explicit budget; new Core shards allow 20 minutes per 
 justify changing them. The [P5 handoff](handoffs/2026-10-21-gp5-p5-core-shards.md) lists all budgets, the global Top 20,
 the measured partition and its limits. The projected balance is not a hosted before/after result.
 
+The Rust engine crate (`crates/plur1bus-engine`, RE-00, PR #759) brings the Lance, DataFusion and Arrow closure into the
+workspace build. `unit (ubuntu-24.04)` took 20 min 45 s on `main` (scheduled run 40077418934, head 955161d3) and
+36 min 08 s on the PR's first run with a cold cache for that closure (run 40060694169), within the 65-minute job
+ceiling (90 on Windows, unchanged). Its `cargo test --workspace --no-fail-fast` step took 16 min 26 s of its 20-minute
+budget on that cold run against 7 min 54 s on `main` (`cargo clippy` 7 min 39 s against 1 min 24 s), too thin a margin
+for a closure that only grows, so the step has 30 minutes in `unit` and `unit-os`. RE-R6 of the Rust-engine plan
+tracks the cost; the next measurement after RE-02, the first code that links Lance, decides whether the engine tests get
+their own job.
+
 To run a weighted Core shard locally after preparation:
 
 ```bash
