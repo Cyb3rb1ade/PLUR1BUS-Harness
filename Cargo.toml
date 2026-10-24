@@ -15,6 +15,13 @@ serde_json = "1"
 clap = { version = "4.6", features = ["derive"] }
 tempfile = "3"
 
+[patch.crates-io]
+# lance-index 2.0.0 (pinned through lancedb 0.26.2, RE-D3) depends on tantivy 0.24.2, which pins lru 0.12
+# (RUSTSEC-2026-0002, RUSTSEC-2026-0253; no 0.12.x fix exists). The fork is upstream tag 0.24.2 plus lru 0.18.2,
+# nothing else (branch plur1bus/0.24.2-lru-0.18.2). Remove this entry when the Lance pin moves to a tantivy with
+# lru >= 0.18.2 or to no tantivy at all.
+tantivy = { git = "https://github.com/Cyb3rb1ade/tantivy", rev = "038215a52d973ea2edb042984ad5f8d6272e10a5" }
+
 # The Rust lint policy of docs/coding-standard.md §10 (CS-1), copied as written there. A crate inherits it only with
 # `[lints] workspace = true`; in RE-00 that is `plur1bus-engine` alone, the other crates opt in under CS-1.
 [workspace.lints.rust]
