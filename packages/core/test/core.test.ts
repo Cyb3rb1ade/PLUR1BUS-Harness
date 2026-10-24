@@ -58,6 +58,14 @@ async function recallUntil(client: CoreClient, query: string, pattern: RegExp, t
   return text;
 }
 
+/** A notification leaves after a per-connection rights lookup, so it can trail the reply of the call that caused it (it
+ *  does on Windows named pipes, where the two arrive as separate reads): wait for it instead of expecting it with the reply. */
+async function eventually(cond: () => boolean, timeoutMs = 5000): Promise<boolean> {
+  const until = Date.now() + timeoutMs;
+  while (!cond() && Date.now() < until) await new Promise((res) => setTimeout(res, 10));
+  return cond();
+}
+
 /** B2: start() resolves before the journal is replayed; waits until the background replay is done and `pred` holds.
  *  The bound only catches a hung replay: a capture costs ~0.5 s on Windows CI (Lance + NTFS), so 40 lines need ~25 s there. */
 async function replayDone(core: Core, pred: (s: ReturnType<Core["status"]>) => boolean = () => true, timeoutMs = 90_000): Promise<ReturnType<Core["status"]>> {
@@ -164,7 +172,7 @@ describe("core", () => {
     const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", sessionKey: "s2", query: "when is the roadmap review", joined: true, budget: { softMs: 2000, hardMs: 4000 } });
     assert.equal(r.degraded, null, JSON.stringify(r.degraded));
     assert.match(r.joined.text, /roadmap review/i);
-    assert.ok(seen.includes("capturing") && seen.includes("recalling") && seen.at(-1) === "idle", seen.join(","));
+    assert.ok(await eventually(() => seen.includes("capturing") && seen.includes("recalling") && seen.at(-1) === "idle"), seen.join(","));
   });
 
   it("a capture slower than waitMs answers pending and is still stored (R19)", async () => {
