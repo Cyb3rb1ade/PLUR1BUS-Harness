@@ -64,7 +64,9 @@ test('real backend: filesystem, network, environment, output and abort adversari
       const memory = await sandboxSpawn(['/usr/bin/perl', '-e', '$x = "x" x (512*1024*1024); sleep 10'], { ...f.policy, limits: { ...f.policy.limits, memoryBytes: 64*1024*1024, timeoutMs: 5000 } });
       assert.notEqual(memory.exitCode, 0); assert.equal(memory.timedOut, false);
     }
-    const bounded = await sandboxSpawn(['/usr/bin/yes'], f.policy); assert.ok(bounded.stdoutTruncated); assert.ok(Buffer.byteLength(bounded.stdout) <= 512); assert.ok(bounded.timedOut || bounded.signal);
+    // Stopped by the 1.5 s timeout or by the 1 s CPU limit, whichever comes first. bubblewrap reports a payload that the
+    // CPU limit killed (SIGKILL once soft = hard is reached) as its own exit code 137, not as a signal of the launcher.
+    const bounded = await sandboxSpawn(['/usr/bin/yes'], f.policy); assert.ok(bounded.stdoutTruncated); assert.ok(Buffer.byteLength(bounded.stdout) <= 512); assert.ok(bounded.timedOut || bounded.signal || bounded.exitCode === 128 + 9, JSON.stringify(bounded.resources) + ` exit ${bounded.exitCode}`);
     const ac = new AbortController(); setTimeout(() => ac.abort(), 100);
     const cancelled = await sandboxSpawn(['/bin/sleep', '10'], f.policy, { signal: ac.signal }); assert.equal(cancelled.aborted, true);
     const egress = await sandboxSpawn(['/bin/echo', 'ok'], { ...f.policy, network: 'egress' }); assert.equal(egress.sandbox.network, 'none'); assert.equal(egress.sandbox.warnings.length, 1);
