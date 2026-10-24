@@ -121,10 +121,12 @@ fn an_unknown_subcommand_exits_with_the_usage_code() {
   row for a crate this PR adds.
 - [ ] **Step 3b — advisories the closure brings (RE-D14, decided 2026-10-24).** An advisory against a crate the pinned
   Lance closure needs, with no fix inside the versions the pins allow, is answered with a fork of that crate at its
-  pinned tag carrying only the fix (owner-created repository under `Cyb3rb1ade/`, branch `plur1bus/<version>-<fix>`,
-  tag `v<version>-plur1bus.<n>`), consumed through `[patch.crates-io]` in the root `Cargo.toml` with a comment that
+  pinned tag carrying only the fix (owner-created repository under `Cyb3rb1ade/`, branch `plur1bus/<version>-<fix>`;
+  the patch pins the commit by `rev`, because the session proxy refuses tag pushes — a tag `v<version>-plur1bus.<n>` is
+  documentation the owner pushes), consumed through `[patch.crates-io]` in the root `Cargo.toml` with a comment that
   names the advisories and the exit condition, and allowed in `deny.toml` `[sources] allow-git`. Never an entry in the
-  audit allow-list. First instance: `tantivy 0.24.2` → `lru 0.18.2` (RUSTSEC-2026-0002, RUSTSEC-2026-0253), PR #759.
+  audit allow-list. First instance: `tantivy 0.24.2` → `lru 0.18.2` (RUSTSEC-2026-0002, RUSTSEC-2026-0253), commit
+  `038215a5`, PR #759.
   The gate to satisfy is `node scripts/release/audit-policy.mjs` at 0 blocking findings for both manifests.
 - [ ] **Step 4:** `node scripts/test/audit-deps.test.mjs` (or the test the script names in its header) still passes.
 

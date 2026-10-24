@@ -49,7 +49,7 @@ recommendation. If a decision changes, the briefs named in the last column chang
 | RE-D11 recall score | decided 2026-10-24: at parity in Phase 1; cosine score and calibrated thresholds in RE-10 T7 | RE-02 (metric default), RE-04, RE-10 |
 | RE-D12 hybrid retrieval | decided 2026-10-24: at parity in Phase 1; full-text index and rank fusion in RE-10 T8 | RE-02, RE-04, RE-10 |
 | RE-D13 job partitions | decided 2026-10-24: at parity in Phase 1; the agent partition reads its scoped rows in RE-10 T9 | RE-06, RE-10 |
-| RE-D14 tantivy patch | decided 2026-10-24: the root `[patch.crates-io]` replaces `tantivy 0.24.2` with the fork `Cyb3rb1ade/tantivy`, tag `v0.24.2-plur1bus.1` (`lru 0.18.2`, nothing else), until the Lance pin moves past tantivy; `deny.toml` `[sources]` allows that one git source | RE-00, RE-02 (the Lance pin), RE-11 |
+| RE-D14 tantivy patch | decided 2026-10-24: the root `[patch.crates-io]` replaces `tantivy 0.24.2` with the fork `Cyb3rb1ade/tantivy`, branch `plur1bus/0.24.2-lru-0.18.2`, commit `038215a5` pinned by `rev` (`lru = "0.18.2"`, nothing else), until the Lance pin moves past tantivy; `deny.toml` `[sources]` allows that one git source | RE-00, RE-02 (the Lance pin), RE-11 |
 
 ## How a brief is worked
 
