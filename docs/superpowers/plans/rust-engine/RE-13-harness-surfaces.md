@@ -34,7 +34,8 @@ T7b writes the same document into the vault.
 **Rules that apply.** Every decision a person takes goes through the core's RBAC guard (`docs/rbac.md`): the engine
 never authenticates, it receives the principal. A critical memory's preview never shows a secret and never the content
 of a hidden type (`criticalPush.hideTypes`, default `zugang_passwort`). A skill proposal becomes a skill only through the
-X1 install pipeline (`ext.install` from a folder, trust `unsigned`), never by writing into `<home>/skills/` directly;
+X1 install pipeline (`ext.inspect` of the staged folder, then `ext.install` with its `inspectionId`; trust `unsigned`),
+never by writing into `<home>/skills/` directly;
 retiring removes only what the miner installed. The review is a digest: it proposes, it never applies (`applyMode:
 manual` stays the only value). Inbox entries carry metadata only (`titleKey`, scalar params, `ref`), never memory text.
 Every new RPC method carries `x-server`, `x-stability: "experimental"` and `x-since`; the three new inbox kinds join the
@@ -78,21 +79,26 @@ engine.event { name: "memory.critical.pending" | "memory.critical.settled" | "sk
 ```
 
 Core (`x-server: "core"`, RBAC-guarded, forwarded after the guard): `memory.critical.list | decide`,
-`skill.proposals.list | show | accept | reject | retire` (accept = `stage` → supervisor `ext.install { source: { path:
-folder } }` with the acknowledgments `unsigned` and `capabilities` the person gave → `activated`; retire =
-`ext.uninstall` → `retire`), `review.list | show { date, profile }` over `<state_dir>/reviews/`.
+`skill.proposals.list | show | accept | reject | retire` (accept = `stage` → supervisor `ext.inspect { source: { path: folder } }`, which
+normalises the folder into the unsigned package `local/<name>` and audits it → `ext.install { inspectionId, acknowledge:
+["unsigned", "capabilities"], enable: { agents: [agentId] } }` with the acknowledgments the person gave → `activated`;
+`ext.install` takes an `inspectionId` and nothing else as source (`rpc.schema.json` `ext.install`); retire =
+`ext.uninstall` → `retire`), `review.list | show { agentId, date, profile }` over `<state_dir>/reviews/<agentId>/`
+(`state_dir` is installation-wide, `packages/core/src/host.ts:28`, and a job runs per agent, so every review artefact,
+lookup and dedupe key carries the agent).
 
 CLI: `plur1bus memory critical list | accept | reject <ref> --agent <id>` (`memory.critical.list/1`,
 `memory.critical.decide/1`); `plur1bus skill proposals list | show | accept | reject | retire <id> --agent <id>`
-(`skill.proposals.<leaf>/1`; `accept` outside a terminal needs `--yes`, X1-C25); `plur1bus review list | show
+(`skill.proposals.<leaf>/1`; `accept` outside a terminal needs `--yes`, X1-C25); `plur1bus review list | show --agent <id>
 [--profile morning|evening] [--date YYYY-MM-DD]` (`review.list/1`, `review.show/1`). Every `--json` document is the raw
 RPC value (ruling R13).
 
 Inbox: `memory-critical` (one entry per card, audience Owners and Admins, severity `warning`, params `agentId`,
 `typeLabel`, `ref`, `expiresAt`; settles on `decide` or expiry), `skill-proposal` (one per proposal; settles on accept,
-reject or retire), `review` (one per profile and day, severity `info`, `ref.route` `/reviews/<id>`). The entry replaces
-the Telegram message, the daily counter of `critical-push-state.js` and the skill-miner nudge: the dedupe key is the
-card or proposal id.
+reject or retire), `review` (one per agent, profile and day, severity `info`, dedupe key
+`review:<agentId>:<date>:<profile>`, `ref.route` `/reviews/<agentId>/<id>`). The entry replaces the Telegram message,
+the daily counter of `critical-push-state.js` and the skill-miner nudge: the dedupe key is the card or proposal id, or
+the agent, date and profile of a review.
 
 Config: `criticalPush.hideTypes` respected; `criticalPush.buttons` accepted and ignored. `morningReview.{enabled, cron,
 timezone}` and `eveningReview.{…}` schedule the review through the harness scheduler; `delivery: announce` creates the
@@ -123,13 +129,15 @@ T7b) and are accepted and ignored, with a note in `docs/config-engine-keys.md`.
 - [ ] **Step 1: failing tests.** Engine `tests/skill_proposals.rs`: `stage_renders_skill_md_byte_identical_to_the_node_renderer`
       (golden recorded from `renderSkillMd`), `accept_requires_pending_or_partial`, `reject_blocks_the_name_for_the_miner`,
       `retire_removes_only_a_miner_written_skill`, `evidence_memories_get_their_epistemic_status_on_activation`. Core:
-      `accept_installs_through_ext_install_as_an_unsigned_local_skill`,
+      `accept_inspects_then_installs_as_an_unsigned_local_skill`,
       `a_failed_install_leaves_the_proposal_partial_and_the_staging_folder_removed`. CLI:
       `skill_proposals_accept_needs_yes_outside_a_terminal`.
 - [ ] **Step 2: implement** the engine ops over RE-06 T5's ledger with the status transitions of `skill-commands.js`,
       without the Workshop binding.
-- [ ] **Step 3: core and CLI** — `skill.proposals.accept` = `stage` → supervisor `ext.install` (folder → unsigned
-      `local/<name>`, acknowledgments from the person's `--yes`) → `activated` with `<home>/skills/<name>/SKILL.md`;
+- [ ] **Step 3: core and CLI** — `skill.proposals.accept` = `stage` → supervisor `ext.inspect` of the folder (normalised
+      to the unsigned package `local/<name>`) → `ext.install { inspectionId, acknowledge, enable }` (acknowledgments
+      `unsigned` and `capabilities` from the person's `--yes`; enabled for the agent) → `activated` with
+      `<home>/skills/<name>/SKILL.md`;
       retire = `ext.uninstall` → `retire`; the inbox kind; the skill-miner nudge (RE-06 T5) becomes the entry's title
       params.
 - [ ] **Step 4: system test** `tests/system/skill-proposals.test.ts`: a recorded miner proposal → list → accept →
@@ -143,7 +151,8 @@ T7b) and are accepted and ignored, with a note in `docs/config-engine-keys.md`.
       store: counts, pending criticals, pending proposals, hygiene findings, consolidation report, dream diary pointer),
       `the_lead_matches_the_node_narrative_lead_for_each_mood` (golden of `buildReviewNarrativeLead`),
       `workspace_status_matches_the_node_module` (golden of `collectReviewWorkspaceStatus` on a fixture workspace),
-      `evening_profile_adds_workspace_status`, `the_review_never_applies_anything`. Core:
+      `evening_profile_adds_workspace_status`, `the_review_never_applies_anything`,
+      `two_agents_on_the_same_day_keep_both_reviews`. Core:
       `the_schedule_runs_morning_and_evening_in_the_configured_time_zone`,
       `announce_creates_an_inbox_entry_and_silent_does_not`.
 - [ ] **Step 2: implement** `jobs::bodies::daily_review` (the twentieth job; `JobSpec.default_schedule` from
@@ -152,8 +161,9 @@ T7b) and are accepted and ignored, with a note in `docs/config-engine-keys.md`.
       the last review); critical pending (T1); skill proposals pending (T2); conflicts resolved
       (`conflict-resolved.jsonl`); the consolidation report; the dream diary pointer; hygiene (maintenance-light findings
       that need no vault: duplicates, stale reminders, unconfirmed criticals older than the expiry); workspace status
-      (evening). The document is written to `<state_dir>/reviews/<yyyy-mm-dd>-<profile>.md` plus `.json`; `review.ready`
-      is emitted.
+      (evening). The document is written to `<state_dir>/reviews/<agentId>/<yyyy-mm-dd>-<profile>.md` plus `.json`
+      (the agent in the path: two agents running the same profile on the same day never overwrite each other);
+      `review.ready { agentId, date, profile }` is emitted.
 - [ ] **Step 3: core and CLI** — the schedule in `system-jobs` from the two config keys (harness scheduler, ADR-009),
       `review.list | show`, the inbox producer, the CLI leaves.
 - [ ] **Step 4: system test** `tests/system/daily-review.test.ts`.
