@@ -19,7 +19,7 @@ const verdict = (expr) => evaluateLicense(expr, policy.allowed).verdict;
 
 describe("policy document", () => {
   it("lists exactly the agreed licences", () => {
-    assert.deepEqual([...policy.allowed].sort(), ["0bsd", "apache-2.0", "bsd-2-clause", "bsd-3-clause", "cc0-1.0", "isc", "mit", "mpl-2.0", "unicode-3.0", "unicode-dfs-2016"]);
+    assert.deepEqual([...policy.allowed].sort(), ["0bsd", "apache-2.0", "bsd-2-clause", "bsd-3-clause", "bsl-1.0", "cc0-1.0", "cdla-permissive-2.0", "isc", "mit", "mit-0", "mpl-2.0", "unicode-3.0", "unicode-dfs-2016", "zlib"]);
   });
   it("rejects a document without the marker block or with an empty one", () => {
     assert.throws(() => parsePolicy("# nothing"), /missing/);
@@ -29,7 +29,7 @@ describe("policy document", () => {
 
 describe("evaluateLicense", () => {
   it("allows every listed licence", () => {
-    for (const l of ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0", "Unicode-3.0", "0BSD", "CC0-1.0", "mit"]) assert.equal(verdict(l), "ok", l);
+    for (const l of ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0", "Unicode-3.0", "0BSD", "CC0-1.0", "BSL-1.0", "Zlib", "MIT-0", "CDLA-Permissive-2.0", "mit"]) assert.equal(verdict(l), "ok", l);
   });
   it("forbids strong copyleft", () => {
     for (const l of ["GPL-3.0-only", "AGPL-3.0-or-later", "SSPL-1.0", "GPL-2.0+"]) assert.equal(verdict(l), "forbidden", l);
@@ -38,23 +38,23 @@ describe("evaluateLicense", () => {
     for (const l of [null, undefined, "", "UNKNOWN", "UNLICENSED", "SEE LICENSE IN LICENSE.txt", "MIT AND", "(MIT", "MIT OR OR ISC", "LicenseRef-Proprietary", "weird $text"]) assert.equal(verdict(l), "unknown", String(l));
   });
   it("reports a well-formed but unlisted licence as not-listed", () => {
-    assert.equal(verdict("Zlib"), "not-listed");
+    assert.equal(verdict("Python-2.0"), "not-listed");
     assert.ok(FAILING.has("not-listed"));
   });
   it("OR needs one allowed alternative", () => {
     assert.equal(verdict("MIT OR GPL-3.0-only"), "ok");
     assert.equal(verdict("(GPL-2.0-only OR Apache-2.0)"), "ok");
     assert.equal(verdict("GPL-3.0-only OR AGPL-3.0-only"), "forbidden");
-    assert.equal(verdict("Zlib OR BSL-1.0"), "not-listed");
+    assert.equal(verdict("Python-2.0 OR Unlicense"), "not-listed");
   });
   it("AND needs every part allowed", () => {
     assert.equal(verdict("MIT AND Apache-2.0"), "ok");
     assert.equal(verdict("MIT AND GPL-3.0-only"), "forbidden");
-    assert.equal(verdict("MIT AND Zlib"), "not-listed");
+    assert.equal(verdict("MIT AND Python-2.0"), "not-listed");
   });
   it("handles precedence, parentheses, WITH and cargo's legacy slash", () => {
-    assert.equal(verdict("MIT OR GPL-3.0-only AND Zlib"), "ok"); // AND binds tighter
-    assert.equal(verdict("(MIT OR ISC) AND Zlib"), "not-listed");
+    assert.equal(verdict("MIT OR GPL-3.0-only AND Python-2.0"), "ok"); // AND binds tighter
+    assert.equal(verdict("(MIT OR ISC) AND Python-2.0"), "not-listed");
     assert.equal(verdict("Apache-2.0 WITH LLVM-exception"), "ok");
     assert.equal(verdict("GPL-2.0-only WITH Classpath-exception-2.0"), "forbidden");
     assert.equal(verdict("MIT/Apache-2.0"), "ok");
@@ -71,8 +71,8 @@ describe("evaluateLicense", () => {
 });
 
 describe("exceptions", () => {
-  const entry = { ecosystem: "cargo", name: "dual", version: "1.0.0", license: "Zlib" };
-  const ex = (o = {}) => ({ ecosystem: "cargo", name: "dual", license: "Zlib", reason: "reviewed, permissive in substance", expires: "2099-01-01", ...o });
+  const entry = { ecosystem: "cargo", name: "dual", version: "1.0.0", license: "Python-2.0" };
+  const ex = (o = {}) => ({ ecosystem: "cargo", name: "dual", license: "Python-2.0", reason: "reviewed, permissive in substance", expires: "2099-01-01", ...o });
 
   it("turns a failing entry into an exception, keeping the reason", () => {
     const { rows, stale } = judge([entry], policy, [ex()]);
@@ -245,17 +245,17 @@ describe("CLI on a fixture tree", () => {
     reset();
     const exFile = join(root, "ex.json");
     writeFileSync(exFile, JSON.stringify({ exceptions: [
-      { ecosystem: "cargo", name: "dep", license: "GPL-3.0-only OR Zlib", reason: "dual licensed, we pick Zlib", expires: "2099-01-01" },
-      { ecosystem: "cargo-desktop", name: "dep", license: "GPL-3.0-only OR Zlib", reason: "same crate", expires: "2099-01-01" },
+      { ecosystem: "cargo", name: "dep", license: "GPL-3.0-only OR Python-2.0", reason: "dual licensed, we pick Python-2.0", expires: "2099-01-01" },
+      { ecosystem: "cargo-desktop", name: "dep", license: "GPL-3.0-only OR Python-2.0", reason: "same crate", expires: "2099-01-01" },
     ] }));
-    assert.equal(main(["--root", root, "--only", "cargo,cargo-desktop", "--exceptions", exFile], io(fakeRun({ cargo: "GPL-3.0-only OR Zlib" }))), 0);
+    assert.equal(main(["--root", root, "--only", "cargo,cargo-desktop", "--exceptions", exFile], io(fakeRun({ cargo: "GPL-3.0-only OR Python-2.0" }))), 0);
     assert.match(text(), /EXCEPTION/);
-    assert.match(text(), /we pick Zlib/);
+    assert.match(text(), /we pick Python-2.0/);
   });
   it("refuses expired exceptions before invoking a collector", () => {
     reset();
     const exFile = join(root, "expired.json");
-    writeFileSync(exFile, JSON.stringify({ exceptions: [{ ecosystem: "cargo", name: "dep", license: "Zlib", reason: "old approval", expires: "2000-01-01" }] }));
+    writeFileSync(exFile, JSON.stringify({ exceptions: [{ ecosystem: "cargo", name: "dep", license: "Python-2.0", reason: "old approval", expires: "2000-01-01" }] }));
     let calls = 0;
     assert.equal(main(["--root", root, "--exceptions", exFile], io(() => { calls++; throw new Error("must not collect"); })), 2);
     assert.equal(calls, 0);

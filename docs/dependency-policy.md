@@ -33,8 +33,15 @@ here, not in the code. SPDX expressions are evaluated: `A OR B` needs one allowe
 - Unicode-DFS-2016
 - 0BSD
 - CC0-1.0
+- BSL-1.0 (OSI-approved and permissive, no attribution requirement for binaries; xxhash-rust via lance-encoding)
+- Zlib (OSI-approved and permissive; foldhash, zlib-rs)
+- MIT-0 (MIT without the attribution requirement; borrow-or-share via jsonschema)
+- CDLA-Permissive-2.0 (permissive data licence of the Mozilla CA bundle; webpki-roots, webpki-root-certs via ureq)
 <!-- /audit-deps:allowed -->
 
+- **Added 2026-10-24** (PR #759, RE-00: the Rust engine's Lance closure): BSL-1.0, Zlib, MIT-0 and CDLA-Permissive-2.0,
+  here and in `deny.toml`, which also gained 0BSD and a per-crate MPL-2.0 exception for `option-ext`. Controller
+  recommendation, not objected to by the owner.
 - **MPL-2.0 only unmodified.** File-level copyleft: the dependency may be used as published (including via a lockfile
   pin), never forked or patched in this repository. The script prints a note for every package that relies on it.
   A `patchedDependencies` entry for an MPL-2.0 package needs a review and an exception.
