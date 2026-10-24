@@ -4,6 +4,7 @@ import type { Egress } from '../egress/service.ts';
 import type { SecretStore } from '../secrets/store.ts';
 import type { CallBudget, ActualCallUsage } from '../budget/calls.ts';
 import { localOnlyFor } from '../privacy/local-only.ts';
+import { WebFailure } from '../tools/web/failure.ts';
 import { DecisionBackendError, type DecisionBackend, type DecisionRequest } from './types.ts';
 
 const BYTE_CAP = 65_536;
@@ -135,7 +136,9 @@ export function createSystemOneBackend(kind: 'jev' | 'kev', o: Options): Decisio
         return normalize(raw, request, kind, model);
       } catch (error) {
         if (request.context.signal.aborted || signal.aborted) throw new DecisionBackendError('cancelled');
-        if (performance.now() >= request.deadline) throw new DecisionBackendError('timeout');
+        // Egress reports both of its limits, timeoutMs and the deadline signal, as `timeout`. Node fires those timers on a
+        // whole-millisecond loop clock, sometimes just before performance.now() reaches the deadline, so the cause decides.
+        if ((error instanceof WebFailure && error.code === 'timeout') || performance.now() >= request.deadline) throw new DecisionBackendError('timeout');
         throw error instanceof DecisionBackendError ? error : new DecisionBackendError('unavailable');
       } finally {
         try {
