@@ -35,6 +35,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -539,6 +540,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -1056,6 +1058,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -1560,6 +1563,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -2079,6 +2083,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -2583,6 +2588,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -3106,6 +3112,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -3614,6 +3621,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -4133,6 +4141,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -4641,6 +4650,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -5166,6 +5176,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -5670,6 +5681,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -6193,6 +6205,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -6697,6 +6710,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -7217,6 +7231,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -7726,6 +7741,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -8250,6 +8266,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {
@@ -8754,6 +8771,7 @@
       },
       "tools": {
         "sandbox": {
+          "maxTasks": 512,
           "required": true
         },
         "hostctl": {

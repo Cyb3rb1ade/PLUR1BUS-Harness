@@ -1,6 +1,15 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {defaults,validate,CONFIG_SCHEMA} from "../src/index.ts";
+test("the sandbox task cap defaults to 512 and accepts only integers from 0 to 65536",()=>{
+ assert.equal(defaults().tools.sandbox.maxTasks,512);
+ for(const maxTasks of [0,1,512,65536]){
+  const cfg=defaults();cfg.tools.sandbox.maxTasks=maxTasks;assert.equal(validate(cfg).ok,true,String(maxTasks));
+ }
+ for(const maxTasks of [-1,0.5,65537]){
+  const cfg=defaults();cfg.tools.sandbox.maxTasks=maxTasks;assert.equal(validate(cfg).ok,false,String(maxTasks));
+ }
+});
 test("security defaults preserve current behavior and annotate every new key",()=>{
  const cfg=defaults();
  assert.deepEqual(cfg.approvals,{maxGrantDays:90,requireOsConfirmation:true});
