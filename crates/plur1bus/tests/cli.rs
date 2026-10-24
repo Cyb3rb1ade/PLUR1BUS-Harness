@@ -2175,7 +2175,6 @@ fn a_real_stdout_write_error_exits_1() {
     assert_eq!(code, Some(1), "{stderr}");
 }
 
-/// Unix only: the fake core it talks to (`mod fake_core`) binds a Unix socket.
 #[cfg(unix)]
 #[test]
 fn memory_curation_list_keep_drop_preserve_raw_json_fields() {

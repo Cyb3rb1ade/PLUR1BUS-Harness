@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
-  REAL, alive, cli, coreChild, corePid, home, killPid, reapHome, restartSupervisor, sleep, startCore, startDaemon, stopCore, stopDaemon,
+  CI_RECALL_HARD_MS, REAL, alive, cli, coreChild, corePid, home, killPid, reapHome, restartSupervisor, sleep, startCore, startDaemon, stopCore, stopDaemon,
   supervisorPid, waitFor,
 } from "./helpers.ts";
 
@@ -24,6 +24,8 @@ describe("M1b-2a-H3 acceptance 3 — the core survives a supervisor crash", { sk
     try {
       cli(h, ["agent", "create", "bernd"]);
       cli(h, ["config", "set", "supervisor.graceMs", "3000", "--yes"]);
+      // H3-R26: on a shared CI runner the first recall of a fresh core may need more than the default 600 ms hard budget.
+      if (CI_RECALL_HARD_MS !== null) cli(h, ["config", "set", "core.recall.hardBudgetMs", String(CI_RECALL_HARD_MS), "--yes"]);
       startDaemon(h);
       const add = cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", FACT]);
       assert.equal(add.stored, 1, JSON.stringify(add));

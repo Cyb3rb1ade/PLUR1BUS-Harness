@@ -156,7 +156,7 @@ jobs:
   # Not gated: macOS (Core qualification remains unproven) and Windows (slow) legs, named as before, `unit (macos-15)` etc.
   # Every leg here is non-Linux, so the whole job follows the full-platform policy (`changes.macos`: push to main, schedule,
   # dispatch, label `ci:macos`, platform-sensitive paths; docs/ci.md) instead of excluding matrix entries (an all-excluded
-  # matrix is not used). The Linux leg is `unit` above.
+  # matrix is not used). The Linux leg is `unit` above. Windows runs Core in `core-unit-shard-windows` below, as Ubuntu does.
   unit-os:
     name: unit (${{ matrix.os }})
     needs: changes
@@ -224,7 +224,12 @@ jobs:
           export TEST_TIMING_DIR="$GITHUB_WORKSPACE/test-timings"
           reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
           export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
-          pnpm test
+          if [ "$RUNNER_OS" = Windows ]; then
+            # The Core files run exactly once in core-unit-shard-windows; every other package stays here.
+            node scripts/run-ts-tests.mjs --filter=!@plur1bus/core
+          else
+            pnpm test
+          fi
         timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
         env:
           # macOS finds the system Chrome and would run packages/web's whole browser suite in-line (20+ min, so the step
@@ -346,6 +351,93 @@ jobs:
         if: always()
         env:
           SHARDS: ${{ needs.core-unit-shard.result }}
+        run: test "$SHARDS" = success
+
+  # Not gated: the Windows half of the Core split. windows-2025 needs about 4.4 s per Core test file (main run 40116614656:
+  # 343 of the 666 files in 25 minutes), so `unit (windows-2025)`'s whole-workspace run hit its 35-minute step limit with
+  # Core half done. `unit-os` now leaves Core out on Windows, as `unit` does on Ubuntu, and these shards run it with the
+  # same measured partition as `core-unit-shard`, under the full-platform policy that also selects `unit-os`. Their
+  # manifests and timings use names that the Ubuntu `core-unit` download pattern cannot match.
+  core-unit-shard-windows:
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.ts-core == 'true' && needs.changes.outputs.macos == 'true'
+    name: core unit shard ${{ matrix.shard }}/3 (windows-2025)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    runs-on: windows-2025
+    timeout-minutes: 40
+    env:
+      PLUR1BUS_TEST_SHARD: ${{ matrix.shard }}/3
+      PLUR1BUS_TEST_SHARD_TIMINGS: ${{ github.workspace }}/.github/ci/core-test-timings.json
+      PLUR1BUS_TEST_SHARD_MANIFEST: ${{ github.workspace }}/windows-core-unit-manifest-${{ matrix.shard }}.json
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - run: pnpm gen && pnpm build
+      # About 222 files, so about 16 minutes at that rate; the budget leaves room for a slow runner.
+      - name: measured Core shard
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          export TEST_TIMING_DIR="$GITHUB_WORKSPACE/core-test-timings"
+          reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
+          export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
+          pnpm --filter @plur1bus/core test
+      - name: slowest Core files in this shard
+        if: always()
+        run: node scripts/release/timing-summary.mjs core-test-timings
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: windows-core-unit-manifest-${{ matrix.shard }}
+          path: windows-core-unit-manifest-${{ matrix.shard }}.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: core-test-timings-windows-2025-${{ matrix.shard }}
+          path: core-test-timings/
+          if-no-files-found: error
+
+  # Not gated, like the shards it checks: every Core file ran in exactly one Windows shard, and every shard succeeded.
+  core-unit-windows:
+    needs: [changes, core-unit-shard-windows]
+    if: always() && needs.changes.outputs.proceed == 'true' && needs.changes.outputs.ts-core == 'true' && needs.changes.outputs.macos == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0 }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: windows-core-unit-manifest-*
+          path: windows-core-unit-manifests
+      - name: every Core test file ran in exactly one Windows shard
+        run: node scripts/ci/test-shards.mjs verify --cwd=packages/core --dir=windows-core-unit-manifests
+      - name: every Windows Core shard succeeded
+        if: always()
+        env:
+          SHARDS: ${{ needs.core-unit-shard-windows.result }}
         run: test "$SHARDS" = success
 
   system:
