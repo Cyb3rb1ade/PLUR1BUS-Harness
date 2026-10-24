@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: fa2ca51269055ca94fd88d64176ab03d63c6543ce74f7cc355c312c6c8af6f91
-Cargo.lock: 17ad8a659dd89452bc313866dae4c55c7af58c3f2f76a5ed3c6c9fc5b6735a54
+Cargo.lock: ffd4b45c6631d4f3340f3746423935e779d4809c8563e990c4eb1bb5e91c355f
 apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797aeca75eb9f
 ```
 
@@ -18,7 +18,9 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | aes | 0.9.3 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | ahash | 0.8.12 | MIT OR Apache-2.0 | Tom Kaitchuck <Tom.Kaitchuck@gmail.com> |
 | cargo | aho-corasick | 1.1.5 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com> |
+| cargo | alloc-no-stdlib | 2.0.4 | BSD-3-Clause | Daniel Reiter Horn <danielrh@dropbox.com> |
 | cargo | alloc-no-stdlib | 3.0.0 | BSD-3-Clause | Daniel Reiter Horn <danielrh@dropbox.com> |
+| cargo | alloc-stdlib | 0.2.4 | BSD-3-Clause | Daniel Reiter Horn <danielrh@dropbox.com> |
 | cargo | alloc-stdlib | 0.3.0 | BSD-3-Clause | Daniel Reiter Horn <danielrh@dropbox.com> |
 | cargo | allocator-api2 | 0.2.21 | MIT OR Apache-2.0 | Zakarum <zaq.dev@icloud.com> |
 | cargo | android_system_properties | 0.1.6 | MIT OR Apache-2.0 | Nicolas Silva <nical@fastmail.com> |
@@ -29,24 +31,46 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | anstyle | 1.0.14 | MIT OR Apache-2.0 |  |
 | cargo | anyhow | 1.0.104 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | apple-native-keyring-store | 1.0.2 | MIT OR Apache-2.0 | Daniel Brotsky <dev@brotsky.com> |
+| cargo | approx | 0.5.1 | Apache-2.0 | Brendan Zabarauskas <bjzaba@yahoo.com.au> |
+| cargo | arc-swap | 1.9.3 | MIT OR Apache-2.0 | Michal 'vorner' Vaner <vorner@vorner.cz> |
 | cargo | argon2 | 0.5.3 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | argon2 | 0.6.0 | MIT OR Apache-2.0 | RustCrypto Developers |
+| cargo | arrayref | 0.3.9 | BSD-2-Clause | David Roundy <roundyd@physics.oregonstate.edu> |
+| cargo | arrayvec | 0.7.8 | MIT OR Apache-2.0 | bluss |
+| cargo | arrow-arith | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-array | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-buffer | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-cast | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-csv | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-data | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-ipc | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-json | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-ord | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-row | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-schema | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-select | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow-string | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
+| cargo | arrow | 57.3.1 | Apache-2.0 | Apache Arrow <dev@arrow.apache.org> |
 | cargo | asn1-rs-derive | 0.6.0 | MIT OR Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
 | cargo | asn1-rs-impl | 0.2.0 | MIT/Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
 | cargo | asn1-rs | 0.7.2 | MIT OR Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
 | cargo | assert_cmd | 2.2.2 | MIT OR Apache-2.0 | Pascal Hertleif <killercup@gmail.com>, Ed Page <eopage@gmail.com> |
 | cargo | async-broadcast | 0.7.2 | MIT OR Apache-2.0 | Stjepan Glavina <stjepang@gmail.com>, Yoshua Wuyts <yoshuawuyts@gmail.com>, Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | async-channel | 2.5.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
+| cargo | async-compression | 0.4.51 | MIT OR Apache-2.0 | Wim Looman <wim@nemo157.com>, Allen Bui <fairingrey@gmail.com> |
 | cargo | async-executor | 1.14.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com>, John Nunley <dev@notgull.net> |
 | cargo | async-io | 2.6.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
 | cargo | async-lock | 3.4.2 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
 | cargo | async-process | 2.5.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
 | cargo | async-recursion | 1.1.1 | MIT OR Apache-2.0 | Robert Usher <266585+dcchut@users.noreply.github.com> |
+| cargo | async-recursion | 1.2.0 | MIT OR Apache-2.0 | Robert Usher <266585+dcchut@users.noreply.github.com> |
 | cargo | async-signal | 0.2.14 | Apache-2.0 OR MIT | John Nunley <dev@notgull.net> |
 | cargo | async-task | 4.7.1 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
 | cargo | async-trait | 0.1.92 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
+| cargo | async_cell | 0.2.3 | MIT | Sam Sartor <me@samsartor.com> |
 | cargo | atk-sys | 0.18.2 | MIT | The gtk-rs Project Developers |
 | cargo | atk | 0.18.2 | MIT | The gtk-rs Project Developers |
+| cargo | atoi | 2.0.0 | MIT | Markus Klein |
 | cargo | atomic-waker | 1.1.2 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com>, Contributors to futures-rs |
 | cargo | auto-launch | 0.5.0 | MIT | zzzgydi |
 | cargo | autocfg | 1.5.1 | Apache-2.0 OR MIT | Josh Stone <cuviper@gmail.com> |
@@ -58,12 +82,16 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | base64 | 0.23.1 | MIT OR Apache-2.0 | Marshall Pierce <marshall@mpierce.org> |
 | cargo | base64ct | 1.8.3 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | bcrypt-pbkdf | 0.11.0 | MIT OR Apache-2.0 | RustCrypto Developers |
+| cargo | bigdecimal | 0.4.11 | MIT/Apache-2.0 | Andrew Kubera |
 | cargo | bit-set | 0.8.0 | Apache-2.0 OR MIT | Alexis Beingessner <a.beingessner@gmail.com> |
 | cargo | bit-vec | 0.8.0 | Apache-2.0 OR MIT | Alexis Beingessner <a.beingessner@gmail.com> |
 | cargo | bitflags | 1.3.2 | MIT/Apache-2.0 | The Rust Project Developers |
 | cargo | bitflags | 2.13.2 | MIT OR Apache-2.0 | The Rust Project Developers |
+| cargo | bitpacking | 0.9.3 | MIT | Paul Masurel <paul.masurel@gmail.com> |
+| cargo | bitvec | 1.1.1 | MIT |  |
 | cargo | blake2 | 0.10.6 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | blake2 | 0.11.0 | MIT OR Apache-2.0 | RustCrypto Developers |
+| cargo | blake3 | 1.8.7 | CC0-1.0 OR Apache-2.0 OR Apache-2.0 WITH LLVM-exception | Jack O'Connor <oconnor663@gmail.com>, Samuel Neves |
 | cargo | block-buffer | 0.10.4 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | block-buffer | 0.12.1 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | block-padding | 0.4.2 | MIT OR Apache-2.0 | RustCrypto Developers |
@@ -72,8 +100,12 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | blowfish | 0.10.0 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | bollard-stubs | 1.53.1-rc.29.3.1 | Apache-2.0 | Bollard contributors |
 | cargo | bollard | 0.21.1 | Apache-2.0 | Bollard contributors |
+| cargo | bon-macros | 3.10.3 | MIT OR Apache-2.0 |  |
+| cargo | bon | 3.10.3 | MIT OR Apache-2.0 |  |
 | cargo | borrow-or-share | 0.2.4 | MIT-0 | Scallop Ye <yescallop@gmail.com> |
+| cargo | brotli-decompressor | 5.0.3 | BSD-3-Clause/MIT | Daniel Reiter Horn <danielrh@dropbox.com>, The Brotli Authors |
 | cargo | brotli-decompressor | 6.0.1 | BSD-3-Clause/MIT | Daniel Reiter Horn <danielrh@dropbox.com>, The Brotli Authors |
+| cargo | brotli | 8.0.4 | BSD-3-Clause AND MIT | Daniel Reiter Horn <danielrh@dropbox.com>, The Brotli Authors |
 | cargo | brotli | 9.0.0 | BSD-3-Clause AND MIT | Daniel Reiter Horn <danielrh@dropbox.com>, The Brotli Authors |
 | cargo | bs58 | 0.5.1 | MIT/Apache-2.0 |  |
 | cargo | bstr | 1.13.1 | MIT OR Apache-2.0 | Andrew Gallant <jamslam@gmail.com> |
@@ -91,6 +123,7 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | cargo_toml | 1.0.1 | Apache-2.0 OR MIT | Kornel <kornel@geekhood.net> |
 | cargo | cbc | 0.2.1 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | cc | 1.5.1 | MIT OR Apache-2.0 |  |
+| cargo | census | 0.4.2 | MIT | Paul Masurel <paul.masurel@gmail.com> |
 | cargo | cesu8 | 1.1.0 | Apache-2.0/MIT | Eric Kidd <git@randomhacks.net> |
 | cargo | cfb | 0.14.0 | MIT | Matthew D. Steele <mdsteele@alum.mit.edu> |
 | cargo | cfb | 0.7.3 | MIT | Matthew D. Steele <mdsteele@alum.mit.edu> |
@@ -98,7 +131,9 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | cfg-if | 1.0.5 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | cfg_aliases | 0.2.2 | MIT | Zicklag <zicklag@katharostech.com> |
 | cargo | chacha20 | 0.10.2 | MIT OR Apache-2.0 | RustCrypto Developers |
+| cargo | chrono-tz | 0.10.4 | MIT OR Apache-2.0 |  |
 | cargo | chrono | 0.4.42 | MIT OR Apache-2.0 |  |
+| cargo | chrono | 0.4.45 | MIT OR Apache-2.0 |  |
 | cargo | cipher | 0.4.4 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | cipher | 0.5.2 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | clap-markdown | 0.1.5 | MIT OR Apache-2.0 | Connor Gray <code@connorgray.com> |
@@ -108,13 +143,18 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | clap_derive | 4.6.7 | MIT OR Apache-2.0 |  |
 | cargo | clap_lex | 1.1.1 | MIT OR Apache-2.0 |  |
 | cargo | clap_mangen | 0.2.33 | MIT OR Apache-2.0 |  |
+| cargo | cmake | 0.1.58 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | cmov | 0.5.4 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | colorchoice | 1.0.5 | MIT OR Apache-2.0 |  |
 | cargo | combine | 4.6.8 | MIT | Markus Westerlind <marwes91@gmail.com> |
+| cargo | comfy-table | 7.2.2 | MIT | Arne Beer <contact@arne.beer> |
+| cargo | compression-codecs | 0.4.46 | MIT OR Apache-2.0 | Wim Looman <wim@nemo157.com>, Allen Bui <fairingrey@gmail.com> |
+| cargo | compression-core | 0.4.34 | MIT OR Apache-2.0 | Wim Looman <wim@nemo157.com>, Allen Bui <fairingrey@gmail.com> |
 | cargo | concurrent-queue | 2.5.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com>, Taiki Endo <te316e89@gmail.com>, John Nunley <dev@notgull.net> |
 | cargo | const-oid | 0.10.2 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | const-random-macro | 0.1.16 | MIT OR Apache-2.0 | Tom Kaitchuck <Tom.Kaitchuck@gmail.com> |
 | cargo | const-random | 0.1.18 | MIT OR Apache-2.0 | Tom Kaitchuck <Tom.Kaitchuck@gmail.com> |
+| cargo | constant_time_eq | 0.4.2 | CC0-1.0 OR MIT-0 OR Apache-2.0 | Cesar Eduardo Barros <cesarb@cesarb.eti.br> |
 | cargo | cookie | 0.18.2 | MIT OR Apache-2.0 | Sergio Benitez <sb@sergio.bz>, Alex Crichton <alex@alexcrichton.com> |
 | cargo | cookie_store | 0.21.1 | MIT OR Apache-2.0 | Patrick Fernie <patrick.fernie@gmail.com> |
 | cargo | core-foundation-sys | 0.8.7 | MIT OR Apache-2.0 | The Servo Project Developers |
@@ -128,6 +168,9 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | cpufeatures | 0.3.1 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | crc32fast | 1.5.2 | MIT OR Apache-2.0 | Sam Rijs <srijs@airpost.net>, Alex Crichton <alex@alexcrichton.com> |
 | cargo | crossbeam-channel | 0.5.17 | MIT OR Apache-2.0 |  |
+| cargo | crossbeam-deque | 0.8.8 | MIT OR Apache-2.0 |  |
+| cargo | crossbeam-epoch | 0.9.21 | MIT OR Apache-2.0 |  |
+| cargo | crossbeam-queue | 0.3.14 | MIT OR Apache-2.0 |  |
 | cargo | crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 |  |
 | cargo | crunchy | 0.2.4 | MIT | Eira Fransham <jackefransham@gmail.com> |
 | cargo | crypto-bigint | 0.7.5 | Apache-2.0 OR MIT | RustCrypto Developers |
@@ -135,6 +178,8 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | crypto-common | 0.2.2 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | cssparser-macros | 0.7.1 | MPL-2.0 | Simon Sapin <simon.sapin@exyr.org> |
 | cargo | cssparser | 0.37.0 | MPL-2.0 | Simon Sapin <simon.sapin@exyr.org> |
+| cargo | csv-core | 0.1.13 | Unlicense/MIT | Andrew Gallant <jamslam@gmail.com> |
+| cargo | csv | 1.4.0 | Unlicense/MIT | Andrew Gallant <jamslam@gmail.com> |
 | cargo | ct-codecs | 1.1.8 | MIT | Frank Denis <github@pureftpd.org> |
 | cargo | ctor | 1.0.13 | Apache-2.0 OR MIT | Matt Mastracci <matthew@mastracci.com> |
 | cargo | ctr | 0.10.1 | MIT OR Apache-2.0 | RustCrypto Developers |
@@ -142,13 +187,52 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | curve25519-dalek-derive | 0.1.1 | MIT/Apache-2.0 |  |
 | cargo | curve25519-dalek | 5.0.0 | BSD-3-Clause | Isis Lovecruft <isis@patternsinthevoid.net>, Henry de Valence <hdevalence@hdevalence.ca> |
 | cargo | darling | 0.23.0 | MIT | Ted Driggs <ted.driggs@outlook.com> |
+| cargo | darling | 0.24.1 | MIT | Ted Driggs <ted.driggs@outlook.com> |
 | cargo | darling_core | 0.23.0 | MIT | Ted Driggs <ted.driggs@outlook.com> |
+| cargo | darling_core | 0.24.1 | MIT | Ted Driggs <ted.driggs@outlook.com> |
 | cargo | darling_macro | 0.23.0 | MIT | Ted Driggs <ted.driggs@outlook.com> |
+| cargo | darling_macro | 0.24.1 | MIT | Ted Driggs <ted.driggs@outlook.com> |
+| cargo | dashmap | 6.2.1 | MIT | Acrimon <joel.wejdenstal@gmail.com> |
 | cargo | data-encoding | 2.11.1 | MIT |  |
+| cargo | datafusion-catalog-listing | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-catalog | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-common-runtime | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-common | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-datasource-arrow | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-datasource-csv | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-datasource-json | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-datasource | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-doc | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-execution | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-expr-common | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-expr | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-functions-aggregate-common | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-functions-aggregate | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-functions-nested | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-functions-table | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-functions-window-common | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-functions-window | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-functions | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-macros | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-optimizer | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-physical-expr-adapter | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-physical-expr-common | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-physical-expr | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-physical-optimizer | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-physical-plan | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-pruning | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-session | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion-sql | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | datafusion | 51.0.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
 | cargo | dbus | 0.9.12 | Apache-2.0/MIT | David Henningsson <diwic@ubuntu.com> |
+| cargo | deepsize | 0.2.0 | MIT | Aeledfyr <aeledfyr@gmail.com> |
+| cargo | deepsize_derive | 0.1.2 | MIT | Aeledfyr <aeledfyr@gmail.com> |
 | cargo | defmt-macros | 1.1.1 | MIT OR Apache-2.0 | The Knurling-rs developers |
+| cargo | defmt-macros | 1.2.0 | MIT OR Apache-2.0 | The Knurling-rs developers |
 | cargo | defmt-parser | 1.0.0 | MIT OR Apache-2.0 | The Knurling-rs developers |
+| cargo | defmt-parser | 1.1.0 | MIT OR Apache-2.0 | The Knurling-rs developers |
 | cargo | defmt | 1.1.1 | MIT OR Apache-2.0 | The Knurling-rs developers |
+| cargo | defmt | 1.2.0 | MIT OR Apache-2.0 | The Knurling-rs developers |
 | cargo | delegate | 0.13.5 | MIT OR Apache-2.0 | Godfrey Chan <godfreykfc@gmail.com>, Jakub Beránek <berykubik@gmail.com> |
 | cargo | der-parser | 10.0.0 | MIT OR Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
 | cargo | der | 0.8.2 | Apache-2.0 OR MIT | RustCrypto Developers |
@@ -171,14 +255,17 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | dlv-list | 0.5.2 | MIT OR Apache-2.0 | Scott Godwin <sgodwincs@gmail.com> |
 | cargo | document-features | 0.2.12 | MIT OR Apache-2.0 | Slint Developers <info@slint.dev> |
 | cargo | dom_query | 0.28.0 | MIT | niklak <morgenpurple@gmail.com>, importcjj <importcjj@gmail.com> |
+| cargo | downcast-rs | 2.0.2 | MIT OR Apache-2.0 |  |
 | cargo | dpi | 0.1.2 | Apache-2.0 AND MIT |  |
 | cargo | dtoa-short | 0.3.5 | MPL-2.0 | Xidorn Quan <me@upsuper.org> |
 | cargo | dtoa | 1.0.11 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | dunce | 1.0.5 | CC0-1.0 OR MIT-0 OR Apache-2.0 | Kornel <kornel@geekhood.net> |
 | cargo | dyn-clone | 1.0.20 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
+| cargo | earcutr | 0.4.3 | ISC |  |
 | cargo | ecdsa | 0.17.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | ed25519-dalek | 3.0.0 | BSD-3-Clause | isis lovecruft <isis@patternsinthevoid.net>, Tony Arcieri <bascule@gmail.com>, Michael Rosenberg <michael@mrosenberg.pub> |
 | cargo | ed25519 | 3.0.0 | Apache-2.0 OR MIT | RustCrypto Developers |
+| cargo | either | 1.19.0 | MIT OR Apache-2.0 |  |
 | cargo | elliptic-curve | 0.14.1 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | email_address | 0.2.9 | MIT | Simon Johnston <johnstonskj@gmail.com> |
 | cargo | embed-resource | 3.0.11 | MIT | наб <nabijaczleweli@nabijaczleweli.xyz>, Cat Plus Plus <piotrlegnica@piotrl.pl>, Liigo <liigo@qq.com>, azyobuzin <azyobuzin@users.sourceforge.jp>, Peter Atashian <retep998@gmail.com>, pravic <ehysta@gmail.com>, Gabriel Majeri <gabriel.majeri6@gmail.com>, SonnyX, Johan Andersson <repi@repi.se>, Jordan Poles <jpdev.noreply@gmail.com>, MSxDOS <melcodos@gmail.com>, Jim McGrath <jimmc2@gmail.com>, roblabla <unfiltered@roblab.la>, Jasper Bekkers <jasper@traverseresearch.nl>, Richard Markiewicz <rmarkiewicz@devolutions.net>, Emerson de Freitas Barcelos <emersonfxbx@gmail.com>, Li Keqing <me@kaze.ai>, Alexis Bourget <alexis.bourget@gmail.com>, Michael Farrell <micolous+git@gmail.com>, Jacob Okamoto <oko@oko.io>, Marijn Suijten <marijn@traverseresearch.nl>, Lucas Nogueira <lucas@tauri.app>, CharlesChen0823 <yongchen0823@gmail.com>, Daniel Schaefer <dhs@frame.work>, Rene Leonhardt, ssrlive, Kan-Ru Chen <kanru@kanru.info>, Tony <legendmastertony@gmail.com>, Berrysoft <Strawberry_Str@hotmail.com>, Marcus Ahlberg <marcus.ahlberg@kvaser.com> |
@@ -191,11 +278,14 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | equivalent | 1.0.2 | Apache-2.0 OR MIT |  |
 | cargo | erased-serde | 0.4.10 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | errno | 0.3.14 | MIT OR Apache-2.0 | Chris Wong <lambda.fairy@gmail.com>, Dan Gohman <dev@sunfishcode.online> |
+| cargo | ethnum | 1.5.3 | MIT OR Apache-2.0 | Nicholas Rodrigues Lordello <nlordell@gmail.com> |
 | cargo | event-listener-strategy | 0.5.4 | Apache-2.0 OR MIT | John Nunley <dev@notgull.net> |
 | cargo | event-listener | 5.4.2 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com>, John Nunley <dev@notgull.net> |
 | cargo | fallible-iterator | 0.3.0 | MIT/Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
 | cargo | fallible-streaming-iterator | 0.1.9 | MIT/Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
 | cargo | fancy-regex | 0.14.0 | MIT | Raph Levien <raph@google.com>, Robin Stocker <robin@nibor.org> |
+| cargo | fast-float2 | 0.2.4 | MIT OR Apache-2.0 | Ivan Smirnov <i.s.smirnov@gmail.com>, Alex Huszagh <ahuszagh@gmail.com> |
+| cargo | fastdivide | 0.4.2 | zlib-acknowledgement OR MIT | Paul Masurel <paul.masurel@gmail.com> |
 | cargo | fastrand | 2.5.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
 | cargo | fdeflate | 0.3.7 | MIT OR Apache-2.0 | The image-rs Developers |
 | cargo | ff | 0.14.0 | MIT/Apache-2.0 | Sean Bowe <ewillbefull@gmail.com>, Jack Grigg <thestr4d@gmail.com> |
@@ -203,8 +293,11 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | field-offset | 0.3.6 | MIT OR Apache-2.0 | Diggory Blake <diggsey@googlemail.com> |
 | cargo | filetime | 0.2.29 | MIT/Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | find-msvc-tools | 0.1.14 | MIT OR Apache-2.0 |  |
+| cargo | fixedbitset | 0.5.7 | MIT OR Apache-2.0 | bluss |
+| cargo | flatbuffers | 25.12.19 | Apache-2.0 | Robert Winslow <hello@rwinslow.com>, FlatBuffers Maintainers |
 | cargo | flate2 | 1.1.10 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com>, Josh Triplett <josh@joshtriplett.org> |
 | cargo | float-cmp | 0.10.0 | MIT | Mike Dilger <mike@mikedilger.com> |
+| cargo | float_next_after | 1.0.0 | MIT | Bronson Brown-deVost <bronsonbdevost@gmail.com> |
 | cargo | fluent-uri | 0.3.2 | MIT | Scallop Ye <yescallop@gmail.com> |
 | cargo | flurry | 0.5.2 | MIT OR Apache-2.0 | Jon Gjengset <jon@thesquareplanet.com> |
 | cargo | fnv | 1.0.7 | Apache-2.0 / MIT | Alex Crichton <alex@alexcrichton.com> |
@@ -217,17 +310,25 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | foreign-types | 0.5.0 | MIT/Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
 | cargo | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 | The rust-url developers |
 | cargo | fraction | 0.15.4 | MIT OR Apache-2.0 | dnsl48 <dnsl48@gmail.com> |
+| cargo | fs4 | 0.8.4 | MIT OR Apache-2.0 | Dan Burkert <dan@danburkert.com>, Al Liu <scygliu1@gmail.com> |
+| cargo | fsst | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | fst | 0.4.7 | Unlicense/MIT | Andrew Gallant <jamslam@gmail.com> |
+| cargo | funty | 2.0.0 | MIT | myrrlyn <self@myrrlyn.dev> |
 | cargo | futures-channel | 0.3.34 | MIT OR Apache-2.0 |  |
 | cargo | futures-core | 0.3.34 | MIT OR Apache-2.0 |  |
 | cargo | futures-executor | 0.3.31 | MIT OR Apache-2.0 |  |
+| cargo | futures-executor | 0.3.34 | MIT OR Apache-2.0 |  |
 | cargo | futures-io | 0.3.34 | MIT OR Apache-2.0 |  |
 | cargo | futures-lite | 2.6.1 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com>, Contributors to futures-rs |
 | cargo | futures-macro | 0.3.31 | MIT OR Apache-2.0 |  |
+| cargo | futures-macro | 0.3.34 | MIT OR Apache-2.0 |  |
 | cargo | futures-sink | 0.3.34 | MIT OR Apache-2.0 |  |
 | cargo | futures-task | 0.3.34 | MIT OR Apache-2.0 |  |
+| cargo | futures-timer | 3.0.4 | MIT/Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | futures-util | 0.3.31 | MIT OR Apache-2.0 |  |
 | cargo | futures-util | 0.3.34 | MIT OR Apache-2.0 |  |
 | cargo | futures | 0.3.31 | MIT OR Apache-2.0 |  |
+| cargo | futures | 0.3.34 | MIT OR Apache-2.0 |  |
 | cargo | gdk-pixbuf-sys | 0.18.0 | MIT | The gtk-rs Project Developers |
 | cargo | gdk-pixbuf | 0.18.5 | MIT | The gtk-rs Project Developers |
 | cargo | gdk-sys | 0.18.2 | MIT | The gtk-rs Project Developers |
@@ -235,8 +336,18 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | gdkwayland-sys | 0.18.2 | MIT | The gtk-rs Project Developers |
 | cargo | gdkx11-sys | 0.18.2 | MIT | The gtk-rs Project Developers |
 | cargo | gdkx11 | 0.18.2 | MIT | The gtk-rs Project Developers |
+| cargo | generator | 0.8.11 | MIT/Apache-2.0 | Xudong Huang <huangxu008@hotmail.com> |
 | cargo | generic-array | 0.14.7 | MIT | Bartłomiej Kamiński <fizyk20@gmail.com>, Aaron Trent <novacrazy@gmail.com> |
 | cargo | generic-array | 1.4.5 | MIT | Bartłomiej Kamiński <fizyk20@gmail.com>, Aaron Trent <novacrazy@gmail.com> |
+| cargo | geo-traits | 0.3.0 | MIT OR Apache-2.0 |  |
+| cargo | geo-types | 0.7.20 | MIT OR Apache-2.0 |  |
+| cargo | geo | 0.31.0 | MIT OR Apache-2.0 |  |
+| cargo | geoarrow-array | 0.7.0 | MIT OR Apache-2.0 | Kyle Barron <kylebarron2@gmail.com> |
+| cargo | geoarrow-expr-geo | 0.7.0 | MIT OR Apache-2.0 | Kyle Barron <kylebarron2@gmail.com> |
+| cargo | geoarrow-schema | 0.7.0 | MIT OR Apache-2.0 | Kyle Barron <kylebarron2@gmail.com> |
+| cargo | geodatafusion | 0.2.0 | MIT OR Apache-2.0 | Kyle Barron <kylebarron2@gmail.com> |
+| cargo | geographiclib-rs | 0.2.7 | MIT |  |
+| cargo | geohash | 0.13.2 | MIT/Apache-2.0 | Ning Sun <sunng@about.me> |
 | cargo | gethostname | 0.5.0 | Apache-2.0 | Sebastian Wiesner <sebastian@swsnr.de> |
 | cargo | getrandom | 0.2.17 | MIT OR Apache-2.0 | The Rand Project Developers |
 | cargo | getrandom | 0.3.4 | MIT OR Apache-2.0 | The Rand Project Developers |
@@ -254,12 +365,17 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | gtk3-macros | 0.18.2 | MIT | The gtk-rs Project Developers |
 | cargo | gtk | 0.18.2 | MIT | The gtk-rs Project Developers |
 | cargo | h2 | 0.4.19 | MIT | Carl Lerche <me@carllerche.com>, Sean McArthur <sean@seanmonstar.com> |
+| cargo | h2 | 0.4.20 | MIT | Carl Lerche <me@carllerche.com>, Sean McArthur <sean@seanmonstar.com> |
+| cargo | half | 2.7.1 | MIT OR Apache-2.0 | Kathryn Long <squeeself@gmail.com> |
+| cargo | hash32 | 0.3.1 | MIT OR Apache-2.0 | Jorge Aparicio <jorge@japaric.io> |
 | cargo | hashbrown | 0.12.3 | MIT OR Apache-2.0 | Amanieu d'Antras <amanieu@gmail.com> |
 | cargo | hashbrown | 0.14.5 | MIT OR Apache-2.0 | Amanieu d'Antras <amanieu@gmail.com> |
 | cargo | hashbrown | 0.15.5 | MIT OR Apache-2.0 | Amanieu d'Antras <amanieu@gmail.com> |
 | cargo | hashbrown | 0.16.1 | MIT OR Apache-2.0 | Amanieu d'Antras <amanieu@gmail.com> |
 | cargo | hashbrown | 0.17.1 | MIT OR Apache-2.0 |  |
 | cargo | hashlink | 0.10.0 | MIT OR Apache-2.0 | kyren <kerriganw@gmail.com> |
+| cargo | hashlink | 0.12.2 | MIT OR Apache-2.0 |  |
+| cargo | heapless | 0.8.0 | MIT OR Apache-2.0 | Jorge Aparicio <jorge@japaric.io>, Per Lindgren <per.lindgren@ltu.se>, Emil Fresk <emil.fresk@gmail.com> |
 | cargo | heck | 0.4.1 | MIT OR Apache-2.0 | Without Boats <woboats@gmail.com> |
 | cargo | heck | 0.5.0 | MIT OR Apache-2.0 |  |
 | cargo | hermit-abi | 0.5.3 | MIT OR Apache-2.0 |  |
@@ -270,11 +386,13 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | hmac | 0.13.0 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | home | 0.5.12 | MIT OR Apache-2.0 | Brian Anderson <andersrb@gmail.com> |
 | cargo | html5ever | 0.39.0 | MIT OR Apache-2.0 | The html5ever Project Developers |
+| cargo | htmlescape | 0.3.1 | Apache-2.0 / MIT / MPL-2.0 | Viktor Dahl <pazaconyoman@gmail.com> |
 | cargo | http-body-util | 0.1.5 | MIT | Carl Lerche <me@carllerche.com>, Lucio Franco <luciofranco14@gmail.com>, Sean McArthur <sean@seanmonstar.com> |
 | cargo | http-body | 1.1.0 | MIT | Carl Lerche <me@carllerche.com>, Lucio Franco <luciofranco14@gmail.com>, Sean McArthur <sean@seanmonstar.com> |
 | cargo | http | 1.5.0 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com>, Carl Lerche <me@carllerche.com>, Sean McArthur <sean@seanmonstar.com> |
 | cargo | httparse | 1.10.1 | MIT OR Apache-2.0 | Sean McArthur <sean@seanmonstar.com> |
 | cargo | httpdate | 1.0.3 | MIT OR Apache-2.0 | Pyfisch <pyfisch@posteo.org> |
+| cargo | humantime | 2.4.0 | MIT OR Apache-2.0 |  |
 | cargo | hybrid-array | 0.4.15 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | hyper-named-pipe | 0.1.1 | Apache-2.0 |  |
 | cargo | hyper-rustls | 0.27.10 | Apache-2.0 OR ISC OR MIT |  |
@@ -283,6 +401,12 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | hyper | 1.11.1 | MIT | Sean McArthur <sean@seanmonstar.com> |
 | cargo | hyper | 1.12.0 | MIT | Sean McArthur <sean@seanmonstar.com> |
 | cargo | hyperlocal | 0.9.1 | MIT | softprops <d.tangren@gmail.com> |
+| cargo | hyperloglogplus | 0.4.1 | MIT | Tasos Bakogiannis <t.bakogiannis@gmail.com> |
+| cargo | i_float | 1.15.0 | MIT | Nail Sharipov <nailxsharipov@gmail.com> |
+| cargo | i_key_sort | 0.6.0 | MIT | Nail Sharipov <nailxsharipov@gmail.com> |
+| cargo | i_overlay | 4.0.7 | MIT | Nail Sharipov <nailxsharipov@gmail.com> |
+| cargo | i_shape | 1.14.0 | MIT | Nail Sharipov <nailxsharipov@gmail.com> |
+| cargo | i_tree | 0.16.0 | MIT | Nail Sharipov <nailxsharipov@gmail.com> |
 | cargo | iana-time-zone-haiku | 0.1.2 | MIT OR Apache-2.0 | René Kijewski <crates.io@k6i.de> |
 | cargo | iana-time-zone | 0.1.65 | MIT OR Apache-2.0 | Andrew Straw <strawman@astraw.com>, René Kijewski <rene.kijewski@fu-berlin.de>, Ryan Lopopolo <rjl@hyperbo.la> |
 | cargo | ico | 0.5.0 | MIT | Matthew D. Steele <mdsteele@alum.mit.edu> |
@@ -305,23 +429,31 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | inout | 0.2.2 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | ipnet | 2.12.2 | MIT OR Apache-2.0 | Kris Price <kris@krisprice.nz> |
 | cargo | is_terminal_polyfill | 1.70.2 | MIT OR Apache-2.0 |  |
+| cargo | itertools | 0.11.0 | MIT OR Apache-2.0 | bluss |
+| cargo | itertools | 0.13.0 | MIT OR Apache-2.0 | bluss |
+| cargo | itertools | 0.14.0 | MIT OR Apache-2.0 | bluss |
 | cargo | itoa | 1.0.18 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | javascriptcore-rs-sys | 1.1.1 | MIT | The Gtk-rs Project Developers |
 | cargo | javascriptcore-rs | 1.1.2 | MIT |  |
 | cargo | jiff-core | 0.1.1 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com> |
 | cargo | jiff-static | 0.2.37 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com> |
+| cargo | jiff-static | 0.2.38 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com> |
 | cargo | jiff-tzdb-platform | 0.1.3 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com> |
 | cargo | jiff-tzdb | 0.1.8 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com> |
+| cargo | jiff-tzdb | 0.1.9 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com> |
 | cargo | jiff | 0.2.37 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com> |
+| cargo | jiff | 0.2.38 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com> |
 | cargo | jni-macros | 0.22.4 | MIT OR Apache-2.0 |  |
 | cargo | jni-sys-macros | 0.4.1 | MIT OR Apache-2.0 | Robert Bragg <robert@sixbynine.org> |
 | cargo | jni-sys | 0.3.1 | MIT OR Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
 | cargo | jni-sys | 0.4.1 | MIT OR Apache-2.0 | Steven Fackler <sfackler@gmail.com>, Robert Bragg <robert@sixbynine.org> |
 | cargo | jni | 0.21.1 | MIT/Apache-2.0 | Josh Chase <josh@prevoty.com> |
 | cargo | jni | 0.22.4 | MIT OR Apache-2.0 | jni team |
+| cargo | jobserver | 0.1.35 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | js-sys | 0.3.105 | MIT OR Apache-2.0 | The wasm-bindgen Developers |
 | cargo | js-sys | 0.3.106 | MIT OR Apache-2.0 | The wasm-bindgen Developers |
 | cargo | json-patch | 4.2.0 | MIT/Apache-2.0 | Ivan Dubrov <dubrov.ivan@gmail.com> |
+| cargo | jsonb | 0.5.6 | Apache-2.0 | Databend Authors <opensource@datafuselabs.com> |
 | cargo | jsonptr | 0.7.1 | MIT OR Apache-2.0 | chance dinkins, André Sá de Mello <codasm@pm.me>, Oliver Wangler <oliver@wngr.de> |
 | cargo | jsonschema | 0.26.2 | MIT | Dmitry Dygalo <dmitry@dygalo.dev> |
 | cargo | keccak | 0.2.2 | Apache-2.0 OR MIT | RustCrypto Developers |
@@ -329,29 +461,68 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | keyboard-types | 0.8.3 | MIT OR Apache-2.0 | Pyfisch <pyfisch@posteo.org> |
 | cargo | keyring-core | 1.0.0 | MIT OR Apache-2.0 | Daniel Brotsky <dev@brotsky.com> |
 | cargo | keyring | 4.2.0 | MIT OR Apache-2.0 | Daniel Brotsky <dev@brotsky.com> |
+| cargo | lance-arrow | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-bitpacking | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-core | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-datafusion | 2.0.0 | Apache-2.0 |  |
+| cargo | lance-datagen | 2.0.0 | Apache-2.0 |  |
+| cargo | lance-encoding | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-file | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-geo | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-index | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-io | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-linalg | 2.0.0 | Apache-2.0 |  |
+| cargo | lance-namespace-impls | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-namespace-reqwest-client | 0.4.5 | Apache-2.0 | OpenAPI Generator team and contributors |
+| cargo | lance-namespace | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-table | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance-testing | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lance | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
+| cargo | lancedb | 0.26.2 | Apache-2.0 |  |
 | cargo | lazy_static | 1.5.0 | MIT OR Apache-2.0 | Marvin Löbel <loebel.marvin@gmail.com> |
 | cargo | lazy_static | 1.5.1 | MIT OR Apache-2.0 | Marvin Löbel <loebel.marvin@gmail.com> |
+| cargo | levenshtein_automata | 0.2.1 | MIT | Paul Masurel <paul.masurel@gmail.com> |
+| cargo | lexical-core | 1.0.6 | MIT/Apache-2.0 | Alex Huszagh <ahuszagh@gmail.com> |
+| cargo | lexical-parse-float | 1.0.6 | MIT/Apache-2.0 | Alex Huszagh <ahuszagh@gmail.com> |
+| cargo | lexical-parse-integer | 1.0.6 | MIT/Apache-2.0 | Alex Huszagh <ahuszagh@gmail.com> |
+| cargo | lexical-util | 1.0.7 | MIT/Apache-2.0 | Alex Huszagh <ahuszagh@gmail.com> |
+| cargo | lexical-write-float | 1.0.6 | MIT/Apache-2.0 | Alex Huszagh <ahuszagh@gmail.com> |
+| cargo | lexical-write-integer | 1.0.6 | MIT/Apache-2.0 | Alex Huszagh <ahuszagh@gmail.com> |
 | cargo | libappindicator-sys | 0.9.0 | Apache-2.0 OR MIT |  |
 | cargo | libappindicator | 0.9.0 | Apache-2.0 OR MIT |  |
 | cargo | libc | 0.2.189 | MIT OR Apache-2.0 |  |
 | cargo | libdbus-sys | 0.2.7 | Apache-2.0/MIT | David Henningsson <diwic@ubuntu.com> |
 | cargo | libloading | 0.7.4 | ISC | Simonas Kazlauskas <libloading@kazlauskas.me> |
+| cargo | libm | 0.2.16 | MIT | Alex Crichton <alex@alexcrichton.com>, Amanieu d'Antras <amanieu@gmail.com>, Jorge Aparicio <japaricious@gmail.com>, Trevor Gross <tg@trevorgross.com> |
 | cargo | libredox | 0.1.25 | MIT | 4lDO2 <4lDO2@protonmail.com> |
 | cargo | libsqlite3-sys | 0.35.0 | MIT | The rusqlite developers |
+| cargo | libsqlite3-sys | 0.38.2 | MIT | The rusqlite developers |
 | cargo | linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | Dan Gohman <dev@sunfishcode.online> |
 | cargo | linux-raw-sys | 0.4.15 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | Dan Gohman <dev@sunfishcode.online> |
 | cargo | litemap | 0.8.3 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | litrs | 1.0.0 | MIT OR Apache-2.0 | Lukas Kalbertodt <lukas.kalbertodt@gmail.com> |
 | cargo | lock_api | 0.4.14 | MIT OR Apache-2.0 | Amanieu d'Antras <amanieu@gmail.com> |
 | cargo | log | 0.4.34 | MIT OR Apache-2.0 | The Rust Project Developers |
+| cargo | loom | 0.7.2 | MIT | Carl Lerche <me@carllerche.com> |
 | cargo | lru-slab | 0.1.3 | MIT OR Apache-2.0 OR Zlib | Benjamin Saunders <ben.e.saunders@gmail.com> |
+| cargo | lru | 0.12.5 | MIT | Jerome Froelich <jeromefroelic@hotmail.com> |
+| cargo | lz4-sys | 1.11.1+lz4-1.10.0 | MIT | Jens Heyens <jens.heyens@ewetel.net>, Artem V. Navrotskiy <bozaro@buzzsoft.ru>, Patrick Marks <pmarks@gmail.com> |
+| cargo | lz4 | 1.28.1 | MIT | Jens Heyens <jens.heyens@ewetel.net>, Artem V. Navrotskiy <bozaro@buzzsoft.ru>, Patrick Marks <pmarks@gmail.com> |
+| cargo | lz4_flex | 0.11.6 | MIT | Pascal Seitz <pascal.seitz@gmail.com>, Arthur Silva <arthurprs@gmail.com>, ticki <Ticki@users.noreply.github.com> |
+| cargo | lz4_flex | 0.12.2 | MIT | Pascal Seitz <pascal.seitz@gmail.com>, Arthur Silva <arthurprs@gmail.com>, ticki <Ticki@users.noreply.github.com> |
 | cargo | mac-notification-sys | 0.6.15 | MIT/Apache-2.0 | Felix Döring <development@felixdoering.com>, Hendrik Sollich <hendrik@hoodie.de> |
 | cargo | markup5ever | 0.39.0 | MIT OR Apache-2.0 | The html5ever Project Developers |
+| cargo | matchers | 0.2.0 | MIT | Eliza Weisman <eliza@buoyant.io> |
 | cargo | matchit | 0.8.4 | MIT AND BSD-3-Clause | Ibraheem Ahmed <ibraheem@ibraheem.ca> |
+| cargo | matrixmultiply | 0.3.11 | MIT/Apache-2.0 | bluss, R. Janis Goldschmidt |
+| cargo | md-5 | 0.10.6 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | md5 | 0.8.1 | Apache-2.0 OR MIT | Daniel McKenna <danielmckenna93@gmail.com>, Ivan Ukhov <ivan.ukhov@gmail.com>, Kamal Ahmad <shibe@openmailbox.org>, Konstantin Stepanov <milezv@gmail.com>, Lukas Kalbertodt <lukas.kalbertodt@gmail.com>, Nathan Musoke <nathan.musoke@gmail.com>, Scott Mabin <scott@mabez.dev>, Tony Arcieri <bascule@gmail.com>, Wim de With <register@dewith.io>, Yosef Dinerstein <yosefdi@gmail.com> |
+| cargo | measure_time | 0.9.0 | MIT | Pascal Seitz <pascal.seitz@gmail.com> |
 | cargo | memchr | 2.8.3 | Unlicense OR MIT | Andrew Gallant <jamslam@gmail.com>, bluss |
+| cargo | memmap2 | 0.9.12 | MIT OR Apache-2.0 | Dan Burkert <dan@danburkert.com>, Yevhenii Reizner <razrfalcon@gmail.com>, The Contributors |
 | cargo | memoffset | 0.9.1 | MIT | Gilad Naaman <gilad.naaman@gmail.com> |
 | cargo | mime | 0.3.17 | MIT OR Apache-2.0 | Sean McArthur <sean@seanmonstar.com> |
+| cargo | mime_guess | 2.0.5 | MIT | Austin Bonander <austin.bonander@gmail.com> |
 | cargo | minimal-lexical | 0.2.1 | MIT/Apache-2.0 | Alex Huszagh <ahuszagh@gmail.com> |
 | cargo | minisign-verify | 0.2.5 | MIT | Frank Denis <github@pureftpd.org> |
 | cargo | minisign | 0.10.0 | MIT | Frank Denis <github@pureftpd.org>, Daniel Rangel <daniel@rangel.in> |
@@ -360,19 +531,26 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | mio | 1.2.3 | MIT | Carl Lerche <me@carllerche.com>, Thomas de Zeeuw <thomasdezeeuw@gmail.com>, Tokio Contributors <team@tokio.rs> |
 | cargo | mio | 1.2.4 | MIT | Carl Lerche <me@carllerche.com>, Thomas de Zeeuw <thomasdezeeuw@gmail.com>, Tokio Contributors <team@tokio.rs> |
 | cargo | ml-kem | 0.3.3 | Apache-2.0 OR MIT |  |
+| cargo | mock_instant | 0.6.1 | 0BSD | museun <museun@outlook.com> |
 | cargo | module-lattice | 0.2.3 | Apache-2.0 OR MIT |  |
+| cargo | moka | 0.12.16 | (MIT OR Apache-2.0) AND Apache-2.0 |  |
 | cargo | moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 | Radzivon Bartoshyk |
 | cargo | muda | 0.20.0 | Apache-2.0 OR MIT |  |
+| cargo | multimap | 0.10.1 | MIT OR Apache-2.0 | Håvar Nøvik <havar.novik@gmail.com> |
 | cargo | multiversion_no_op | 1.0.0 | Apache-2.0 OR MIT | Henri Sivonen <hsivonen@hsivonen.fi> |
+| cargo | murmurhash32 | 0.3.1 | MIT | Paul Masurel <paul.masurel@gmail.com> |
 | cargo | native-tls | 0.2.18 | MIT OR Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
+| cargo | ndarray | 0.16.1 | MIT OR Apache-2.0 | Ulrik Sverdrup "bluss", Jim Turner |
 | cargo | ndk-context | 0.1.1 | MIT OR Apache-2.0 | The Rust Windowing contributors |
 | cargo | ndk-sys | 0.6.0+11769913 | MIT OR Apache-2.0 | The Rust Windowing contributors |
 | cargo | ndk | 0.9.0 | MIT OR Apache-2.0 | The Rust Mobile contributors |
 | cargo | new_debug_unreachable | 1.0.6 | MIT | Matt Brubeck <mbrubeck@limpet.net>, Jonathan Reem <jonathan.reem@gmail.com> |
 | cargo | nix | 0.31.3 | MIT |  |
 | cargo | nom | 7.1.3 | MIT | contact@geoffroycouprie.com |
+| cargo | nom | 8.0.0 | MIT | contact@geoffroycouprie.com |
 | cargo | normalize-line-endings | 0.3.0 | Apache-2.0 | Richard Dodd <richdodj@gmail.com> |
 | cargo | notify-rust | 4.18.1 | MIT OR Apache-2.0 | Hendrik Sollich <hendrik@hoodie.de> |
+| cargo | nu-ansi-term | 0.50.3 | MIT | ogham@bsago.me, Ryan Scheel (Havvy) <ryan.havvy@gmail.com>, Josh Triplett <josh@joshtriplett.org>, The Nushell Project Developers |
 | cargo | num-bigint | 0.4.8 | MIT OR Apache-2.0 | The Rust Project Developers |
 | cargo | num-bigint | 0.5.1 | MIT OR Apache-2.0 |  |
 | cargo | num-cmp | 0.1.0 | MIT/Apache-2.0 | Kang Seonghoon <public+git@mearie.org> |
@@ -406,19 +584,23 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | objc2-web-kit | 0.3.2 | Zlib OR Apache-2.0 OR MIT |  |
 | cargo | objc2 | 0.6.4 | MIT | Mads Marquart <mads@marquart.dk> |
 | cargo | objc2 | 0.6.5 | MIT | Mads Marquart <mads@marquart.dk> |
+| cargo | object_store | 0.12.5 | MIT/Apache-2.0 |  |
 | cargo | oid-registry | 0.8.1 | MIT OR Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
 | cargo | once_cell | 1.21.4 | MIT OR Apache-2.0 | Aleksey Kladov <aleksey.kladov@gmail.com> |
 | cargo | once_cell_polyfill | 1.70.2 | MIT OR Apache-2.0 |  |
+| cargo | oneshot | 0.1.13 | MIT OR Apache-2.0 | Linus Färnstrand <faern@faern.net> |
 | cargo | openssl-macros | 0.1.1 | MIT/Apache-2.0 |  |
 | cargo | openssl-probe | 0.1.6 | MIT/Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | openssl-probe | 0.2.1 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | openssl-sys | 0.9.117 | MIT | Alex Crichton <alex@alexcrichton.com>, Steven Fackler <sfackler@gmail.com> |
 | cargo | openssl | 0.10.81 | Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
 | cargo | option-ext | 0.2.0 | MPL-2.0 | Simon Ochsenreither <simon@ochsenreither.de> |
+| cargo | ordered-float | 5.5.0 | MIT | Jonathan Reem <jonathan.reem@gmail.com>, Matt Brubeck <mbrubeck@limpet.net> |
 | cargo | ordered-multimap | 0.7.3 | MIT | Scott Godwin <sgodwincs@gmail.com> |
 | cargo | ordered-stream | 0.2.0 | MIT OR Apache-2.0 | Daniel De Graaf <code@danieldg.net>, Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | osakit | 0.3.1 | MIT OR Apache-2.0 | Marat Dulin <mdevils@gmail.com> |
 | cargo | outref | 0.5.2 | MIT |  |
+| cargo | ownedbytes | 0.9.0 | MIT | Paul Masurel <paul@quickwit.io>, Pascal Seitz <pascal@quickwit.io> |
 | cargo | p256 | 0.14.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | p384 | 0.14.0 | Apache-2.0 OR MIT | RustCrypto Developers, Frank Denis <github@pureftpd.org> |
 | cargo | p521 | 0.14.0 | Apache-2.0 OR MIT | RustCrypto Developers |
@@ -430,18 +612,26 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | parking_lot_core | 0.9.12 | MIT OR Apache-2.0 | Amanieu d'Antras <amanieu@gmail.com> |
 | cargo | password-hash | 0.5.0 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | password-hash | 0.6.1 | MIT OR Apache-2.0 | RustCrypto Developers |
+| cargo | paste | 1.0.15 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
+| cargo | path_abs | 0.5.1 | MIT OR Apache-2.0 | Rett Berg <googberg@gmail.com> |
 | cargo | pbkdf2 | 0.12.2 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | pbkdf2 | 0.13.0 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | pem-rfc7468 | 1.0.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | pem | 3.0.6 | MIT | Jonathan Creekmore <jonathan@thecreekmores.org> |
 | cargo | percent-encoding | 2.3.2 | MIT OR Apache-2.0 | The rust-url developers |
+| cargo | permutation | 0.4.1 | Apache-2.0/MIT | Jeremy Salwen <jeremysalwen@gmail.com> |
+| cargo | petgraph | 0.8.3 | MIT OR Apache-2.0 | bluss, mitchmindtree |
 | cargo | phc | 0.6.1 | Apache-2.0 OR MIT | RustCrypto Developers |
+| cargo | phf | 0.12.1 | MIT | Steven Fackler <sfackler@gmail.com> |
 | cargo | phf | 0.13.1 | MIT | Steven Fackler <sfackler@gmail.com> |
 | cargo | phf_codegen | 0.13.1 | MIT | Steven Fackler <sfackler@gmail.com> |
 | cargo | phf_generator | 0.13.1 | MIT | Steven Fackler <sfackler@gmail.com> |
 | cargo | phf_macros | 0.13.1 | MIT | Steven Fackler <sfackler@gmail.com> |
+| cargo | phf_shared | 0.12.1 | MIT | Steven Fackler <sfackler@gmail.com> |
 | cargo | phf_shared | 0.13.1 | MIT | Steven Fackler <sfackler@gmail.com> |
+| cargo | pin-project-internal | 1.1.13 | Apache-2.0 OR MIT |  |
 | cargo | pin-project-lite | 0.2.17 | Apache-2.0 OR MIT |  |
+| cargo | pin-project | 1.1.13 | Apache-2.0 OR MIT |  |
 | cargo | pin-utils | 0.1.0 | MIT OR Apache-2.0 | Josef Brandl <mail@josefbrandl.de> |
 | cargo | piper | 0.2.5 | MIT OR Apache-2.0 | Stjepan Glavina <stjepang@gmail.com>, John Nunley <dev@notgull.net> |
 | cargo | pkcs5 | 0.8.1 | Apache-2.0 OR MIT | RustCrypto Developers |
@@ -465,6 +655,7 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | predicates-tree | 1.0.13 | MIT OR Apache-2.0 |  |
 | cargo | predicates | 3.1.4 | MIT OR Apache-2.0 | Nick Stevens <nick@bitcurry.com> |
 | cargo | prettyplease | 0.2.37 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
+| cargo | prettyplease | 0.3.0 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | primefield | 0.14.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | primeorder | 0.14.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | proc-macro-crate | 1.3.1 | MIT OR Apache-2.0 | Bastian Köcher <git@kchr.de> |
@@ -474,6 +665,11 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | proc-macro-error | 1.0.4 | MIT OR Apache-2.0 | CreepySkeleton <creepy-skeleton@yandex.ru> |
 | cargo | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com>, Alex Crichton <alex@alexcrichton.com> |
 | cargo | proptest | 1.11.0 | MIT OR Apache-2.0 | Jason Lingle |
+| cargo | prost-build | 0.14.4 | Apache-2.0 | Dan Burkert <dan@danburkert.com>, Lucio Franco <luciofranco14@gmail.com>, Casper Meijn <casper@meijn.net>, Tokio Contributors <team@tokio.rs> |
+| cargo | prost-derive | 0.14.4 | Apache-2.0 | Dan Burkert <dan@danburkert.com>, Lucio Franco <luciofranco14@gmail.com>, Casper Meijn <casper@meijn.net>, Tokio Contributors <team@tokio.rs> |
+| cargo | prost-types | 0.14.4 | Apache-2.0 | Dan Burkert <dan@danburkert.com>, Lucio Franco <luciofranco14@gmail.com>, Casper Meijn <casper@meijn.net>, Tokio Contributors <team@tokio.rs> |
+| cargo | prost | 0.14.4 | Apache-2.0 | Dan Burkert <dan@danburkert.com>, Lucio Franco <luciofranco14@gmail.com>, Casper Meijn <casper@meijn.net>, Tokio Contributors <team@tokio.rs> |
+| cargo | protobuf-src | 2.1.1+27.1 | Apache-2.0 | Materialize, Inc. |
 | cargo | psl-types | 2.0.11 | MIT/Apache-2.0 | rushmorem <rushmore@webenchanter.com> |
 | cargo | publicsuffix | 2.3.0 | MIT/Apache-2.0 | rushmorem <rushmore@webenchanter.com> |
 | cargo | pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 | Radzivon Bartoshyk |
@@ -487,15 +683,26 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | quote | 1.0.47 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | r-efi | 5.3.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later |  |
 | cargo | r-efi | 6.0.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later |  |
+| cargo | radium | 0.7.0 | MIT | Nika Layzell <nika@thelayzells.com>, myrrlyn <self@myrrlyn.dev> |
 | cargo | rand | 0.10.3 | MIT OR Apache-2.0 | The Rand Project Developers, The Rust Project Developers |
+| cargo | rand | 0.8.8 | MIT OR Apache-2.0 | The Rand Project Developers, The Rust Project Developers |
 | cargo | rand | 0.9.5 | MIT OR Apache-2.0 | The Rand Project Developers, The Rust Project Developers |
+| cargo | rand_chacha | 0.3.1 | MIT OR Apache-2.0 | The Rand Project Developers, The Rust Project Developers, The CryptoCorrosion Contributors |
 | cargo | rand_chacha | 0.9.0 | MIT OR Apache-2.0 | The Rand Project Developers, The Rust Project Developers, The CryptoCorrosion Contributors |
 | cargo | rand_core | 0.10.1 | MIT OR Apache-2.0 | The Rand Project Developers |
 | cargo | rand_core | 0.6.4 | MIT OR Apache-2.0 | The Rand Project Developers, The Rust Project Developers |
 | cargo | rand_core | 0.9.5 | MIT OR Apache-2.0 | The Rand Project Developers, The Rust Project Developers |
+| cargo | rand_distr | 0.4.3 | MIT OR Apache-2.0 | The Rand Project Developers |
+| cargo | rand_distr | 0.5.1 | MIT OR Apache-2.0 | The Rand Project Developers |
 | cargo | rand_pcg | 0.10.2 | MIT OR Apache-2.0 | The Rand Project Developers |
 | cargo | rand_xorshift | 0.4.0 | MIT OR Apache-2.0 | The Rand Project Developers, The Rust Project Developers |
+| cargo | rand_xoshiro | 0.7.0 | MIT OR Apache-2.0 | The Rand Project Developers |
+| cargo | random_word | 0.5.2 | MIT |  |
+| cargo | rangemap | 1.8.0 | MIT/Apache-2.0 | Jeff Parsons <jeff@parsons.io> |
 | cargo | raw-window-handle | 0.6.2 | MIT OR Apache-2.0 OR Zlib | Osspial <osspial@gmail.com> |
+| cargo | rawpointer | 0.2.1 | MIT/Apache-2.0 | bluss |
+| cargo | rayon-core | 1.13.0 | MIT OR Apache-2.0 |  |
+| cargo | rayon | 1.12.0 | MIT OR Apache-2.0 |  |
 | cargo | rcgen | 0.13.2 | MIT OR Apache-2.0 |  |
 | cargo | rcgen | 0.14.5 | MIT OR Apache-2.0 |  |
 | cargo | redox_syscall | 0.5.18 | MIT | Jeremy Soller <jackpot51@gmail.com> |
@@ -510,21 +717,30 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | regex | 1.13.1 | MIT OR Apache-2.0 | The Rust Project Developers, Andrew Gallant <jamslam@gmail.com> |
 | cargo | regress | 0.10.5 | MIT OR Apache-2.0 | ridiculousfish <corydoras@ridiculousfish.com> |
 | cargo | regress | 0.12.0 | MIT OR Apache-2.0 | ridiculousfish <corydoras@ridiculousfish.com> |
+| cargo | relative-path | 1.9.3 | MIT OR Apache-2.0 | John-John Tedro <udoprog@tedro.se> |
 | cargo | reqwest | 0.12.24 | MIT OR Apache-2.0 | Sean McArthur <sean@seanmonstar.com> |
 | cargo | reqwest | 0.12.28 | MIT OR Apache-2.0 | Sean McArthur <sean@seanmonstar.com> |
 | cargo | reqwest | 0.13.5 | MIT OR Apache-2.0 | Sean McArthur <sean@seanmonstar.com> |
 | cargo | rfc6979 | 0.6.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | ring | 0.17.14 | Apache-2.0 AND ISC |  |
+| cargo | roaring | 0.10.12 | MIT OR Apache-2.0 | Wim Looman <wim@nemo157.com>, Kerollmops <kero@meilisearch.com> |
+| cargo | robust | 1.2.0 | MIT OR Apache-2.0 | The Spade Developers, The GeoRust Developers |
 | cargo | roff | 1.1.1 | MIT OR Apache-2.0 |  |
 | cargo | roxmltree | 0.21.1 | MIT OR Apache-2.0 | Yevhenii Reizner <razrfalcon@gmail.com> |
 | cargo | rpassword | 7.5.4 | Apache-2.0 | Conrad Kleinespel <conradk@conradk.com> |
+| cargo | rsqlite-vfs | 0.1.1 | MIT |  |
+| cargo | rstar | 0.12.2 | MIT OR Apache-2.0 | Stefan Altmayer <stoeoef@gmail.com>, The Georust Developers <mods@georust.org> |
+| cargo | rstest | 0.26.1 | MIT OR Apache-2.0 | Michele d'Amico <michele.damico@gmail.com> |
+| cargo | rstest_macros | 0.26.1 | MIT OR Apache-2.0 | Michele d'Amico <michele.damico@gmail.com> |
 | cargo | rtoolbox | 0.0.6 | Apache-2.0 | Conrad Kleinespel <conradk@conradk.com> |
 | cargo | rusqlite | 0.37.0 | MIT | The rusqlite developers |
+| cargo | rusqlite | 0.40.2 | MIT | The rusqlite developers |
 | cargo | russh-cryptovec | 0.62.0 | Apache-2.0 | Pierre-Étienne Meunier <pe@pijul.org>, Eugeny <e@ajenti.org |
 | cargo | russh-sftp | 2.1.1 | Apache-2.0 |  |
 | cargo | russh-util | 0.52.0 | Apache-2.0 |  |
 | cargo | russh | 0.64.1 | Apache-2.0 | Pierre-Étienne Meunier <pe@pijul.org> |
 | cargo | rust-ini | 0.21.3 | MIT | Y. T. Chung <zonyitoo@gmail.com> |
+| cargo | rust-stemmers | 1.2.0 | MIT/BSD-3-Clause | Jakob Demler <jdemler@curry-software.com>, CurrySoftware <info@curry-software.com> |
 | cargo | rustc-hash | 2.1.3 | Apache-2.0 OR MIT | The Rust Project Developers |
 | cargo | rustc_version | 0.4.1 | MIT OR Apache-2.0 |  |
 | cargo | rusticata-macros | 4.1.0 | MIT/Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
@@ -548,7 +764,9 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | schemars | 0.8.22 | MIT | Graham Esau <gesau@hotmail.co.uk> |
 | cargo | schemars | 0.9.0 | MIT | Graham Esau <gesau@hotmail.co.uk> |
 | cargo | schemars | 1.2.2 | MIT | Graham Esau <gesau@hotmail.co.uk> |
+| cargo | schemars | 1.2.3 | MIT | Graham Esau <gesau@hotmail.co.uk> |
 | cargo | schemars_derive | 0.8.22 | MIT | Graham Esau <gesau@hotmail.co.uk> |
+| cargo | scoped-tls | 1.0.1 | MIT/Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | scopeguard | 1.2.0 | MIT OR Apache-2.0 | bluss |
 | cargo | scrypt | 0.11.0 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | scrypt | 0.12.0 | MIT OR Apache-2.0 | RustCrypto Developers |
@@ -559,6 +777,7 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | seize | 0.3.3 | MIT | Ibraheem Ahmed <ibraheem@ibraheem.ca> |
 | cargo | selectors | 0.38.0 | MPL-2.0 | The Servo Project Developers |
 | cargo | semver | 1.0.28 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
+| cargo | seq-macro | 0.3.6 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | serde-untagged | 0.1.9 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | serde | 1.0.228 | MIT OR Apache-2.0 | Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com> |
 | cargo | serde | 1.0.229 | MIT OR Apache-2.0 | Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com> |
@@ -576,7 +795,9 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | serde_tokenstream | 0.3.0 | Apache-2.0 |  |
 | cargo | serde_urlencoded | 0.7.1 | MIT/Apache-2.0 | Anthony Ramine <n.oxyde@gmail.com> |
 | cargo | serde_with | 3.22.0 | MIT OR Apache-2.0 | Jonas Bushart, Marcin Kaźmierczak |
+| cargo | serde_with | 3.24.0 | MIT OR Apache-2.0 | Jonas Bushart, Marcin Kaźmierczak |
 | cargo | serde_with_macros | 3.22.0 | MIT OR Apache-2.0 | Jonas Bushart |
+| cargo | serde_with_macros | 3.24.0 | MIT OR Apache-2.0 | Jonas Bushart |
 | cargo | serdect | 0.4.3 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | serialize-to-javascript-impl | 0.1.2 | MIT OR Apache-2.0 | Chip Reed <chip@chip.sh> |
 | cargo | serialize-to-javascript | 0.1.2 | MIT OR Apache-2.0 | Chip Reed <chip@chip.sh> |
@@ -587,6 +808,8 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | sha2 | 0.11.0 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | sha3 | 0.12.0 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | shake | 0.1.0 | MIT OR Apache-2.0 | RustCrypto Developers |
+| cargo | sharded-slab | 0.1.7 | MIT | Eliza Weisman <eliza@buoyant.io> |
+| cargo | shellexpand | 3.1.2 | MIT/Apache-2.0 | Vladimir Matveev <vmatveev@citrine.cc>, Ian Jackson <iwj@torproject.org> |
 | cargo | shlex | 2.0.1 | MIT OR Apache-2.0 | comex <comexk@gmail.com>, Fenhl <fenhl@fenhl.net>, Adrian Taylor <adetaylor@chromium.org>, Alex Touchet <alextouchet@outlook.com>, Daniel Parks <dp+git@oxidized.org>, Garrett Berg <googberg@gmail.com> |
 | cargo | signal-hook-registry | 1.4.8 | MIT OR Apache-2.0 | Michal 'vorner' Vaner <vorner@vorner.cz>, Masaki Hara <ackie.h.gmai@gmail.com> |
 | cargo | signal-hook | 0.3.18 | Apache-2.0/MIT | Michal 'vorner' Vaner <vorner@vorner.cz>, Thomas Himmelstoss <thimm@posteo.de> |
@@ -595,22 +818,33 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | simd_cesu8 | 1.2.0 | Apache-2.0 OR MIT | Sean C. Roach <me@seancroach.dev> |
 | cargo | simdutf8 | 0.1.5 | MIT OR Apache-2.0 | Hans Kratz <hans@appfour.com> |
 | cargo | siphasher | 1.0.4 | MIT OR Apache-2.0 | Frank Denis <github@pureftpd.org> |
+| cargo | sketches-ddsketch | 0.3.1 | Apache-2.0 | Mike Heffner <mikeh@fesnel.com> |
 | cargo | slab | 0.4.12 | MIT | Carl Lerche <me@carllerche.com> |
 | cargo | smallvec | 1.16.1 | MIT OR Apache-2.0 | The Servo Project Developers |
 | cargo | smallvec | 1.16.2 | MIT OR Apache-2.0 | The Servo Project Developers |
+| cargo | snafu-derive | 0.8.9 | MIT OR Apache-2.0 | Jake Goulding <jake.goulding@gmail.com> |
+| cargo | snafu | 0.8.9 | MIT OR Apache-2.0 | Jake Goulding <jake.goulding@gmail.com> |
 | cargo | socket2 | 0.6.5 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com>, Thomas de Zeeuw <thomasdezeeuw@gmail.com> |
 | cargo | softbuffer | 0.4.8 | MIT OR Apache-2.0 |  |
 | cargo | soup3-sys | 0.5.0 | MIT | The Gtk-rs Project Developers |
 | cargo | soup3 | 0.5.0 | MIT |  |
+| cargo | spade | 2.15.1 | MIT OR Apache-2.0 | Stefan Altmayer <stoeoef@gmail.com> |
 | cargo | spki | 0.8.1 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | sponge-cursor | 0.1.0 | MIT OR Apache-2.0 | RustCrypto Developers |
+| cargo | sqlite-wasm-rs | 0.5.5 | MIT | Spxg <unsafe@outlook.es> |
+| cargo | sqlparser | 0.59.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
+| cargo | sqlparser_derive | 0.3.0 | Apache-2.0 | sqlparser-rs authors |
 | cargo | ssh-cipher | 0.3.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | ssh-encoding | 0.3.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | ssh-key | 0.7.0-rc.11 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 | Robert Grosse <n210241048576@gmail.com> |
+| cargo | std_prelude | 0.2.12 | MIT | Garrett Berg <vitiral@gmail.com> |
+| cargo | stfu8 | 0.2.7 | MIT OR Apache-2.0 | Garrett Berg <googberg@gmail.com> |
 | cargo | string_cache | 0.9.0 | MIT OR Apache-2.0 | The Servo Project Developers |
 | cargo | string_cache_codegen | 0.6.1 | MIT OR Apache-2.0 | The Servo Project Developers |
 | cargo | strsim | 0.11.1 | MIT | Danny Guo <danny@dannyguo.com>, maxbachmann <oss@maxbachmann.de> |
+| cargo | strum | 0.26.3 | MIT | Peter Glotfelty <peter.glotfelty@microsoft.com> |
+| cargo | strum_macros | 0.26.4 | MIT | Peter Glotfelty <peter.glotfelty@microsoft.com> |
 | cargo | subtle | 2.6.1 | BSD-3-Clause | Isis Lovecruft <isis@patternsinthevoid.net>, Henry de Valence <hdevalence@hdevalence.ca> |
 | cargo | swift-rs | 1.0.8 | MIT OR Apache-2.0 | The swift-rs contributors |
 | cargo | syn | 1.0.109 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
@@ -623,8 +857,19 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | system-configuration-sys | 0.6.0 | MIT OR Apache-2.0 | Mullvad VPN |
 | cargo | system-configuration | 0.7.0 | MIT OR Apache-2.0 | Mullvad VPN |
 | cargo | system-deps | 6.2.2 | MIT OR Apache-2.0 | Guillaume Desmottes <guillaume.desmottes@collabora.com>, Josh Triplett <josh@joshtriplett.org> |
+| cargo | tagptr | 0.2.0 | MIT/Apache-2.0 | Oliver Giersch |
+| cargo | tantivy-bitpacker | 0.8.0 | MIT | Paul Masurel <paul.masurel@gmail.com> |
+| cargo | tantivy-columnar | 0.5.0 | MIT |  |
+| cargo | tantivy-common | 0.9.0 | MIT | Paul Masurel <paul@quickwit.io>, Pascal Seitz <pascal@quickwit.io> |
+| cargo | tantivy-fst | 0.5.0 | Unlicense/MIT | Andrew Gallant <jamslam@gmail.com> |
+| cargo | tantivy-query-grammar | 0.24.0 | MIT | Paul Masurel <paul.masurel@gmail.com> |
+| cargo | tantivy-sstable | 0.5.0 | MIT |  |
+| cargo | tantivy-stacker | 0.5.0 | MIT |  |
+| cargo | tantivy-tokenizer-api | 0.5.0 | MIT |  |
+| cargo | tantivy | 0.24.2 | MIT | Paul Masurel <paul.masurel@gmail.com> |
 | cargo | tao-macros | 0.1.4 | MIT OR Apache-2.0 | Tauri Programme within The Commons Conservancy |
 | cargo | tao | 0.37.1 | Apache-2.0 | Tauri Programme within The Commons Conservancy, The winit contributors |
+| cargo | tap | 1.0.1 | MIT | Elliott Linder <elliott.darfink@gmail.com>, myrrlyn <self@myrrlyn.dev> |
 | cargo | tar | 0.4.46 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | target-lexicon | 0.12.16 | Apache-2.0 WITH LLVM-exception | Dan Gohman <sunfish@mozilla.com> |
 | cargo | tauri-build | 2.7.0 | Apache-2.0 OR MIT | Tauri Programme within The Commons Conservancy |
@@ -650,6 +895,8 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | thiserror-impl | 2.0.21 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | thiserror | 1.0.69 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | thiserror | 2.0.21 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
+| cargo | thread-tree | 0.3.3 | MIT OR Apache-2.0 | bluss <> |
+| cargo | thread_local | 1.1.10 | MIT OR Apache-2.0 | Amanieu d'Antras <amanieu@gmail.com> |
 | cargo | time-core | 0.1.9 | MIT OR Apache-2.0 | Jacob Pratt <open-source@jhpratt.dev>, Time contributors |
 | cargo | time-macros | 0.2.32 | MIT OR Apache-2.0 | Jacob Pratt <open-source@jhpratt.dev>, Time contributors |
 | cargo | time | 0.3.55 | MIT OR Apache-2.0 | Jacob Pratt <open-source@jhpratt.dev>, Time contributors |
@@ -659,17 +906,22 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | tokio-macros | 2.7.2 | MIT | Tokio Contributors <team@tokio.rs> |
 | cargo | tokio-native-tls | 0.3.1 | MIT | Tokio Contributors <team@tokio.rs> |
 | cargo | tokio-rustls | 0.26.6 | MIT OR Apache-2.0 |  |
+| cargo | tokio-stream | 0.1.19 | MIT | Tokio Contributors <team@tokio.rs> |
 | cargo | tokio-tungstenite | 0.28.0 | MIT | Daniel Abramov <dabramov@snapview.de>, Alexey Galakhov <agalakhov@snapview.de> |
 | cargo | tokio-util | 0.7.19 | MIT | Tokio Contributors <team@tokio.rs> |
+| cargo | tokio-util | 0.7.20 | MIT | Tokio Contributors <team@tokio.rs> |
 | cargo | tokio | 1.53.3 | MIT | Tokio Contributors <team@tokio.rs> |
 | cargo | toml | 0.8.2 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | toml | 1.1.6+spec-1.1.0 | MIT OR Apache-2.0 |  |
 | cargo | toml_datetime | 0.6.3 | MIT OR Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | toml_datetime | 1.1.1+spec-1.1.0 | MIT OR Apache-2.0 |  |
+| cargo | toml_datetime | 1.1.2+spec-1.1.0 | MIT OR Apache-2.0 |  |
 | cargo | toml_edit | 0.19.15 | MIT OR Apache-2.0 | Andronik Ordian <write@reusable.software>, Ed Page <eopage@gmail.com> |
 | cargo | toml_edit | 0.20.2 | MIT OR Apache-2.0 | Andronik Ordian <write@reusable.software>, Ed Page <eopage@gmail.com> |
 | cargo | toml_edit | 0.25.15+spec-1.1.0 | MIT OR Apache-2.0 |  |
+| cargo | toml_edit | 0.25.17+spec-1.1.0 | MIT OR Apache-2.0 |  |
 | cargo | toml_parser | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 |  |
+| cargo | toml_parser | 1.1.5+spec-1.1.0 | MIT OR Apache-2.0 |  |
 | cargo | toml_writer | 1.1.2+spec-1.1.0 | MIT OR Apache-2.0 |  |
 | cargo | tower-http | 0.6.11 | MIT | Tower Maintainers <team@tower-rs.com> |
 | cargo | tower-layer | 0.3.3 | MIT | Tower Maintainers <team@tower-rs.com> |
@@ -677,6 +929,8 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | tower | 0.5.3 | MIT | Tower Maintainers <team@tower-rs.com> |
 | cargo | tracing-attributes | 0.1.31 | MIT | Tokio Contributors <team@tokio.rs>, Eliza Weisman <eliza@buoyant.io>, David Barsky <dbarsky@amazon.com> |
 | cargo | tracing-core | 0.1.36 | MIT | Tokio Contributors <team@tokio.rs> |
+| cargo | tracing-log | 0.2.0 | MIT | Tokio Contributors <team@tokio.rs> |
+| cargo | tracing-subscriber | 0.3.23 | MIT | Eliza Weisman <eliza@buoyant.io>, David Barsky <me@davidbarsky.com>, Tokio Contributors <team@tokio.rs> |
 | cargo | tracing | 0.1.44 | MIT | Eliza Weisman <eliza@buoyant.io>, Tokio Contributors <team@tokio.rs> |
 | cargo | tray-icon | 0.25.1 | MIT OR Apache-2.0 |  |
 | cargo | try-lock | 0.2.5 | MIT | Sean McArthur <sean@seanmonstar.com> |
@@ -690,8 +944,10 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | typify | 0.8.0 | Apache-2.0 |  |
 | cargo | uds_windows | 1.2.1 | MIT | Azure IoT Edge Devs, Harald Hoyer <harald@redhat.com> |
 | cargo | unarray | 0.1.4 | MIT OR Apache-2.0 |  |
+| cargo | unicase | 2.10.0 | MIT OR Apache-2.0 | Sean McArthur <sean@seanmonstar.com> |
 | cargo | unicode-ident | 1.0.26 | (MIT OR Apache-2.0) AND Unicode-3.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | unicode-segmentation | 1.13.3 | MIT OR Apache-2.0 | kwantam <kwantam@gmail.com>, Manish Goregaokar <manishsmail@gmail.com> |
+| cargo | unicode-width | 0.2.2 | MIT OR Apache-2.0 | kwantam <kwantam@gmail.com>, Manish Goregaokar <manishsmail@gmail.com> |
 | cargo | universal-hash | 0.6.1 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | untrusted | 0.9.0 | ISC | Brian Smith <brian@briansmith.org> |
 | cargo | ureq-proto | 0.6.4 | MIT OR Apache-2.0 | Martin Algesten <martin@algesten.se> |
@@ -699,11 +955,13 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | url | 2.5.8 | MIT OR Apache-2.0 | The rust-url developers |
 | cargo | urlpattern | 0.6.0 | MIT | the Deno authors, crowlKats <crowlkats@toaxl.com> |
 | cargo | utf-8 | 0.7.6 | MIT OR Apache-2.0 | Simon Sapin <simon.sapin@exyr.org> |
+| cargo | utf8-ranges | 1.0.5 | Unlicense/MIT | Andrew Gallant <jamslam@gmail.com> |
 | cargo | utf8-zero | 0.8.1 | MIT OR Apache-2.0 | Simon Sapin <simon.sapin@exyr.org>, Martin Algesten <martin@algesten.se> |
 | cargo | utf8_iter | 1.0.4 | Apache-2.0 OR MIT | Henri Sivonen <hsivonen@hsivonen.fi> |
 | cargo | utf8parse | 0.2.2 | Apache-2.0 OR MIT | Joe Wilm <joe@jwilm.com>, Christian Duerr <contact@christianduerr.com> |
 | cargo | uuid-simd | 0.8.0 | MIT |  |
 | cargo | uuid | 1.26.1 | Apache-2.0 OR MIT | Ashley Mannix<ashleymannix@live.com.au>, Dylan DPC<dylan.dpc@gmail.com>, Hunar Roop Kahlon<hunar.roop@gmail.com> |
+| cargo | valuable | 0.1.1 | MIT |  |
 | cargo | vcpkg | 0.2.15 | MIT/Apache-2.0 | Jim McGrath <jimmc2@gmail.com> |
 | cargo | version-compare | 0.2.1 | MIT | Tim Visee <3a4fb3964f@sinenomine.email> |
 | cargo | version_check | 0.9.5 | MIT/Apache-2.0 | Sergio Benitez <sb@sergio.bz> |
@@ -799,13 +1057,17 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | winreg | 0.10.1 | MIT | Igor Shaula <gentoo90@gmail.com> |
 | cargo | winreg | 0.55.0 | MIT | Igor Shaula <gentoo90@gmail.com> |
 | cargo | wit-bindgen | 0.57.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | Alex Crichton <alex@alexcrichton.com> |
+| cargo | wkb | 0.9.3 | MIT OR Apache-2.0 | Kyle Barron <kylebarron2@gmail.com> |
+| cargo | wkt | 0.14.0 | MIT OR Apache-2.0 |  |
 | cargo | wnaf | 0.14.1 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | writeable | 0.6.4 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | wry | 0.57.0 | Apache-2.0 OR MIT | Tauri Programme within The Commons Conservancy |
+| cargo | wyz | 0.5.1 | MIT | myrrlyn <self@myrrlyn.dev> |
 | cargo | x11-dl | 2.21.0 | MIT | daggerbot <daggerbot@gmail.com>, Erle Pereira <erle@erlepereira.com>, AltF02 <contact@altf2.dev> |
 | cargo | x11 | 2.21.0 | MIT | daggerbot <daggerbot@gmail.com>, Erle Pereira <erle@erlepereira.com>, AltF02 <contact@altf2.dev> |
 | cargo | x509-parser | 0.18.1 | MIT OR Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
 | cargo | xattr | 1.6.1 | MIT OR Apache-2.0 | Steven Allen <steven@stebalien.com> |
+| cargo | xxhash-rust | 0.8.19 | BSL-1.0 | Douman <douman@gmx.se> |
 | cargo | yasna | 0.5.2 | MIT OR Apache-2.0 | Masaki Hara <ackie.h.gmai@gmail.com> |
 | cargo | yoke-derive | 0.8.4 | Unicode-3.0 | Manish Goregaokar <manishsmail@gmail.com> |
 | cargo | yoke | 0.8.3 | Unicode-3.0 | Manish Goregaokar <manishsmail@gmail.com> |
@@ -827,6 +1089,9 @@ apps/desktop/Cargo.lock: 0e373ea72a246fb81132161adf98a7bf615927a7da332d2def9797a
 | cargo | zip | 9.0.5 | MIT | Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com> |
 | cargo | zlib-rs | 0.6.8 | Zlib |  |
 | cargo | zmij | 1.0.23 | MIT | David Tolnay <dtolnay@gmail.com> |
+| cargo | zstd-safe | 7.3.0 | BSD-3-Clause | Alexandre Bury <alexandre.bury@gmail.com> |
+| cargo | zstd-sys | 2.1.2+zstd.1.5.7 | BSD-3-Clause | Alexandre Bury <alexandre.bury@gmail.com> |
+| cargo | zstd | 0.13.3 | MIT | Alexandre Bury <alexandre.bury@gmail.com> |
 | cargo | zvariant | 5.15.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zvariant_derive | 5.15.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zvariant_utils | 4.2.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org>, turbocooler <turbocooler@cocaine.ninja> |
