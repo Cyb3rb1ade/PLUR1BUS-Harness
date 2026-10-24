@@ -7,6 +7,7 @@ import { defaults } from '@plur1bus/config-schema';
 import { createCore } from '../../src/core.ts';
 import { flatTestInternals } from '../helpers/flat-embedder.ts';
 import { connect } from '../helpers/connect.ts';
+import { realTempDir } from '../helpers/real-temp-dir.ts';
 import { wireFixture } from './wire-fixture.ts';
 import type { ProviderDefinition } from '../../src/composition/auth.ts';
 import { createIdentityService } from '../../src/identity/service.ts';
@@ -21,7 +22,7 @@ import type { Engine, RecallResult } from '@cyb3rb1ade/plur1bus-memory/types/eng
 const caller = { channel: 'cli' as const, accountId: 'fixture-host', userId: 'fixture-user' };
 export const definition = (wire: ProviderDefinition['wireFormat'], model: string): ProviderDefinition => ({ wireFormat: wire, defaultModel: model, entries: [], profile: { id: 'fixture', display_name: 'Fixture', kind: 'api_key', capabilities: ['chat'], auth_header_scheme: wire === 'anthropic_messages' || wire === 'gemini' ? 'x-api-key: {token}' : 'Authorization: Bearer {token}', base_url: 'https://fixture.invalid/v1', secret_ref: 'fixture.key', policy_status: 'allowed', policy_source: 'synthetic', policy_checked: '2026-10-08' } });
 for (const wire of ['chat_completions', 'anthropic_messages', 'codex_responses', 'gemini'] as const) test(`${wire}: real Core → auth secret lease → router → real file tool → usage/audit/logs/capture`, async () => {
-  const home = await mkdtemp(join(tmpdir(), 'turn-core-')); const cfg = defaults(); cfg.agents.bernd = {}; cfg.engine.duplicateThreshold = 1.01;
+  const home = await realTempDir('turn-core-'); const cfg = defaults(); cfg.agents.bernd = {}; cfg.engine.duplicateThreshold = 1.01; // the agent's file tool root lives below it
   await writeFile(join(home, 'config.json'), JSON.stringify(cfg));
   const fixture = wireFixture(wire, [{ call: { name: 'file_read', args: { path: join(home, 'agents', 'bernd', 'workspace', 'fixture.txt') } } }, { text: 'fixture done' }]);
   const previous = { allow: process.env.PLUR1BUS_ALLOW_TEST_INTERNALS, keyring: process.env.PLUR1BUS_SECRETS_KEYRING };

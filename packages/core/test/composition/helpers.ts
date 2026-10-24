@@ -20,7 +20,9 @@ export function mulberry32(seed: number): () => number {
 /** Registers an afterEach hook in the calling scope; every directory made through `make()` is removed after each test.
  *  A store that lives in one of them is closed through `onCleanup`, never `t.after`: these closers run first (newest
  *  first) in the same hook, whereas a test's own `t.after` runs only after every `afterEach`, and Windows refuses to
- *  remove a directory that still holds an open file (EPERM). A closer that fails still lets the removal run. */
+ *  remove a directory that still holds an open file (EPERM). A closer that fails still lets the removal run.
+ *  `make()` spells the directory by its native real path: on Windows runners the temp dir is an 8.3 name
+ *  (`RUNNER~1`), which the D109 path layer refuses as a root or path (`short-name`, see helpers/real-temp-dir.ts). */
 export function useTempDirs(prefix = "p1b-composition-") {
   const made: string[] = []; const closers: Array<() => unknown> = [];
   afterEach(async () => {
@@ -30,7 +32,7 @@ export function useTempDirs(prefix = "p1b-composition-") {
     if (errors.length) throw errors[0];
   });
   return {
-    make(): string { const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix))); made.push(dir); return dir; },
+    make(): string { const dir = realpathSync.native(mkdtempSync(join(tmpdir(), prefix))); made.push(dir); return dir; },
     onCleanup(close: () => unknown): void { closers.push(close); },
   };
 }

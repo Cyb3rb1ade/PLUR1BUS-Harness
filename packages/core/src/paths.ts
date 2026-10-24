@@ -14,8 +14,10 @@ const absolute = (p: string, platform: NodeJS.Platform): boolean => (platform ==
  *  home given on another host is not glued onto the working directory). */
 function explicitHome(value: string, platform: NodeJS.Platform, userHome: () => string): string {
   const m = /^~(?:[\\/](.*))?$/.exec(value);
-  const expanded = m ? (platform === "win32" ? path.win32 : path).join(userHome(), m[1] ?? "") : value;
-  return platform === "win32" && path.win32.isAbsolute(expanded) ? path.win32.resolve(expanded) : path.resolve(expanded);
+  // The target's `path` throughout: the host's would turn a Linux home into `D:\h\p1b` when this runs on Windows.
+  const target = platform === "win32" ? path.win32 : path.posix;
+  const expanded = m ? target.join(userHome(), m[1] ?? "") : value;
+  return platform === "win32" && !path.win32.isAbsolute(expanded) ? path.resolve(expanded) : target.resolve(expanded);
 }
 
 export function resolveHome(o: ResolveHomeOptions = {}): string {
