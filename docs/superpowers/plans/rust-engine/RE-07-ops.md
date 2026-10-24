@@ -50,7 +50,8 @@ as `packages/core/src/embedding-migrate/switch.ts` does today. T7: `lib/obsidian
 `lib/obsidian-mutation-policy.js` (396), `lib/obsidian-vault-authority.js` (136), `lib/obsidian-vault-confirmation-flow.js` (151 —
 T7a's `confirm` uses it), `lib/obsidian-review-authority.js` (220) and the 30 files under `lib/obsidian/` are the owner-gated
 rows (`decide`). Not ported: `lib/obsidian-control-room.js` (4,006 — the adapter's review flows and chat UI; the morning and
-evening reviews are not engine jobs; a harness equivalent is an owner decision), `lib/security.js` (chat auth/ACL — the owner
+evening reviews are not Phase 1 engine jobs; their digest half becomes RE-13 T3 in Phase 2, the vault-change half stays
+T7b), `lib/security.js` (chat auth/ACL — the owner
 gate is the core's RBAC, the engine receives the caller principal), `lib/memory-doctor.js` (reachable only through the chat
 commands).
 

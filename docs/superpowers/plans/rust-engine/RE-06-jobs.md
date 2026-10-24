@@ -216,7 +216,8 @@ Jobs: `afterthought` (CP-3), `meta-reflect`, `persona-evolve`, `emotion-refine`,
 ## Out of scope
 
 The scheduler (harness, ADR-009; moves in RE-10); the Obsidian vault writers (RE-07 T7, optional); model routing
-(host); the push buttons (adapter); the partition routing change (RE-D13, RE-10 T9).
+(host); the push buttons (adapter); the partition routing change (RE-D13, RE-10 T9); the daily review job (RE-13 T3,
+Phase 2, the twentieth spec) and the harness surfaces for critical confirmations and skill proposals (RE-13 T1, T2).
 
 ## Hand-off
 

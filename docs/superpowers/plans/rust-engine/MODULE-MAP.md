@@ -10,7 +10,7 @@ Generated on 2026-10-23 from the import closure of `engine/create-engine.js` in 
 | `drop` | not ported: adapter surface (chat commands, dashboard, control room, push buttons) or Node plumbing — each row says which |
 | `review` | named in no brief and, on `main`, reachable only through adapter files; the owning brief's first PR confirms port or drop |
 
-How a row gets its disposition, in order: the adapter set (`engine/commands/`, `lib/telegram-commands/`, `lib/obsidian-control-room.js`, `lib/control-plane-*`, `lib/dashboard-*`, `engine/tools/memory-tools.js`, `lib/wiki-command.js`) and the explicitly named drops → the folds → the Obsidian rows (`decide`) → everything a brief names, everything under a brief-owned directory (`engine/jobs/`, `lib/jobs/`, `engine/capture/`, …) and everything reachable from `create-engine.js` without entering the adapter set (`port`) → the rest (`review`). Reachability alone never drops a file: on `main` the job bodies (`engine/jobs/internal-job-bodies.js`) are wired through the chat command module, and they are engine behaviour all the same.
+How a row gets its disposition, in order: the adapter set (`engine/commands/`, `lib/telegram-commands/`, `lib/obsidian-control-room.js`, `lib/control-plane-*`, `lib/dashboard-*`, `engine/tools/memory-tools.js`, `lib/wiki-command.js`) and the explicitly named drops → the folds → the Obsidian rows (`decide`) → the two review helpers RE-13 T3 ports (`lib/review-narrative-lead.js`, `lib/review-workspace-status.js`: `port`, owner RE-13) → everything a brief names, everything under a brief-owned directory (`engine/jobs/`, `lib/jobs/`, `engine/capture/`, …) and everything reachable from `create-engine.js` without entering the adapter set (`port`) → the rest (`review`). Reachability alone never drops a file: on `main` the job bodies (`engine/jobs/internal-job-bodies.js`) are wired through the chat command module, and they are engine behaviour all the same.
 
 Regenerate: walk the relative import closure from `engine/create-engine.js` (regex `from|import\(|require\(` + `'./…'`), count lines, apply the rules above, and compare the file list against this table; a new file without a row fails the check. The plan's §1 counts (323 files / 101,408 lines) included `openclaw.plugin.json` and the adapter entry; this closure has 322 files / 100,593 lines.
 
@@ -26,8 +26,9 @@ Regenerate: walk the relative import closure from `engine/create-engine.js` (reg
 | RE-06 | 59 | 16,424 | 58 | 1 | 0 | 0 | 0 |
 | RE-07 | 69 | 16,380 | 33 | 0 | 36 | 0 | 0 |
 | RE-08 | 10 | 1,598 | 0 | 10 | 0 | 0 | 0 |
-| — | 28 | 12,452 | 0 | 0 | 0 | 28 | 0 |
-| **all** | 322 | 100,593 | 232 | 26 | 36 | 28 | 0 |
+| RE-13 | 2 | 262 | 2 | 0 | 0 | 0 | 0 |
+| — | 26 | 12,190 | 0 | 0 | 0 | 26 | 0 |
+| **all** | 322 | 100,593 | 234 | 26 | 36 | 26 | 0 |
 
 ## Files that exist only on the OpenClaw plugin line (`v7.18.31`)
 
@@ -380,15 +381,22 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/private-fs.js` | 57 | fold | RE-08 | Owner-only file and directory modes for sidecar files that hold message text | `plur1bus-rpc`/supervisor file modes |
 | `lib/process-singleton.js` | 30 | fold | RE-08 | singleton.js (7.12.36) | supervisor lock identity |
 
+### RE-13
+
+| File | Lines | Disposition | Named in | Purpose | Note |
+|---|---:|---|---|---|---|
+| `lib/review-workspace-status.js` | 167 | port | RE-13 | what the agent's workspace last wrote, for | the evening profile of `daily-review` (RE-13 T3, Phase 2); golden from `collectReviewWorkspaceStatus` |
+| `lib/review-narrative-lead.js` | 95 | port | RE-13 | Deterministic, fail-open prose lead for PLUR1BUS reviews (morning/evening). | the lead of `daily-review` (RE-13 T3, Phase 2); golden per mood from `buildReviewNarrativeLead` |
+
 ### Dropped (no owner)
 
 | File | Lines | Disposition | Named in | Purpose | Note |
 |---|---:|---|---|---|---|
-| `lib/obsidian-control-room.js` | 4006 | drop | RE-07 | PLUR1BUS Obsidian Bridge control-room layer. | adapter surface: OpenClaw chat commands, dashboard projection, control room |
+| `lib/obsidian-control-room.js` | 4006 | drop | RE-07, RE-13 | PLUR1BUS Obsidian Bridge control-room layer. | adapter surface: OpenClaw chat commands, dashboard projection, control room; the review digest (`:1276-1600`) is the behaviour reference of RE-13 T3, the vault-change proposals and apply flows are RE-07 T7b |
 | `engine/commands/plur1bus-command.js` | 1227 | drop | — | The /plur1bus chat command (was index.js:7271-9055), including the 17 | adapter surface: OpenClaw chat commands, dashboard projection, control room |
 | `lib/providers/scoped-embedding-ipc.js` | 1109 | drop | RE-03, plan | closeSync, | RE-D4: `engine.embedding.*` RPC replaces the IPC |
 | `engine/tools/memory-tools.js` | 957 | drop | RE-07 | The five model-facing memory tools — `memory_recall`, `memory_search`, | adapter surface: OpenClaw chat commands, dashboard projection, control room |
-| `lib/telegram-commands/skill-commands.js` | 831 | drop | — | Telegram command handlers for skill-miner proposals. | adapter surface: OpenClaw chat commands, dashboard projection, control room |
+| `lib/telegram-commands/skill-commands.js` | 831 | drop | RE-13 | Telegram command handlers for skill-miner proposals. | adapter surface; the activate, reject and retire semantics (`:253`, `:506`, `:667`) are the behaviour reference of RE-13 T2 |
 | `lib/telegram-commands/memory-edit.js` | 649 | drop | — | /forget + /correct — direct user intervention in the Memory Store. | adapter surface: OpenClaw chat commands, dashboard projection, control room |
 | `lib/control-plane-health.js` | 520 | drop | — | Number.isSafeInteger(value) && value >= 0 ? value : null | adapter surface: OpenClaw chat commands, dashboard projection, control room |
 | `lib/telegram-commands/memory-query.js` | 515 | drop | — | /memory — Inspection command. | adapter surface: OpenClaw chat commands, dashboard projection, control room |
@@ -397,15 +405,13 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/telegram-commands/feature-toggle.js` | 254 | drop | — | /enable + /disable — Feature toggle. | adapter surface: OpenClaw chat commands, dashboard projection, control room |
 | `lib/security.js` | 183 | drop | RE-07 | Telegram/Chat Auth & ACL for PLUR1BUS. | chat auth/ACL; the owner gate is the core RBAC (docs/rbac.md), the engine receives the caller principal |
 | `lib/native/sharp-unavailable.js` | 176 | drop | — | probe `sharp`, and when it cannot load | transformers.js workaround |
-| `lib/review-workspace-status.js` | 167 | drop | — | what the agent's workspace last wrote, for | control-room review text |
 | `lib/overlay-commands.js` | 144 | drop | — | return JSON.stringify(value, null, 2); | chat commands for interpretation overlays; the overlay data itself is RE-04 (read) and RE-06 (writer) |
-| `lib/critical-buttons.js` | 122 | drop | RE-05 | Critical Push mit Telegram-Knöpfen (7.16.10). | push-button delivery; `pushCriticalButtons` is dropped |
+| `lib/critical-buttons.js` | 122 | drop | RE-05, RE-13 | Critical Push mit Telegram-Knöpfen (7.16.10). | push-button delivery; `pushCriticalButtons` is dropped; the inbox entry of RE-13 T1 replaces the message per card |
 | `lib/feature-crons-hint.js` | 116 | drop | RE-06 | the feature-cron setup marker path, the | OpenClaw cron registration marker; `JobSpec.default_schedule` carries the schedules |
 | `lib/install/soul-patcher.js` | 102 | drop | — | return [ | patches the OpenClaw SOUL.md |
-| `lib/review-narrative-lead.js` | 95 | drop | — | Deterministic, fail-open prose lead for PLUR1BUS reviews (morning/evening). | control-room review text |
 | `lib/control-plane-storage.js` | 90 | drop | — | Deckel gegen unbegrenzte Laeufe: so viele Eintraege werden hoechstens besucht. */ | adapter surface: OpenClaw chat commands, dashboard projection, control room |
 | `lib/llm-warmth.js` | 89 | drop | RE-06 | Cold-start guard for plugin LLM calls under OpenClaw 2026.9.7. | OpenClaw 2026.9.7 cold-start workaround |
-| `lib/critical-push-state.js` | 85 | drop | — | critical-push-state — Datei-basierte Tageszähler pro Agent. | push delivery budget; `pushCriticalButtons` is dropped |
+| `lib/critical-push-state.js` | 85 | drop | RE-13 | critical-push-state — Datei-basierte Tageszähler pro Agent. | push delivery budget; `pushCriticalButtons` is dropped; the inbox dedupe per card (RE-13 T1) replaces the daily counter |
 | `lib/temperament-command.js` | 82 | drop | — | Pure Helpers für /plur1bus temperament. | chat command |
 | `lib/internal-cron-reply.js` | 72 | drop | RE-06 | Convert an Afterthought job result into a direct OpenClaw cron reply. | OpenClaw cron reply protocol (`NO_REPLY`) |
 | `lib/host-paths.js` | 49 | drop | RE-08 | path defaults for lib/ modules on the engine graph. | Node module plumbing |
