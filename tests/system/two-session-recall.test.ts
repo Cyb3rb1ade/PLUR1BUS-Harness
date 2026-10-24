@@ -2,21 +2,16 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitJournalDrained, type RunningCore } from "./helpers.ts";
+import { CI_RECALL_HARD_MS, REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitJournalDrained, type RunningCore } from "./helpers.ts";
 
 /** Spec targets for a CLI recall: the soft budget on the engine's timed phases and the core's hard budget on wall time. */
 const SOFT_TARGET_MS = 400;
 const HARD_TARGET_MS = 600;
-/**
- * Ruling H3-R26: CI runners are not reference hardware. PLUR1BUS_CI_RECALL_HARD_MS (set by the nightly) raises the
- * test home's core.recall.hardBudgetMs so a slow shared runner does not abort the recall, and turns the 400/600 ms
- * targets into diagnostics plus a GitHub Actions `::warning::`. Unset (reference hardware), the targets are asserted.
+/*
+ * Ruling H3-R26: CI runners are not reference hardware. PLUR1BUS_CI_RECALL_HARD_MS (CI_RECALL_HARD_MS, helpers.ts)
+ * raises the test home's core.recall.hardBudgetMs so a slow shared runner does not abort the recall, and turns the
+ * 400/600 ms targets into diagnostics plus a GitHub Actions `::warning::`. Unset (reference hardware), the targets are asserted.
  */
-const CI_RECALL_HARD_MS = ((raw) => {
-  if (raw === undefined || raw === "") return null;
-  if (!/^\d+$/.test(raw) || Number(raw) < 100) throw new Error(`PLUR1BUS_CI_RECALL_HARD_MS must be an integer >= 100, got ${JSON.stringify(raw)}`);
-  return Number(raw);
-})(process.env.PLUR1BUS_CI_RECALL_HARD_MS);
 
 /** Real models: the recall's timing against the targets. Strict (reference hardware) asserts them; CI reports them. */
 function checkRecallBudget(t: { diagnostic(m: string): void }, label: string, wallMs: number, timing: any): void {
