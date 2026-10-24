@@ -74,7 +74,8 @@ RE-0 decisions + crate skeleton + dependency gate
   └──► RE-9 parity harness (scenario format after RE-1; golden recording as soon as RE-4 answers)
 RE-6 jobs and dreaming (after RE-5 and RE-7; go/no-go gate on RE-9 results — RE-D5)
 Phase 1 exit: RE-9 green on every scenario, system tests green with PLUR1BUS_ENGINE_IMPL=rust
-RE-10 Phase 2: memory-facing core paths move into the engine
+RE-10 Phase 2: memory-facing core paths move into the engine; T7–T9 the three §1.6 behaviour changes
+RE-13 Phase 2: harness surfaces for critical confirmations, skill proposals and the daily review (§1.7; parallel to RE-10)
 RE-11 Phase 3: retire the Node engine pin, docs and ADR
 ```
 
@@ -94,8 +95,8 @@ RE-11 Phase 3: retire the Node engine pin, docs and ADR
   larger; the closure is what an engine port has to re-express). `lib/telegram-commands/`, `lib/obsidian-control-room/`
   and the i18n tables are adapter material inside that closure and are not ported (engine-extraction §a.3).
   [`rust-engine/MODULE-MAP.md`](rust-engine/MODULE-MAP.md) (audit 2026-10-23) lists every file of the `.js` closure (322
-  files, 100,593 lines) with its owner brief and disposition: 232 ported, 26 folded into Rust idioms, 36 pending the
-  Obsidian decision, 28 dropped (adapter surface and Node plumbing, each row saying which; reachability alone never
+  files, 100,593 lines) with its owner brief and disposition: 234 ported, 26 folded into Rust idioms, 36 pending the
+  Obsidian decision, 26 dropped (adapter surface and Node plumbing, each row saying which; reachability alone never
   drops a file — on `main` the job bodies are wired through the chat command module and are engine behaviour all the same).
 - **615** test files under `tests/` plus 13 under `test/`. They encode behaviour that is documented nowhere else; porting
   the ones that test engine behaviour is part of the work (RE-9 counts them per subsystem).
@@ -166,7 +167,8 @@ Three behaviours of the Node engine cost function, not only polish, and are stil
 them in Phase 1 would make every parity run compare two different engines. Each has an owner decision in §6 and a
 Phase 2 task in RE-10 (T7–T9). None of the three fixes needs a re-embedding: a re-embedding is due only when the
 embedding model changes, and `plur1bus memory reembed` plus the import's adopt probe already cover that case. Line
-numbers are `main` at `98dfe2f`.
+numbers are `main` at `98dfe2f`. **Decided 2026-10-24:** all three fixes go ahead in Phase 2 as recommended
+(RE-10 T7–T9).
 
 Two facts the three rest on. The engine sets no `distanceType`, so Lance's default metric L2 applies, and the
 `_distance` Lance returns for L2 is the **squared** Euclidean distance (`lance-linalg` takes no square root). Every
@@ -179,6 +181,22 @@ cosine order row for row. A different metric would change numbers, never ranks; 
 | RE-D11 | `distanceToScore(d) = 1/(1+d)` over that squared distance, so the score floor is 0.2. `minScore` (default 0.3, also the `search` default) drops only rows with cosine below −0.17, which real text pairs do not produce: the floor is inert. `forgetThreshold` (0.3) has no consumer in the closure but the dropped tool adapter. Query refinement fires only when every score is below `minScore` or nothing was found, so it is practically off. The stage-5 boosters are additive on this scale | `lib/score.js:15`, `lib/recall-pipeline.js:990`, `:1723`, `:1936-1950`, `lib/query-refiner.js:106-110`, `engine/store/memory-db.js:1045`, `engine/create-engine.js:427`; `KNOWN-ISSUES.md` "Recall observations" (its "cannot fall below 1/3" assumes an unsquared distance; the conclusion holds, the floor is 0.2) | RE-02 keeps the L2 default and never sets a metric; RE-04 ports score function, thresholds, refinement and boosters as they are; the goldens encode the `score` values | `score` becomes the cosine similarity itself (`1 − d/2` for unit vectors); `minScore` is calibrated per embedding profile from a golden set, as the engine's own note asks; the boosters are re-weighted to the new scale; `forgetThreshold` gets its consumer (`MemoryOps.forget` by text) or leaves the schema; refinement is re-gated or removed. The raw-stage order is unchanged by construction (a monotone transform); the post-booster order is not, so the task records an A/B on a frozen corpus before the default flips (engine-extraction R5) |
 | RE-D12 | No exact-id or lexical retrieval path: the candidate sources are the vector search, graph spread and the neo prelude. A bare UUID, a file name or a rare token is not a semantic query. The engine authors list a hybrid path as their 7.5.1 candidate | `lib/recall-pipeline.js:1698`, `:1751`; `KNOWN-ISSUES.md` "Recall observations" | as it is; RE-02's rule "no new file in Phase 1" also excludes a full-text index | exact id and metadata lookup, a Lance full-text index (BM25) for lexical hits and the vector search feed one candidate pool, fused by reciprocal rank fusion before the existing ACL, budget, rerank and dedupe stages. The same fusion serves a store that holds two embedding identities after an import (host-contract d.3: scores of different models are not comparable). The index is built once over existing rows, no model call; RE-02's round trip proves the Node reader still opens a store that carries it |
 | RE-D13 | `rem-dream`, `consolidate-daily` and `skill-miner` resolve their `workspace` and `user` partitions from the shared pools under `.plur1bus-shared/`, which only `/share` fills. A row captured into the agent's own table with `scope: workspace` or `scope: user` belongs to no partition: dreams, consolidation and the miner never read it (observed: three such rows, `rem-dream` answers `too_few_memories, count: 0`). The engine authors call the routing a design decision and left it | `KNOWN-ISSUES.md` "Deferred findings", last item; `lib/jobs/daily-consolidation.js:97-154` | RE-06 T3/T5/T6 port the routing as it is; the per-job golden deltas encode it | the agent's own partition reads every row of the agent table the job's principal may read (agent-private, and the workspace and user rows the agent itself wrote); the shared pools stay their own partitions; no row moves on disk. The alternative, migrating such rows into the pool, is rejected: it would share data without the owner's `/share`. The Rust counterpart of the engine's routing security test is re-derived in the same PR |
+
+### 1.7 Adapter functions the harness provides itself (RE-13)
+
+Three functions the plugin delivered through Telegram and the Obsidian control room are dropped with the adapter
+([`MODULE-MAP.md`](rust-engine/MODULE-MAP.md)) and had no harness counterpart. **Decided 2026-10-24:** the harness
+provides them, as the Phase 2 work package [RE-13](rust-engine/RE-13-harness-surfaces.md), one task each. None of the
+three changes a Phase 1 golden. Line numbers are `main` at `98dfe2f`.
+
+| Function today (OpenClaw adapter) | Evidence | Harness surface (RE-13) |
+|---|---|---|
+| **Critical memories.** `classify-recent` marks a card critical and unconfirmed and pushes one Telegram message per card with Accept and Reject; `/plur1bus critical accept\|reject\|edit <ref>` decides; an unconfirmed card expires to a normal note (7.16.10) | `engine/jobs/internal-job-bodies.js:241-310`, `lib/critical-buttons.js`, `lib/critical-review.js`, `lib/db-adapter.js:1176`, `lib/jobs/auto-accept-stale-criticals.js:75` | T1: `engine.memory.critical.list\|decide`; inbox kind `memory-critical`, one entry per card, settled on decide or expiry; `plur1bus memory critical list\|accept\|reject` |
+| **Skill-miner proposals.** Telegram buttons and commands approve, reject or retire a mined skill; approve renders `SKILL.md` into the workspace `skills/` folder and marks the evidence memories | `lib/telegram-commands/skill-commands.js:253,506,667`, `lib/jobs/skill-miner/proposal-writer.js` | T2: `engine.skills.proposals.{list,show,stage,activated,reject,retire}`; accept installs the staged folder through the X1 pipeline as an unsigned local skill, retire uninstalls it; inbox kind `skill-proposal`; `plur1bus skill proposals list\|show\|accept\|reject\|retire` |
+| **Morning and evening review.** The control room assembles a review bundle (maintenance-light findings, change proposals, an adversarial-light check, a mood-aware narrative lead, the evening workspace status) into the vault and announces it; `applyMode` is always manual | `lib/obsidian-control-room.js:593-608`, `:1276-1600`, `lib/review-narrative-lead.js`, `lib/review-workspace-status.js`, manifest keys `morningReview`, `eveningReview` | T3: a twentieth engine job `daily-review` with `morning` and `evening` profiles, scheduled by the harness from the two config keys, written to `<state_dir>/reviews/`, inbox kind `review`, `plur1bus review list\|show`. The digest half is engine work; the vault-change half stays RE-07 T7b |
+
+The two review helpers become `port` rows owned by RE-13; the Telegram and control-room files stay dropped and are
+named as the behaviour reference.
 
 ## 2. Target architecture
 
@@ -239,7 +257,7 @@ N-API is recorded as the fallback if RE-8's budget measurement (§4, RE-8 step 7
 | Phase | Outcome | Gate |
 |---|---|---|
 | **1 — behaviour-neutral engine** (RE-0…RE-9) | `plur1bus-engine` serves contract 1.17.0 (1.16.0 subset at parity); the core selects it with `engine.implementation: "rust"` (`x-restart: "core"`, `x-tier: "advanced"`, default `"node"` until Phase 3) | RE-9 parity green; every `tests/system` suite green with `PLUR1BUS_ENGINE_IMPL=rust`; recall budgets met on reference hardware |
-| **2 — memory-facing core paths move** (RE-10) | journal replay, restore re-apply, backup snapshot, re-embedding driver, media-search index hook, dream scheduler ledger and the `memory.curation.*` handlers run in the engine; the core keeps RBAC, policy, sessions, tools, channels; the three §1.6 behaviour changes land here, each behind its decision (RE-D11…RE-D13, RE-10 T7–T9) | the moved paths' tests pass against the engine; `packages/core` loses the corresponding `node:sqlite` stores; every §1.6 golden a change touches is re-recorded with its decision id (RE-R1) |
+| **2 — memory-facing core paths move** (RE-10) | journal replay, restore re-apply, backup snapshot, re-embedding driver, media-search index hook, dream scheduler ledger and the `memory.curation.*` handlers run in the engine; the core keeps RBAC, policy, sessions, tools, channels; the three §1.6 behaviour changes land here (RE-D11…RE-D13, decided 2026-10-24, RE-10 T7–T9); RE-13 adds the harness surfaces for critical confirmations, skill proposals and the daily review (§1.7) | the moved paths' tests pass against the engine; `packages/core` loses the corresponding `node:sqlite` stores; every §1.6 golden a change touches is re-recorded with its decision id (RE-R1); the three RE-13 system tests green |
 | **3 — retire the Node engine** (RE-11) | the exact-commit pin, `engine-shim.d.ts`, the `@huggingface/transformers` closure and `GH_ENGINE_READ_TOKEN` are gone; `docs/config-engine-keys.md` generates from the Rust crate's schema; ADR-018 | default `engine.implementation` flips to `"rust"`; one release with both, then removal |
 
 A fourth phase — the rest of the TypeScript core (66,631 lines in 559 files: sessions, tools, MCP, channels, providers,
@@ -780,6 +798,23 @@ live" row for the crate).
 - [ ] Bump the harness pin; `tests/system/two-session-recall.test.ts` and `memory-ops.test.ts` green; record the
       goldens G-RERANK-1…8 from this pin for RE-4.
 
+### RE-13 — Harness surfaces for three dropped adapter functions (M, Phase 2)
+
+**Files:** create `crates/plur1bus-engine/src/ops/{critical,skill_proposals}.rs`, `src/jobs/bodies/daily_review.rs`,
+`src/jobs/review/{lead,workspace_status,render}.rs`; the core's forwarders and inbox producers under
+`packages/core/src/engine/`; CLI `crates/plur1bus/src/commands/{memory_critical,skill_proposals,review}.rs`; the schema
+methods and the inbox kinds `memory-critical`, `skill-proposal`, `review`. Brief: [RE-13](rust-engine/RE-13-harness-surfaces.md).
+
+- [ ] T1 critical-memory confirmation: engine ops over RE-05's state; `classify-recent` emits an event where the Node
+      body pushed Telegram buttons; one inbox entry per card, settled on decide or expiry; CLI.
+- [ ] T2 skill-proposal acceptance: engine ops over RE-06's ledger; accept installs the staged `SKILL.md` through the X1
+      pipeline as an unsigned local skill, retire uninstalls; one inbox entry per proposal; CLI.
+- [ ] T3 daily review: a twentieth job with `morning` and `evening` profiles, the narrative lead and the workspace
+      status ported, scheduled by the harness from `morningReview` and `eveningReview`, written to
+      `<state_dir>/reviews/`, inbox entry, CLI.
+- [ ] Rules: every decision through the core's RBAC; previews never carry a secret or a hidden type; the review never
+      applies; no Phase 1 golden changes; RE-06's job count becomes twenty in T3's PR.
+
 ## 5. Pros and cons of the rewrite
 
 ### 5.1 For
@@ -835,9 +870,9 @@ live" row for the crate).
 | RE-D8 | Forward-port CP-5/CP-7 to the Node engine now (RE-12) | yes, before anything else |
 | RE-D9 | A later rewrite of the TypeScript core | separate decision and plan; not implied by this one |
 | RE-D10 | The engine binary joins the container image and the desktop bundle | yes; `container.yml` paths and `apps/desktop` bundle scripts in RE-8 |
-| RE-D11 | Recall score: keep `1/(1+d)` over the squared-L2 distance with the inert `minScore` 0.3, or move to the cosine similarity with thresholds calibrated per embedding profile (§1.6) | kept in Phase 1; change in Phase 2 (RE-10 T7) with an A/B on a frozen corpus before the default flips; no re-embedding |
-| RE-D12 | Retrieval: vector search only, or a hybrid pool (exact id and metadata, full-text index, vector) fused by reciprocal rank fusion (§1.6) | kept in Phase 1; hybrid in Phase 2 (RE-10 T8); the same fusion covers two embedding identities in one store |
-| RE-D13 | Job partitions: `workspace`/`user` partitions from the shared pools only, or the agent's own partition also reads the scoped rows of its own table (§1.6) | kept in Phase 1; the agent partition reads its scoped rows in Phase 2 (RE-10 T9); no row moves on disk |
+| RE-D11 | Recall score: keep `1/(1+d)` over the squared-L2 distance with the inert `minScore` 0.3, or move to the cosine similarity with thresholds calibrated per embedding profile (§1.6) | **Decided 2026-10-24: fix.** Kept in Phase 1; cosine score and calibrated thresholds in Phase 2 (RE-10 T7) with an A/B on a frozen corpus before the default flips; no re-embedding |
+| RE-D12 | Retrieval: vector search only, or a hybrid pool (exact id and metadata, full-text index, vector) fused by reciprocal rank fusion (§1.6) | **Decided 2026-10-24: fix.** Kept in Phase 1; hybrid retrieval with rank fusion in Phase 2 (RE-10 T8); the same fusion covers two embedding identities in one store |
+| RE-D13 | Job partitions: `workspace`/`user` partitions from the shared pools only, or the agent's own partition also reads the scoped rows of its own table (§1.6) | **Decided 2026-10-24: fix.** Kept in Phase 1; the agent partition reads its scoped rows in Phase 2 (RE-10 T9); no row moves on disk |
 
 ## 7. Risks (beyond §5.2)
 

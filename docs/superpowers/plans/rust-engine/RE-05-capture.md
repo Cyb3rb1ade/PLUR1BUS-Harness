@@ -28,7 +28,7 @@ digest — at parity with the Node engine on recorded scenarios. Size XL; six ta
 | `lib/epistemic-status.js`, `lib/valid-time.js`, `lib/temporal-provenance.js` | 226 + 210 + 323 | `epistemicStatus` (`""` = legacy, never trusted), `validFrom`/`validUntil` (`0` = no bound), provenance |
 | `lib/speaker-mapping-store.js` | 295 | speaker labels → display names (RE-02 `SpeakerMappings`) |
 | `lib/reminder-extraction.js`, `lib/reminder-parser.js`, `lib/reminder-store.js`, `lib/reminder-pending.js` | 102 + 101 + 171 + 73 | reminder rows (`memoryKind: "reminder"`, `remindAt`, …) |
-| `lib/critical-review.js` | 445 | critical memories and their `confirmed` state (the push buttons are adapter: `lib/critical-buttons.js`, `critical-button-delivery.js`, `critical-push-*.js` are **not** ported) |
+| `lib/critical-review.js` | 445 | critical memories and their `confirmed` state (the push buttons are adapter: `lib/critical-buttons.js`, `critical-button-delivery.js`, `critical-push-*.js` are **not** ported; the harness surface for accept and reject is RE-13 T1, Phase 2) |
 | `lib/shared-memory.js`, `lib/shared-memory-pool.js`, `lib/workspace-policy.js`, `lib/workspace-policy-guard.js` | 386 + 446 + 194 + 114 | what may be written to `workspace`/`user` scope at capture time |
 | `lib/neo-arch.js` | 3,687 | the working-memory layer: generations, turn journal, prelude, its own lock (f.4) |
 | `lib/episodes.js`, `lib/episode-watermark.js` | 925 + 85 | episodes derived from turns (rebuilt by a job in RE-06) |
