@@ -96,7 +96,7 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 
 | Brief | Status | Pull requests |
 |---|---|---|
-| RE-00 | in progress — T1–T4 in one PR; `quality` red until the RE-D14 patch lands in it | [#759](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/759) |
+| RE-00 | merged 2026-10-24 (T1–T4 in one PR, merge commit 76b54e9d) | [#759](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/759) |
 | RE-01 | not started | — |
 | RE-02 | not started | — |
 | RE-03 | not started | — |
