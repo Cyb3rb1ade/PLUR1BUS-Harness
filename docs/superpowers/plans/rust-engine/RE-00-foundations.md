@@ -17,7 +17,11 @@ If RE-D3 changes to "no LanceDB", T2 drops `lancedb` and the gate runs on the re
   for per-crate dev opt-levels).
 - `deny.toml` (licence allow-list: Apache-2.0, BSD-2-Clause, BSD-3-Clause, CC0-1.0, ISC, MIT, Unicode-3.0; registry
   and git source rules) and `docs/dependency-policy.md` (the `audit-deps` allow-list, which is wider: MPL-2.0,
-  Unicode-DFS-2016, 0BSD added). `cargo deny` runs in the `quality` job (`release-quality.yml`) and **blocks merges**;
+  Unicode-DFS-2016, 0BSD added). What CI blocks on (corrected 2026-10-24 after T3's first run): the `quality` job
+  (`release-quality.yml`) runs `scripts/release/audit-policy.mjs`, which **blocks merges on advisories only** — `cargo deny
+  … check advisories` with an isolated configuration over the root and the `apps/desktop` manifests, plus `pnpm audit` —
+  and an unscored production advisory blocks too. The licence part of `cargo deny check` is a requirement of this brief
+  and of `docs/coding-standard.md`, not a workflow gate (on `main` it was already red before this package);
   `node scripts/audit-deps.mjs` runs in the informational `dependency-licenses` workflow (`continue-on-error`).
 - `crates/plur1bus-config/Cargo.toml` (the JSON-Schema validator the harness already uses: `jsonschema = "0.26"`,
   `default-features = false`) and `crates/plur1bus-attest/` (the precedent for a crate that is both library and binary).
@@ -34,8 +38,9 @@ diagnostics (only the new crate opts in).
 
 - Create: `crates/plur1bus-engine/Cargo.toml`, `crates/plur1bus-engine/src/lib.rs`, `crates/plur1bus-engine/src/main.rs`,
   `crates/plur1bus-engine/tests/cli.rs`, `crates/plur1bus-engine/README.md`
-- Modify: `Cargo.toml` (root: `[workspace.lints.rust]`, `[workspace.lints.clippy]`, `[profile.dev.package.*]` entries),
-  `deny.toml` **only with the owner's approval in the PR review** (T3), `docs/dependency-policy.md` likewise,
+- Modify: `Cargo.toml` (root: `[workspace.lints.rust]`, `[workspace.lints.clippy]`, `[profile.dev.package.*]` entries,
+  `[patch.crates-io]` for RE-D14), `deny.toml` **only with the owner's approval in the PR review** (T3; `[sources]
+  allow-git` for the RE-D14 fork is approved), `docs/dependency-policy.md` likewise,
   `AGENTS.md` ("Where things live": one row for the crate), `docs/ci.md` (only if T4 changes a job budget)
 - Test: `crates/plur1bus-engine/tests/cli.rs`
 
@@ -114,6 +119,13 @@ fn an_unknown_subcommand_exits_with_the_usage_code() {
   `docs/dependency-exceptions.json` entries (schema `docs/dependency-exceptions.schema.json`; every entry has
   `expires` and `reason`). Re-run both gates; `cargo deny check` must pass; `audit-deps` must show no `NOT-LISTED`
   row for a crate this PR adds.
+- [ ] **Step 3b — advisories the closure brings (RE-D14, decided 2026-10-24).** An advisory against a crate the pinned
+  Lance closure needs, with no fix inside the versions the pins allow, is answered with a fork of that crate at its
+  pinned tag carrying only the fix (owner-created repository under `Cyb3rb1ade/`, branch `plur1bus/<version>-<fix>`,
+  tag `v<version>-plur1bus.<n>`), consumed through `[patch.crates-io]` in the root `Cargo.toml` with a comment that
+  names the advisories and the exit condition, and allowed in `deny.toml` `[sources] allow-git`. Never an entry in the
+  audit allow-list. First instance: `tantivy 0.24.2` → `lru 0.18.2` (RUSTSEC-2026-0002, RUSTSEC-2026-0253), PR #759.
+  The gate to satisfy is `node scripts/release/audit-policy.mjs` at 0 blocking findings for both manifests.
 - [ ] **Step 4:** `node scripts/test/audit-deps.test.mjs` (or the test the script names in its header) still passes.
 
 ### T4 — Build cost and lint policy
@@ -139,7 +151,8 @@ fn an_unknown_subcommand_exits_with_the_usage_code() {
   added by this PR. `node scripts/lint-hygiene.mjs`: clean.
 - The PR description carries: the Lance version and where it was read, the duplicate-version list, the licence table
   with the owner's decision per row, the cold and warm build times.
-- CI: `ci-gate` and `quality` green on the PR head; the `unit (ubuntu-24.04)` job ran `cargo test --workspace` including
+- CI: `ci-gate` and `quality` green on the PR head (`quality` means `node scripts/release/audit-policy.mjs` at 0 blocking
+  findings and the third-party notices check); the `unit (ubuntu-24.04)` job ran `cargo test --workspace` including
   the new crate (its log shows `Running tests/cli.rs`).
 
 ## Out of scope

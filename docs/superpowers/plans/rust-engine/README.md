@@ -26,9 +26,11 @@ the work. Read the plan's §1 (starting point) and §2 (target architecture) onc
 
 ## Working assumptions
 
-The plan lists owner decisions RE-D1…RE-D13 (plan §6). RE-D11…RE-D13 are the three behaviours of plan §1.6 that Phase 1
-keeps at parity on purpose; the owner decided on 2026-10-24 that all three are fixed in Phase 2, and on the same day that
-the three dropped adapter functions of plan §1.7 get harness surfaces (RE-13). Until the owner decides otherwise, every brief assumes the
+The plan lists owner decisions RE-D1…RE-D14 (plan §6). RE-D11…RE-D13 are the three behaviours of plan §1.6 that Phase 1
+keeps at parity on purpose; the owner decided on 2026-10-24 that all three are fixed in Phase 2, on the same day that
+the three dropped adapter functions of plan §1.7 get harness surfaces (RE-13), and, also on 2026-10-24, that an advisory
+inside the pinned Lance closure is answered with a fork at the pinned tag carrying only the fix, not with an allow-list
+exception (RE-D14). Until the owner decides otherwise, every brief assumes the
 recommendation. If a decision changes, the briefs named in the last column change; nothing else does.
 
 | Decision | Assumed | Briefs that depend on it |
@@ -47,6 +49,7 @@ recommendation. If a decision changes, the briefs named in the last column chang
 | RE-D11 recall score | decided 2026-10-24: at parity in Phase 1; cosine score and calibrated thresholds in RE-10 T7 | RE-02 (metric default), RE-04, RE-10 |
 | RE-D12 hybrid retrieval | decided 2026-10-24: at parity in Phase 1; full-text index and rank fusion in RE-10 T8 | RE-02, RE-04, RE-10 |
 | RE-D13 job partitions | decided 2026-10-24: at parity in Phase 1; the agent partition reads its scoped rows in RE-10 T9 | RE-06, RE-10 |
+| RE-D14 tantivy patch | decided 2026-10-24: the root `[patch.crates-io]` replaces `tantivy 0.24.2` with the fork `Cyb3rb1ade/tantivy`, tag `v0.24.2-plur1bus.1` (`lru 0.18.2`, nothing else), until the Lance pin moves past tantivy; `deny.toml` `[sources]` allows that one git source | RE-00, RE-02 (the Lance pin), RE-11 |
 
 ## How a brief is worked
 
@@ -68,8 +71,9 @@ recommendation. If a decision changes, the briefs named in the last column chang
    name anywhere under `crates/` (`scripts/lint-hygiene.mjs` fails the build); schema first, generated code never
    hand-edited; every test seam honoured only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`; `rustfmt` defaults and
    `cargo clippy --workspace --all-targets -- -D warnings`; new dependencies pass `cargo deny check` and
-   `node scripts/audit-deps.mjs --only cargo` and are named in the PR with licence and reason; never skip, disable or
-   quarantine a test; no CI polling; no force-push.
+   `node scripts/audit-deps.mjs --only cargo` locally (CI's `quality` job blocks on advisories only, through
+   `scripts/release/audit-policy.mjs`; the licence part is this rule, not a workflow) and are named in the PR with licence
+   and reason; never skip, disable or quarantine a test; no CI polling; no force-push.
 6. **Report back** in the PR: what the brief said, what was done, every deviation with its reason, and the open
    questions for the owner. A deviation from an interface another brief consumes needs the controller's agreement
    before the PR is opened, because the other brief is written against it.
@@ -92,7 +96,7 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 
 | Brief | Status | Pull requests |
 |---|---|---|
-| RE-00 | not started | — |
+| RE-00 | in progress — T1–T4 in one PR; `quality` red until the RE-D14 patch lands in it | [#759](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/759) |
 | RE-01 | not started | — |
 | RE-02 | not started | — |
 | RE-03 | not started | — |
