@@ -58,7 +58,9 @@ is no reason to wait on a name.
 
 Everything else in `ci.yml` is deliberately outside the gate and not in its `needs`, so it can neither fail nor delay it:
 `unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
-Actions concurrency change below it only runs under the full-platform policy),
+Actions concurrency change below it only runs under the full-platform policy), the Windows Core shards
+`core-unit-shard-windows` (`core unit shard i/3 (windows-2025)`) and their partition check `core-unit-windows`, which
+follow the same policy,
 `python-host` (including the experimental `windows-11-arm` leg), `system`, `service`, `sandbox`, `release-scripts`,
 `documents-golden`, `host-tool-eval` (the deterministic host tool/policy scenarios of D106 P4, fake OS ports, no live model), the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
 `perf-startup` and `perf-budgets` jobs. They still run for their selected suites and show up as checks; a red one is a
@@ -96,7 +98,7 @@ preflight for a genuine measurement after P1–P5 integration. No after measurem
 
 `gate.test.mjs` exercises result combinations, and `workflow-contract.test.mjs` evaluates the actual job-level boolean
 conditions against the skip policy, proves the gate's `needs` are exactly the gated jobs and every other job is on the
-`UNGATED` list, proves `unit-os` preserves the unit steps with full TypeScript coverage while Ubuntu excludes only the separately sharded Core package, and evaluates the gate's job name for every event. Matrix
+`UNGATED` list, proves `unit-os` preserves the unit steps with full TypeScript coverage on macOS while Ubuntu and Windows exclude only the separately sharded Core package (the Windows shards use the Ubuntu partition, follow the full-platform policy and stay outside the gate), and evaluates the gate's job name for every event. Matrix
 failures of gated jobs remain failures. Performance jobs still run their existing diagnostic commands and
 known-gap behavior; no numerical budget is promoted from advisory to a hard assertion.
 
@@ -137,6 +139,7 @@ Legs of `ci.yml` that follow this policy (everything else in the file, including
 | Job | Non-Linux legs that wait for the policy | Always on a selected push |
 | --- | --- | --- |
 | `unit-os` | `unit (macos-15)`, `unit (windows-2025)`: the whole job is conditional (`needs.changes.outputs.macos == 'true'`), because all its legs are non-Linux | none (the Linux leg is `unit`) |
+| `core-unit-shard-windows`, `core-unit-windows` | `core unit shard i/3 (windows-2025)` and its partition check: conditional like `unit-os`, whose Windows leg leaves Core to them | none (the Linux shards are `core-unit-shard`) |
 | `system` | `macos-15` | `ubuntu-24.04` |
 | `service` | `macos-15`, `windows-2025` | `ubuntu-24.04` |
 | `sandbox` | `macos-15`, `windows-2025`, `windows-11-arm` | `ubuntu-24.04`, `ubuntu-24.04-arm` |
@@ -146,7 +149,7 @@ Legs of `ci.yml` that follow this policy (everything else in the file, including
 Not moved: `unit (ubuntu-24.04)`, `wsl` (a required Windows job), `web-browser*`, the `python-host` matrix (its Windows legs
 are unchanged), `docs-hygiene`, and the other workflows (`release-quality`, `container*`, `desktop.yml`, `hermes-host.yml`).
 Nothing in `ci-gate` depends on the moved legs, so a PR without the policy gets the same gate verdict as before. A PR that
-changes nothing platform-sensitive therefore shows no `unit (macos-15)`, `unit (windows-2025)`, `service (windows-2025)`,
+changes nothing platform-sensitive therefore shows no `unit (macos-15)`, `unit (windows-2025)`, `core unit shard i/3 (windows-2025)`, `core-unit-windows`, `service (windows-2025)`,
 `sandbox (macos-15|windows-*)`, `startup (darwin-arm64|win32-*)` or `budget catalogue (macos-15|windows-*)` check; an absent
 check is not a red one. Add `ci:macos` to get them before merging. The mixed matrices use
 `exclude: ${{ fromJSON(needs.changes.outputs.macos == 'true' && '[]' || '[...]') }}`; `perf-startup` has no base `os` list, so
@@ -193,7 +196,8 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `docs-hygiene` | Gated. Hygiene, source quality, i18n, doc links and `pnpm docs:check` (generated documents), for every selected run |
 | `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests outside Core, Rust fmt/clippy/tests |
 | `core-unit-shard`, `core-unit` | Gated. Three measured Ubuntu Core shards plus the exact-partition check; missing manifests, failure and cancellation block |
-| `unit-os` | Not gated; only under the full-platform policy. Full offline TypeScript workspace tests and the same remaining steps on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)` |
+| `unit-os` | Not gated; only under the full-platform policy. The same steps as `unit` on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)`: full offline TypeScript workspace tests on macOS, every package but Core on Windows |
+| `core-unit-shard-windows`, `core-unit-windows` | Not gated; only under the full-platform policy. Core on `windows-2025` in the three measured Ubuntu shards (`core unit shard i/3 (windows-2025)`) plus their exact-partition check |
 | `web-browser-macos` | Explicit advisory dependency: waits for the result, permits completed failure/skipped; selected only for proceed + web + macos |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
 | `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command); the macOS leg follows the full-platform policy |
@@ -212,8 +216,9 @@ CI/nightly actions are pinned to full commit SHAs; comments record their version
 ### Core sharding and job budgets (GP5 P5)
 
 For selected TypeScript suites, Ubuntu runs `packages/core` in three `core-unit-shard` jobs. The existing Ubuntu
-unit job runs every other package through the same root test runner and its nonzero-test guard. macOS and Windows
-keep the full unsharded offline workspace test run; macOS browser tests run explicitly in `web-browser-macos`. New Core files are always included, even before their timing is measured.
+unit job runs every other package through the same root test runner and its nonzero-test guard. macOS keeps the full
+unsharded offline workspace test run; macOS browser tests run explicitly in `web-browser-macos`. Windows splits like
+Ubuntu (see "Windows timeout and timings" below). New Core files are always included, even before their timing is measured.
 
 `.github/ci/core-test-timings.json` records all 601 Core file durations from the historical successful Ubuntu run
 39516791460 at `1dae60f2ae` (artifact 12310137290). `selectShard` assigns the longest measured file first to the
@@ -248,7 +253,19 @@ PLUR1BUS_TEST_SHARD=1/3 PLUR1BUS_TEST_SHARD_TIMINGS="$PWD/.github/ci/core-test-t
 
 ### Windows timeout and timings
 
-`pnpm test` gets 35 minutes on windows-2025 (25 elsewhere). The Windows unit job ceiling is 90 minutes (65 elsewhere), leaving time for setup, Rust tests and docs. A timeout is a failure, not an accepted skip. No unit test is retried.
+The unit test step gets 35 minutes on windows-2025 (25 elsewhere). The Windows unit job ceiling is 90 minutes (65 elsewhere), leaving time for setup, Rust tests and docs. A timeout is a failure, not an accepted skip. No unit test is retried.
+
+Core does not fit into that step on Windows: windows-2025 needs about 4.4 s per Core test file (main run 40116614656
+ran 343 of the 666 files in 25 minutes; Ubuntu needs about 1 s, macOS about 0.7 s), so `unit (windows-2025)`'s
+`pnpm test` hit the 35-minute limit with Core half done, and every step after it (the Rust tests among them) was
+skipped. The Windows leg of `unit-os` therefore leaves Core out with Ubuntu's command
+(`node scripts/run-ts-tests.mjs --filter=!@plur1bus/core`), and `core-unit-shard-windows` runs it in the same three
+measured shards as Ubuntu (same `PLUR1BUS_TEST_SHARD` and timings file, so the same partition), about 222 files or
+16 minutes each. Each shard job has 40 minutes, its test step 30. `core-unit-windows` checks the Windows manifests
+with `test-shards.mjs verify` and requires every Windows shard to succeed. The Windows artifacts are named
+`windows-core-unit-manifest-<i>` and `core-test-timings-windows-2025-<i>`, so the gated Ubuntu `core-unit` download
+pattern `core-unit-manifest-*` never sees them. Both jobs follow the full-platform policy like `unit-os` and stay
+outside `ci-gate`. Nothing is skipped: every Core file still runs on Windows, once.
 
 A TAP reporter preserves the root runner's nonzero-test guard while recording the sum of top-level test/suite durations per file. Nested child durations are not counted twice. The `test-timings-<os>` artifact contains per-process JSON and `top-20.txt`; the top 20 are also printed after failure. A forcibly killed process may have no completed report, so timings after timeout can be partial. These are test/suite execution times, not profiler CPU time or package-install time.
 
