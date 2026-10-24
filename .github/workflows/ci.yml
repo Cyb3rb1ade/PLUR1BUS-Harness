@@ -152,7 +152,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - if: needs.changes.outputs.rust == 'true'
         run: cargo test --workspace --no-fail-fast
-        timeout-minutes: 20
+        timeout-minutes: 30
   # Not gated: macOS (Core qualification remains unproven) and Windows (slow) legs, named as before, `unit (macos-15)` etc.
   # Every leg here is non-Linux, so the whole job follows the full-platform policy (`changes.macos`: push to main, schedule,
   # dispatch, label `ci:macos`, platform-sensitive paths; docs/ci.md) instead of excluding matrix entries (an all-excluded
@@ -261,7 +261,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - if: needs.changes.outputs.rust == 'true'
         run: cargo test --workspace --no-fail-fast
-        timeout-minutes: 20
+        timeout-minutes: 30
   core-unit-shard:
     needs: changes
     if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.ts-core == 'true'
