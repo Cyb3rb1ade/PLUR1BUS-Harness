@@ -1,16 +1,18 @@
 //! Trusted exec-only launcher: resource limits apply before the OS sandbox and target start.
+//!
+//! No process-count limit: `RLIMIT_NPROC` counts every thread of the user on the whole system, not the processes of one
+//! sandbox, so any fixed value made bubblewrap fail as soon as the user ran that many threads elsewhere.
 #[cfg(unix)]
 fn main() {
     use std::os::unix::process::CommandExt;
     let args: Vec<String> = std::env::args().skip(1).collect();
     let run = || -> Result<(), String> {
-        if args.len() < 4 {
-            return Err("expected cpu-seconds memory-bytes process-count program [args]".into());
+        if args.len() < 3 {
+            return Err("expected cpu-seconds memory-bytes program [args]".into());
         }
         let cpu: libc::rlim_t = args[0].parse().map_err(|_| "invalid cpu limit")?;
         let memory: libc::rlim_t = args[1].parse().map_err(|_| "invalid memory limit")?;
-        let count: libc::rlim_t = args[2].parse().map_err(|_| "invalid process limit")?;
-        if cpu == 0 || memory == 0 || count == 0 {
+        if cpu == 0 || memory == 0 {
             return Err("limits must be positive".into());
         }
         // No privilege gain, core dumps, or processes escaping via a new user namespace on Linux.
@@ -23,7 +25,6 @@ fn main() {
         let limits = [
             (libc::RLIMIT_CPU, cpu),
             (libc::RLIMIT_AS, memory),
-            (libc::RLIMIT_NPROC, count),
             (libc::RLIMIT_CORE, 0),
         ];
         for (resource, value) in limits {
@@ -43,8 +44,8 @@ fn main() {
                 ));
             }
         }
-        Err(std::process::Command::new(&args[3])
-            .args(&args[4..])
+        Err(std::process::Command::new(&args[2])
+            .args(&args[3..])
             .exec()
             .to_string())
     };

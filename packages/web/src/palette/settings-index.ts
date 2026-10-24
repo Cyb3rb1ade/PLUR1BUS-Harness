@@ -60,6 +60,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "core.shutdownBudgetMs", type: "integer", tier: "advanced", help: "Maximum time the core spends on graceful shutdown, in milliseconds." },
   { key: "supervisor.graceMs", type: "integer", tier: "advanced", help: "Grace period given to a child process to exit during shutdown, in milliseconds." },
   { key: "supervisor.healthIntervalMs", type: "integer", tier: "advanced", help: "Interval between child-process health checks, in milliseconds." },
+  { key: "supervisor.maxCores", type: "integer", tier: "advanced", help: "Maximum number of CPU cores every PLUR1BUS process (supervisor, core, API, modules and the programs they start) may run on; 0, or a value at or above the host's core count, uses every core. Applied at once through CPU affinity on Linux and Windows; macOS cannot bind processes to cores, so it has no effect there. `plur1bus daemon status` shows the cores the supervisor detected." },
   { key: "metrics.enabled", type: "boolean", tier: "advanced", help: "Whether to expose the read-only Prometheus metrics endpoint." },
   { key: "metrics.port", type: "integer", tier: "advanced", help: "Loopback port used by the metrics endpoint." },
   { key: "logs.maxBytes", type: "integer", tier: "advanced", help: "Maximum size of each log file before rotation, in bytes." },

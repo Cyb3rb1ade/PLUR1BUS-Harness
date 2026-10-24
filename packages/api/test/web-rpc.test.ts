@@ -17,6 +17,10 @@ test("explicit web exposure rejects internal and unrelated supervisor methods", 
   for (const m of ["core.auth", "core.adopt", "core.shutdown", "supervisor.auth", "daemon.stop", "config.watch", "module.watch", "events.subscribe", "admin.backup.snapshot", "secret.get", "memory.capture", "api.unknown"]) assert.equal(webEndpoint(m), null, m);
   assert.equal(webEndpoint("inbox.list"), "core"); assert.equal(webEndpoint("config.set"), "supervisor");
 });
+test("Settings reads daemon.status for the CPU core slider; the other daemon.* lifecycle calls stay internal", () => {
+  assert.equal(webEndpoint("daemon.status"), "supervisor");
+  for (const m of ["daemon.start", "daemon.stop"]) assert.equal(webEndpoint(m), null, m);
+});
 test("every exposed method is declared on its routed server", () => {
   for (const method of WEB_CORE_METHODS) assert.ok(METHODS_BY_SERVER.core.includes(method), method);
   for (const method of WEB_SUPERVISOR_METHODS) assert.ok(METHODS_BY_SERVER.supervisor.includes(method), method);
