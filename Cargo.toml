@@ -15,6 +15,30 @@ serde_json = "1"
 clap = { version = "4.6", features = ["derive"] }
 tempfile = "3"
 
+[patch.crates-io]
+# lance-index 2.0.0 (pinned through lancedb 0.26.2, RE-D3) depends on tantivy 0.24.2, which pins lru 0.12
+# (RUSTSEC-2026-0002, RUSTSEC-2026-0253; no 0.12.x fix exists). The fork is upstream tag 0.24.2 plus lru 0.18.2,
+# nothing else (branch plur1bus/0.24.2-lru-0.18.2). Remove this entry when the Lance pin moves to a tantivy with
+# lru >= 0.18.2 or to no tantivy at all.
+tantivy = { git = "https://github.com/Cyb3rb1ade/tantivy", rev = "038215a52d973ea2edb042984ad5f8d6272e10a5" }
+
+# The Rust lint policy of docs/coding-standard.md §10 (CS-1), copied as written there. A crate inherits it only with
+# `[lints] workspace = true`; in RE-00 that is `plur1bus-engine` alone, the other crates opt in under CS-1.
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "warn"          # tests: #![cfg_attr(test, allow(clippy::unwrap_used))]
+expect_used = "warn"
+panic = "warn"
+large_enum_variant = "warn"
+needless_pass_by_value = "warn"
+
 # SHA-256 at opt-level 0 hashes about 17 MB/s (80 MB in 4.8 s on a fast x64 host). The test profile inherits `dev`, and
 # on Windows the setup tests install the real `node.exe` (about 80 MB) as runtime/node, so `1staid check`'s
 # `runtime.node` re-hash alone ran past the pass's 3 s budget on every pass and the extension rows after it read "time
