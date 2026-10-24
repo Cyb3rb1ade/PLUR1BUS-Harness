@@ -2,12 +2,18 @@ import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, realpathSync, mkdtempSync, rmSync } from 'node:fs';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { probeTasks, tasksStep } from '../tools/sandbox/backends.ts';
 export type CheckKind = 'format' | 'lint' | 'typecheck' | 'test';
 export interface VerifierCommand { kind: CheckKind; argv: string[]; emptyOutput?: boolean }
 export interface VerifierResult { ok: boolean; exitCode: number | null; reason?: string; output: string }
 export interface VerifierPort { run(root: string, command: VerifierCommand, options: { signal: AbortSignal; networkAllowed: boolean }): Promise<VerifierResult> }
+/** Build the Linux verifier mounts unchanged, adding an optional inner task-cap step before the check. */
+export function verifierBwrapArgv(o: { root: string; temp: string; program: string; args: readonly string[];
+  networkAllowed: boolean; step?: { bind: string[]; prefix: string[] } }): string[] {
+  return ['--die-with-parent', '--unshare-all', ...(o.networkAllowed ? ['--share-net'] : []), ...['/usr', '/bin', '/lib', '/lib64', '/etc'].filter(existsSync).flatMap(p => ['--ro-bind', p, p]), ...[...new Set([dirname(realpathSync(process.execPath)), dirname(realpathSync(o.program))])].filter(p => !['/usr', '/bin', '/lib', '/lib64', '/etc'].some(s => p === s || p.startsWith(s + '/')) && p !== o.root && !p.startsWith(o.root + '/')).flatMap(p => ['--ro-bind', p, p]), '--dev', '/dev', '--proc', '/proc', '--bind', o.root, o.root, '--bind', o.temp, o.temp, ...(o.step?.bind ?? []), '--chdir', o.root, ...(o.step?.prefix ?? []), o.program, ...o.args];
+}
 /** No shell, no inherited credentials/environment, bounded output, process group kill. Unsupported isolation fails closed. */
-export function sandboxVerifier(timeoutMs = 60000): VerifierPort {
+export function sandboxVerifier(timeoutMs = 60000, tasks?: { limitsHelper: string; maxTasks: () => number }): VerifierPort {
   return { async run(root, command, options) {
     if (options.signal.aborted) return { ok: false, exitCode: null, reason: 'aborted', output: '' };
     if (!command.argv.length) return { ok: false, exitCode: null, reason: 'missing-command', output: '' };
@@ -26,7 +32,14 @@ export function sandboxVerifier(timeoutMs = 60000): VerifierPort {
         const profile = `(version 1)(allow default)(deny appleevent-send)(deny file-write* (require-all (require-not (subpath ${JSON.stringify(realpathSync(root))})) (require-not (subpath ${JSON.stringify(realpathSync(temp))})) (require-not (literal "/dev/null"))))${readDenials}${options.networkAllowed ? '' : '(deny network*)'}`;
         bin = '/usr/bin/sandbox-exec'; argv = ['-p', profile, program, ...command.argv.slice(1)];
       } else if (process.platform === 'linux' && existsSync('/usr/bin/bwrap')) {
-        bin = '/usr/bin/bwrap'; argv = ['--die-with-parent', '--unshare-all', ...(options.networkAllowed ? ['--share-net'] : []), ...['/usr', '/bin', '/lib', '/lib64', '/etc'].filter(existsSync).flatMap(p => ['--ro-bind', p, p]), ...[...new Set([dirname(realpathSync(process.execPath)), dirname(realpathSync(program))])].filter(p => !['/usr', '/bin', '/lib', '/lib64', '/etc'].some(s => p === s || p.startsWith(s + '/')) && p !== root && !p.startsWith(root + '/')).flatMap(p => ['--ro-bind', p, p]), '--dev', '/dev', '--proc', '/proc', '--bind', root, root, '--bind', temp, temp, '--chdir', root, program, ...command.argv.slice(1)];
+        let step: { bind: string[]; prefix: string[] } | undefined;
+        try {
+          const n = tasks?.maxTasks() ?? 0;
+          if (tasks && n > 0 && existsSync(tasks.limitsHelper) && (await probeTasks(tasks.limitsHelper)).mechanism === 'namespace-limit')
+            step = tasksStep(tasks.limitsHelper, n);
+        } catch { /* An unavailable task cap never prevents an otherwise usable verifier check. */ }
+        bin = '/usr/bin/bwrap'; argv = verifierBwrapArgv({ root, temp, program, args: command.argv.slice(1),
+          networkAllowed: options.networkAllowed, ...(step ? { step } : {}) });
       } else return { ok: false, exitCode: null, reason: 'sandbox-unavailable', output: '' };
       return await new Promise<VerifierResult>(resolve => {
         let output = '', reason: string | undefined, timer: NodeJS.Timeout | undefined, killTimer: NodeJS.Timeout | undefined;
