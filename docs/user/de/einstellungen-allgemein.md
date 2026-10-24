@@ -13,12 +13,14 @@ Die Gruppen enthalten unter anderem:
 | Gruppe | Einstellungen |
 |---|---|
 | Core | `core.logLevel`, Zeitbudgets und Textgrenze für Recall, Wartezeit für Capture, Budget zum Herunterfahren |
-| Supervisor | Wartezeit zum Beenden (`supervisor.graceMs`), Abstand der Gesundheitsprüfung (`supervisor.healthIntervalMs`) |
+| Supervisor | Wartezeit zum Beenden (`supervisor.graceMs`), Abstand der Gesundheitsprüfung (`supervisor.healthIntervalMs`), CPU-Kerne, die PLUR1BUS nutzen darf (`supervisor.maxCores`) |
 | Logs | maximale Dateigröße (`logs.maxBytes`), Anzahl aufbewahrter Dateien (`logs.keep`) |
 | Metrics | Metriken aktivieren (`metrics.enabled`), Port (`metrics.port`) |
 | Sonstiges | `modules` als schreibgeschützte JSON-Ansicht |
 
 Klappe Gruppen über ihre Überschrift auf. Strukturierte Werte erscheinen als JSON und lassen sich hier nicht bearbeiten. Felder, deren Schlüssel auf Geheimnisse hindeuten, werden ausgeblendet; gehe dafür zu [Geheimnisse](secrets.md).
+
+**CPU-Kerne.** `supervisor.maxCores` ist ein Schieberegler von 1 bis zur Zahl der Kerne, die der Supervisor auf dem Rechner erkannt hat. Ganz rechts nutzt PLUR1BUS alle Kerne; das ist der Standard und wird als `0` gespeichert. Die Grenze gilt sofort für alle PLUR1BUS-Prozesse und die Programme, die sie starten; Threads begrenzt sie nicht. Meldet der Supervisor keine Kernzahl, steht dort ein Zahlenfeld, in dem `0` alle Kerne bedeutet. Kann das Betriebssystem Prozesse nicht an Kerne binden (macOS) oder schlägt die Bindung fehl, sagt das ein Hinweis am Feld. Per CLI geht dasselbe mit `plur1bus config set supervisor.maxCores`, siehe [operations.md](operations.md).
 
 ## Änderungen prüfen und speichern
 

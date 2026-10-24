@@ -51,6 +51,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `core.shutdownBudgetMs` | integer | `30000` | live | Maximum time the core spends on graceful shutdown, in milliseconds. |
 | `supervisor.graceMs` | integer | `60000` | live | Grace period given to a child process to exit during shutdown, in milliseconds. |
 | `supervisor.healthIntervalMs` | integer | `5000` | live | Interval between child-process health checks, in milliseconds. |
+| `supervisor.maxCores` | integer | `0` | live | Maximum number of CPU cores every PLUR1BUS process (supervisor, core, API, modules and the programs they start) may run on; 0, or a value at or above the host's core count, uses every core. Applied at once through CPU affinity on Linux and Windows; macOS cannot bind processes to cores, so it has no effect there. `plur1bus daemon status` shows the cores the supervisor detected. |
 | `metrics.enabled` | boolean | `false` | core | Whether to expose the read-only Prometheus metrics endpoint. |
 | `metrics.port` | integer | `9464` | core | Loopback port used by the metrics endpoint. |
 | `logs.maxBytes` | integer | `20971520` | live | Maximum size of each log file before rotation, in bytes. |

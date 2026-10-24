@@ -75,6 +75,23 @@ plur1bus daemon stop
 On Linux the unit's own log is also available with the standard systemd tool: `journalctl --user -u plur1bus`.
 Windows and macOS are described from the code of this repository; they are not exercised on every release.
 
+### Limit the CPU cores
+
+By default every PLUR1BUS process uses every core of the host. The `cpu:` line of `plur1bus daemon status` shows how
+many cores the supervisor detected and how many PLUR1BUS uses now. To limit PLUR1BUS to four cores and to lift the
+limit again:
+
+```sh
+plur1bus config set supervisor.maxCores 4
+plur1bus config set supervisor.maxCores 0
+```
+
+The limit applies at once, without a restart, to the supervisor, the core, the API, the modules and every program they
+start. It does not limit the number of threads or processes. A value at or above the detected core count means every
+core. Linux and Windows bind the processes to the first cores. On Windows, programs started before the change keep
+their old binding until they restart. macOS cannot bind processes to cores; there `daemon status` reports that the limit
+is not enforced. In the web UI it is the slider under **Settings → General → Supervisor**.
+
 ## Updating
 
 An update installs a signed release. The sequence is always the same: check the plan, agree, install. Plur1bus then checks
