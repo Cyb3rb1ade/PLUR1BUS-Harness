@@ -1,0 +1,14 @@
+# Cargo configuration for every cargo command run inside this repository (the root workspace, apps/desktop, fuzz).
+
+# protobuf-src (the `protoc` feature of `lance`, crates/plur1bus-engine) builds protoc with CMake, and on MSVC the
+# protobuf and the abseil it vendors pick different C runtimes, so protoc.exe does not link. The `cmake` crate takes a
+# toolchain file per target from CMAKE_TOOLCHAIN_FILE_<target>; the one named here only sets
+# protobuf_MSVC_STATIC_RUNTIME=OFF (why, and when to remove it, in the file). A build for any other target never reads
+# these two names, so Linux and macOS builds are unchanged. A variable already set in the environment wins.
+[env.CMAKE_TOOLCHAIN_FILE_x86_64_pc_windows_msvc]
+value = "crates/plur1bus-engine/cmake/protobuf-msvc-crt.cmake"
+relative = true
+
+[env.CMAKE_TOOLCHAIN_FILE_aarch64_pc_windows_msvc]
+value = "crates/plur1bus-engine/cmake/protobuf-msvc-crt.cmake"
+relative = true

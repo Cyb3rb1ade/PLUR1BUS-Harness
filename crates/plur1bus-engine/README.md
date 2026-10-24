@@ -85,6 +85,23 @@ C++ compiler), so no machine needs `protoc` installed. Cost: about six minutes o
 script ran 361 s, on the critical path). **Alternative, open as a follow-up:** install `protobuf-compiler` (apt, and its
 equivalents on macOS and Windows) in every workspace-wide CI job, then drop the feature.
 
+**Windows (MSVC).** `protobuf-src` 2.1.1+27.1 vendors protobuf 27.2, whose CMake build compiles protobuf, upb,
+utf8_range and `protoc` against the static C runtime (`protobuf_MSVC_STATIC_RUNTIME`, default ON) and the bundled abseil
+against the DLL runtime (abseil's own `ABSL_MSVC_STATIC_RUNTIME`, default OFF), so `protoc.exe` did not link: LNK2038
+(`RuntimeLibrary` mismatch, `MDd_DynamicDebug` against `MTd_StaticDebug`) and unresolved `__imp_*` CRT symbols in
+`unit (windows-2025)` (run 40133657878, PR #766). No `protobuf-src` release fixes it (2.1.1 is the latest). The
+repository's `.cargo/config.toml` sets `CMAKE_TOOLCHAIN_FILE_x86_64_pc_windows_msvc` and
+`CMAKE_TOOLCHAIN_FILE_aarch64_pc_windows_msvc`, which the `cmake` crate passes on as `-DCMAKE_TOOLCHAIN_FILE`, to
+[`cmake/protobuf-msvc-crt.cmake`](cmake/protobuf-msvc-crt.cmake); that file sets only
+`protobuf_MSVC_STATIC_RUNTIME=OFF`, so every target uses the DLL runtime (`/MDd` in Debug, `/MD` in Release), the one
+the `cmake` crate asks for (`-MD`). A build for any other target never reads these two variables, and the lockfile does
+not change; `tests/msvc_crt.rs` keeps both entries and the file intact on runners that never build for Windows. A fork
+of `protobuf-src` with the same `.define` in its `build.rs` would work too, but it would move the crate to a git source
+on every platform (lockfile, `deny.toml`, third-party notices) and add a repository to maintain. CMake takes a
+toolchain file only when it first configures a build tree, so a tree left by an earlier Windows build without the file
+keeps failing: run `cargo clean -p protobuf-src` once. **Exit condition:** remove the file, both entries and the test
+when the vendored protobuf passes its choice on to abseil itself, or when the feature goes.
+
 ### Measured cost
 
 - Local, 4 cores: cold `cargo build -p plur1bus-engine` 9 min 44 s (slowest: `protobuf-src` build script 361 s,
