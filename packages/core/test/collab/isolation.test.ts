@@ -16,7 +16,7 @@ import { ToolRegistry } from '../../src/tools/registry.ts';
 import { scriptedAdapter, turnFixture, useTempDirs } from '../composition/helpers.ts';
 
 const tmp = useTempDirs('m5-isolation-');
-test('real SQLite stores + fake engine: peer agent-private and user markers never reach caller, pool, remote or prompt', async t => {
+test('real SQLite stores + fake engine: peer agent-private and user markers never reach caller, pool, remote or prompt', async () => {
   const home = tmp.make(); const cfg = defaults(); cfg.agents.a1 = {}; cfg.agents.b1 = {};
   const log = { debug() {}, info() {}, warn() {}, error() {}, child() { return this; }, async close() {} } as never;
   for (const id of ['a1', 'b1']) mkdirSync(join(home, 'agents', id, 'workspace'), { recursive: true });
@@ -41,7 +41,7 @@ test('real SQLite stores + fake engine: peer agent-private and user markers neve
     return reg;
   } }, home);
   const sessions = openSessionService({ dbPath: join(home, 'sessions.sqlite'), clock: Date.now, logger: log, agents, isStopping: () => false, memory, provider: () => root.provider, notify() {}, signal: new AbortController().signal });
-  t.after(async () => { await sessions.close(); await collab.shutdown(); root.close(); for (const db of Object.values(stores)) db.close(); });
+  tmp.onCleanup(async () => { await sessions.close(); await collab.shutdown(); root.close(); for (const db of Object.values(stores)) db.close(); });
   const session = sessions.store.createSession({ owner: owner.userId, agentId: 'a1', kind: 'direct', scope: 'private' });
   const turn = sessions.runner.submit({ session, caller: { channel: 'cli', accountId: 'local', userId: 'christian' }, text: 'Get peer sorting advice', approver: { person: owner.userId, surface: 1 } });
   const result = await turn.done;
