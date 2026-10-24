@@ -50,16 +50,22 @@ same way. No fixed value can work, so the launcher stops setting it. CPU time (`
 - **Key and values.** `supervisor.maxCores`, integer 0 to 1024, default 0, `x-restart: live`, `x-tier: advanced` like
   every `supervisor.*` key, writable by owner and admin like the other config keys. A value at or above the detected
   count means every core, so a configuration copied to a smaller host keeps working.
-- **Detection.** At start the supervisor records the CPUs its own affinity allows (the cores the OS, a container or the
-  service unit gave it) and `available_parallelism()`, which also honours a cgroup CPU quota. That count is
-  `cpu.detected`. Nothing in PLUR1BUS starts a supervisor, so the start affinity is never one PLUR1BUS narrowed itself.
-- **Binding.** A limit `k` below the detected count binds to the first `k` CPUs of the start set. Linux binds every
+- **Detection.** At start the supervisor records every CPU the system lets it run on, not the affinity it inherited:
+  on Linux a scratch thread widens its own affinity to every CPU id, which the kernel cuts down to the cpuset (a
+  container's `--cpuset-cpus`, a unit's `AllowedCPUs=`); on Windows the system mask, cut down to the affinity limit of
+  the job the process is in. `available_parallelism()` caps the count by a cgroup CPU quota. That count is
+  `cpu.detected`. The inherited affinity is not the host because a supervisor can be started from inside a bound tree,
+  for example `plur1bus daemon restart` run by a tool of a bound core; it would otherwise take the old limit for the
+  whole machine. So an inherited narrowing, also one from `taskset` or a unit's `CPUAffinity=`, counts as a binding:
+  with no limit it is undone at start, and `supervisor.maxCores` is the one place to narrow PLUR1BUS.
+- **Binding.** A limit `k` below the detected count binds to the first `k` detected CPUs. Linux binds every
   thread of the supervisor's whole process tree, found through `/proc`, plus the tree of an adopted core, which is no
   longer its descendant. Windows binds the supervisor and each running child; processes those children started
   earlier keep their old binding until they restart. macOS has no interface to bind a process to cores: the limit is
-  stored and reported as `unsupported`. Going back to no limit restores the start set.
+  stored and reported as `unsupported`. Going back to no limit binds every process to every detected CPU again.
 - **When.** Once at start, before any child is spawned; again on every change of the running configuration (a
-  `config.set` or a hand edit); and after a core is adopted.
+  `config.set` or a hand edit); and after a core is adopted, which then gets the limit's CPUs, or every detected CPU
+  without a limit (an earlier supervisor may have bound it).
 - **Status.** `daemon.status` gains an optional `cpu` object: `detected`, `maxCores`, `effective` (cores every process
   may use now) and `state` (`unlimited`, `limited`, `unsupported`, `failed`) with a `reason` for the last two. It is
   additive on an experimental method, so the RPC version stays 1.6.0 (ADR-016 §2).

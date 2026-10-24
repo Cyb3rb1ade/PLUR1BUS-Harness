@@ -809,8 +809,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         );
     }
 
-    // Before anything is bound: the CPUs the OS, a container or the service unit gave this process.
-    let host = cpu::Host::detect();
+    // Before anything is bound: the CPUs the system allows (a container, cgroup or job still limits them) and the ones
+    // this process inherited, which `cpu::apply` below widens or narrows to what `supervisor.maxCores` says.
+    let cores = cpu::Cores::detect();
     let instance_id = uuid::Uuid::new_v4().to_string();
     let pid = std::process::id();
     let token =
@@ -831,7 +832,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             time_scale,
             core_ready_floor,
             config,
-            cpu: cpu::Cores::new(host),
+            cpu: cores,
             slots: if opts.no_core {
                 vec![Slot::new(Role::core(), time_scale)]
             } else {
@@ -1391,10 +1392,13 @@ pub(crate) fn test_state() -> SupervisorState {
         time_scale: 1.0,
         core_ready_floor: true,
         config: config::supervisor_config(None),
-        cpu: cpu::Cores::new(cpu::Host {
-            cpus: vec![0],
-            count: 1,
-        }),
+        cpu: cpu::Cores::new(
+            cpu::Host {
+                cpus: vec![0],
+                count: 1,
+            },
+            vec![],
+        ),
         slots: vec![Slot::new(Role::core(), 1.0)],
         stopping: None,
         restart_jobs: VecDeque::new(),
@@ -1513,10 +1517,13 @@ mod tests {
             time_scale: 1.0,
             core_ready_floor: true,
             config: config::supervisor_config(None),
-            cpu: cpu::Cores::new(cpu::Host {
-                cpus: vec![0, 1],
-                count: 2,
-            }),
+            cpu: cpu::Cores::new(
+                cpu::Host {
+                    cpus: vec![0, 1],
+                    count: 2,
+                },
+                vec![],
+            ),
             slots: vec![Slot::new(Role::core(), 1.0)],
             stopping: None,
             restart_jobs: VecDeque::new(),

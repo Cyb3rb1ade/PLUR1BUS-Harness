@@ -10373,7 +10373,7 @@ The supervisor's own state and one entry per supervised child.
       }
     },
     "cpu": {
-      "description": "Experimental (1.6.0). The CPU cores every PLUR1BUS process runs on (`supervisor.maxCores`): `detected` cores the host offered the supervisor at start (its CPU affinity, capped by a cgroup CPU quota), `maxCores` as configured (0: no limit), `effective` cores every process may use now, and `state`: `unlimited` (every core), `limited` (bound to `effective` cores), `unsupported` (this OS cannot bind processes to cores) or `failed` (the binding could not be applied; processes keep the binding they had). `reason` explains the last two.",
+      "description": "Experimental (1.6.0). The CPU cores every PLUR1BUS process runs on (`supervisor.maxCores`): `detected` cores the system lets the supervisor run on (what a container, cgroup or job allows, not an affinity it inherited; capped by a cgroup CPU quota), `maxCores` as configured (0: no limit), `effective` cores every process may use now, and `state`: `unlimited` (every core), `limited` (bound to `effective` cores), `unsupported` (this OS cannot bind processes to cores) or `failed` (the binding could not be applied; processes keep the binding they had). `reason` explains the last two.",
       "type": "object",
       "additionalProperties": false,
       "required": [

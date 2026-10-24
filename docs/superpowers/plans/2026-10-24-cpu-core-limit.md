@@ -23,7 +23,7 @@
 
 - A configured value above the host's count (a config from a bigger machine): every core is used, the slider sits at the right end, `state` is `unlimited`. Pinned in Task 3 (`plan`) and Task 5 (model test).
 - A host with one core: nothing to bind, the slider cannot move. Pinned in Task 3 (`plan`) and Task 5.
-- A live change from a limit back to 0: running processes are widened to the start set again. Pinned in Task 3's integration test.
+- A live change from a limit back to 0: running processes are widened to every detected CPU again. Pinned in Task 3's integration test.
 - An adopted core is not a descendant of the supervisor: it is bound too. Pinned by `bind` taking extra roots (Task 3 unit test with a non-descendant pid).
 - `daemon.status` not reachable from the browser (older supervisor, refused): the field falls back to the number input. Pinned in Task 5.
 

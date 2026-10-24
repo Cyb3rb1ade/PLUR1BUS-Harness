@@ -92,6 +92,11 @@ core. Linux and Windows bind the processes to the first cores. On Windows, progr
 their old binding until they restart. macOS cannot bind processes to cores; there `daemon status` reports that the limit
 is not enforced. In the web UI it is the slider under **Settings → General → Supervisor**.
 
+The supervisor counts the cores the system allows it. A container or cgroup limit, such as `docker run --cpuset-cpus`
+or a unit's `AllowedCPUs=`, therefore still applies and lowers the detected count. A narrower CPU affinity the
+supervisor inherited, for example from `taskset` or a unit's `CPUAffinity=`, does not count: the supervisor replaces it
+at start. Use `supervisor.maxCores` instead.
+
 ## Updating
 
 An update installs a signed release. The sequence is always the same: check the plan, agree, install. Plur1bus then checks

@@ -95,6 +95,11 @@ gestartet wurden, ihre alte Bindung bis zu ihrem Neustart. macOS kann Prozesse n
 `daemon status`, dass die Grenze nicht durchgesetzt wird. In der Weboberfläche ist es der Schieberegler unter
 **Einstellungen → Allgemein → Supervisor**.
 
+Der Supervisor zählt die Kerne, die das System ihm erlaubt. Eine Grenze von Container oder cgroup, etwa
+`docker run --cpuset-cpus` oder `AllowedCPUs=` einer Unit, gilt deshalb weiter und senkt die erkannte Zahl. Eine engere
+CPU-Affinität, die der Supervisor geerbt hat, etwa durch `taskset` oder `CPUAffinity=` einer Unit, zählt nicht: Der
+Supervisor ersetzt sie beim Start. Nutze stattdessen `supervisor.maxCores`.
+
 ## Aktualisieren
 
 Ein Update spielt ein signiertes Release ein. Der Ablauf ist immer gleich: Plan prüfen, zustimmen, einspielen. Dabei

@@ -1,16 +1,18 @@
 //! `supervisor.maxCores`: the CPU cores every PLUR1BUS process may run on
 //! (`docs/superpowers/specs/2026-10-24-cpu-core-limit-design.md`).
 //!
-//! At start the supervisor records the CPUs its own affinity allows ([`Host`]): the cores the OS, a container or the
-//! service unit gave it, and how many of them it may really use, which [`std::thread::available_parallelism`] also caps
-//! by a cgroup CPU quota. A limit below that count binds the supervisor and every process it runs to the first
-//! `maxCores` of those CPUs; 0, or a limit at or above the count, keeps every core. The binding is CPU affinity, which
-//! every new thread and child process inherits, so what starts later keeps it, and [`apply`] binds what already runs,
-//! at start and for every new running configuration. Linux binds every thread of the supervisor's process tree and of
-//! each child's process group, which also covers an adopted child that is no descendant. Windows binds the supervisor
-//! and each running child; what those started before a change keeps its binding until it restarts. macOS has no
-//! interface to bind a process to cores, so a limit there is reported as unsupported. Thread and process counts are
-//! never limited.
+//! At start the supervisor records the CPUs the system lets it run on ([`Host`]): every CPU it may use (a container,
+//! a cgroup or a Windows job still limits them), not the affinity it inherited, because a supervisor started by a
+//! process an earlier supervisor had bound (`plur1bus daemon restart` from a tool) would otherwise take the old limit
+//! for the whole host. [`std::thread::available_parallelism`] caps the count by a cgroup CPU quota. A limit below that
+//! count binds the supervisor and every process it runs to the first `maxCores` of those CPUs; 0, or a limit at or
+//! above the count, uses every one of them, so an inherited narrowing (also one from `taskset` or a unit's
+//! `CPUAffinity=`) is undone at start. The binding is CPU affinity, which every new thread and child process inherits,
+//! so what starts later keeps it, and [`apply`] binds what already runs, at start and for every new running
+//! configuration. Linux binds every thread of the supervisor's process tree and of each child's process group, which
+//! also covers an adopted child that is no descendant. Windows binds the supervisor and each running child; what those
+//! started before a change keeps its binding until it restarts. macOS has no interface to bind a process to cores, so
+//! a limit there is reported as unsupported. Thread and process counts are never limited.
 use super::state::Health;
 use super::{Shared, SupervisorState};
 use serde_json::{json, Value};
@@ -25,10 +27,10 @@ pub struct Host {
 }
 
 impl Host {
-    /// The calling thread's CPUs. Called once at supervisor start, before anything is bound.
+    /// Every CPU the system lets this process run on, whatever affinity the calling thread inherited, and how many
+    /// cores that is in practice. Called once at supervisor start.
     pub fn detect() -> Host {
-        let cpus = os::own_cpus().unwrap_or_default();
-        let parallel = std::thread::available_parallelism().map_or(1, |n| n.get());
+        let (cpus, parallel) = os::allowed();
         let count = match cpus.len() {
             0 => parallel,
             n => parallel.min(n),
@@ -71,19 +73,27 @@ pub struct Cores {
     pub host: Host,
     /// `supervisor.maxCores` of the running configuration (0: no limit).
     pub max: u64,
-    /// The CPUs every process is bound to; `None` while nothing was narrowed.
+    /// The CPUs every process is bound to; `None` while every process may use all of `host.cpus`.
     pub bound: Option<Vec<usize>>,
     pub state: State,
 }
 
 impl Cores {
-    pub fn new(host: Host) -> Cores {
+    /// `host`, with the supervisor running on `inherited`: a narrower set than `host.cpus` counts as a binding, which
+    /// [`apply`] then replaces (by the limit, or by every CPU).
+    pub fn new(host: Host, inherited: Vec<usize>) -> Cores {
+        let narrowed = !host.cpus.is_empty() && !inherited.is_empty() && inherited != host.cpus;
         Cores {
             host,
             max: 0,
-            bound: None,
+            bound: narrowed.then_some(inherited),
             state: State::Unlimited,
         }
+    }
+
+    /// The host and the affinity the calling thread runs on. Called once at supervisor start, before anything is bound.
+    pub fn detect() -> Cores {
+        Cores::new(Host::detect(), os::own_cpus().unwrap_or_default())
     }
 
     /// `daemon.status.cpu`.
@@ -137,8 +147,8 @@ fn roots(st: &SupervisorState) -> Vec<u32> {
 }
 
 /// The state after limit `max` with plan `target`, binding through `bind` where processes must change. A plan of no
-/// CPUs (the OS names none) is unsupported; removing a limit binds back to the start set; a refused binding keeps the
-/// binding the processes had.
+/// CPUs (the OS names none) is unsupported; no limit while anything is narrowed (a removed limit, an inherited
+/// narrowing) binds to every CPU of the host; a refused binding keeps the binding the processes had.
 fn settle(
     current: &Cores,
     max: u64,
@@ -151,7 +161,7 @@ fn settle(
         ..current.clone()
     };
     let reached = match target {
-        // Never narrowed: every process keeps the affinity it started with.
+        // Nothing narrowed: every process already runs on all of `host.cpus`.
         None if current.bound.is_none() => {
             next.state = State::Unlimited;
             None
@@ -204,15 +214,24 @@ pub fn apply(shared: &Shared, config: &Value) {
     shared.lock().cpu = next;
 }
 
-/// Binds a child the supervisor adopted (no descendant of its own) like the rest, while a limit holds.
+/// The CPUs an adopted child gets: the limit's while one holds, else every CPU of the host (an earlier supervisor may
+/// have bound it); `None` when the OS names no CPU ids.
+fn adopted_cpus(c: &Cores) -> Option<Vec<usize>> {
+    c.bound
+        .clone()
+        .or_else(|| (!c.host.cpus.is_empty()).then(|| c.host.cpus.clone()))
+}
+
+/// Binds a child the supervisor adopted (started by an earlier supervisor, so no descendant of this one) like the rest.
+/// An `apply` running at the same moment may store its outcome a little later; the next change corrects that.
 pub fn bind_adopted(shared: &Shared, pid: u32) {
-    let Some(cpus) = shared.lock().cpu.bound.clone() else {
+    let Some(cpus) = adopted_cpus(&shared.lock().cpu) else {
         return;
     };
     match os::bind(&[pid], &cpus) {
         Ok(b) => log_refusals(shared, &b),
         Err(e) => shared.log.warn(
-            "cannot bind an adopted process to the CPU core limit",
+            "cannot bind an adopted process to its cpu cores",
             json!({ "pid": pid, "err": e }),
         ),
     }
@@ -224,7 +243,7 @@ fn log(shared: &Shared, before: &Cores, after: &Cores, reached: Option<&Bound>) 
     match &after.state {
         State::Limited => shared.log.info("cpu cores limited", fields),
         State::Unlimited if before.bound.is_some() => {
-            shared.log.info("cpu core limit removed", fields)
+            shared.log.info("cpu cores: every core in use", fields)
         }
         State::Unlimited => {}
         State::Unsupported(reason) if before.state != after.state => shared.log.warn(
@@ -251,13 +270,18 @@ fn log_refusals(shared: &Shared, b: &Bound) {
     }
 }
 
+/// How many cores the calling thread may use in practice: its CPUs, on Linux also capped by a cgroup CPU quota.
+fn parallelism() -> usize {
+    std::thread::available_parallelism().map_or(1, |n| n.get())
+}
+
 #[cfg(target_os = "linux")]
 mod os {
     use super::Bound;
     use std::collections::{BTreeSet, HashMap};
     use std::io;
 
-    /// Reported when the start CPUs could not be read.
+    /// Reported when the CPUs this process may run on could not be read.
     pub const UNSUPPORTED: &str = "the supervisor could not read the CPUs it may run on";
     const SETSIZE: usize = libc::CPU_SETSIZE as usize;
 
@@ -279,6 +303,29 @@ mod os {
         Ok((0..SETSIZE)
             .filter(|&c| unsafe { libc::CPU_ISSET(c, &set) })
             .collect())
+    }
+
+    /// Every CPU this process may run on, and how many cores that is in practice. A scratch thread widens its own
+    /// affinity to every CPU id, which the kernel narrows to what the cpuset allows, and reads both back, so the
+    /// calling thread keeps the affinity it inherited. Without that thread, the calling thread's own CPUs.
+    pub fn allowed() -> (Vec<usize>, usize) {
+        let read = || (own_cpus().unwrap_or_default(), super::parallelism());
+        std::thread::Builder::new()
+            .name("cpu-detect".into())
+            .spawn(move || {
+                let mut set = empty_set();
+                for c in 0..SETSIZE {
+                    // SAFETY: c is below CPU_SETSIZE, the size of `set`.
+                    unsafe { libc::CPU_SET(c, &mut set) };
+                }
+                // SAFETY: the size passed is the size of `set`. A refusal keeps the inherited CPUs, which `read`
+                // then reports.
+                unsafe { libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &set) };
+                read()
+            })
+            .ok()
+            .and_then(|t| t.join().ok())
+            .unwrap_or_else(read)
     }
 
     /// (ppid, process group) from a `/proc/<pid>/stat` line. The command name before them is in parentheses and may
@@ -392,24 +439,64 @@ mod os {
     use super::Bound;
     use std::io;
     use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::JobObjects::{
+        JobObjectBasicLimitInformation, QueryInformationJobObject,
+        JOBOBJECT_BASIC_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_AFFINITY,
+    };
     use windows_sys::Win32::System::Threading::{
         GetCurrentProcess, GetProcessAffinityMask, OpenProcess, SetProcessAffinityMask,
         PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_INFORMATION,
     };
 
-    /// Reported when the start CPUs could not be read.
+    /// Reported when the CPUs this process may run on could not be read.
     pub const UNSUPPORTED: &str = "the supervisor could not read the CPUs it may run on";
 
-    /// The CPUs of this process's affinity mask (its processor group).
-    pub fn own_cpus() -> io::Result<Vec<usize>> {
+    fn bits(mask: usize) -> Vec<usize> {
+        (0..usize::BITS as usize)
+            .filter(|b| mask & (1usize << b) != 0)
+            .collect()
+    }
+
+    /// (this process's affinity mask, the system's), both for its processor group.
+    fn masks() -> io::Result<(usize, usize)> {
         let (mut process, mut system) = (0usize, 0usize);
         // SAFETY: the pseudo handle needs no closing; both out pointers are valid.
         if unsafe { GetProcessAffinityMask(GetCurrentProcess(), &mut process, &mut system) } == 0 {
             return Err(io::Error::last_os_error());
         }
-        Ok((0..usize::BITS as usize)
-            .filter(|b| process & (1usize << b) != 0)
-            .collect())
+        Ok((process, system))
+    }
+
+    /// The CPUs of this process's affinity mask (its processor group).
+    pub fn own_cpus() -> io::Result<Vec<usize>> {
+        masks().map(|(process, _)| bits(process))
+    }
+
+    /// Every CPU of this process's processor group the system lets it run on: the system mask, narrowed by the
+    /// affinity limit of the job the process belongs to, if any. The mask it inherited does not count.
+    pub fn allowed() -> (Vec<usize>, usize) {
+        let Ok((_, system)) = masks() else {
+            return (Vec::new(), super::parallelism());
+        };
+        // SAFETY: the struct is plain data, for which all zeros is a valid value.
+        let mut job: JOBOBJECT_BASIC_LIMIT_INFORMATION = unsafe { std::mem::zeroed() };
+        // SAFETY: a null handle names the job of this process (outside a job the call fails); the buffer is `job`, of
+        // the size passed, and no returned length is asked for.
+        let in_job = unsafe {
+            QueryInformationJobObject(
+                std::ptr::null_mut(),
+                JobObjectBasicLimitInformation,
+                (&mut job as *mut JOBOBJECT_BASIC_LIMIT_INFORMATION).cast(),
+                std::mem::size_of::<JOBOBJECT_BASIC_LIMIT_INFORMATION>() as u32,
+                std::ptr::null_mut(),
+            )
+        } != 0;
+        let mask = if in_job && job.LimitFlags & JOB_OBJECT_LIMIT_AFFINITY != 0 {
+            system & job.Affinity
+        } else {
+            system
+        };
+        (bits(mask), super::parallelism())
     }
 
     /// Binds the supervisor (when `roots` holds its pid) and every other root process to `cpus`: their threads at once,
@@ -484,6 +571,11 @@ mod os {
         Ok(Vec::new())
     }
 
+    /// No CPU ids either; only the count.
+    pub fn allowed() -> (Vec<usize>, usize) {
+        (Vec::new(), super::parallelism())
+    }
+
     pub fn bind(_roots: &[u32], _cpus: &[usize]) -> Result<Bound, String> {
         Err(UNSUPPORTED.into())
     }
@@ -512,7 +604,7 @@ mod tests {
     }
 
     #[test]
-    fn plan_binds_to_the_first_cpus_of_the_start_set() {
+    fn plan_binds_to_the_first_cpus_of_the_host() {
         let h = host(&[0, 2, 4, 6], 4);
         assert_eq!(plan(&h, 2), Some(vec![0, 2]));
         assert_eq!(plan(&h, 1), Some(vec![0]));
@@ -534,7 +626,7 @@ mod tests {
 
     #[test]
     fn status_reports_detected_configured_effective_and_state() {
-        let mut c = Cores::new(host(&[0, 1, 2, 3], 4));
+        let mut c = Cores::new(host(&[0, 1, 2, 3], 4), vec![]);
         assert_eq!(
             c.status_json(),
             json!({ "detected": 4, "maxCores": 0, "effective": 4, "state": "unlimited" })
@@ -572,9 +664,9 @@ mod tests {
     }
 
     #[test]
-    fn a_limit_binds_and_removing_it_restores_the_start_set() {
+    fn a_limit_binds_and_removing_it_restores_every_cpu() {
         let calls = Calls::default();
-        let start = Cores::new(host(&[0, 1, 2, 3], 4));
+        let start = Cores::new(host(&[0, 1, 2, 3], 4), vec![]);
         let (limited, _) = settle(&start, 2, plan(&start.host, 2), &[1], binder(&calls, false));
         assert_eq!(limited.state, State::Limited);
         assert_eq!(limited.bound, Some(vec![0, 1]));
@@ -593,7 +685,7 @@ mod tests {
     #[test]
     fn no_limit_on_processes_never_narrowed_binds_nothing() {
         let calls = Calls::default();
-        let start = Cores::new(host(&[0, 1, 2, 3], 4));
+        let start = Cores::new(host(&[0, 1, 2, 3], 4), vec![]);
         let (next, _) = settle(&start, 8, plan(&start.host, 8), &[1], binder(&calls, false));
         assert_eq!(
             (next.state.clone(), next.max, next.bound.clone()),
@@ -605,7 +697,7 @@ mod tests {
     #[test]
     fn a_refused_binding_fails_and_keeps_the_binding_it_had() {
         let calls = Calls::default();
-        let mut limited = Cores::new(host(&[0, 1, 2, 3], 4));
+        let mut limited = Cores::new(host(&[0, 1, 2, 3], 4), vec![]);
         limited.max = 2;
         limited.bound = Some(vec![0, 1]);
         limited.state = State::Limited;
@@ -622,9 +714,46 @@ mod tests {
     }
 
     #[test]
+    fn a_narrowed_start_counts_as_a_binding_and_is_widened_without_a_limit() {
+        let calls = Calls::default();
+        let start = Cores::new(host(&[0, 1, 2, 3], 4), vec![0]);
+        assert_eq!(start.bound, Some(vec![0]), "an inherited narrowing");
+        assert_eq!(start.status_json()["effective"], 1);
+        let (next, _) = settle(&start, 0, plan(&start.host, 0), &[1], binder(&calls, false));
+        assert_eq!(
+            (next.state.clone(), next.bound.clone()),
+            (State::Unlimited, None)
+        );
+        assert_eq!(*calls.borrow(), vec![vec![0, 1, 2, 3]]);
+        assert_eq!(
+            Cores::new(host(&[0, 1], 2), vec![0, 1]).bound,
+            None,
+            "inherited every CPU"
+        );
+        assert_eq!(Cores::new(host(&[], 2), vec![]).bound, None, "no CPU ids");
+    }
+
+    #[test]
+    fn an_adopted_child_takes_the_limit_or_every_cpu() {
+        let mut c = Cores::new(host(&[0, 1, 2, 3], 4), vec![]);
+        assert_eq!(
+            adopted_cpus(&c),
+            Some(vec![0, 1, 2, 3]),
+            "no limit: widened like the rest"
+        );
+        c.bound = Some(vec![0]);
+        assert_eq!(adopted_cpus(&c), Some(vec![0]));
+        assert_eq!(
+            adopted_cpus(&Cores::new(host(&[], 4), vec![])),
+            None,
+            "no CPU ids"
+        );
+    }
+
+    #[test]
     fn a_host_without_cpu_ids_reports_a_limit_as_unsupported() {
         let calls = Calls::default();
-        let start = Cores::new(host(&[], 8));
+        let start = Cores::new(host(&[], 8), vec![]);
         let (next, _) = settle(&start, 2, plan(&start.host, 2), &[1], binder(&calls, false));
         assert!(matches!(next.state, State::Unsupported(_)), "{next:?}");
         assert_eq!(next.status_json()["effective"], 8);
@@ -645,6 +774,38 @@ mod tests {
         assert!(h.count >= 1, "{h:?}");
         #[cfg(any(target_os = "linux", windows))]
         assert!(h.cpus.len() >= h.count, "{h:?}");
+    }
+
+    /// Linux: detection reads the CPUs the kernel allows, not the affinity the starting thread inherited (a supervisor
+    /// started from a process an earlier supervisor had bound). Runs in its own thread, so no other test is narrowed.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn detect_reads_every_allowed_cpu_from_a_narrowed_thread() {
+        let full = os::own_cpus().unwrap();
+        if full.len() < 2 {
+            eprintln!("skipped: this host offers one CPU");
+            return;
+        }
+        let first = full[0];
+        let (host, inherited) = std::thread::spawn(move || {
+            // SAFETY: a zeroed cpu_set_t is empty; `first` is below CPU_SETSIZE; the size is that of the set.
+            let narrowed = unsafe {
+                let mut set: libc::cpu_set_t = std::mem::zeroed();
+                libc::CPU_SET(first, &mut set);
+                libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &set)
+            };
+            assert_eq!(narrowed, 0);
+            let cores = Cores::detect();
+            (cores.host, cores.bound)
+        })
+        .join()
+        .unwrap();
+        assert!(full.iter().all(|c| host.cpus.contains(c)), "{host:?}");
+        assert_eq!(
+            inherited,
+            Some(vec![first]),
+            "the inherited narrowing is a binding to undo"
+        );
     }
 
     /// The CPUs one thread may run on, from `/proc/<pid>/task/<tid>/status`.
