@@ -10,6 +10,13 @@ export const REAL = process.env.PLUR1BUS_REAL_MODELS === "1";
 /** The flat seam's variant: `flat-embedder` (default) or `flat-embedder-cold` (PLUR1BUS_SYSTEM_INTERNALS; the first 2
  *  query embeddings of each core process take 350 ms, so a recall that does not wait for the warm-up overruns). */
 export const FLAT_INTERNALS = process.env.PLUR1BUS_SYSTEM_INTERNALS ?? "flat-embedder";
+/** Ruling H3-R26: PLUR1BUS_CI_RECALL_HARD_MS (set by every CI job that runs a recall test on shared runners), or null
+ *  when unset (reference hardware: the default 600 ms hard budget and the strict targets apply). */
+export const CI_RECALL_HARD_MS = ((raw) => {
+  if (raw === undefined || raw === "") return null;
+  if (!/^\d+$/.test(raw) || Number(raw) < 100) throw new Error(`PLUR1BUS_CI_RECALL_HARD_MS must be an integer >= 100, got ${JSON.stringify(raw)}`);
+  return Number(raw);
+})(process.env.PLUR1BUS_CI_RECALL_HARD_MS);
 /** Whether the running core at `h` reports explicit shared memory as supported (E4, `core.status.engine.
  *  sharedMemory.supported`), read through `1staid check --json`'s `memory.shared` row (`ok` iff supported), so a system
  *  test asserts what the engine actually answered. Since engine E4.2 that is true on Linux ("fd-capability"), macOS and
