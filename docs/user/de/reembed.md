@@ -16,7 +16,9 @@ Dafür gibt es keine Web-UI. Nutze die CLI.
 plur1bus memory reembed --plan --model <MODEL> --dimensions <N>
 ```
 
-`--model` ist ein festgelegtes lokales Embedding-Modell. `--dimensions` brauchst du nur, wenn das Modell mehr als eine Größe unterstützt.
+`--model` ist ein festgelegtes lokales Embedding-Modell, unter der eigenen Id der Gedächtnis-Engine: `google/embeddinggemma-2` (EmbeddingGemma 2), `intfloat/multilingual-e5-small`, `jinaai/jina-embeddings-v5-text-nano-retrieval` oder `jinaai/jina-embeddings-v3`. `--dimensions` brauchst du nur, wenn das Modell mehr als eine Größe unterstützt.
+
+Ein Gedächtnis ohne Daten braucht keine Migration: Wähle das Modell stattdessen im Einrichtungsassistenten ([erinnerungen.md](erinnerungen.md#embedding-modell-und-reranker)).
 
 2. Ausführen. Der Befehl fragt nach Bestätigung (`--yes` außerhalb eines Terminals), startet die Migration im Core und verfolgt den Fortschritt. `--no-wait` kehrt nach dem Start zurück, `--no-switch` kopiert und prüft, schaltet aber nicht um, `--throttle-ms` legt die Pause zwischen den Stapeln fest (Standard 250).
 

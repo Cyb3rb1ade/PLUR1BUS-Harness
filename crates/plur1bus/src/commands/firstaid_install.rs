@@ -14,12 +14,38 @@ use semver::Version;
 use serde_json::{json, Value};
 use std::path::Path;
 
-/// Parity with `packages/core/src/engine-config.ts`'s `E5_SMALL`/`BGE_RERANKER` (`model_ids_match_engine_config_ts`
-/// reads that file and checks both strings appear).
+/// The embedding model and the reranker the core caches while `engine.embedding`/`engine.reranker` name none: parity with
+/// `packages/core/src/engine-config.ts`'s `E5_SMALL`/`BGE_RERANKER` (`model_ids_match_engine_config_ts` reads that file
+/// and checks both strings appear).
 pub const MODEL_IDS: [&str; 2] = [
     "intfloat/multilingual-e5-small",
     "woxpas-ai/bge-reranker-v2-m3-onnx",
 ];
+
+/// The local models the core caches under `models/` for `config` (config.json), embedding first: the model
+/// `engine.<role>.local.model` names, else the default of [`MODEL_IDS`], as `engine-config.ts` resolves it. A role served
+/// by a remote provider (any `provider` other than `local-transformers`) caches nothing.
+fn cached_model_ids(config: &Value) -> Vec<&str> {
+    let local = |role: &str, default: &'static str| -> Option<&str> {
+        let block = &config["engine"][role];
+        match block["provider"].as_str() {
+            None | Some("local-transformers") => Some(
+                block["local"]["model"]
+                    .as_str()
+                    .filter(|m| !m.trim().is_empty())
+                    .unwrap_or(default),
+            ),
+            Some(_) => None,
+        }
+    };
+    [
+        local("embedding", MODEL_IDS[0]),
+        local("reranker", MODEL_IDS[1]),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
+}
 
 /// Every fail this file reports points at the same remedy: `setup` puts the unit back.
 const REPAIR_HINT: &str = "plur1bus 1staid repair";
@@ -219,9 +245,10 @@ fn has_onnx_file(dir: &Path) -> bool {
 }
 
 /// `models.cache` (HB15): a live engine reporting a model load failure (`core.status.engine.models.<embedder|
-/// reranker>.error`) is authoritative and `fail`s with its text, whatever is on disk. Otherwise, for each of
-/// [`MODEL_IDS`], `models/<id>/` holding at least one `*.onnx` file → `ok`; a missing one → `warn` ("downloads at
-/// first warm-up", `detail.missing`) — the cache fills itself in at first use, so this is never a `fail`.
+/// reranker>.error`) is authoritative and `fail`s with its text, whatever is on disk. Otherwise, for each local model the
+/// configuration selects ([`cached_model_ids`]; an unreadable config.json counts as an empty one, its own checks report
+/// it), `models/<id>/` holding at least one `*.onnx` file → `ok`; a missing one → `warn` ("downloads at first warm-up",
+/// `detail.missing`) — the cache fills itself in at first use, so this is never a `fail`.
 pub(crate) fn check_models_cache(layout: &Layout, core_status: Option<&Value>) -> Check {
     const ID: &str = "models.cache";
     if let Some(status) = core_status {
@@ -241,12 +268,19 @@ pub(crate) fn check_models_cache(layout: &Layout, core_status: Option<&Value>) -
             }
         }
     }
-    let missing: Vec<&str> = MODEL_IDS
+    let config: Value = std::fs::read_to_string(layout.config_path())
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(Value::Null);
+    let models = cached_model_ids(&config);
+    let missing: Vec<&str> = models
         .iter()
         .copied()
         .filter(|id| !has_onnx_file(&layout.models().join(id)))
         .collect();
-    if missing.is_empty() {
+    if models.is_empty() {
+        ok(ID, "no local model is configured")
+    } else if missing.is_empty() {
         ok(ID, "model cache is warm")
     } else {
         warn(
@@ -447,6 +481,60 @@ mod tests {
         }
         let c = check_models_cache(&layout, None);
         assert_eq!(c.status, Status::Ok, "{c:?}");
+    }
+
+    fn write_config(layout: &Layout, config: &Value) {
+        std::fs::write(layout.config_path(), serde_json::to_vec(config).unwrap()).unwrap();
+    }
+
+    /// The setup wizard writes the chosen models into `engine.embedding`/`engine.reranker`: those are the ones the core
+    /// caches, not the defaults.
+    #[test]
+    fn models_cache_follows_the_configured_local_models() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let chosen = [
+            "google/embeddinggemma-2",
+            "jinaai/jina-reranker-v2-base-multilingual",
+        ];
+        write_config(
+            &layout,
+            &json!({ "engine": {
+                "embedding": { "provider": "local-transformers", "local": { "model": chosen[0], "dimensions": 768 } },
+                "reranker": { "provider": "local-transformers", "local": { "model": chosen[1] } },
+            } }),
+        );
+        let c = check_models_cache(&layout, None);
+        assert_eq!(c.status, Status::Warn, "{c:?}");
+        assert_eq!(c.detail.unwrap()["missing"], json!(chosen));
+        for id in chosen {
+            let onnx = layout.models().join(id).join("rev").join("onnx");
+            std::fs::create_dir_all(&onnx).unwrap();
+            std::fs::write(onnx.join("model_quantized.onnx"), b"onnx").unwrap();
+        }
+        assert_eq!(check_models_cache(&layout, None).status, Status::Ok);
+    }
+
+    #[test]
+    fn models_cache_expects_no_local_model_for_a_remote_role() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        write_config(
+            &layout,
+            &json!({ "engine": { "embedding": { "provider": "openai", "model": "text-embedding-3-large", "dimensions": 3072, "apiKeyEnv": "OPENAI_API_KEY" } } }),
+        );
+        let c = check_models_cache(&layout, None);
+        assert_eq!(c.detail.unwrap()["missing"], json!([MODEL_IDS[1]]));
+        write_config(
+            &layout,
+            &json!({ "engine": {
+                "embedding": { "provider": "openai", "model": "text-embedding-3-large", "dimensions": 3072, "apiKeyEnv": "OPENAI_API_KEY" },
+                "reranker": { "provider": "cohere", "apiKeyEnv": "COHERE_API_KEY" },
+            } }),
+        );
+        let c = check_models_cache(&layout, None);
+        assert_eq!(c.status, Status::Ok, "{c:?}");
+        assert_eq!(c.summary, "no local model is configured");
     }
 
     #[test]

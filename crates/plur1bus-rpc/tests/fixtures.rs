@@ -40,9 +40,7 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
-        "model.embedding.select" => {
-            pair::<ModelEmbeddingSelectParams, ModelEmbeddingSelectResult>(name, f)
-        }
+        "model.memory.status" => pair::<ModelMemoryStatusParams, ModelMemoryStatusResult>(name, f),
         "model.licence.confirm" => {
             pair::<ModelLicenceConfirmParams, ModelLicenceConfirmResult>(name, f)
         }
@@ -549,7 +547,7 @@ fn every_method_fixture_round_trips() {
         "admin.api.device.challenge",
         "admin.api.device.prove",
         "admin.api.device.announce",
-        "model.embedding.select",
+        "model.memory.status",
         "model.licence.confirm",
         "model.licence.list",
         "model.licence.check",

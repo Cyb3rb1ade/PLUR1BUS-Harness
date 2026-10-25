@@ -45,7 +45,7 @@ test("cloud caption checkbox is required, names provider, and is cleared by a pr
         assert.equal(await box.isChecked(), false);
         await box.check();
         await app.page.getByRole("button", { name: "Next", exact: true }).click();
-        await app.page.getByRole("heading", { name: /Language for voice features/ }).waitFor();
+        await app.page.getByRole("heading", { name: "Name & persona" }).waitFor();
         const call = app.server.rpc.calls.find(c => c.method === "config.set")!;
         const params: any = call.params;
         assert.equal(params.ifRevision, "current");

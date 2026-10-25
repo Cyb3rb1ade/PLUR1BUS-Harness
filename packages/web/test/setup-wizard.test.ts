@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { browserSkip, setup, teardown, TOKEN, withApp } from "./harness.ts";
 import { rpcError } from "./mock-rpc.ts";
-import { calls, changes, next, open, seed, skip, stepHeading, toSwitchboard } from "./setup-fixtures.ts";
+import { GEMMA_BLOCK, calls, changes, next, open, seed, skip, stepHeading, toPersona, toSwitchboard } from "./setup-fixtures.ts";
 
 before(setup);
 after(teardown);
@@ -17,7 +17,7 @@ describe("setup wizard: flow", opts, () => {
         {provider:'anthropic',id:'limited-alternative',kind:'chat',status:'available',toolUse:'limited tool use'},
         {provider:'openai',id:'gpt-6-astra',kind:'chat',status:'available'},
       ]);
-      await open(app); await next(app.page);
+      await open(app); await toPersona(app);
       await app.page.getByLabel('Display name').fill('Hal'); await next(app.page);
       const models=app.page.getByLabel('Chat model', {exact:true});
       await app.page.waitForFunction(()=> (document.querySelector('#setup-model') as HTMLSelectElement)?.value === 'anthropic/claude-sonnet-5-5');
@@ -32,7 +32,7 @@ describe("setup wizard: flow", opts, () => {
     });
   });
 
-  test("all seven steps, exact config.set params, summary with a link to the chat", async () => {
+  test("all nine steps in order, exact config.set params, summary with a link to the chat", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
@@ -41,12 +41,22 @@ describe("setup wizard: flow", opts, () => {
       assert.match((await page.locator("main").textContent()) ?? "", /signed in as owner/i);
       assert.equal(await page.locator("ol.setup-progress li").count(), 9);
       assert.equal(await page.locator("ol.setup-progress li[aria-current=step]").count(), 1);
-      await toSwitchboard(app);
+      await next(page);
+      // Memory comes before the first agent exists, so a fresh store still takes the chosen embedding model.
+      await stepHeading(page, /Memory/).waitFor();
+      await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).waitFor();
+      await next(page);
+      await stepHeading(page, "Name & persona").waitFor();
+      await page.getByLabel("Display name").fill("Hal");
+      await next(page);
+      await stepHeading(page, /Main model/).waitFor();
+      await page.getByLabel("Chat model").selectOption("anthropic/claude-x");
+      await next(page);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
+      await stepHeading(page, /Switchboard/).waitFor();
       await page.getByText("cannot be done from the browser yet").waitFor();
       assert.equal(await page.getByRole("button", { name: "Next" }).count(), 0, "an unavailable step can only be skipped");
       await skip(page);
-      await stepHeading(page, /Memory/).waitFor();
-      await next(page);
       await stepHeading(page, /Language for voice features/).waitFor();
       await skip(page);
       await stepHeading(page, /Backups/).waitFor();
@@ -62,22 +72,23 @@ describe("setup wizard: flow", opts, () => {
       assert.equal(c.length, 2);
       const persona = calls(app,"agent.create")[0]!.params as {name:string;displayName:string;idempotencyKey:string};
       assert.equal(persona.name,"main");assert.equal(persona.displayName,"Hal");assert.match(persona.idempotencyKey,/^setup-main-[0-9]+$/);
-      assert.deepEqual(c[0], [{ key: "modelRoles.chat", value: "anthropic/claude-x" }]);
-      assert.deepEqual(c[1], [{ key: "embedding.useClass", value: "general" }, { key: "modelRoles.rerank", value: "BAAI/bge-reranker-v2-m3" }]);
+      assert.deepEqual(c[0], [{ key: "embedding.useClass", value: "general" }, GEMMA_BLOCK]);
+      assert.deepEqual(c[1], [{ key: "modelRoles.chat", value: "anthropic/claude-x" }]);
       assert.deepEqual(calls(app, "admin.backup.snapshot").map((x) => x.params), [{ label: "setup" }]);
 
       const sum = (await page.locator(".setup-summary").textContent()) ?? "";
       assert.match(sum, /Your account\s*done/); assert.match(sum, /Agent main, named Hal/); assert.match(sum, /Chat model anthropic\/claude-x/);
+      assert.match(sum, /embedding EmbeddingGemma 2 \(text\), reranker BGE-reranker-v2-m3/);
       assert.match(sum, /Switchboard\s*skipped/); assert.match(sum, /Language for voice features\s*skipped/); assert.match(sum, /Import\s*skipped/); assert.match(sum, /Backup plur1bus-20261007-setup/);
       assert.equal(await page.getByRole("link", { name: "Go to the chat" }).getAttribute("href"), "#/chat");
       assert.deepEqual(app.problems, []);
     });
   });
 
-  test("six steps with ?mode=bundled: no account step", async () => {
+  test("eight steps with ?mode=bundled: no account step, Memory first", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app, "#/setup?mode=bundled");
-      await stepHeading(app.page, "Name & persona").waitFor();
+      await stepHeading(app.page, /Memory/).waitFor();
       assert.equal(await app.page.locator("ol.setup-progress li").count(), 8);
       assert.match((await app.page.locator(".setup-count").textContent()) ?? "", /Step 1 of 8/);
       assert.equal(await app.page.locator("ol.setup-progress").getByText("Your account").count(), 0);
@@ -92,8 +103,11 @@ describe("setup wizard: flow", opts, () => {
       const live = page.locator("main [role=status][aria-live=polite]").first();
       assert.equal(((await live.textContent()) ?? "").trim(), "Step 1 of 9: Your account");
       await next(page);
+      await stepHeading(page, /Memory/).waitFor();
+      assert.equal(((await live.textContent()) ?? "").trim(), "Step 2 of 9: Memory");
+      await skip(page);
       await stepHeading(page, "Name & persona").waitFor();
-      assert.equal(((await live.textContent()) ?? "").trim(), "Step 2 of 9: Name & persona");
+      assert.equal(((await live.textContent()) ?? "").trim(), "Step 3 of 9: Name & persona");
       await page.waitForFunction(() => document.activeElement?.tagName === "H2" && document.activeElement?.textContent === "Name & persona");
     });
   });
@@ -129,7 +143,7 @@ describe("setup wizard: resume and storage", opts, () => {
       await toSwitchboard(app);
       await page.reload();
       await stepHeading(page, /Switchboard/).waitFor();
-      assert.match((await page.locator(".setup-count").textContent()) ?? "", /Step 5 of 9/);
+      assert.match((await page.locator(".setup-count").textContent()) ?? "", /Step 6 of 9/);
       await page.getByRole("button", { name: "Back" }).click();
       await stepHeading(page, /Decision model/).waitFor();
       await page.getByRole("button", { name: "Back" }).click();
@@ -158,7 +172,7 @@ describe("setup wizard: resume and storage", opts, () => {
       await open(app);
       await stepHeading(app.page, "Your account").waitFor();
       await next(app.page);
-      await stepHeading(app.page, "Name & persona").waitFor();
+      await stepHeading(app.page, /Memory/).waitFor();
     });
   });
 });
@@ -168,8 +182,7 @@ describe("setup wizard: validation and failures", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
-      await next(page);
-      await stepHeading(page, "Name & persona").waitFor();
+      await toPersona(app);
       await next(page);
       await page.getByText("Enter a display name.").waitFor();
       assert.equal(await page.getByLabel("Display name").getAttribute("aria-invalid"), "true");
@@ -194,7 +207,7 @@ describe("setup wizard: validation and failures", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
-      await next(page); await page.getByLabel("Display name").fill("Hal"); await next(page);
+      await toPersona(app); await page.getByLabel("Display name").fill("Hal"); await next(page);
       await stepHeading(page, /Main model/).waitFor();
       await page.getByLabel("Chat model").waitFor();
       const opts = await page.getByLabel("Chat model").locator("option").allTextContents();
@@ -214,7 +227,7 @@ describe("setup wizard: validation and failures", opts, () => {
       await withApp({}, async (app) => {
         seed(app.server.rpc, models as unknown[] | null); await open(app);
         const { page } = app;
-        await next(page); await page.getByLabel("Display name").fill("Hal"); await next(page);
+        await toPersona(app); await page.getByLabel("Display name").fill("Hal"); await next(page);
         await stepHeading(page, /Main model/).waitFor();
         await page.getByText(models === null ? /does not offer this setting yet/ : /No chat models were found/).waitFor();
         await page.getByText(/Signing in to a provider is not available/).waitFor();
@@ -230,7 +243,7 @@ describe("setup wizard: validation and failures", opts, () => {
       seed(app.server.rpc); app.server.rpc.scenario("models.list", "error");
       await open(app);
       const { page } = app;
-      await next(page); await page.getByLabel("Display name").fill("Hal"); await next(page);
+      await toPersona(app); await page.getByLabel("Display name").fill("Hal"); await next(page);
       await page.getByText("The model list could not be loaded.").waitFor();
       app.server.rpc.scenario("models.list", "success");
       await page.getByRole("button", { name: "Try again" }).click();
@@ -243,7 +256,6 @@ describe("setup wizard: validation and failures", opts, () => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
       await toSwitchboard(app); await skip(page);
-      await stepHeading(page, /Memory/).waitFor(); await next(page);
       await stepHeading(page, /Language for voice features/).waitFor(); await skip(page);
       await stepHeading(page, /Backups/).waitFor();
       await next(page);
@@ -263,7 +275,7 @@ describe("setup wizard: validation and failures", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
-      await next(page); await page.getByLabel("Display name").fill("Hal");
+      await toPersona(app); await page.getByLabel("Display name").fill("Hal");
       for (const [scenario, text] of [["error", /Saving failed/], ["forbidden", /not allowed to change/], ["unavailable", /does not offer this setting yet/]] as const) {
         app.server.rpc.scenario("agent.create", scenario);
         await next(page);
@@ -282,7 +294,7 @@ describe("setup wizard: validation and failures", opts, () => {
       seed(app.server.rpc);
       app.server.rpc.handle("agent.create", () => { throw rpcError("E_CONFIG_INVALID", "bad value"); });
       await open(app);
-      await next(app.page); await app.page.getByLabel("Display name").fill("Hal"); await next(app.page);
+      await toPersona(app); await app.page.getByLabel("Display name").fill("Hal"); await next(app.page);
       await app.page.getByRole("alert").getByText(/Saving failed/).waitFor();
     });
   });

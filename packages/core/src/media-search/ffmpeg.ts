@@ -1,7 +1,7 @@
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
 import { mkdir, mkdtemp, open, rm, writeFile } from "node:fs/promises";
-import { delimiter, join } from "node:path";
+import { delimiter, join, win32 } from "node:path";
 import { mediaError } from "./errors.ts";
 import { resolveInsideRoots } from "./paths.ts";
 import type { AudioDecoderPort, FrameExtractorPort, MediaSource } from "./types.ts";
@@ -47,20 +47,33 @@ async function sniffFile(file: string): Promise<boolean> {
   finally { await h.close(); }
 }
 
-function findOnPath(name: string): string | null {
-  const exts = process.platform === "win32" ? [".exe", ".cmd", ""] : [""];
+// Windows: only native images. `spawn` without a shell refuses `.cmd`/`.bat` (EINVAL since CVE-2024-27980) and an
+// extensionless file is no PE image, so either would resolve but fail on every call instead of leaving ffmpeg unavailable.
+const WIN_NATIVE_EXTS = [".exe", ".com"];
+
+/** Extensions tried after the bare name on PATH, in order. */
+export function binaryExtensions(platform: NodeJS.Platform): readonly string[] {
+  return platform === "win32" ? WIN_NATIVE_EXTS : [""];
+}
+/** Whether `file` names something `spawn` can start without a shell. Always true on POSIX (the mode bits decide there). */
+export function isSpawnableName(file: string, platform: NodeJS.Platform): boolean {
+  return platform !== "win32" || WIN_NATIVE_EXTS.includes(win32.extname(file).toLowerCase());
+}
+
+function findOnPath(name: string, platform: NodeJS.Platform): string | null {
   for (const dir of (process.env["PATH"] ?? "").split(delimiter)) {
     if (!dir) continue;
-    for (const ext of exts) { const c = join(dir, name + ext); if (isExecutable(c)) return c; }
+    for (const ext of binaryExtensions(platform)) { const c = join(dir, name + ext); if (isExecutable(c)) return c; }
   }
   return null;
 }
 function isExecutable(p: string): boolean {
   try { if (!statSync(p).isFile()) return false; accessSync(p, constants.X_OK); return true; } catch { return false; }
 }
-function resolveBinary(explicit: string | undefined, name: string): string | null {
-  if (explicit !== undefined) return isExecutable(explicit) ? explicit : null;
-  return findOnPath(name);
+/** An explicit path, else the first match on PATH; null when there is none or it cannot be spawned without a shell. */
+export function resolveBinary(explicit: string | undefined, name: string, platform: NodeJS.Platform = process.platform): string | null {
+  if (explicit !== undefined) return isSpawnableName(explicit, platform) && isExecutable(explicit) ? explicit : null;
+  return findOnPath(name, platform);
 }
 
 class Proc {

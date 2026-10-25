@@ -8,7 +8,7 @@ import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./ha
 import { DECISION_FEATURES, decisionRoleMissing } from "../src/pages/common/decision-hint.ts";
 import { en, de } from "../src/i18n/shared.ts";
 import { seedConfig } from "./settings-config-fixtures.ts";
-import { next, open, seed, skip, stepHeading } from "./setup-fixtures.ts";
+import { next, open, seed, skip, stepHeading, toPersona } from "./setup-fixtures.ts";
 
 before(setup);
 after(teardown);
@@ -37,8 +37,7 @@ const reads = (app: App): unknown[] => app.server.rpc.calls.filter((c) => c.meth
 
 async function toModelStep(app: App): Promise<void> {
   const { page } = app;
-  await stepHeading(page, "Your account").waitFor(); await next(page);
-  await stepHeading(page, "Name & persona").waitFor(); await page.getByLabel("Display name").fill("Hal"); await next(page);
+  await toPersona(app); await page.getByLabel("Display name").fill("Hal"); await next(page);
   await stepHeading(page, /Main model/).waitFor();
 }
 
@@ -60,7 +59,6 @@ describe("decision hint: setup wizard", opts, () => {
       await page.getByLabel("Chat model").selectOption("anthropic/claude-x"); await next(page);
       await stepHeading(page, /Decision model/).waitFor(); await skip(page);
       await stepHeading(page, /Switchboard/).waitFor(); await skip(page);
-      await stepHeading(page, /Memory/).waitFor(); await next(page);
       await stepHeading(page, /Language for voice features/).waitFor(); await skip(page);
       await stepHeading(page, /Backups/).waitFor();
       await page.getByRole("button", { name: "Create a backup now" }).click(); await page.getByText(/Backup created/).waitFor(); await next(page);
@@ -108,6 +106,7 @@ describe("decision hint: setup wizard", opts, () => {
       const { page } = app;
       await stepHeading(page, "Dein Konto").waitFor();
       await next(page);
+      await stepHeading(page, /Gedächtnis/).waitFor(); await skip(page);
       await stepHeading(page, "Name & Persona").waitFor();
       await page.getByLabel(/Anzeigename/).fill("Hal"); await next(page);
       await stepHeading(page, /Hauptmodell/).waitFor();
