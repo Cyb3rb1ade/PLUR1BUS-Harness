@@ -161,7 +161,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "decision.classProfiles.medium", type: "string", tier: "advanced", help: "Provider profile for the medium model class." },
   { key: "decision.classProfiles.large", type: "string", tier: "advanced", help: "Provider profile for the large model class." },
   { key: "decision.classProfiles.frontier", type: "string", tier: "advanced", help: "Provider profile for the frontier model class." },
-  { key: "modelRoles", type: "object", tier: "basic", help: "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest." },
+  { key: "modelRoles", type: "object", tier: "basic", help: "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. The embedding and rerank roles are still accepted but select no model: the memory engine takes its models from engine.embedding and engine.reranker." },
   { key: "modelProfiles", type: "object", tier: "advanced", help: "Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order." },
   { key: "models.scan.enabled", type: "boolean", tier: "advanced", help: "Whether periodic model discovery scans are enabled." },
   { key: "models.scan.intervalHours", type: "integer", tier: "advanced", help: "Hours between periodic model discovery scans." },

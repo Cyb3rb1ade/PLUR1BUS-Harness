@@ -16,6 +16,10 @@
 .cfg-switch { display: inline-flex; align-items: center; gap: 10px; min-height: var(--control-h); }
 .cfg-switch input { width: 20px; min-height: 20px; height: 20px; padding: 0; }
 .cfg-json { margin: 0; padding: 10px 12px; max-height: 18rem; overflow: auto; background: var(--field-bg); border: 1px solid var(--field-border); border-radius: 10px; font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cfg-engine-h { margin: 0; font-size: 14px; font-weight: 650; color: var(--ink); }
+.cfg-engine-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; }
+.cfg-engine-facts dt { color: var(--ink-2); }
+.cfg-engine-facts dd { margin: 0; overflow-wrap: anywhere; }
 .cfg-bar, .cfg-review { display: grid; gap: 12px; padding: 12px 0; }
 .cfg-review h3 { margin: 0; }
 .cfg-count { margin: 0; color: var(--ink-2); }
