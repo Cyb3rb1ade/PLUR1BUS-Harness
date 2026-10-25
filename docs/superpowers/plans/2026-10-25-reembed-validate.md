@@ -7,8 +7,8 @@
 
 **Status.** Implemented 2026-10-25: E-V1 is plugin PR #275 (contract 1.17.0), H-V1 pins it. Found on the way and fixed in
 H-V1: the supervisor restarts the core before it answers the switch's `config.set`, so the driver now confirms a lost reply
-from `config.json`. Still open: a `--dry-run` (or `memory reembed --plan`) leaves an unconfirmed engine plan that blocks a
-second plan for its confirmation lifetime (the engine keeps an unexpired `planned` record as a hard conflict).
+from `config.json`. Also fixed: planning the same target again (a `config set` after its `--dry-run` or a declined confirmation)
+answers the pending plan, since the engine refuses a second one while an unconfirmed plan lives.
 
 ## Why the run stops today
 

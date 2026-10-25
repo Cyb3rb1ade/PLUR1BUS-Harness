@@ -73,6 +73,37 @@ describe("migration driver: plan", () => {
       await assert.rejects(r.driver.plan({ target: fp("d", 4) }), (e) => codeOf(e) === "migration-active");
     } finally { r.done(); }
   });
+
+  it("the same target planned again answers the pending plan: no second engine plan, the new throttle kept, then it runs", async () => {
+    const r = rig(); try {
+      const first = await r.driver.plan({ target, throttleMs: 200 });
+      const again = await r.driver.plan({ target, throttleMs: 0 });
+      assert.equal(r.fake.state.planRequests.length, 1, "the engine is asked once");
+      assert.equal(again.plan?.id, first.plan?.id);
+      assert.deepEqual({ ...again.plan, throttleMs: 200, minDurationMs: first.plan!.minDurationMs }, first.plan);
+      assert.equal(again.plan?.throttleMs, 0); assert.deepEqual(again.probe, first.probe);
+      const st = (await r.driver.status()).checkpoint!;
+      assert.equal(st.throttleMs, 0); assert.ok(!("estimate" in st), "the estimate stays internal");
+      assert.equal((await r.driver.run()).phase, "ready-to-switch");
+    } finally { r.done(); }
+  });
+
+  it("a pending plan is not reused for another target, after its engine record moved on, or close to its expiry", async () => {
+    let clock = 1_000;
+    const dir = mkdtempSync(path.join(tmpdir(), "p1-reembed-drv-"));
+    try {
+      const fake = createFakeEngine({}); let n = 0;
+      const d = createMigrationDriver({ newId: () => `m${++n}`, engine: fake.engine, store: createStateStore(dir), switchPort: fake.switchPort, now: () => clock, sleep: async () => {} });
+      await d.plan({ target });
+      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m2", "another target: a new plan");
+      fake.state.records.get("m2")!.state = "failed";
+      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m3", "the engine record is no longer planned");
+      clock += 56 * 60 * 1000;
+      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m4", "less than five minutes of confirmation left");
+      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m4", "the fresh one is reused");
+      assert.equal(fake.state.planRequests.length, 4);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 describe("migration driver: checkpoint binding", () => {

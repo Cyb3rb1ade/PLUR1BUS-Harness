@@ -105,7 +105,7 @@ describe("migration driver coverage: plan", () => {
     const engine = engineOf({});
     const d = createMigrationDriver(deps({ engine, store: memStore() }));
     await d.plan({ target: TARGET, targetGeneration: "gen-x" });
-    await d.plan({ target: TARGET });
+    await createMigrationDriver(deps({ engine, store: memStore() })).plan({ target: TARGET }); // no pending plan to answer
     assert.equal(engine.planReqs[0]!.targetGeneration, "gen-x");
     assert.equal(engine.planReqs[0]!.confirmationTtlMs, 3_600_000);
     assert.ok(!("targetGeneration" in engine.planReqs[1]!));

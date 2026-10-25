@@ -39,13 +39,16 @@ test("knowledge.update proves the installed contract gap or promotes a real capt
   try {
     const status = await client.call<any>("core.status");
     assert.match(status.contract, /^1\.\d+\.\d+$/);
-    const ready = Number(status.contract.split(".")[1]) >= 17;
-    if (process.env.PLUR1BUS_REQUIRE_CURATED_ENGINE === "1" || process.env.PLUR1BUS_ENGINE_ACCEPTANCE_SOURCE) {
-      assert.ok(ready, `Controller-pin acceptance requires Engine contract >=1.17; got ${status.contract}`);
-    }
     const run = () => client.call<any>("jobs.run", { job: "knowledge.update", args: { agentId: "bernd" } });
+    // Feature-tested as the job itself does (the engine's knowledge-update job): a contract number alone does not say it is
+    // there (1.17.0 is also the re-embedding validate contract). Nothing is pending yet, so this first run promotes nothing.
+    const probe = await run();
+    const ready = !(probe.outcome === "skipped" && probe.reason === "engine-contract-unavailable");
+    if (process.env.PLUR1BUS_REQUIRE_CURATED_ENGINE === "1" || process.env.PLUR1BUS_ENGINE_ACCEPTANCE_SOURCE) {
+      assert.ok(ready, `Controller-pin acceptance requires the Engine's knowledge-update job (A1); contract ${status.contract} has none`);
+    }
     if (!ready) {
-      const unavailable = await run();
+      const unavailable = probe;
       assert.equal(unavailable.job, "knowledge.update");
       assert.equal(unavailable.outcome, "skipped");
       assert.equal(unavailable.reason, "engine-contract-unavailable");

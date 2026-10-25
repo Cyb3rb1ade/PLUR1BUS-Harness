@@ -112,7 +112,13 @@ describe("re-embedding a store with data through config set (engine 1.17.0 valid
       const before = await readyCore(h, "a ready core");
       for (const f of FACTS) assert.equal(cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", f]).stored, 1);
       recalls(h, "boiler service", FACTS[0]!);
-      assert.equal(embeddingOf(h).reembedding, undefined);
+      // A preview and a declined confirmation (no --yes outside a terminal) plan, write nothing and do not block the move.
+      const preview = cli(h, ["config", "set", "engine.embedding.local.model", GEMMA, "--dry-run"]);
+      assert.equal(preview.schema, "memory.reembed.plan/1", JSON.stringify(preview));
+      assert.equal(preview.plan.rows, FACTS.length);
+      const declined = cli(h, ["config", "set", "engine.embedding.local.model", GEMMA], { allowFail: true });
+      assert.equal(declined.exit, 2, JSON.stringify(declined));
+      assert.equal(embeddingOf(h).reembedding, undefined, "nothing written before the move");
       await run(h, before);
     } finally {
       cli(h, ["daemon", "stop"], { allowFail: true });

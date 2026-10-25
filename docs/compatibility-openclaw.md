@@ -16,7 +16,7 @@ guessed. Paths are relative to the repository named in the "Repo" column of the 
 
 | Harness | Engine pin (plugin repo SHA) | Engine contract | Contract floor | Plugin version at the pin | OpenClaw min tested | OpenClaw latest tested | Hermes min / latest tested |
 |---|---|---|---|---|---|---|---|
-| `main` (unreleased) | `98e18b6b0a008743a87b640cfac409dce8087dcf` (plugin PR #275, on top of `origin/main` after PR #253) | `1.17.0` | `1.8.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
+| `main` (unreleased) | `9f34008c143c5da87b2194b5a28442b407ff8ba7` (plugin PR #275, on top of `origin/main` after PR #253) | `1.17.0` | `1.8.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
 
 Notes on the row:
 
@@ -51,7 +51,7 @@ Notes on the row:
 | `1.12.0` | `6868b7b117cf7d59b24eb1e75f02aafc1a48f46c` (first pinned at plugin #219, merge `6868b7b1`; plugin `origin/main` after #237) | `7.18.4` (`package.json` at `6868b7b1`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.12.0 entry: `MemoryOps.rebind`/`unbind`, additive only) |
 | `1.13.0`–`1.15.0` | not pinned on their own (plugin #244, #246, #252; carried by the 1.16.0 pin) | `7.18.4` | plugin `docs/engine-api.md` (1.13.0, 1.14.0, 1.15.0 entries) |
 | `1.16.0` | `98dfe2f03363f6291daa9f85e473578770fb5c55` (plugin #253, merge `98dfe2f0`) | `7.18.4` (`package.json` at `98dfe2f0`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.16.0 entry: `MemoryOps.link`, `Engine.capabilities`, additive only) |
-| `1.17.0` | `98e18b6b0a008743a87b640cfac409dce8087dcf` (plugin #275) | `7.18.4` (`package.json` at `98e18b6b`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.17.0 entry: `AdminOps.reembedding.validate`, additive only) |
+| `1.17.0` | `9f34008c143c5da87b2194b5a28442b407ff8ba7` (plugin #275) | `7.18.4` (`package.json` at `9f34008c`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.17.0 entry: `AdminOps.reembedding.validate`, additive only) |
 
 Contract history 1.8.0 → 1.17.0, from plugin `docs/engine-api.md`:
 
@@ -71,7 +71,7 @@ The plugin version stayed `7.18.4` across 1.10.0 to 1.17.0 (plugin `package.json
 version bumps). Do not read the plugin version as a monotone proxy for the contract.
 
 The pin `61025251` (plugin `origin/main` after PR #232) adds, on top of #217, the lock-ownership fixes (#220, #224)
-and the log-redaction fixes (#225, #229, #231); the contract is unchanged at 1.11.0. The pin `6868b7b1` (plugin `origin/main` after PR #237) adds `memory.rebind`/`unbind` (#219, contract 1.12.0, including the rebind lock fix) and the `global-agent` override that drops `roarr`/`sprintf-js` (#237). The pin `98dfe2f0` (plugin `origin/main` after PR #253) carries contracts 1.13.0 to 1.16.0; its lockfile change is the engine entry and its optional `@huggingface/transformers` 4.3.1 (onnxruntime) plus the `openai` zod peer. The pin `98e18b6b` (plugin #275, one commit on top of `98dfe2f0`) adds contract 1.17.0; its lockfile change is the engine entry only.
+and the log-redaction fixes (#225, #229, #231); the contract is unchanged at 1.11.0. The pin `6868b7b1` (plugin `origin/main` after PR #237) adds `memory.rebind`/`unbind` (#219, contract 1.12.0, including the rebind lock fix) and the `global-agent` override that drops `roarr`/`sprintf-js` (#237). The pin `98dfe2f0` (plugin `origin/main` after PR #253) carries contracts 1.13.0 to 1.16.0; its lockfile change is the engine entry and its optional `@huggingface/transformers` 4.3.1 (onnxruntime) plus the `openai` zod peer. The pin `9f34008c` (plugin #275, two commits on top of `98dfe2f0`: `validate` and a zod audit override) adds contract 1.17.0; its lockfile change is the engine entry only.
 
 ## 3. The contract floor rule
 

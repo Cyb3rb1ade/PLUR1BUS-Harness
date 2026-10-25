@@ -483,7 +483,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
                 if let Some(check) = config_embedding::check(out, layout, &changes) {
                     if check["effect"] == "move"
                         && config_embedding::move_store(
-                            out, layout, &check, yes, dry_run, background,
+                            out, layout, &check, yes, dry_run, background, &changes,
                         )
                     {
                         return;

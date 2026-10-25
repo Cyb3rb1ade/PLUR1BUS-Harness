@@ -31,6 +31,23 @@ fn touches_embedding(changes: &[(String, Value)]) -> bool {
         .any(|(k, _)| k == "engine" || within(k, "engine.embedding"))
 }
 
+/// Keys a change sets beside the embedding (`engine` given as a whole object). A move writes only the embedding through the
+/// migration's switch, so these would be dropped; the caller refuses the move instead.
+fn besides_embedding(changes: &[(String, Value)]) -> Vec<String> {
+    changes
+        .iter()
+        .flat_map(|(k, v)| match (k.as_str(), v.as_object()) {
+            ("engine", Some(o)) => o
+                .keys()
+                .filter(|sub| sub.as_str() != "embedding")
+                .map(|sub| format!("engine.{sub}"))
+                .collect(),
+            _ if within(k, "engine.embedding") => Vec::new(),
+            _ => vec![k.clone()],
+        })
+        .collect()
+}
+
 /// Keys the core checks first: the embedding, the reranker (its licence gate) and what a non-commercial model's licence
 /// acceptance rests on (`embedding.*`, `engine.modelPreparation`).
 pub(crate) fn touches_memory_models(changes: &[(String, Value)]) -> bool {
@@ -129,7 +146,20 @@ pub(crate) fn move_store(
     yes: bool,
     dry_run: bool,
     background: bool,
+    changes: &[(String, Value)],
 ) -> bool {
+    let others = besides_embedding(changes);
+    if !others.is_empty() {
+        out.fail(
+            "E_INVALID_PARAMS",
+            &format!(
+                "this change moves the memory store to another embedding model, and the move writes only the embedding: set {} \
+                 in a separate config set (before or after the move)",
+                others.join(", ")
+            ),
+            json!({ "reason": "move-with-other-changes", "keys": others }),
+        );
+    }
     let plan = call(out, layout, "admin.reembed.plan", check["target"].clone());
     let then = "plur1bus config set without --dry-run moves it (--background leaves the re-embedding to the core)";
     let describe = || describe_move(check, &plan, if dry_run { then } else { "" });
@@ -178,6 +208,27 @@ mod tests {
 
     fn keys(ks: &[&str]) -> Vec<(String, Value)> {
         ks.iter().map(|k| (k.to_string(), json!(1))).collect()
+    }
+
+    #[test]
+    fn a_move_names_what_it_would_not_write() {
+        let c = |k: &str, v: Value| vec![(k.to_string(), v)];
+        assert!(besides_embedding(&c("engine.embedding.local.model", json!("m"))).is_empty());
+        assert!(
+            besides_embedding(&c("engine.embedding", json!({ "local": { "model": "m" } })))
+                .is_empty()
+        );
+        assert!(besides_embedding(&c("engine", json!({ "embedding": {} }))).is_empty());
+        assert_eq!(
+            besides_embedding(&c(
+                "engine",
+                json!({ "embedding": {}, "recallMinScore": 0.4, "reranker": {} })
+            )),
+            vec![
+                "engine.recallMinScore".to_string(),
+                "engine.reranker".to_string()
+            ]
+        );
     }
 
     #[test]
