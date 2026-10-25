@@ -8,6 +8,16 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **A store with data moves to another embedding model end to end (engine pin 98e18b6b, contract 1.17.0).**
+  `@cyb3rb1ade/plur1bus-memory` is pinned to plugin PR #275, which exposes `admin.reembedding.validate`; `CORE_CONTRACT` is
+  1.17.0. `plur1bus memory reembed --run` and `plur1bus config set engine.embedding…` (foreground or `--background`) no longer
+  stop in `validating` with `engine-validate-unavailable`: the engine checks the copied generation and recalls one memory
+  from it with the target model, then the Harness switch writes the new embedding and the core restarts on the new
+  generation. Until the switch every recall is answered by the old generation; a failed validation stops with the engine's
+  reason and the old model stays active. `admin.embedding.check` answers `canSwitch: true`, so the CLI no longer warns
+  before the copy. An agent table without memories validates on the generation check alone. See
+  `docs/embedding-migration.md`.
+
 - **A description per secret (`secret.set`, `secret set --description`, Settings > Secrets).** An optional one-line note (at most
   200 characters, never the value) saying what a secret is for. `secret.list`, `secret.get` and `secret.status` return it, and
   the agent's `secret_names` tool lists it next to a stored secret. A replacement without one keeps the stored text, an empty one
@@ -116,6 +126,12 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   - Not included: plugin #233 (further leak-audit items) was still open at the 61025251 pin; not checked since.
 
 ### Fixed
+
+- **A re-embedding switch is recorded as switched although the core restarts before the reply.** The supervisor writes
+  `config.json` and restarts the core before it answers the switch's `config.set`, so the reply was lost with the
+  connection and the checkpoint stayed `ready-to-switch` with `switch-failed` while the new embedding was active. The driver
+  now reads the file after a lost reply and when its status is asked after a restart: a file that selects the planned
+  generation in the planned vector space is a switch. A refusal is never read as one.
 
 - **The setup wizard's memory models reach the memory engine.** The Memory step wrote the reranker to `modelRoles.rerank`, which
   nothing reads, and never wrote the embedding model, so the engine kept running multilingual-e5-small and the BGE reranker

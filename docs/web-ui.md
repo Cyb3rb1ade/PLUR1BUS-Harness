@@ -406,7 +406,7 @@ Numbers are stable; other documents refer to them.
   `modelRoles.embedding` and `modelRoles.rerank` stay reserved and are not written. A confirmed non-commercial model is recorded in the
   licence ledger (`model.licence.confirm`: who, when, licence, model, revision) and reaches the engine as
   `modelPreparation.acceptNonCommercialLicense`. Moving a store that already holds data to another embedding model is
-  `plur1bus memory reembed`, which stops at `validating` until the pinned engine exposes its validation step.
+  `plur1bus memory reembed` (or `plur1bus config set engine.embedding…`), which copies, validates and switches.
 - **F36. Backup schedule and list** (Wizard). Only `admin.backup.snapshot` exists.
 - **F37. Import** (Wizard). `plur1bus import` is CLI only; the step shows the command.
 - **F38. `agent.create` with an idempotency key** (Agents). Create goes through `config.set` with `ifRevision`, an existence check and

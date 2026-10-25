@@ -1,6 +1,6 @@
 // The narrow engine surface the migration driver needs. It mirrors the pinned engine's `admin.reembedding` coordinator
 // (lib/reembedding/coordinator.js): plan with a hash-bound confirmation, then ONE batch per apply/resume call, a durable
-// record whose state the engine owns. `validate` is optional because the pinned Engine contract does not expose it (the
+// record whose state the engine owns. `validate` is optional because an Engine before contract 1.17.0 does not expose it (the
 // driver then stops at `validating`, fail closed). The real adapter is engine-port.ts; tests use a fake.
 import type { EmbeddingFingerprint } from "./probe.ts";
 
@@ -43,7 +43,7 @@ export interface ReembedEngine {
   apply(a: { id: string; token: string }): Promise<EngineRecord>;
   resume(a: { id: string; token: string }): Promise<EngineRecord>;
   status(id: string): Promise<EngineRecord | null>;
-  /** Absent when the engine does not expose validation (the pinned contract): the driver stops at `validating`. */
+  /** Absent when the engine does not expose validation (before contract 1.17.0): the driver stops at `validating`. */
   validate?(a: { id: string }): Promise<EngineRecord>;
 }
 
@@ -51,4 +51,7 @@ export interface ReembedEngine {
 export interface SwitchPort {
   /** One atomic step; rejects without any partial effect. */
   apply(sel: { generation: string; fingerprint: EmbeddingFingerprint; fingerprintId: string; remote?: { apiKeyEnv: string; baseUrl?: string; privacyAck?: import("@plur1bus/config-schema").PrivacyAcknowledgment } }): Promise<void>;
+  /** Whether config.json on disk already selects this generation in this vector space. The supervisor writes the file and
+   *  restarts the core before it answers `config.set`, so the reply of a switch that worked can be lost with the connection. */
+  written?(sel: { generation: string; fingerprint: EmbeddingFingerprint }): boolean;
 }

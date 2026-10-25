@@ -1,4 +1,7 @@
 import { describe, it } from "node:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import assert from "node:assert/strict";
 import { defaults, validate, type HarnessConfig } from "@plur1bus/config-schema";
 import { embeddingFingerprintId } from "@cyb3rb1ade/plur1bus-memory/lib/reembedding/fingerprint.js";
@@ -113,6 +116,23 @@ describe("config switch port", () => {
     const r = rig({ set: () => { calls += 1; return Promise.reject(new Error("E_CONFIG_INVALID")); } });
     await assert.rejects(r.port.apply(sel(e5)), /E_CONFIG_INVALID/);
     assert.equal(calls, 1);
+  });
+
+  it("written: true only when config.json on disk selects this generation in this vector space", () => {
+    const home = mkdtempSync(join(tmpdir(), "p1-switch-written-"));
+    try {
+      const port = createConfigSwitchPort({ layout: layout(home), config: { current: baseConfig, set: () => Promise.resolve() } });
+      const target = { generation: "generation-m1", fingerprint: e5 };
+      assert.equal(port.written!(target), false, "no file");
+      const write = (reembedding: unknown) => writeFileSync(layout(home).configPath, JSON.stringify({ ...baseConfig(), engine: { reembedding } }));
+      write({ activeGeneration: "generation-m1", fingerprintId: embeddingFingerprintId(e5), dimensions: 384 });
+      assert.equal(port.written!(target), true);
+      assert.equal(port.written!({ ...target, generation: "generation-m2" }), false, "another generation");
+      write({ activeGeneration: "generation-m1", fingerprintId: "embedding:v1:sha256:" + "0".repeat(64), dimensions: 384 });
+      assert.equal(port.written!(target), false, "another vector space");
+      writeFileSync(layout(home).configPath, "{broken");
+      assert.equal(port.written!(target), false, "an unreadable file is not a switch");
+    } finally { rmSync(home, { recursive: true, force: true }); }
   });
 
   it("keeps the user's own embedding settings (cache dir, fallback) that the selection does not carry", async () => {

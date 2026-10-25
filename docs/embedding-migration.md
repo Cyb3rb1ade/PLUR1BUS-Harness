@@ -28,9 +28,9 @@ A store holds a table as soon as an agent exists (creating an agent creates its 
 
 ### From `plur1bus config set`
 
-`plur1bus config set` goes to the supervisor, which does not run the web pre-check. So the CLI asks the core first whenever the change touches `engine`, `engine.embedding*`, `engine.reranker*`, `engine.modelPreparation*` or `embedding.*` (`crates/plur1bus/src/commands/config_embedding.rs`): `admin.embedding.check` (CLI-only like every `admin.*` method) answers `effect` `unchanged` (the running vector space), `write` (another embedding over a store without data, or under an engine without a usable embedding) or `move` (another embedding over a store with data), plus `target`, the spec `admin.reembed.plan` takes, and `canSwitch` (false while the engine cannot validate). It refuses what the engine could not load, with the reasons above, and a non-commercial memory model without a persisted licence confirmation (`E_DENIED` `model-licence-required`, the start-time gate `checkEngineConfigLicences`). A `target` must reproduce the block's own fingerprint through the plan's spec (provider, model, dimensions, local prefixes, endpoint, key variable); a block a plan cannot describe is `embedding-model-unavailable`.
+`plur1bus config set` goes to the supervisor, which does not run the web pre-check. So the CLI asks the core first whenever the change touches `engine`, `engine.embedding*`, `engine.reranker*`, `engine.modelPreparation*` or `embedding.*` (`crates/plur1bus/src/commands/config_embedding.rs`): `admin.embedding.check` (CLI-only like every `admin.*` method) answers `effect` `unchanged` (the running vector space), `write` (another embedding over a store without data, or under an engine without a usable embedding) or `move` (another embedding over a store with data), plus `target`, the spec `admin.reembed.plan` takes, and `canSwitch` (whether the engine exposes `validate`; true with the pinned engine, contract 1.17.0). It refuses what the engine could not load, with the reasons above, and a non-commercial memory model without a persisted licence confirmation (`E_DENIED` `model-licence-required`, the start-time gate `checkEngineConfigLicences`). A `target` must reproduce the block's own fingerprint through the plan's spec (provider, model, dimensions, local prefixes, endpoint, key variable); a block a plan cannot describe is `embedding-model-unavailable`.
 
-`unchanged` and `write` are written by `config.set` as before. A `move` is not written: the CLI plans (`--dry-run` stops there and prints `memory.reembed.plan/1`), asks (`--yes`), and starts `admin.reembed.run { switch: true }`; it follows the run in the foreground (Ctrl-C only stops the following) or, with `--background`, prints the start's checkpoint and returns, and the core switches by itself after the copy. Either way the output is `memory.reembed.run/1`, and the switch writes the embedding. With `canSwitch` false the CLI says before the copy that the run stops before the switch. Without a core (or a core older than the check) nothing can be checked: the change is written and a warning on stderr says so, because a configuration the core cannot start with must stay fixable from the CLI.
+`unchanged` and `write` are written by `config.set` as before. A `move` is not written: the CLI plans (`--dry-run` stops there and prints `memory.reembed.plan/1`), asks (`--yes`), and starts `admin.reembed.run { switch: true }`; it follows the run in the foreground (Ctrl-C only stops the following) or, with `--background`, prints the start's checkpoint and returns, and the core switches by itself after the copy. Either way the output is `memory.reembed.run/1`, and the switch writes the embedding. With `canSwitch` false (an engine before contract 1.17.0) the CLI says before the copy that the run stops before the switch. Without a core (or a core older than the check) nothing can be checked: the change is written and a warning on stderr says so, because a configuration the core cannot start with must stay fixable from the CLI.
 
 ## Commands
 
@@ -85,8 +85,11 @@ plur1bus config set engine.embedding.local.model google/embeddinggemma-2 [--yes]
 ## Phases
 
 `planned → running → validating → ready-to-switch → switched`, plus `aborted` (stopped, resumable) and `failed` (final: source
-drift, an invalid or expired confirmation; plan again). `validating` with the error `engine-validate-unavailable` waits for an
-engine that can validate (see below). The checkpoint is `<home>/state/reembed/migration.json` (atomic replace, 0600, validated;
+drift, an invalid or expired confirmation; plan again). In `validating` the engine (`admin.reembedding.validate`, contract
+1.17.0) checks the source versions and the target generation and recalls one source memory from the copy with the target
+model; an agent table without memories is validated on the generation check alone. A failed validation stops the run in
+`validating` (or `aborted`/`failed`, classified like any engine error) with the engine's reason, and the old model stays active.
+`validating` with the error `engine-validate-unavailable` only appears with an engine before 1.17.0. The checkpoint is `<home>/state/reembed/migration.json` (atomic replace, 0600, validated;
 a corrupt file is refused and left in place, never reset). It holds the engine's plan-bound confirmation token (not a
 credential); the token is never returned over RPC or printed.
 
@@ -136,13 +139,18 @@ bounds the load on the provider and the machine.
 
 ## What is not done (open points)
 
-- **Engine prerequisite.** The pinned engine contract does not expose `validate` (the coordinator has it) and its own
-  `switch`/`rollback` need a host config-mutation capability this host does not have. The real adapter therefore stops at
-  `validating` with `engine-validate-unavailable` (tested against the real engine), and never switches an unvalidated
-  generation. The Harness half of the switch is built and tested; it becomes reachable end to end when the engine exposes
-  `validate` (planned: `docs/superpowers/plans/2026-10-25-reembed-validate.md`; the coordinator has it, the
-  `Engine.admin.reembedding` facade does not pass it on). The engine's post-switch `completed` transition and rollback are
-  likewise engine work.
+- **Done (2026-10-25): end to end.** The pinned engine (contract 1.17.0) exposes `validate`, so a run reaches
+  `ready-to-switch` and the Harness switch (`docs/superpowers/plans/2026-10-25-reembed-validate.md`). Tested against the real
+  engine in-process (`packages/core/test/embedding-migrate/core-stack.test.ts`) and through the supervisor
+  (`tests/system/reembed.test.ts`: `plur1bus config set engine.embedding.local.model google/embeddinggemma-2 --yes` on a store
+  with data reaches `switched`, foreground and `--background`, the core restarts on the new generation and recall answers).
+- **Engine prerequisite, still open:** the engine's own `switch`/`rollback` need a host config-mutation capability this host
+  does not have (the Harness owns its switch), and the engine's post-switch `completed` transition and rollback are engine
+  work; the engine record stays `ready_to_switch` after the Harness switch.
+- **A plan blocks the next one.** `memory reembed --plan` and `config set … --dry-run` leave an engine plan in `planned`;
+  the engine keeps an unconfirmed plan as a hard conflict until its confirmation expires (one hour), so planning again (for
+  example the `config set` without `--dry-run`) is refused with `plan-refused` "another reembedding migration is active".
+  `memory reembed --run` starts the planned move instead.
 - **Confirming the switch / discarding the old generation** is a later explicit step, not part of this package.
 - A live run with real models belongs to the nightly (`PLUR1BUS_REAL_MODELS`), not to CI.
 - **Cloud targets:** the engine reports no token usage per batch, so the budget is settled with the estimate. The keys

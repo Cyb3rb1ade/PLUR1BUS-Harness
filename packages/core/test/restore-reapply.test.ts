@@ -134,7 +134,7 @@ describe("tombstone re-apply after a backup restore", () => {
     assert.equal(restoreReapplyMarker(l), join(l.state, RESTORE_REAPPLY_MARKER_NAME));
   });
 
-  // KNOWN GAP tripwire. The pinned engine (98dfe2f0, contract 1.16.0) has no `lib/tombstone-reapply.js`; it arrives with engine PR #259
+  // KNOWN GAP tripwire. The pinned engine (98e18b6b, contract 1.17.0) has no `lib/tombstone-reapply.js`; it arrives with engine PR #259
   // and has no `engine.capabilities` flag, so it is feature-detected by importing it. This test is green while the gap is open and
   // turns red the moment a pin bump brings the module: then drop this test and the KNOWN GAP paragraph in docs/ops/backup-restore.md,
   // and flip tests/system/backup.test.ts: its restore step asserts that the memory forgotten after the backup is back (the gap), and must

@@ -310,7 +310,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
   }
 
   async function status(): Promise<StatusView> {
-    const c = read();
+    const c = reconciled(read());
     let engineState: string | null = null;
     if (c) { try { engineState = (await d.engine.status(c.id))?.state ?? null; } catch { engineState = null; } }
     const k = c?.counts ?? { rows: 0, rowsDone: 0, batches: 0, batchesDone: 0 };
@@ -358,12 +358,25 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     try {
       await d.switchPort.apply({ generation: c.targetGeneration, fingerprint: c.target, fingerprintId: rec.target.fingerprintId, ...(c.remote ? { remote: { apiKeyEnv: c.remote.apiKeyEnv, ...(c.remote.baseUrl !== undefined ? { baseUrl: c.remote.baseUrl } : {}), ...(c.remote.privacyAck ? { privacyAck: c.remote.privacyAck } : {}) } } : {}) });
     } catch (e) {
+      // The supervisor restarts the core on the write before it answers: a lost reply over a written file is a switch.
+      if (!(e instanceof MigrationError) && d.switchPort.written?.({ generation: c.targetGeneration, fingerprint: c.target })) return switched(c);
       const err = e instanceof MigrationError ? e : new MigrationError("switch-failed", (e instanceof Error ? e.message : String(e)).slice(0, 500));
       save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why
       throw err;
     }
+    return switched(c);
+  }
+
+  function switched(c: Checkpoint): PublicCheckpoint {
     d.logger?.info("re-embedding switched", { id: c.id, generation: c.targetGeneration });
     return publicView(save(c, { phase: "switched", error: null }));
+  }
+
+  /** A checkpoint left at ready-to-switch by a core stopped during its own switch: the configuration on disk decides. */
+  function reconciled(c: Checkpoint | null): Checkpoint | null {
+    if (c?.phase !== "ready-to-switch" || loop || busy || !d.switchPort?.written?.({ generation: c.targetGeneration, fingerprint: c.target })) return c;
+    switched(c);
+    return read();
   }
 
   async function stop(waitMs: number): Promise<void> {
