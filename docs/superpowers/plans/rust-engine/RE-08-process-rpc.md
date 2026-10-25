@@ -84,7 +84,9 @@ server and client (`@plur1bus/module-api`), `crates/plur1bus-rpc`.
 **Produces:**
 
 ```text
-RPC schema (x-rpc-version 1.6.0 → 1.7.0, additive):
+RPC schema (x-rpc-version 1.6.0 → the next minor, additive. Six methods, one notification and two `$defs` types already
+carry `x-since: "1.7.0"` without a header bump, so the number is agreed with whichever PR bumps the header first; "1.7.0"
+in this brief stands for that agreed number):
   x-server "engine" methods (served by plur1bus-engine):
     engine.auth { token, clientId } → { contract, rpc, instanceId, pid, capabilities }   (the handshake, like module.auth)
     engine.status {} → EngineStatus                       engine.shutdown {} → {}
@@ -114,6 +116,8 @@ Rust (crates/plur1bus-engine):
 
 Rust (crates/plur1bus):
   RoleKind::Engine; supervisor::child::engine_spec(layout, instance_id) -> Result<ChildSpec, String>
+    (CPU-pinned like every slot: supervisor/cpu.rs roots() covers the engine child, and adopting a running engine calls
+     cpu::bind_adopted (supervisor.maxCores); the engine sizes its ort, tokio and DataFusion pools from its effective CPU set)
     (binary `plur1bus-engine` beside current_exe(), override PLUR1BUS_ENGINE_BIN; env ORT_DYLIB_PATH to the shipped runtime;
      PLUR1BUS_TEST_INTERNALS passed through under PLUR1BUS_ALLOW_TEST_INTERNALS=1)
   plur1bus_rpc::Endpoint::Engine; Layout::endpoints gains run/engine.{sock|pipe,token,pid}
@@ -138,7 +142,7 @@ Config: engine.implementation: "node" | "rust" (x-restart "core", x-tier "advanc
   engine.event and engine.capture.done`, `buildCapabilities("core") lists host.* only when the engine feature flag is on`
   (the capability builder's `features` input gains `engine: true`); in `crates/plur1bus-rpc`: the mirror test for
   `capabilities(Server::Engine, …)`.
-- [ ] **Step 2: schema edits** as in Interfaces; bump `x-rpc-version` to `1.7.0`; `pnpm gen`; extend the `x-server`
+- [ ] **Step 2: schema edits** as in Interfaces; bump `x-rpc-version` to the agreed minor (1.7.0 unless another PR has bumped the header first; see Interfaces); `pnpm gen`; extend the `x-server`
   enforcement (tests, `buildCapabilities`, `capabilities.rs`, `gen-docs.mjs`'s stability grouping); `pnpm docs:gen`.
 - [ ] **Step 3:** `pnpm test --filter @plur1bus/rpc-schema`, `cargo test -p plur1bus-rpc`, `pnpm docs:check` — green.
   **Commit** `RE-08/T1: rpc schema 1.7.0 with x-server engine and host.* methods`.
@@ -183,7 +187,7 @@ Config: engine.implementation: "node" | "rust" (x-restart "core", x-tier "advanc
   `windows_pipe_acl_applies_to_the_engine_pipe` (cfg(windows)); `packages/core/test/engine/spawn.test.ts`:
   `core run without a supervisor spawns the engine beside the executable and stops it on exit`, `PLUR1BUS_ENGINE_BIN
   overrides the path`, `--test-internals is forwarded to the child only with the allow flag`.
-- [ ] **Step 2: implement** `RoleKind::Engine`, `engine_spec`, start order (engine → core → api; the core's readiness
+- [ ] **Step 2: implement** `RoleKind::Engine`, `engine_spec` (CPU-pinned through `cpu.rs` `roots()`; adoption calls `cpu::bind_adopted`; test `an_adopted_engine_is_bound_to_the_max_cores_set`), start order (engine → core → api; the core's readiness
   does not wait for the engine — recall degrades until it answers), health through `engine.status`, adoption, the
   `1staid check` ids `engine.process`, `engine.store`, `engine.runtime` (append-only; document in the generated docs),
   `Endpoint::Engine`, `Layout::endpoints`, `paths.ts`, `spawn.ts` and the `bin.ts` forwarding.

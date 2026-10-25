@@ -42,6 +42,26 @@ Every job is idempotent per run window and reports `skipped: "already-running"` 
 failure is never cached as a negative decision (CP-7 and coding-standard §6.4). A job that this package has not ported
 yet is listed with `available: false, reason: "not-implemented"` and refused by `run` with `E_NOT_AVAILABLE`.
 
+Each job's word splitter is ported byte-identically through RE-04 T0's `text::js`: pattern-detector, meta-cognition,
+rem-dream, conflict-resolver, evidence-aggregator, reply-outcome-tracking and episodes. JS `\w` is ASCII, so
+`[^\wäöüß\s]` keeps exactly `A-Za-z0-9_äöüß`. The `localeCompare` tie-breaks use RE-D17's collator.
+
+Ported verbatim, because they enter the LLM result-cache key:
+- `lib/knowledge-update-budget.js:13` `CHARS_PER_TOKEN = 3`;
+- `engine/runtime/env-config.js:104-108`: `maxChars / 4` in the prompt wording, `maxTokens: maxChars / 3`, and
+  `text.slice(0, 60000)`.
+
+The result-cache key hashes `stableSerialize`, which writes strings through `JSON.stringify`
+(`lib/llm-result-cache.js:126-129`, `:165-182`). A prompt cut inside an emoji therefore hashes the escape, never U+FFFD
+(RE-D17). Golden: `the_llm_cache_key_of_a_prompt_cut_inside_an_emoji_matches_node`.
+
+Carried through verbatim:
+- provider-reported usage (`lib/llm-call.js:72-84`);
+- the result cache's avoided-token counters and columns (`lib/llm-result-cache.js:276-283`, `:386-388`).
+
+`JobCost.inputTokens`/`outputTokens` stay unfilled as in Node, which records only `{ ms }`
+(`engine/jobs/job-registry.js:156`, `:315`). The fix of the splitters is RE-D16 (RE-10 T10).
+
 **Kept at parity on purpose** (plan §1.6, RE-D13). The partition routing of `rem-dream`, `consolidate-daily` and
 `skill-miner`: their `workspace` and `user` partitions read the shared pools under `.plur1bus-shared/` only, so a row
 captured into the agent's own table with `scope: workspace` or `scope: user` belongs to no partition and no job reads

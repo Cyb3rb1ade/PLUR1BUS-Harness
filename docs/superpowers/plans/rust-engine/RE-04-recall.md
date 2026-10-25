@@ -3,7 +3,7 @@
 **Package.** `Engine::recall` end to end: the request context and ACL, the twelve stages, the namespace fan-out and
 merge, the time and character budgets, the decision trace, and the rendering of the six context blocks — at parity
 with the Node engine on the recorded scenarios, with the 7.18.28 rules (CP-5) and the prefilter seam (CP-4a) built in.
-Size XL; six tasks, each one pull request.
+Size XL; seven tasks, each one pull request. T0, the JS text layer, lands first and also serves RE-02, RE-03, RE-05 and RE-06.
 
 **Depends on.** RE-02 (`Store`, `RowFilter`, `patch`), RE-03 (`EmbeddingProvider`, `Reranker`, `EmbeddingCache`),
 RE-01 (types, `Cancel`, `HostServices`). **Enables.** RE-05 (shares `src/context.rs`), RE-08 (the first end-to-end
@@ -54,6 +54,15 @@ trace beyond the configured cap; secrets and tokens never.
 result: present, off, traced as skipped), the additive boosters on that scale, and the absence of any exact-id or
 lexical path. Do not improve any of them here: the goldens encode them, and the changes are RE-10 T7 (RE-D11) and T8
 (RE-D12). A scenario whose expected `score` looks wrong is recorded as the Node engine answers it.
+The lexical helpers are kept at parity the same way (plan §1.6, last paragraph; §2.5):
+- `lib/text-utils.js` `tokenize()` lowercases, applies NFKD and replaces `[^\p{L}\p{N}\s]` with a space, which splits
+  "Müller" into `mu` + `ller`. It then splits on the JS `\s` set and keeps tokens of UTF-16 length ≥ 2. Its JSDoc says
+  "≥4", which is wrong.
+- The recall-budget project regex uses ASCII `\b`, so the German "Projekt" never counts.
+- Every length and cap counts UTF-16 code units. That includes `EMBED_CHAR_LIMIT` 20,000, the query length above which
+  recall summarises the query before embedding it (`lib/recall-pipeline.js:1568-1571`). A display or fullText cut inside
+  an emoji yields a `JsString` (RE-D17).
+The fix is RE-D16 (RE-10 T10).
 
 **Modules added by the 2026-10-23 audit** (rows owned by RE-04 in [`MODULE-MAP.md`](MODULE-MAP.md)):
 `engine/identity/principal.js` (137 — the canonical principal module; `memory-request-context.js:332` uses it, T1),
@@ -71,11 +80,11 @@ builds on them — the rules in T3 stand.
 
 ## Files
 
-- Create: `src/context.rs`, `src/recall/{mod,pipeline,stages,candidates,acl,temporal,knowledge,score,graph,budget,
+- Create: `src/text/{mod,js,json,legacy}.rs`, `tests/text_js.rs`, `tests/fixtures/text/{record.mjs,js-vectors.json,text-utils.json,json-lines.jsonl}` (T0), `src/context.rs`, `src/recall/{mod,pipeline,stages,candidates,acl,temporal,knowledge,score,graph,budget,
   filter,rerank,dedupe,namespaces,merge,render,blocks,boosters,trace,timing,degraded}.rs`, `tests/recall_context.rs`,
   `tests/recall_acl.rs`, `tests/recall_stages.rs`, `tests/recall_rerank.rs`, `tests/recall_namespaces.rs`,
   `tests/recall_render.rs`, `tests/recall_budget.rs`, `tests/fixtures/recall/{record.mjs,scenarios/*.json,golden/*.json}`
-- Modify: `src/lib.rs` (module wiring), `docs/engine-stores.md` (the retrieval ledger line shape)
+- Modify: `src/lib.rs` (module wiring), `docs/engine-stores.md` (the retrieval ledger line shape), `crates/plur1bus-engine/Cargo.toml` (T0: `fancy-regex` on the 0.17 line that `tokenizers` 0.23.2 uses, `icu_collator`, and `icu_normalizer` as a direct dependency)
 - Test: the seven Rust test files; the scenario and golden fixtures
 
 ## Interfaces
@@ -121,6 +130,62 @@ pub trait DenialSink { fn denied(&self, row_id: &str, rule: &'static str, ctx: &
 ```
 
 ## Tasks
+
+### T0 — JS text semantics and the shared text helpers (one pull request; lands any time after RE-00, before RE-02 T5, RE-03 T6 and RE-04 T1)
+
+Every lexical port and every read of a Node-written file in RE-02 through RE-06 builds on this task (plan §2.5,
+RE-D17). A naive port changes results without raising any error, for three reasons:
+- Rust's `regex` crate is Unicode-aware for `\b`, `\w` and `\d`, and it has no lookaround.
+- JS strings are UTF-16, so a JS slice can leave a lone surrogate.
+- Node writes that lone surrogate differently by target: as U+FFFD at a UTF-8 boundary, as the escape `\ud83d` in
+  `JSON.stringify` output.
+
+- [ ] **Step 1: record vectors.** `tests/fixtures/text/record.mjs` runs under Node 24.21 with the CI locale and writes
+  `js-vectors.json` with:
+  - `process.versions.unicode`, `process.versions.icu` and `new Intl.Collator().resolvedOptions().locale`;
+  - `/\s/` over every code point that matters: U+0009–U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000–U+200A, U+2028,
+    U+2029, U+202F, U+205F, U+3000, U+FEFF;
+  - `trim()`, `toLowerCase()`, `normalize('NFKD'|'NFC'|'NFKC')`, `.length` and `.slice(0, n)` over German, NFD, emoji
+    and CJK samples. A cut inside a surrogate pair is recorded three ways: the raw result as UTF-16 code units, its
+    `JSON.stringify` text (with the escape), and the sha256 of the raw string, which Node computes over U+FFFD;
+  - `localeCompare` over the keys the engine's call sites compare, with the arguments each site passes:
+    `lib/episodes.js:230`, `lib/memory-graph.js:245`, `lib/memory-compaction.js:61`, `:80`, `:660`,
+    `lib/reembedding/fingerprint.js:68`, `lib/jobs/skill-miner/evidence-aggregator.js:306`.
+
+  It also writes:
+  - `text-utils.json`: `tokenize`, `jaccardSimilarity`, `generateSummary` and `compressMemorySlotsForPrompt` of
+    `lib/text-utils.js` over the same samples, including "Herr Müller wohnt in Köln an der Straße, café naïve Größe";
+  - `json-lines.jsonl`: Node `JSON.stringify` lines that carry a lone-surrogate escape.
+- [ ] **Step 2: failing tests** in `tests/text_js.rs`:
+  - `js_whitespace_matches_node_for_every_recorded_code_point`;
+  - `utf16_len_and_slice_match_node`;
+  - `a_cut_inside_a_surrogate_pair_serialises_as_the_json_escape_and_as_u_fffd_in_utf8`;
+  - `the_tolerant_json_reader_keeps_a_lone_surrogate_escape_byte_identically`;
+  - `ascii_word_boundary_never_matches_before_a_leading_umlaut`;
+  - `lookaround_patterns_compile_and_match_like_node`;
+  - `normalization_matches_node_and_the_unicode_version_is_the_recorded_one`;
+  - `locale_compare_matches_node_under_the_recorded_locale`;
+  - `trim_and_lowercase_match_node`;
+  - `text_utils_tokenize_splits_umlaut_words_like_node`;
+  - `jaccard_generate_summary_and_compress_match_node`.
+- [ ] **Step 3: implement** `src/text/js.rs`:
+  - `is_js_whitespace`, `js_trim`, `js_to_lower_case`, `utf16_len`;
+  - `utf16_slice`, returning `JsString`, a UTF-16 value. `JsString::to_json()` writes what `JSON.stringify` writes,
+    and `JsString::to_utf8_lossy()` writes what Node's UTF-8 encoder writes;
+  - ASCII class helpers: `(?-u:\b)`, `[0-9]`, `[A-Za-z0-9_]`;
+  - a `js_regex(pattern, flags)` builder over `fancy-regex` for the lookaround patterns;
+  - `nfkd`/`nfc`/`nfkc` over `icu_normalizer`;
+  - `locale_compare` over `icu_collator`.
+
+  Then:
+  - `src/text/json.rs`: a tolerant JSON reader and writer for Node-written files. It maps a lone-surrogate escape to a
+    `JsString` and writes it back unchanged; serde_json rejects such input.
+  - `src/text/legacy.rs`: `text_utils::{tokenize, jaccard_similarity, generate_summary, compress_memory_slots_for_prompt}`.
+
+  The other splitters land with the brief that owns their MODULE-MAP row, built on these helpers. Run the dependency
+  gate as in RE-00 T3 for `fancy-regex` (on the 0.17 line that `tokenizers` 0.23.2 uses) and for `icu_collator`
+  (Unicode-3.0), and put the binary-size delta in the PR.
+- [ ] **Step 4: commit** `RE-04/T0: JS text semantics, JsString and text-utils at parity (RE-D17)`.
 
 ### T1 — Request context and ACL (one pull request)
 
@@ -173,7 +238,7 @@ pub trait DenialSink { fn denied(&self, row_id: &str, rule: &'static str, ctx: &
 - [ ] **Step 3: implement** in this order inside the pipeline: `Acl` (T1) → `Budget::allocate` (CP-5.1, tiers from
   `recall-budget.js`) → `Prefilter` (only when `deps.filter` is `Some`; no config key yet — the engine builder passes
   `None` in Phase 1; `DecisionRoleFilter` is built and tested but not wired) → `Rerank` (CP-5.3, 5.4, 5.5; the
-  reranker call shares the recall deadline) → `Dedupe` (Jaccard as configured) → `Finalise` (limits, ACL re-assert).
+  reranker call shares the recall deadline) → `Dedupe` (Jaccard as configured, over T0's `text::legacy::text_utils::tokenize`) → `Finalise` (limits, ACL re-assert).
 - [ ] **Step 4: commit** `RE-04/T3: ACL-first ordering, budget, prefilter, rerank, dedupe`.
 
 ### T4 — Namespaces: fan-out and merge (one pull request)
@@ -198,7 +263,10 @@ pub trait DenialSink { fn denied(&self, row_id: &str, rule: &'static str, ctx: &
 - [ ] **Step 2: failing tests** `tests/recall_render.rs`, one per golden; `block_texts_are_byte_identical` is the
   assertion for all.
 - [ ] **Step 3: implement** `render.rs`/`blocks.rs` (port `assemble-prompt-context.js`: `capChars`, `maxPromptMemories`,
-  `memoriesMaxChars`, clip and drop order, `tokensEstimate`), `boosters.rs` (`conversation-reactivation-recall.js`,
+  `memoriesMaxChars`, clip and drop order; `ContextBlock.chars` as the UTF-16 length through `text::js::utf16_len`;
+  `tokensEstimate` stays absent, because the contract declares it and the Node engine never sets it;
+  `semanticCompression.tokenBudget` as a JS-whitespace word count through `compressMemorySlotsForPrompt`
+  (`lib/text-utils.js:122-184`)), `boosters.rs` (`conversation-reactivation-recall.js`,
   confidence framing, contradiction disclosure and `drop-injected-conflicts.js`), `neo` prelude from RE-05's working
   memory (until RE-05 lands, a `NeoPrelude` trait with a fixture impl), `system_supplement`, the warm-only path and
   minimal maintenance (`warm-recall-path.js`, `minimal-maintenance.js`: what a recall may touch — `retrievalCount`,
@@ -233,5 +301,5 @@ function and the threshold calibration (RE-D11) and hybrid retrieval with rank f
 
 ## Hand-off
 
-Six PRs `RE-04/T1` … `RE-04/T6`, in order; T4 and T5 can run in parallel after T3. `src/context.rs` is consumed by
+Seven PRs `RE-04/T0` … `RE-04/T6`, in order. T0 may land any time after RE-00 and must merge before RE-02 T5, RE-03 T6 and RE-04 T1. T4 and T5 can run in parallel after T3. `src/context.rs` and `src/text/` are consumed by
 RE-05 and RE-07 — a change after T1 merges needs the controller's agreement.

@@ -1,6 +1,6 @@
 # Module map of the Node engine (`main` @ `98dfe2f`) → Rust briefs
 
-Generated on 2026-10-23 from the import closure of `engine/create-engine.js` in `Cyb3rb1ade/openclaw-plur1bus-memory` at commit `98dfe2f` (the harness pin): every `.js` file the engine process can load, resolved through relative `import`/`require` specifiers. **This is the completeness check the briefs are measured against:** a brief is finished when every row it owns has a Rust module, a fold target or a recorded drop. The dispositions are the coordinator's proposal; an implementer who disagrees changes the row in the same pull request as the code and says why.
+Generated on 2026-10-23 from the import closure of `engine/create-engine.js` in `Cyb3rb1ade/openclaw-plur1bus-memory` at commit `98dfe2f` (the harness pin until 2026-10-25; the pin is now `9f34008c`, whose only change inside this closure is seven lines in `engine/create-engine.js`: the `validate` facade and the `reembeddingTargetProvider` seam): every `.js` file the engine process can load, resolved through relative `import`/`require` specifiers. **This is the completeness check the briefs are measured against:** a brief is finished when every row it owns has a Rust module, a fold target or a recorded drop. The dispositions are the coordinator's proposal; an implementer who disagrees changes the row in the same pull request as the code and says why.
 
 | Disposition | Meaning |
 |---|---|
@@ -53,7 +53,7 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 |---|---:|---|---|---|---|
 | `lib/abort.js` | 141 | fold | RE-08 | Throw when an operation's cancellation signal has been aborted. | `Cancel` |
 | `lib/with-timeout.js` | 54 | fold | RE-08 | Race a promise against a timeout. | `Cancel` deadlines |
-| `engine/create-engine.js` | 3991 | port | RE-01, RE-05, plan | the one construction path (spec 3.1, owner decision A). |  |
+| `engine/create-engine.js` | 3991 | port | RE-01, RE-05, plan | the one construction path (spec 3.1, owner decision A). | 3,998 lines at the pin `9f34008c` (+7: the `validate` facade and the `reembeddingTargetProvider` seam) |
 | `lib/setup/feature-profiles.js` | 607 | port | RE-01 | explicit PLUR1BUS feature profiles. | `setupProfile` → feature flags, read by recall and create-engine (RE-01 T3 config) |
 | `lib/setup/config-contract.js` | 324 | port | RE-01 | profile config contract (key lists per setup profile; no header comment) | profile config contract: which keys a setup profile sets (RE-01 T3) |
 | `engine/runtime/env-config.js` | 158 | port | RE-01 | environment-variable and config resolution, summaries and small command helpers. |  |
@@ -78,7 +78,7 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/atomic-json.js` | 52 | fold | RE-02 | Atomic read-modify-write for JSON files with | `atomic_write` + `StateFile<T>` |
 | `engine/store/memory-db.js` | 1639 | port | RE-02, plan | the per-agent LanceDB store (`MemoryDB`) and the epistemic-status / valid-time write helpers. |  |
 | `lib/db-adapter.js` | 1503 | port | RE-02 | dünner Wrapper um LanceDB für Telegram-Commands. |  |
-| `lib/embedding-cache.js` | 925 | port | RE-02, RE-03, plan | v2 embedding cache: in-memory LRU+TTL plus optional persistent SQLite backend, |  |
+| `lib/embedding-cache.js` | 925 | port | RE-02, RE-03, plan | v2 embedding cache: in-memory LRU+TTL plus optional persistent SQLite backend, | cache key = sha256 of the NUL-separated (provider, model, dimensions, scopeId, `v2`, identityHash, textHash) (`:58-61`); textHash = sha256 of the text after JS `trim()` + `toLowerCase()` (`:34-36`), byte-identical through `text::js` (RE-03 T6); at parity "Apple" and "apple" share an entry within one key context |
 | `lib/llm-result-cache.js` | 690 | port | RE-02, RE-06, plan | Exact, purpose-allowlisted LLM result cache with absolute TTL and LRU |  |
 | `lib/tombstone.js` | 595 | port | RE-02, RE-05, RE-07 | kanonischer Tombstone-Vertrag für PLUR1BUS. |  |
 | `lib/multi-namespace-pool.js` | 576 | port | RE-02, RE-04 | "mode", |  |
@@ -106,7 +106,7 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/host-network.js` | 203 | fold | RE-03 | the engine's outbound-HTTP and secret ports | `transport::guarded` + `SecretPort` (keep its address rules) |
 | `lib/fetch-with-timeout.js` | 72 | fold | RE-03 | Fetch wrapper with timeout, cleanup, and | `transport::guarded` |
 | `lib/providers/embedding-local-transformers.js` | 894 | port | RE-03 | EMBEDDINGGEMMA2_EMBEDDING_PROFILE, |  |
-| `lib/providers/local-model-artifacts.js` | 629 | port | RE-03 | path, |  |
+| `lib/providers/local-model-artifacts.js` | 629 | port | RE-03, plan | path, | the core deep-imports it since #771 (`engine-config.ts`, `embedding-migrate/selection.ts`). `pinnedLocalModelProfile` and `EMBEDDING_PREPARATION_TARGETS` become contract methods (RE-03 artifact catalogue, RE-07), so that RE-11 can delete `engine-shim.d.ts`. Every pinned `tokenizer.json` (sha256) is a J1/J2 input of plan §2.5, the jina ones through RE-03 T3c/T4 |
 | `lib/model-preparation/coordinator.js` | 393 | port | RE-03, RE-07 | ensurePinnedModelArtifacts, |  |
 | `lib/providers/reranker-remote.js` | 363 | port | RE-03 | configurable remote (HTTP) reranker. |  |
 | `lib/providers/reranker-local-transformers.js` | 355 | port | RE-03 | BGE_RERANKER_PROFILE, |  |
@@ -138,7 +138,7 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/i18n-dictionary.js` | 2218 | port | RE-04 | PLUR1BUS translations. | port only the strings the engine renders (block labels, hedging, deferral notes, job texts); adapter UI strings stay; de/en completeness checked the way `scripts/check-i18n.mjs` does |
 | `lib/memory-request-context.js` | 1482 | port | RE-04, plan | Canonical, immutable identity context for every memory data boundary. |  |
 | `engine/recall/assemble-prompt-context.js` | 1338 | port | RE-04 | The per-turn recall assembly (was index.js:12261-13327): identity, Neo |  |
-| `lib/memory-graph.js` | 1078 | port | RE-04 | Graph-Engine für assoziative Memory-Verknüpfung. |  |
+| `lib/memory-graph.js` | 1078 | port | RE-04 | Graph-Engine für assoziative Memory-Verknüpfung. | the topic and entity regexes are ASCII-only (`:601`: "Köln" is lost, "Straße" becomes `stra`); ported as they are on `text::js`. Phase 2: RE-10 T10 with a graph rebuild (RE-D16) |
 | `lib/conversation-reactivation-recall.js` | 962 | port | RE-04 | Conversation Reactivation Recall (CRR) — additive post-recall hook. |  |
 | `lib/emotional-state.js` | 607 | port | RE-04, RE-05 | Emotional State Tracker für PLUR1BUS. |  |
 | `lib/recall-decision-trace.js` | 548 | port | RE-04 | Recall Decision Trace helpers. |  |
@@ -152,9 +152,9 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/acl-middleware.js` | 240 | port | RE-04 | Differentiated ACL for PLUR1BUS Memory System (v6). |  |
 | `lib/pattern-surface.js` | 187 | port | RE-04 | Pattern surfacing with normalized overlap scoring. |  |
 | `lib/temporal-parser.js` | 184 | port | RE-04 | Extrahiert Zeit-Anchor aus natürlichsprachigen Queries. |  |
-| `lib/text-utils.js` | 184 | port | RE-04 | pure Text-Helpers (Tokenisierung, Similarity, Summary). | tokenisation, similarity and summary helpers — parity-relevant, shared by recall and capture |
+| `lib/text-utils.js` | 184 | port | RE-04 | pure Text-Helpers (Tokenisierung, Similarity, Summary). | tokenisation, similarity and summary helpers — parity-relevant, shared by recall and capture. RE-04 T0 ports it as `text::legacy::text_utils` on `text::js`. The NFKD split of umlaut words is kept; the JSDoc's "≥4" is wrong, the code keeps UTF-16 length ≥ 2. Phase 2: RE-10 T10 (RE-D16) |
 | `lib/i18n.js` | 181 | port | RE-04 | Global i18n + SOUL.MD tone for PLUR1BUS. | the lookup and tone helpers behind the engine-rendered strings; see `lib/i18n-dictionary.js` |
-| `lib/query-refiner.js` | 170 | port | RE-04 | Query-Verfeinerung für Recall-Pipeline. |  |
+| `lib/query-refiner.js` | 170 | port | RE-04 | Query-Verfeinerung für Recall-Pipeline. | byte-identical through `text::js` (NFKD, keeps `\p{M}`, re-applies NFC); its output is embedded, so any difference changes vectors. Phase 2: RE-D16 |
 | `engine/recall/warm-recall-path.js` | 169 | port | RE-04 | the warm-only recall (E5 Task 9). |  |
 | `lib/temporal-context.js` | 163 | port | RE-04 | Temporal continuity context for prompts. |  |
 | `lib/recall-budget.js` | 152 | port | RE-04, RE-12, plan | Pure functions for adaptive recall budget resolution and memory tier allocation. |  |
@@ -184,28 +184,28 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/neo-worker-runtime.js` | 338 | fold | RE-05 | if (error instanceof Error) return error; | a Rust task instead of a worker thread |
 | `lib/bounded-operation-queue.js` | 78 | fold | RE-05 | depth-bounded queue that sheds oldest | post-turn queue depth bound |
 | `lib/runtime-pressure-gate.js` | 68 | fold | RE-05 | runtime memory pressure classification. | port the thresholds into turn admission |
-| `lib/neo-arch.js` | 3687 | port | RE-02, RE-05, plan | "project_fact", |  |
+| `lib/neo-arch.js` | 3687 | port | RE-02, RE-05, plan | "project_fact", | `tokenizeForScore` (`:2297-2299`, splits on `[^a-z0-9äöüß_-]`, so "café" becomes `caf`) is ported as it is on `text::js`. The statement cuts (`:2258-2259`, `:2288`) yield a `JsString`; `stableId` (`:242-249`) and the JSONL writers (`:873`, `:2456`) use the `JSON.stringify` escape (RE-D17). Phase 2: RE-D16 |
 | `engine/capture/capture-turn.js` | 1271 | port | RE-05 | The per-turn auto-capture pipeline (was index.js:10357-11305): fail-closed |  |
-| `lib/episodes.js` | 925 | port | RE-05, RE-06 | Episoden-Engine für PLUR1BUS. |  |
+| `lib/episodes.js` | 925 | port | RE-05, RE-06 | Episoden-Engine für PLUR1BUS. | the `localeCompare` tie-break (`:230`) goes through RE-D17's collator; the topic splitter runs on `text::js` |
 | `lib/runtime-scheduler.js` | 687 | port | RE-04, RE-05 | recallTimeoutMs: 45_000, | turn admission: background/internal turn detection, priorities, pressure skip (RE-05 T1, RE-04 T1) |
-| `lib/memory-fact-quality.js` | 523 | port | RE-05 | deterministic, testable fact-quality classifier. |  |
+| `lib/memory-fact-quality.js` | 523 | port | RE-05 | deterministic, testable fact-quality classifier. | the lookaround phrase matching (`:94-108`) goes through `text::js`'s fancy-regex builder; NFC/NFD-sensitive as in Node. Phase 2: RE-D16 |
 | `lib/memory-dynamics.js` | 517 | port | RE-05 | Phase 7 - Memory Dynamics: pure helpers for strength decay, reinforcement, |  |
 | `lib/safe-update.js` | 510 | port | RE-05 | Phase 8A — Safe Reconsolidation: Non-destructive memory updates with versioning. |  |
 | `lib/shared-memory-pool.js` | 446 | port | RE-05, RE-07 |  |  |
 | `lib/critical-review.js` | 445 | port | RE-05 | UX-Vertrag, Datenschutz und Kurzreferenzen für |  |
 | `lib/contradiction-detector.js` | 436 | port | RE-05 | return Number.isFinite(value) && value >= 0 ? Math.floor(value) : fallback; |  |
-| `lib/tier1-lexicon.js` | 410 | port | RE-05 | Tier-1 lexicon-based emotion classifier. |  |
+| `lib/tier1-lexicon.js` | 410 | port | RE-05 | Tier-1 lexicon-based emotion classifier. | `\p{L}+` words on `text::js` |
 | `lib/shared-memory.js` | 386 | port | RE-05, RE-07 | Kollaboratives Memory (verkleinert) |  |
-| `lib/memory-chunking.js` | 346 | port | RE-05 | entscheidet, ob eine Erinnerung als ein Vektor |  |
+| `lib/memory-chunking.js` | 346 | port | RE-05 | entscheidet, ob eine Erinnerung als ein Vektor | the lookbehind sentence splits (`:57-70`, `:166-179`) go through `text::js`; they decide which rows and vectors are stored |
 | `lib/emotion-engine.js` | 340 | port | RE-05 | Core emotion analysis engine. |  |
 | `lib/continuity-gate.js` | 322 | port | RE-05 | Taste gate that prevents PLUR1BUS from surfacing spontaneous memory associations |  |
 | `lib/speaker-segment-schema.js` | 313 | port | RE-01, RE-05 | Canonical speaker-segment schema shared between PLUR1BUS and OpenClaw. | canonical speaker-segment schema shared with OpenClaw → also a contract type (RE-01) |
 | `lib/emotion.js` | 283 | port | RE-05 | Emotions-Inferenz für PLUR1BUS Memories. |  |
 | `lib/encoding-llm.js` | 283 | port | RE-05 | LLM-Einstiegspunkt für Emotion UND Bedeutung in einem Call. | on `main` reached only through the chat command module; engine behaviour all the same |
 | `engine/capture/turn-replay-guard.js` | 274 | port | RE-05 | Q3 (E4 Task 5): a replayed turn never |  |
-| `lib/memory-merge-safety.js` | 274 | port | RE-05 | "node", "nodejs", "node.js", "react", "vue", "angular", "svelte", |  |
+| `lib/memory-merge-safety.js` | 274 | port | RE-05 | "node", "nodejs", "node.js", "react", "vue", "angular", "svelte", | written with `[0-9]`, never Unicode `\d`; the one-rule stemmer and the Jaccard 0.8/0.9 thresholds are byte-identical. Phase 2: RE-D16 |
 | `engine/capture/post-turn-work.js` | 241 | port | RE-05 | Light-Traum and episode extraction |  |
-| `lib/tier2-transformer.js` | 224 | port | RE-03, RE-05 | Tier-2 transformer-based emotion classifier. |  |
+| `lib/tier2-transformer.js` | 224 | port | RE-05 | Tier-2 transformer-based emotion classifier. | loads no model (`loadModel()` sets `_session = null`, `:105-113`): a keyword-density scorer, ported in RE-05 T3; not an RE-03 artifact |
 | `lib/emotion-score.js` | 223 | port | RE-05 | Universal emotion representation for PLUR1BUS. |  |
 | `lib/emotion-blends.js` | 221 | port | RE-05 | Emotional blend detection for PLUR1BUS. |  |
 | `lib/categorize.js` | 195 | port | RE-05 | Kategorie-Taxonomie + Auto-Kategorisierung. |  |

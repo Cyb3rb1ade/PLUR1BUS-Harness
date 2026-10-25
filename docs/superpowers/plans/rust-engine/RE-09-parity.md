@@ -99,6 +99,9 @@ Env:  PLUR1BUS_ENGINE_BIN, PLUR1BUS_MODELS_CACHE (for "real" seams), PLUR1BUS_AL
   (`PLUR1BUS_MODELS_CACHE` restored from the actions cache the `system` job uses; the leg is `continue-on-error` until
   its first green run, like the Hermes Windows leg), and a `system` matrix leg `engine: rust` that sets
   `PLUR1BUS_ENGINE_IMPL=rust` for the existing system suites.
+  `PLUR1BUS_ENGINE_IMPL=rust` for the existing system suites. The real-model entry also runs the jina goldens of
+  RE-03 T3c and T4, on files fetched only where the owner's consent covers the download (CC-BY-NC-4.0, RE-D19). The T5
+  exit report states their result.
 - [ ] **Step 2:** `docs/ci.md` and AGENTS.md (the env var) updated. **Commit** `RE-09/T3: real-model parity leg and
   system matrix on the Rust engine`.
 
