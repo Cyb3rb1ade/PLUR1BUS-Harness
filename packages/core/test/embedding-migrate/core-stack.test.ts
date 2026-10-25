@@ -64,6 +64,15 @@ describe("re-embedding over the real engine (in-process core)", () => {
     const planned = await call("admin.reembed.status");
     assert.equal(planned.checkpoint.phase, "planned"); assert.equal(planned.engineState, "planned");
 
+    // The engine keeps an unconfirmed plan for its confirmation lifetime and refuses a second record meanwhile. Planning
+    // the same target again (a dry run, then the apply) reuses that plan; another target is a clear conflict.
+    const again = await call("admin.reembed.plan", { model: JINA, throttleMs: 0 });
+    assert.equal(again.plan.id, plan.plan.id, "the unstarted plan is reused");
+    assert.deepEqual(again, plan);
+    await assert.rejects(c.call("admin.reembed.plan", { model: "google/embeddinggemma-2" }),
+      (e: any) => e.error === "E_CONFLICT" && e.reason === "migration-active" && /until \d{4}-\d\d-\d\dT/.test(e.message) && /--abort/.test(e.message));
+    assert.equal((await call("admin.reembed.status")).checkpoint.id, plan.plan.id);
+
     await call("admin.reembed.run", { switch: false });
     let st = await call("admin.reembed.status");
     for (let i = 0; i < 200 && st.running; i++) { await new Promise((r) => setTimeout(r, 25)); st = await call("admin.reembed.status"); }

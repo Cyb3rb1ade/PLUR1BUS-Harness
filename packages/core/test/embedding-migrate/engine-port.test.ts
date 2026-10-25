@@ -29,6 +29,7 @@ describe("engine port over Engine.admin.reembedding", () => {
     assert.deepEqual(calls[0], { name: "plan", args: [{ id: "m1", target: { fingerprint: fpB }, confirmationTtlMs: 3_600_000 }] });
     assert.equal(plan.confirmation.token, "reemb_v1_tok"); assert.equal(plan.plan.estimates.rows, 20);
     assert.ok(!("persisted" in plan.confirmation), "the engine's persisted confirmation is not carried");
+    assert.ok(!("expiresAt" in plan.confirmation), "no expiry reported: none is made up");
     const rec = await port.apply({ id: "m1", token: "reemb_v1_tok" });
     assert.deepEqual(calls[1], { name: "apply", args: [{ id: "m1", token: "reemb_v1_tok" }] });
     assert.equal(rec.state, "running"); assert.equal(rec.cursor.completedRows, 8);
@@ -49,6 +50,14 @@ describe("engine port over Engine.admin.reembedding", () => {
     const { engine } = stubEngine({ validate: (...args: unknown[]) => { validateCalls.push(args); return Promise.resolve(record("ready_to_switch")); } });
     const port = createEnginePort(engine);
     assert.equal((await port.validate!({ id: "m1" })).state, "ready_to_switch"); assert.deepEqual(validateCalls, [[{ id: "m1" }]]);
+  });
+
+  it("of the persisted confirmation only its expiry is carried, and a malformed one is refused", async () => {
+    const withExpiry = () => ({ ...planResult(), confirmation: { token: "reemb_v1_tok", persisted: { tokenHash: "h", planDigest: "sha256:x", expiresAt: 5000 } } });
+    const plan = await createEnginePort(stubEngine({ plan: () => Promise.resolve(withExpiry()) }).engine).plan({ id: "m1", target: { fingerprint: fpB as never } });
+    assert.deepEqual(plan.confirmation, { token: "reemb_v1_tok", expiresAt: 5000 });
+    const bad = () => ({ ...planResult(), confirmation: { token: "reemb_v1_tok", persisted: { expiresAt: -1 } } });
+    await assert.rejects(createEnginePort(stubEngine({ plan: () => Promise.resolve(bad()) }).engine).plan({ id: "m1", target: { fingerprint: fpB as never } }), /malformed \(confirmation.expiresAt\)/);
   });
 
   it("a malformed engine answer is an error, never a half-trusted record", async () => {

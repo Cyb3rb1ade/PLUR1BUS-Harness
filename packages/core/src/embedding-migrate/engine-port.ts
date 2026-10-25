@@ -40,6 +40,9 @@ function toRecord(v: unknown): EngineRecord {
 
 function toPlan(v: unknown): EnginePlan {
   const r = obj(v, "plan result"); const p = obj(r.plan, "plan"); const s = obj(p.source, "source"); const t = obj(p.target, "target"); const est = obj(p.estimates, "estimates");
+  // Of the persisted confirmation only its expiry is read: the hash stays in the engine.
+  const conf = obj(r.confirmation, "confirmation"); const persisted = conf.persisted;
+  const expiresAt = persisted !== null && typeof persisted === "object" && (persisted as Loose).expiresAt !== undefined ? int((persisted as Loose).expiresAt, "confirmation.expiresAt") : undefined;
   return {
     plan: {
       id: str(p.id, "id"),
@@ -48,7 +51,7 @@ function toPlan(v: unknown): EnginePlan {
       estimates: { rows: int(est.rows, "rows"), providerCalls: int(est.providerCalls, "providerCalls"), sourceBytes: int(est.sourceBytes, "sourceBytes"), targetBytes: int(est.targetBytes, "targetBytes"), requiredFreeBytes: int(est.requiredFreeBytes, "requiredFreeBytes"), freeBytes: int(est.freeBytes, "freeBytes") },
     },
     planDigest: str(r.planDigest, "planDigest"),
-    confirmation: { token: str(obj(r.confirmation, "confirmation").token, "confirmation.token") },
+    confirmation: { token: str(conf.token, "confirmation.token"), ...(expiresAt !== undefined ? { expiresAt } : {}) },
   };
 }
 

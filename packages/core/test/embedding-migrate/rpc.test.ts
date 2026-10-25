@@ -89,9 +89,11 @@ describe("admin.reembed.* handlers", () => {
       const rejects = (p: Promise<unknown>, error: string, reason: string) => assert.rejects(p, (e: any) => e.error === error && e.reason === reason, `${error}/${reason}`);
       await rejects(r.m["admin.reembed.run"]({}, {} as never) as Promise<unknown>, "E_NOT_FOUND", "no-migration");
       await rejects(r.m["admin.reembed.abort"]({}, {} as never) as Promise<unknown>, "E_NOT_FOUND", "no-migration");
-      await r.call("admin.reembed.plan", { model: E5 });
+      const first = await r.call("admin.reembed.plan", { model: E5 });
       await r.call("admin.reembed.abort");
-      await rejects(r.m["admin.reembed.plan"]({ model: E5 }, {} as never) as Promise<unknown>, "E_CONFLICT", "migration-active");
+      // The same target picks the unstarted plan up again; another one is refused while the engine holds it.
+      assert.equal((await r.call("admin.reembed.plan", { model: E5 })).plan.id, first.plan.id);
+      await rejects(r.m["admin.reembed.plan"]({ model: "google/embeddinggemma-2" }, {} as never) as Promise<unknown>, "E_CONFLICT", "migration-active");
     } finally { r.done(); }
   });
 

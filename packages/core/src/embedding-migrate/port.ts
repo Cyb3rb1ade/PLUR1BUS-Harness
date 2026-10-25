@@ -32,7 +32,8 @@ export interface EnginePlan {
     estimates: { rows: number; providerCalls: number; sourceBytes: number; targetBytes: number; requiredFreeBytes: number; freeBytes: number };
   };
   planDigest: string;
-  confirmation: { token: string };
+  /** `expiresAt`: when the engine stops accepting `token` for the first apply (epoch ms), when the engine reports it. */
+  confirmation: { token: string; expiresAt?: number };
 }
 
 export interface ReembedEngine {

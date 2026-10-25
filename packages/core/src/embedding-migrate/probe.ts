@@ -44,6 +44,8 @@ const FIELDS: { field: keyof EmbeddingFingerprint; reason: ProbeReason }[] = [
 const idOf = (fp: EmbeddingFingerprint): { id: string } | { error: string } => {
   try { return { id: embeddingFingerprintId(fp as unknown as Record<string, unknown>) }; } catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
 };
+/** The engine's id of a fingerprint (one id: one vector space); null when it is not a valid fingerprint. */
+export const fingerprintIdOf = (fp: EmbeddingFingerprint): string | null => { const r = idOf(fp); return "id" in r ? r.id : null; };
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 /** A refusal built outside the fingerprint comparison (the target could not even be described). */
 export const refuseTarget = (reason: ProbeReason, message: string): ProbeResult => result("incompatible", [reason], message);

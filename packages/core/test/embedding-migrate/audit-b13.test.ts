@@ -65,8 +65,8 @@ describe("audit b13: concurrent operations", () => {
 
   it("start() while a plan is being created is refused, so a plan can never replace a running checkpoint", async () => {
     const g = gate();
-    const store = memStore(checkpoint());
-    const d = createMigrationDriver(deps({ engine: engineOf({ plan: async () => { await g.p; return enginePlan(); }, status: async () => rec("ready_to_switch") }), store }));
+    const store = memStore(checkpoint({ expiresAt: 0 })); // an expired plan: a new one is created
+    const d = createMigrationDriver(deps({ engine: engineOf({ plan: async () => { await g.p; return enginePlan(); } }), store }));
     const planning = d.plan({ target: TARGET });
     await tick();
     await assert.rejects(() => d.start(), (e) => codeOf(e) === "migration-active");

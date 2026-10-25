@@ -1,5 +1,7 @@
 // A fake engine with the real coordinator's observable semantics: plan with a one-time token, ONE batch per apply/resume,
 // a durable record, source drift detection, and the active generation answering every recall until a switch changes it.
+// Like the engine's state store, a plan is refused while another unfinished record exists whose confirmation has not
+// expired; an expired one is retired (failed, expired_migration_superseded) when the next plan is created.
 import { createHash } from "node:crypto";
 import type { EmbeddingFingerprint } from "../../src/embedding-migrate/probe.ts";
 import type { EngineRecord, EnginePlan, PlanRequest, ReembedEngine, SwitchPort } from "../../src/embedding-migrate/port.ts";
@@ -39,7 +41,11 @@ export interface FakeOptions {
   failBatch?: { n: number; error: Error; times?: number };
   withValidate?: boolean;
   diskFree?: number;
+  /** The engine's clock (confirmation expiry); default Date.now. */
+  now?: () => number;
 }
+const TERMINAL = ["completed", "failed", "rolled_back"];
+const EXPIRABLE = ["planned", "confirmed", "running", "validating", "ready_to_switch"];
 
 export function createFakeEngine(o: FakeOptions = {}) {
   const source = o.source ?? fp(o.sourceModel ?? "a", o.sourceDims ?? 8);
@@ -53,7 +59,7 @@ export function createFakeEngine(o: FakeOptions = {}) {
   const state = {
     activeGeneration: "g0" as string, activeFingerprint: source,
     generations: new Map<string, { fingerprint: EmbeddingFingerprint; tables: Map<string, Row[]> }>(),
-    records: new Map<string, EngineRecord & { token: string }>(),
+    records: new Map<string, EngineRecord & { token: string; expiresAt: number }>(),
     calls: [] as string[], planRequests: [] as PlanRequest[], providerBatches: 0, busy: false, sourceVersion: 1,
   };
   state.generations.set("g0", { fingerprint: source, tables });
@@ -67,7 +73,8 @@ export function createFakeEngine(o: FakeOptions = {}) {
     state.busy = true;
     try { await Promise.resolve(); return await fn(); } finally { state.busy = false; }
   };
-  const snapshot = (r: EngineRecord & { token: string }): EngineRecord => { const { token: _t, ...rest } = r; return structuredClone(rest); };
+  const now = o.now ?? Date.now;
+  const snapshot = (r: EngineRecord & { token: string; expiresAt: number }): EngineRecord => { const { token: _t, expiresAt: _e, ...rest } = r; return structuredClone(rest); };
   const tablesOf = () => [...state.generations.get(state.activeGeneration)!.tables].map(([tableId, rows]) => ({ tableId, version: String(state.sourceVersion), rowCount: rows.length, estimatedBytes: rows.length * rowBytes }));
   const drift = (r: EngineRecord) => { if (r.source.tables[0]!.version !== String(state.sourceVersion)) throw new Error(`reembedding source version drift: ${r.source.tables[0]!.tableId}`); };
 
@@ -93,18 +100,22 @@ export function createFakeEngine(o: FakeOptions = {}) {
       state.planRequests.push(structuredClone(req));
       if (idOf(req.target.fingerprint) === idOf(state.activeFingerprint)) throw new Error("reembedding plan does not change the embedding fingerprint");
       if (o.diskFree !== undefined && o.diskFree < 1) throw new Error("insufficient disk space for reembedding target generation (required 1 bytes)");
+      const active = [...state.records.values()].filter((r) => !TERMINAL.includes(r.state));
+      if (active.some((r) => !(EXPIRABLE.includes(r.state) && now() >= r.expiresAt))) throw Object.assign(new Error("another reembedding migration is active"), { code: "reembedding_active_conflict" });
+      for (const r of active) { r.state = "failed"; r.error = { code: "expired_migration_superseded" }; }
       const inv = tablesOf(); const rowsN = inv.reduce((s, t) => s + t.rowCount, 0);
       const targetGeneration = req.targetGeneration ?? `generation-${req.id}`;
       const src = { generation: state.activeGeneration, fingerprintId: idOf(state.activeFingerprint), fingerprint: state.activeFingerprint, tables: inv };
       const tgt = { generation: targetGeneration, fingerprintId: idOf(req.target.fingerprint), fingerprint: req.target.fingerprint };
       const token = `reemb_v1_${createHash("sha256").update(req.id).digest("base64url")}`;
       state.generations.set(targetGeneration, { fingerprint: req.target.fingerprint, tables: new Map() });
-      state.records.set(req.id, { id: req.id, state: "planned", cursor: { tableIndex: 0, offset: 0, completedRows: 0, providerCalls: 0, bytes: 0 }, source: src, target: tgt, error: null, token });
-      return { plan: { id: req.id, source: src, target: { ...tgt, probeStatus: "passed" }, estimates: { rows: rowsN, providerCalls: rowsN, sourceBytes: rowsN * rowBytes, targetBytes: rowsN * 300, requiredFreeBytes: rowsN * 375, freeBytes: 1e9 } }, planDigest: `sha256:${"0".repeat(64)}`, confirmation: { token } };
+      const expiresAt = now() + (req.confirmationTtlMs ?? 3_600_000);
+      state.records.set(req.id, { id: req.id, state: "planned", cursor: { tableIndex: 0, offset: 0, completedRows: 0, providerCalls: 0, bytes: 0 }, source: src, target: tgt, error: null, token, expiresAt });
+      return { plan: { id: req.id, source: src, target: { ...tgt, probeStatus: "passed" }, estimates: { rows: rowsN, providerCalls: rowsN, sourceBytes: rowsN * rowBytes, targetBytes: rowsN * 300, requiredFreeBytes: rowsN * 375, freeBytes: 1e9 } }, planDigest: `sha256:${"0".repeat(64)}`, confirmation: { token, expiresAt } };
     }),
     apply: ({ id, token }) => guard("apply", () => {
       const r = state.records.get(id); if (!r) throw new Error("reembedding migration not found");
-      if (token !== r.token) throw new Error("invalid or expired reembedding confirmation");
+      if (token !== r.token || (r.state === "planned" && now() >= r.expiresAt)) throw new Error("invalid or expired reembedding confirmation");
       if (r.state === "planned") r.state = "running";
       if (r.state !== "running") throw new Error(`reembedding apply requires planned, confirmed, or running state; found ${r.state}`);
       runBatch(r); return snapshot(r);
