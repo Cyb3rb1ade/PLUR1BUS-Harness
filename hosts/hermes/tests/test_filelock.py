@@ -1,4 +1,5 @@
 import errno
+import math
 import os
 import runpy
 import shutil
@@ -30,6 +31,15 @@ class WindowsSharingTest(unittest.TestCase):
     def _windows_clock(self):
         self.enterContext(mock.patch.object(lock_mod.os, "name", "nt"))
         self.enterContext(mock.patch.object(lock_mod.time, "monotonic", side_effect=lambda: self.now))
+        self.enterContext(mock.patch.object(lock_mod.time, "sleep", side_effect=self._sleep))
+
+    def _coarse_windows_clock(self, tick: float = 0.0156):
+        """Windows before Python 3.13: ``time.monotonic()`` is ``GetTickCount64`` (about 15.6 ms steps) while
+        ``time.sleep`` is precise, so a sleep shorter than one tick need not move the clock."""
+        self.enterContext(mock.patch.object(lock_mod.os, "name", "nt"))
+        self.enterContext(
+            mock.patch.object(lock_mod.time, "monotonic", side_effect=lambda: math.floor(self.now / tick) * tick)
+        )
         self.enterContext(mock.patch.object(lock_mod.time, "sleep", side_effect=self._sleep))
 
     def test_open_retries_sharing_errors_then_acquires(self) -> None:
@@ -130,6 +140,38 @@ class WindowsSharingTest(unittest.TestCase):
         self.assertGreater(len(calls), 1)
         self.assertLessEqual(self.now, 0.012)
         self.assertTrue(all(t < 0.012 for t in calls), calls)
+
+    def test_failed_break_on_a_coarse_clock_does_not_spin_at_the_deadline(self) -> None:
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write("old lock")
+        os.utime(self.path, (0, 0))
+        tick = 0.0156
+        self._coarse_windows_clock(tick)
+        lock = lock_mod.ExclusiveLockFile(self.path)
+        calls = []
+        lock._break = lambda *a: calls.append(self.now) or False  # type: ignore[method-assign]
+        timeout = 20 * tick + 0.0005  # the deadline lies just past a tick: the worst case
+        with self.assertRaises(lock_mod.LockTimeout):
+            with lock.hold(timeout):
+                self.fail("entered a lock that could not be broken")
+        self.assertLess(len(calls), timeout / lock.POLL_S + 3, calls)
+        self.assertLessEqual(self.now, timeout + tick)
+        self.assertTrue(os.path.exists(self.path))
+
+    def test_retry_helper_on_a_coarse_clock_does_not_spin_at_the_deadline(self) -> None:
+        tick = 0.0156
+        self._coarse_windows_clock(tick)
+        calls = []
+
+        def busy():
+            calls.append(self.now)
+            raise self._error(32)
+
+        budget = 10 * tick + 0.0005
+        with self.assertRaises(OSError):
+            lock_mod._retry_sharing(busy, budget)
+        self.assertLessEqual(len(calls), 6, calls)  # 10, 20, 40, 80 ms backoff, then the budget is spent
+        self.assertLessEqual(self.now, budget + tick)
 
     def test_sweep_sharing_error_cannot_extend_acquisition_deadline(self) -> None:
         for suffix in (".break-old", ".rel-old"):

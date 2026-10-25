@@ -180,7 +180,12 @@ class ExclusiveLockFile:
                     if remaining <= 0:
                         raise LockTimeout(f"lock busy: {os.path.basename(self.path)}") from None
                     if os.name == "nt":
-                        time.sleep(min(delay if sharing else self.POLL_S, remaining))
+                        # Before Python 3.13 the Windows monotonic clock ticks in about 15.6 ms steps while
+                        # sleep is precise: a sleep up to the deadline need not move the clock, so it ends here.
+                        step = min(delay if sharing else self.POLL_S, remaining)
+                        time.sleep(step)
+                        if step >= remaining:
+                            raise LockTimeout(f"lock busy: {os.path.basename(self.path)}") from None
                         delay = min(delay * 2, 0.1) if sharing else 0.01
                     else:
                         time.sleep(self.POLL_S)
@@ -378,8 +383,9 @@ def _retry_sharing(op: Callable[[], object], budget_s: float) -> bool:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise
-            time.sleep(min(delay, remaining))
-            if time.monotonic() >= deadline:
+            step = min(delay, remaining)
+            time.sleep(step)
+            if step >= remaining or time.monotonic() >= deadline:  # a coarse clock may not show the spent budget
                 raise
             delay = min(delay * 2, 0.1)
 
