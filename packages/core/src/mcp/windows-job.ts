@@ -113,7 +113,9 @@ export function windowsJobCommand(command: string, args: string[], host: NodeJS.
   const native = resolveWindowsCommand(command, hostPath(host), exists);
   const payload = Buffer.from([native, ...args].map(windowsArg).join(" "), "utf8").toString("base64");
   const names = Buffer.from(keep.join("\n"), "utf8").toString("base64");
-  const script = `$ErrorActionPreference='Stop'; try { Add-Type -TypeDefinition @'\n${source}\n'@; $command=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')); $keep=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${names}')).Split([char]10); foreach ($n in @([Environment]::GetEnvironmentVariables().Keys)) { if ($keep -notcontains $n) { [Environment]::SetEnvironmentVariable($n, $null) } }; exit [McpJob]::Run($command) } catch { [Console]::Error.WriteLine('MCP Windows job launch failed'); exit 125 }`;
+  // Progress off first: the server shares this host's stderr, and Windows PowerShell reports its first-run module analysis
+  // ("Preparing modules for first use.") there as #< CLIXML, which would read as the server's own stderr lines.
+  const script = `$ProgressPreference='SilentlyContinue'; $ErrorActionPreference='Stop'; try { Add-Type -TypeDefinition @'\n${source}\n'@; $command=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')); $keep=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${names}')).Split([char]10); foreach ($n in @([Environment]::GetEnvironmentVariables().Keys)) { if ($keep -notcontains $n) { [Environment]::SetEnvironmentVariable($n, $null) } }; exit [McpJob]::Run($command) } catch { [Console]::Error.WriteLine('MCP Windows job launch failed'); exit 125 }`;
   return { command: join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
     args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")] };
 }

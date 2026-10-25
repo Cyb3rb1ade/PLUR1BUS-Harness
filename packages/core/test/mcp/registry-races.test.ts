@@ -26,11 +26,14 @@ describe("mcp registry: replaced connection", { timeout: 120_000 }, () => {
       const fresh = await reg.callTool("fixture", "pid", {}, caller); // a new connection starts while the old one is still dying
       second = Number((fresh.content[0] as { text: string }).text);
       assert.notEqual(second, first);
+      // The process the registry tracks: the server itself on POSIX; on Windows the job launcher that started it, whose pid
+      // the transport reports (docs/mcp-client.md), so the server's parent there.
+      const owner = process.platform === "win32" ? Number(((await reg.callTool("fixture", "ppid", {}, caller)).content[0] as { text: string }).text) : second;
       assert.equal(((await hung) as { code: string }).code, "call-timeout");
       assert.ok(await waitDead(first));
       const s = reg.status("fixture", caller.agentId);
       assert.equal(s.state, "running", "the registry must still own the second connection");
-      assert.equal(s.pid, second);
+      assert.equal(s.pid, owner);
       await reg.shutdown();
       assert.ok(await waitDead(second), "shutdown must reap the second connection's process");
     } finally {

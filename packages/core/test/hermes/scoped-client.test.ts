@@ -43,7 +43,9 @@ test('approved Hermes token attaches to running core, stays in one agent, and re
     // Proves the real Python client cannot possibly read the installation owner's credential.
     unlinkSync(join(home, 'run/core.token'));
     const python = process.env.PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3');
-    const fake = await promisify(execFile)(python, [resolve('hosts/hermes/tests/fake_existing.py'), home, tokenFile, 'hermes-test'], { timeout: 15000, env: { ...process.env, PYTHONPATH: resolve('clients/python/plur1bus-memory-client/src') } });
+    // The client bounds every step itself (2 s connect, 5 s per call); this bound only catches a hung child. A cold Python on a
+    // Windows runner took 5.6 s for this script, and once outlasted the former 15 s with no output at all.
+    const fake = await promisify(execFile)(python, [resolve('hosts/hermes/tests/fake_existing.py'), home, tokenFile, 'hermes-test'], { timeout: 60_000, env: { ...process.env, PYTHONPATH: resolve('clients/python/plur1bus-memory-client/src') } });
     assert.equal(JSON.parse(fake.stdout).attached, true);
     await tokens.revoke('local-owner', approved.record.id);
     await assert.rejects(c.call('core.status'), (e: any) => e.error === 'E_DENIED');

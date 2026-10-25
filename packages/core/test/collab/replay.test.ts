@@ -7,10 +7,11 @@ import { useTempDirs } from '../composition/helpers.ts';
 import { join } from 'node:path';
 const tmp = useTempDirs('m5-replay-');
 const owner = { userId: 'owner', kind: 'person' as const, role: 'owner' as const };
-test('each delegation persists a redacted replayable session linked to W3C trace; replay is identical after reopen', async t => {
+test('each delegation persists a redacted replayable session linked to W3C trace; replay is identical after reopen', async () => {
   const dir = tmp.make(); let sessions = new SessionStore({ path: join(dir, 'sessions.sqlite') });
   const make = () => createCollab({ path: join(dir, 'collab.sqlite'), sessions: () => sessions, redact: logsRedactionPort(['redact-probe-alpha']), runner: { async run() { return { text: 'redact-probe-alpha email user@example.com', inputTokens: 10, outputTokens: 8 }; } } });
-  let collab = make(); const p = collab.createProject(owner, { name: 'P' }); for (const id of ['a1', 'b1']) collab.addAgent(owner, p.id, id);
+  let collab = make(); tmp.onCleanup(() => { collab.close(); sessions.close(); }); // whichever pair is open by then: the test reopens both
+  const p = collab.createProject(owner, { name: 'P' }); for (const id of ['a1', 'b1']) collab.addAgent(owner, p.id, id);
   const answer = await collab.consult({ principal: owner, projectId: p.id, fromAgent: 'a1', toAgent: 'b1', question: 'check redact-probe-alpha', context: '' });
   const trace = collab.getTrace(owner, answer.traceId), span = trace.spans[0]!;
   assert.ok(span.sessionId); assert.match(trace.traceparent, new RegExp(trace.traceId)); assert.deepEqual([span.inputTokens, span.outputTokens, "costEstimate" in span], [10, 8, false]);
@@ -22,7 +23,6 @@ test('each delegation persists a redacted replayable session linked to W3C trace
   assert.throws(() => sessions.getOwned(span.sessionId!, 'other'));
   collab.close(); sessions.close(); sessions = new SessionStore({ path: join(dir, 'sessions.sqlite') }); collab = make();
   assert.deepEqual(collab.replay(owner, trace.traceId, span.spanId), first);
-  t.after(() => { collab.close(); sessions.close(); });
 });
 test('trace redaction follows credentials registered after composition startup', async () => {
   const { liveLogsRedactionPort } = await import('../../src/collab/ports.ts');

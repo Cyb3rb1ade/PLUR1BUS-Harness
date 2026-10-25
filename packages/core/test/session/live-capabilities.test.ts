@@ -13,6 +13,9 @@ test('D103 system: install, update and disable between RPC turns without restart
   const home = tempDir('d103-core-'); const cfg = defaults(); cfg.agents.bernd = {};
   cfg.engine = { duplicateThreshold: 1.01, neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false } };
   cfg.modelRoles.decision = 'triage';
+  // Triage (200 ms) and the skill choice (100 ms) keep their production budgets for reference hardware; a shared CI runner
+  // (Windows) can outlast them, and a triage timeout drops the skill from the turn. Here they only catch a hang.
+  cfg.decision.timeoutMs = 10_000; cfg.decision.budgets = { triage: 10_000, skills: 10_000 };
   writeFileSync(join(home, 'config.json'), JSON.stringify(cfg));
   const wire = scriptedAdapter([{ text: 'done' }]);
   const recorded = { schema: 'plur1bus.triage/1', shape: 'single', tasks: [{ id: 'report', summary: 'Create quarterly report', start: 0, end: 23, categories: { 'docs.create': 1 }, modelClass: { small: 1, medium: 0, large: 0, frontier: 0 }, chosenClass: 'small', effort: 'low', dependsOn: [], confidence: 1, reason: 'fixture' }] };

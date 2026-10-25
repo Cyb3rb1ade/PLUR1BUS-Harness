@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, existsSync, realpathSync, chmodSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { gitText, sandboxVerifier, type VerifierPort, type VerifierCommand, type CheckKind } from './verifier.ts';
 import { CollabError } from './errors.ts';
@@ -28,14 +28,16 @@ export function detectVerifiers(files: Readonly<Record<string, string>>): { tool
 }
 const MANIFESTS = ['.plur1bus-verifiers.json', 'package.json', 'pnpm-lock.yaml', 'pyproject.toml', 'requirements.txt', 'Cargo.toml', 'go.mod', 'build.gradle', 'build.gradle.kts'];
 export function worktreeSnapshot(root: string): { root: string; treeHash: string; changedLines: number; files: string[]; head: string } {
-  const canonical = realpathSync(root), top = realpathSync(gitText(root, ['rev-parse', '--show-toplevel']).trim());
+  // Native resolution on both sides: Git for Windows reports the top level by its long name with `/` separators, while
+  // the bound root may be spelled with an 8.3 alias (`C:\Users\RUNNER~1\...`) that only the native call expands.
+  const canonical = realpathSync.native(root), top = realpathSync.native(gitText(root, ['rev-parse', '--show-toplevel']).trim());
   if (canonical !== top) throw new CollabError('invalid', 'verifier requires the bound Git worktree root');
   const head = gitText(root, ['rev-parse', 'HEAD']).trim();
   const untracked = gitText(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean);
   const diff = gitText(root, ['diff', '--binary', 'HEAD', '--']);
   const stats = gitText(root, ['diff', '--numstat', 'HEAD', '--']).trim().split('\n').filter(Boolean);
   let lines = stats.reduce((n, line) => { const [a, d] = line.split('\t'); return n + (a === '-' || d === '-' ? 200 : Number(a) + Number(d)); }, 0);
-  const extra = untracked.map(path => { const absolute = realpathSync(join(root, path)); if (!absolute.startsWith(canonical + '/')) throw new CollabError('invalid', 'untracked file leaves worktree'); const bytes = readFileSync(absolute); lines += bytes.toString('utf8').split('\n').length; return `${path}:${hash(bytes)}`; });
+  const extra = untracked.map(path => { const absolute = realpathSync.native(join(root, path)); if (!absolute.startsWith(canonical + sep)) throw new CollabError('invalid', 'untracked file leaves worktree'); const bytes = readFileSync(absolute); lines += bytes.toString('utf8').split('\n').length; return `${path}:${hash(bytes)}`; });
   const files = [...gitText(root, ['diff', '--name-only', 'HEAD', '--']).trim().split('\n').filter(Boolean), ...untracked];
   return { root: canonical, head, treeHash: hash(JSON.stringify([head, diff, extra])), changedLines: lines, files };
 }

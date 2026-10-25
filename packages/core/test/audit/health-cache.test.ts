@@ -70,10 +70,11 @@ test('a rotated file replaced under the same name is re-read when size or mtime 
 test('an unchanged rotated file is not read again (its summary is reused)', () => {
   const dir = dir0(), cache: RotatedSummaries = new Map(), p = join(dir, rot(1));
   writeFileSync(p, lines(1, ['audit.chain.anchor-advanced']));
-  const st = statSync(p);
+  // A whole second round-trips exactly; mtimeMs / 1000 does not always survive the float round trip on NTFS (100 ns).
+  utimesSync(p, 1_700_000_000, 1_700_000_000);
   assert.equal(readAuditHealth(dir, 1, cache).lastAnchorAdvanced?.actor?.user, 'u1');
   writeFileSync(p, lines(1, ['audit.chain.anchor-advanced']).replace('u1', 'u2')); // same size, same mtime, same inode
-  utimesSync(p, st.atimeMs / 1000, st.mtimeMs / 1000);
+  utimesSync(p, 1_700_000_000, 1_700_000_000);
   assert.equal(readAuditHealth(dir, 2, cache).lastAnchorAdvanced?.actor?.user, 'u1');
   assert.equal(readAuditHealth(dir, 3, new Map()).lastAnchorAdvanced?.actor?.user, 'u2');
 });

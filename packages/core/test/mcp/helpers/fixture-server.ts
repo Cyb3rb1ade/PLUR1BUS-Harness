@@ -22,6 +22,7 @@ export const FIXTURE_TOOLS = [
   { name: "change_tools", description: "Sends tools/list_changed.", inputSchema: { type: "object", properties: {} } },
   { name: "crash", description: "Exits the process mid-call.", inputSchema: { type: "object", properties: {} } },
   { name: "pid", description: "The server's process id.", inputSchema: { type: "object", properties: {} } },
+  { name: "ppid", description: "The process id of the server's parent (on Windows, the job launcher that started it).", inputSchema: { type: "object", properties: {} } },
   { name: "grow", description: "Returns n bytes of text.", inputSchema: { type: "object", properties: { n: { type: "number" } }, required: ["n"] } },
   { name: "leak_env", description: "Prints an environment variable to stderr and returns it.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
   { name: "probe_client", description: "Asks the client for sampling and roots, and reports what happened.", inputSchema: { type: "object", properties: {} } },
@@ -47,6 +48,7 @@ export function createFixtureServer(): { server: Server; state: FixtureState } {
       case "change_tools": await server.sendToolListChanged(); return text("changed");
       case "crash": process.exit(1); // eslint-disable-line no-unreachable
       case "pid": return text(String(process.pid));
+      case "ppid": return text(String(process.ppid));
       case "grow": return text("x".repeat(Number(args.n)));
       case "leak_env": {
         const v = process.env[String(args.name)] ?? "";

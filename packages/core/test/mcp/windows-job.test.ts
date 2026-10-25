@@ -20,6 +20,12 @@ describe("windows launcher environment", () => {
     assert.equal(Buffer.from(m[1]!, "base64").toString("utf8"), "PATH\nFIXTURE_WEDGE");
     assert.ok(script.indexOf("SetEnvironmentVariable") < script.indexOf("[McpJob]::Run"), "the strip happens before the server starts");
   });
+  it("silences PowerShell's own progress stream before anything can report progress", () => {
+    // The server inherits the launcher's stderr, so a progress record (Windows PowerShell's first-run "Preparing modules
+    // for first use.", serialised as #< CLIXML) would arrive as the server's own stderr lines (mcp/stderr-d111).
+    const script = Buffer.from(windowsJobCommand("C:\\node.exe", [], {}).args.at(-1)!, "base64").toString("utf16le");
+    assert.ok(script.startsWith("$ProgressPreference='SilentlyContinue';"), script.slice(0, 80));
+  });
 });
 
 // Audit mcp (suspected): CreateProcess searches the current directory before PATH for a bare name, so a `node.exe` planted
