@@ -298,6 +298,17 @@
           "additionalProperties": false,
           "default": {},
           "properties": {
+            "maxTasks": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65536,
+              "default": 512,
+              "description": "Most tasks (processes and threads) the programs of one sandboxed run may have together, counted in that run's own user namespace (Linux 5.14 or newer, not as root); bubblewrap's own init process is not counted. Applies to agent tool processes and, on Linux, to the coding-gate verifier. 0 turns the cap off. macOS denies forking in the tool sandbox regardless. Doctor shows whether the cap holds.",
+              "x-tier": "advanced",
+              "x-restart": "live",
+              "x-write-roles": ["owner"],
+              "x-audit": true
+            },
             "required": {
               "type": "boolean",
               "default": true,
@@ -1492,7 +1503,7 @@
       "x-tier": "advanced"
     },
     "modelRoles": {
-      "description": "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest.",
+      "description": "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. The embedding and rerank roles are still accepted but select no model: the memory engine takes its models from engine.embedding and engine.reranker.",
       "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15, D18)",
       "propertyNames": { "enum": ["chat", "reasoning", "capture", "dream", "embedding", "rerank", "decision", "summarize"] },
       "additionalProperties": { "description": "Model identifier assigned to the role.", "type": "string", "maxLength": 256 }

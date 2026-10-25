@@ -611,11 +611,18 @@ agent access panel: agent leases are currently disabled, effective grants are em
 references are explicitly not grants. No grant writer or agent value path is added. Details: [secrets.md](secrets.md).
 ## Model roles and optional Decision setup (Phase A, 2026-10-18)
 
-Settings → Models & providers edits each of the eight schema-defined `modelRoles` through catalog selectors. Unavailable
-models remain visible but disabled. Stored identifiers absent from the current catalog remain visible without silently
-selecting another model. Known non-commercial memory models are disabled until `model.licence.check` succeeds. The existing
-review step uses `config.set` with `dryRun` and `ifRevision`; a conflict requires reloading. Owner/Admin use `settings.write`.
-Each role has a de/en purpose text. Embedding identifiers here are role metadata, not a vector-space migration command.
+Settings → Models & providers edits the six roles that select a model (`chat`, `reasoning`, `capture`, `dream`, `decision`,
+`summarize`) through catalog selectors. Unavailable models remain visible but disabled. Stored identifiers absent from the
+current catalog remain visible without silently selecting another model. The existing review step uses `config.set` with
+`dryRun` and `ifRevision`; a conflict requires reloading. Owner/Admin use `settings.write`. Each role has a de/en purpose text.
+
+The schema still accepts `modelRoles.embedding` and `modelRoles.rerank`, but they select no model, so since 2026-10-25 the
+section offers no field for them (and no longer asks `model.licence.check` about non-commercial models for one); a stored
+value is left as it is. The memory engine takes its models from `engine.embedding` and `engine.reranker`. The section shows
+them read-only at the end of the role group (`src/pages/settings/config/engine.ts`): what `core.status` reports in
+`engine.models` (the embedder's model name, the reranker's provider, each with its state), or that the status could not be
+read, and how to change them: the Memory step of the first-run setup while the memory store is empty (Owner/Admin get a
+link to `#/setup`), `plur1bus memory reembed` once it holds memories.
 
 The Test button on chat/LLM roles calls `models.test`: a fixed short prompt, 16 output tokens, ten-second deadline, no tools,
 no recalled memory, no session or transcript writes. It uses the configured adapter and production budget; cloud models

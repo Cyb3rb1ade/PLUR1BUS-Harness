@@ -110,7 +110,7 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
       h(RestartBadge, { cls: f.restartClass })),
     h("p", { class: "cfg-key", id: `${id}-key` }, h("span", { class: "sr-only" }, `${t("settings.cfg.key")}: `), h("code", null, f.key)),
     control,
-    role && !["embedding", "rerank"].includes(role) ? h("div", {},
+    role ? h("div", {},
       h("p", { class: "field-hint" }, t("settings.roles.testHint")),
       h("button", { type: "button", class: "btn", disabled: disabled || !raw || probe === "running", onClick: () => { void test(); } }, t("settings.roles.test")),
       probe === "idle" ? null : h("p", { role: probe === "failed" ? "alert" : "status", class: "field-hint" }, t(`settings.roles.test${probe === "running" ? "Running" : probe === "ok" ? "Ok" : "Failed"}`))) : null,

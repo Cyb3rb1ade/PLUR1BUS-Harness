@@ -2,7 +2,7 @@
 
 Plur1bus can use a hosted embedding model, and the Cohere reranker, instead of the local models. No provider is preferred, and a failing service is never silently replaced by a local model. The German version of this page is [../de/cloud-embeddings.md](../de/cloud-embeddings.md).
 
-There is no web UI for this yet. You set it in the configuration, under the keys `engine.embedding` and `engine.reranker`, with the CLI or in `config.json`.
+There is no web UI for this yet. You set it in the configuration, under the keys `engine.embedding` and `engine.reranker`, with the CLI or in `config.json`. **Settings → Models & providers** shows under **Memory engine models** which models the engine runs, read-only. Embedding and reranking are not model roles: `modelRoles.embedding` and `modelRoles.rerank` do not change which models the engine uses.
 
 ## How to
 

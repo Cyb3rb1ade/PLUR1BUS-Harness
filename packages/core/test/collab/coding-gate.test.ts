@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { writeFileSync, readFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { CodingGate, detectVerifiers } from '../../src/collab/coding-gate.ts';
-import { sandboxVerifier, type VerifierPort } from '../../src/collab/verifier.ts';
+import { sandboxVerifier, verifierBwrapArgv, type VerifierPort } from '../../src/collab/verifier.ts';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+import { INNER_LAUNCHER, tasksStep, probeTasks } from '../../src/tools/sandbox/backends.ts';
+import { bombTasks } from '../tools/sandbox/bomb-tasks.ts';
 import { useTempDirs } from '../composition/helpers.ts';
 const tmp = useTempDirs('m5-gate-');
 // Windows has no verifier sandbox backend: every verifier run there is refused before anything starts (fail closed,
@@ -113,4 +117,57 @@ test('repository external-diff and textconv configuration cannot execute a host 
   writeFileSync(join(f.root, 'code.ts'), '// changed\n');
   const gate = new CodingGate({ path: ':memory:', audit() {} });
   try { gate.snapshot(f.root); assert.throws(() => readFileSync(join(f.root,'host-hook-ran'))); } finally { gate.close(); }
+});
+
+test('the verifier argv carries the task step only when given one', () => {
+  const root = tmp.make(), temp = tmp.make();
+  const o = { root, temp, program: process.execPath, args: ['t.js'], networkAllowed: false };
+  const base = verifierBwrapArgv(o);
+  assert.equal(base.includes(INNER_LAUNCHER), false);
+  assert.deepEqual(base.slice(-4), ['--chdir', root, process.execPath, 't.js']);
+  const capped = verifierBwrapArgv({ ...o, step: tasksStep('/opt/l', 512) });
+  const bind = capped.findIndex((a, i) => a === '--ro-bind' && capped[i + 1] === '/opt/l' && capped[i + 2] === INNER_LAUNCHER);
+  assert.ok(bind >= 0 && bind < capped.indexOf('--chdir'));
+  assert.deepEqual(capped.slice(capped.indexOf('--chdir') + 2),
+    [INNER_LAUNCHER, '--tasks', '513', tasksStep('/opt/l', 512).prefix[3], '--', process.execPath, 't.js']);
+});
+const launcher = fileURLToPath(new URL('../../../../target/debug/plur1bus-sandbox-limits', import.meta.url));
+const cap = process.platform === 'linux' && existsSync('/usr/bin/bwrap') && existsSync(launcher)
+  ? await probeTasks(launcher) : { mechanism: 'none', reason: 'Linux bubblewrap and the built launcher are required.' };
+test('the Linux verifier uses a live cap and keeps running when it is off or the launcher is unavailable',
+  { skip: cap.mechanism === 'namespace-limit' ? false : cap.reason }, async () => {
+    const root = tmp.make(), options = { signal: new AbortController().signal, networkAllowed: false };
+    let maxTasks = 7;
+    const verifier = sandboxVerifier(3000, { limitsHelper: launcher, maxTasks: () => maxTasks });
+    for (const [value, expected] of [[7, '8'], [11, '12']] as const) {
+      maxTasks = value;
+      const result = await verifier.run(root, { kind: 'test', argv: ['/bin/cat', '/proc/self/limits'] }, options);
+      assert.equal(result.ok, true, JSON.stringify(result));
+      assert.deepEqual(result.output.split('\n').find(l => l.startsWith('Max processes'))!.trim().split(/\s+/).slice(2, 4), [expected, expected]);
+    }
+    for (const [limitsHelper, n] of [[launcher, 0], [join(root, 'missing'), 7], [join(root, 'old'), 7]] as const) {
+      writeFileSync(join(root, 'old'), '#!/bin/sh\nexit 125\n', { mode: 0o755 });
+      const result = await sandboxVerifier(3000, { limitsHelper, maxTasks: () => n }).run(root,
+        { kind: 'test', argv: ['/bin/cat', '/proc/self/limits'] }, options);
+      assert.equal(result.ok, true, JSON.stringify(result));
+      assert.equal(result.output.split('\n').find(l => l.startsWith('Max processes')),
+        readFileSync('/proc/self/limits', 'utf8').split('\n').find(l => l.startsWith('Max processes')));
+    }
+});
+test('a verifier fork bomb is bounded by the cap and ends as a timeout',
+  { timeout: 15000, skip: cap.mechanism === 'namespace-limit' ? false : cap.reason }, async () => {
+    const root = tmp.make(), samples: Map<string, number>[] = [];
+    const timer = setInterval(() => { samples.push(bombTasks()); }, 50);
+    let result;
+    try {
+      result = await sandboxVerifier(3000, { limitsHelper: launcher, maxTasks: () => 32 }).run(root,
+        { kind: 'test', argv: ['/usr/bin/perl', '-e', 'fork while 1'] },
+        { signal: new AbortController().signal, networkAllowed: false });
+    } finally { clearInterval(timer); }
+    assert.equal(result.ok, false); assert.equal(result.reason, 'timeout', JSON.stringify(result));
+    assert.ok(samples.some(s => [...s.values()].some(n => n >= 2)), 'the bomb was observed');
+    assert.ok(samples.every(s => [...s.values()].every(n => n <= 32)));
+    const deadline = Date.now() + 3000;
+    while (bombTasks().size && Date.now() < deadline) await delay(50);
+    assert.equal(bombTasks().size, 0);
 });

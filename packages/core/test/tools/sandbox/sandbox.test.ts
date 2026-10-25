@@ -1,4 +1,8 @@
 import { test } from 'node:test';
+import { execFile } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
+import { backendArgv, INNER_LAUNCHER, outerUserNamespace } from '../../../src/tools/sandbox/backends.ts';
+import { bombTasks } from './bomb-tasks.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -11,7 +15,7 @@ async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), 'd106-'));
   const home = join(dir, 'h'), root = join(dir, 'workspace'), userHome = join(dir, 'u');
   for (const p of [home, root, userHome, join(home, 'run'), join(home, 'state')]) await mkdir(p, { recursive: true });
-  const policy: SandboxPolicy = { home, userHome, cwd: root, readRoots: [{ id: 'w', path: root }], writeRoots: [{ id: 'w', path: root }], network: 'none', envAllow: ['PATH', 'PLUR1BUS_HOME', 'NODE_OPTIONS', 'AUTH', 'LANG'], env: { PATH: '/usr/bin:/bin', LANG: 'C', PLUR1BUS_HOME: home, NODE_OPTIONS: '--inspect', AUTH: 'private-value' }, limits: { timeoutMs: 1500, cpuSeconds: 1, memoryBytes: 2 * 1024 ** 3, maxOutputBytes: 512 }, limitsHelper: fileURLToPath(new URL('../../../../../target/debug/plur1bus-sandbox-limits' + (process.platform === 'win32' ? '.exe' : ''), import.meta.url)) };
+  const policy: SandboxPolicy = { home, userHome, cwd: root, readRoots: [{ id: 'w', path: root }], writeRoots: [{ id: 'w', path: root }], network: 'none', envAllow: ['PATH', 'PLUR1BUS_HOME', 'NODE_OPTIONS', 'AUTH', 'LANG'], env: { PATH: '/usr/bin:/bin', LANG: 'C', PLUR1BUS_HOME: home, NODE_OPTIONS: '--inspect', AUTH: 'private-value' }, limits: { timeoutMs: 1500, cpuSeconds: 1, memoryBytes: 2 * 1024 ** 3, maxOutputBytes: 512, maxTasks: 512 }, limitsHelper: fileURLToPath(new URL('../../../../../target/debug/plur1bus-sandbox-limits' + (process.platform === 'win32' ? '.exe' : ''), import.meta.url)) };
   return { dir, home, root, policy, close: () => rm(dir, { recursive: true, force: true }) };
 }
 test('detection fails closed for missing helper and unavailable Windows isolation', async () => {
@@ -33,8 +37,12 @@ test('real backend: filesystem, network, environment, output and abort adversari
     const d = await detectSandbox(f.policy.limitsHelper);
     if (!d.available) { t.skip(d.reason); return; }
     if (process.platform === 'linux') f.policy.writeRoots = [];
+    if (process.platform === 'darwin') assert.equal(d.tasks.mechanism, 'fork-denied');
     const probe = await sandboxSpawn(['/bin/echo', 'ready'], f.policy);
     assert.equal(probe.exitCode, 0, JSON.stringify(probe)); assert.match(probe.stdout, /ready/);
+    assert.equal(probe.resources.maxTasks, d.tasks.mechanism === 'namespace-limit' ? 512 : null);
+    const off = await sandboxSpawn(['/bin/echo', 'off'], { ...f.policy, limits: { ...f.policy.limits, maxTasks: 0 } });
+    assert.equal(off.exitCode, 0); assert.equal(off.resources.maxTasks, null);
     await writeFile(join(f.home, 'run', 'core.token'), 'private-fixture');
     await symlink(join(f.home, 'run', 'core.token'), join(f.root, 'escape'));
     for (const file of [join(f.home, 'run', 'core.token'), join(f.root, 'escape'), f.root + '/../h/run/core.token']) {
@@ -56,7 +64,9 @@ test('real backend: filesystem, network, environment, output and abort adversari
       const memory = await sandboxSpawn(['/usr/bin/perl', '-e', '$x = "x" x (512*1024*1024); sleep 10'], { ...f.policy, limits: { ...f.policy.limits, memoryBytes: 64*1024*1024, timeoutMs: 5000 } });
       assert.notEqual(memory.exitCode, 0); assert.equal(memory.timedOut, false);
     }
-    const bounded = await sandboxSpawn(['/usr/bin/yes'], f.policy); assert.ok(bounded.stdoutTruncated); assert.ok(Buffer.byteLength(bounded.stdout) <= 512); assert.ok(bounded.timedOut || bounded.signal);
+    // Stopped by the 1.5 s timeout or by the 1 s CPU limit, whichever comes first. bubblewrap reports a payload that the
+    // CPU limit killed (SIGKILL once soft = hard is reached) as its own exit code 137, not as a signal of the launcher.
+    const bounded = await sandboxSpawn(['/usr/bin/yes'], f.policy); assert.ok(bounded.stdoutTruncated); assert.ok(Buffer.byteLength(bounded.stdout) <= 512); assert.ok(bounded.timedOut || bounded.signal || bounded.exitCode === 128 + 9, JSON.stringify(bounded.resources) + ` exit ${bounded.exitCode}`);
     const ac = new AbortController(); setTimeout(() => ac.abort(), 100);
     const cancelled = await sandboxSpawn(['/bin/sleep', '10'], f.policy, { signal: ac.signal }); assert.equal(cancelled.aborted, true);
     const egress = await sandboxSpawn(['/bin/echo', 'ok'], { ...f.policy, network: 'egress' }); assert.equal(egress.sandbox.network, 'none'); assert.equal(egress.sandbox.warnings.length, 1);
@@ -77,7 +87,7 @@ test('bubblewrap preserves original /bin and loader mount spellings on merged-us
   const {backendArgv}=await import('../../../src/tools/sandbox/backends.ts');
   const f=await fixture();try{
     const p=await preparePolicy({...f.policy,writeRoots:[],limitsHelper:process.execPath});
-    const argv=await backendArgv(p,{backend:'bubblewrap',strength:'partial',available:true,reason:'fixture'},['/bin/echo','x']);
+    const argv=await backendArgv(p,{backend:'bubblewrap',strength:'partial',available:true,reason:'fixture',tasks:{mechanism:'none',reason:'fixture'}},['/bin/echo','x']);
     for(const source of p.runtimePaths) assert.ok(argv.some((arg,i)=>arg==='--ro-bind' && argv[i+1]===source && argv[i+2]===source));
     assert.ok(p.runtimePaths.includes('/bin'));
     assert.ok(argv.some((a,i)=>a==='--remount-ro' && argv[i+1]==='/'));
@@ -108,4 +118,64 @@ test('Windows absolute executables report unavailable isolation, not a POSIX pat
     await assert.rejects(sandboxSpawn(['C:relative.exe'], {} as SandboxPolicy), /absolute executable/);
     await assert.rejects(sandboxSpawn(['relative.exe'], {} as SandboxPolicy), /absolute executable/);
   } finally { Object.defineProperty(process, 'platform', descriptor); }
+});
+
+test('backendArgv adds the task step only when the cap is on and enforced', async () => {
+  const f = await fixture(); try {
+    const p = await preparePolicy({ ...f.policy, writeRoots: [], limitsHelper: process.execPath });
+    const d = (mechanism: 'namespace-limit' | 'none') => ({ backend: 'bubblewrap' as const, strength: 'partial' as const,
+      available: true, reason: 'fixture', tasks: { mechanism, reason: 'fixture' } });
+    const on = await backendArgv(p, d('namespace-limit'), ['/bin/echo', '--', 'x']);
+    const bind = on.findIndex((a, i) => a === '--ro-bind' && on[i + 1] === p.limitsHelper && on[i + 2] === INNER_LAUNCHER);
+    assert.ok(bind >= 0 && bind < on.indexOf('--remount-ro'));
+    assert.deepEqual(on.slice(on.indexOf('--') + 1),
+      [INNER_LAUNCHER, '--tasks', '513', outerUserNamespace(), '--', '/bin/echo', '--', 'x']);
+    for (const [policy, detection] of [[{ ...p, limits: { ...p.limits, maxTasks: 0 } }, d('namespace-limit')], [p, d('none')]] as const)
+      assert.equal((await backendArgv(policy, detection, ['/bin/true'])).includes(INNER_LAUNCHER), false);
+    for (const maxTasks of [-1, 0.5, 65537, Number.NaN])
+      await assert.rejects(preparePolicy({ ...p, limits: { ...p.limits, maxTasks } }), /sandbox task cap must be 0 to 65536/);
+  } finally { await f.close(); }
+});
+test('detection reports the task cap for a missing launcher, Windows and an old launcher', async t => {
+  assert.equal((await detectSandbox('/missing')).tasks.mechanism, 'none');
+  assert.match((await detectSandbox('/missing', 'win32')).tasks.reason, /Windows/);
+  if (process.platform !== 'linux') return;
+  const f = await fixture(); try {
+    const old = join(f.dir, 'old-launcher'); await writeFile(old, '#!/bin/sh\nexit 125\n', { mode: 0o755 });
+    const d = await detectSandbox(old);
+    assert.equal(d.tasks.mechanism, 'none');
+    if (d.available) assert.match(d.tasks.reason, /probe could not run/);
+    else t.diagnostic(d.reason);
+  } finally { await f.close(); }
+});
+test('real backend: fork bombs stay inside their own caps while the user keeps starting processes', { timeout: 60000 }, async t => {
+  const f = await fixture(); try {
+    const d = await detectSandbox(f.policy.limitsHelper);
+    if (d.tasks.mechanism !== 'namespace-limit') { t.skip(d.tasks.reason); return; }
+    const policy = { ...f.policy, writeRoots: [], limits: { ...f.policy.limits, maxTasks: 32, timeoutMs: 4000, cpuSeconds: 30 } };
+    // Perl -e opens /dev/null as its script; the existing read-only device bind denies that on Linux.
+    const script = join(f.root, 'bomb.pl'); await writeFile(script, 'fork while 1;\n');
+    let done = false, outsideStarted = false;
+    const samples: Map<string, number>[] = [];
+    const running = Promise.all([sandboxSpawn(['/usr/bin/perl', script], policy),
+      sandboxSpawn(['/usr/bin/perl', script], policy)]);
+    void running.then(() => { done = true; }, () => { done = true; });
+    while (!done) {
+      const sample = bombTasks(); samples.push(sample);
+      if (!outsideStarted && sample.size === 2 && [...sample.values()].every(n => n >= 2)) {
+        outsideStarted = true;
+        await Promise.all(Array.from({ length: 20 }, () => new Promise<void>((resolve, reject) => {
+          execFile('/bin/true', [], { timeout: 3000 }, error => error ? reject(error) : resolve());
+        })));
+      }
+      await delay(50);
+    }
+    const results = await running;
+    assert.equal(outsideStarted, true, 'both namespaces were observed and 20 outside processes succeeded: ' + JSON.stringify({ results, samples: samples.map(s => [...s]) }));
+    assert.ok(samples.every(s => [...s.values()].every(n => n <= 32)));
+    for (const r of results) { assert.equal(r.timedOut, true, JSON.stringify(r)); assert.equal(r.resources.maxTasks, 32); }
+    const deadline = Date.now() + 3000;
+    while (bombTasks().size && Date.now() < deadline) await delay(50);
+    assert.equal(bombTasks().size, 0, 'all bomb tasks were reaped');
+  } finally { await f.close(); }
 });
