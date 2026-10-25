@@ -287,3 +287,15 @@ advance the minor version and both methods' `x-since` together in that case.
 Engine contract 1.17.0 is a separate version axis. The Controller pin must pass the mandatory real-Core curation
 acceptance command in `docs/curation.md`; an older contract must fail that check, not count its unavailability branch
 as successful real acceptance. Pre-pin source evidence does not replace this post-pin check.
+
+## Implementation record (config set and the memory engine's models, 2026-10-25)
+
+Owner decision 2026-10-25: `plur1bus config set` (`stable`, §4) has the running core check a change to the memory engine's
+models first (`admin.embedding.check`, `experimental`, `x-since` 1.7.0; `crates/plur1bus/src/commands/config_embedding.rs`,
+`docs/embedding-migration.md`). Two outcomes are new for this stable command, and neither narrows it in the sense of §2. A
+model the engine cannot load is refused (`error/1`), but such a value never worked: the engine refused it at its next start,
+or refused the store's existing tables, so the refusal reports an existing failure before the write instead of after it. A
+change that moves a store with data prints `memory.reembed.run/1` (`memory.reembed.plan/1` with `--dry-run`) instead of
+`config.set/1`, because the command then runs the re-embedding migration and its switch writes the embedding, where the old
+path wrote a configuration that left every existing table unusable. Every other change still prints `config.set/1`; the
+`schema` id tells a script which document it got (§8). `--background` is a new flag (additive).

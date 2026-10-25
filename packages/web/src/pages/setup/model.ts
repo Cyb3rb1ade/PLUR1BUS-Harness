@@ -2,7 +2,7 @@ import { missingPrivacy, type SetupPrivacy } from "./privacy.ts";
 // Wizard state, step list, validation and request parameters (pure; no DOM). The saved state holds non-secret answers only:
 // the owner token is never put in it (steps.ts keeps the token in a local field until it has been sent).
 import { getPref, setPref } from "../../prefs.ts";
-import { activeChoice, choiceById, engineBlock, memoryChoice, type MemoryModels, type ModelKind } from "./licences.ts";
+import { activeChoice, choiceById, engineBlock, lockedNcEmbedding, memoryChoice, type MemoryModels, type ModelKind } from "./licences.ts";
 import { CAPTION_CHOICES, CAPTION_SOURCES, mediaSetupChanges, mediaSetupDefaults, validateMedia, type CaptionChoice, type MediaSetup } from "../media-search/model.ts";
 import { ALL_MODALITIES } from "../media-search/model.ts";
 import type { VoiceProfileName } from "../../api/voice.types.ts";
@@ -95,7 +95,11 @@ export function load(): Saved {
 export function save(s: Saved): void { try { const { privacy: _privacy, memoryModels: _models, ...answers } = s.answers; setPref(KEY, JSON.stringify({ ...s, answers })); } catch { /* the wizard works without storage */ } }
 
 export const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
-export type Errors = Partial<Record<"agentId" | "displayName" | "chatModel" | "backup" | "account", "required" | "format" | "tooLong" | "signin">> & { media?: string };
+export type Errors = Partial<Record<"agentId" | "displayName" | "chatModel" | "backup" | "account", "required" | "format" | "tooLong" | "signin">> & {
+  media?: string;
+  /** The commercial use class next to a non-commercial embedding the store is bound to (licences.ts lockedNcEmbedding). */
+  useClass?: "ncLocked";
+};
 
 /** Per-step validation; an empty object lets the person go on. */
 export function validate(step: StepId, a: Answers, signedIn: boolean): Errors {
@@ -109,6 +113,7 @@ export function validate(step: StepId, a: Answers, signedIn: boolean): Errors {
   if (step === "model" && a.chatModel === "") e.chatModel = "required";
   if (step === "backup" && a.backupId === "") e.backup = "required";
   if (step === "memory") {
+    if (a.useClass === "commercial" && lockedNcEmbedding(a.memoryModels)) e.useClass = "ncLocked";
     const first = validateMedia({ textProvider: chosen("embedding", a), media: a.media, privacyPin: false, ncConfirmed: a.nc !== null })[0];
     if (first) e.media = first.code;
     else if (missingPrivacy(a)) e.media = "E_MEDIA_PRIVACY";
@@ -127,7 +132,8 @@ export function changesFor(step: StepId, a: Answers): Change[] {
   const wantsNc = picks.some((c) => c?.nc === true);
   const out: Change[] = [{ key: "embedding.useClass", value: a.useClass }];
   if (wantsNc && a.nc) out.push({ key: "embedding.acceptedNcLicence", value: true }, { key: "embedding.acceptedNcLicenceAt", value: a.nc.at });
-  else if (a.ncWritten) out.push({ key: "embedding.acceptedNcLicence", value: false });
+  // Withdrawn only once no non-commercial model is wanted: an embedding the store is bound to still needs it to load.
+  else if (a.ncWritten && !wantsNc) out.push({ key: "embedding.acceptedNcLicence", value: false });
   // The engine reads its models from engine.embedding and engine.reranker (buildEngineConfig); a model is written only when it
   // differs from what runs, and only with the engine's answer at hand (memoryChoice keeps a store with data on its embedding).
   const m = a.memoryModels;

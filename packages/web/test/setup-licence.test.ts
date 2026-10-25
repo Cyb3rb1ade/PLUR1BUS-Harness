@@ -210,6 +210,45 @@ describe("setup wizard: what the memory engine runs", opts, () => {
     });
   });
 
+  // The store holds data embedded with Jina v3 (non-commercial): the engine needs the licence acceptance to load it.
+  const JINA_STORE = { ...FRESH_MEMORY, embedding: { provider: "local-transformers", model: "jinaai/jina-embeddings-v3", dimensions: 1024, configured: true }, embeddingSwitch: "migration-required" };
+
+  test("a store embedded with a non-commercial model keeps its licence: commercial use is disabled with the reason", async () => {
+    await withApp({}, async (app) => {
+      await toMemory(app, JINA_STORE); const { page } = app;
+      assert.equal(await page.getByRole("radio", { name: /Jina embeddings v3/ }).isChecked(), true);
+      const commercial = page.getByRole("radio", { name: "Commercial", exact: true });
+      assert.equal(await commercial.isDisabled(), true);
+      assert.match((await page.locator("#setup-use-commercial-d").textContent()) ?? "", /embedded with jinaai\/jina-embeddings-v3, which has a non-commercial licence.*plur1bus memory reembed/);
+      await expectAxeClean(page, "memory step, non-commercial embedding in use");
+      await page.getByRole("radio", { name: "Research, non-commercial", exact: true }).check();
+      await next(page);
+      await persona(page);
+      // No model and no licence flag: the store stays on Jina v3 with its acceptance.
+      assert.deepEqual(changes(app).at(-1)!.filter((c) => c.key.startsWith("embedding.") || c.key.startsWith("engine.")), [{ key: "embedding.useClass", value: "research" }]);
+    });
+  });
+
+  test("a saved commercial use class next to such a store is refused before anything is written", async () => {
+    await withApp({}, async (app) => {
+      await toMemory(app, JINA_STORE); const { page } = app;
+      await page.evaluate(() => {
+        const o = JSON.parse(localStorage.getItem("plur1bus.web.setup")!);
+        o.answers.useClass = "commercial"; localStorage.setItem("plur1bus.web.setup", JSON.stringify(o));
+      });
+      await page.reload();
+      await stepHeading(page, /Memory/).waitFor();
+      await page.getByRole("radio", { name: /Jina embeddings v3/ }).waitFor();
+      const before = changes(app).length;
+      await next(page);
+      await page.getByRole("alert").getByText(/Commercial use is not possible while the memory is embedded with jinaai\/jina-embeddings-v3/).waitFor();
+      // The page moves focus to the first field it marks invalid on the next frame.
+      await page.waitForFunction(() => document.activeElement?.id === "setup-use-general");
+      assert.equal(changes(app).length, before, "nothing is written");
+      await stepHeading(page, /Memory/).waitFor();
+    });
+  });
+
   test("a model the step does not offer is shown as in use and kept", async () => {
     await withApp({}, async (app) => {
       await toMemory(app, { ...FRESH_MEMORY, embedding: { provider: "openai", model: "text-embedding-3-large", dimensions: 3072, configured: true } }); const { page } = app;

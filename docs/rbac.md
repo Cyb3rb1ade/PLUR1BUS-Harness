@@ -233,6 +233,7 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `admin.migrate` | system | ✔ | ✔ | – | – | – |
 | `admin.embedding.probe` | system | ✔ | ✔ | – | – | – |
 | `admin.embedding.serve` | system | ✔ | ✔ | – | – | – |
+| `admin.embedding.check` | system | ✔ | ✔ | – | – | – |
 | `admin.engine.test` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.plan` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.run` | system | ✔ | ✔ | – | – | – |

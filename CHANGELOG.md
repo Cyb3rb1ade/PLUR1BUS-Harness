@@ -129,6 +129,15 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   with the licence acceptance it needs to load (`modelPreparation`), and `1staid check`'s `models.cache` checks the configured
   local models instead of the defaults. A chosen local model without `dimensions` keeps its own width instead of E5's 384. See
   `docs/user/en/memories.md` and `docs/embedding-migration.md`.
+- **`plur1bus config set` no longer strands a memory store on a model the engine cannot use.** A change to the memory engine's
+  models (`engine.embedding`, `engine.reranker`, `engine.modelPreparation`, `embedding.*`) is checked by the running core first
+  (`admin.embedding.check`, new): a model the engine could not load, or a non-commercial one without its licence confirmation, is
+  refused before anything is written. A change that moves a store with data to another embedding model is not written as a
+  value: the command runs the re-embedding migration in the foreground and its switch writes the new embedding, `--background`
+  (new) leaves the run to the core and returns, `--dry-run` shows the plan. Without a running core the change is written as
+  before, with a warning. A store embedded with a non-commercial model also keeps the licence acceptance it needs: the Memory
+  step no longer offers commercial use for it, and the config pre-check refuses that and a withdrawn acceptance. See
+  `docs/user/en/reembed.md` and `docs/embedding-migration.md`.
 - **Secret store: a keyring outage no longer undoes rotations and deletes (file fallback on).** While the OS keyring is away,
   `secret set` and `secret rm` can only reach the encrypted file; when the keyring came back, its older copy won and a rotated value
   reverted or a deleted secret reappeared (ADR-005: "an older copy cannot come back"). Reads now take the newer `updatedAt` of the two

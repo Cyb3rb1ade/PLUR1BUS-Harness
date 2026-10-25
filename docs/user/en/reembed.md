@@ -40,6 +40,18 @@ plur1bus memory reembed --abort
 
 Running `plur1bus memory reembed --run` again continues the same migration; a halted run (engine error, core stop) is resumed the same way.
 
+## From config set
+
+Setting another embedding model with `plur1bus config set` on a memory with data starts the same migration, so you do not have to plan it yourself:
+
+```sh
+plur1bus config set engine.embedding.local.model google/embeddinggemma-2
+```
+
+The command does not write the value. It shows the move and the plan, asks for confirmation (`--yes` outside a terminal) and runs the re-embedding in the foreground with its progress; the switch at the end writes the new embedding. Ctrl-C leaves the migration running in the core. With `--background` the command returns right after the start, so you can go on with other steps; the migration switches by itself when the copy is done, and `plur1bus memory reembed --status` follows it. `--dry-run` only plans. As long as the memory engine cannot validate (see the open point above), the command says before the copy that the run will stop before the switch.
+
+A change that keeps the vector space, or one on a memory without data, is written as usual. A model the memory engine cannot load is refused before anything is written. Without a running core the change is written with a warning that it could not be checked.
+
 ## Good to know
 
 - **Per installation:** the migration copies every agent's memory into one new generation. There is no per-agent option.

@@ -10,7 +10,7 @@ import { buildEngineConfig } from "../../src/engine-config.ts";
 import { layout } from "../../src/paths.ts";
 import { NC_MODELS } from "../../src/licences/memory.ts";
 import { assertEmbeddingChangeAllowed, memoryModelStatus } from "../../src/embedding-migrate/selection.ts";
-import { changesFor, initial, type Answers } from "../../../web/src/pages/setup/model.ts";
+import { changesFor, initial, validate, type Answers } from "../../../web/src/pages/setup/model.ts";
 import { MODEL_CHOICES, choicesOf } from "../../../web/src/pages/setup/licences.ts";
 
 const l = layout("/h/.plur1bus");
@@ -90,6 +90,29 @@ describe("setup wizard Memory step → engine", () => {
   it("without the engine's answer the step writes no model at all", () => {
     const changes = changesFor("memory", { ...initial().answers, embedding: "egemma2", rerank: "jina-rr-v2", ...ncAccepted });
     assert.deepEqual(engineKeys(changes), []);
+  });
+
+  describe("a store with data embedded with a non-commercial model", () => {
+    // Jina v3 runs with its licence accepted for research; the store holds data, so the model stays.
+    const jina = (): HarnessConfig => {
+      const cfg = defaults() as any;
+      cfg.engine.embedding = { local: { model: "jinaai/jina-embeddings-v3", dimensions: 1024 } };
+      cfg.embedding = { ...cfg.embedding, useClass: "research", acceptedNcLicence: true, acceptedNcLicenceAt: "2026-10-24T10:00:00.000Z" };
+      return cfg;
+    };
+    it("keeps the licence acceptance the engine needs to load it, even without a fresh confirmation", () => {
+      // A second pass in a browser that remembers the acceptance as written, with no new confirmation in this pass.
+      const { changes, engine } = wizard(jina(), true, { useClass: "research", ncWritten: true });
+      assert.ok(!changes.some((c) => c.key === "embedding.acceptedNcLicence"), JSON.stringify(changes));
+      assert.equal(engine.embedding.local.model, "jinaai/jina-embeddings-v3");
+      assert.equal(engine.modelPreparation?.acceptNonCommercialLicense, true);
+    });
+    it("refuses the commercial use class before anything is written", () => {
+      const cfg = jina();
+      const answers: Answers = { ...initial().answers, useClass: "commercial", memoryModels: memoryModelStatus(buildEngineConfig(cfg, l), cfg, true) };
+      assert.equal(validate("memory", answers, true).useClass, "ncLocked");
+      assert.equal(validate("memory", { ...answers, useClass: "research" }, true).useClass, undefined);
+    });
   });
 });
 

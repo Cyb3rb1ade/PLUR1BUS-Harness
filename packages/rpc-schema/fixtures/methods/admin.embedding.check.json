@@ -1,0 +1,1 @@
+{"params": {"changes": [{"key": "engine.embedding.local.model", "value": "google/embeddinggemma-2"}]}, "result": {"effect": "move", "current": {"provider": "local-transformers", "model": "intfloat/multilingual-e5-small", "dimensions": 384}, "target": {"provider": "local-transformers", "model": "google/embeddinggemma-2", "dimensions": 768}, "canSwitch": false}}
