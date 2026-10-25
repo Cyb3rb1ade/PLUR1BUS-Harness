@@ -81,7 +81,9 @@ async function fixture(t: TestContext) {
   await core.start();
   const link = createCoreLink(home); t.after(() => link.close());
   const bucket = { capacity: 10000, refillPerSec: 10000 };
-  const api = createApiServer({ core: link, users, ownerToken: randomBytes(32).toString('hex'), audit, rateClasses: { auth: bucket, read: bucket, write: bucket, rpc: bucket } });
+  // The chat submit below waits for a real Core turn (engine recall and capture): about 0.5 s on Linux, 5.6 s and over
+  // 10 s in two windows-2025 runs. The 10 s HTTP handler limit is not what this test examines (packages/api tests it).
+  const api = createApiServer({ core: link, users, ownerToken: randomBytes(32).toString('hex'), audit, rateClasses: { auth: bucket, read: bucket, write: bucket, rpc: bucket }, limits: { handlerTimeoutMs: 60_000 } });
   t.after(() => api.close()); const { url } = await api.listen();
   const login = async (username: string) => {
     const response = await fetch(url + '/api/v1/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username, password }) });
