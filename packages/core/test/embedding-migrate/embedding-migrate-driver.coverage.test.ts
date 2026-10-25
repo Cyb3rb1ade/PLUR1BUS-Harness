@@ -105,7 +105,7 @@ describe("migration driver coverage: plan", () => {
     const engine = engineOf({});
     const d = createMigrationDriver(deps({ engine, store: memStore() }));
     await d.plan({ target: TARGET, targetGeneration: "gen-x" });
-    await createMigrationDriver(deps({ engine, store: memStore() })).plan({ target: TARGET }); // no pending plan to answer
+    await createMigrationDriver(deps({ engine, store: memStore() })).plan({ target: TARGET });
     assert.equal(engine.planReqs[0]!.targetGeneration, "gen-x");
     assert.equal(engine.planReqs[0]!.confirmationTtlMs, 3_600_000);
     assert.ok(!("targetGeneration" in engine.planReqs[1]!));
@@ -152,15 +152,59 @@ describe("migration driver coverage: plan", () => {
       assert.equal(out.plan?.probeStatus, c.status);
     });
   }
-  it("replaces a planned migration and refuses over terminal-free active phases; a terminal one may be replaced", async () => {
-    for (const phase of ["running", "aborted", "validating", "ready-to-switch"] as const) {
-      const d = createMigrationDriver(deps({ engine: engineOf({}), store: memStore(checkpoint({ phase })) }));
-      await assert.rejects(() => d.plan({ target: TARGET }), (e) => codeOf(e) === "migration-active", phase);
+  it("refuses over a started migration; replaces an expired unstarted plan and a terminal one", async () => {
+    const started = { rows: 5, tables: 1, batches: 3, rowsDone: 2, batchesDone: 1 };
+    for (const cp of [checkpoint({ phase: "running" }), checkpoint({ phase: "aborted", counts: started }), checkpoint({ phase: "validating" }), checkpoint({ phase: "ready-to-switch" })]) {
+      const d = createMigrationDriver(deps({ engine: engineOf({}), store: memStore(cp) }));
+      await assert.rejects(() => d.plan({ target: TARGET }), (e) => codeOf(e) === "migration-active" && /finish it with --run/.test((e as Error).message), cp.phase);
     }
-    for (const phase of ["planned", "switched", "failed"] as const) {
-      const d = createMigrationDriver(deps({ engine: engineOf({}), store: memStore(checkpoint({ phase })) }));
-      assert.ok((await d.plan({ target: TARGET })).plan, phase);
+    for (const cp of [checkpoint({ expiresAt: 1000 }), checkpoint({ phase: "aborted", expiresAt: 999 }), checkpoint({ phase: "switched" }), checkpoint({ phase: "failed" })]) {
+      const engine = engineOf({});
+      const d = createMigrationDriver(deps({ engine, store: memStore(cp) }));
+      assert.ok((await d.plan({ target: TARGET })).plan, cp.phase);
+      assert.equal(engine.planReqs.length, 1, cp.phase);
     }
+  });
+  it("an unstarted checkpoint whose engine record is gone or finished no longer holds the store", async () => {
+    for (const status of [null, rec("failed"), rec("completed")]) {
+      const engine = engineOf({ status: async () => status });
+      const d = createMigrationDriver(deps({ engine, store: memStore(checkpoint({ target: fp("c") })) }));
+      assert.ok((await d.plan({ target: TARGET })).plan);
+      assert.equal(engine.planReqs.length, 1);
+    }
+  });
+  it("an unstarted plan the engine already moved on is a started migration", async () => {
+    const d = createMigrationDriver(deps({ engine: engineOf({ status: async () => rec("running", 2) }), store: memStore(checkpoint()) }));
+    await assert.rejects(() => d.plan({ target: TARGET }), (e) => codeOf(e) === "migration-active" && /finish it with --run/.test((e as Error).message));
+  });
+  it("a live plan without its stored answer (an older checkpoint) is not reused but refused with its expiry", async () => {
+    const engine = engineOf({});
+    const d = createMigrationDriver(deps({ engine, store: memStore(checkpoint()) })); // createdAt 1: held until 1 + 1 h
+    await assert.rejects(() => d.plan({ target: TARGET }), (e) => codeOf(e) === "migration-active" && /until 1970-01-01T01:00:00\.001Z/.test((e as Error).message));
+    assert.equal(engine.planReqs.length, 0);
+  });
+  it("the same target means the same key, endpoint and generation too", async () => {
+    const remote = { apiKeyEnv: "KEY_A", baseUrl: "https://a.example/v1" };
+    const engine = engineOf({});
+    const store = memStore();
+    const d = createMigrationDriver(deps({ engine, store }));
+    await d.plan({ target: TARGET, remote, targetGeneration: "g1" });
+    for (const other of [{ remote: { ...remote, apiKeyEnv: "KEY_B" } }, { remote: { ...remote, baseUrl: "https://b.example/v1" } }, {}, { remote, targetGeneration: "g2" }]) {
+      await assert.rejects(() => d.plan({ target: TARGET, ...other }), (e) => codeOf(e) === "migration-active", JSON.stringify(other));
+    }
+    const ack = { provider: "fake", acknowledgedAt: "2026-10-25T00:00:00.000Z", by: "owner" };
+    const again = await d.plan({ target: TARGET, remote: { ...remote, privacyAck: ack } });
+    assert.equal(again.plan?.cloud?.endpoint, "https://a.example");
+    assert.deepEqual(store.cp?.remote?.privacyAck, ack, "a fresh acknowledgment is kept for the switch");
+    assert.equal(engine.planReqs.length, 1);
+  });
+  it("the engine's confirmation expiry is recorded; without one the plan's start plus the lifetime stands in", async () => {
+    const withExpiry = memStore();
+    await createMigrationDriver(deps({ engine: engineOf({ plan: async () => ({ ...enginePlan(), confirmation: { token: "tok", expiresAt: 5_000 } }) }), store: withExpiry })).plan({ target: TARGET });
+    assert.equal(withExpiry.cp?.expiresAt, 5_000);
+    const without = memStore();
+    await createMigrationDriver(deps({ engine: engineOf({}), store: without })).plan({ target: TARGET });
+    assert.equal(without.cp?.expiresAt, 1000 + 3_600_000);
   });
   it("a plan with zero tables has zero batches", async () => {
     const d = createMigrationDriver(deps({ engine: engineOf({ plan: async () => enginePlan("passed", []) }), store: memStore() }));

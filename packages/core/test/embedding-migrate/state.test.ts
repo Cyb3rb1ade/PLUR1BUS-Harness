@@ -26,6 +26,22 @@ describe("migration checkpoint store", () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it("keeps the confirmation expiry and the stored plan answer, and refuses malformed ones", () => {
+    const dir = tmp();
+    try {
+      const s = createStateStore(dir);
+      const plan = { sourceFingerprint: { provider: "fake", model: "a", dimensions: 4 }, probeStatus: "passed", estimates: { providerCalls: 10, sourceBytes: 1, targetBytes: 2, requiredFreeBytes: 3, freeBytes: 4 } };
+      s.write(cp({ expiresAt: 3_600_001, plan }));
+      assert.equal(s.read()?.expiresAt, 3_600_001);
+      assert.deepEqual(s.read()?.plan, plan);
+      s.write(cp());
+      assert.ok(!("expiresAt" in s.read()!) && !("plan" in s.read()!), "an older checkpoint has neither");
+      for (const bad of [{ expiresAt: -1 }, { plan: { ...plan, probeStatus: 1 } }, { plan: { ...plan, sourceFingerprint: { provider: "fake" } } }, { plan: { ...plan, estimates: { ...plan.estimates, freeBytes: 1.5 } } }]) {
+        assert.throws(() => s.write(cp(bad as never)), (e) => e instanceof MigrationStateError && e.code === "state-corrupt", JSON.stringify(bad));
+      }
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it("an injected crash between the temp write and the rename leaves the previous checkpoint whole", () => {
     const dir = tmp();
     try {

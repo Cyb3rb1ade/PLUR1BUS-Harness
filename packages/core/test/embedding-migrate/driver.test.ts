@@ -7,19 +7,20 @@ import { createMigrationDriver, MigrationError, type MigrationDriver } from "../
 import { createStateStore } from "../../src/embedding-migrate/state.ts";
 import { createFakeEngine, fp, type FakeOptions } from "./fake-engine.ts";
 
-interface Rig { fake: ReturnType<typeof createFakeEngine>; driver: MigrationDriver; sleeps: number[]; dir: string; mk: () => MigrationDriver; done: () => void }
+interface Rig { fake: ReturnType<typeof createFakeEngine>; driver: MigrationDriver; sleeps: number[]; dir: string; mk: () => MigrationDriver; advance: (ms: number) => void; done: () => void }
 function rig(o: FakeOptions & { onSleep?: (n: number, d: MigrationDriver) => void } = {}): Rig {
   const dir = mkdtempSync(path.join(tmpdir(), "p1-reembed-drv-"));
-  const fake = createFakeEngine(o);
+  let clock = 1_000; // one clock for the driver and the engine (the confirmation expiry)
+  const fake = createFakeEngine({ now: () => clock, ...o });
   const sleeps: number[] = [];
   let driver!: MigrationDriver;
   let n = 0;
   const mk = () => (driver = createMigrationDriver({
-    newId: () => `m${++n}`, engine: fake.engine, store: createStateStore(dir), switchPort: fake.switchPort, now: () => 1_000,
+    newId: () => `m${++n}`, engine: fake.engine, store: createStateStore(dir), switchPort: fake.switchPort, now: () => clock,
     sleep: async (ms) => { sleeps.push(ms); o.onSleep?.(sleeps.length, driver); },
   }));
   mk();
-  return { fake, get driver() { return driver; }, sleeps, dir, mk, done: () => rmSync(dir, { recursive: true, force: true }) } as Rig;
+  return { fake, get driver() { return driver; }, sleeps, dir, mk, advance: (ms: number) => { clock += ms; }, done: () => rmSync(dir, { recursive: true, force: true }) } as Rig;
 }
 const target = fp("b", 12);
 const codeOf = (e: unknown) => (e instanceof MigrationError ? e.code : String(e));
@@ -65,44 +66,69 @@ describe("migration driver: plan", () => {
     } finally { r.done(); }
   });
 
-  it("a second plan replaces one that never started, but is refused once anything was copied", async () => {
+  it("the same target again reuses the unstarted plan (dry run, then apply) and the run reaches switched", async () => {
     const r = rig(); try {
-      await r.driver.plan({ target });
-      assert.equal((await r.driver.plan({ target: fp("c", 4) })).plan?.id, "m2", "nothing was copied: replaced");
-      await r.driver.abort(); // aborted before any batch: still unfinished
-      await assert.rejects(r.driver.plan({ target: fp("d", 4) }), (e) => codeOf(e) === "migration-active");
+      const first = await r.driver.plan({ target, throttleMs: 200 });
+      r.advance(60_000);
+      const again = await r.driver.plan({ target, throttleMs: 0 });
+      assert.deepEqual(again, { ...first, plan: { ...first.plan!, throttleMs: 0, minDurationMs: 0 } }, "the same plan, with the new pause");
+      assert.equal(r.fake.state.planRequests.length, 1, "the engine was asked once");
+      r.mk(); // a core restart in between: the stored plan answers it
+      assert.deepEqual(await r.driver.plan({ target, throttleMs: 0 }), again);
+      const done = await r.driver.run();
+      assert.equal(done.phase, "ready-to-switch");
+      assert.equal((await r.driver.switch()).phase, "switched");
+      assert.equal(r.fake.state.activeGeneration, "generation-m1");
     } finally { r.done(); }
   });
 
-  it("the same target planned again answers the pending plan: no second engine plan, the new throttle kept, then it runs", async () => {
+  it("another target is refused while the unstarted plan lives, naming its expiry; after it expired a plan replaces it", async () => {
     const r = rig(); try {
-      const first = await r.driver.plan({ target, throttleMs: 200 });
-      const again = await r.driver.plan({ target, throttleMs: 0 });
-      assert.equal(r.fake.state.planRequests.length, 1, "the engine is asked once");
-      assert.equal(again.plan?.id, first.plan?.id);
-      assert.deepEqual({ ...again.plan, throttleMs: 200, minDurationMs: first.plan!.minDurationMs }, first.plan);
-      assert.equal(again.plan?.throttleMs, 0); assert.deepEqual(again.probe, first.probe);
-      const st = (await r.driver.status()).checkpoint!;
-      assert.equal(st.throttleMs, 0); assert.ok(!("estimate" in st), "the estimate stays internal");
+      await r.driver.plan({ target });
+      await assert.rejects(r.driver.plan({ target: fp("c", 4) }), (e) => codeOf(e) === "migration-active"
+        && /planned for fake b and holds the store until 1970-01-01T01:00:01\.000Z/.test((e as Error).message) && /--abort/.test((e as Error).message));
+      await r.driver.abort(); // aborted before any batch: still unstarted, still held by the engine
+      await assert.rejects(r.driver.plan({ target: fp("c", 4) }), (e) => codeOf(e) === "migration-active" && /until/.test((e as Error).message));
+      assert.equal((await r.driver.plan({ target })).plan?.id, "m1", "the same target picks the aborted, unstarted plan up again");
+      assert.equal((await r.driver.status()).checkpoint?.phase, "planned");
+      assert.equal(r.fake.state.planRequests.length, 1);
+
+      r.advance(60 * 60 * 1000); // the engine's confirmation lifetime
+      const next = await r.driver.plan({ target: fp("c", 4) });
+      assert.equal(next.plan?.id, "m2", "replaced");
+      assert.equal(r.fake.state.records.get("m1")?.state, "failed", "the engine retired the expired plan");
       assert.equal((await r.driver.run()).phase, "ready-to-switch");
     } finally { r.done(); }
   });
 
-  it("a pending plan is not reused for another target, after its engine record moved on, or close to its expiry", async () => {
-    let clock = 1_000;
-    const dir = mkdtempSync(path.join(tmpdir(), "p1-reembed-drv-"));
-    try {
-      const fake = createFakeEngine({}); let n = 0;
-      const d = createMigrationDriver({ newId: () => `m${++n}`, engine: fake.engine, store: createStateStore(dir), switchPort: fake.switchPort, now: () => clock, sleep: async () => {} });
-      await d.plan({ target });
-      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m2", "another target: a new plan");
-      fake.state.records.get("m2")!.state = "failed";
-      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m3", "the engine record is no longer planned");
-      clock += 56 * 60 * 1000;
-      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m4", "less than five minutes of confirmation left");
-      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m4", "the fresh one is reused");
-      assert.equal(fake.state.planRequests.length, 4);
-    } finally { rmSync(dir, { recursive: true, force: true }); }
+  it("a plan is refused once anything was copied", async () => {
+    const r = rig({ onSleep: (n, d) => { if (n === 1) void d.abort(); } }); try {
+      await r.driver.plan({ target, throttleMs: 1 });
+      const stopped = await r.driver.run();
+      assert.equal(stopped.phase, "aborted"); assert.ok(stopped.counts.batchesDone > 0);
+      for (const t of [target, fp("c", 4)]) {
+        await assert.rejects(r.driver.plan({ target: t }), (e) => codeOf(e) === "migration-active" && /finish it with --run/.test((e as Error).message));
+      }
+    } finally { r.done(); }
+  });
+
+  it("an engine record the checkpoint does not describe is a migration-active conflict, not a refused plan", async () => {
+    const r = rig(); try {
+      await r.driver.plan({ target });
+      rmSync(path.join(r.dir, "reembed"), { recursive: true }); // the checkpoint is gone, the engine still holds the plan
+      await assert.rejects(r.driver.plan({ target }), (e) => codeOf(e) === "migration-active" && /--status/.test((e as Error).message) && /at most an hour/.test((e as Error).message));
+    } finally { r.done(); }
+  });
+
+  it("the stored plan answer and expiry stay internal; an engine record that moved on no longer holds the plan", async () => {
+    const r = rig(); try {
+      await r.driver.plan({ target });
+      const st = (await r.driver.status()).checkpoint!;
+      assert.ok(!("plan" in st) && !("expiresAt" in st) && !("token" in st), "neither the stored plan, its expiry nor the token is public");
+      r.fake.state.records.get("m1")!.state = "failed"; // retired in the engine: it holds nothing any more
+      assert.equal((await r.driver.plan({ target: fp("c", 4) })).plan?.id, "m2", "a plan for another target replaces it");
+      assert.equal(r.fake.state.planRequests.length, 2);
+    } finally { r.done(); }
   });
 });
 
@@ -192,7 +218,10 @@ describe("migration driver: run", () => {
       const cp = await r.driver.run();
       assert.equal(cp.phase, "failed"); assert.equal(cp.error?.code, "source-drift");
       assert.equal(r.fake.state.activeGeneration, "g0");
-      assert.equal((await r.driver.plan({ target })).plan?.id, "m2", "a failed migration does not block a new plan");
+      // The engine leaves the halted run's record unfinished: it blocks a new plan until its confirmation expires.
+      await assert.rejects(r.driver.plan({ target }), (e) => codeOf(e) === "migration-active" && /until 1970-01-01T01:00:01\.000Z/.test((e as Error).message));
+      r.advance(60 * 60 * 1000);
+      assert.equal((await r.driver.plan({ target })).plan?.id, "m3", "after that a failed migration does not block a new plan (m2 was refused)");
     } finally { r.done(); }
   });
 

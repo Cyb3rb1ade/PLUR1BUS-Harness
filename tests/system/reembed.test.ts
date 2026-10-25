@@ -70,6 +70,44 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
     }
   });
 
+  it("a store with data: planning the same model twice reuses the plan and --run continues it; another model is refused with the plan's expiry", { skip: REAL && "flat embedder only" }, async () => {
+    const h = home();
+    let core: RunningCore | undefined;
+    try {
+      cli(h, ["agent", "create", "bernd"]);
+      cli(h, ["config", "set", "engine.duplicateThreshold", "1.01", "--yes"]); // the flat embedder: two facts are not duplicates
+      core = await startCore(h);
+      for (const f of ["The offsite is in June.", "Bernd prefers green tea."]) assert.equal(cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", f]).stored, 1);
+
+      // The engine keeps an unconfirmed plan for its confirmation lifetime (1 h) and refuses any other one meanwhile.
+      const first = cli(h, ["memory", "reembed", "--plan", "--model", JINA, "--throttle-ms", "0"]);
+      assert.equal(first.probe.verdict, "migration-needed", JSON.stringify(first)); assert.ok(first.plan.rows >= 2, JSON.stringify(first.plan));
+      const again = cli(h, ["memory", "reembed", "--plan", "--model", JINA, "--throttle-ms", "0"]);
+      assert.equal(again.plan.id, first.plan.id, "the unstarted plan is reused, not refused");
+
+      const other = cli(h, ["memory", "reembed", "--plan", "--model", "google/embeddinggemma-2"], { allowFail: true });
+      assert.equal(other.exit, 1, JSON.stringify(other));
+      const refusal = JSON.parse(other.stdout);
+      assert.equal(refusal.error, "E_CONFLICT"); assert.equal(refusal.reason, "migration-active");
+      assert.match(refusal.message, /holds the store until \d{4}-\d\d-\d\dT[\d:.]+Z/); assert.match(refusal.message, /--abort/);
+
+      // The run starts the reused plan: the engine accepts its confirmation, copies both memories through the flat target
+      // provider and validates them (1.17.0); `core run` has no supervisor to write config.json, so the switch is refused.
+      const run = cli(h, ["memory", "reembed", "--run", "--yes"], { allowFail: true });
+      assert.equal(run.exit, 1, JSON.stringify(run));
+      const done = JSON.parse(run.stdout);
+      assert.equal(done.checkpoint.id, first.plan.id, run.stdout);
+      assert.equal(done.checkpoint.phase, "ready-to-switch", run.stdout);
+      assert.equal(done.checkpoint.error.code, "switch-unavailable");
+      assert.equal(done.engineState, "ready_to_switch", run.stdout);
+      assert.equal(done.checkpoint.counts.rowsDone, done.checkpoint.counts.rows);
+      assert.equal(cli(h, ["memory", "reembed", "--abort"]).checkpoint.id, first.plan.id);
+    } finally {
+      if (core) await stopCore(core);
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
+
   it("--status with nothing planned, and --run/--abort without a plan, are plain refusals", { skip: REAL && "flat embedder only" }, async () => {
     const h = home();
     let core: RunningCore | undefined;

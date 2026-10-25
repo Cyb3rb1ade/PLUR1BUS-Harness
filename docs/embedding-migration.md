@@ -93,6 +93,22 @@ model; an agent table without memories is validated on the generation check alon
 a corrupt file is refused and left in place, never reset). It holds the engine's plan-bound confirmation token (not a
 credential); the token is never returned over RPC or printed.
 
+### Planning again
+
+The engine keeps a plan that was never confirmed (no `--run` yet) for its confirmation lifetime, one hour, and refuses
+every other plan meanwhile (its state store, `reembedding_active_conflict`); it has no call to retire one earlier. So the
+driver never replaces a live, unstarted plan (`planned`, or `aborted` before its first batch):
+
+- **The same target again** (the same engine fingerprint id, key variable, endpoint and target generation), as a dry run
+  followed by the apply does, is answered from the stored plan: the same id and figures, no second engine plan. Only the
+  Harness settings change (`--throttle-ms`, a fresh `--acknowledge-privacy`), and an aborted unstarted plan is `planned`
+  again. The checkpoint keeps the plan answer and the engine's confirmation expiry for this (`plan`, `expiresAt`; neither
+  is part of the RPC checkpoint).
+- **Another target** is `E_CONFLICT` `migration-active`, naming the plan's model and the time it expires. `--run` starts the
+  planned one; `--abort` does not release it earlier.
+- **After the expiry** the next plan replaces it; the engine retires the expired record itself (`failed`,
+  `expired_migration_superseded`).
+
 ## The switch
 
 Only from `ready-to-switch` (copied, read back, validated). One `config.set` on the supervisor writes the target embedding
@@ -126,7 +142,7 @@ bounds the load on the provider and the machine.
 
 | Error / reason | When |
 |---|---|
-| `E_CONFLICT` `migration-active` | `plan` while an earlier migration has started and is unfinished (a planned one that never started is replaced) |
+| `E_CONFLICT` `migration-active` | `plan` while an earlier migration has started and is unfinished; `plan` of another target while an unstarted plan has not expired (the same target reuses it, "Planning again"); `plan` while the engine still holds a record no live checkpoint describes, for example a run that failed with source drift (until its confirmation expires) |
 | `E_CONFLICT` `migration-running` / `not-runnable` / `not-abortable` / `not-ready-to-switch` | the call does not fit the phase |
 | `E_CONFLICT` `migration-active` / `migration-running` / `not-abortable` | a plan or a switch is in flight and another plan, start, switch or abort arrives (one at a time per core); a plan during a run is `migration-running` |
 | `E_CONFLICT` `not-ready-to-switch` | also when the engine's finished target (generation, provider, model, dimensions) differs from the planned one; nothing is written |
@@ -147,11 +163,12 @@ bounds the load on the provider and the machine.
 - **Engine prerequisite, still open:** the engine's own `switch`/`rollback` need a host config-mutation capability this host
   does not have (the Harness owns its switch), and the engine's post-switch `completed` transition and rollback are engine
   work; the engine record stays `ready_to_switch` after the Harness switch.
-- **A pending plan for another target blocks a new plan.** The engine keeps an unconfirmed plan as a hard conflict until its
-  confirmation expires (one hour). Planning the same target again answers the pending plan (the driver keeps its estimates
-  in the checkpoint), so `config set … --dry-run` followed by the real `config set`, or a declined confirmation followed by
-  `--yes`, works; another target is refused with `plan-refused` "another reembedding migration is active" until then.
 - **Confirming the switch / discarding the old generation** is a later explicit step, not part of this package.
+- **A plan holds the engine for up to an hour.** An unstarted plan for one target blocks a plan for another until its
+  confirmation expires ("Planning again"); the same target reuses it. A run that fails with source drift (the store changed
+  after the plan) leaves its engine record `running`, which likewise blocks the next plan until that expiry. Retiring a
+  record earlier needs an engine call the pinned contract does not have (a coordinator `discard` on
+  `admin.reembedding`).
 - A live run with real models belongs to the nightly (`PLUR1BUS_REAL_MODELS`), not to CI.
 - **Cloud targets:** the engine reports no token usage per batch, so the budget is settled with the estimate. The keys
   reach the engine only as `apiKeyEnv` (the engine has no harness secret-store port yet). The engine's own provider calls

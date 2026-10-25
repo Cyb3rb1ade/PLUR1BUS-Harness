@@ -134,8 +134,10 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   generation in the planned vector space is a switch. A refusal is never read as one.
 - **`config set engine.embedding…` after its `--dry-run` (or after a declined confirmation) no longer fails for an hour.**
   Every attempt planned anew, and the engine refuses a second plan while an unconfirmed one lives (`plan-refused` "another
-  reembedding migration is active"). Planning the same target again now answers the pending plan; the checkpoint keeps the
-  plan's estimates for it (internal, never in the public checkpoint).
+  reembedding migration is active"). Planning the same target again now answers the pending plan (same id and figures); the
+  checkpoint keeps the plan answer and the engine's confirmation expiry for it (internal, never in the public checkpoint).
+  A plan for another target is `E_CONFLICT` `migration-active`, naming the model and the time it expires, instead of
+  `plan-refused`; an unstarted plan is never replaced before that time.
 - **A `config set` that moves the store and sets other keys at once is refused instead of dropping them.** The move writes only
   the embedding through the migration's switch; `config set engine '{…}'` with other keys beside `embedding` now fails with
   `E_INVALID_PARAMS` `move-with-other-changes` and names them.

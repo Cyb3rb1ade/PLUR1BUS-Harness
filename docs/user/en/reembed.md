@@ -18,6 +18,8 @@ plur1bus memory reembed --plan --model <MODEL> --dimensions <N>
 
 `--model` is a pinned local embedding model, under the memory engine's own id: `google/embeddinggemma-2` (EmbeddingGemma 2), `intfloat/multilingual-e5-small`, `jinaai/jina-embeddings-v5-text-nano-retrieval` or `jinaai/jina-embeddings-v3`. `--dimensions` is only needed when the model supports more than one size.
 
+Planning the same model again (for example after a dry run) shows the same plan; nothing is planned twice. A plan for another model is refused while the first one has not been run, for one hour after it was made: the message names the time. `--abort` does not release it earlier; after that time the new plan replaces it.
+
 A memory without data needs no migration: choose the model in the first-run wizard instead ([memories.md](memories.md#embedding-model-and-reranker)).
 
 2. Run it. The command asks for confirmation (`--yes` outside a terminal), starts the migration inside the core and follows its progress. `--no-wait` returns after the start, `--no-switch` copies and validates but does not switch, `--throttle-ms` sets the pause between batches (default 250).
@@ -66,7 +68,7 @@ A change that keeps the vector space, or one on a memory without data, is writte
 
 The migration reports the closed error codes; the `reason` says what applied.
 
-- `E_CONFLICT` with reason `migration-active` or `migration-running`: another plan, run or switch is in progress. Look at `--status`, or stop it with `--abort`.
+- `E_CONFLICT` with reason `migration-active` or `migration-running`: another plan, run or switch is in progress. Look at `--status`, or stop it with `--abort`. When the message names a time, a plan for another model (or a run that stopped because the memory changed during it) holds the engine until then: run the planned one with `--run`, or plan again after that time.
 - `E_CONFLICT` with reason `not-runnable`, `not-abortable` or `not-ready-to-switch`: the call does not fit the current phase.
 - `E_NOT_FOUND` with reason `no-migration`: `--run` or `--abort` without a plan. Plan first.
 - `E_INVALID_PARAMS` with reason `plan-refused`: the engine refused the plan, for example because there is not enough free disk space.

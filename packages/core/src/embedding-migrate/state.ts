@@ -33,14 +33,19 @@ export interface Checkpoint {
    * reserves against before each batch.
    */
   remote?: { apiKeyEnv: string; baseUrl?: string; tokensPerRow: number; privacyAck?: PrivacyAcknowledgment };
-  /** The engine plan's estimates, kept so planning the same target again answers this plan instead of a second one, which
-   *  the engine refuses while this one's confirmation lives. Never part of the public checkpoint. */
-  estimate?: PlanEstimate;
+  /**
+   * When the engine's confirmation of this plan expires (epoch ms). Until then the engine keeps its unconfirmed record and
+   * refuses any other plan. Absent in a checkpoint written before it was recorded: createdAt + the lifetime stands in.
+   */
+  expiresAt?: number;
+  /** The plan answer's own figures, so planning the same target again answers it unchanged (absent in an older checkpoint). */
+  plan?: StoredPlan;
 }
 
-export interface PlanEstimate {
-  providerCalls: number; sourceBytes: number; targetBytes: number; requiredFreeBytes: number; freeBytes: number; probeStatus: string;
-  cloud?: { provider: string; model: string; endpoint: string; cards: number; estimatedTokens: number; sendsText: true };
+export interface StoredPlan {
+  sourceFingerprint: EmbeddingFingerprint;
+  probeStatus: string;
+  estimates: { providerCalls: number; sourceBytes: number; targetBytes: number; requiredFreeBytes: number; freeBytes: number };
 }
 
 export class MigrationStateError extends Error {
@@ -64,7 +69,8 @@ function parse(raw: unknown): Checkpoint {
   const phase = raw.phase; if (!PHASES.includes(phase as Phase)) bad("phase");
   const c = raw.counts; if (!isObj(c) || !isInt(c.rows) || !isInt(c.tables) || !isInt(c.batches) || !isInt(c.rowsDone) || !isInt(c.batchesDone)) bad("counts");
   const counts = c as Record<string, number>;
-  if (!isObj(raw.target) || typeof raw.target.provider !== "string" || typeof raw.target.model !== "string" || !isInt(raw.target.dimensions)) bad("target");
+  const isFingerprint = (f: unknown): boolean => isObj(f) && typeof f.provider === "string" && typeof f.model === "string" && isInt(f.dimensions);
+  if (!isFingerprint(raw.target)) bad("target");
   if (!isInt(raw.createdAt) || !isInt(raw.updatedAt) || !isInt(raw.throttleMs) || typeof raw.abortRequested !== "boolean") bad("scalars");
   let error: Checkpoint["error"] = null;
   if (raw.error !== null) {
@@ -85,26 +91,24 @@ function parse(raw: unknown): Checkpoint {
     }
     remote = { apiKeyEnv: o.apiKeyEnv, ...(o.baseUrl !== undefined ? { baseUrl: o.baseUrl } : {}), tokensPerRow: o.tokensPerRow, ...(privacyAck ? { privacyAck } : {}) };
   }
-  let estimate: PlanEstimate | undefined;
-  if (raw.estimate !== undefined) {
-    const e = raw.estimate;
-    if (!isObj(e) || ![e.providerCalls, e.sourceBytes, e.targetBytes, e.requiredFreeBytes, e.freeBytes].every(isInt) || typeof e.probeStatus !== "string" || e.probeStatus.length > 128) bad("estimate");
-    const o = e as Record<string, unknown>;
-    let cloud: PlanEstimate["cloud"];
-    if (o.cloud !== undefined) {
-      const k = o.cloud;
-      if (!isObj(k) || typeof k.provider !== "string" || typeof k.model !== "string" || typeof k.endpoint !== "string" || !isInt(k.cards) || !isInt(k.estimatedTokens) || k.sendsText !== true) bad("estimate.cloud");
-      const v = k as Record<string, unknown>;
-      cloud = { provider: v.provider as string, model: v.model as string, endpoint: v.endpoint as string, cards: v.cards as number, estimatedTokens: v.estimatedTokens as number, sendsText: true };
-    }
-    estimate = { providerCalls: o.providerCalls as number, sourceBytes: o.sourceBytes as number, targetBytes: o.targetBytes as number, requiredFreeBytes: o.requiredFreeBytes as number, freeBytes: o.freeBytes as number, probeStatus: o.probeStatus as string, ...(cloud ? { cloud } : {}) };
+  if (raw.expiresAt !== undefined && !isInt(raw.expiresAt)) bad("expiresAt");
+  let plan: StoredPlan | undefined;
+  if (raw.plan !== undefined) {
+    const p = raw.plan; const e = isObj(p) ? p.estimates : undefined;
+    if (!isObj(p) || !isFingerprint(p.sourceFingerprint) || typeof p.probeStatus !== "string" || p.probeStatus.length > 128 || !isObj(e)
+      || ![e.providerCalls, e.sourceBytes, e.targetBytes, e.requiredFreeBytes, e.freeBytes].every(isInt)) bad("plan");
+    const k = (p as { estimates: Record<string, number> }).estimates;
+    plan = {
+      sourceFingerprint: (p as { sourceFingerprint: EmbeddingFingerprint }).sourceFingerprint, probeStatus: (p as { probeStatus: string }).probeStatus,
+      estimates: { providerCalls: k.providerCalls!, sourceBytes: k.sourceBytes!, targetBytes: k.targetBytes!, requiredFreeBytes: k.requiredFreeBytes!, freeBytes: k.freeBytes! },
+    };
   }
   return {
     v: 1, id, token: str("token"), planDigest: str("planDigest"), createdAt: raw.createdAt as number, updatedAt: raw.updatedAt as number, phase: phase as Phase,
     sourceGeneration: gens[0]!, targetGeneration: gens[1]!, target: raw.target as unknown as EmbeddingFingerprint,
     counts: { rows: counts.rows!, tables: counts.tables!, batches: counts.batches!, rowsDone: counts.rowsDone!, batchesDone: counts.batchesDone! },
     throttleMs: raw.throttleMs as number, abortRequested: raw.abortRequested as boolean, error,
-    ...(remote ? { remote } : {}), ...(estimate ? { estimate } : {}),
+    ...(remote ? { remote } : {}), ...(raw.expiresAt !== undefined ? { expiresAt: raw.expiresAt as number } : {}), ...(plan ? { plan } : {}),
   };
 }
 

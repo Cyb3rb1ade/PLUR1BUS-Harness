@@ -18,6 +18,8 @@ plur1bus memory reembed --plan --model <MODEL> --dimensions <N>
 
 `--model` ist ein festgelegtes lokales Embedding-Modell, unter der eigenen Id der Gedächtnis-Engine: `google/embeddinggemma-2` (EmbeddingGemma 2), `intfloat/multilingual-e5-small`, `jinaai/jina-embeddings-v5-text-nano-retrieval` oder `jinaai/jina-embeddings-v3`. `--dimensions` brauchst du nur, wenn das Modell mehr als eine Größe unterstützt.
 
+Planst du dasselbe Modell noch einmal (zum Beispiel nach einem Probelauf), zeigt der Befehl denselben Plan; nichts wird doppelt geplant. Ein Plan für ein anderes Modell wird abgelehnt, solange der erste nicht ausgeführt wurde, eine Stunde lang nach dem Planen: Die Meldung nennt die Uhrzeit. `--abort` gibt ihn nicht früher frei; danach ersetzt ihn der neue Plan.
+
 Ein Gedächtnis ohne Daten braucht keine Migration: Wähle das Modell stattdessen im Einrichtungsassistenten ([erinnerungen.md](erinnerungen.md#embedding-modell-und-reranker)).
 
 2. Ausführen. Der Befehl fragt nach Bestätigung (`--yes` außerhalb eines Terminals), startet die Migration im Core und verfolgt den Fortschritt. `--no-wait` kehrt nach dem Start zurück, `--no-switch` kopiert und prüft, schaltet aber nicht um, `--throttle-ms` legt die Pause zwischen den Stapeln fest (Standard 250).
@@ -66,7 +68,7 @@ Eine Änderung, die den Vektorraum behält, oder eine bei einem Gedächtnis ohne
 
 Die Migration meldet die geschlossenen Fehlercodes; der `reason` sagt, was zutraf.
 
-- `E_CONFLICT` mit reason `migration-active` oder `migration-running`: Ein anderer Plan, Lauf oder eine Umschaltung läuft. Sieh mit `--status` nach oder stoppe sie mit `--abort`.
+- `E_CONFLICT` mit reason `migration-active` oder `migration-running`: Ein anderer Plan, Lauf oder eine Umschaltung läuft. Sieh mit `--status` nach oder stoppe sie mit `--abort`. Nennt die Meldung eine Uhrzeit, hält ein Plan für ein anderes Modell (oder ein Lauf, der anhielt, weil sich das Gedächtnis währenddessen geändert hat) die Engine bis dahin: Führe den geplanten mit `--run` aus oder plane nach dieser Zeit neu.
 - `E_CONFLICT` mit reason `not-runnable`, `not-abortable` oder `not-ready-to-switch`: Der Aufruf passt nicht zur aktuellen Phase.
 - `E_NOT_FOUND` mit reason `no-migration`: `--run` oder `--abort` ohne Plan. Plane zuerst.
 - `E_INVALID_PARAMS` mit reason `plan-refused`: Die Engine hat den Plan abgelehnt, zum Beispiel wegen zu wenig freiem Speicherplatz.

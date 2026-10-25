@@ -3,10 +3,9 @@
 // record; the driver owns orchestration: which migration is ours, throttling, abort at batch boundaries, fail-closed
 // validation, and the Harness half of the switch. Nothing here touches the active generation before `switch()`.
 import { randomBytes } from "node:crypto";
-import { embeddingFingerprintId } from "@cyb3rb1ade/plur1bus-memory/lib/reembedding/fingerprint.js";
-import { checkTarget, probeCompatibility, type EmbeddingFingerprint, type ProbeResult } from "./probe.ts";
+import { checkTarget, fingerprintIdOf, probeCompatibility, type EmbeddingFingerprint, type ProbeResult } from "./probe.ts";
 import type { EngineRecord, ReembedEngine, SwitchPort } from "./port.ts";
-import { MigrationStateError, TERMINAL, type Checkpoint, type Phase, type PlanEstimate, type StateStore } from "./state.ts";
+import { MigrationStateError, TERMINAL, type Checkpoint, type Phase, type StateStore } from "./state.ts";
 import type { PrivacyAcknowledgment } from "@plur1bus/config-schema";
 import { OPENAI_DEFAULT_ENDPOINT } from "../composition/embedding-policy.ts";
 import { redactEndpoint } from "../privacy/local-only.ts";
@@ -20,9 +19,9 @@ export class MigrationError extends Error {
   constructor(code: MigrationErrorCode, message: string) { super(message); this.name = "MigrationError"; this.code = code; }
 }
 
-/** The checkpoint as callers see it: the confirmation token never leaves the driver. */
-export type PublicCheckpoint = Omit<Checkpoint, "token" | "estimate">;
-export const publicView = (c: Checkpoint): PublicCheckpoint => { const { token: _t, estimate: _e, ...rest } = c; return rest; };
+/** The checkpoint as callers see it: the confirmation token never leaves the driver, the stored plan answer stays its own. */
+export type PublicCheckpoint = Omit<Checkpoint, "token" | "expiresAt" | "plan">;
+export const publicView = (c: Checkpoint): PublicCheckpoint => { const { token: _t, expiresAt: _e, plan: _p, ...rest } = c; return rest; };
 
 export interface PlanSummary {
   id: string; sourceGeneration: string; targetGeneration: string;
@@ -98,8 +97,8 @@ export const DEFAULT_THROTTLE_MS = 250;
 export const MAX_THROTTLE_MS = 60_000;
 /** The engine's maximum confirmation lifetime (planner.js): plan → run in a normal workflow must not race the TTL. */
 const CONFIRMATION_TTL_MS = 60 * 60 * 1000;
-/** A pending plan closer than this to its confirmation's end is planned anew: the run must not race the expiry. */
-const PENDING_MARGIN_MS = 5 * 60 * 1000;
+/** Engine states after which its record no longer blocks a new plan. */
+const ENGINE_TERMINAL: readonly string[] = ["completed", "failed", "rolled_back"];
 
 const defaultSleep = (ms: number, signal: AbortSignal) => new Promise<void>((resolve) => {
   if (signal.aborted || ms <= 0) return resolve();
@@ -153,18 +152,28 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     try { return await planLocked(req, throttleMs); } finally { busy = null; }
   }
 
+  /**
+   * The engine keeps an unconfirmed plan (and refuses every other one) until its confirmation expires; it has no call to
+   * retire it earlier. So a plan that never started is not replaced while it lives: the same target again (a dry run,
+   * then the apply) is answered from it, another target is refused with its expiry. Once it expired the next plan
+   * replaces it (the engine retires the expired record itself).
+   */
   async function planLocked(req: PlanRequest, throttleMs: number): Promise<PlanOutcome> {
     const existing = read();
-    // A planned migration that never started has copied nothing: planning again simply replaces it.
-    if (existing && !TERMINAL.includes(existing.phase) && existing.phase !== "planned") throw new MigrationError("migration-active", `migration ${existing.id} is ${existing.phase}; finish it with --run or stop it with --abort first`);
+    const held = existing && !TERMINAL.includes(existing.phase) ? await heldPlan(existing) : null;
     const refused = checkTarget(req.target);
     if (refused) return { probe: refused, plan: null };
-    // The engine refuses a second plan while an unconfirmed one lives (one hour), so the same target asked again (a config
-    // set after its --dry-run, or after a declined confirmation) answers the pending plan.
-    const pending = existing?.phase === "planned" ? await samePending(existing, req, throttleMs) : null;
-    if (pending) return pending;
+    if (held) {
+      const expiresAt = held.expiresAt ?? held.createdAt + CONFIRMATION_TTL_MS;
+      if (now() < expiresAt) {
+        if (samePlan(held, req) && held.plan) return reuse(held, req, throttleMs);
+        throw new MigrationError("migration-active", `migration ${held.id} is planned for ${held.target.provider} ${held.target.model} and holds the store until ${new Date(expiresAt).toISOString()}; `
+          + "run it with plur1bus memory reembed --run, or plan another model after that time (memory reembed --abort does not release an unstarted plan earlier)");
+      }
+    }
 
     const id = newId();
+    const asked = now();
     let enginePlan;
     try {
       const secretRef = req.remote ? { secretRef: { source: "env" as const, provider: "default" as const, id: req.remote.apiKeyEnv } } : {};
@@ -175,61 +184,93 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
         // The engine's own comparison: the store already has this identity. Nothing to migrate.
         return { probe: probeCompatibility({ stored: req.target, target: req.target }), plan: null };
       }
+      if ((e as { code?: unknown }).code === "reembedding_active_conflict" || /another reembedding migration is active/.test(message)) {
+        // An engine record no live checkpoint holds: a run that failed here (source drift) leaves its record running in the
+        // engine, which retires it only once its confirmation expired; a lost checkpoint leaves an unknown one.
+        const until = existing?.phase === "failed" ? existing.expiresAt ?? existing.createdAt + CONFIRMATION_TTL_MS : null;
+        const when = until !== null && until > now() ? `until ${new Date(until).toISOString()}` : "until its confirmation expires, at most an hour after it was planned";
+        throw new MigrationError("migration-active", `the engine still holds an unfinished re-embedding migration (an unconfirmed plan or a run that stopped) ${when}; plan again after that time (plur1bus memory reembed --status shows the last one)`);
+      }
       throw new MigrationError("plan-refused", message.slice(0, 500));
     }
     const p = enginePlan.plan;
     // The engine must have planned the target that was asked for: a different model or dimension count here would copy the
     // store into a vector space the checkpoint (and the later switch) does not describe.
     if (!sameSpace(p.target.fingerprint, req.target)) throw new MigrationError("plan-refused", "the engine planned a different target embedding (provider, model or dimensions) than the one requested; nothing was started");
-    const probe = probeCompatibility({
-      stored: p.source.fingerprint, target: req.target,
-      targetProbe: { ok: p.target.probeStatus === "passed" || p.target.probeStatus === "probe_deferred_local_artifact" },
-    });
     const batches = batchesOf(p.source.tables);
-    let cloud: CloudEstimate | undefined;
     let remote: Checkpoint["remote"];
     if (req.remote) {
       const rows = p.estimates.rows;
-      const textBytes = Math.max(0, p.estimates.sourceBytes - rows * (p.source.fingerprint.dimensions ?? 0) * 4);
-      const estimatedTokens = Math.ceil(textBytes / 4);
-      cloud = { provider: req.target.provider, model: req.target.model, endpoint: redactEndpoint(req.remote.baseUrl ?? req.target.endpoint ?? OPENAI_DEFAULT_ENDPOINT), cards: rows, estimatedTokens, sendsText: true };
-      remote = { apiKeyEnv: req.remote.apiKeyEnv, ...(req.remote.baseUrl !== undefined ? { baseUrl: req.remote.baseUrl } : {}), ...(req.remote.privacyAck ? { privacyAck: req.remote.privacyAck } : {}), tokensPerRow: rows === 0 ? 0 : Math.max(1, Math.ceil(estimatedTokens / rows)) };
+      remote = { apiKeyEnv: req.remote.apiKeyEnv, ...(req.remote.baseUrl !== undefined ? { baseUrl: req.remote.baseUrl } : {}), ...(req.remote.privacyAck ? { privacyAck: req.remote.privacyAck } : {}), tokensPerRow: rows === 0 ? 0 : Math.max(1, Math.ceil(tokensOf(p.estimates.sourceBytes, rows, p.source.fingerprint) / rows)) };
     }
-    const estimate = { providerCalls: p.estimates.providerCalls, sourceBytes: p.estimates.sourceBytes, targetBytes: p.estimates.targetBytes, requiredFreeBytes: p.estimates.requiredFreeBytes, freeBytes: p.estimates.freeBytes, probeStatus: p.target.probeStatus, ...(cloud ? { cloud } : {}) };
+    const { rows: _rows, ...estimates } = p.estimates;
     const cp: Checkpoint = {
       v: 1, id: p.id, token: enginePlan.confirmation.token, planDigest: enginePlan.planDigest, createdAt: now(), updatedAt: now(), phase: "planned",
       sourceGeneration: p.source.generation, targetGeneration: p.target.generation, target: req.target,
       counts: { rows: p.estimates.rows, tables: p.source.tables.length, batches, rowsDone: 0, batchesDone: 0 },
-      throttleMs, abortRequested: false, error: null, ...(remote ? { remote } : {}), estimate,
+      throttleMs, abortRequested: false, error: null, ...(remote ? { remote } : {}),
+      // The engine's own expiry; else the earliest it can be (the engine took its time after `asked`).
+      expiresAt: enginePlan.confirmation.expiresAt ?? asked + CONFIRMATION_TTL_MS,
+      plan: { sourceFingerprint: p.source.fingerprint, probeStatus: p.target.probeStatus, estimates },
     };
     put(cp);
     d.logger?.info("re-embedding planned", { id: p.id, rows: cp.counts.rows, batches });
-    return { probe, plan: summaryOf(cp, estimate) };
+    return outcomeOf(cp);
   }
 
-  const summaryOf = (c: Checkpoint, e: PlanEstimate): PlanSummary => ({
-    id: c.id, sourceGeneration: c.sourceGeneration, targetGeneration: c.targetGeneration, rows: c.counts.rows, tables: c.counts.tables,
-    batches: c.counts.batches, batchSize: d.engine.batchSize, providerCalls: e.providerCalls, sourceBytes: e.sourceBytes, targetBytes: e.targetBytes,
-    requiredFreeBytes: e.requiredFreeBytes, freeBytes: e.freeBytes, throttleMs: c.throttleMs, minDurationMs: c.counts.batches * c.throttleMs, probeStatus: e.probeStatus,
-    ...(e.cloud ? { cloud: e.cloud } : {}),
-  });
+  /**
+   * The unstarted plan `c` holds in the engine, or null when its engine record no longer blocks a new plan. Throws
+   * migration-active for a migration that has started (anything may have been copied): finish or stop it first.
+   */
+  async function heldPlan(c: Checkpoint): Promise<Checkpoint | null> {
+    const started = () => new MigrationError("migration-active", `migration ${c.id} is ${c.phase}; finish it with --run or stop it with --abort first`);
+    // An abort before the first batch leaves the plan unstarted, like one that was never run.
+    if (c.phase !== "planned" && !(c.phase === "aborted" && c.counts.batchesDone === 0 && c.counts.rowsDone === 0)) throw started();
+    const state = (await d.engine.status(c.id))?.state ?? null;
+    if (state === null || ENGINE_TERMINAL.includes(state)) return null;
+    if (state !== "planned") throw started();
+    return c;
+  }
 
-  /** The pending plan when it is for the same target, endpoint and key variable, its engine record is still `planned` and its
-   *  confirmation has more than a margin left; null otherwise (then a new plan is asked for, as before). */
-  async function samePending(c: Checkpoint, req: PlanRequest, throttleMs: number): Promise<PlanOutcome | null> {
-    const e = c.estimate;
-    if (!e || now() >= c.createdAt + CONFIRMATION_TTL_MS - PENDING_MARGIN_MS) return null;
-    if (embeddingFingerprintId(c.target as unknown as Record<string, unknown>) !== embeddingFingerprintId(req.target as unknown as Record<string, unknown>)) return null;
-    const a = c.remote, b = req.remote;
-    if (!a !== !b || (a && b && (a.apiKeyEnv !== b.apiKeyEnv || a.baseUrl !== b.baseUrl || JSON.stringify(a.privacyAck ?? null) !== JSON.stringify(b.privacyAck ?? a.privacyAck ?? null)))) return null;
-    if (req.targetGeneration && req.targetGeneration !== c.targetGeneration) return null;
-    let rec: EngineRecord | null;
-    try { rec = await d.engine.status(c.id); } catch { return null; }
-    if (!rec || rec.state !== "planned" || rec.source.generation !== c.sourceGeneration || rec.target.generation !== c.targetGeneration) return null;
-    const kept = save(c, { throttleMs });
-    d.logger?.info("re-embedding plan kept", { id: c.id });
-    const probe = probeCompatibility({ stored: rec.source.fingerprint, target: req.target, targetProbe: { ok: e.probeStatus === "passed" || e.probeStatus === "probe_deferred_local_artifact" } });
-    return { probe, plan: summaryOf(kept, e) };
+  /** The same request as the one `c` planned: one vector space (the engine's fingerprint id), one key, one endpoint, one generation. */
+  const samePlan = (c: Checkpoint, req: PlanRequest): boolean => {
+    const id = fingerprintIdOf(req.target);
+    return id !== null && id === fingerprintIdOf(c.target)
+      && (c.remote?.apiKeyEnv ?? null) === (req.remote?.apiKeyEnv ?? null) && (c.remote?.baseUrl ?? null) === (req.remote?.baseUrl ?? null)
+      && (!req.targetGeneration || req.targetGeneration === c.targetGeneration); // an empty one is absent, as for the engine
+  };
+
+  /** Answers the held plan again. Only Harness-side settings change: the pause between batches and a fresh privacy acknowledgment. */
+  function reuse(c: Checkpoint, req: PlanRequest, throttleMs: number): PlanOutcome {
+    const ack = req.remote?.privacyAck;
+    const next = save(c, { phase: "planned", throttleMs, abortRequested: false, error: null, ...(ack && c.remote ? { remote: { ...c.remote, privacyAck: ack } } : {}) });
+    d.logger?.info("re-embedding plan reused", { id: c.id });
+    return outcomeOf(next);
+  }
+
+  /** Estimated provider tokens: the source size without its vectors, bytes / 4 (an upper bound, metadata counts too). */
+  const tokensOf = (sourceBytes: number, rows: number, source: EmbeddingFingerprint): number => Math.ceil(Math.max(0, sourceBytes - rows * (source.dimensions ?? 0) * 4) / 4);
+
+  /** The plan answer, entirely from the checkpoint: planning the same target again answers exactly what the first plan did. */
+  function outcomeOf(c: Checkpoint): PlanOutcome {
+    const p = c.plan!;
+    const probe = probeCompatibility({
+      stored: p.sourceFingerprint, target: c.target,
+      targetProbe: { ok: p.probeStatus === "passed" || p.probeStatus === "probe_deferred_local_artifact" },
+    });
+    const rows = c.counts.rows; const e = p.estimates;
+    const cloud: CloudEstimate | undefined = c.remote
+      ? { provider: c.target.provider, model: c.target.model, endpoint: redactEndpoint(c.remote.baseUrl ?? c.target.endpoint ?? OPENAI_DEFAULT_ENDPOINT), cards: rows, estimatedTokens: tokensOf(e.sourceBytes, rows, p.sourceFingerprint), sendsText: true }
+      : undefined;
+    return {
+      probe,
+      plan: {
+        id: c.id, sourceGeneration: c.sourceGeneration, targetGeneration: c.targetGeneration, rows, tables: c.counts.tables,
+        batches: c.counts.batches, batchSize: d.engine.batchSize, providerCalls: e.providerCalls, sourceBytes: e.sourceBytes, targetBytes: e.targetBytes,
+        requiredFreeBytes: e.requiredFreeBytes, freeBytes: e.freeBytes, throttleMs: c.throttleMs, minDurationMs: c.counts.batches * c.throttleMs, probeStatus: p.probeStatus,
+        ...(cloud ? { cloud } : {}),
+      },
+    };
   }
 
   /** Applies the engine's record to the checkpoint's counters. */
