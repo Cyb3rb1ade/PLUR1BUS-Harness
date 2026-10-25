@@ -8,6 +8,7 @@
 // self-hosted one the same fields #509 accepts (provider, model, dimensions, baseUrl, the key only as apiKeyEnv). The
 // written configuration passes buildEngineConfig first, so a missing privacy acknowledgment, privacy.localOnly or missing
 // details refuse the switch and leave the old configuration active.
+import { readFileSync } from "node:fs";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import { embeddingFingerprintId } from "@cyb3rb1ade/plur1bus-memory/lib/reembedding/fingerprint.js";
 import { embeddingConfigFromSelection, embeddingFingerprintFromNormalizedConfig } from "@cyb3rb1ade/plur1bus-memory/lib/reembedding/runtime-config.js";
@@ -66,6 +67,12 @@ export function createConfigSwitchPort(d: { config: SwitchConfig; layout: Layout
       const p = d.config.set([{ key: "engine.embedding", value: embedding }, { key: "engine.reembedding", value: reembedding }, ...(ack ? [{ key: "memory.embedding.privacyAck", value: ack }] : [])]);
       if (p === null) throw refuse("no supervisor owns config.json for this core, so the active embedding selection cannot be written; start the daemon and retry");
       await p;
+    },
+    written(sel) {
+      let cfg: { engine?: { reembedding?: { activeGeneration?: unknown; fingerprintId?: unknown } } };
+      try { cfg = JSON.parse(readFileSync(d.layout.configPath, "utf8")); } catch { return false; }
+      const r = cfg.engine?.reembedding;
+      return r?.activeGeneration === sel.generation && r.fingerprintId === embeddingFingerprintId(sel.fingerprint as unknown as Record<string, unknown>);
     },
   };
 }

@@ -337,6 +337,9 @@ fn method_fixture(name: &str, f: &Value) {
         "admin.embedding.serve" => {
             pair::<AdminEmbeddingServeParams, AdminEmbeddingServeResult>(name, f)
         }
+        "admin.embedding.check" => {
+            pair::<AdminEmbeddingCheckParams, AdminEmbeddingCheckResult>(name, f)
+        }
         "dreams.status" => pair::<DreamsStatusParams, DreamsStatusResult>(name, f),
         "dreams.log" => pair::<DreamsLogParams, DreamsLogResult>(name, f),
         "dreams.run" => pair::<DreamsRunParams, DreamsRunResult>(name, f),
@@ -574,6 +577,7 @@ fn every_method_fixture_round_trips() {
         "admin.backup.snapshot",
         "admin.embedding.probe",
         "admin.embedding.serve",
+        "admin.embedding.check",
         "admin.reembed.plan",
         "admin.reembed.run",
         "admin.reembed.status",

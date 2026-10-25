@@ -44,7 +44,7 @@ describe("engine port over Engine.admin.reembedding", () => {
     assert.equal(await createEnginePort(engine).status("nope"), null);
   });
 
-  it("the pinned contract has no validate: the port does not pretend to; with one it is exposed", async () => {
+  it("an engine without validate (before contract 1.17.0): the port does not pretend to; with one it is exposed", async () => {
     assert.equal("validate" in createEnginePort(stubEngine().engine), false);
     const validateCalls: unknown[][] = [];
     const { engine } = stubEngine({ validate: (...args: unknown[]) => { validateCalls.push(args); return Promise.resolve(record("ready_to_switch")); } });

@@ -107,11 +107,19 @@ describe("grants audit: input hygiene", () => {
 describe("grants audit: scope matching through decide()", () => {
   it("wildcard characters and dot-names in a grant path are literal, never patterns", T, async () => {
     const s = await open();
-    s.grants.create(pathGrant(abs("/data/*")));
-    s.grants.create(pathGrant(abs("/data/a?")));
-    assert.equal(decideWith(s, outRead("/data/x"), ctx()).kind, "ask");
-    assert.equal(decideWith(s, outRead("/data/ab/x"), ctx()).kind, "ask");
-    assert.equal(decideWith(s, outRead("/data/*/x"), ctx()).kind, "allow"); // the literal directory named "*"
+    if (process.platform === "win32") {
+      // No Windows name holds `*` or `?`, so there such a grant path names nothing and is refused when it is created: stricter
+      // than a literal match, and never a pattern either.
+      for (const p of ["/data/*", "/data/a?"]) assert.throws(() => s.grants.create(pathGrant(abs(p))), (e) => refused(e) && /forbidden-char/.test((e as Error).message), p);
+      assert.equal(decideWith(s, outRead("/data/x"), ctx()).kind, "ask");
+      assert.equal(decideWith(s, outRead("/data/ab/x"), ctx()).kind, "ask");
+    } else {
+      s.grants.create(pathGrant(abs("/data/*")));
+      s.grants.create(pathGrant(abs("/data/a?")));
+      assert.equal(decideWith(s, outRead("/data/x"), ctx()).kind, "ask");
+      assert.equal(decideWith(s, outRead("/data/ab/x"), ctx()).kind, "ask");
+      assert.equal(decideWith(s, outRead("/data/*/x"), ctx()).kind, "allow"); // the literal directory named "*"
+    }
   });
 
   it("a sibling that merely shares the prefix, and a parent, are not covered; case differs", T, async () => {

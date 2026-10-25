@@ -5,18 +5,38 @@ import { collectChanges, initialDraft } from '../src/pages/settings/config/model
 import { initial, changesFor, stepsFor } from '../src/pages/setup/model.ts';
 import { browserSkip, setup, teardown, withApp, openRoute } from './harness.ts';
 import { seedConfig } from './settings-config-fixtures.ts';
-import { installCatalog } from './models-fixtures.ts';
+import { defaultCatalog, installCatalog, model } from './models-fixtures.ts';
 import { expectAxeClean } from './axe.ts';
 import { next, seed, skip, stepHeading, toPersona } from './setup-fixtures.ts';
 before(setup); after(teardown);
 test('role fields preserve stored values and reject unavailable catalog choices', () => {
   const fields = roleFields({ modelRoles: { decision: 'old/profile' } }, { models: [{ provider: 'p', id: 'gone', kind: 'chat', status: 'unavailable' }] });
-  assert.equal(fields.length, 8);
   const decision = fields.find(f => f.key === 'modelRoles.decision')!;
   assert.equal(decision.value, 'old/profile');
   const draft = { ...initialDraft(fields), 'modelRoles.decision': 'p/gone' };
   assert.equal(collectChanges(fields, draft).changes.length, 0);
   assert.ok(collectChanges(fields, draft).errors['modelRoles.decision']);
+});
+// The memory engine takes its models from engine.embedding and engine.reranker; a modelRoles.embedding or .rerank value selects no model.
+test('role fields cover the roles that select a model: no embedding or rerank role, even with a stored value and such models in the catalog', () => {
+  const catalog = { models: [{ provider: 'p', id: 'emb', kind: 'embedding', status: 'available' }, { provider: 'p', id: 'rr', kind: 'rerank', status: 'available' }] };
+  const fields = roleFields({ modelRoles: { embedding: 'jinaai/jina-embeddings-v3', rerank: 'BAAI/bge-reranker-v2-m3' } }, catalog);
+  assert.deepEqual(fields.map(f => f.key), ['modelRoles.chat', 'modelRoles.reasoning', 'modelRoles.capture', 'modelRoles.dream', 'modelRoles.decision', 'modelRoles.summarize']);
+  assert.deepEqual(fields.flatMap(f => f.options ?? []).filter(o => o !== ''), [], 'no role offers an embedding or rerank model');
+});
+test('settings offer no embedding or reranker role and look up no licence for one', { skip: browserSkip }, async () => {
+  await withApp({}, async app => {
+    seedConfig(app.server.rpc, { modelRoles: { chat: 'anthropic/claude-x', embedding: 'jinaai/jina-embeddings-v3', rerank: 'BAAI/bge-reranker-v2-m3' } });
+    installCatalog(app.server.rpc, { models: [...defaultCatalog().models, model({ provider: 'jina', id: 'jinaai/jina-embeddings-v3', displayName: 'Jina v3', kind: 'embedding' })] });
+    app.server.rpc.handle('model.licence.check', () => ({ ok: true }), { write: false });
+    await openRoute(app.page, '#/settings/models');
+    await app.page.locator('#cfg-modelRoles-summarize').waitFor();
+    for (const role of ['chat', 'reasoning', 'capture', 'dream', 'decision']) assert.equal(await app.page.locator(`#cfg-modelRoles-${role}`).count(), 1, role);
+    assert.equal(await app.page.locator('#cfg-modelRoles-embedding').count(), 0);
+    assert.equal(await app.page.locator('#cfg-modelRoles-rerank').count(), 0);
+    assert.equal(await app.page.locator('main option', { hasText: 'Jina v3' }).count(), 0, 'no select offers a memory engine model');
+    assert.equal(app.server.rpc.calls.filter(c => c.method === 'model.licence.check').length, 0);
+  });
 });
 test('decision setup is optional, after chat, and never chooses a model by default', () => {
   const ids = stepsFor(false).map(s => s.id);

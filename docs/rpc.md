@@ -9950,6 +9950,136 @@ Starts the engine's scoped-embedding IPC server (engine EmbeddingService.serve):
 }
 ```
 
+### `admin.embedding.check`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+What the changes of one config.set (plur1bus config set) do to the memory engine's embedding, before anything is written. effect unchanged keeps the running engine's vector space; write is another embedding over a store without data (or under an engine without a usable embedding), which config.set may write and the engine uses from its next start; move is another embedding over a store with data, which only a re-embedding migration reaches: target is what admin.reembed.plan takes, and canSwitch says whether the engine can validate a re-embedded generation (engine contract 1.17.0; without it the migration stops before its switch and the old model stays active). Refuses what the engine could not load, with nothing written: E_INVALID_PARAMS reason=embedding-model-unavailable (an unpinned local model, a block a migration cannot describe, a non-commercial model without its licence acceptance or under the commercial use class), E_CONFLICT reason=embedding-migration-required (a store with data embedded with a non-commercial model would lose its licence acceptance), E_DENIED reason=model-licence-required (a non-commercial memory model without a persisted licence confirmation) and the provider rules of the engine start (E_INVALID_PARAMS reason=engine-provider-config-incomplete, E_DENIED reason=privacy-acknowledgment-required or local-only).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "changes"
+  ],
+  "properties": {
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {}
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "effect",
+    "current",
+    "target",
+    "canSwitch"
+  ],
+  "properties": {
+    "effect": {
+      "enum": [
+        "unchanged",
+        "write",
+        "move"
+      ]
+    },
+    "current": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model",
+        "dimensions"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "dimensions": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "target": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "model",
+            "dimensions"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "dimensions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "baseUrl": {
+              "type": "string"
+            },
+            "apiKeyEnv": {
+              "type": "string"
+            },
+            "queryPrefix": {
+              "type": "string"
+            },
+            "passagePrefix": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "canSwitch": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ### `admin.reembed.plan`
 
 **Stability:** experimental · since 1.5.0
@@ -24537,7 +24667,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "The migration's Harness checkpoint without the engine's confirmation token. `aborted` is stopped and resumable (by request or after an engine error: see error); `validating` with error engine-validate-unavailable waits for an engine that can validate; `switched` and `failed` are final.",
+  "description": "The migration's Harness checkpoint without the engine's confirmation token. `aborted` is stopped and resumable (by request or after an engine error: see error); `validating` with error engine-validate-unavailable waits for an engine that can validate (one before contract 1.17.0); `switched` and `failed` are final.",
   "type": "object",
   "additionalProperties": false,
   "required": [

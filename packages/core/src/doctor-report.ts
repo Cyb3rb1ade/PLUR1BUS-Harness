@@ -1,7 +1,7 @@
 import { readHostEvalReports } from './toolcall/host-eval-store.ts';
 import { hostEvalGate, type ModelRef } from './toolcall/host-eval.ts';
 import { join } from "node:path";
-import { detectSandbox } from "./tools/sandbox/index.ts";
+import { detectSandbox, DEFAULT_MAX_TASKS, type SandboxDetection } from "./tools/sandbox/index.ts";
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { authorize } from "./rbac/authorize.ts";
@@ -24,7 +24,9 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean; toolEvalDefaults?: () => readonly ModelRef[]; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; miningStatus?: () => { available: boolean } | undefined; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void;
+export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean;
+  sandboxMaxTasks?: () => number; detectSandbox?: (limitsHelper: string) => Promise<SandboxDetection>;
+  toolEvalDefaults?: () => readonly ModelRef[]; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; miningStatus?: () => { available: boolean } | undefined; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void;
   /** Checks the core answers itself from its live configuration (e.g. privacy.local-only); appended to the provisioning group. */
   coreChecks?: () => Check[] }): Record<string, Handler> {
   let cached: Report | null = null;
@@ -52,8 +54,20 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; sandb
     });
     if (o.sandboxRequired?.() === false) checks.push({ id: "tools.sandbox.bypass", status: "warn", summary: "NOT SANDBOXED: owner disabled tools.sandbox.required; each process launch is audited." });
     for (const c of o.coreChecks?.() ?? []) if (!checks.some(x => x.id === c.id)) checks.push({ ...c, summary: safe(c.summary), ...(c.repair ? { repair: { kind: c.repair.kind, label: safe(c.repair.label) } } : {}) });
-    const sandbox = await detectSandbox(join(o.home, "bin", "plur1bus-sandbox-limits"));
+    const sandbox = await (o.detectSandbox ?? detectSandbox)(join(o.home, "bin", "plur1bus-sandbox-limits"));
     checks.push({ id: "tools.sandbox", status: sandbox.available ? "warn" : "fail", summary: safe(`${sandbox.backend} (${sandbox.strength}): ${sandbox.reason}`), ...(sandbox.hint ? { repair: { kind: "hint", label: safe(sandbox.hint) } } : {}) });
+    const n = o.sandboxMaxTasks?.() ?? DEFAULT_MAX_TASKS, tasks = sandbox.tasks;
+    let taskCheck: Check;
+    if (!sandbox.available) taskCheck = { id: "tools.sandbox.tasks", status: "skipped", summary: "Process cap not checked: the sandbox is unavailable." };
+    else if (tasks.mechanism === "fork-denied") taskCheck = { id: "tools.sandbox.tasks", status: "ok",
+      summary: "Forks are denied in the tool sandbox (Seatbelt), whatever tools.sandbox.maxTasks says. The coding-gate verifier is not capped on macOS: process limits there count every process of the user." };
+    else if (tasks.mechanism === "namespace-limit") taskCheck = { id: "tools.sandbox.tasks", status: n > 0 ? "ok" : "warn",
+      summary: n > 0 ? `At most ${n} tasks per sandboxed run (tool sandbox and Linux coding-gate verifier), counted in the run's own user namespace.`
+        : "Process cap off: the owner set tools.sandbox.maxTasks to 0." };
+    else taskCheck = { id: "tools.sandbox.tasks", status: "warn", summary: `No process cap: ${tasks.reason}`,
+      ...(tasks.hint ? { repair: { kind: "hint", label: tasks.hint } } : {}) };
+    checks.push({ ...taskCheck, summary: safe(taskCheck.summary),
+      ...(taskCheck.repair ? { repair: { kind: taskCheck.repair.kind, label: safe(taskCheck.repair.label) } } : {}) });
     const toolGate = hostEvalGate(o.toolEvalDefaults?.() ?? [], await readHostEvalReports(o.home, o.clock()));
     checks.push({ id: "tools.tool-eval", status: toolGate.passed ? "ok" : toolGate.models.some(m => m.label === "limited tool use") ? "fail" : "warn", summary: safe(toolGate.models.length ? toolGate.models.map(m => `${m.provider}/${m.model}: ${m.label}`).join("; ") : "Host tool use unknown: no default model inventory/evidence available.") });
     // These categories have no authoritative 1staid check in this revision. Report that explicitly; do not invent probes.

@@ -1,7 +1,7 @@
 # RE-07 — Memory and admin operations, snapshot, tombstones, re-embedding, models
 
 **Package.** Every contract member a person reaches through the CLI, the API or the web UI rather than through a turn:
-`MemoryOps` (13 methods plus the 1.17.0 curation), `AdminOps`, `StoreOps::adopt`, `status()`, `system_supplement()`,
+`MemoryOps` (13 methods plus the A1 curation members), `AdminOps` (including `reembedding.validate`, contract 1.17.0), `StoreOps::adopt`, `status()`, `system_supplement()`,
 `models()`, the store snapshot and its verification, the tombstone re-apply the harness restore has waited for, and
 the re-embedding migration. Size L; seven tasks, one pull request each (T7 optional, owner-gated).
 
@@ -14,7 +14,7 @@ RE-10 (the core paths that move here).
 - Plan §1.3 (the private imports that become methods: `lib/snapshot/store-snapshot.js`, `lib/tombstone-reapply.js`,
   `lib/reembedding/*`, `lib/providers/config-normalize.js`), RE-7 in §4, `docs/embedding-migration.md`,
   `docs/curation.md`, `docs/identity.md` (rebind), `docs/import.md` §10.6 (backfill/rebind).
-- Engine at `98dfe2f`:
+- Engine at the harness pin `9f34008c` (= `98dfe2f0` for every file below; the pin adds only the `validate` facade in `engine/create-engine.js`, and the coordinator logic it calls is already in `lib/reembedding/coordinator.js`):
 
 | Area | Files | Lines |
 |---|---|---|
@@ -26,7 +26,7 @@ RE-10 (the core paths that move here).
 | tombstone re-apply | **does not exist on `main`** (AGENTS.md: KNOWN GAP); the harness side is `packages/core/src/restore-reapply.ts` (`ENGINE_REAPPLY_MODULE`, what it imports and calls — read lines 1–80) | — |
 | re-embedding | `lib/reembedding/planner.js`, `coordinator.js`, `state-store.js`, `lance-backend.js`, `generation-layout.js`, `switch-runtime.js`, `runtime-probe.js`, `confirmation.js`, `runtime-config.js`, `fingerprint.js` | 197 + 364 + 331 + 559 + 85 + 230 + 121 + 75 + 181 + 157 |
 | obsidian | `engine/admin/obsidian.js` (detect/prepare/confirm), `lib/obsidian/*` (29 files, vault writers) | 301 + 3,517 |
-| curation (1.17.0) | branch `codex/gp3-a1-curated-memory` tip `9b935ce`: `git diff 98dfe2f..9b935ce -- engine lib types` | — |
+| curation (A1) | branch `codex/gp3-a1-curated-memory` tip `9b935ce1` (labelled 1.17.0 there, a number the pin already uses; renumbered on merge): `git diff 98dfe2f..9b935ce -- engine lib types` | — |
 
   Not ported: `engine/commands/*` (1,663 — the OpenClaw chat command bodies), `engine/tools/memory-tools.js` (957 —
   tool specs for the OpenClaw agent); the harness has its own tool layer.
@@ -83,7 +83,10 @@ pub fn reapply(stores: &dyn StoreRoutes, registry: &Path /* state/_tombstones */
 // ReapplyReport { examined, archived, already_archived, missing }
 
 // src/ops/reembedding/mod.rs — AdminOps::reembedding
-pub fn plan(..) -> Result<ReembedPlan, EngineError>; pub fn apply(..); pub fn resume(..); pub fn rollback(..); pub fn status(..); pub fn switch(..);
+pub fn plan(..) -> Result<ReembedPlan, EngineError>; pub fn apply(..); pub fn resume(..); pub fn validate(..); pub fn rollback(..); pub fn status(..); pub fn switch(..);
+// validate (1.17.0, types/engine.d.ts AdminOps.reembedding): moves a fully copied migration from `validating` to `ready_to_switch`
+// after the target generation check and the semantic recall probe; on failure it rejects and the record stays `validating`.
+// The core calls it through packages/core/src/embedding-migrate/engine-port.ts:55-70; without it the harness migration stops in `validating`.
 // the checkpoint file shape of lib/reembedding/state-store.js is kept so a migration started by the Node engine can be resumed by this one
 
 // src/ops/models.rs
@@ -96,7 +99,7 @@ pub fn models(config: &EngineConfig, readiness: &dyn ModelsService) -> Vec<Model
 
 - [ ] **Step 1: goldens** `record.mjs --read`: `list` (topic, since/until, limit, truncated), `show`, `state`
   (counts per scope, tombstones, archive dir), `forget` (tombstone id, `alreadyForgotten`), `correct` (archived: true and
-  the successor row), and for 1.17.0 `curation.list/keep/drop` recorded from a `9b935ce` build.
+  the successor row), and for A1 `curation.list/keep/drop` recorded from a `9b935ce1` build.
 - [ ] **Step 2: failing tests** `tests/ops_memory.rs`: one per golden; `a_forgotten_id_never_returns_from_list_show_or_recall`;
   `a_principal_without_access_gets_the_memory_op_error_code_the_node_engine_returns` (`MemoryOpErrorCode` parity: record
   the codes per case).
@@ -151,12 +154,21 @@ pub fn models(config: &EngineConfig, readiness: &dyn ModelsService) -> Vec<Model
 ### T6 — Re-embedding migration (one pull request)
 
 - [ ] **Step 1: goldens** `record.mjs --reembed`: a plan for a 384→1536 switch, the state file after `apply` on a
+- [ ] **Step 1: goldens.** `record.mjs --reembed` records:
+  - a plan for a 384→1536 switch;
+  - the state file after `apply` on a 12-row store interrupted after 6 rows;
+  - `resume`;
+  - `validate` in three cases: success moves to `ready_to_switch`; a failed recall probe rejects and the record stays
+    `validating`; an empty source table validates on the generation check alone;
+  - `status`, `rollback` and `switch`;
+  - the generation layout on disk (`generation-layout.js`).
   12-row store interrupted after 6 rows, `resume`, `status`, `rollback`, `switch`; the generation layout on disk
   (`generation-layout.js`).
 - [ ] **Step 2: failing tests** `tests/ops_reembedding.rs`: one per golden; `a_migration_started_by_the_node_engine_resumes_in_rust`
   (the state file is the fixture); `fingerprint_ids_in_the_plan_equal_the_node_plan` (RE-03 T1).
 - [ ] **Step 3: implement** `reembedding/*`; `switch` returns the config patch (the `embedding.*` keys) instead of writing it,
   the core applies it through the supervisor's `config.set`; `tests/system/reembed.test.ts` is the acceptance after RE-08.
+  the core applies it through the supervisor's `config.set`; `tests/system/reembed.test.ts` is the acceptance after RE-08 (it now reaches `switched` end to end through `plur1bus config set` and runs in the `system` job).
 - [ ] **Step 4: commit** `RE-07/T6: re-embedding migration`.
 
 ### T7 — Obsidian: detect/prepare/confirm, and the vault bridge (owner-gated; one pull request each)

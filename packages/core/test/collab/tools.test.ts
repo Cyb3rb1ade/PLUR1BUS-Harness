@@ -42,7 +42,7 @@ test('A solves with advice from B using provider-generated tool calls and tool_r
   const f = await fixture(t);
   const scripted = scriptedAdapter([{ calls: [{ id: 'consult_one', name: 'consult_agent', args: { projectId: f.project.id, toAgent: 'b1', objective: 'Advise on stable sorting' } }] }, { text: 'I will use a stable sort based on peer advice.' }]);
   const root = turnFixture(scripted.adapter, { topK: 100, toolsForTurn: async req => { const reg = new ToolRegistry(); for (const tool of collaborationTools(f.o, req)) reg.register(tool); return reg; } }, tmp.make());
-  t.after(root.close);
+  tmp.onCleanup(root.close);
   const chunks = await collect(root.provider, f.req);
   assert.match(chunks.filter(c => c.type === 'delta').map(c => c.text).join(''), /stable sort/);
   const returned = chunks.find(c => c.type === 'tool.result'); assert.ok(returned && returned.type === 'tool.result');
@@ -78,7 +78,7 @@ test('delegate requires real receiver ack before execution; partial output survi
 });
 test('project M2 ledger refuses before fan-out and records its refusal', async t => {
   const events: unknown[] = [];
-  const budget = createCallBudget({ path: join(tmp.make(), 'budget.sqlite'), clock: { now: Date.now }, emitter: { emit: e => { events.push(e); } } }); t.after(() => budget.close());
+  const budget = createCallBudget({ path: join(tmp.make(), 'budget.sqlite'), clock: { now: Date.now }, emitter: { emit: e => { events.push(e); } } }); tmp.onCleanup(() => budget.close());
   const f = await fixture(t, { budget: { check(estimate) {
     const result = budget.checkBeforeCall({ principal: owner.userId, agent: estimate.agentId, project: estimate.projectId, model: 'm', provider: 'p', estimatedInputTokens: estimate.tokens, maxOutputTokens: 2000 });
     if (result.kind === 'refuse') return { allowed: false, reason: 'token-budget' };

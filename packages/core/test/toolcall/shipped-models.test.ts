@@ -33,13 +33,15 @@ test('release gate uses exactly the owner-confirmed shipped pins and refuses mis
     assert.deepEqual(gate.advisory.map((m:{provider:string;model:string})=>`${m.provider}/${m.model}`),advisoryShippedModels().map(m=>`${m.provider}/${m.model}`));
     assert.deepEqual(gate.pendingOwnerOrDiscovery,advisoryShippedModels().map(m=>`${m.provider}/${m.model}`));
     assert.equal(gate.freshnessRequired,true);
-    const ci=await readFile(new URL('../../../../.github/workflows/ci.yml',import.meta.url),'utf8');
+    // A Windows checkout under Git for Windows' core.autocrlf=true has CRLF line ends; the patterns below are written with \n.
+    const lf=(text: string)=>text.replaceAll('\r\n','\n');
+    const ci=lf(await readFile(new URL('../../../../.github/workflows/ci.yml',import.meta.url),'utf8'));
     // Owner decision 2026-10-19: PR/main CI runs only the fixture; the fail-closed gate runs only in the release workflow.
     const hostJob=ci.slice(ci.indexOf('\n  host-tool-eval:\n'),ci.indexOf('\n  perf-startup:'));
     assert.match(hostJob,/tool-eval-host\.ts\n/);
     assert.doesNotMatch(ci,/--require-release/);
     assert.doesNotMatch(ci,/--recorded/);
-    const rel=await readFile(new URL('../../../../.github/workflows/release.yml',import.meta.url),'utf8');
+    const rel=lf(await readFile(new URL('../../../../.github/workflows/release.yml',import.meta.url),'utf8'));
     assert.match(rel,/\non:\n  push:\n    tags: \['v\*'\]/);
     const gateJob=rel.slice(rel.indexOf('\n  release-gate:\n'),rel.indexOf('\n  attest:\n'));
     assert.match(gateJob,/\n    needs: meta\n/);

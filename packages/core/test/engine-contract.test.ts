@@ -12,7 +12,7 @@ import { RpcError } from "../src/rpc/errors.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
-// The engine's own `ContractVersion` type is pinned to the literal `"1.16.0"` at the current pin,
+// The engine's own `ContractVersion` type is pinned to the literal `"1.17.0"` at the current pin,
 // so these fixtures (deliberately mismatched or malformed) are widened to plain strings — exactly
 // what `assertEngineContract` must guard against at runtime, where the engine's declared type is
 // no guarantee against a differently-pinned build.
@@ -21,8 +21,8 @@ function fixture(contract: string): Parameters<typeof assertEngineContract>[0] {
 }
 
 describe("assertEngineContract", () => {
-  it("accepts 1.15.0, 1.16.0 and later compatible minors", () => {
-    for (const contract of ["1.15.0", "1.16.0", "1.99.0"]) assert.doesNotThrow(() => assertEngineContract(fixture(contract)));
+  it("accepts 1.15.0, 1.16.0, 1.17.0 and later compatible minors", () => {
+    for (const contract of ["1.15.0", "1.16.0", "1.17.0", "1.99.0"]) assert.doesNotThrow(() => assertEngineContract(fixture(contract)));
   });
   it("refuses engines that would ignore the mandatory fetch and secret ports", () => {
     for (const contract of ["1.8.0", "1.12.0", "1.14.0"]) assert.throws(() => assertEngineContract(fixture(contract)), (e: any) => e.reason === "engine-contract-minor");
@@ -54,7 +54,7 @@ describe("assertEngineContract", () => {
     }
   });
 
-  it("the pinned engine reports 1.16.0 and exposes memory.import, stores.adopt, memory.rebind, memory.unbind, memory.unimport and memory.link", async () => {
+  it("the pinned engine reports 1.17.0 and exposes memory.import, stores.adopt, memory.rebind, memory.unbind, memory.unimport, memory.link and admin.reembedding.validate", async () => {
     const l = layout(tempDir("p1b-contract-116-"));
     for (const d of [l.state, l.logs, l.agents, l.lancedb]) mkdirSync(d, { recursive: true, mode: 0o700 });
     const cfg = defaults();
@@ -66,7 +66,7 @@ describe("assertEngineContract", () => {
     const host = createHarnessHost({ layout: l, logger, config: cfg, engineConfig, agents: reg, events: () => {} });
     const engine = bindEngine(host, engineConfig, flatTestInternals());
     try {
-      assert.equal(engine.contract, "1.16.0");
+      assert.equal(engine.contract, "1.17.0");
       assert.equal(typeof engine.memory.import, "function");
       assert.equal(typeof engine.stores.adopt, "function");
       assert.equal(typeof engine.memory.rebind, "function");
@@ -75,6 +75,8 @@ describe("assertEngineContract", () => {
       // 1.16.0: the importer feature-tests the capability before it calls memory.link (import/importers/card-links.ts).
       assert.equal(typeof engine.memory.link, "function");
       assert.equal(engine.capabilities.memoryLink, true);
+      // 1.17.0: the re-embedding migration validates the copied generation before its switch (embedding-migrate/engine-port.ts).
+      assert.equal(typeof engine.admin.reembedding.validate, "function");
     } finally {
       await engine.close({ budgetMs: 2000 });
       await logger.close();

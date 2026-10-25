@@ -22,6 +22,9 @@ test('pinned engine accepts registered Matrix/Buzz providers and returns linked 
  const {mkdirSync}=await import('node:fs');const {layout}=await import('../../src/paths.ts');const {createAgentRegistry}=await import('../../src/agents.ts');
  const {createLogger}=await import('../../src/logger.ts');const {buildEngineConfig}=await import('../../src/engine-config.ts');const {createHarnessHost}=await import('../../src/host.ts');const {bindEngine}=await import('../../src/engine.ts');const {flatTestInternals}=await import('../helpers/flat-embedder.ts');const {callerToPrincipal}=await import('../../src/principal.ts');
  const f=fixture(),h=f.human();const l=layout(f.dir);for(const dir of [l.state,l.logs,l.agents,l.lancedb])mkdirSync(dir,{recursive:true});const cfg=defaults();cfg.agents.main={};cfg.engine.duplicateThreshold=1.01;
+ // The 400/600 ms recall budgets are targets for reference hardware (H3-R26). On windows-2025 the recall after the import
+ // overran them and answered empty text, which this test cannot tell from a lost link; it checks the routes, not latency.
+ cfg.core.recall.softBudgetMs=8000;cfg.core.recall.hardBudgetMs=10000;
  const reg=createAgentRegistry(cfg,l);reg.scaffold('main');const logger=createLogger({file:l.logFile('core'),level:'warn',role:'core'});const engineConfig=buildEngineConfig(cfg,l);const engine=bindEngine(createHarnessHost({layout:l,logger,config:cfg,engineConfig,agents:reg,events(){}}),engineConfig,flatTestInternals());
  try{
   assert.ok(engine.channels.has('matrix'));assert.ok(engine.channels.has('buzz'));await engine.models.warm();

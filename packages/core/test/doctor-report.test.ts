@@ -108,3 +108,29 @@ it("privacy overlays the cached provisioning report immediately without another 
  const rows=second.groups[0].checks.filter((c:any)=>c.id==="privacy.local-only");
  assert.equal(runs,1);assert.equal(rows.length,1);assert.equal(rows[0].status,"fail");
 });
+
+const sandboxCases = [
+  { name: 'unavailable sandbox skips the process cap', available: false, mechanism: 'none', n: 512, status: 'skipped',
+    summary: 'Process cap not checked: the sandbox is unavailable.' },
+  { name: 'Seatbelt reports fork denial even when the configured cap is off', available: true, mechanism: 'fork-denied', n: 0, status: 'ok',
+    summary: 'Forks are denied in the tool sandbox (Seatbelt), whatever tools.sandbox.maxTasks says. The coding-gate verifier is not capped on macOS: process limits there count every process of the user.' },
+  { name: 'namespace accounting reports the configured task cap', available: true, mechanism: 'namespace-limit', n: 7, status: 'ok',
+    summary: "At most 7 tasks per sandboxed run (tool sandbox and Linux coding-gate verifier), counted in the run's own user namespace." },
+  { name: 'a disabled Linux process cap warns', available: true, mechanism: 'namespace-limit', n: 0, status: 'warn',
+    summary: 'Process cap off: the owner set tools.sandbox.maxTasks to 0.' },
+  { name: 'an unenforceable process cap reports the reason and hint', available: true, mechanism: 'none', n: 512, status: 'warn',
+    summary: 'No process cap: fixture reason', hint: 'Run PLUR1BUS as a normal user.' },
+] as const;
+for (const row of sandboxCases) it(row.name, async () => {
+  const hint = 'hint' in row ? row.hint : undefined;
+  const methods = guardMethods(buildDoctorMethods({ home: '/fixture', clock: () => 1000,
+    check: async () => ({ schema: '1staid.check/1', checks: [] }), sandboxMaxTasks: () => row.n,
+    detectSandbox: async () => ({ available: row.available, backend: 'bubblewrap', strength: 'partial', reason: 'fixture',
+      tasks: { mechanism: row.mechanism, reason: 'fixture reason', ...(hint ? { hint } : {}) } }) }), viewer(() => 1000));
+  const report = await methods['doctor.report']!({}, ctxOf()) as { groups: { checks: { id: string; status: string; summary: string; repair?: { label: string } }[] }[] };
+  const checks = report.groups.flatMap(g => g.checks), index = checks.findIndex(c => c.id === 'tools.sandbox.tasks');
+  const check = checks[index]; assert.ok(check);
+  assert.equal(checks[index - 1]!.id, 'tools.sandbox');
+  assert.equal(check.status, row.status); assert.equal(check.summary, row.summary);
+  if (hint) assert.equal(check.repair?.label, hint);
+});

@@ -12,7 +12,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `embedding.useClass` | enum | `"general"` | core | Intended use of the embedding model: general, research, or commercial. |
 | `memory.mediaEmbedding` | object | `{}` | core | Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index. |
 | `providers` | object | `{}` | live | Reserved namespace for model-provider configuration. |
-| `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. |
+| `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. The embedding and rerank roles are still accepted but select no model: the memory engine takes its models from engine.embedding and engine.reranker. |
 | `privacy.localOnly` | boolean | `false` | live | Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly. |
 
 ## Advanced settings
@@ -33,6 +33,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `activity.maxEntries` | integer | `1000` | core | Maximum retained agent activity transitions. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
+| `tools.sandbox.maxTasks` | integer | `512` | live | Most tasks (processes and threads) the programs of one sandboxed run may have together, counted in that run's own user namespace (Linux 5.14 or newer, not as root); bubblewrap's own init process is not counted. Applies to agent tool processes and, on Linux, to the coding-gate verifier. 0 turns the cap off. macOS denies forking in the tool sandbox regardless. Doctor shows whether the cap holds. |
 | `tools.sandbox.required` | boolean | `true` | core | Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn. |
 | `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
 | `tools.hostctl.shell.allowed` | boolean | `false` | core | Allow proc.shell after normal D109 approval. |

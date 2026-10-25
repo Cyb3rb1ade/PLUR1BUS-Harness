@@ -8,7 +8,7 @@ import { engineModelEndpoints } from "./composition/embedding-policy.ts";
 import { hermesClientAuth } from "./rpc/hermes-client-auth.ts";
 import { authorize } from "./rbac/authorize.ts";
 import { buildMemoryModelsSurface } from "./rpc/memory-models-surface.ts";
-import { assertEmbeddingChangeAllowed, memoryModelStatus, storeHoldsTables } from "./embedding-migrate/selection.ts";
+import { assertEmbeddingChangeAllowed, embeddingChange, memoryModelStatus, storeHoldsTables } from "./embedding-migrate/selection.ts";
 import { creationDigest } from "./agents/saga.ts";
 import { LicenceLedger } from "./licences/ledger.ts";
 import { buildLicenceSurface, LICENCE_RULES } from "./rpc/licence-surface.ts";
@@ -984,7 +984,11 @@ export function createCore(o: CoreOptions): Core {
         // The API runs model.licence.check before every web config.set: another embedding identity is written only while the
         // store holds no table (a populated store moves with memory reembed).
         ...buildLicenceSurface(licenceLedger, cfg, changes => assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) })),
-        ...buildMemoryModelsSurface({ status: () => memoryModelStatus(engineConfig, cfg(), storeHoldsTables(String(engineConfig.baseDbPath))) }),
+        ...buildMemoryModelsSurface({
+          status: () => memoryModelStatus(engineConfig, cfg(), storeHoldsTables(String(engineConfig.baseDbPath))),
+          check: changes => embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() }),
+          canSwitch: () => typeof reembedEnginePort.validate === "function",
+        }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, lookup: id => sessions?.forSession(id).store ?? null, breakglass, ownership, personOf }),
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
         ...buildAgentCreationSurface(creation),
@@ -1009,7 +1013,7 @@ export function createCore(o: CoreOptions): Core {
       // The other caller-taking memory ops (forget, correct, share, state, propose, proposals.*) act as the principal derived from `caller`: bind it to the authenticated person like memory.list/show and session.*.
       Object.assign(rawMethods, memoryCallerAccess({ methods: rawMethods, ownership, resolve: resolvePrincipal }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg())] }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, sandboxMaxTasks: () => cfg().tools.sandbox.maxTasks, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg())] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});

@@ -73,9 +73,13 @@ export class DreamStore {
       o.securePath?.(dirname(path), { mode: 0o700 }); // a directory needs its execute bit; the default mode is the file one
     }
     this.#db = new DatabaseSync(path);
-    this.#db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;");
-    this.#migrate();
-    if (path !== ":memory:") o.securePath?.(path);
+    // A store this constructor refuses (newer schema, failed migration, unsecurable file) is closed again: an abandoned
+    // handle keeps the file and its -wal/-shm open until garbage collection, and on Windows that blocks deleting them.
+    try {
+      this.#db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;");
+      this.#migrate();
+      if (path !== ":memory:") o.securePath?.(path);
+    } catch (e) { this.#db.close(); throw e; }
   }
 
   close(): void { this.#db.close(); }

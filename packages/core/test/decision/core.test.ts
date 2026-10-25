@@ -13,6 +13,9 @@ import { tempDir } from '../helpers/temp-dir.ts';
 import { scriptedAdapter } from '../composition/helpers.ts';
 test('full Core routes triage, mapped decision events and synthetic diagnostic through the shared service', async () => {
   const home = tempDir('decision-core-'), cfg = defaults(); cfg.agents.bernd = {}; cfg.modelRoles.decision = 'decision';
+  // The 200 ms production budgets are for reference hardware; a first decision on a shared CI runner (Windows) outlasts
+  // them and ends `timeout`. This test is about routing and event mapping, so its budgets only catch a hang.
+  cfg.decision.timeoutMs = 10_000; cfg.decision.budgets = { triage: 10_000, routing: 10_000 };
   cfg.engine = { duplicateThreshold: 1.01, neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false } };
   writeFileSync(join(home, 'config.json'), JSON.stringify(cfg));
   const triage = { schema: 'plur1bus.triage/1', shape: 'single', tasks: [{ id: 'task', summary: 'Search', start: 0, end: 6, categories: { 'web.research': 1 }, modelClass: { small: 1, medium: 0, large: 0, frontier: 0 }, chosenClass: 'small', effort: 'low', dependsOn: [], confidence: 1, reason: 'secret-model-prose' }] };

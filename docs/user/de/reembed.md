@@ -4,7 +4,7 @@ Wenn du das Embedding-Modell wechselst, muss der Gedächtnis-Store in den neuen 
 
 > **Verfügbarkeit:** Die Migration ist experimentell. Der Wechsel auf ein **lokales** Modell funktioniert wie unten beschrieben. Der Wechsel zu oder zwischen **Cloud**-Modellen (`--provider`, `--base-url`, `--api-key-env`, `--acknowledge-privacy`) ist ab der nächsten Version verfügbar.
 >
-> **Offener Punkt:** Die Memory-Engine bietet den Prüfschritt, den die Umschaltung braucht, noch nicht an. Bis dahin hält ein Lauf in der Phase `validating` an (`engine-validate-unavailable`) und schaltet nie eine ungeprüfte Generation um. Der alte Store bleibt aktiv.
+> Vor der Umschaltung prüft die Memory-Engine die neue Generation: Sie ruft eine deiner Erinnerungen mit dem neuen Modell aus der Kopie ab. Schlägt die Prüfung fehl, hält der Lauf mit dem Grund der Engine an und schaltet nie um; der alte Store bleibt aktiv.
 
 ## So geht's
 
@@ -41,6 +41,18 @@ plur1bus memory reembed --abort
 ```
 
 Ein erneuter Aufruf von `plur1bus memory reembed --run` setzt dieselbe Migration fort; ein angehaltener Lauf (Engine-Fehler, Core-Stopp) wird genauso fortgesetzt.
+
+## Mit config set
+
+Setzt du bei einem Gedächtnis mit Daten mit `plur1bus config set` ein anderes Embedding-Modell, startet dieselbe Migration, ohne dass du sie selbst planen musst:
+
+```sh
+plur1bus config set engine.embedding.local.model google/embeddinggemma-2
+```
+
+Der Befehl schreibt den Wert nicht. Er zeigt den Umzug und den Plan, fragt nach einer Bestätigung (`--yes` außerhalb eines Terminals) und lässt das Re-Embedding im Vordergrund mit Fortschritt laufen; die Umschaltung am Ende schreibt das neue Embedding. Strg-C lässt die Migration im Core weiterlaufen. Mit `--background` kehrt der Befehl direkt nach dem Start zurück, damit du mit weiteren Schritten weitermachen kannst; die Migration schaltet von selbst um, sobald die Kopie fertig ist, und `plur1bus memory reembed --status` verfolgt sie. `--dry-run` plant nur. Ändere das Embedding allein: Ein `config set`, das daneben weitere Engine-Schlüssel setzt, wird abgelehnt, bevor etwas geplant wird. Kehrt der Befehl im Vordergrund zurück, nutzt das Gedächtnis das neue Modell: Der Core startet auf der neuen Generation neu und der Abruf antwortet aus ihr.
+
+Eine Änderung, die den Vektorraum behält, oder eine bei einem Gedächtnis ohne Daten wird wie gewohnt geschrieben. Ein Modell, das die Gedächtnis-Engine nicht laden kann, wird abgelehnt, bevor etwas geschrieben wird. Ohne laufenden Core wird die Änderung mit einer Warnung geschrieben, dass sie nicht geprüft werden konnte.
 
 ## Gut zu wissen
 

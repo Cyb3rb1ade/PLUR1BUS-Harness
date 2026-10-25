@@ -1,7 +1,8 @@
-// The whole stack against the REAL engine (flat embedder seam, no model download): RPC → driver → engine port →
-// the pinned engine's re-embedding coordinator. What the fakes cannot prove: the answers' shapes, the engine's own
-// "no change" refusal text, the empty-store plan and the fail-closed stop at `validating` (the pinned contract has no
-// validate).
+// The whole stack against the REAL engine (flat embedder and flat target provider seams, no model download): RPC → driver →
+// engine port → the pinned engine's re-embedding coordinator. What the fakes cannot prove: the answers' shapes, the engine's
+// own "no change" refusal text, a copy of a store with data and the engine's validation (contract 1.17.0) up to
+// `ready-to-switch`. The switch itself writes config.json through the supervisor, which this in-process core has none of: it
+// is refused with the reason and the old model stays active (tests/system/reembed.test.ts makes the switch).
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
@@ -15,6 +16,7 @@ import { flatTestInternals } from "../helpers/flat-embedder.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 
 const E5 = "intfloat/multilingual-e5-small";
+const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 const JINA = "jinaai/jina-embeddings-v3";
 
 describe("re-embedding over the real engine (in-process core)", () => {
@@ -33,6 +35,8 @@ describe("re-embedding over the real engine (in-process core)", () => {
     const until = Date.now() + 30_000;
     while (!core.status().engine.ready && Date.now() < until) await new Promise((r) => setTimeout(r, 25));
     assert.equal(core.status().engine.ready, true, "the engine warm-up finished");
+    // A memory to move: the engine's validation recalls one source memory from the copied generation.
+    await c.call("memory.capture", { caller, agentId: "bernd", wait: true, messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant", content: "Noted." }] });
   });
   after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); });
 
@@ -49,14 +53,26 @@ describe("re-embedding over the real engine (in-process core)", () => {
     }
   });
 
+  it("admin.embedding.check says what a config set does to the embedding of a store with data", async () => {
+    assert.equal(c.hello.capabilities?.methods["admin.embedding.check"]?.stability, "experimental");
+    const current = { provider: "local-transformers", model: E5, dimensions: 384 };
+    assert.deepEqual(await call("admin.embedding.check", { changes: [{ key: "engine.embedding.local.model", value: E5 }] }), { effect: "unchanged", current, target: null, canSwitch: true });
+    // Agent bernd's table holds a memory, so another model moves the store; the engine validates (1.17.0), so the run switches.
+    assert.deepEqual(await call("admin.embedding.check", { changes: [{ key: "engine.embedding.local.model", value: "google/embeddinggemma-2" }] }),
+      { effect: "move", current, target: { provider: "local-transformers", model: "google/embeddinggemma-2", dimensions: 768 }, canSwitch: true });
+    // A non-commercial model needs its persisted licence confirmation, as at the engine start; an unpinned one is refused.
+    await assert.rejects(c.call("admin.embedding.check", { changes: [{ key: "engine.embedding.local", value: { model: JINA } }] }), (e: any) => e.error === "E_DENIED" && e.reason === "model-licence-required");
+    await assert.rejects(c.call("admin.embedding.check", { changes: [{ key: "engine.embedding.local.model", value: "Qwen/Qwen3-Embedding-0.6B" }] }), (e: any) => e.error === "E_INVALID_PARAMS" && e.reason === "embedding-model-unavailable");
+  });
+
   it("the harness default model is already the store's identity: compatible, nothing to migrate", async () => {
     const r = await call("admin.reembed.plan", { model: E5 });
     assert.equal(r.probe.verdict, "compatible"); assert.equal(r.plan, null);
     assert.equal((await call("admin.reembed.status")).checkpoint, null);
   });
 
-  it("a different pinned model plans against the real engine, runs, and stops fail-closed at validating", async () => {
-    const plan = await call("admin.reembed.plan", { model: JINA, throttleMs: 0 });
+  it("a different pinned model plans against the real engine, copies the store and the engine validates it: ready to switch", async () => {
+    const plan = await call("admin.reembed.plan", { model: "google/embeddinggemma-2", throttleMs: 0 });
     assert.equal(plan.probe.verdict, "migration-needed", JSON.stringify(plan.probe));
     assert.ok(plan.probe.changed.includes("model")); assert.equal(plan.plan.sourceGeneration.length > 0, true);
     assert.equal(plan.plan.batchSize, 8);
@@ -76,13 +92,17 @@ describe("re-embedding over the real engine (in-process core)", () => {
     await call("admin.reembed.run", { switch: false });
     let st = await call("admin.reembed.status");
     for (let i = 0; i < 200 && st.running; i++) { await new Promise((r) => setTimeout(r, 25)); st = await call("admin.reembed.status"); }
-    assert.equal(st.checkpoint.phase, "validating", JSON.stringify(st.checkpoint));
-    assert.equal(st.checkpoint.error.code, "engine-validate-unavailable");
-    assert.equal(st.engineState, "validating");
-    assert.equal(st.progress.rowsDone, st.progress.rows);
+    assert.equal(st.checkpoint.phase, "ready-to-switch", JSON.stringify(st.checkpoint));
+    assert.equal(st.checkpoint.error, null);
+    assert.equal(st.engineState, "ready_to_switch");
+    assert.ok(st.progress.rows >= 1); assert.equal(st.progress.rowsDone, st.progress.rows);
   });
 
-  it("a switch is never made from there, and a second plan is refused while it is unfinished", async () => {
+  it("the switch needs the supervisor: refused with the reason, the old model stays active; a second plan waits for it", async () => {
+    await assert.rejects(c.call("admin.reembed.run", { switch: true }), (e: any) => e.reason === "switch-unavailable");
+    const st = await call("admin.reembed.status");
+    assert.equal(st.checkpoint.phase, "ready-to-switch"); assert.equal(st.checkpoint.error.code, "switch-unavailable");
+    assert.deepEqual((await call("admin.embedding.check", { changes: [{ key: "engine.embedding.local.model", value: E5 }] })).effect, "unchanged");
     await assert.rejects(c.call("admin.reembed.plan", { model: JINA }), (e: any) => e.error === "E_CONFLICT" && e.reason === "migration-active");
     const r = await call("admin.reembed.abort");
     assert.equal(r.checkpoint.phase, "aborted");

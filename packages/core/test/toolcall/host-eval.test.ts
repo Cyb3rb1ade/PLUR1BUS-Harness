@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hostEvalGate, reportLabel, HOST_EVAL_SUITE, HOST_SCENARIO_IDS, type HostEvalReport } from '../../src/toolcall/host-eval.ts';
+// The corpus spells `outside-root` as the POSIX path /outside-root/private.txt. Windows refuses a rooted path without a drive
+// outright (D109 `drive-relative`): the read is denied, never asked, so that one scenario cannot meet its expected approval
+// there. It stays a refusal, never a policy escape.
+const WINDOWS_DENIED: readonly string[] = process.platform === 'win32' ? ['outside-root'] : [];
 const report = (passed: number, evidence: HostEvalReport['evidence'] = 'recorded'): HostEvalReport => ({ schema: 'plur1bus.host-tool-eval/1', suite: HOST_EVAL_SUITE, provider: 'fixture', model: 'default', evidence, generatedAt: new Date().toISOString(), status: 'completed', scenarios: Array.from({length:20},(_,i)=>({id:HOST_SCENARIO_IDS[i]!,passed:i<passed,policyEscapes:0})), successRate: passed/20, policyEscapes:0 });
 test('95% gate is per default model and never averages, fakes or accepts empty coverage', () => {
   assert.equal(reportLabel(report(19)), 'supported'); assert.equal(reportLabel(report(18)), 'limited tool use');
@@ -21,7 +25,12 @@ test('20 host scenarios exercise scratch files, policy refusals and approved fak
   const {runHostEval,HOST_SCENARIOS}=await import('../../src/toolcall/host-eval.ts');
   const {hostHarness}=await import('./host-harness.ts');
   const result=await runHostEval(HOST_SCENARIOS,{provider:'fixture',model:'host-regression'},async i=>structuredClone(HOST_SCENARIOS.find(s=>s.id===i.id)!.transcript),hostHarness);
-  assert.deepEqual(result.scenarios.filter(s=>!s.passed),[]); assert.equal(result.successRate,1); assert.equal(result.policyEscapes,0);
+  assert.deepEqual(result.scenarios.filter(s=>!s.passed),WINDOWS_DENIED.map(id=>({id,passed:false,policyEscapes:0})));
+  assert.equal(result.successRate,(HOST_SCENARIOS.length-WINDOWS_DENIED.length)/HOST_SCENARIOS.length); assert.equal(result.policyEscapes,0);
+  for(const id of WINDOWS_DENIED){ // denied by the policy, not failed for another reason
+    const s=HOST_SCENARIOS.find(x=>x.id===id)!; const h=await hostHarness(s);
+    try { const r=await h.dispatcher.call({id,...s.transcript[0]!},h.context); assert.equal(r.isError&&r.error.code,'tool-denied',id); } finally { await h.close(); }
+  }
   assert.equal(reportLabel(result),'unknown');
 });
 test('report storage refuses stale, oversized, incomplete and mismatched corpus evidence', async () => {
@@ -64,7 +73,11 @@ test('nightly CLI drives provider tool calls without narrowing independent relea
     assert.equal(calls,80);
     for(const suffix of ['/chat/completions','/messages','/responses',':generateContent'])assert.equal(paths.filter(p=>p.endsWith(suffix)).length,20);
     const reports=JSON.parse(await readFile(join(dir,'host-reports.json'),'utf8'));
-    assert.equal(reports.length,4); for(const report of reports)assert.equal(report.successRate,1); assert.equal(reports[0].baseUrl,undefined); assert.equal(reports[0].keyEnv,undefined);
+    assert.equal(reports.length,4); assert.equal(reports[0].baseUrl,undefined); assert.equal(reports[0].keyEnv,undefined);
+    for(const report of reports){
+      assert.deepEqual(report.scenarios.filter((s:{passed:boolean})=>!s.passed).map((s:{id:string})=>s.id),WINDOWS_DENIED);
+      assert.equal(report.successRate,(HOST_SCENARIOS.length-WINDOWS_DENIED.length)/HOST_SCENARIOS.length);
+    }
     const gate=JSON.parse(await readFile(join(dir,'gate.json'),'utf8')); assert.equal(gate.passed,false);
     const captures=JSON.parse(await readFile(join(dir,'host-eval-recordings.json'),'utf8'));
     assert.equal(captures.models.length,4); assert.ok(captures.models.every((m:{transcripts:unknown[]})=>m.transcripts.length===20));

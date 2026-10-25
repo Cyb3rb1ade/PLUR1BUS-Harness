@@ -49,6 +49,25 @@ and writes no journal line. LLM calls go through `HostServices::llm()` with `Can
 LLM port the row is stored with `importanceStatus`/`emotionStatus = "pending"` and the diagnostic
 `post-turn-refine-unscheduled` is returned — never a blocking wait.
 
+Every word splitter this package ports goes through RE-04 T0's `text::js`/`text::legacy`, byte-identically and with the
+German defects included (plan §1.6, last paragraph; §2.5):
+- `lib/memory-fact-quality.js`: the lookaround phrase matching at `:94-108`; it is NFC/NFD-sensitive as in Node.
+- `lib/memory-merge-safety.js`: written with `[0-9]`, never Unicode `\d`; the one-rule stemmer and the Jaccard 0.8/0.9
+  thresholds.
+- `lib/memory-chunking.js`: the lookbehind sentence splits at `:57-70` and `:166-179`.
+- `lib/tier1-lexicon.js`, `lib/categorize.js` and `lib/critical-classifier.js`.
+- `lib/episodes.js`: the `localeCompare` tie-break at `:230`, through RE-D17's collator.
+
+Cut sites (RE-D17):
+- `captureMaxChars` cuts with `text::js::utf16_slice`.
+- The neo cuts of `normalizeStatement` (`lib/neo-arch.js:2258-2259`, 4,000) and `normalizeBehaviorStatement` (`:2288`,
+  1,000) yield a `JsString`.
+- `stableId` hashes the `JSON.stringify` text of its parts (`:242-249`), escape included.
+- Golden `a_neo_stable_id_with_a_statement_cut_inside_an_emoji_matches_node` (the `stableId("mem", turn.id, category,
+  normalizedStatement)` of `:1457`).
+
+The fix of these splitters is RE-D16 (RE-10 T10).
+
 **Modules added by the 2026-10-23 audit** (rows owned by RE-05 in [`MODULE-MAP.md`](MODULE-MAP.md)). T1: `lib/runtime-scheduler.js`
 (687 — turn admission: `isBackgroundTurn`, `shouldSkipAutoCaptureForInternalTurn`, `createBackgroundMemoryScheduler` with
 priorities, timeouts and the pressure skip; the thresholds of `lib/runtime-pressure-gate.js` and the depth bound of
@@ -143,7 +162,10 @@ pub struct Neo; impl Neo { pub fn open(dir: &Path, lock: JobLock) -> Result<Neo,
   `speaker_labels_map_through_the_store_and_new_ones_are_proposed`, `a_reminder_sentence_yields_a_reminder_row_with_remind_at`,
   `dynamics_initialise_strength_and_half_life_as_the_node_engine`, `emotional_state_file_updates_atomically`.
 - [ ] **Step 3: implement** `classify.rs`, `emotion.rs` (`.emotional-state.json` via `StateFile`), `speaker.rs`,
-  `reminders.rs`, `dynamics.rs` (+ the deferred queue the `post-turn-refine` job drains in RE-06).
+  `reminders.rs`, `dynamics.rs` (+ the deferred queue the `post-turn-refine` job drains in RE-06), and `tier2.rs`. `tier2.rs`
+  ports `lib/tier2-transformer.js` as what it is, a keyword-density scorer with no model: `:105-113` sets `_session = null`,
+  `:141` takes `\p{L}+` words, and `:80-91` guesses German at ≥ 3 marker hits. Softmax and confidence are byte-identical,
+  with a golden of their own.
 - [ ] **Step 4: commit** `RE-05/T3: classification, emotion, speaker, reminders, dynamics`.
 
 ### T4 — Reconsolidation, contradictions, continuity, critical (one pull request)

@@ -9,6 +9,7 @@ pub mod budget;
 pub mod channel;
 pub mod completions;
 pub mod config;
+pub mod config_embedding;
 pub mod core;
 pub mod daemon;
 pub mod decision_notice;

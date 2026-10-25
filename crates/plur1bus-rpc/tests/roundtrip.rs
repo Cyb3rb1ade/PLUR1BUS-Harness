@@ -978,6 +978,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AdminEmbeddingServeParams,
                 types::AdminEmbeddingServeResult,
             >(name, fixture, &root_schema),
+            "admin.embedding.check" => check_pair::<
+                types::AdminEmbeddingCheckParams,
+                types::AdminEmbeddingCheckResult,
+            >(name, fixture, &root_schema),
             "dreams.status" => check_pair::<types::DreamsStatusParams, types::DreamsStatusResult>(
                 name,
                 fixture,
