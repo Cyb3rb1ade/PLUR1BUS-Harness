@@ -42,6 +42,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "remote.noticeAck.at", type: "integer", tier: "advanced", help: "Confirmation time in epoch milliseconds." },
   { key: "remote.noticeAck.version", type: "integer", tier: "advanced", help: "Security notice text version confirmed by this person." },
   { key: "activity.maxEntries", type: "integer", tier: "advanced", help: "Maximum retained agent activity transitions." },
+  { key: "tools.sandbox.maxTasks", type: "integer", tier: "advanced", help: "Most tasks (processes and threads) the programs of one sandboxed run may have together, counted in that run's own user namespace (Linux 5.14 or newer, not as root); bubblewrap's own init process is not counted. Applies to agent tool processes and, on Linux, to the coding-gate verifier. 0 turns the cap off. macOS denies forking in the tool sandbox regardless. Doctor shows whether the cap holds." },
   { key: "tools.sandbox.required", type: "boolean", tier: "advanced", help: "Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn." },
   { key: "tools.hostctl.enabled", type: "boolean", tier: "advanced", help: "Register local hostctl tools." },
   { key: "tools.hostctl.shell.allowed", type: "boolean", tier: "advanced", help: "Allow proc.shell after normal D109 approval." },

@@ -27,8 +27,8 @@ same way. No fixed value can work, so the launcher stops setting it. CPU time (`
 ## Non-goals and anti-goals
 
 - No limit on threads or processes. Idle threads cost almost nothing, and limiting them breaks programs.
-- No per-sandbox process cap in this change. A real one needs a cgroup v2 `pids.max`, which only works where a cgroup
-  is delegated to the user. That is a separate follow-up.
+- No per-sandbox process cap in this CPU-affinity change. The separate [sandbox process-cap design](2026-10-24-sandbox-process-cap-design.md)
+  uses `RLIMIT_NPROC` inside each run's own Linux user namespace (Linux 5.14+), without cgroup delegation.
 - Anti-goal: a setting that silently does nothing. Where the OS cannot bind processes to cores, `daemon.status` reports
   `unsupported` and the web UI says so next to the slider.
 

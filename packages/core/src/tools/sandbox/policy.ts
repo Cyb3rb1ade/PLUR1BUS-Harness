@@ -59,7 +59,10 @@ async function absolute(p: string, denied: readonly DenyEntry[] = []): Promise<s
 export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
   if (!isHostPlatform(process.platform)) throw new SandboxFailure('unsupported sandbox platform');
   if (!['none', 'egress', 'full'].includes(p.network)) throw new SandboxFailure('invalid network policy');
-  for (const n of Object.values(p.limits)) if (!Number.isSafeInteger(n) || n <= 0) throw new SandboxFailure('sandbox limits must be positive safe integers');
+  if (!Number.isSafeInteger(p.limits.maxTasks) || p.limits.maxTasks < 0 || p.limits.maxTasks > 65536)
+    throw new SandboxFailure('sandbox task cap must be 0 to 65536');
+  for (const [key, n] of Object.entries(p.limits)) if (key !== 'maxTasks' && (!Number.isSafeInteger(n) || n <= 0))
+    throw new SandboxFailure('sandbox limits must be positive safe integers');
   if (p.limits.maxOutputBytes > 4 * 1024 * 1024 || p.limits.timeoutMs > 600000) throw new SandboxFailure('sandbox limits exceed hard caps');
   const home = await absolute(p.home), userHome = await absolute(p.userHome);
   const denied: DenyEntry[] = [...denyEntriesFor(userHome, process.env, process.platform), { path: join(home, 'run') }, { path: join(home, 'state') }, { path: join(home, 'secrets') }, { path: join(home, 'config.json') }, { path: join(home, 'bin') }, { path: join(home, 'runtime') }, ...(p.deny ?? [])];

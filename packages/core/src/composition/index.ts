@@ -59,6 +59,7 @@ import { createCollab, alsAgentScopePort, type Collab } from '../collab/index.ts
 import { liveLogsRedactionPort } from '../collab/ports.ts';
 import { ChatPromotion, promotionMethods } from '../collab/chat-promotion.ts';
 import { CodingGate } from '../collab/coding-gate.ts';
+import { sandboxVerifier } from '../collab/verifier.ts';
 import { codingMethods, reviewHooks, type CodingCompletion } from '../collab/coding-surface.ts';
 import { composedAgentRunner } from './collaboration.ts';
 import { legacyAdapter } from './legacy.ts';
@@ -247,7 +248,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const profilePolicy = (cfg.providers as { modelProfilePolicy?: Record<string, { allowCrossBilling?: unknown }> }).modelProfilePolicy ?? {};
     let collab: Collab | null = null;
     let coding: CodingCompletion | undefined;
-    const toolsForTurn = (req: ChatRequest) => composeTools({ sandbox: { required: cfg.tools.sandbox.required }, home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, output: execOutput, ...(coding ? { coding } : {}), ...(collab ? { collaboration: {
+    const toolsForTurn = (req: ChatRequest) => composeTools({ sandbox: { required: cfg.tools.sandbox.required, maxTasks: d.config().tools.sandbox.maxTasks }, home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, output: execOutput, ...(coding ? { coding } : {}), ...(collab ? { collaboration: {
       ...(coding ? { review: reviewHooks(coding) } : {}),
       collab, enabled: () => d.config().collaboration.fanoutEnabled,
       repair: async (input: unknown, issues: readonly string[]) => {
@@ -340,7 +341,8 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     })) : null;
     if (collab) {
       disposers.push(() => collab.shutdown());
-      const gate = new CodingGate({ path: join(d.home, 'state', 'coding-gate.sqlite'), audit: event => { d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'coding.gate', target: 'task', detail: { ...event } }); } });
+      const gate = new CodingGate({ path: join(d.home, 'state', 'coding-gate.sqlite'),
+        verifier: sandboxVerifier(60000, { limitsHelper: join(d.home, 'bin', 'plur1bus-sandbox-limits'), maxTasks: () => d.config().tools.sandbox.maxTasks }), audit: event => { d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'coding.gate', target: 'task', detail: { ...event } }); } });
       disposers.push(() => gate.close());
       coding = { collab, gate, worktrees: options.projectWorktrees ?? { root: agentId => d.agents.workspaceOf(agentId) ?? null } };
     }

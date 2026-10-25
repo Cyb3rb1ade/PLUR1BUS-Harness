@@ -32,6 +32,7 @@
   },
   "tools": {
     "sandbox": {
+      "maxTasks": 512,
       "required": true
     },
     "hostctl": {

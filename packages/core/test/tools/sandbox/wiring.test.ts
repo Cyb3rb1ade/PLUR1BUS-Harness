@@ -134,3 +134,12 @@ test('even a broad approved root cannot edit sandbox configuration or installati
     }
   } finally {await rm(dir,{recursive:true,force:true});}
 });
+
+test('the sandbox policy carries the configured task cap, 512 by default', async () => {
+  const { sandboxPolicy } = await import('../../../src/tools/sandbox/ports.ts');
+  const o = { home: '/fixture', roots: [], deny: [], principal: 'p', audit: { append() {} } as never };
+  const spec = { program: '/bin/true', args: [], cwd: '/fixture', env: {} };
+  assert.equal(sandboxPolicy(o, spec).limits.maxTasks, 512);
+  for (const maxTasks of [0, 7, 65536])
+    assert.equal(sandboxPolicy({ ...o, sandbox: { maxTasks } }, spec).limits.maxTasks, maxTasks);
+});

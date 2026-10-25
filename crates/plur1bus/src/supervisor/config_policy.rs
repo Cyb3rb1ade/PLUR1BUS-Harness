@@ -290,6 +290,22 @@ pub fn audit(
 mod tests {
     use super::*;
     #[test]
+    fn sandbox_task_cap_is_owner_only() {
+        let before = json!({"tools":{"sandbox":{"maxTasks":512}}});
+        let after = json!({"tools":{"sandbox":{"maxTasks":0}}});
+        for role in ["admin", "operator", "member", "viewer"] {
+            assert_eq!(
+                changes(schema(), &before, &after, role),
+                Err("config-write-role")
+            );
+        }
+        assert!(changes(schema(), &before, &after, "owner")
+            .unwrap()
+            .iter()
+            .any(|r| r.key == "tools.sandbox.maxTasks"));
+    }
+
+    #[test]
     fn sandbox_bypass_is_owner_only_even_for_parent_replacements() {
         let before = json!({"tools":{"sandbox":{"required":true}}});
         let after = json!({"tools":{"sandbox":{"required":false}}});

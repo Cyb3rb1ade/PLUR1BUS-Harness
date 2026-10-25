@@ -3395,6 +3395,19 @@
               "additionalProperties": false,
               "default": {},
               "properties": {
+                "maxTasks": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65536,
+                  "default": 512,
+                  "description": "Most tasks (processes and threads) the programs of one sandboxed run may have together, counted in that run's own user namespace (Linux 5.14 or newer, not as root); bubblewrap's own init process is not counted. Applies to agent tool processes and, on Linux, to the coding-gate verifier. 0 turns the cap off. macOS denies forking in the tool sandbox regardless. Doctor shows whether the cap holds.",
+                  "x-tier": "advanced",
+                  "x-restart": "live",
+                  "x-write-roles": [
+                    "owner"
+                  ],
+                  "x-audit": true
+                },
                 "required": {
                   "type": "boolean",
                   "default": true,
