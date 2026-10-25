@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, readFile, readdir, rm, chmod, mkdir, unlink } from 
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createFfmpegPorts } from "../../src/media-search/ffmpeg.ts";
+import { binaryExtensions, createFfmpegPorts, isSpawnableName, resolveBinary } from "../../src/media-search/ffmpeg.ts";
 import { mkdtempSync, writeFileSync } from "node:fs";
 const MP4HEAD = new Uint8Array([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0]);
 const fixtureDir = mkdtempSync(join(tmpdir(), "ffmpeg-input-"));
@@ -14,11 +14,16 @@ const AUDIO = join(fixtureDir, "a.wav"); writeFileSync(AUDIO, Buffer.from("RIFF.
 // 20-byte "PNG": signature + IEND chunk. Enough for the frame splitter.
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from([0, 0, 0, 0]), Buffer.from("IEND"), Buffer.from([0xae, 0x42, 0x60, 0x82])]);
 const code = (c: string) => (e: unknown) => (e as { error?: string }).error === c;
+// Windows resolves only `.exe`/`.com` and cannot start the `#!` script itself: the fake is named `.exe` there and the ports'
+// spawn hook runs it through this Node binary. On POSIX the script runs as it is.
+const WIN = process.platform === "win32";
+const EXE = WIN ? ".exe" : "";
+const run = (WIN ? (cmd: string, args: readonly string[], opts: object) => spawn(process.execPath, [cmd, ...args], opts) : spawn) as typeof spawn;
 
 type Cfg = { mode: "frames" | "hang" | "big" | "fail" | "pcm" | "probe"; sceneEmpty?: boolean; frames?: number; samples?: number };
 let root = ""; let n = 0;
 async function fake(cfg: Cfg): Promise<{ bin: string; record: string; argvs: () => Promise<string[][]> }> {
-  const bin = join(root, `fake-${n++}`); const record = `${bin}.argv`;
+  const bin = join(root, `fake-${n++}${EXE}`); const record = `${bin}.argv`;
   const src = `#!${process.execPath}
 const fs = require("node:fs"); const cfg = ${JSON.stringify(cfg)}; const png = Buffer.from(${JSON.stringify(PNG.toString("base64"))}, "base64");
 const argv = process.argv.slice(2); fs.appendFileSync(${JSON.stringify(record)}, JSON.stringify(argv) + "\\n");
@@ -40,7 +45,7 @@ else if (cfg.mode === "pcm") { const f = new Float32Array(cfg.samples ?? 10); fo
 }
 async function setup(cfg: Cfg, extra: Record<string, unknown> = {}) {
   const f = await fake(cfg); const tempDir = join(root, `tmp-${n++}`); await mkdir(tempDir);
-  const ports = createFfmpegPorts({ ffmpegPath: f.bin, tempDir, timeoutMs: 5000, ...extra });
+  const ports = createFfmpegPorts({ ffmpegPath: f.bin, tempDir, timeoutMs: 5000, spawn: run, ...extra });
   return { f, tempDir, ports };
 }
 async function collect<T>(it: AsyncIterable<T>): Promise<T[]> { const out: T[] = []; for await (const x of it) out.push(x); return out; }
@@ -59,7 +64,7 @@ describe("createFfmpegPorts resolution", () => {
   });
   it("finds ffmpeg on PATH", async () => {
     const dir = join(root, "pathdir"); await mkdir(dir);
-    const f = await fake({ mode: "frames" }); const { copyFile } = await import("node:fs/promises"); await copyFile(f.bin, join(dir, "ffmpeg")); await chmod(join(dir, "ffmpeg"), 0o755);
+    const f = await fake({ mode: "frames" }); const { copyFile } = await import("node:fs/promises"); await copyFile(f.bin, join(dir, `ffmpeg${EXE}`)); await chmod(join(dir, `ffmpeg${EXE}`), 0o755);
     const saved = process.env["PATH"]; process.env["PATH"] = dir;
     try { const p = createFfmpegPorts({ tempDir: root }); assert.ok(p.frames); assert.ok(p.audio); } finally { process.env["PATH"] = saved; }
   });
@@ -75,10 +80,68 @@ describe("createFfmpegPorts resolution", () => {
   });
 });
 
+// The platform is a parameter, so the Windows rules run on every OS. The files are executable on POSIX (mode 0o755), so only
+// the Windows rule refuses them.
+describe("binary resolution per platform", () => {
+  const touch = async (dir: string, ...names: string[]) => { await mkdir(dir, { recursive: true }); for (const x of names) await writeFile(join(dir, x), "#!/bin/sh\n", { mode: 0o755 }); };
+  const withPath = async <T>(dir: string, fn: () => T | Promise<T>): Promise<T> => {
+    const saved = process.env["PATH"]; process.env["PATH"] = dir;
+    try { return await fn(); } finally { process.env["PATH"] = saved; }
+  };
+
+  it("tries only native image extensions on Windows and the bare name on POSIX", () => {
+    assert.deepEqual(binaryExtensions("win32"), [".exe", ".com"]);
+    assert.deepEqual(binaryExtensions("linux"), [""]);
+    assert.deepEqual(binaryExtensions("darwin"), [""]);
+  });
+  it("on Windows only .exe and .com names can be spawned without a shell, in any case", () => {
+    for (const ok of ["ffmpeg.exe", "FFMPEG.EXE", "ffmpeg.com", "C:\\Tools\\ffmpeg.Exe", "C:\\a.b\\ffmpeg.exe", "/opt/ffmpeg.exe"]) assert.equal(isSpawnableName(ok, "win32"), true, ok);
+    for (const no of ["ffmpeg.cmd", "FFMPEG.CMD", "ffmpeg.bat", "ffmpeg.Bat", "ffmpeg", "C:\\tools.d\\ffmpeg", "C:\\Tools\\ffmpeg.cmd", "ffmpeg.exe.", "ffmpeg.cmd ", "ffmpeg.ps1", "ffmpeg.exe.cmd"]) assert.equal(isSpawnableName(no, "win32"), false, no);
+  });
+  it("on POSIX every name passes the name check", () => {
+    for (const name of ["ffmpeg", "ffmpeg.cmd", "ffmpeg.bat", "ffmpeg.exe"]) { assert.equal(isSpawnableName(name, "linux"), true); assert.equal(isSpawnableName(name, "darwin"), true); }
+  });
+  it("on Windows a PATH holding only .cmd/.bat shims or an extensionless file resolves to nothing", async () => {
+    const dir = join(root, "win-shims"); await touch(dir, "ffmpeg.cmd", "ffmpeg.bat", "ffmpeg");
+    assert.equal(await withPath(dir, () => resolveBinary(undefined, "ffmpeg", "win32")), null);
+  });
+  it("on Windows the .exe beside a shim is found, and a lone .com too", async () => {
+    const dir = join(root, "win-exe"); await touch(dir, "ffmpeg.cmd", "ffmpeg", "ffmpeg.exe");
+    assert.equal(await withPath(dir, () => resolveBinary(undefined, "ffmpeg", "win32")), join(dir, "ffmpeg.exe"));
+    const com = join(root, "win-com"); await touch(com, "ffmpeg.bat", "ffmpeg.com");
+    assert.equal(await withPath(com, () => resolveBinary(undefined, "ffmpeg", "win32")), join(com, "ffmpeg.com"));
+  });
+  it("on POSIX the bare name on PATH is found as before", async () => {
+    const dir = join(root, "posix-path"); await touch(dir, "ffmpeg");
+    assert.equal(await withPath(dir, () => resolveBinary(undefined, "ffmpeg", "linux")), join(dir, "ffmpeg"));
+  });
+  it("an explicit batch file or extensionless path is refused on Windows and kept on POSIX", async () => {
+    const dir = join(root, "explicit"); await touch(dir, "ffmpeg.cmd", "ffmpeg.bat", "ffmpeg", "ffmpeg.exe");
+    for (const x of ["ffmpeg.cmd", "ffmpeg.bat", "ffmpeg"]) {
+      assert.equal(resolveBinary(join(dir, x), "ffmpeg", "win32"), null, x);
+      assert.equal(resolveBinary(join(dir, x), "ffmpeg", "linux"), join(dir, x), x);
+    }
+    assert.equal(resolveBinary(join(dir, "ffmpeg.exe"), "ffmpeg", "win32"), join(dir, "ffmpeg.exe"));
+    assert.equal(resolveBinary(join(dir, "missing.exe"), "ffmpeg", "win32"), null);
+  });
+  it("createFfmpegPorts: a PATH with only an ffmpeg.cmd shim leaves ffmpeg unavailable (null ports) on every OS", async () => {
+    const dir = join(root, "ports-shim"); await touch(dir, "ffmpeg.cmd", "ffmpeg.bat", "ffprobe.cmd");
+    const p = await withPath(dir, () => createFfmpegPorts({ tempDir: root }));
+    assert.equal(p.frames, null); assert.equal(p.audio, null);
+  });
+  it("createFfmpegPorts: an explicit ffmpegPath naming a batch file gives null ports on Windows, ports on POSIX", async () => {
+    const dir = join(root, "ports-explicit"); await touch(dir, "ffmpeg.cmd", "ffmpeg.bat");
+    for (const x of ["ffmpeg.cmd", "ffmpeg.bat"]) {
+      const p = createFfmpegPorts({ ffmpegPath: join(dir, x), tempDir: root });
+      if (WIN) { assert.equal(p.frames, null, x); assert.equal(p.audio, null, x); } else { assert.ok(p.frames, x); assert.ok(p.audio, x); }
+    }
+  });
+});
+
 describe("frames", () => {
   it("passes argv as an array, path verbatim as one argument, no shell", async () => {
     const calls: Array<{ cmd: string; args: readonly string[]; shell: unknown }> = [];
-    const spy = ((cmd: string, args: readonly string[], opts: { shell?: unknown }) => { calls.push({ cmd, args, shell: opts.shell }); return (spawn as unknown as (...a: unknown[]) => ReturnType<typeof spawn>)(cmd, args, opts); }) as unknown as typeof spawn;
+    const spy = ((cmd: string, args: readonly string[], opts: { shell?: unknown }) => { calls.push({ cmd, args, shell: opts.shell }); return (run as unknown as (...a: unknown[]) => ReturnType<typeof spawn>)(cmd, args, opts); }) as unknown as typeof spawn;
     const { f, ports, tempDir } = await setup({ mode: "frames" }, { spawn: spy });
     const evil = join(root, "my video; rm -rf $(x) `y` & z.mp4");
     await writeFile(evil, MP4HEAD);
