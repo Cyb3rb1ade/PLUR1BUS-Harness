@@ -91,13 +91,16 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
       assert.equal(refusal.error, "E_CONFLICT"); assert.equal(refusal.reason, "migration-active");
       assert.match(refusal.message, /holds the store until \d{4}-\d\d-\d\dT[\d:.]+Z/); assert.match(refusal.message, /--abort/);
 
-      // The run starts the reused plan: the engine accepts its confirmation and leaves `planned`. The flat seam does not embed
-      // the target, so the first batch then stops at the model's licence gate (before any download); the copy and the switch
-      // are the driver tests' (fake engine), the pinned engine cannot validate anyway.
+      // The run starts the reused plan: the engine accepts its confirmation, copies both memories through the flat target
+      // provider and validates them (1.17.0); `core run` has no supervisor to write config.json, so the switch is refused.
       const run = cli(h, ["memory", "reembed", "--run", "--yes"], { allowFail: true });
+      assert.equal(run.exit, 1, JSON.stringify(run));
       const done = JSON.parse(run.stdout);
       assert.equal(done.checkpoint.id, first.plan.id, run.stdout);
-      assert.equal(done.engineState, "running", run.stdout);
+      assert.equal(done.checkpoint.phase, "ready-to-switch", run.stdout);
+      assert.equal(done.checkpoint.error.code, "switch-unavailable");
+      assert.equal(done.engineState, "ready_to_switch", run.stdout);
+      assert.equal(done.checkpoint.counts.rowsDone, done.checkpoint.counts.rows);
       assert.equal(cli(h, ["memory", "reembed", "--abort"]).checkpoint.id, first.plan.id);
     } finally {
       if (core) await stopCore(core);
