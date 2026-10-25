@@ -1,19 +1,27 @@
-// Memory step of the wizard: the non-commercial licence gate (ADR-006). An NC model is selectable only through the confirmation dialog.
+// Memory step of the wizard: the models the engine runs (model.memory.status), what the step writes into engine.embedding and
+// engine.reranker, and the non-commercial licence gate (ADR-006): an NC model is selectable only through the confirmation dialog.
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import type { Page } from "playwright";
+import { expectAxeClean } from "./axe.ts";
 import { browserSkip, setup, teardown, withApp, type App } from "./harness.ts";
-import { ISO, changes, next, open, seed, skip, stepHeading, toSwitchboard } from "./setup-fixtures.ts";
+import { rpcError } from "./mock-rpc.ts";
+import { FRESH_MEMORY, GEMMA_BLOCK, ISO, changes, next, open, seed, stepHeading } from "./setup-fixtures.ts";
 
 before(setup);
 after(teardown);
 const opts = { skip: browserSkip };
 
-async function toMemory(app: App): Promise<void> {
-  seed(app.server.rpc); await open(app);
-  await toSwitchboard(app); await skip(app.page);
+/** Account -> Memory; `status` replaces the engine's answer of a fresh install. */
+async function toMemory(app: App, status: unknown = FRESH_MEMORY): Promise<void> {
+  seed(app.server.rpc); app.server.rpc.handle("model.memory.status", () => structuredClone(status), { write: false });
+  await open(app);
+  await stepHeading(app.page, "Your account").waitFor(); await next(app.page);
   await stepHeading(app.page, /Memory/).waitFor();
+  await app.page.getByRole("radio", { name: /BGE-reranker-v2-m3/ }).waitFor();
 }
+const persona = (p: Page) => stepHeading(p, "Name & persona").waitFor();
+const reranker = (model: string) => ({ key: "engine.reranker", value: { provider: "local-transformers", local: { model } } });
 const jina5 = (p: Page) => p.getByRole("radio", { name: /Jina v5 Text Nano/ });
 const dialog = (p: Page) => p.getByRole("dialog", { name: "Accept a non-commercial licence?" });
 
@@ -39,7 +47,7 @@ describe("setup wizard: NC licence gate", opts, () => {
         assert.equal(await dialog(page).count(), 0, use);
       }
       await next(page);
-      await stepHeading(page, /Language for voice features/).waitFor();
+      await persona(page);
       const keys = changes(app).at(-1)!.map((c) => c.key);
       assert.ok(!keys.includes("embedding.acceptedNcLicence"), "no licence flag is written for the default");
     });
@@ -77,9 +85,8 @@ describe("setup wizard: NC licence gate", opts, () => {
       await dialog(page).waitFor({ state: "detached" });
       assert.equal(await page.evaluate(() => document.activeElement?.id), "setup-embedding-jina-v5-nano", "focus returns to the radio");
       await next(page);
-      await stepHeading(page, /Language for voice features/).waitFor();
-      const last = changes(app).at(-1)!;
-      assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "modelRoles.rerank"]);
+      await persona(page);
+      assert.deepEqual(changes(app).at(-1)!, [{ key: "embedding.useClass", value: "general" }, GEMMA_BLOCK]);
     });
   });
 
@@ -93,25 +100,26 @@ describe("setup wizard: NC licence gate", opts, () => {
       assert.equal(await jina5(page).isChecked(), true);
       await page.getByText(/Confirmed by owner on/).waitFor();
       await next(page);
-      await stepHeading(page, /Language for voice features/).waitFor();
+      await persona(page);
       const last = changes(app).at(-1)!;
-      assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "modelRoles.rerank"]);
+      assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "engine.embedding"]);
       assert.equal(last[0]?.value, "research"); assert.equal(last[1]?.value, true);
       assert.match(String(last[2]?.value), ISO);
-      assert.equal(last[3]?.value, "BAAI/bge-reranker-v2-m3");
+      assert.deepEqual(last[3]?.value, { provider: "local-transformers", local: { model: "jinaai/jina-embeddings-v5-text-nano-retrieval", dimensions: 768 } });
+      assert.deepEqual(app.server.rpc.calls.filter((c) => c.method === "model.licence.confirm").map((c) => c.params), [{ model: "jinaai/jina-embeddings-v5-text-nano-retrieval", accepted: true }]);
     });
   });
 
-  test("an NC reranker needs its own confirmation and sets modelRoles.rerank", async () => {
+  test("an NC reranker needs its own confirmation and is written to engine.reranker", async () => {
     await withApp({}, async (app) => {
       await toMemory(app); const { page } = app;
       await page.getByRole("radio", { name: /Jina reranker v2/ }).click();
       await dialog(page).getByRole("button", { name: "I confirm non-commercial use" }).click();
       await next(page);
-      await stepHeading(page, /Language for voice features/).waitFor();
+      await persona(page);
       const last = changes(app).at(-1)!;
-      assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "modelRoles.rerank"]);
-      assert.equal(last[3]?.value, "jinaai/jina-reranker-v2-base-multilingual");
+      assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "engine.embedding", "engine.reranker"]);
+      assert.deepEqual(last[4], reranker("jinaai/jina-reranker-v2-base-multilingual"));
     });
   });
 
@@ -127,8 +135,8 @@ describe("setup wizard: NC licence gate", opts, () => {
       assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isChecked(), true);
       assert.match((await page.locator("#setup-embedding-jina-v5-nano-d").textContent()) ?? "", /Not available for commercial use/);
       await next(page);
-      await stepHeading(page, /Language for voice features/).waitFor();
-      assert.deepEqual(changes(app).at(-1)!.map((c) => c.key), ["embedding.useClass", "modelRoles.rerank"]);
+      await persona(page);
+      assert.deepEqual(changes(app).at(-1)!.map((c) => c.key), ["embedding.useClass", "engine.embedding"]);
     });
   });
 
@@ -146,13 +154,13 @@ describe("setup wizard: NC licence gate", opts, () => {
       await jina5(page).click();
       await dialog(page).getByRole("button", { name: "I confirm non-commercial use" }).click();
       await next(page);
-      await stepHeading(page, /Language for voice features/).waitFor();
+      await persona(page);
       await page.getByRole("button", { name: "Back", exact: true }).click();
       await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).check();
       await next(page);
-      await stepHeading(page, /Language for voice features/).waitFor();
+      await persona(page);
       assert.deepEqual(changes(app).at(-1)!, [
-        { key: "embedding.useClass", value: "general" }, { key: "embedding.acceptedNcLicence", value: false }, { key: "modelRoles.rerank", value: "BAAI/bge-reranker-v2-m3" },
+        { key: "embedding.useClass", value: "general" }, { key: "embedding.acceptedNcLicence", value: false }, GEMMA_BLOCK,
       ]);
     });
   });
@@ -166,8 +174,87 @@ describe("setup wizard: NC licence gate", opts, () => {
       });
       await page.reload();
       await stepHeading(page, /Memory/).waitFor();
+      await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).waitFor();
       assert.equal(await jina5(page).isChecked(), false);
       assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isChecked(), true);
+    });
+  });
+});
+
+describe("setup wizard: what the memory engine runs", opts, () => {
+  test("only models the engine can load are offered", async () => {
+    await withApp({}, async (app) => {
+      await toMemory(app); const { page } = app;
+      const labels = await page.locator(".setup-opts label").allTextContents();
+      assert.ok(!labels.some((l) => /Qwen3/.test(l)), labels.join(" | "));
+      assert.equal(await page.locator('input[name="setup-embedding"]').count(), 4);
+      assert.equal(await page.locator('input[name="setup-rerank"]').count(), 2);
+    });
+  });
+
+  test("a store with data keeps its embedding model: the others are disabled with the reembed hint; the reranker still changes", async () => {
+    await withApp({}, async (app) => {
+      await toMemory(app, { ...FRESH_MEMORY, embeddingSwitch: "migration-required" }); const { page } = app;
+      assert.equal(await page.getByRole("radio", { name: /multilingual-e5-small/ }).isChecked(), true);
+      assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isDisabled(), true);
+      assert.equal(await jina5(page).isDisabled(), true);
+      await page.getByText(/already holds data embedded with intfloat\/multilingual-e5-small.*plur1bus memory reembed/).waitFor();
+      await expectAxeClean(page, "memory step, store with data");
+      await page.getByRole("radio", { name: /Jina reranker v2/ }).click();
+      await dialog(page).getByRole("button", { name: "I confirm non-commercial use" }).click();
+      await next(page);
+      await persona(page);
+      const last = changes(app).at(-1)!;
+      assert.ok(!last.some((c) => c.key === "engine.embedding"), "the embedding model of a store with data is never written");
+      assert.deepEqual(last.at(-1), reranker("jinaai/jina-reranker-v2-base-multilingual"));
+    });
+  });
+
+  test("a model the step does not offer is shown as in use and kept", async () => {
+    await withApp({}, async (app) => {
+      await toMemory(app, { ...FRESH_MEMORY, embedding: { provider: "openai", model: "text-embedding-3-large", dimensions: 3072, configured: true } }); const { page } = app;
+      const current = page.getByRole("radio", { name: "In use: text-embedding-3-large · 3072 (openai)" });
+      assert.equal(await current.isChecked(), true);
+      await expectAxeClean(page, "memory step, model in use not offered");
+      // With a cloud text embedding the media part preselects no captioning (media-search contract): choose it.
+      await page.locator("#setup-caption-local").check();
+      await next(page);
+      await persona(page);
+      assert.deepEqual(changes(app).at(-1)!.filter((c) => c.key.startsWith("engine.") || c.key === "embedding.useClass"), [{ key: "embedding.useClass", value: "general" }]);
+    });
+  });
+
+  test("an explicitly chosen active model is preselected and an untouched step writes no model", async () => {
+    await withApp({}, async (app) => {
+      await toMemory(app, { ...FRESH_MEMORY, embedding: { ...FRESH_MEMORY.embedding, configured: true } }); const { page } = app;
+      assert.equal(await page.getByRole("radio", { name: /multilingual-e5-small/ }).isChecked(), true);
+      await next(page);
+      await persona(page);
+      assert.deepEqual(changes(app).at(-1)!, [{ key: "embedding.useClass", value: "general" }]);
+    });
+  });
+
+  test("a refusal of the pre-check keeps the step, names the model in use and marks nothing done", async () => {
+    await withApp({}, async (app) => {
+      await toMemory(app); const { page } = app;
+      app.server.rpc.handle("config.set", () => { throw rpcError("E_CONFLICT", "store holds data", "embedding-migration-required"); });
+      await next(page);
+      await page.getByRole("alert").getByText(/already holds data embedded with intfloat\/multilingual-e5-small/).waitFor();
+      await stepHeading(page, /Memory/).waitFor();
+    });
+  });
+
+  test("when the engine's models cannot be loaded the step says so and writes no model", async () => {
+    await withApp({}, async (app) => {
+      seed(app.server.rpc); app.server.rpc.scenario("model.memory.status", "error");
+      await open(app);
+      const { page } = app;
+      await stepHeading(page, "Your account").waitFor(); await next(page);
+      await page.getByText(/could not be loaded/).waitFor();
+      assert.equal(await page.locator('input[name="setup-embedding"]').count(), 0);
+      await next(page);
+      await persona(page);
+      assert.deepEqual(changes(app).at(-1)!, [{ key: "embedding.useClass", value: "general" }]);
     });
   });
 });

@@ -1,5 +1,6 @@
 import type { PrivacyAcknowledgment } from "../../../../config-schema/src/privacy.ts";
 import { effectiveCaption } from "../media-search/model.ts";
+import { memoryChoice } from "./licences.ts";
 import type { Answers, Change } from "./model.ts";
 export type SetupPrivacy = {
     media?: PrivacyAcknowledgment;
@@ -16,7 +17,7 @@ export function cloudFunctions(a: Answers): {
         function: "media" | "caption";
         provider: string;
     }[] = [];
-    const caption = effectiveCaption(a.media, a.embedding);
+    const caption = effectiveCaption(a.media, memoryChoice("embedding", a.embedding, a.memoryModels));
     if (a.media.captionSource !== "off" && caption && caption !== "local" && caption !== "off")
         out.push({ function: "caption", provider: caption });
     return out;

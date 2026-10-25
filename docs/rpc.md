@@ -7223,13 +7223,13 @@ Human keep/drop of a visible Neo curation record. Never accepts caller identity 
 }
 ```
 
-### `model.embedding.select`
+### `model.memory.status`
 
-**Stability:** experimental · since 1.6.0
+**Stability:** experimental · since 1.7.0
 
 **Served by:** core
 
-Make the Memory wizard embedding selection effective via the existing validated migration; refuses unsupported models and unavailable engine validation instead of silently retaining a different model.
+The embedding and reranker models the running memory engine was built with (engine.embedding and engine.reranker, or the harness defaults multilingual-e5-small and the BGE reranker), and whether another embedding model can still be written: embeddingSwitch is allowed while the memory store holds no table and migration-required afterwards (plur1bus memory reembed). A reranker holds no stored data and can change at any time. Authenticated Owner/Admin only.
 
 **params**
 
@@ -7237,16 +7237,8 @@ Make the Memory wizard embedding selection effective via the existing validated 
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {
-    "model": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 256
-    }
-  },
-  "required": [
-    "model"
-  ]
+  "properties": {},
+  "required": []
 }
 ```
 
@@ -7256,18 +7248,60 @@ Make the Memory wizard embedding selection effective via the existing validated 
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {
-    "model": {
-      "type": "string"
-    },
-    "effective": {
-      "type": "boolean"
-    }
-  },
   "required": [
-    "model",
-    "effective"
-  ]
+    "embedding",
+    "reranker",
+    "embeddingSwitch"
+  ],
+  "properties": {
+    "embedding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model",
+        "dimensions",
+        "configured"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "dimensions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "configured": {
+          "type": "boolean",
+          "description": "engine.embedding names a provider or a local model; false while the harness default runs."
+        }
+      }
+    },
+    "reranker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      }
+    },
+    "embeddingSwitch": {
+      "enum": [
+        "allowed",
+        "migration-required"
+      ]
+    }
+  }
 }
 ```
 
@@ -7397,7 +7431,7 @@ Persisted audited model licence list; authenticated Owner/Admin only.
 
 **Served by:** core
 
-Persisted audited model licence check; authenticated Owner/Admin only.
+Checks a set of config changes before config.set (the Harness API runs it for every config.set from the web): a non-commercial memory model needs the persisted licence confirmation (E_DENIED reason=model-licence-required), and a change of the engine embedding identity is refused while the memory store holds a table (E_CONFLICT reason=embedding-migration-required; use plur1bus memory reembed) or when the engine cannot load the model (E_INVALID_PARAMS reason=embedding-model-unavailable). Authenticated Owner/Admin only.
 
 **params**
 

@@ -117,6 +117,18 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- **The setup wizard's memory models reach the memory engine.** The Memory step wrote the reranker to `modelRoles.rerank`, which
+  nothing reads, and never wrote the embedding model, so the engine kept running multilingual-e5-small and the BGE reranker
+  whatever was picked (the default EmbeddingGemma 2 even failed the step). The step now writes `engine.embedding` and
+  `engine.reranker`, the blocks the engine is built from, under the engine's own model ids, and only when the pick differs from
+  what runs (`model.memory.status`, new, replaces `model.embedding.select`). It offers only the local models the pinned engine
+  can load (Qwen3-Embedding and Qwen3-Reranker are gone), and it moved before the persona step, because creating the first agent
+  creates its memory table: another embedding model is written only while the store holds no table. After that the API's
+  `config.set` pre-check refuses it (`E_CONFLICT` reason `embedding-migration-required`; move the store with
+  `plur1bus memory reembed`) and the step changes only the reranker. A confirmed non-commercial embedding now reaches the engine
+  with the licence acceptance it needs to load (`modelPreparation`), and `1staid check`'s `models.cache` checks the configured
+  local models instead of the defaults. A chosen local model without `dimensions` keeps its own width instead of E5's 384. See
+  `docs/user/en/memories.md` and `docs/embedding-migration.md`.
 - **Secret store: a keyring outage no longer undoes rotations and deletes (file fallback on).** While the OS keyring is away,
   `secret set` and `secret rm` can only reach the encrypted file; when the keyring came back, its older copy won and a rotated value
   reverted or a deleted secret reappeared (ADR-005: "an older copy cannot come back"). Reads now take the newer `updatedAt` of the two

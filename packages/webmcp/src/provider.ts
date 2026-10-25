@@ -84,7 +84,7 @@ const FORBIDDEN_EXACT = new Set([
   "channel.handoff.create", "channel.handoff.redeem", "channel.history.get", "channel.history.list",
   // voice.session.create is humanOnly too but not listed: provider.test.ts 'Voice V3' asserts every voice.* method that is not one of the
   // seven writes stays open (owner decision pending).
-  "model.embedding.select", "model.licence.confirm", "model.licence.list", "model.licence.check",
+  "model.memory.status", "model.licence.confirm", "model.licence.list", "model.licence.check",
 ]);
 const FORBIDDEN_PREFIX = ["decision.", "inbox.", "project.column.","supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth.", "grant.", "approval.", "user.", "breakglass.", "device."];
 const FORBIDDEN_SUFFIX = [".auth", ".adopt", ".shutdown"];

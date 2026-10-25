@@ -52,7 +52,7 @@ describe("media search: validation (E_MEDIA_* mirror)", () => {
     assert.ok(codes.includes("E_MEDIA_CAPABILITY"));
   });
   test("capability: a text-only local model is refused for media", () => {
-    const codes = validateMedia({ textProvider: "egemma2", media: local({ provider: "qwen3-emb" }), privacyPin: false, ncConfirmed: false }).map((p) => p.code);
+    const codes = validateMedia({ textProvider: "egemma2", media: local({ provider: "e5-small" }), privacyPin: false, ncConfirmed: false }).map((p) => p.code);
     assert.deepEqual(codes, ["E_MEDIA_CAPABILITY"]);
   });
   test("licence: a non-commercial media model needs its confirmation", () => {
