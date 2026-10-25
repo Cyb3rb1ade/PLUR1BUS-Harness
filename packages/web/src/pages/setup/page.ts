@@ -13,7 +13,7 @@ import { sessionState } from "../../session.ts";
 import type { PageProps } from "../registry.ts";
 import { failureOf } from "../common/load.ts";
 import { choiceById } from "./licences.ts";
-import { changesFor, load, save, stepsFor, validate, type Answers, type Errors, type Saved, type StepId, type Status } from "./model.ts";
+import { changesFor, chosen, load, save, stepsFor, validate, type Answers, type Errors, type Saved, type StepId, type Status } from "./model.ts";
 import { DecisionHintIfMissing } from "../common/decision-hint.ts";
 import { BackupStep, DecisionStep, ImportStep, ModelStep, PersonaStep, UnavailableStep, type StepProps } from "./steps.ts";
 import { lazySection } from "../common/lazy-section.ts";
@@ -43,7 +43,7 @@ function Summary({ steps, st }: { steps: readonly StepId[]; st: Saved }): View {
       case "persona": return t("setup.summary.persona", { id: a.agentId, name: a.displayName });
       case "model": return t("setup.summary.model", { model: a.chatModel });
       case "decision": return a.decisionModel ?? "";
-      case "memory": return t("setup.summary.memory", { useClass: t(`setup.memory.use.${a.useClass}` as Key), embedding: choiceById(a.embedding)?.name ?? a.embedding, rerank: choiceById(a.rerank)?.name ?? a.rerank });
+      case "memory": return t("setup.summary.memory", { useClass: t(`setup.memory.use.${a.useClass}` as Key), embedding: choiceById(chosen("embedding", a))?.name ?? t("setup.summary.unchanged"), rerank: choiceById(chosen("rerank", a))?.name ?? t("setup.summary.unchanged") });
       case "voice": return a.voice ? t("setup.summary.voice", { language: a.voice.language, profile: a.voice.profile }) : "";
       case "backup": return t("setup.summary.backup", { id: a.backupId });
       default: return "";
@@ -107,11 +107,11 @@ export function SetupPage({ item }: PageProps): View {
     if (changes.length > 0) {
       saving.current = true; setBusy(true); setFail("");
       try {
-        if (def.id === "memory") for (const id of [answers.embedding,answers.rerank]) {
-          const model = choiceById(id);
-          if (model?.nc && answers.nc) await getApi().rpc("model.licence.confirm", { model: model.hf, accepted: true });
+        // The licence ledger records each confirmed non-commercial model; the config.set pre-check and the engine start require it.
+        if (def.id === "memory") for (const kind of ["embedding", "rerank"] as const) {
+          const model = choiceById(chosen(kind, answers));
+          if (model?.nc && answers.nc) await getApi().rpc("model.licence.confirm", { model: model.model, accepted: true });
         }
-        if (def.id === "memory") { const selected = choiceById(answers.embedding); if (selected) await getApi().rpc("model.embedding.select", {model:selected.hf}); }
         if (def.id === "persona") {
           // Persist the attempt timestamp before I/O, so a lost response keeps the same server key.
           setSt(previous => ({ ...previous, answers: { ...previous.answers, createdAt: answers.createdAt } }));
@@ -134,11 +134,13 @@ export function SetupPage({ item }: PageProps): View {
           await getApi().rpc("config.set", { changes, ifRevision: current.revision });
         } else await getApi().rpc("config.set", { changes });
       } catch (e) {
-        // A refused media setting names its E_MEDIA_* code; show what the person can do about it.
+        // The config.set pre-check refuses another embedding model once the store holds data (it can change between loading the
+        // step and saving it), and a model the engine cannot load; nothing was written.
         const selectionReason = (e as {reason?:string}).reason;
-        if (selectionReason === "embedding-model-unavailable" || selectionReason === "embedding-migration-unavailable") {
-          setFail(t(selectionReason === "embedding-model-unavailable" ? "setup.err.embeddingUnavailable" : "setup.err.embeddingMigration"));saving.current=false;setBusy(false);return;
+        if (selectionReason === "embedding-model-unavailable" || selectionReason === "embedding-migration-required") {
+          setFail(selectionReason === "embedding-model-unavailable" ? t("setup.err.embeddingUnavailable") : t("setup.err.embeddingMigration", { model: answers.memoryModels?.embedding.model ?? "" }));saving.current=false;setBusy(false);return;
         }
+        // A refused media setting names its E_MEDIA_* code; show what the person can do about it.
         const media = mediaErrorOf(e);
         if (media) { setFail(problemText(media)); saving.current = false; setBusy(false); return; }
         const k = failureOf(e).kind;
@@ -148,7 +150,7 @@ export function SetupPage({ item }: PageProps): View {
       }
       saving.current = false; setBusy(false);
     }
-    const wantsNc = def.id === "memory" && [answers.embedding, answers.rerank].some((id) => choiceById(id)?.nc === true);
+    const wantsNc = def.id === "memory" && (["embedding", "rerank"] as const).some((kind) => choiceById(chosen(kind, answers))?.nc === true);
     if (answers !== a) setSt((s) => ({ ...s, answers: { ...s.answers, createdAt: answers.createdAt } }));
     if (def.id === "memory") setSt((s) => ({ ...s, answers: { ...s.answers, ncWritten: wantsNc && !!answers.nc } }));
     // The voice step does its work itself (download); leaving it without a download is a skip, not a "done".
@@ -164,7 +166,7 @@ export function SetupPage({ item }: PageProps): View {
     case "decision": body = h(DecisionStep, props); break;
     case "switchboard": body = h(UnavailableStep, { title: t("setup.switchboard.title"), body: t("setup.switchboard.body") }); break;
     case "memory": body = h("div", {}, h(MemoryStep, props),
-      h(MediaSetupStep, { textProvider: a.embedding, media: a.media, set: (m) => { patch({ media: { ...a.media, ...m } }); }, error: errors.media as MediaProblemCode }),
+      h(MediaSetupStep, { textProvider: chosen("embedding", a), media: a.media, set: (m) => { patch({ media: { ...a.media, ...m } }); }, error: errors.media as MediaProblemCode }),
       ...cloudFunctions(a).map(c => h("div", { key: c.function, class: "setup-opt" },
         h("input", { id: `setup-privacy-${c.function}`, type: "checkbox", required: true,
           disabled: busy || sessionState.value.status !== "authenticated" || !["owner", "admin"].includes(sessionState.value.user.role),

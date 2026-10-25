@@ -8,6 +8,15 @@ import { installVoice } from "./voice-fixtures.ts";
 
 export const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
+/** `model.memory.status` of a fresh install: the harness defaults run and no agent table exists yet. */
+export const FRESH_MEMORY = {
+  embedding: { provider: "local-transformers", model: "intfloat/multilingual-e5-small", dimensions: 384, configured: false },
+  reranker: { provider: "local-transformers", model: "woxpas-ai/bge-reranker-v2-m3-onnx" },
+  embeddingSwitch: "allowed",
+};
+/** The engine.embedding change the Memory step writes for EmbeddingGemma 2. */
+export const GEMMA_BLOCK = { key: "engine.embedding", value: { provider: "local-transformers", local: { model: "google/embeddinggemma-2", dimensions: 768 } } };
+
 export function seed(target: MockRpc | MockHarnessServer, models: unknown[] | null = [
   { provider: "anthropic", id: "claude-x", displayName: "Claude X", kind: "chat", status: "available" },
   { provider: "anthropic", id: "embed-1", displayName: "Embed 1", kind: "embedding", status: "available" },
@@ -18,7 +27,7 @@ export function seed(target: MockRpc | MockHarnessServer, models: unknown[] | nu
   rpc.handle("config.get", p => ({ value:agents.get((p as {key?:string}).key?.replace(/^agents\./,"") ?? ""), revision:"r1" }), {write:false});
   rpc.handle("agent.create", p => { const q = p as {name:string;displayName:string};agents.set(q.name,{displayName:q.displayName});return {agentId:q.name}; });
   if ("events" in target && target.events) target.events.enable();
-  rpc.handle("model.embedding.select", p => ({model:(p as {model:string}).model,effective:true}));
+  rpc.handle("model.memory.status", () => structuredClone(FRESH_MEMORY), { write: false });
   rpc.handle("model.licence.confirm", p => ({ acceptance: { ...(p as object), who:"owner", at:new Date().toISOString(), licence:"CC BY-NC-4.0", revision:"fixture" } }));
   rpc.handle("config.set", () => ({ applied: true, dryRun: false, changed: [], restart: {}, revision: "r1", restarted: [], durationMs: 1 }));
   if (models) rpc.handle("models.list", () => ({ models, providers: [], newCount: 0, warnings: [] }), { write: false });
@@ -34,12 +43,29 @@ export const stepHeading = (page: Page, name: string | RegExp) => page.getByRole
 export const next = (page: Page) => page.getByRole("button", { name: /^(Next|Finish|Weiter|Abschließen)$/ }).click();
 export const skip = (page: Page, name: string | RegExp = /^(Skip this step|Skip and finish|Schritt überspringen|Überspringen und beenden)$/) => page.getByRole("button", { name }).click();
 
-/** Walks account -> persona -> model with valid answers, leaving the page on the Switchboard step. */
-export async function toSwitchboard(app: App): Promise<void> {
+/** Walks account -> memory and waits until the step shows the engine's models. */
+export async function toMemoryStep(app: App): Promise<void> {
   const { page } = app;
   await stepHeading(page, "Your account").waitFor();
   await next(page);
+  await stepHeading(page, /Memory/).waitFor();
+  await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).waitFor();
+}
+
+/** Walks account -> memory (skipped, so it writes nothing), leaving the page on the persona step. */
+export async function toPersona(app: App): Promise<void> {
+  const { page } = app;
+  await stepHeading(page, "Your account").waitFor();
+  await next(page);
+  await stepHeading(page, /Memory/).waitFor();
+  await skip(page);
   await stepHeading(page, "Name & persona").waitFor();
+}
+
+/** Walks account -> memory (skipped) -> persona -> model with valid answers, leaving the page on the Switchboard step. */
+export async function toSwitchboard(app: App): Promise<void> {
+  const { page } = app;
+  await toPersona(app);
   await page.getByLabel("Display name").fill("Hal");
   await next(page);
   await stepHeading(page, /Main model/).waitFor();

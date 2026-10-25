@@ -284,4 +284,34 @@ describe("engine-config", () => {
     assert.equal(e.recall.softBudgetMs, 400);
     assert.equal(e.recall.decisionTrace.enabled, true);
   });
+  // A chosen local model brings its own default width: E5's 384 is only the default of E5 itself.
+  it("a chosen local embedding model without dimensions keeps the engine's width for that model", () => {
+    const cfg = defaults() as any; cfg.engine.embedding = { local: { model: "google/embeddinggemma-2" } };
+    const e = buildEngineConfig(cfg, l) as any;
+    assert.equal(e.embedding.local.model, "google/embeddinggemma-2");
+    assert.equal(e.embedding.local.dimensions, undefined);
+    assert.equal(e.embedding.local.cacheDir, "/h/.plur1bus/models");
+  });
+  // The engine loads a pinned non-commercial embedding only with modelPreparation.acceptNonCommercialLicense.
+  describe("non-commercial embedding licence", () => {
+    const nc = (embedding: Record<string, unknown>, licence: Record<string, unknown>) => {
+      const cfg = defaults() as any; cfg.engine.embedding = embedding; cfg.embedding = { ...cfg.embedding, ...licence };
+      return buildEngineConfig(cfg, l) as any;
+    };
+    const jinaV5 = { provider: "local-transformers", local: { model: "jinaai/jina-embeddings-v5-text-nano-retrieval", dimensions: 768 } };
+    it("passes the owner's acceptance to the engine with the active model's preparation profile", () => {
+      assert.deepEqual(nc(jinaV5, { useClass: "research", acceptedNcLicence: true }).modelPreparation, { profile: "jina-v5-nano-768", acceptNonCommercialLicense: true });
+      assert.deepEqual(nc({ local: { model: "jinaai/jina-embeddings-v3" } }, { useClass: "general", acceptedNcLicence: true }).modelPreparation, { profile: "jina-v3-multilingual-1024", acceptNonCommercialLicense: true });
+    });
+    it("gives no acceptance without the owner's acceptance or for the commercial use class", () => {
+      assert.equal(nc(jinaV5, { useClass: "general", acceptedNcLicence: false }).modelPreparation, undefined);
+      assert.equal(nc(jinaV5, { useClass: "commercial", acceptedNcLicence: true }).modelPreparation, undefined);
+    });
+    it("a permissive model never carries an acceptance, and an explicit engine.modelPreparation passes through unchanged", () => {
+      assert.equal(nc({ local: { model: "google/embeddinggemma-2", dimensions: 768 } }, { useClass: "general", acceptedNcLicence: true }).modelPreparation, undefined);
+      const cfg = defaults() as any; cfg.engine.embedding = jinaV5; cfg.embedding = { useClass: "general", acceptedNcLicence: true };
+      cfg.engine.modelPreparation = { profile: "embeddinggemma-2-768" };
+      assert.deepEqual((buildEngineConfig(cfg, l) as any).modelPreparation, { profile: "embeddinggemma-2-768" });
+    });
+  });
 });

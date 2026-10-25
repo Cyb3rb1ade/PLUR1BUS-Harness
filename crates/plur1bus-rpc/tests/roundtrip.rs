@@ -209,9 +209,9 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AdminApiDeviceAnnounceParams,
                 types::AdminApiDeviceAnnounceResult,
             >(name, fixture, &root_schema),
-            "model.embedding.select" => check_pair::<
-                types::ModelEmbeddingSelectParams,
-                types::ModelEmbeddingSelectResult,
+            "model.memory.status" => check_pair::<
+                types::ModelMemoryStatusParams,
+                types::ModelMemoryStatusResult,
             >(name, fixture, &root_schema),
             "model.licence.confirm" => check_pair::<
                 types::ModelLicenceConfirmParams,

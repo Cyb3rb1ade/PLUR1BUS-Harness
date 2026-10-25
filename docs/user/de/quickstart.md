@@ -39,9 +39,15 @@ plur1bus setup --profile host
 
 - `--non-interactive` fragt nie nach; Antworten kommen aus den Flags und Standardwerten (Agent `main`, Klasse `general`).
 - `--accept-nc-licence` akzeptiert eine nicht-kommerzielle Modelllizenz. Nötig nur, wenn du dich für ein CC-BY-NC-Modell
-  wie Jina entscheidest; das Standard-Embedding-Modell (EmbeddingGemma 2, Apache-2.0) braucht keine Lizenzentscheidung.
+  wie Jina entscheidest; die freizügigen Modelle (EmbeddingGemma 2, multilingual-e5-small) brauchen keine Lizenzentscheidung.
 - `--no-service` überspringt den OS-Dienst; der Supervisor wird für diese Sitzung trotzdem gestartet.
 - `--profile host` installiert nur Supervisor und Core (für den Hermes-Host-Modus); `full` ist der Standard.
+
+`setup` wählt kein Embedding-Modell. Ohne Auswahl nutzt die Gedächtnis-Engine multilingual-e5-small (MIT, 384 Dimensionen)
+mit dem BGE-Reranker; `--non-interactive` schreibt genau das nach `engine.embedding`, wenn noch nichts eingestellt ist, und
+ein erneuter Lauf ändert eine bestehende Auswahl nie. Ein anderes Modell wählst du im Einrichtungsassistenten der
+Weboberfläche (`#/setup`, Schritt **Gedächtnis**), solange das Gedächtnis noch leer ist, siehe
+[erinnerungen.md](erinnerungen.md#embedding-modell-und-reranker).
 
 Wo die Installation liegt: `~/.plur1bus` unter Linux und macOS, `%LOCALAPPDATA%\PLUR1BUS` unter Windows. Mit
 `--home <Pfad>` an jedem Befehl oder der Umgebungsvariable `PLUR1BUS_HOME` ändert man das. Siehe

@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { browserSkip, setup, teardown, withApp } from "./harness.ts";
-import { calls, next, open, seed, stepHeading } from "./setup-fixtures.ts";
+import { calls, next, open, seed, stepHeading, toPersona } from "./setup-fixtures.ts";
 
 before(setup);
 after(teardown);
@@ -13,7 +13,7 @@ describe("setup wizard: a save in flight", { skip: browserSkip }, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
-      await next(page);
+      await toPersona(app);
       await page.getByLabel("Display name").fill("Hal");
       await next(page);
       await stepHeading(page, /Main model/).waitFor();
@@ -34,7 +34,7 @@ describe("setup wizard: a save in flight", { skip: browserSkip }, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
-      await next(page);
+      await toPersona(app);
       await page.getByLabel("Display name").fill("Hal");
       await page.evaluate(() => {
         const b = Array.from(document.querySelectorAll("button")).find((x) => x.textContent === "Next")!;

@@ -7,7 +7,7 @@ import { browserSkip, setup, teardown, withApp, openRoute } from './harness.ts';
 import { seedConfig } from './settings-config-fixtures.ts';
 import { defaultCatalog, installCatalog, model } from './models-fixtures.ts';
 import { expectAxeClean } from './axe.ts';
-import { next, seed, skip, stepHeading } from './setup-fixtures.ts';
+import { next, seed, skip, stepHeading, toPersona } from './setup-fixtures.ts';
 before(setup); after(teardown);
 test('role fields preserve stored values and reject unavailable catalog choices', () => {
   const fields = roleFields({ modelRoles: { decision: 'old/profile' } }, { models: [{ provider: 'p', id: 'gone', kind: 'chat', status: 'unavailable' }] });
@@ -68,7 +68,7 @@ test('settings save roles with revision and test the selected model; axe and 400
 test('wizard writes only an explicitly selected decision model with revision', { skip: browserSkip }, async () => {
   await withApp({}, async app => {
     seed(app.server.rpc); await openRoute(app.page, '#/setup');
-    await next(app.page);
+    await toPersona(app);
     await app.page.getByLabel('Display name').fill('Hal'); await next(app.page);
     await skip(app.page);
     await stepHeading(app.page, /Decision model/).waitFor();

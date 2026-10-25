@@ -22,14 +22,16 @@ Missing evidence is never `compatible` (fail closed). The probe never contains a
 
 ## Default model and existing stores
 
-The unified local default is EmbeddingGemma 2 (text-only, 768 dimensions, Apache-2.0; ADR-006 amendment 2026-10-08). Existing stores keep their recorded identity: nothing is re-embedded implicitly, and a store created with `intfloat/multilingual-e5-small` (384) or any other model stays valid. To move it, run `plur1bus memory reembed --plan` first (below). The engine-side default switch is a follow-up (see the amendment's "What stays open").
+The unified local default is EmbeddingGemma 2 (text-only, 768 dimensions, Apache-2.0; ADR-006 amendment 2026-10-08), which the pinned engine pins as `google/embeddinggemma-2` (ONNX export `onnx-community/embeddinggemma-2-ONNX` @ `daa72c51…`, q8). The first-run wizard preselects it and writes it into `engine.embedding` while the store holds no table (its Memory step comes before the first agent is created; `docs/web-ui.md` F35). Without an `engine.embedding` model, `engine-config.ts` keeps running `intfloat/multilingual-e5-small` (384), so a store built on that implicit default keeps its vector space. Existing stores keep their recorded identity: nothing is re-embedded implicitly, and a store created with `intfloat/multilingual-e5-small` (384) or any other model stays valid. To move it, run `plur1bus memory reembed --plan` first (below).
+
+A store holds a table as soon as an agent exists (creating an agent creates its table) or a generation was copied, even an empty one: the engine binds every table to the vector space it was created in and refuses it under another model. So the Harness API runs `model.licence.check` before every web `config.set`, and that check refuses a change of the engine's embedding identity (derived with the engine's own normalisation and fingerprint) while the store holds a `*.lance` table, or uses a named namespace layout: `E_CONFLICT` reason `embedding-migration-required`, nothing written (`packages/core/src/embedding-migrate/selection.ts`). A local model the engine does not pin is refused there too (`E_INVALID_PARAMS` reason `embedding-model-unavailable`). `model.memory.status` tells a client the models the running engine was built with and whether the embedding can still change (`embeddingSwitch`). `plur1bus config set` talks to the supervisor directly and is not checked; the engine then refuses the mismatched tables at their first use.
 
 ## Commands
 
 ```bash
 plur1bus memory reembed --plan --model intfloat/multilingual-e5-small [--dimensions N] [--throttle-ms 250]
-# e.g. the unified local default of ADR-006 (amendment 2026-10-08), once the engine supports it:
-# plur1bus memory reembed --plan --model onnx-community/embeddinggemma-2-ONNX --dimensions 768
+# e.g. the unified local default of ADR-006 (amendment 2026-10-08), under the engine's own model id:
+plur1bus memory reembed --plan --model google/embeddinggemma-2 --dimensions 768
 # a cloud or self-hosted target (owner decision 2026-10-18: every direction, local and cloud alike):
 plur1bus memory reembed --plan --provider openrouter --model qwen/qwen3-embedding-8b --dimensions 4096 \
   --base-url https://openrouter.ai/api/v1 --api-key-env OPENROUTER_API_KEY [--acknowledge-privacy]

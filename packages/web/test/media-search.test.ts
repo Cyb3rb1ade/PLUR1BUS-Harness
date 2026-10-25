@@ -7,7 +7,7 @@ import { after, before, describe, test } from "node:test";
 import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
 import { seedConfig } from "./settings-config-fixtures.ts";
 import { seedMedia, status } from "./media-search-fixtures.ts";
-import { seed as seedSetup, toSwitchboard, skip, next, stepHeading } from "./setup-fixtures.ts";
+import { GEMMA_BLOCK, seed as seedSetup, toMemoryStep, next, stepHeading } from "./setup-fixtures.ts";
 import { installAgents, world } from "./agents-fixtures.ts";
 
 before(setup);
@@ -123,18 +123,16 @@ describe("media search: setup step", opts, () => {
   test("the defaults are preselected and sending the step writes no media key", async () => {
     await withApp({}, async (app) => {
       seedSetup(app.server.rpc); await open(app, "#/setup");
-      await toSwitchboard(app); await skip(app.page);
-      await stepHeading(app.page, /Memory/).waitFor();
+      await toMemoryStep(app);
       assert.equal(await app.page.locator("#setup-media-enabled").isChecked(), true);
       assert.equal(await app.page.locator("#setup-media-provider").inputValue(), "egemma2");
       for (const m of ["image", "video", "audio"]) assert.equal(await app.page.locator(`#setup-modality-${m}`).isChecked(), true, m);
       assert.equal(await app.page.locator("#setup-caption-local").isChecked(), true, "captioning is local when embedding is local");
       await next(app.page);
-      await skip(app.page);
-      await stepHeading(app.page, /Backups/).waitFor();
-      // The persona and model steps write before this one, so the memory step's write is the last config.set.
-      const memoryWrite = app.server.rpc.calls.filter((c) => c.method === "config.set").map((c) => (c.params as { changes: { key: string }[] }).changes).at(-1) ?? [];
-      assert.deepEqual(memoryWrite.map((x) => x.key), ["embedding.useClass", "modelRoles.rerank"]);
+      await stepHeading(app.page, "Name & persona").waitFor();
+      // The Memory step is the first that writes, so its write is the only config.set so far.
+      const memoryWrite = app.server.rpc.calls.filter((c) => c.method === "config.set").map((c) => (c.params as { changes: { key: string; value: unknown }[] }).changes).at(-1) ?? [];
+      assert.deepEqual(memoryWrite, [{ key: "embedding.useClass", value: "general" }, GEMMA_BLOCK]);
       assert.equal(memoryWrite.some((x) => x.key.startsWith("memory.mediaEmbedding")), false);
     });
   });
@@ -142,12 +140,10 @@ describe("media search: setup step", opts, () => {
   test("dropping a modality writes its list; switching media off writes enabled=false", async () => {
     await withApp({}, async (app) => {
       seedSetup(app.server.rpc); await open(app, "#/setup");
-      await toSwitchboard(app); await skip(app.page);
-      await stepHeading(app.page, /Memory/).waitFor();
+      await toMemoryStep(app);
       await app.page.locator("#setup-modality-video").uncheck();
       await next(app.page);
-      await skip(app.page);
-      await stepHeading(app.page, /Backups/).waitFor();
+      await stepHeading(app.page, "Name & persona").waitFor();
       const changes = app.server.rpc.calls.filter((c) => c.method === "config.set").flatMap((c) => (c.params as { changes: { key: string; value: unknown }[] }).changes);
       assert.deepEqual(changes.find((x) => x.key === "memory.mediaEmbedding.modalities"), { key: "memory.mediaEmbedding.modalities", value: ["image", "audio"] });
     });
@@ -156,13 +152,11 @@ describe("media search: setup step", opts, () => {
   test("switching media off hides its options and writes enabled=false", async () => {
     await withApp({}, async (app) => {
       seedSetup(app.server.rpc); await open(app, "#/setup");
-      await toSwitchboard(app); await skip(app.page);
-      await stepHeading(app.page, /Memory/).waitFor();
+      await toMemoryStep(app);
       await app.page.locator("#setup-media-enabled").uncheck();
       assert.equal(await app.page.locator("#setup-modality-video").count(), 0);
       await next(app.page);
-      await skip(app.page);
-      await stepHeading(app.page, /Backups/).waitFor();
+      await stepHeading(app.page, "Name & persona").waitFor();
       const changes = app.server.rpc.calls.filter((c) => c.method === "config.set").flatMap((c) => (c.params as { changes: { key: string; value: unknown }[] }).changes);
       assert.deepEqual(changes.find((x) => x.key === "memory.mediaEmbedding.enabled"), { key: "memory.mediaEmbedding.enabled", value: false });
     });
@@ -171,21 +165,19 @@ describe("media search: setup step", opts, () => {
   test("Back keeps the media answers; a reload after the step resumes with them", async () => {
     await withApp({}, async (app) => {
       seedSetup(app.server.rpc); await open(app, "#/setup");
-      await toSwitchboard(app); await skip(app.page);
-      await stepHeading(app.page, /Memory/).waitFor();
+      await toMemoryStep(app);
       await app.page.locator("#setup-modality-audio").uncheck();
-      // Back to the Switchboard step and forward again: the unsaved answer is still on the form.
+      // Back to the account step and forward again: the unsaved answer is still on the form.
       await app.page.getByRole("button", { name: "Back", exact: true }).click();
-      await stepHeading(app.page, /Switchboard/).waitFor();
-      await skip(app.page);
+      await stepHeading(app.page, "Your account").waitFor();
+      await next(app.page);
       await stepHeading(app.page, /Memory/).waitFor();
       assert.equal(await app.page.locator("#setup-modality-audio").isChecked(), false, "Back and forward keep the choice");
       // Saved by Next; after a reload the wizard resumes past this step, and Back brings the saved answer back.
       await next(app.page);
-      await skip(app.page);
-      await stepHeading(app.page, /Backups/).waitFor();
+      await stepHeading(app.page, "Name & persona").waitFor();
       await app.page.reload();
-      await stepHeading(app.page, /Backups/).waitFor();
+      await stepHeading(app.page, "Name & persona").waitFor();
       for (let i = 0; i < 8 && await app.page.getByRole("heading", { level: 2, name: /Memory/ }).count() === 0; i += 1) {
         await app.page.getByRole("button", { name: "Back", exact: true }).click();
       }
@@ -198,8 +190,7 @@ describe("media search: setup step", opts, () => {
   test("no media type left: Next is blocked with the reason and the media key is not written", async () => {
     await withApp({}, async (app) => {
       seedSetup(app.server.rpc); await open(app, "#/setup");
-      await toSwitchboard(app); await skip(app.page);
-      await stepHeading(app.page, /Memory/).waitFor();
+      await toMemoryStep(app);
       for (const m of ["image", "video", "audio"]) await app.page.locator(`#setup-modality-${m}`).uncheck();
       await next(app.page);
       await app.page.getByText("Choose at least one media type, or switch media indexing off.").waitFor();

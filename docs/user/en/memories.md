@@ -35,6 +35,19 @@ When someone proposes a correction to a shared memory, it waits under **Reviews*
 
 The tab **Media** shows the index for images, videos and audio next to the text index: on or off, provider, model, the counts of indexed, pending, failed and unsupported items and the progress of the backfill. Owner and Admin can pause and resume it and start a re-index, which asks you to type a confirmation word first. Everyone else sees the state only. The settings are in [media-search.md](media-search.md).
 
+## Embedding model and reranker
+
+The memory engine turns every memory into a vector with an **embedding model** and orders what a search finds with a **reranker**. Which ones run is set in `engine.embedding` and `engine.reranker`; without a setting it is multilingual-e5-small (MIT, 384 dimensions) with BGE-reranker-v2-m3.
+
+The first-run wizard (`#/setup`) asks for both in its **Memory** step, right after you sign in and before the first agent is created. It offers the local models the memory engine can load:
+
+- Embedding: EmbeddingGemma 2 (Apache-2.0, 768 dimensions, preselected), multilingual-e5-small (MIT, 384), Jina v5 Text Nano (768) and Jina embeddings v3 (1024). Both Jina models are CC BY-NC-4.0.
+- Reranker: BGE-reranker-v2-m3 (Apache-2.0) and Jina reranker v2 base multilingual (CC BY-NC-4.0).
+
+A non-commercial model needs the owner's confirmation in a dialog and is not offered for commercial use. When you continue, the wizard writes your choice into `engine.embedding` and `engine.reranker` (only what differs from what runs); the memory engine restarts and uses it from then on. A model that runs but is not in the list, a cloud embedding for example, is shown as **In use** and kept unless you pick another one. `plur1bus 1staid check` reports in `models.cache` whether the chosen local models are downloaded yet; they download at the first start that needs them.
+
+The embedding model can only change while the memory holds no data. Every memory table is tied to the vector space it was created in, and creating an agent already creates its table. Once there is data, the wizard shows the model in use and offers only the reranker, and a web change of `engine.embedding` is refused with `E_CONFLICT`, reason `embedding-migration-required`. Moving existing memories to another embedding model is a re-embedding migration, see [reembed.md](reembed.md). The reranker holds no data and can change at any time.
+
 ## On the command line
 
 ```sh

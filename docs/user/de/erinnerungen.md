@@ -35,6 +35,19 @@ Schlägt jemand eine Korrektur zu einer geteilten Erinnerung vor, wartet sie unt
 
 Der Tab **Medien** zeigt den Index für Bilder, Videos und Audio neben dem Textindex: an oder aus, Anbieter, Modell, die Zahlen für indizierte, ausstehende, fehlgeschlagene und nicht unterstützte Elemente und den Fortschritt der Nachindizierung. Owner und Admins können sie pausieren, fortsetzen und eine Neuindizierung starten, wobei du zuerst ein Bestätigungswort tippst. Alle anderen sehen nur den Zustand. Die Einstellungen stehen in [mediensuche.md](mediensuche.md).
 
+## Embedding-Modell und Reranker
+
+Die Gedächtnis-Engine macht aus jeder Erinnerung mit einem **Embedding-Modell** einen Vektor und ordnet mit einem **Reranker**, was eine Suche findet. Welche laufen, steht in `engine.embedding` und `engine.reranker`; ohne Einstellung sind es multilingual-e5-small (MIT, 384 Dimensionen) und BGE-reranker-v2-m3.
+
+Der Einrichtungsassistent (`#/setup`) fragt beides im Schritt **Gedächtnis** ab, direkt nach der Anmeldung und bevor der erste Agent angelegt wird. Er bietet die lokalen Modelle an, die die Gedächtnis-Engine laden kann:
+
+- Embedding: EmbeddingGemma 2 (Apache-2.0, 768 Dimensionen, vorausgewählt), multilingual-e5-small (MIT, 384), Jina v5 Text Nano (768) und Jina embeddings v3 (1024). Beide Jina-Modelle stehen unter CC BY-NC-4.0.
+- Reranker: BGE-reranker-v2-m3 (Apache-2.0) und Jina reranker v2 base multilingual (CC BY-NC-4.0).
+
+Ein nicht-kommerzielles Modell braucht die Bestätigung des Owners in einem Dialog und steht für kommerzielle Nutzung nicht zur Wahl. Beim Weitergehen schreibt der Assistent deine Wahl nach `engine.embedding` und `engine.reranker` (nur, was vom laufenden Modell abweicht); die Gedächtnis-Engine startet neu und nutzt sie ab dann. Ein Modell, das läuft, aber nicht in der Liste steht, etwa ein Cloud-Embedding, erscheint als **In Verwendung** und bleibt, solange du kein anderes wählst. `plur1bus 1staid check` meldet unter `models.cache`, ob die gewählten lokalen Modelle schon heruntergeladen sind; sie laden beim ersten Start, der sie braucht.
+
+Das Embedding-Modell lässt sich nur ändern, solange das Gedächtnis keine Daten enthält. Jede Gedächtnistabelle gehört zu dem Vektorraum, in dem sie angelegt wurde, und schon das Anlegen eines Agenten legt seine Tabelle an. Sobald Daten da sind, zeigt der Assistent das Modell in Verwendung und bietet nur noch den Reranker an, und eine Änderung von `engine.embedding` aus der Weboberfläche wird mit `E_CONFLICT`, Grund `embedding-migration-required`, abgelehnt. Bestehende Erinnerungen in ein anderes Embedding-Modell umzuziehen ist eine Re-Embedding-Migration, siehe [reembed.md](reembed.md). Der Reranker hält keine Daten und lässt sich jederzeit ändern.
+
 ## Auf der Kommandozeile
 
 ```sh

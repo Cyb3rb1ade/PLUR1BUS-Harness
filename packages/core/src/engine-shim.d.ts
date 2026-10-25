@@ -37,3 +37,11 @@ declare module "@cyb3rb1ade/plur1bus-memory/lib/reembedding/runtime-config.js" {
 declare module "@cyb3rb1ade/plur1bus-memory/lib/providers/config-normalize.js" {
   export function normalizeEmbeddingConfig(raw?: Record<string, unknown>, opts?: Record<string, unknown>): Record<string, unknown>;
 }
+declare module "@cyb3rb1ade/plur1bus-memory/lib/providers/local-model-artifacts.js" {
+  /** The engine's pinned local models (embeddings and rerankers) by model id; null for a model it does not pin. */
+  export function pinnedLocalModelProfile(model: string, opts?: { dtype?: string }): {
+    role: "embedding" | "reranker"; model: string; revision: string; outputDimensions?: number; license?: string; commercialUse?: false;
+  } | null;
+  /** The closed list of `modelPreparation.profile` ids, one per pinned embedding model and width. */
+  export const EMBEDDING_PREPARATION_TARGETS: readonly { id: string; model: string; revision: string; dimensions: number; license?: string; commercialUse?: false }[];
+}
