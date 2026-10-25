@@ -38,8 +38,10 @@ rename, directory fsync) for every JSON/JSONL/state file. Paths pass the trusted
 one: the Node engine sets no `distanceType`, so the `_distance` it consumes is Lance's L2, which is the **squared**
 Euclidean distance (`lance-linalg` takes no square root); T2 pins that with two orthogonal unit vectors answering
 `_distance == 2.0`. RE-04's `distanceToScore` takes the value as it is. No full-text index in Phase 1: the index is
-RE-10 T8, added through one `Store` method, and T2's round trip is then the proof that the Node reader still opens a
-store that carries it.
+RE-10 T8, added through one `Store` method. Under RE-D15 it lives in a derived table `_lexical` next to `memories`.
+The Node engine never opens that table: it opens `memories` and `_embedding_identity` by name
+(`engine/store/memory-db.js:615-616`). T2's round trip then runs against a store that carries `_lexical` and its
+index, and the `memories` schema stays at 69 columns.
 
 **Modules added by the 2026-10-23 audit** (rows owned by RE-02 in [`MODULE-MAP.md`](MODULE-MAP.md); the brief is complete
 when each has a Rust module, a fold target or a recorded drop): `lib/registry-lock.js` (496 — the one cross-process lock
@@ -137,6 +139,10 @@ pub struct JobLock; impl JobLock {
   Print the Arrow schema with the Node SDK (`table.schema()`) to `schema.txt` and the identity row to `identity.json`.
   The script is deterministic (fixed texts, fixed timestamps through the engine's clock port) so a re-run produces the
   same rows. Keep the folder under 1 MB; print its size at the end.
+  same rows. Keep the folder under 1 MB; print its size at the end. Separately, `make.mjs --surrogate` writes a
+  one-row store `tests/fixtures/store-surrogate/` whose captured text is cut by `captureMaxChars` inside an emoji.
+  Add the test `a_node_row_cut_inside_an_emoji_reads_back_as_u_fffd`: Node persists U+FFFD at the Arrow UTF-8
+  boundary, and this test turns that assumption of RE-D17 into a recorded fact.
 - [ ] **Step 2: write the failing test** `tests/store_roundtrip.rs::the_fixture_opens_and_lists_twelve_rows`: opens the
   fixture read-only, asserts `schema_version() == V1`, `identity_status() == Verified` with `expected = identity.json`,
   `count(&RowFilter::default()) == 12`, and that the Arrow schema `Store::arrow_schema()` printed as text equals
@@ -197,12 +203,19 @@ pub struct JobLock; impl JobLock {
 ### T5 — neo files, ledgers, state files (one pull request)
 
 - [ ] **Step 1: fixture** `tests/fixtures/neo-v1/` written by the Node engine (`make.mjs --neo`): one generation with
-  three vectors, a `turn-journal.jsonl` with four lines, `record-index.json`, `generation.json`.
+  three vectors, a `turn-journal.jsonl` with four lines, `record-index.json` and `generation.json`. One journal line
+  carries a statement that `normalizeStatement` cut inside an emoji, so it holds the escape `\ud83d`
+  (`JSON.stringify`; RE-D17).
 - [ ] **Step 2: failing tests** `tests/store_neo.rs`: `vectors_read_back_equal_the_json_sidecar`,
   `a_generation_written_by_rust_is_read_by_node` (through `roundtrip-check.mjs --neo`), `append_turn_adds_one_line_and_keeps_the_file_valid_jsonl`,
   `state_file_store_is_atomic` (kill the process between temp write and rename — simulate with a seam that returns
   before rename — and the old file is intact).
-- [ ] **Step 3: implement** `NeoFiles`, `JsonlLedger<T>`, `StateFile<T>`; the ledger line shapes come from the
+- [ ] **Step 2b: failing test** `a_node_jsonl_line_with_a_lone_surrogate_escape_reads_and_writes_back_byte_identically`.
+  serde_json alone rejects such a line ("lone leading surrogate in hex escape").
+- [ ] **Step 3: implement** `NeoFiles`, `JsonlLedger<T>`, `StateFile<T>`. Every Node-written JSON/JSONL file (neo files,
+  turn journal, ledgers, `run-state.json`, the re-embedding state store) is parsed through RE-04 T0's `text::json`, which
+  keeps a lone-surrogate escape as a `JsString` and writes it back unchanged. This task therefore needs RE-04 T0. The
+  ledger line shapes come from the
   fixture lines (define one serde struct per ledger file under `src/store/ledger_types.rs`, one test each that the
   fixture line round-trips).
 - [ ] **Step 4: commit** `RE-02/T5: neo files, ledgers, state files`.
@@ -237,7 +250,7 @@ pub struct JobLock; impl JobLock {
 ## Out of scope
 
 Any recall or capture logic (RE-04, RE-05); `stores.adopt`'s report shape (RE-07, which uses `schema_version` and
-`identity_status` from here); re-embedding generations (RE-07); the Lance version upgrade itself; the full-text index (RE-10 T8, behind RE-D12).
+`identity_status` from here); re-embedding generations (RE-07); the Lance version upgrade itself; the full-text index and its `_lexical` table (RE-10 T8, behind RE-D12 and RE-D15).
 
 ## Hand-off
 

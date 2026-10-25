@@ -7,23 +7,23 @@ M. After this package every later brief compiles against fixed names and signatu
 
 **Depends on.** RE-00. **Enables.** RE-02…RE-09.
 
-**Assumes.** RE-D6 (contract 1.17.0 from the start; 1.16.0 members at parity). If the owner chooses 1.16.0 first, T1
-leaves the 1.17.0 members out and the rest of the brief is unchanged.
+**Assumes.** RE-D6 (the pin's contract 1.17.0 at parity; A1 members additive). If the owner chooses 1.16.0 first, T1
+leaves `AdminOps.reembedding.validate` and the A1 members out; the rest of the brief is unchanged.
 
 **Read first.**
-- Plan §1.3 (the 27 members the core calls, the seven private deep imports), §2.4 (layout), RE-1 in §4.
-- Engine repository at `98dfe2f`: `types/engine.d.ts` (1,285 lines — the source of truth for every type and doc
+- Plan §1.3 (the 27 members the core calls, the eight private deep imports), §2.4 (layout), RE-1 in §4.
+- Engine repository at the pin `9f34008c`: `types/engine.d.ts` (1,289 lines — the source of truth for every type and doc
   comment), `engine/config/engine-config.schema.json` (57 top-level keys) and `engine/config/engine-config-schema.js`
   (194 lines, the validator entry), `engine/create-engine.js:1-200` (what `createEngine(host, config, testInternals)`
   accepts). Branch `codex/gp3-a1-curated-memory` tip `9b935ce`: `git diff 98dfe2f..9b935ce -- types/engine.d.ts` is
-  the 1.17.0 delta (curation ops, memory-tree fields).
-- Harness: `packages/core/src/engine.ts` (`CORE_CONTRACT = "1.16.0"`, `SUPPORTED_CONTRACT_MAJOR = 1`,
+  the A1 delta (curation, recall stats, promotion, the `knowledge-update` job; no memory-tree fields). It labels itself 1.17.0, which collides with the pin.
+- Harness: `packages/core/src/engine.ts` (`CORE_CONTRACT = "1.17.0"`, `SUPPORTED_CONTRACT_MAJOR = 1`,
   `MIN_CONTRACT_MINOR = 15`, `assertEngineContract`, `bindEngine(host, engineConfig, testInternals)`),
   `packages/core/src/engine-shim.d.ts` (the private imports that become contract methods),
   `packages/core/src/engine-host-ports.ts` (`createEngineFetch`, `createEngineSecrets`, `ENGINE_FETCH_TIMEOUT_MS =
   300_000`, `ENGINE_MODEL_DOWNLOAD_TIMEOUT_MS = 1_800_000`), `packages/core/src/engine-config.ts` (`buildEngineConfig`:
   how harness config becomes engine config), `packages/rpc-schema/schema/rpc.schema.json` (`memory.curation.*`
-  methods: the 1.17.0 expectations), `crates/plur1bus-rpc/build.rs` and `Cargo.toml` (`typify = "0.8"`, `schemars =
+  methods: the A1 curated-memory expectations, which the harness feature-tests rather than tying them to a contract number), `crates/plur1bus-rpc/build.rs` and `Cargo.toml` (`typify = "0.8"`, `schemars =
   "0.8"`: the generation pattern to copy), `crates/plur1bus-config/src` (how `jsonschema 0.26` is driven).
 - `docs/coding-standard.md` §3.1 (Rust naming), §7.1 (error enums), §8 (types and schemas).
 - Modules this brief owns beyond the contract files ([`MODULE-MAP.md`](MODULE-MAP.md), owner RE-01): `lib/setup/feature-profiles.js`
@@ -137,7 +137,7 @@ pub trait EmbeddingService: Send + Sync {
 
 // src/contract/memory_ops.rs and admin_ops.rs: one method per member of types/engine.d.ts `MemoryOps` and `AdminOps`,
 // same names in snake_case, (principal: &Principal, agent: &AgentContext) as the last two parameters, plus the
-// 1.17.0 curation members from the 9b935ce diff.
+// `reembedding.validate` (1.17.0) and the A1 curation members from the 9b935ce diff.
 
 // src/config/validate.rs
 pub fn validate(raw: &serde_json::Value) -> Result<EngineConfig, Vec<ConfigError>>;  // ConfigError { path, message }
@@ -182,7 +182,7 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
 - [ ] **Step 4: write `schema/engine-contract.schema.json`.** One `$defs` entry per exported interface and union of
   `types/engine.d.ts`, doc comments carried into `description`, `additionalProperties: false` on every input type
   (`RecallQuery`, `TurnRecord`, `RecallOptions`, `CaptureOptions`, every `*Request`, every `*Query`), open on
-  `DecisionTrace` only. Mark each definition with `x-since: "1.16.0"` or `"1.17.0"`. Drops (not in the schema, the
+  `DecisionTrace` only. Mark each definition with `x-since` per the engine changelog: up to `"1.16.0"`, `"1.17.0"` for `AdminOps.reembedding.validate`, and for the A1 members the version the engine assigns them on merge. Drops (not in the schema, the
   reason in `SOURCES.md`): `HostRuntime`, `HostPathOverrides`, `HostCapabilities.pushCriticalButtons`,
   `HostCapabilities.memoryArchiveDir`, `mutateConfig`, `HostServices.logger`, `configPath`, `routing`, `clock`, `events`
   (→ `emit`), `fetch` (→ egress), `Engine.tools`, `Engine.commands`, `Engine.runCommand`, `ToolSpec`, `CommandSpec`,
@@ -219,7 +219,7 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
 
 ### T3 — Engine-config validation at parity (one pull request)
 
-- [ ] **Step 1: copy** `engine/config/engine-config.schema.json` from `98dfe2f` to `schema/engine-config.schema.json`
+- [ ] **Step 1: copy** `engine/config/engine-config.schema.json` from the pin `9f34008c` (identical to `98dfe2f0` except `x-contract: "1.17.0"`) to `schema/engine-config.schema.json`
   byte for byte; `SOURCES.md` records the commit. Two facts about that file (audit 2026-10-23): on `main` it has 57
   top-level keys while `openclaw.plugin.json#configSchema` has 58 — `groupReasoningFilter` is manifest-only and read by
   adapter code (`lib/group-reasoning-filter.js` is not in the engine closure), so `config::validate` accepts it and
@@ -259,7 +259,7 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
 - `cargo test -p plur1bus-engine`: all green, including the config drift test with the engine installed.
 - `node scripts/check-engine-contract.mjs <engine>/types/engine.d.ts` exits 0 and prints only the drops of T1 step 4.
 - `pnpm docs:check` clean; `cargo doc -p plur1bus-engine --no-deps` without warnings; clippy and fmt clean; hygiene clean.
-- The PR descriptions name the engine commit the schema was written from (`98dfe2f`) and the 1.17.0 commit (`9b935ce`).
+- The PR descriptions name the engine commit the schema was written from (the pin `9f34008c`) and the A1 commit (`9b935ce1`).
 
 ## Out of scope
 

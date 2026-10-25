@@ -13,7 +13,9 @@ PR there; the harness pin bump is a harness PR.
 **Read first.**
 - Plan §3.6 (CP-5, the eight rules), §3.8 (CP-7), §3.10 (the standing triage rule — this brief is its first execution),
   §0 (why the plugin-line commits are a delta, not a merge).
-- Engine repository: `main` at `98dfe2f`; plugin line tag `v7.18.31` (`6419a60e`); the files that differ for each CP:
+- Engine repository: the harness pin `9f34008c` (engine PR #275, branch `feat/reembedding-validate`, unmerged) is
+  `main` `98dfe2f0` plus `AdminOps.reembedding.validate` and a zod override; plugin line tag `v7.18.31` (`6419a60e`).
+  The files that differ for each CP are listed below. The pin touches none of them, so the diff base `98dfe2f` stays valid:
   - CP-5: `git diff 98dfe2f..v7.18.31 -- lib/recall-pipeline.js lib/recall-budget.js tests/recall-*.test.js`
   - CP-7: `git diff 98dfe2f..v7.18.31 -- lib/jobs/skill-miner.js lib/jobs/skill-miner/ tests/skill-*.test.js`
   - The plugin-line commits touch adapter files too; **port by patch, not by cherry-pick** (a release commit of the
@@ -42,7 +44,7 @@ pin, never a range; `pnpm install` updates the lock; `pnpm gen && pnpm docs:gen`
 
 ## Interfaces
 
-**Consumes:** nothing. **Produces:** a new engine commit `<pin2>` on `main` with CP-5 and CP-7; the harness pinned to it;
+**Consumes:** nothing. **Produces:** a new engine commit `<pin2>` that carries CP-5 and CP-7 **and** `AdminOps.reembedding.validate`: on `main` after engine PR #275 has merged there, or on a branch from `9f34008c` if it has not. The harness is pinned to it;
 the eight G-RERANK goldens and the skill-miner goldens recorded from `<pin2>`.
 
 ## Tasks
@@ -73,7 +75,7 @@ the eight G-RERANK goldens and the skill-miner goldens recorded from `<pin2>`.
 - [ ] **Step 1:** after both engine PRs merged: `packages/core/package.json` → `#<pin2>`; `pnpm install` (network to
   GitHub; the lock's tarball URL and integrity change); `pnpm gen`; `pnpm docs:gen`; notices if the npm row changed.
 - [ ] **Step 2: failing tests first:** none new in the harness — the acceptance is that the existing suites stay green:
-  `pnpm test`, `cargo test --workspace`, `tests/system/two-session-recall.test.ts`, `memory-ops.test.ts`, `dreams.test.ts`
+  `pnpm test` (including `packages/core/test/engine-contract.test.ts`, which asserts `engine.admin.reembedding.validate`), `cargo test --workspace`, `tests/system/two-session-recall.test.ts`, `memory-ops.test.ts`, `dreams.test.ts`, `reembed.test.ts`
   (locally with the AGENTS.md commands; CI's `engine-pin` selection runs them too).
 - [ ] **Step 3: record goldens** from `<pin2>`: the eight `G-RERANK-n` (RE-04 T3's recorder, or the parity runner's
   `--record` if RE-09 T1 exists) and the skill-miner decision-cache goldens; commit them with `recordedFrom: <pin2>`.
@@ -81,7 +83,8 @@ the eight G-RERANK goldens and the skill-miner goldens recorded from `<pin2>`.
 
 ## Acceptance
 
-- Engine `main` has CP-5 and CP-7 with tests; `npm test` and `npm run lint` green there.
+- Engine `main` (or the branch from `9f34008c`) has CP-5 and CP-7 with tests; `npm test` and `npm run lint` are green there.
+- `<pin2>` keeps `AdminOps.reembedding.validate`; `packages/core/test/engine-contract.test.ts` and `tests/system/reembed.test.ts` are green on the bump PR.
 - The harness pin names `<pin2>`; `ci-gate` and `quality` green on the bump PR; `docs/config-engine-keys.md` regenerated
   (it may be unchanged — say so).
 - Goldens committed and cited by RE-04 T3 and RE-06 T5 instead of a plugin-line checkout.

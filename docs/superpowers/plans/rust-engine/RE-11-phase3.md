@@ -1,7 +1,7 @@
 # RE-11 — Phase 3: retire the Node engine, ADR-018, docs
 
 **Package.** The harness stops depending on `@cyb3rb1ade/plur1bus-memory`: the default implementation flips to
-`rust`, the exact-commit pin, the private-package install steps, the shim types, the `transformers` closure and the
+`rust`, the exact-commit pin, the private-package install steps, the shim types, the engine's dependency on `transformers` (`packages/core` keeps it as a direct optional dependency, for local Florence-2 captions only, T2) and the
 CI token go away, the engine-config schema's home becomes the crate, the docs and the decision record say so. Size M;
 five tasks, one pull request each, across two releases.
 
@@ -72,7 +72,12 @@ shrinks, never grows, in this brief.
   warning line; config validation still accepts the value this release).
 - [ ] **Step 2:** remove the dependency and the lock entry (`pnpm install` — not `--frozen-lockfile` — then commit the
   lock), delete `engine-shim.d.ts`, strip `engine.ts` to the client path, drop the hygiene allow-list line and the
-  `test-prep.mjs` check, regenerate the third-party notices.
+  `test-prep.mjs` check, regenerate the third-party notices. Before the pin is removed, declare `@huggingface/transformers`
+  `=4.3.1` as a direct `optionalDependencies` entry of `packages/core`. The Florence-2 caption loader imports it
+  (`packages/core/src/media-search/caption/local.ts:51-70`), and today it reaches the core only through the engine's
+  optional dependency (`pnpm-lock.yaml:1918-1934`, with its own closure at `:2028-2038`). Whether that import resolves
+  under pnpm's isolated layout is unverified. Add a node test asserting that `import("@huggingface/transformers")`
+  resolves from `packages/core`.
 - [ ] **Step 3:** `pnpm test:prep` succeeds without any GitHub credential; `pnpm test`, `cargo test --workspace`.
   **Commit** `RE-11/T2: remove the Node engine dependency`.
 
@@ -94,7 +99,7 @@ shrinks, never grows, in this brief.
 - [ ] **Step 1:** write `docs/adr/ADR-018-rust-engine.md` in the house ADR format (context: ADR-012 D7 and this plan;
   decision: the memory engine is Rust, a supervised process, the contract schema in the crate; consequences: the
   parity suite stays, the OpenClaw plugin line is a separate code base, the forward-port triage of plan §3.10 ends);
-  add the amendment note to ADR-012.
+  add the amendment note to ADR-012. ADR-018 also records RE-D15…RE-D19 and the tokenization job table of plan §2.5.
 - [ ] **Step 2:** the docs listed under Files; `node scripts/check-doc-links.mjs`; `pnpm docs:check`.
 - [ ] **Step 3: commit** `RE-11/T5: ADR-018 and documentation`. Close Track RE in the README status table.
 
