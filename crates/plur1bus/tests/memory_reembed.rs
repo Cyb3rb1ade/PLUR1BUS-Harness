@@ -49,6 +49,7 @@ fn spawn(home: &Path, script: Vec<(&str, Vec<Value>)>) -> Arc<Mutex<Stub>> {
                     let reply = if method == "core.auth" {
                         authed = msg["params"]["token"] == token;
                         let methods: serde_json::Map<String, Value> = [
+                            "admin.embedding.check",
                             "admin.reembed.plan",
                             "admin.reembed.run",
                             "admin.reembed.status",
@@ -699,4 +700,299 @@ fn a_failed_json_run_or_plan_is_one_document_with_an_error_object() {
     assert_eq!(v["error"]["schema"], "error/1");
     assert_eq!(v["error"]["error"], "E_INTERNAL");
     assert_eq!(v["error"]["reason"], "reembed-failed");
+}
+
+// `plur1bus config set` on the memory engine's models: the core's admin.embedding.check first, then the write or the move.
+
+fn check_move(can_switch: bool) -> Value {
+    json!({"effect":"move","canSwitch":can_switch,
+        "current":{"provider":"local-transformers","model":"intfloat/multilingual-e5-small","dimensions":384},
+        "target":{"provider":"local-transformers","model":"google/embeddinggemma-2","dimensions":768}})
+}
+fn set_gemma(home: &Path) -> Command {
+    let mut c = cli(home);
+    c.args([
+        "config",
+        "set",
+        "engine.embedding.local.model",
+        "google/embeddinggemma-2",
+    ]);
+    c
+}
+/// The value config.json holds at `engine.embedding.local.model` (null when the file or the key is absent).
+fn written_model(home: &Path) -> Value {
+    std::fs::read_to_string(home.join("config.json"))
+        .ok()
+        .map(|s| {
+            serde_json::from_str::<Value>(&s).unwrap()["engine"]["embedding"]["local"]["model"]
+                .clone()
+        })
+        .unwrap_or(Value::Null)
+}
+
+#[test]
+fn config_set_moves_a_store_with_data_through_the_re_embedding_in_the_foreground() {
+    let d = tempfile::tempdir().unwrap();
+    let stub = spawn(
+        d.path(),
+        vec![
+            ("admin.embedding.check", vec![check_move(true)]),
+            ("admin.reembed.plan", vec![plan_ok()]),
+            (
+                "admin.reembed.run",
+                vec![json!({"checkpoint":cp("running",0,Value::Null)})],
+            ),
+            (
+                "admin.reembed.status",
+                vec![
+                    status("running", 3, true, Value::Null),
+                    status("switched", 10, false, Value::Null),
+                ],
+            ),
+        ],
+    );
+    let (stdout, stderr, code) = out_of(set_gemma(d.path()).arg("--yes").assert());
+    assert_eq!(code, 0, "{stdout}\n{stderr}");
+    assert_eq!(
+        calls(&stub, "admin.embedding.check"),
+        vec![
+            json!({"changes":[{"key":"engine.embedding.local.model","value":"google/embeddinggemma-2"}]})
+        ]
+    );
+    assert_eq!(
+        calls(&stub, "admin.reembed.plan"),
+        vec![
+            json!({"provider":"local-transformers","model":"google/embeddinggemma-2","dimensions":768})
+        ]
+    );
+    assert_eq!(
+        calls(&stub, "admin.reembed.run"),
+        vec![json!({"switch":true})]
+    );
+    assert!(stdout.contains("switched"), "{stdout}");
+    for want in [
+        "intfloat/multilingual-e5-small (local-transformers, 384 dimensions) -> google/embeddinggemma-2 (local-transformers, 768 dimensions)",
+        "10 rows in 2 tables",
+        "Ctrl-C leaves it running in the core",
+        "running: 3/10 rows",
+    ] {
+        assert!(stderr.contains(want), "{want} missing in:\n{stderr}");
+    }
+    assert!(!stderr.contains("cannot validate"), "{stderr}");
+    assert_eq!(
+        written_model(d.path()),
+        Value::Null,
+        "the switch writes the embedding, not the command"
+    );
+}
+
+#[test]
+fn config_set_background_leaves_the_re_embedding_to_the_core() {
+    let d = tempfile::tempdir().unwrap();
+    let stub = spawn(
+        d.path(),
+        vec![
+            ("admin.embedding.check", vec![check_move(true)]),
+            ("admin.reembed.plan", vec![plan_ok()]),
+            (
+                "admin.reembed.run",
+                vec![json!({"checkpoint":cp("running",0,Value::Null)})],
+            ),
+        ],
+    );
+    let (stdout, stderr, code) =
+        out_of(set_gemma(d.path()).args(["--yes", "--background"]).assert());
+    assert_eq!(code, 0, "{stdout}\n{stderr}");
+    assert!(
+        stdout.contains("started migration m1 (running); it continues in the core and switches to google/embeddinggemma-2 by itself")
+            && stdout.contains("plur1bus memory reembed --status"),
+        "{stdout}"
+    );
+    assert_eq!(
+        calls(&stub, "admin.reembed.run"),
+        vec![json!({"switch":true})]
+    );
+    assert!(
+        calls(&stub, "admin.reembed.status").is_empty(),
+        "nothing is followed"
+    );
+    assert_eq!(written_model(d.path()), Value::Null);
+
+    let (stdout, _e, code) = out_of(
+        set_gemma(d.path())
+            .args(["--yes", "--background", "--json"])
+            .assert(),
+    );
+    assert_eq!(code, 0);
+    let v: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(v["schema"], "memory.reembed.run/1");
+    assert_eq!(v["checkpoint"]["phase"], "running");
+}
+
+#[test]
+fn config_set_dry_run_of_a_move_only_plans() {
+    let d = tempfile::tempdir().unwrap();
+    let stub = spawn(
+        d.path(),
+        vec![
+            ("admin.embedding.check", vec![check_move(false)]),
+            ("admin.reembed.plan", vec![plan_ok()]),
+        ],
+    );
+    let (stdout, stderr, code) = out_of(set_gemma(d.path()).arg("--dry-run").assert());
+    assert_eq!(code, 0, "{stdout}\n{stderr}");
+    for want in [
+        "this change moves the memory store to another embedding model",
+        "10 rows in 2 tables",
+        "next: plur1bus config set without --dry-run moves it",
+        "this engine cannot validate a re-embedded generation yet",
+    ] {
+        assert!(stdout.contains(want), "{want} missing in:\n{stdout}");
+    }
+    assert!(calls(&stub, "admin.reembed.run").is_empty());
+    assert_eq!(written_model(d.path()), Value::Null);
+}
+
+#[test]
+fn config_set_says_before_the_copy_when_the_engine_cannot_switch_and_exits_1_at_validating() {
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![
+            ("admin.embedding.check", vec![check_move(false)]),
+            ("admin.reembed.plan", vec![plan_ok()]),
+            (
+                "admin.reembed.run",
+                vec![json!({"checkpoint":cp("running",0,Value::Null)})],
+            ),
+            (
+                "admin.reembed.status",
+                vec![status(
+                    "validating",
+                    10,
+                    false,
+                    json!({"code":"engine-validate-unavailable","message":"the pinned engine does not expose validate"}),
+                )],
+            ),
+        ],
+    );
+    let (stdout, stderr, code) = out_of(set_gemma(d.path()).arg("--yes").assert());
+    assert_eq!(code, 1, "{stdout}\n{stderr}");
+    assert!(
+        stderr.contains("this engine cannot validate a re-embedded generation yet"),
+        "{stderr}"
+    );
+    assert!(stdout.contains("engine-validate-unavailable"), "{stdout}");
+    assert_eq!(
+        written_model(d.path()),
+        Value::Null,
+        "the current model stays"
+    );
+}
+
+#[test]
+fn config_set_asks_before_a_move_and_needs_yes_outside_a_terminal() {
+    let d = tempfile::tempdir().unwrap();
+    let stub = spawn(
+        d.path(),
+        vec![
+            ("admin.embedding.check", vec![check_move(true)]),
+            ("admin.reembed.plan", vec![plan_ok()]),
+        ],
+    );
+    let (_o, stderr, code) = out_of(set_gemma(d.path()).assert());
+    assert_eq!(code, 2, "{stderr}");
+    assert!(
+        stderr.contains("this change moves the memory store from intfloat/multilingual-e5-small to google/embeddinggemma-2: re-embed 10 rows")
+            && stderr.contains("re-run with --yes"),
+        "{stderr}"
+    );
+    assert!(
+        calls(&stub, "admin.reembed.run").is_empty(),
+        "nothing started"
+    );
+}
+
+#[test]
+fn config_set_refuses_a_model_the_engine_cannot_load_and_writes_nothing() {
+    let d = tempfile::tempdir().unwrap();
+    let stub = spawn(
+        d.path(),
+        vec![(
+            "admin.embedding.check",
+            vec![
+                json!({"error":{"code":-32000,"message":"the memory engine cannot use this embedding","data":{"error":"E_INVALID_PARAMS","reason":"embedding-model-unavailable"}}}),
+            ],
+        )],
+    );
+    let (stdout, stderr, code) = out_of(
+        cli(d.path())
+            .args([
+                "config",
+                "set",
+                "engine.embedding.local.model",
+                "Qwen/Qwen3-Embedding-0.6B",
+                "--yes",
+            ])
+            .assert(),
+    );
+    assert_eq!(code, 2, "{stdout}\n{stderr}");
+    assert!(stderr.contains("cannot use this embedding"), "{stderr}");
+    assert!(calls(&stub, "admin.reembed.plan").is_empty());
+    assert!(!d.path().join("config.json").exists(), "nothing written");
+}
+
+#[test]
+fn config_set_writes_a_change_the_core_lets_through() {
+    let d = tempfile::tempdir().unwrap();
+    let stub = spawn(
+        d.path(),
+        vec![(
+            "admin.embedding.check",
+            vec![json!({"effect":"write","canSwitch":false,
+                "current":{"provider":"local-transformers","model":"intfloat/multilingual-e5-small","dimensions":384},
+                "target":{"provider":"local-transformers","model":"google/embeddinggemma-2","dimensions":768}})],
+        )],
+    );
+    let (stdout, stderr, code) = out_of(set_gemma(d.path()).arg("--yes").assert());
+    assert_eq!(code, 0, "{stdout}\n{stderr}");
+    assert!(stdout.contains("applied"), "{stdout}");
+    assert_eq!(written_model(d.path()), json!("google/embeddinggemma-2"));
+    assert!(calls(&stub, "admin.reembed.plan").is_empty());
+    assert!(!stderr.contains("warning"), "{stderr}");
+}
+
+#[test]
+fn config_set_outside_the_memory_models_never_asks_the_core() {
+    let d = tempfile::tempdir().unwrap();
+    let stub = spawn(d.path(), vec![]);
+    let (stdout, stderr, code) = out_of(
+        cli(d.path())
+            .args(["config", "set", "engine.recallMinScore", "0.3", "--yes"])
+            .assert(),
+    );
+    assert_eq!(code, 0, "{stdout}\n{stderr}");
+    assert!(calls(&stub, "admin.embedding.check").is_empty());
+}
+
+#[test]
+fn config_set_without_a_core_writes_and_says_it_was_not_checked() {
+    let d = tempfile::tempdir().unwrap();
+    let (stdout, stderr, code) = out_of(set_gemma(d.path()).arg("--yes").assert());
+    assert_eq!(code, 0, "{stdout}\n{stderr}");
+    assert!(
+        stderr.contains(
+            "warning: the change to the memory engine's embedding is not checked (no core answers"
+        ) && stderr.contains("plur1bus memory reembed"),
+        "{stderr}"
+    );
+    assert_eq!(written_model(d.path()), json!("google/embeddinggemma-2"));
+    // A licence key alone is no embedding change: no warning.
+    let (_o, stderr, code) = out_of(
+        cli(d.path())
+            .args(["config", "set", "embedding.useClass", "research", "--yes"])
+            .assert(),
+    );
+    assert_eq!(code, 0);
+    assert!(!stderr.contains("warning"), "{stderr}");
 }

@@ -8,7 +8,7 @@ import { engineModelEndpoints } from "./composition/embedding-policy.ts";
 import { hermesClientAuth } from "./rpc/hermes-client-auth.ts";
 import { authorize } from "./rbac/authorize.ts";
 import { buildMemoryModelsSurface } from "./rpc/memory-models-surface.ts";
-import { assertEmbeddingChangeAllowed, memoryModelStatus, storeHoldsTables } from "./embedding-migrate/selection.ts";
+import { assertEmbeddingChangeAllowed, embeddingChange, memoryModelStatus, storeHoldsTables } from "./embedding-migrate/selection.ts";
 import { creationDigest } from "./agents/saga.ts";
 import { LicenceLedger } from "./licences/ledger.ts";
 import { buildLicenceSurface, LICENCE_RULES } from "./rpc/licence-surface.ts";
@@ -984,7 +984,11 @@ export function createCore(o: CoreOptions): Core {
         // The API runs model.licence.check before every web config.set: another embedding identity is written only while the
         // store holds no table (a populated store moves with memory reembed).
         ...buildLicenceSurface(licenceLedger, cfg, changes => assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) })),
-        ...buildMemoryModelsSurface({ status: () => memoryModelStatus(engineConfig, cfg(), storeHoldsTables(String(engineConfig.baseDbPath))) }),
+        ...buildMemoryModelsSurface({
+          status: () => memoryModelStatus(engineConfig, cfg(), storeHoldsTables(String(engineConfig.baseDbPath))),
+          check: changes => embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() }),
+          canSwitch: () => typeof reembedEnginePort.validate === "function",
+        }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, lookup: id => sessions?.forSession(id).store ?? null, breakglass, ownership, personOf }),
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
         ...buildAgentCreationSurface(creation),

@@ -35,6 +35,16 @@ export function activeChoice(kind: ModelKind, m: MemoryModels): string {
 }
 
 /**
+ * The non-commercial embedding a store with data is bound to: it stays until the store is moved (plur1bus memory reembed), so its
+ * licence acceptance must stay and the commercial use class is out of reach. Undefined when there is none.
+ */
+export function lockedNcEmbedding(m: MemoryModels | undefined): ModelChoice | undefined {
+  if (m?.embeddingSwitch !== "migration-required") return undefined;
+  const c = choiceById(activeChoice("embedding", m));
+  return c?.nc ? c : undefined;
+}
+
+/**
  * The choice the Memory step shows and writes: the person's own pick, else the wizard default while the store still runs the
  * harness default embedding, else what the engine runs ("" when that is none of the offered models). A store that already holds
  * data keeps its embedding whatever was picked. Without the engine's answer the pick or the default is shown, never written.

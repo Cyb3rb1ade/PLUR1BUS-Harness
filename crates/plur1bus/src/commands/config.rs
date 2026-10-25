@@ -3,6 +3,7 @@
 //! or its recorded pid is dead) the file is read and written directly, as before; when it is present but does not
 //! answer, the command fails with `E_NOT_AVAILABLE reason=supervisor-unresponsive` and writes nothing.
 use crate::cli::{ConfigCmd, TierFilter};
+use crate::commands::config_embedding;
 use crate::output::Out;
 use crate::paths::{supervisor_address, Layout};
 use crate::supervisor;
@@ -473,15 +474,23 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
             value,
             yes,
             dry_run,
+            background,
         } => {
-            let applied = apply(
-                out,
-                layout,
-                vec![(key, parse_value(&value))],
-                None,
-                yes,
-                dry_run,
-            );
+            let changes = vec![(key, parse_value(&value))];
+            // The memory engine's models are checked by the running core first; a change that moves a store with data
+            // runs the re-embedding migration, whose switch writes the new embedding (config_embedding.rs).
+            if config_embedding::touches_memory_models(&changes) {
+                if let Some(check) = config_embedding::check(out, layout, &changes) {
+                    if check["effect"] == "move"
+                        && config_embedding::move_store(
+                            out, layout, &check, yes, dry_run, background,
+                        )
+                    {
+                        return;
+                    }
+                }
+            }
+            let applied = apply(out, layout, changes, None, yes, dry_run);
             let (v, supervised) = (applied.value, applied.supervised);
             out.ok("config.set/1", &v, || {
                 if dry_run {

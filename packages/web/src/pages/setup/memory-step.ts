@@ -3,7 +3,7 @@
 // A store that already holds data keeps its embedding model, so only the reranker can change then. Licence choices load when
 // Memory is entered; the authenticated selection still belongs to the wizard page.
 import { h } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useLayoutEffect, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { formatDateTime, t, type Key } from "../../i18n.ts";
 import { sessionState } from "../../session.ts";
@@ -11,7 +11,7 @@ import { ConfirmDialog } from "../../components/confirm-dialog.ts";
 import { PageLoading } from "../../components/page-state.ts";
 import { Notice } from "../common/states.ts";
 import { getApi, useLoad } from "../common/load.ts";
-import { DEFAULT_EMBEDDING, DEFAULT_RERANK, activeChoice, choiceById, choicesOf, type MemoryModels, type ModelChoice, type ModelKind } from "./licences.ts";
+import { DEFAULT_EMBEDDING, DEFAULT_RERANK, activeChoice, choiceById, choicesOf, lockedNcEmbedding, type MemoryModels, type ModelChoice, type ModelKind } from "./licences.ts";
 import { USE_CLASSES, chosen, type Answers, type UseClass } from "./model.ts";
 import type { StepProps } from "./steps.ts";
 import "../../styles/setup.css";
@@ -39,11 +39,12 @@ function CurrentOption({ kind, m, checked, onPick }: { kind: ModelKind; m: Memor
     h("label", { for: id }, t("setup.memory.current", { model, provider })));
 }
 
-export function MemoryStep({ a, set }: StepProps): View {
+export function MemoryStep({ a, set, errors }: StepProps): View {
   const [ask, setAsk] = useState<{ model: ModelChoice; at: string } | null>(null);
   const { state, reload } = useLoad((signal) => getApi().rpc("model.memory.status", {}, { write: false, signal }) as Promise<MemoryModels>, []);
-  // A failed load forgets an earlier answer: without the engine's answer the step writes no model.
-  useEffect(() => { if (state.status !== "loading") set({ memoryModels: state.status === "ok" ? state.data : undefined }); }, [state]);
+  // A failed load forgets an earlier answer: without the engine's answer the step writes no model. Taken over before the step is
+  // painted, so Next never sees the models on screen without the engine's answer in the wizard state.
+  useLayoutEffect(() => { if (state.status !== "loading") set({ memoryModels: state.status === "ok" ? state.data : undefined }); }, [state]);
   const s = sessionState.value;
   const who = s.status === "authenticated" ? s.user.id : "";
   const isOwner = s.status === "authenticated" && s.user.role === "owner";
@@ -52,6 +53,9 @@ export function MemoryStep({ a, set }: StepProps): View {
   const m = state.status === "ok" ? state.data : undefined;
   const av: Answers = { ...a, memoryModels: m };
   const locked = (kind: ModelKind): boolean => kind === "embedding" && m?.embeddingSwitch === "migration-required";
+  // A non-commercial embedding the store is bound to keeps its licence: commercial use waits until the store is moved.
+  const ncLocked = lockedNcEmbedding(m);
+  const useError = errors.useClass === "ncLocked" && ncLocked && commercial ? t("setup.memory.err.ncLocked", { model: ncLocked.model }) : undefined;
   const pick = (kind: ModelKind, id: string): Partial<Answers> => (kind === "embedding" ? { embedding: id } : { rerank: id });
 
   const group = (kind: ModelKind, mm: MemoryModels): View => {
@@ -91,11 +95,17 @@ export function MemoryStep({ a, set }: StepProps): View {
 
   return h("div", {},
     h("p", { class: "reading" }, t("setup.memory.lead")),
-    h("fieldset", { class: "setup-opts" },
+    h("fieldset", { class: "setup-opts", ...(useError ? { "aria-describedby": "setup-use-error" } : {}) },
       h("legend", {}, t("setup.memory.useClass")),
-      USE_CLASSES.map((u) => h("div", { key: u, class: "setup-opt" },
-        h("input", { id: `setup-use-${u}`, type: "radio", name: "setup-use", checked: a.useClass === u, onChange: () => { setUse(u); } }),
-        h("label", { for: `setup-use-${u}` }, t(`setup.memory.use.${u}` as Key))))),
+      USE_CLASSES.map((u) => {
+        const id = `setup-use-${u}`;
+        const lockHint = u === "commercial" && ncLocked ? t("setup.memory.commercialLocked", { model: ncLocked.model }) : undefined;
+        return h("div", { key: u, class: "setup-opt" },
+          h("input", { id, type: "radio", name: "setup-use", checked: a.useClass === u, disabled: lockHint !== undefined, ...(lockHint ? { "aria-describedby": `${id}-d` } : useError ? { "aria-invalid": "true" } : {}), onChange: () => { setUse(u); } }),
+          h("label", { for: id }, t(`setup.memory.use.${u}` as Key)),
+          lockHint ? h("p", { class: "field-hint", id: `${id}-d` }, lockHint) : null);
+      }),
+      useError ? h("p", { class: "form-error", id: "setup-use-error", role: "alert" }, useError) : null),
     models,
     ask ? h(NcDialog, {
       model: ask.model, who, at: ask.at, onClose: () => { setAsk(null); },

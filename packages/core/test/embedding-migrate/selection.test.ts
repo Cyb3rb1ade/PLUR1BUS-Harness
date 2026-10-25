@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import { buildEngineConfig } from "../../src/engine-config.ts";
 import { layout } from "../../src/paths.ts";
-import { assertEmbeddingChangeAllowed, memoryModelStatus, storeHoldsTables } from "../../src/embedding-migrate/selection.ts";
+import { assertEmbeddingChangeAllowed, embeddingChange, memoryModelStatus, storeHoldsTables } from "../../src/embedding-migrate/selection.ts";
 
 const scratch = (): string => mkdtempSync(join(tmpdir(), "p1b-selection-"));
 const l = layout("/h/.plur1bus");
@@ -65,6 +65,40 @@ describe("memoryModelStatus", () => {
   });
 });
 
+describe("embeddingChange", () => {
+  const change = (changes: { key: string; value: unknown }[], holdsTables: boolean, cfg: any = defaults()) =>
+    embeddingChange({ current: cfg, changes, layout: l, active: buildEngineConfig(cfg, l), holdsTables: () => holdsTables });
+  const E5 = { provider: "local-transformers", model: "intfloat/multilingual-e5-small", dimensions: 384 };
+  const GEMMA = { provider: "local-transformers", model: "google/embeddinggemma-2", dimensions: 768 };
+
+  it("the running model written again leaves the vector space unchanged", () => {
+    assert.deepEqual(change([{ key: "engine.embedding.local.model", value: "intfloat/multilingual-e5-small" }], true), { effect: "unchanged", current: E5, target: null });
+  });
+  it("another model over a store without data is a write", () => {
+    assert.deepEqual(change([{ key: "engine.embedding.local.model", value: "google/embeddinggemma-2" }], false), { effect: "write", current: E5, target: GEMMA });
+  });
+  it("another model over a store with data is a move, with the target a re-embedding plan takes", () => {
+    assert.deepEqual(change([{ key: "engine.embedding.local.model", value: "google/embeddinggemma-2" }], true), { effect: "move", current: E5, target: GEMMA });
+    // Prefixes the person sets are part of the vector space: the plan gets them too.
+    assert.deepEqual(change([{ key: "engine.embedding.local.queryPrefix", value: "q: " }], true).target, { ...E5, queryPrefix: "q: " });
+  });
+  it("a cloud target moves with its provider block, the key only by its variable name", () => {
+    const cfg = defaults() as any;
+    cfg.memory = { ...cfg.memory, embedding: { privacyAck: { provider: "openrouter", endpoint: "https://openrouter.ai/api/v1", acknowledgedAt: "2026-10-18T09:00:00Z", by: "owner" } } };
+    const block = { provider: "openrouter", model: "qwen/qwen3-embedding-8b", dimensions: 4096, baseUrl: "https://openrouter.ai/api/v1", apiKeyEnv: "OR_KEY" };
+    assert.deepEqual(change([{ key: "engine.embedding", value: block }], true, cfg), { effect: "move", current: E5, target: block });
+  });
+  it("a running engine without a usable embedding has no vector space to keep: any loadable model is a write", () => {
+    const cfg = defaults() as any; cfg.engine.embedding = { local: { model: "Qwen/Qwen3-Embedding-0.6B" } };
+    const r = change([{ key: "engine.embedding.local.model", value: "google/embeddinggemma-2" }], true, cfg);
+    assert.equal(r.effect, "write"); assert.equal(r.current.model, "Qwen/Qwen3-Embedding-0.6B");
+  });
+  it("changes outside the embedding are unchanged without a look at the store", () => {
+    const cfg = defaults();
+    assert.deepEqual(embeddingChange({ current: cfg, changes: [{ key: "engine.reranker.local", value: { model: "jinaai/jina-reranker-v2-base-multilingual" } }], layout: l, active: buildEngineConfig(cfg, l), holdsTables: () => { throw new Error("store read"); } }).effect, "unchanged");
+  });
+});
+
 describe("assertEmbeddingChangeAllowed", () => {
   const gemma = { key: "engine.embedding", value: { provider: "local-transformers", local: { model: "google/embeddinggemma-2", dimensions: 768 } } };
   const run = (changes: { key: string; value: unknown }[], holdsTables: boolean) => {
@@ -94,5 +128,35 @@ describe("assertEmbeddingChangeAllowed", () => {
     for (const model of ["onnx-community/embeddinggemma-2-ONNX", "Qwen/Qwen3-Embedding-0.6B"]) {
       assert.throws(() => run([{ key: "engine.embedding.local", value: { model } }], false), (e: any) => e.error === "E_INVALID_PARAMS" && e.reason === "embedding-model-unavailable", model);
     }
+  });
+
+  describe("a non-commercial embedding", () => {
+    // The engine loads a pinned non-commercial embedding only with the licence acceptance buildEngineConfig gives it
+    // (modelPreparation), which the commercial use class and a withdrawn acceptance take away.
+    const jina = () => {
+      const cfg = defaults() as any;
+      cfg.engine.embedding = { local: { model: "jinaai/jina-embeddings-v3", dimensions: 1024 } };
+      cfg.embedding = { ...cfg.embedding, useClass: "research", acceptedNcLicence: true, acceptedNcLicenceAt: "2026-10-24T10:00:00.000Z" };
+      return cfg;
+    };
+    const check = (cfg: any, changes: { key: string; value: unknown }[], holdsTables: boolean) =>
+      assertEmbeddingChangeAllowed({ current: cfg, changes, layout: l, active: buildEngineConfig(cfg, l), holdsTables: () => holdsTables });
+
+    it("a store embedded with it refuses the commercial use class: only a migration can change that", () => {
+      assert.throws(() => check(jina(), [{ key: "embedding.useClass", value: "commercial" }], true),
+        (e: any) => e.error === "E_CONFLICT" && e.reason === "embedding-migration-required" && /jina-embeddings-v3/.test(e.message) && /memory reembed --plan --model google\/embeddinggemma-2/.test(e.message));
+    });
+    it("a store embedded with it refuses withdrawing the licence acceptance", () => {
+      assert.throws(() => check(jina(), [{ key: "embedding.acceptedNcLicence", value: false }], true), (e: any) => e.reason === "embedding-migration-required");
+    });
+    it("a fresh store takes the commercial use class only together with a commercially usable model", () => {
+      assert.throws(() => check(jina(), [{ key: "embedding.useClass", value: "commercial" }], false),
+        (e: any) => e.error === "E_INVALID_PARAMS" && e.reason === "embedding-model-unavailable" && /jina-embeddings-v3/.test(e.message));
+      assert.doesNotThrow(() => check(jina(), [{ key: "embedding.useClass", value: "commercial" }, gemma], false));
+    });
+    it("leaves the other use classes, and commercial use of a commercially usable model, alone", () => {
+      assert.doesNotThrow(() => check(jina(), [{ key: "embedding.useClass", value: "general" }], true));
+      assert.doesNotThrow(() => check(defaults(), [{ key: "embedding.useClass", value: "commercial" }, { key: "embedding.acceptedNcLicence", value: false }], true));
+    });
   });
 });

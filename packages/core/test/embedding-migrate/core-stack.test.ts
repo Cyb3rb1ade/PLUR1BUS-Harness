@@ -49,6 +49,18 @@ describe("re-embedding over the real engine (in-process core)", () => {
     }
   });
 
+  it("admin.embedding.check says what a config set does to the embedding of a store with data", async () => {
+    assert.equal(c.hello.capabilities?.methods["admin.embedding.check"]?.stability, "experimental");
+    const current = { provider: "local-transformers", model: E5, dimensions: 384 };
+    assert.deepEqual(await call("admin.embedding.check", { changes: [{ key: "engine.embedding.local.model", value: E5 }] }), { effect: "unchanged", current, target: null, canSwitch: false });
+    // Agent bernd's table exists, so another model moves the store; the pinned engine cannot validate, so no switch yet.
+    assert.deepEqual(await call("admin.embedding.check", { changes: [{ key: "engine.embedding.local.model", value: "google/embeddinggemma-2" }] }),
+      { effect: "move", current, target: { provider: "local-transformers", model: "google/embeddinggemma-2", dimensions: 768 }, canSwitch: false });
+    // A non-commercial model needs its persisted licence confirmation, as at the engine start; an unpinned one is refused.
+    await assert.rejects(c.call("admin.embedding.check", { changes: [{ key: "engine.embedding.local", value: { model: JINA } }] }), (e: any) => e.error === "E_DENIED" && e.reason === "model-licence-required");
+    await assert.rejects(c.call("admin.embedding.check", { changes: [{ key: "engine.embedding.local.model", value: "Qwen/Qwen3-Embedding-0.6B" }] }), (e: any) => e.error === "E_INVALID_PARAMS" && e.reason === "embedding-model-unavailable");
+  });
+
   it("the harness default model is already the store's identity: compatible, nothing to migrate", async () => {
     const r = await call("admin.reembed.plan", { model: E5 });
     assert.equal(r.probe.verdict, "compatible"); assert.equal(r.plan, null);

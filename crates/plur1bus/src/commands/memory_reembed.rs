@@ -32,7 +32,7 @@ fn poll_interval() -> Duration {
     }
 }
 
-fn call(out: &Out, layout: &Layout, method: &str, params: Value) -> Value {
+pub(crate) fn call(out: &Out, layout: &Layout, method: &str, params: Value) -> Value {
     let mut c = connect_core(out, layout, "admin", CALL_TIMEOUT);
     require_supports(out, &c, method);
     c.call(method, params)
@@ -66,6 +66,11 @@ fn list(v: &Value) -> String {
 }
 
 pub(crate) fn describe_plan(v: &Value) -> String {
+    describe_plan_then(v, "plur1bus memory reembed --run")
+}
+
+/// [`describe_plan`] with `next` as the closing "next:" step (none when empty).
+pub(crate) fn describe_plan_then(v: &Value, next: &str) -> String {
     let probe = &v["probe"];
     let mut s = format!(
         "compatibility: {}\n  {}",
@@ -87,7 +92,7 @@ pub(crate) fn describe_plan(v: &Value) -> String {
         "\nplan {}: {} rows in {} tables -> {} batches of up to {} ({} provider calls)\n  \
          copy: {} source, about {} written, {} free space needed ({} free)\n  \
          pause between batches: {} ms (at least {} s of pauses)\n  \
-         generations: {} (kept) -> {}\nnext: plur1bus memory reembed --run",
+         generations: {} (kept) -> {}",
         plan["id"].as_str().unwrap_or("?"),
         n("rows"),
         n("tables"),
@@ -103,6 +108,9 @@ pub(crate) fn describe_plan(v: &Value) -> String {
         plan["sourceGeneration"].as_str().unwrap_or("?"),
         plan["targetGeneration"].as_str().unwrap_or("?"),
     ));
+    if !next.is_empty() {
+        s.push_str(&format!("\nnext: {next}"));
+    }
     if let Some(c) = plan["cloud"].as_object() {
         let num = |k: &str| c.get(k).and_then(Value::as_u64).unwrap_or(0);
         s.push_str(&format!(
@@ -336,16 +344,29 @@ fn run_migration(out: &Out, layout: &Layout, a: &ReembedArgs) {
         )
     };
     confirm(out, &question, a.yes);
+    start(
+        out,
+        layout,
+        want_switch,
+        !a.no_wait,
+        "follow it with: plur1bus memory reembed --status",
+    );
+}
+
+/// Starts (or continues) the planned migration in the core and prints the `memory.reembed.run/1` document. With `wait` it
+/// follows the run to its end (progress on stderr) and a migration that does not finish exits 1 with `reembed-failed`;
+/// without, it prints the start's `{ checkpoint }` and `then` says how to go on. Ctrl-C only stops the following.
+pub(crate) fn start(out: &Out, layout: &Layout, want_switch: bool, wait: bool, then: &str) {
     let started = call(
         out,
         layout,
         "admin.reembed.run",
         json!({ "switch": want_switch }),
     );
-    if a.no_wait {
+    if !wait {
         out.ok("memory.reembed.run/1", &started, || {
             format!(
-                "started migration {} ({}); follow it with: plur1bus memory reembed --status",
+                "started migration {} ({}); {then}",
                 started["checkpoint"]["id"].as_str().unwrap_or("?"),
                 started["checkpoint"]["phase"].as_str().unwrap_or("?")
             )

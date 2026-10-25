@@ -1609,6 +1609,8 @@ Get a config value (stable, ADR-016 §4)
 
 Set a config value (stable, ADR-016 §4)
 
+A change to the memory engine's models (engine.embedding, engine.reranker, engine.modelPreparation, embedding.*) is checked by the running core first: a model the engine could not load is refused. One that moves a memory store with data to another embedding model runs the re-embedding migration instead of writing the value: in the foreground, until its switch writes the new embedding, or in the core's background with --background.
+
 **Usage:** `plur1bus config set [OPTIONS] <KEY> <VALUE>`
 
 ###### **Arguments:**
@@ -1620,6 +1622,7 @@ Set a config value (stable, ADR-016 §4)
 
 * `--yes`
 * `--dry-run`
+* `--background` — When the change moves the memory store to another embedding model: start the re-embedding and return instead of following it
 
 
 
