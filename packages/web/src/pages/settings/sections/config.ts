@@ -15,12 +15,11 @@ import { FieldRow, groupOf, groupTitle, RestartBadge } from "../config/fields.ts
 import { fieldId } from "../config/meta.ts";
 import { buildFields, CORES_KEY, coreInfo, localOnlyAgentSources, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type CoreInfo, type Draft, type Field } from "../config/model.ts";
 import { sectionOf } from "../../../settings-sections.ts";
-import { normalizeList } from "../../models/model.ts";
-import { MODEL_CHOICES } from "../../setup/licences.ts";
 import { roleFields } from "../config/roles.ts";
+import { EngineModelsNote, readEngineModels, type EngineModels } from "../config/engine.ts";
 import "../../../styles/config.css";
 
-type Loaded = { config: unknown; revision: string; restart: Record<string, string | null>; catalog?: unknown; licenceBlocked?: string[]; cores?: CoreInfo };
+type Loaded = { config: unknown; revision: string; restart: Record<string, string | null>; catalog?: unknown; engine?: EngineModels | null; cores?: CoreInfo };
 type Plan = { live?: string[]; core?: boolean; modules?: string[] };
 type Review = { changes: Change[]; plan: Plan | null; local: boolean };
 type Banner = { tone: "warn" | "info"; text: string; reload?: boolean };
@@ -48,13 +47,13 @@ async function loadConfig(section: SectionProps["section"], signal: AbortSignal)
   // The CPU core slider needs the cores the supervisor detected; without them (an older supervisor, a refused call) the field
   // stays a number input.
   const cores = sectionOf(CORES_KEY)?.id === section.id ? await api.rpc("daemon.status", undefined, { write: false, signal }).then(coreInfo, () => undefined) : undefined;
-  const catalog = section.id === "models" ? await api.rpc("models.list", undefined, { write: false, signal }).catch(() => null) : undefined;
-  const nc = new Set(MODEL_CHOICES.filter(m => m.nc).map(m => m.model));
-  const licenceBlocked = (await Promise.all(normalizeList(catalog).models.filter(m => nc.has(m.id)).map(async m => {
-    try { await api.rpc("model.licence.check", { changes: [{ key: "modelRoles.embedding", value: m.id }] }, { write: false, signal }); return null; }
-    catch { return m.id; }
-  }))).filter((id): id is string => id !== null);
-  return { config, revision, restart: Object.fromEntries(classes), catalog, licenceBlocked, ...(cores ? { cores } : {}) };
+  if (section.id !== "models") return { config, revision, restart: Object.fromEntries(classes), ...(cores ? { cores } : {}) };
+  // The catalog for the role choices and core.status for the memory engine's models (config/engine.ts); each may fail on its own.
+  const [catalog, engine] = await Promise.all([
+    api.rpc("models.list", undefined, { write: false, signal }).catch(() => null),
+    api.rpc("core.status", undefined, { write: false, signal }).then(readEngineModels, () => null),
+  ]);
+  return { config, revision, restart: Object.fromEntries(classes), catalog, engine, ...(cores ? { cores } : {}) };
 }
 
 export function ConfigSection({ section, focus }: SectionProps): View {
@@ -87,7 +86,7 @@ type FormProps = { data: Loaded; section: SectionProps["section"]; focus?: strin
 function Form({ data, section, focus, onSaved, reload }: FormProps): View {
   const role = currentRole();
   const canWrite = roleIn(role, ["owner", "admin"]);
-  const fields = useMemo(() => [...buildFields(data.config, section, data.restart, data.cores ? { cores: data.cores } : {}).filter(f => section.id !== "models" || f.key !== "modelRoles").filter(f => section.id !== "decision" || f.key !== "decision"), ...(section.id === "models" ? roleFields(data.config, data.catalog, data.licenceBlocked) : [])], [data, section]);
+  const fields = useMemo(() => [...buildFields(data.config, section, data.restart, data.cores ? { cores: data.cores } : {}).filter(f => section.id !== "models" || f.key !== "modelRoles").filter(f => section.id !== "decision" || f.key !== "decision"), ...(section.id === "models" ? roleFields(data.config, data.catalog) : [])], [data, section]);
   const [draft, setDraft] = useState<Draft>(() => initialDraft(fields));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [review, setReview] = useState<Review | null>(null);
@@ -203,7 +202,8 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
           h("button", { type: "button", class: "cfg-toggle", "aria-expanded": open[g] === true, "aria-controls": gid, onClick: () => { setOpen((o) => ({ ...o, [g]: !o[g] })); } },
             h("span", { "aria-hidden": "true", class: "cfg-chev" }, open[g] ? "▾" : "▸"), groupTitle(g))),
         h("div", { id: gid, hidden: open[g] !== true }, fs.map((f) =>
-          h(FieldRow, { key: f.key, field: f, draft, error: errors[f.key], disabled: !canWrite, highlighted: focused?.key === f.key, onChange: edit }))));
+          h(FieldRow, { key: f.key, field: f, draft, error: errors[f.key], disabled: !canWrite, highlighted: focused?.key === f.key, onChange: edit })),
+          g === "modelRoles" && section.id === "models" ? h(EngineModelsNote, { models: data.engine ?? null, setupLink: canWrite }) : null));
     }),
     review ? h("section", { class: "cfg-review", "aria-labelledby": "cfg-review-h" },
       h("h3", { id: "cfg-review-h" }, t("settings.cfg.diffTitle")),
