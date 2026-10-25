@@ -16,7 +16,7 @@ guessed. Paths are relative to the repository named in the "Repo" column of the 
 
 | Harness | Engine pin (plugin repo SHA) | Engine contract | Contract floor | Plugin version at the pin | OpenClaw min tested | OpenClaw latest tested | Hermes min / latest tested |
 |---|---|---|---|---|---|---|---|
-| `main` (unreleased) | `98dfe2f03363f6291daa9f85e473578770fb5c55` (plugin `origin/main` after PR #253) | `1.16.0` | `1.8.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
+| `main` (unreleased) | `9f34008c143c5da87b2194b5a28442b407ff8ba7` (plugin PR #275, on top of `origin/main` after PR #253) | `1.17.0` | `1.8.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
 
 Notes on the row:
 
@@ -51,8 +51,9 @@ Notes on the row:
 | `1.12.0` | `6868b7b117cf7d59b24eb1e75f02aafc1a48f46c` (first pinned at plugin #219, merge `6868b7b1`; plugin `origin/main` after #237) | `7.18.4` (`package.json` at `6868b7b1`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.12.0 entry: `MemoryOps.rebind`/`unbind`, additive only) |
 | `1.13.0`–`1.15.0` | not pinned on their own (plugin #244, #246, #252; carried by the 1.16.0 pin) | `7.18.4` | plugin `docs/engine-api.md` (1.13.0, 1.14.0, 1.15.0 entries) |
 | `1.16.0` | `98dfe2f03363f6291daa9f85e473578770fb5c55` (plugin #253, merge `98dfe2f0`) | `7.18.4` (`package.json` at `98dfe2f0`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.16.0 entry: `MemoryOps.link`, `Engine.capabilities`, additive only) |
+| `1.17.0` | `9f34008c143c5da87b2194b5a28442b407ff8ba7` (plugin #275) | `7.18.4` (`package.json` at `9f34008c`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.17.0 entry: `AdminOps.reembedding.validate`, additive only) |
 
-Contract history 1.8.0 → 1.16.0, from plugin `docs/engine-api.md`:
+Contract history 1.8.0 → 1.17.0, from plugin `docs/engine-api.md`:
 
 - **1.8.0:** `Engine.status()` real, `Engine.models`, journal backlog, turn-replay guard, typed `unsupported` for shared memory.
 - **1.9.0:** host-neutral engine config schema, warm-only recall, honest recall timing, bounded fragment compaction.
@@ -63,13 +64,14 @@ Contract history 1.8.0 → 1.16.0, from plugin `docs/engine-api.md`:
 - **1.14.0:** complete vector-space identities, routes and degraded notes (`MemoryOpErrorCode` `EMBEDDER_UNAVAILABLE`, `EMBEDDING_IDENTITY_MISMATCH`).
 - **1.15.0:** network ports (`HostServices.fetch`, `SecretStore.resolve`, `apiKeyRef`, HTTP reranker providers); import/unimport attribute a card to the run its `sourceRef` names; additive. The Harness does not wire these yet.
 - **1.16.0:** `MemoryOps.link` (attach an imported duplicate to an existing card as an additional source), `MemoryCard.links?`, `MemoryUnimportResult.links?`, `Engine.capabilities` (`memoryLink: true`); additive. The importer uses it (docs/import.md §10.3, §10.4).
+- **1.17.0:** `AdminOps.reembedding.validate({ id })` (the coordinator's `validating` → `ready_to_switch` step on the facade); an empty source validates on the generation check; additive. The re-embedding migration uses it before the Harness switch (docs/embedding-migration.md).
 
-The plugin version stayed `7.18.4` across 1.10.0 to 1.16.0 (plugin `package.json` is `7.18.4` at both
+The plugin version stayed `7.18.4` across 1.10.0 to 1.17.0 (plugin `package.json` is `7.18.4` at both
 `9bafa047` and `61025251`; the plugin `CHANGELOG.md` lists the 7.18.5–7.18.20 items as "Ported", not as
 version bumps). Do not read the plugin version as a monotone proxy for the contract.
 
 The pin `61025251` (plugin `origin/main` after PR #232) adds, on top of #217, the lock-ownership fixes (#220, #224)
-and the log-redaction fixes (#225, #229, #231); the contract is unchanged at 1.11.0. The pin `6868b7b1` (plugin `origin/main` after PR #237) adds `memory.rebind`/`unbind` (#219, contract 1.12.0, including the rebind lock fix) and the `global-agent` override that drops `roarr`/`sprintf-js` (#237). The pin `98dfe2f0` (plugin `origin/main` after PR #253) carries contracts 1.13.0 to 1.16.0; its lockfile change is the engine entry and its optional `@huggingface/transformers` 4.3.1 (onnxruntime) plus the `openai` zod peer.
+and the log-redaction fixes (#225, #229, #231); the contract is unchanged at 1.11.0. The pin `6868b7b1` (plugin `origin/main` after PR #237) adds `memory.rebind`/`unbind` (#219, contract 1.12.0, including the rebind lock fix) and the `global-agent` override that drops `roarr`/`sprintf-js` (#237). The pin `98dfe2f0` (plugin `origin/main` after PR #253) carries contracts 1.13.0 to 1.16.0; its lockfile change is the engine entry and its optional `@huggingface/transformers` 4.3.1 (onnxruntime) plus the `openai` zod peer. The pin `9f34008c` (plugin #275, two commits on top of `98dfe2f0`: `validate` and a zod audit override) adds contract 1.17.0; its lockfile change is the engine entry only.
 
 ## 3. The contract floor rule
 
@@ -78,7 +80,7 @@ Anything else makes the core refuse to start with `E_RPC_VERSION`.
 
 | Constant | Value | Source |
 |---|---|---|
-| `CORE_CONTRACT` (the contract the Harness is built and pinned against) | `1.16.0` | `packages/core/src/engine.ts`; mirrored in `crates/plur1bus/src/install/manifest.rs` (`CORE_CONTRACT`) |
+| `CORE_CONTRACT` (the contract the Harness is built and pinned against) | `1.17.0` | `packages/core/src/engine.ts`; mirrored in `crates/plur1bus/src/install/manifest.rs` (`CORE_CONTRACT`) |
 | `SUPPORTED_CONTRACT_MAJOR` | `1` | `packages/core/src/engine.ts` |
 | `MIN_CONTRACT_MINOR` (floor = `1.8.0`) | `8` | `packages/core/src/engine.ts` |
 
@@ -89,7 +91,7 @@ Anything else makes the core refuse to start with `E_RPC_VERSION`.
   because the core process needs no newer member. The importer (a separate entry, `dist/import.js`) calls `memory.link`
   only after feature-testing `engine.capabilities.memoryLink` (1.16.0) and falls back to a ledger-only link without it
   (`packages/core/src/import/importers/card-links.ts`), so an engine at 1.8.0 to 1.15.0 passes the startup check (HB2).
-  Whether such an engine passes the core's tests: unverified (the test suite pins 1.16.0).
+  Whether such an engine passes the core's tests: unverified (the test suite pins 1.17.0). Without `validate` (before 1.17.0) a re-embedding run stops in `validating` (`engine-validate-unavailable`) and `admin.embedding.check` answers `canSwitch: false`.
 - **The two constants cannot drift apart silently.** The Rust test `core_contract_matches_the_typescript_core_contract`
   in `crates/plur1bus/src/install/manifest.rs` reads `packages/core/src/engine.ts` and asserts equality of
   `CORE_CONTRACT`.

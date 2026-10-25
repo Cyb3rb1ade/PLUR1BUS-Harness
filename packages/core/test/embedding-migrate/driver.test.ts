@@ -73,6 +73,37 @@ describe("migration driver: plan", () => {
       await assert.rejects(r.driver.plan({ target: fp("d", 4) }), (e) => codeOf(e) === "migration-active");
     } finally { r.done(); }
   });
+
+  it("the same target planned again answers the pending plan: no second engine plan, the new throttle kept, then it runs", async () => {
+    const r = rig(); try {
+      const first = await r.driver.plan({ target, throttleMs: 200 });
+      const again = await r.driver.plan({ target, throttleMs: 0 });
+      assert.equal(r.fake.state.planRequests.length, 1, "the engine is asked once");
+      assert.equal(again.plan?.id, first.plan?.id);
+      assert.deepEqual({ ...again.plan, throttleMs: 200, minDurationMs: first.plan!.minDurationMs }, first.plan);
+      assert.equal(again.plan?.throttleMs, 0); assert.deepEqual(again.probe, first.probe);
+      const st = (await r.driver.status()).checkpoint!;
+      assert.equal(st.throttleMs, 0); assert.ok(!("estimate" in st), "the estimate stays internal");
+      assert.equal((await r.driver.run()).phase, "ready-to-switch");
+    } finally { r.done(); }
+  });
+
+  it("a pending plan is not reused for another target, after its engine record moved on, or close to its expiry", async () => {
+    let clock = 1_000;
+    const dir = mkdtempSync(path.join(tmpdir(), "p1-reembed-drv-"));
+    try {
+      const fake = createFakeEngine({}); let n = 0;
+      const d = createMigrationDriver({ newId: () => `m${++n}`, engine: fake.engine, store: createStateStore(dir), switchPort: fake.switchPort, now: () => clock, sleep: async () => {} });
+      await d.plan({ target });
+      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m2", "another target: a new plan");
+      fake.state.records.get("m2")!.state = "failed";
+      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m3", "the engine record is no longer planned");
+      clock += 56 * 60 * 1000;
+      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m4", "less than five minutes of confirmation left");
+      assert.equal((await d.plan({ target: fp("c", 4) })).plan?.id, "m4", "the fresh one is reused");
+      assert.equal(fake.state.planRequests.length, 4);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 describe("migration driver: checkpoint binding", () => {
@@ -216,6 +247,45 @@ describe("migration driver: switch and abort", () => {
       await assert.rejects(failing.switch(), (e) => codeOf(e) === "switch-failed" && /config busy/.test((e as Error).message));
       const st = (await failing.status()).checkpoint!;
       assert.equal(st.phase, "ready-to-switch"); assert.equal(st.error?.code, "switch-failed"); assert.equal(r.fake.state.activeGeneration, "g0");
+    } finally { r.done(); }
+  });
+
+  it("a reply lost with the core's restart over a written configuration is a switch; over an unwritten one it is not", async () => {
+    const lost = () => Promise.reject(Object.assign(new Error("connection closed"), { error: "E_CORE_UNAVAILABLE", reason: "closed" }));
+    for (const written of [true, false]) {
+      const r = rig(); try {
+        const seen: unknown[] = [];
+        const d = createMigrationDriver({ engine: r.fake.engine, store: createStateStore(r.dir), switchPort: { apply: lost, written: (s) => { seen.push(s); return written; } }, sleep: async () => {} });
+        await d.plan({ target }); await d.run();
+        if (written) assert.equal((await d.switch()).phase, "switched");
+        else await assert.rejects(d.switch(), (e) => codeOf(e) === "switch-failed" && /connection closed/.test((e as Error).message));
+        const st = (await d.status()).checkpoint!;
+        assert.equal(st.phase, written ? "switched" : "ready-to-switch"); assert.equal(st.error?.code ?? null, written ? null : "switch-failed");
+        assert.deepEqual(seen[0], { generation: st.targetGeneration, fingerprint: target });
+      } finally { r.done(); }
+    }
+  });
+
+  it("a refusal is never read as a switch, whatever the file says", async () => {
+    const r = rig(); try {
+      const d = createMigrationDriver({ engine: r.fake.engine, store: createStateStore(r.dir), switchPort: { apply: async () => { throw new MigrationError("switch-unavailable", "no supervisor"); }, written: () => true }, sleep: async () => {} });
+      await d.plan({ target }); await d.run();
+      await assert.rejects(d.switch(), (e) => codeOf(e) === "switch-unavailable");
+    } finally { r.done(); }
+  });
+
+  it("status after a restart confirms a switch the stopped core could not record", async () => {
+    const r = rig(); try {
+      let written = false;
+      const port = { apply: async () => { written = true; await new Promise(() => {}); }, written: () => written };
+      const d = createMigrationDriver({ engine: r.fake.engine, store: createStateStore(r.dir), switchPort: port, sleep: async () => {} });
+      await d.plan({ target }); await d.run();
+      void d.switch(); // the core is stopped while the supervisor still holds the reply
+      await new Promise((res) => setImmediate(res));
+      const next = createMigrationDriver({ engine: r.fake.engine, store: createStateStore(r.dir), switchPort: port, sleep: async () => {} });
+      assert.equal((await next.status()).checkpoint?.phase, "switched");
+      const untouched = createMigrationDriver({ engine: r.fake.engine, store: createStateStore(r.dir), switchPort: { apply: port.apply, written: () => false }, sleep: async () => {} });
+      assert.equal((await untouched.status()).checkpoint?.phase, "switched", "a recorded switch stays recorded");
     } finally { r.done(); }
   });
 

@@ -62,18 +62,26 @@ if (values["test-internals"]) {
   if (process.env.PLUR1BUS_ALLOW_TEST_INTERNALS !== "1") fail("--test-internals requires PLUR1BUS_ALLOW_TEST_INTERNALS=1");
   const variant = values["test-internals"];
   if (variant === "flat-embedder" || variant === "flat-embedder-cold") {
-    const vector = () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)); const one = async () => vector();
+    // The width is the configured embedding's (core.ts resolves the factory), so the seam still fits the store after a
+    // re-embedding switch; the re-embedding target provider gets its target's width the same way.
+    const flat = (width: number) => () => Array.from({ length: width }, (_, i) => (i === 0 ? 1 : 0));
     // flat-embedder-cold (H3-R22): the first 2 embedQuery calls of this process (the warm-up probe and its
     // memory.list) take 350 ms each, one after the other (a cold model serves one inference at a time) — enough that a recall issued before the warm-up finished queues
     // behind the warm-up's probe and overruns the core's 600 ms hard budget.
     let coldCalls = variant === "flat-embedder-cold" ? 2 : 0; let coldChain: Promise<void> = Promise.resolve();
-    const query = async () => {
+    const cold = async () => {
       if (coldCalls > 0) { coldCalls--; const mine = coldChain.then(() => new Promise<void>((r) => setTimeout(r, 350))); coldChain = mine; await mine; }
-      return vector();
+    };
+    const embedder = (width: number, query: () => Promise<void> = async () => {}) => {
+      const vector = flat(width); const one = async () => vector();
+      return { embed: one, embedQuery: async () => { await query(); return vector(); }, embedPassage: one, embedBatch: async (t: string[]) => t.map(vector), shutdown: async () => {} };
     };
     // R17: force the null reranker alongside the flat embedder — production config always turns the reranker
     // on (engine-config.ts), so with >= 2 memories the engine would otherwise download the ONNX model in tests.
-    testInternals = { embeddings: { embed: one, embedQuery: query, embedPassage: one, embedBatch: async (t: string[]) => t.map(vector), shutdown: async () => {} }, reranker: null };
+    testInternals = {
+      embeddings: (width: number) => embedder(width, cold), reranker: null,
+      reembeddingTargetProvider: ({ fingerprint }: { fingerprint: { dimensions: number } }) => embedder(fingerprint.dimensions),
+    };
   } else if (variant === "crash-reject" || variant === "crash-throw" || variant === "stall") {
     // Fatal-handler and signal seams: they act before the core is created and never get past this point.
     if (variant === "crash-reject") void Promise.reject(new Error("boom"));

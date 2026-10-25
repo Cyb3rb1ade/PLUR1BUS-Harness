@@ -17,8 +17,17 @@ export function flatEmbedder(o: FlatEmbedderOptions = {}) {
   return { embed: one, embedQuery: one, embedPassage: passage, embedBatch: async (texts: string[]) => { await o.passageGate; await sleep(o.passageDelayMs?.()); return texts.map(vector); }, shutdown: async () => {} };
 }
 
-/** R17: the core tests' engine seam — flat embedder and no reranker, so no model is ever loaded (engine-config forces the reranker on). */
+/** A re-embedding target provider of the target's width (engine 1.17.0 seam `reembeddingTargetProvider`): every text gets the
+ *  same unit vector, so the engine's validation probe always recalls its memory and no target model is loaded. */
+export function flatTargetProvider({ fingerprint }: { fingerprint: { dimensions: number } }) {
+  const vector = () => Array.from({ length: fingerprint.dimensions }, (_, i) => (i === 0 ? 1 : 0));
+  const one = async () => vector();
+  return { embed: one, embedQuery: one, embedPassage: one, embedBatch: async (texts: string[]) => texts.map(vector), shutdown: async () => {} };
+}
+
+/** R17: the core tests' engine seam — flat embedder and no reranker, so no model is ever loaded (engine-config forces the reranker on),
+ *  and a flat re-embedding target provider, so a migration never loads its target model either. */
 export function flatTestInternals(o: FlatEmbedderOptions & { extra?: Record<string, unknown> } = {}): Record<string, unknown> {
   const e: FlatEmbedderOptions = { ...(o.passageDelayMs ? { passageDelayMs: o.passageDelayMs } : {}), ...(o.passageGate ? { passageGate: o.passageGate } : {}), ...(o.queryDelayMs ? { queryDelayMs: o.queryDelayMs } : {}) };
-  return { embeddings: flatEmbedder(e), reranker: null, ...(o.extra ?? {}) };
+  return { embeddings: flatEmbedder(e), reranker: null, reembeddingTargetProvider: flatTargetProvider, ...(o.extra ?? {}) };
 }

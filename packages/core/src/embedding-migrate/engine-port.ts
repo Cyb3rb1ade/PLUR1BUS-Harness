@@ -1,8 +1,8 @@
 // The ReembedEngine port over the pinned engine's `Engine.admin.reembedding` (lib/reembedding/coordinator.js). The contract
 // types its members as parameterless `Promise<unknown>`; the coordinator takes `plan(request)`, `apply({id, token})`,
-// `resume({id, token})` and `status(id)`. Results are projected onto exactly the fields the driver reads, so the engine's
+// `resume({id, token})`, `validate({id})` and `status(id)`. Results are projected onto exactly the fields the driver reads, so the engine's
 // persisted confirmation hash and any extra record fields never travel further. `validate` exists only if the engine
-// exposes it (the pinned contract does not): the driver then stops at `validating`, fail closed.
+// exposes it (contract 1.17.0 does); without it the driver stops at `validating`, fail closed.
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { EmbeddingFingerprint } from "./probe.ts";
 import type { EnginePlan, EngineRecord, EngineState, EngineTable, PlanRequest, ReembedEngine } from "./port.ts";

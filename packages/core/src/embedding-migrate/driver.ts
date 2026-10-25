@@ -3,9 +3,10 @@
 // record; the driver owns orchestration: which migration is ours, throttling, abort at batch boundaries, fail-closed
 // validation, and the Harness half of the switch. Nothing here touches the active generation before `switch()`.
 import { randomBytes } from "node:crypto";
+import { embeddingFingerprintId } from "@cyb3rb1ade/plur1bus-memory/lib/reembedding/fingerprint.js";
 import { checkTarget, probeCompatibility, type EmbeddingFingerprint, type ProbeResult } from "./probe.ts";
 import type { EngineRecord, ReembedEngine, SwitchPort } from "./port.ts";
-import { MigrationStateError, TERMINAL, type Checkpoint, type Phase, type StateStore } from "./state.ts";
+import { MigrationStateError, TERMINAL, type Checkpoint, type Phase, type PlanEstimate, type StateStore } from "./state.ts";
 import type { PrivacyAcknowledgment } from "@plur1bus/config-schema";
 import { OPENAI_DEFAULT_ENDPOINT } from "../composition/embedding-policy.ts";
 import { redactEndpoint } from "../privacy/local-only.ts";
@@ -20,8 +21,8 @@ export class MigrationError extends Error {
 }
 
 /** The checkpoint as callers see it: the confirmation token never leaves the driver. */
-export type PublicCheckpoint = Omit<Checkpoint, "token">;
-export const publicView = (c: Checkpoint): PublicCheckpoint => { const { token: _t, ...rest } = c; return rest; };
+export type PublicCheckpoint = Omit<Checkpoint, "token" | "estimate">;
+export const publicView = (c: Checkpoint): PublicCheckpoint => { const { token: _t, estimate: _e, ...rest } = c; return rest; };
 
 export interface PlanSummary {
   id: string; sourceGeneration: string; targetGeneration: string;
@@ -97,6 +98,8 @@ export const DEFAULT_THROTTLE_MS = 250;
 export const MAX_THROTTLE_MS = 60_000;
 /** The engine's maximum confirmation lifetime (planner.js): plan → run in a normal workflow must not race the TTL. */
 const CONFIRMATION_TTL_MS = 60 * 60 * 1000;
+/** A pending plan closer than this to its confirmation's end is planned anew: the run must not race the expiry. */
+const PENDING_MARGIN_MS = 5 * 60 * 1000;
 
 const defaultSleep = (ms: number, signal: AbortSignal) => new Promise<void>((resolve) => {
   if (signal.aborted || ms <= 0) return resolve();
@@ -156,6 +159,10 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     if (existing && !TERMINAL.includes(existing.phase) && existing.phase !== "planned") throw new MigrationError("migration-active", `migration ${existing.id} is ${existing.phase}; finish it with --run or stop it with --abort first`);
     const refused = checkTarget(req.target);
     if (refused) return { probe: refused, plan: null };
+    // The engine refuses a second plan while an unconfirmed one lives (one hour), so the same target asked again (a config
+    // set after its --dry-run, or after a declined confirmation) answers the pending plan.
+    const pending = existing?.phase === "planned" ? await samePending(existing, req, throttleMs) : null;
+    if (pending) return pending;
 
     const id = newId();
     let enginePlan;
@@ -188,23 +195,41 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       cloud = { provider: req.target.provider, model: req.target.model, endpoint: redactEndpoint(req.remote.baseUrl ?? req.target.endpoint ?? OPENAI_DEFAULT_ENDPOINT), cards: rows, estimatedTokens, sendsText: true };
       remote = { apiKeyEnv: req.remote.apiKeyEnv, ...(req.remote.baseUrl !== undefined ? { baseUrl: req.remote.baseUrl } : {}), ...(req.remote.privacyAck ? { privacyAck: req.remote.privacyAck } : {}), tokensPerRow: rows === 0 ? 0 : Math.max(1, Math.ceil(estimatedTokens / rows)) };
     }
+    const estimate = { providerCalls: p.estimates.providerCalls, sourceBytes: p.estimates.sourceBytes, targetBytes: p.estimates.targetBytes, requiredFreeBytes: p.estimates.requiredFreeBytes, freeBytes: p.estimates.freeBytes, probeStatus: p.target.probeStatus, ...(cloud ? { cloud } : {}) };
     const cp: Checkpoint = {
       v: 1, id: p.id, token: enginePlan.confirmation.token, planDigest: enginePlan.planDigest, createdAt: now(), updatedAt: now(), phase: "planned",
       sourceGeneration: p.source.generation, targetGeneration: p.target.generation, target: req.target,
       counts: { rows: p.estimates.rows, tables: p.source.tables.length, batches, rowsDone: 0, batchesDone: 0 },
-      throttleMs, abortRequested: false, error: null, ...(remote ? { remote } : {}),
+      throttleMs, abortRequested: false, error: null, ...(remote ? { remote } : {}), estimate,
     };
     put(cp);
     d.logger?.info("re-embedding planned", { id: p.id, rows: cp.counts.rows, batches });
-    return {
-      probe,
-      plan: {
-        id: p.id, sourceGeneration: p.source.generation, targetGeneration: p.target.generation, rows: p.estimates.rows, tables: p.source.tables.length,
-        batches, batchSize: d.engine.batchSize, providerCalls: p.estimates.providerCalls, sourceBytes: p.estimates.sourceBytes, targetBytes: p.estimates.targetBytes,
-        requiredFreeBytes: p.estimates.requiredFreeBytes, freeBytes: p.estimates.freeBytes, throttleMs, minDurationMs: batches * throttleMs, probeStatus: p.target.probeStatus,
-        ...(cloud ? { cloud } : {}),
-      },
-    };
+    return { probe, plan: summaryOf(cp, estimate) };
+  }
+
+  const summaryOf = (c: Checkpoint, e: PlanEstimate): PlanSummary => ({
+    id: c.id, sourceGeneration: c.sourceGeneration, targetGeneration: c.targetGeneration, rows: c.counts.rows, tables: c.counts.tables,
+    batches: c.counts.batches, batchSize: d.engine.batchSize, providerCalls: e.providerCalls, sourceBytes: e.sourceBytes, targetBytes: e.targetBytes,
+    requiredFreeBytes: e.requiredFreeBytes, freeBytes: e.freeBytes, throttleMs: c.throttleMs, minDurationMs: c.counts.batches * c.throttleMs, probeStatus: e.probeStatus,
+    ...(e.cloud ? { cloud: e.cloud } : {}),
+  });
+
+  /** The pending plan when it is for the same target, endpoint and key variable, its engine record is still `planned` and its
+   *  confirmation has more than a margin left; null otherwise (then a new plan is asked for, as before). */
+  async function samePending(c: Checkpoint, req: PlanRequest, throttleMs: number): Promise<PlanOutcome | null> {
+    const e = c.estimate;
+    if (!e || now() >= c.createdAt + CONFIRMATION_TTL_MS - PENDING_MARGIN_MS) return null;
+    if (embeddingFingerprintId(c.target as unknown as Record<string, unknown>) !== embeddingFingerprintId(req.target as unknown as Record<string, unknown>)) return null;
+    const a = c.remote, b = req.remote;
+    if (!a !== !b || (a && b && (a.apiKeyEnv !== b.apiKeyEnv || a.baseUrl !== b.baseUrl || JSON.stringify(a.privacyAck ?? null) !== JSON.stringify(b.privacyAck ?? a.privacyAck ?? null)))) return null;
+    if (req.targetGeneration && req.targetGeneration !== c.targetGeneration) return null;
+    let rec: EngineRecord | null;
+    try { rec = await d.engine.status(c.id); } catch { return null; }
+    if (!rec || rec.state !== "planned" || rec.source.generation !== c.sourceGeneration || rec.target.generation !== c.targetGeneration) return null;
+    const kept = save(c, { throttleMs });
+    d.logger?.info("re-embedding plan kept", { id: c.id });
+    const probe = probeCompatibility({ stored: rec.source.fingerprint, target: req.target, targetProbe: { ok: e.probeStatus === "passed" || e.probeStatus === "probe_deferred_local_artifact" } });
+    return { probe, plan: summaryOf(kept, e) };
   }
 
   /** Applies the engine's record to the checkpoint's counters. */
@@ -310,7 +335,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
   }
 
   async function status(): Promise<StatusView> {
-    const c = read();
+    const c = reconciled(read());
     let engineState: string | null = null;
     if (c) { try { engineState = (await d.engine.status(c.id))?.state ?? null; } catch { engineState = null; } }
     const k = c?.counts ?? { rows: 0, rowsDone: 0, batches: 0, batchesDone: 0 };
@@ -358,12 +383,25 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     try {
       await d.switchPort.apply({ generation: c.targetGeneration, fingerprint: c.target, fingerprintId: rec.target.fingerprintId, ...(c.remote ? { remote: { apiKeyEnv: c.remote.apiKeyEnv, ...(c.remote.baseUrl !== undefined ? { baseUrl: c.remote.baseUrl } : {}), ...(c.remote.privacyAck ? { privacyAck: c.remote.privacyAck } : {}) } } : {}) });
     } catch (e) {
+      // The supervisor restarts the core on the write before it answers: a lost reply over a written file is a switch.
+      if (!(e instanceof MigrationError) && d.switchPort.written?.({ generation: c.targetGeneration, fingerprint: c.target })) return switched(c);
       const err = e instanceof MigrationError ? e : new MigrationError("switch-failed", (e instanceof Error ? e.message : String(e)).slice(0, 500));
       save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why
       throw err;
     }
+    return switched(c);
+  }
+
+  function switched(c: Checkpoint): PublicCheckpoint {
     d.logger?.info("re-embedding switched", { id: c.id, generation: c.targetGeneration });
     return publicView(save(c, { phase: "switched", error: null }));
+  }
+
+  /** A checkpoint left at ready-to-switch by a core stopped during its own switch: the configuration on disk decides. */
+  function reconciled(c: Checkpoint | null): Checkpoint | null {
+    if (c?.phase !== "ready-to-switch" || loop || busy || !d.switchPort?.written?.({ generation: c.targetGeneration, fingerprint: c.target })) return c;
+    switched(c);
+    return read();
   }
 
   async function stop(waitMs: number): Promise<void> {
