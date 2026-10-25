@@ -114,7 +114,8 @@ describe("c08: paths outside allowed roots", () => {
     try {
       const root = join(base, "root"); await mkdir(root);
       const f = join(base, "x.mp4"); await writeFile(f, Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypmp42")]));
-      const fake = join(base, "ffmpeg"); await writeFile(fake, "#!/bin/sh\n", { mode: 0o755 });
+      // `.exe`: Windows resolves only native images (it is never spawned here).
+      const fake = join(base, "ffmpeg.exe"); await writeFile(fake, "#!/bin/sh\n", { mode: 0o755 });
       let spawned = 0;
       const ports = createFfmpegPorts({ ffmpegPath: fake, tempDir: join(base, "t"), allowedRoots: [root], spawn: (() => { spawned++; throw new Error("no spawn"); }) as never });
       await assert.rejects(async () => { for await (const _ of ports.frames!.frames({ path: f }, { intervalSec: 1, sceneDetect: false, maxFrames: 1 })) void _; }, code("E_MEDIA_UNSUPPORTED_KIND"));
@@ -154,7 +155,8 @@ describe("c08: open items", () => {
   it("composition passes allowedRoots (media directories) to the ffmpeg ports and caption providers", async () => {
     let spawned = 0;
     // A stand-in binary: the test must not depend on ffmpeg being installed (createFfmpegPorts yields no ports without it).
-    const bin = await mkdtemp(join(tmpdir(), "c08-bin-")); const fakeFfmpeg = join(bin, "ffmpeg"); await writeFile(fakeFfmpeg, "#!/bin/sh\n", { mode: 0o755 });
+    // `.exe`: Windows resolves only native images.
+    const bin = await mkdtemp(join(tmpdir(), "c08-bin-")); const fakeFfmpeg = join(bin, "ffmpeg.exe"); await writeFile(fakeFfmpeg, "#!/bin/sh\n", { mode: 0o755 });
     const { home, c } = await composeWith({ ffmpeg: { ffmpegPath: fakeFfmpeg, spawn: (() => { spawned++; throw new Error("no spawn"); }) as never } }, { provider: "local" });
     try {
       assert.equal(c.kind, "engine");
