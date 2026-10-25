@@ -11,7 +11,34 @@ export type Field = {
   options?: readonly string[]; min?: number; max?: number;
   /** from config.get for this key: "live", "core", "module:<name>", or null when unknown */ restartClass: string | null;
   /** true when the widget cannot edit it safely: shown as formatted JSON */ readOnly: boolean;
+  /** `supervisor.maxCores` only, when the supervisor reported the host's cores: the field is a slider */ cores?: CoreInfo;
 };
+
+/** `daemon.status.cpu` (supervisor.maxCores): the cores the supervisor detected on the host and whether a limit holds. */
+export type CoreInfo = { detected: number; effective: number; state: "unlimited" | "limited" | "unsupported" | "failed"; reason?: string };
+/** The key the CPU core slider edits. */
+export const CORES_KEY = "supervisor.maxCores";
+const CORE_STATES: readonly string[] = ["unlimited", "limited", "unsupported", "failed"];
+
+/** The CPU facts of a `daemon.status` result; undefined when it carries none (a supervisor that predates them). */
+export function coreInfo(status: unknown): CoreInfo | undefined {
+  const cpu = isObj(status) ? status.cpu : undefined;
+  if (!isObj(cpu)) return undefined;
+  const { detected, effective, state, reason } = cpu;
+  if (typeof detected !== "number" || !Number.isInteger(detected) || detected < 1) return undefined;
+  if (typeof effective !== "number" || !Number.isInteger(effective) || effective < 1) return undefined;
+  if (typeof state !== "string" || !CORE_STATES.includes(state)) return undefined;
+  return { detected, effective, state: state as CoreInfo["state"], ...(typeof reason === "string" ? { reason } : {}) };
+}
+
+/** The slider position of a draft value: 0 (no limit), a limit at or above the detected cores, and no number sit at the right end. */
+export function coreSliderValue(draft: string, detected: number): number {
+  const n = Number(draft.trim());
+  return Number.isInteger(n) && n >= 1 && n < detected ? n : detected;
+}
+
+/** The draft value of a slider position: the right end, every core, is stored as 0. */
+export const coreDraftValue = (position: number, detected: number): string => (position >= detected ? "0" : String(position));
 export type Draft = Record<string, string | boolean>;
 
 /** Names the shared key heuristic (key, token, secret, password, credential) does not cover but that hold secrets all the same. */
@@ -46,8 +73,9 @@ function extraLeaves(config: Record<string, unknown>, known: ReadonlySet<string>
   return out.filter(([key]) => key !== "engine" && !key.startsWith("engine."));
 }
 
-/** The fields of a config section, in schema order. Keys that may hold secret values are never included. */
-export function buildFields(config: unknown, section: SectionDef, restart: Readonly<Record<string, string | null>> = {}): Field[] {
+/** The fields of a config section, in schema order. Keys that may hold secret values are never included. `host.cores` (from
+ *  `daemon.status`) turns `supervisor.maxCores` into a slider. */
+export function buildFields(config: unknown, section: SectionDef, restart: Readonly<Record<string, string | null>> = {}, host: { cores?: CoreInfo } = {}): Field[] {
   const cfg = isObj(config) ? config : {};
   const mine = (key: string): boolean => sectionOf(key)?.id === section.id && !isSecretKey(key);
   const fields: Field[] = META.filter((m) => mine(m.key)).map((m) => {
@@ -55,6 +83,7 @@ export function buildFields(config: unknown, section: SectionDef, restart: Reado
     return {
       key: m.key, kind: m.kind, value, def: m.def, ...(m.options ? { options: m.options } : {}), ...(m.min === undefined ? {} : { min: m.min }), ...(m.max === undefined ? {} : { max: m.max }),
       restartClass: restart[m.key] ?? m.restart ?? null, readOnly: m.kind === "json",
+      ...(m.key === CORES_KEY && host.cores ? { cores: host.cores } : {}),
     };
   });
   const known = new Set(META.map((m) => m.key));

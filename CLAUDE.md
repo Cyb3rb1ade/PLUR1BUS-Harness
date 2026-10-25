@@ -40,6 +40,7 @@ Do not wait for these, and do not treat them as blocking. They are slow, flaky o
 red on `main`, and are meant to be fixed on `main` separately. `ci-gate` does not depend on any of them:
 
 - `unit (windows-2025)` (slow, often red) and `unit (macos-15)`, the job `unit-os`; macOS disables in-line browser suites so Core can run.
+- `core unit shard i/3 (windows-2025)` and `core-unit-windows`: the Core files that `unit (windows-2025)` leaves out, in the Ubuntu shards' partition plus their partition check (`docs/ci.md`, "Windows timeout and timings").
 - `python-host (windows-11-arm, 3.13, true)` (experimental), and the other `ci` jobs outside the gate: `python-host`, `system`, `service`, `sandbox`, `release-scripts`, `documents-golden` (inspect relevant failures, but they do not decide)
 - the `desktop` workflow (`desktop.yml`)
 - advisory jobs: `startup (…)` and `budget catalogue (…, advisory)` in `ci`, `reproducible` in `container` and `real-image` in `desktop real-image compatibility` (the last two are `continue-on-error`)

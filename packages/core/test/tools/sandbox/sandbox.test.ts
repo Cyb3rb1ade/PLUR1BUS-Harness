@@ -11,7 +11,7 @@ async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), 'd106-'));
   const home = join(dir, 'h'), root = join(dir, 'workspace'), userHome = join(dir, 'u');
   for (const p of [home, root, userHome, join(home, 'run'), join(home, 'state')]) await mkdir(p, { recursive: true });
-  const policy: SandboxPolicy = { home, userHome, cwd: root, readRoots: [{ id: 'w', path: root }], writeRoots: [{ id: 'w', path: root }], network: 'none', envAllow: ['PATH', 'PLUR1BUS_HOME', 'NODE_OPTIONS', 'AUTH', 'LANG'], env: { PATH: '/usr/bin:/bin', LANG: 'C', PLUR1BUS_HOME: home, NODE_OPTIONS: '--inspect', AUTH: 'private-value' }, limits: { timeoutMs: 1500, cpuSeconds: 1, memoryBytes: 2 * 1024 ** 3, maxProcesses: 32, maxOutputBytes: 512 }, limitsHelper: fileURLToPath(new URL('../../../../../target/debug/plur1bus-sandbox-limits' + (process.platform === 'win32' ? '.exe' : ''), import.meta.url)) };
+  const policy: SandboxPolicy = { home, userHome, cwd: root, readRoots: [{ id: 'w', path: root }], writeRoots: [{ id: 'w', path: root }], network: 'none', envAllow: ['PATH', 'PLUR1BUS_HOME', 'NODE_OPTIONS', 'AUTH', 'LANG'], env: { PATH: '/usr/bin:/bin', LANG: 'C', PLUR1BUS_HOME: home, NODE_OPTIONS: '--inspect', AUTH: 'private-value' }, limits: { timeoutMs: 1500, cpuSeconds: 1, memoryBytes: 2 * 1024 ** 3, maxOutputBytes: 512 }, limitsHelper: fileURLToPath(new URL('../../../../../target/debug/plur1bus-sandbox-limits' + (process.platform === 'win32' ? '.exe' : ''), import.meta.url)) };
   return { dir, home, root, policy, close: () => rm(dir, { recursive: true, force: true }) };
 }
 test('detection fails closed for missing helper and unavailable Windows isolation', async () => {

@@ -197,7 +197,7 @@ pub fn get_result(
 }
 
 /// Applies what the supervisor itself consumes of `config` at once: the health interval (read by the health loop
-/// before each poll) and the log limits.
+/// before each poll), the log limits and the CPU cores every process may run on (`supervisor.maxCores`).
 fn apply_live(shared: &Shared, config: &Value) {
     let sc = supervisor_config(Some(config));
     shared.log.set_limits(sc.log_max_bytes, sc.log_keep);
@@ -207,6 +207,7 @@ fn apply_live(shared: &Shared, config: &Value) {
         }
     }
     shared.lock().config = sc;
+    super::cpu::apply(shared, config);
 }
 
 /// B18: a core that exited 2 (`config-invalid`, fatal) is started again by the first valid config.json after an

@@ -7,7 +7,7 @@ import type { View } from "../../../view.ts";
 import { Badge } from "../../../components/card.ts";
 import { t, type Key } from "../../../i18n.ts";
 import { SETTINGS } from "../../../palette/settings-index.ts";
-import { effective, redact, restartKind, show, type Draft, type Field } from "./model.ts";
+import { coreDraftValue, coreSliderValue, effective, redact, restartKind, show, type CoreInfo, type Draft, type Field } from "./model.ts";
 import { fieldId, humanize } from "./meta.ts";
 
 const HELP = new Map(SETTINGS.filter((s) => s.help).map((s) => [s.key, s.help as string]));
@@ -24,6 +24,21 @@ const defaultText = (f: Field): string => {
   if (d === undefined) return t("settings.cfg.noDefault");
   return t("settings.cfg.default", { value: Array.isArray(d) ? (d.length ? d.join(", ") : "[]") : show(d) });
 };
+
+/** Why `supervisor.maxCores` does not do what its value says: the OS cannot bind, the binding failed, or the value exceeds the
+ *  host's cores (then every core is used). */
+function coreNote(f: Field, c: CoreInfo): string | undefined {
+  if (c.state === "unsupported") return t("settings.cores.unsupported");
+  if (c.state === "failed") return t("settings.cores.failed", { reason: c.reason ?? "" });
+  const v = effective(f);
+  return typeof v === "number" && v > c.detected ? t("settings.cores.above", { n: v }) : undefined;
+}
+
+/** The value of the core slider in words, for its `aria-valuetext` and the visible label beside it. */
+function coreText(position: number, total: number): string {
+  if (total === 1) return t("settings.cores.single");
+  return position >= total ? t("settings.cores.all", { total }) : t("settings.cores.some", { n: position, total });
+}
 
 export type FieldRowProps = {
   field: Field; draft: Draft; error: string | undefined; disabled: boolean; highlighted: boolean;
@@ -45,13 +60,25 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
   const id = fieldId(f.key);
   const raw = draft[f.key];
   const role = f.key.startsWith("modelRoles.") ? f.key.slice(11) : undefined;
-  const help = role ? t(`settings.roles.${role}` as Key) : HELP.get(f.key);
-  const meta = [defaultText(f), f.min !== undefined ? t("settings.cfg.min", { min: f.min }) : "", f.max !== undefined ? t("settings.cfg.max", { max: f.max }) : ""].filter(Boolean).join(" · ");
-  const described = [`${id}-key`, f.readOnly ? "" : `${id}-meta`, help ? `${id}-help` : "", f.kind === "strings" || f.kind === "ints" ? `${id}-list` : "", error ? `${id}-err` : ""].filter(Boolean).join(" ");
+  const cores = f.cores;
+  const help = role ? t(`settings.roles.${role}` as Key) : cores ? t("settings.cores.hint") : HELP.get(f.key);
+  const meta = cores ? t("settings.cores.meta", { total: cores.detected })
+    : [defaultText(f), f.min !== undefined ? t("settings.cfg.min", { min: f.min }) : "", f.max !== undefined ? t("settings.cfg.max", { max: f.max }) : ""].filter(Boolean).join(" · ");
+  const note = cores ? coreNote(f, cores) : undefined;
+  const described = [`${id}-key`, f.readOnly ? "" : `${id}-meta`, help ? `${id}-help` : "", note ? `${id}-note` : "", f.kind === "strings" || f.kind === "ints" ? `${id}-list` : "", error ? `${id}-err` : ""].filter(Boolean).join(" ");
   const common = { id, disabled, "aria-describedby": described, ...(error ? { "aria-invalid": true } : {}) };
   const onInput = (e: Event): void => { onChange(f.key, (e.target as HTMLInputElement).value); };
   let control: View;
-  switch (f.kind) {
+  if (cores) {
+    // supervisor.maxCores: 1 up to the cores the supervisor detected; the right end is every core and is stored as 0.
+    const total = cores.detected;
+    const position = coreSliderValue(String(raw ?? ""), total);
+    const text = coreText(position, total);
+    control = h("div", { class: "cfg-range" },
+      h("input", { ...common, type: "range", min: 1, max: total, step: 1, value: position, disabled: disabled || total === 1, "aria-valuetext": text,
+        onInput: (e: Event) => { onChange(f.key, coreDraftValue(Number((e.target as HTMLInputElement).value), total)); } }),
+      h("span", { class: "cfg-range-value", "aria-hidden": "true" }, text));
+  } else switch (f.kind) {
     case "bool":
       control = h("span", { class: "cfg-switch" },
         h("input", { ...common, type: "checkbox", role: "switch", checked: raw === true, onChange: (e: Event) => { onChange(f.key, (e.target as HTMLInputElement).checked); } }),
@@ -91,6 +118,7 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
     f.kind === "strings" || f.kind === "ints" ? h("p", { class: "field-hint", id: `${id}-list` }, t("settings.cfg.listHint")) : null,
     f.readOnly ? null : h("p", { class: "field-hint", id: `${id}-meta` }, meta),
     help ? h("p", { class: "field-hint", id: `${id}-help` }, help) : null,
+    note ? h("p", { class: "field-hint", id: `${id}-note`, "data-tone": "warn" }, note) : null,
     error ? h("p", { class: "form-error", id: `${id}-err` }, error) : null);
 }
 

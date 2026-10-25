@@ -77,8 +77,21 @@ pub fn start_with_core(
     scale: &str,
     env: &[(&str, &str)],
 ) -> Supervisor {
+    start_with_core_using(home, events, scale, env, |_| {})
+}
+
+/// [`start_with_core`], after `prepare` adjusted the command (for example a `pre_exec` hook).
+pub fn start_with_core_using(
+    home: &Path,
+    events: &Path,
+    scale: &str,
+    env: &[(&str, &str)],
+    prepare: impl FnOnce(&mut Command),
+) -> Supervisor {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-core.mjs");
-    let child = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"));
+    prepare(&mut cmd);
+    let child = cmd
         .arg("--home")
         .arg(home)
         .arg("supervise")

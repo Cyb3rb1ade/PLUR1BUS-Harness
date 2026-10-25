@@ -28,8 +28,10 @@ export function selections(o) {
 export const ADVISORY = new Set(['web-browser-macos']);
 
 // Jobs of ci.yml that run but are deliberately not part of the gate (see docs/ci.md, "Required check and failures").
-export const UNGATED = ['unit-os', 'system', 'service', 'python-host', 'web-browser-build', 'web-browser-shard',
-  'release-scripts', 'sandbox', 'perf-startup', 'perf-budgets', 'documents-golden', 'host-tool-eval'];
+// `core-unit-shard-windows` and `core-unit-windows` are the Windows half of `unit-os`'s Core split, ungated like it.
+export const UNGATED = ['unit-os', 'core-unit-shard-windows', 'core-unit-windows', 'system', 'service', 'python-host',
+  'web-browser-build', 'web-browser-shard', 'release-scripts', 'sandbox', 'perf-startup', 'perf-budgets',
+  'documents-golden', 'host-tool-eval'];
 
 export function evaluateGate(needs) {
   if (needs?.changes?.result !== 'success') return ['changes must succeed'];
