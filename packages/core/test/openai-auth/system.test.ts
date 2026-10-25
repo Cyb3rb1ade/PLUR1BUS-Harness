@@ -27,9 +27,14 @@ test('stack: Core AuthService login → authenticated session.submit → plan us
     client = await connect({ address: core.address, token: core.token });
     const caller = { channel: 'cli', accountId: 'fixture-host', userId: 'fixture-user' };
     const { session } = await client.call<any>('session.create', { caller, agentId: 'bernd' });
-    const result = await client.call<any>('session.submit', { caller, sessionId: session.id, text: 'hello', wait: true }); assert.equal(result.state, 'completed', JSON.stringify(result)); assert.equal(result.reply, 'plan answer');
+    const result = await client.call<any>('session.submit', { caller, sessionId: session.id, text: 'hello', wait: true });
+    if (result.state !== 'completed') assert.fail(`${JSON.stringify(result)}\nexchanges with the local OpenAI fixture:\n${local.diagnostics()}\ncore.log (last 40 lines):\n${await logTail(join(home, 'logs', 'core.log'), 40)}`); assert.equal(result.reply, 'plan answer');
     for (const file of ['budget.sqlite','openai-plan-usage.sqlite']) { const db = new DatabaseSync(join(home, 'state', file)); const row = db.prepare(file === 'budget.sqlite' ? 'SELECT input_tokens,output_tokens FROM usage_event' : 'SELECT input,output FROM plan_usage').get(); assert.ok(row); db.close(); }
     const output = JSON.stringify(result) + await readFile(join(home, 'logs', 'core.log'), 'utf8') + await readFile(join(home, 'logs', 'audit.log'), 'utf8'); for (const value of local.fake.secrets) assert.equal(output.includes(value), false);
     await auth.logout(credential.id, principal);
   } finally { await client?.close(); await core.stop(); await local.close(); await rm(home, { recursive: true, force: true }); for (const [name,value] of [['PLUR1BUS_ALLOW_TEST_INTERNALS',old.allow],['PLUR1BUS_SECRETS_KEYRING',old.keyring]] as const) if (value === undefined) delete process.env[name]; else process.env[name] = value; }
 });
+/** The end of a log file for a failure message; the file may not exist yet when the turn failed early. */
+async function logTail(path: string, lines: number): Promise<string> {
+  try { return (await readFile(path, 'utf8')).trimEnd().split('\n').slice(-lines).join('\n'); } catch (e) { return `(unreadable: ${(e as NodeJS.ErrnoException).code ?? 'error'})`; }
+}
