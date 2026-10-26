@@ -7,6 +7,7 @@
  * - Router: `ProviderRouter` (profiles → ordered candidates, fail-closed fallback, per provider+model circuit breaker,
  *   jittered backoff), and `profiles/` which resolves the config's `modelProfiles` into a router.
  * - Local models: discovery, availability, a non-blocking monitor and a guard that fails fast on a dead endpoint.
+ * - Prompt-cache profiles: `schema/cache-profiles.json` (RE-D21), validated on load, with the model-id normaliser.
  */
 
 // Errors
@@ -44,3 +45,7 @@ export * from "./profiles/index.ts";
 
 // Local models (Ollama, LM Studio)
 export * from "./local/index.ts";
+
+// Prompt-cache profiles (RE-D21): the table, its normaliser and the row lookup
+export { CACHE_PROFILE_TABLE, loadCacheProfileTable, checkAgainstSchema, normalizeModelRef, findCacheProfile } from "./cache-profiles.ts";
+export type { CacheProfileTable, CacheProfileRow, CacheGatewayProfile, CacheProfileMatch, CacheRoute, NormalizedModelRef, CacheProvider, CacheWire, CacheTtl, CachePlatform, CacheClass, CacheGateway, CacheTtlEntry, CacheAffinity, CacheUsageMap } from "./cache-profiles.ts";
