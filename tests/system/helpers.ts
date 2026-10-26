@@ -27,13 +27,18 @@ export function sharedMemorySupported(h: string): boolean {
   return check?.status === "ok";
 }
 
-/** A fresh temp home. With real models and PLUR1BUS_MODELS_CACHE set, `<home>/models` (the core's model
- *  cacheDir) is a symlink to that directory, so a CI cache can keep the ~600 MB download across runs. */
-export function home(): string {
+/** A fresh temp home, with the model cache linked in ({@link linkModelCache}) unless `modelCache: false`. */
+export function home(o: { modelCache?: boolean } = {}): string {
   const h = mkdtempSync(join(tmpdir(), "p1b-sys-"));
+  if (o.modelCache !== false) linkModelCache(h);
+  return h;
+}
+
+/** With real models and PLUR1BUS_MODELS_CACHE set, makes `<h>/models` (the core's model cacheDir) a symlink (a junction
+ *  on Windows) to that directory, so a CI cache can keep the ~1 GB download across homes and runs. Otherwise a no-op. */
+export function linkModelCache(h: string): void {
   const cache = process.env.PLUR1BUS_MODELS_CACHE;
   if (REAL && cache) { mkdirSync(cache, { recursive: true }); symlinkSync(resolve(cache), join(h, "models"), process.platform === "win32" ? "junction" : "dir"); }
-  return h;
 }
 
 /** No single CLI call in a system test may hang the run: it is killed after this long (and then fails). */
