@@ -118,6 +118,9 @@ test("usage: cached and reasoning tokens; a count the wire omits stays absent, a
   assert.deepEqual(full.result.usage, { inputTokens: 100, outputTokens: 30, totalTokens: 130, cachedInputTokens: 64, reasoningTokens: 12 });
   const zero = await run([created, completed({ input_tokens: 5, output_tokens: 0, input_tokens_details: { cached_tokens: 0 } })]);
   assert.deepEqual(zero.result.usage, { inputTokens: 5, outputTokens: 0, totalTokens: 5, cachedInputTokens: 0 });
+  const written = await run([created, completed({ input_tokens: 3000, input_tokens_details: { cached_tokens: 2048, cache_write_tokens: 900, cache_write_tokens_details: { ttl_30m_tokens: 900, ttl_12h_tokens: 0 } }, output_tokens: 7 })]);
+  assert.deepEqual(written.result.usage, { inputTokens: 3000, outputTokens: 7, totalTokens: 3007, cachedInputTokens: 2048, cacheWriteTokens: 900 }, "GPT-5.6+: the written part is its own count, disjoint from the billed reads");
+  await failure([created, completed({ input_tokens: 5, input_tokens_details: { cache_write_tokens: -3 } })], /usage\.cache_write_tokens/);
   const none = await run([created, completed(null)]);
   assert.equal(none.result.usage, undefined);
   assert.equal(none.acc.usage, undefined);

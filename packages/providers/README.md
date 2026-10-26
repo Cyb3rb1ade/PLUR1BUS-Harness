@@ -33,6 +33,10 @@ tools, `toolChoice`, `parallelToolCalls`, `maxTokens`, `temperature`, `topP`, `s
 - **Streaming**: an incremental SSE parser (UTF-8 across chunks, CRLF/CR/LF, comments, `[DONE]`) and per-`index`
   assembly of tool-call deltas; usage from the final chunk. The stream and non-stream paths produce the same
   `ChatResult` for the same turn.
+- **Cache counts** (chat_completions): `cachedInputTokens` from `prompt_tokens_details.cached_tokens`, else DeepSeek's
+  `prompt_cache_hit_tokens`, else Moonshot's legacy top-level `cached_tokens`; `cacheWriteTokens` from
+  `prompt_tokens_details.cache_write_tokens` (OpenAI GPT-5.6+, OpenRouter, Moonshot K3), else Alibaba's
+  `cache_creation_input_tokens`. Both are subsets of `inputTokens`; an absent count stays absent, never 0.
 - **One error type**, `ProviderError`, with `kind` ∈ `auth`, `rate_limit` (with `retryAfterMs`), `overloaded`,
   `context_length`, `invalid_request` (`contentFiltered` marks a content/safety refusal), `network`, `timeout`
   (`timeoutPhase`: headers, idle, total), `aborted`, `unknown` (`code: "protocol"` for a malformed response or stream).
@@ -106,7 +110,8 @@ const claude = createAnthropicAdapter({
   `message_delta`, `message_stop`, `ping`, `error`. `finish` is emitted at `message_stop`, so a stream cut before it is
   a `protocol` error carrying `partial`. Unknown event types are ignored.
 - **Usage**: `inputTokens` is the whole prompt (`input_tokens` + cache creation + cache read), `cachedInputTokens` the
-  cache-read part, `AnthropicUsage.cacheCreationInputTokens` the written part; the wire reports no reasoning count.
+  cache-read part, `cacheWriteTokens` the written part (also as `AnthropicUsage.cacheCreationInputTokens`); the wire
+  reports no reasoning count.
 - **Stop reasons**: `end_turn`/`stop_sequence` → `stop`, `max_tokens`/`model_context_window_exceeded` → `length`,
   `tool_use` → `tool_calls`, `refusal` → `content_filter` (a result, not an error), anything else → `other`.
 - **Errors**: `authentication_error`/`permission_error`/`billing_error` and an exhausted credit balance → `auth`;
@@ -141,8 +146,9 @@ const codex = createResponsesAdapter({
   / `response.reasoning_text.delta` → `reasoning_delta` (never text), `response.refusal.delta` (text, finish
   `content_filter`), `response.completed` / `response.incomplete` (`max_output_tokens` → `length`), `response.failed`
   and `error` (thrown). `finish` is emitted at the terminal event; a stream that ends without one is a `protocol` error.
-- **Usage**: `input_tokens` is the whole prompt, `cached_tokens` its subset (`cachedInputTokens`), `reasoning_tokens`
-  → `reasoningTokens`; `totalTokens` is the reported one, else input + output when both are known.
+- **Usage**: `input_tokens` is the whole prompt, `cached_tokens` its subset (`cachedInputTokens`), `cache_write_tokens`
+  the written subset (`cacheWriteTokens`, GPT-5.6+), `reasoning_tokens` → `reasoningTokens`; `totalTokens` is the
+  reported one, else input + output when both are known.
 - **Errors**: as the shared taxonomy, plus the rate-limit reset headers (`x-ratelimit-reset-requests/-tokens`, Go-style
   durations such as `6m0s`, used only on a 429 and only when there is no `retry-after`), `insufficient_quota` and the
   plan's `usage_limit_reached` as a `rate_limit` that retrying does not fix, `invalid_prompt` from the usage policy as a
@@ -192,7 +198,8 @@ failures (`rate_limit`, `overloaded`, `timeout`, `network`) fall through to the 
 - Anthropic signed thinking and redacted-thinking blocks are kept in WeakMap transport metadata during a turn.
   Complete blocks are replayed unchanged for the same requested model, including through tool aliases; JSON,
   logs, partial snapshots and session storage cannot serialize that metadata. Unsigned thinking continuation and
-  cross-model signature replay fail before I/O. `cacheCreationInputTokens` remains an adapter-level `Usage` extension.
+  cross-model signature replay fail before I/O. `cacheCreationInputTokens` remains an adapter-level `Usage` extension,
+  equal to the neutral `cacheWriteTokens`.
 - `responseFormat` other than `text` is refused for Anthropic (no equivalent on the wire); `stop` is refused for Responses.
 - The fields the ChatGPT-plan backend refuses are taken from its documented behaviour and are **not verified against
   the live backend**; the auth engine (OAuth, account headers) is a separate component.

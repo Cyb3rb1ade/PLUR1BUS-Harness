@@ -127,7 +127,7 @@ test("stop_reason table: one place, raw value kept", async () => {
 
 test("usage: message_start and message_delta merge (later wins); cache fields normalise; absent stays absent", async () => {
   const merged = await run([start({ input_tokens: 10, cache_creation_input_tokens: 100, cache_read_input_tokens: 40, output_tokens: 1 }), done("end_turn", { output_tokens: 9 }), end]);
-  assert.deepEqual(merged.result.usage, { inputTokens: 150, outputTokens: 9, totalTokens: 159, cachedInputTokens: 40, cacheCreationInputTokens: 100 });
+  assert.deepEqual(merged.result.usage, { inputTokens: 150, outputTokens: 9, totalTokens: 159, cachedInputTokens: 40, cacheWriteTokens: 100, cacheCreationInputTokens: 100 });
   const later = await run([start({ input_tokens: 10, output_tokens: 1 }), done("end_turn", { input_tokens: 11, output_tokens: 9 }), end]);
   assert.deepEqual(later.result.usage, { inputTokens: 11, outputTokens: 9, totalTokens: 20 });
   const tiers = await run([start({ input_tokens: 1, output_tokens: 1, cache_creation: { ephemeral_5m_input_tokens: 3, ephemeral_1h_input_tokens: 4 } }), done(), end]);

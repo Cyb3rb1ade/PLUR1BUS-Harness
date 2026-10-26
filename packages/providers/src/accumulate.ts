@@ -19,20 +19,30 @@ function nonNegInt(v: unknown, what: string): number | undefined {
  * value that is not a non-negative integer is a protocol error), tolerant of absent counts and detail objects.
  * RULING: OpenAI fields win; Ollama's native `prompt_eval_count` / `eval_count` are only a fallback for shims that
  * forward them. `totalTokens` is the provider's own total, else input+output when BOTH are known, else absent.
+ * Cache counts (RE-14/P4): reads are `prompt_tokens_details.cached_tokens`, else DeepSeek's `prompt_cache_hit_tokens`,
+ * else Moonshot's legacy top-level `cached_tokens`; writes are `prompt_tokens_details.cache_write_tokens` (OpenAI
+ * GPT-5.6+, OpenRouter, Moonshot K3), else Alibaba's `cache_creation_input_tokens`. Every one is a subset of
+ * `prompt_tokens`; DeepSeek's hit + miss is the prompt when `prompt_tokens` itself is missing.
  */
 export function parseUsage(v: unknown): Usage | undefined {
   if (!isRecord(v)) throw protocol("usage is not an object");
   const input = nonNegInt(v["prompt_tokens"], "usage.prompt_tokens") ?? nonNegInt(v["prompt_eval_count"], "usage.prompt_eval_count");
   const output = nonNegInt(v["completion_tokens"], "usage.completion_tokens") ?? nonNegInt(v["eval_count"], "usage.eval_count");
-  const total = nonNegInt(v["total_tokens"], "usage.total_tokens") ?? (input !== undefined && output !== undefined ? input + output : undefined);
   const pd = v["prompt_tokens_details"], cd = v["completion_tokens_details"];
-  const cached = isRecord(pd) ? nonNegInt(pd["cached_tokens"], "usage.prompt_tokens_details.cached_tokens") : undefined;
+  const hit = nonNegInt(v["prompt_cache_hit_tokens"], "usage.prompt_cache_hit_tokens"), miss = nonNegInt(v["prompt_cache_miss_tokens"], "usage.prompt_cache_miss_tokens");
+  const cached = (isRecord(pd) ? nonNegInt(pd["cached_tokens"], "usage.prompt_tokens_details.cached_tokens") : undefined) ?? hit
+    ?? nonNegInt(v["cached_tokens"], "usage.cached_tokens");
+  const written = isRecord(pd) ? nonNegInt(pd["cache_write_tokens"], "usage.prompt_tokens_details.cache_write_tokens")
+    ?? nonNegInt(pd["cache_creation_input_tokens"], "usage.prompt_tokens_details.cache_creation_input_tokens") : undefined;
+  const prompt = input ?? (hit !== undefined && miss !== undefined ? hit + miss : undefined);
+  const total = nonNegInt(v["total_tokens"], "usage.total_tokens") ?? (prompt !== undefined && output !== undefined ? prompt + output : undefined);
   const reasoning = isRecord(cd) ? nonNegInt(cd["reasoning_tokens"], "usage.completion_tokens_details.reasoning_tokens") : undefined;
   const u: Usage = {};
-  if (input !== undefined) u.inputTokens = input;
+  if (prompt !== undefined) u.inputTokens = prompt;
   if (output !== undefined) u.outputTokens = output;
   if (total !== undefined) u.totalTokens = total;
   if (cached !== undefined) u.cachedInputTokens = cached;
+  if (written !== undefined) u.cacheWriteTokens = written;
   if (reasoning !== undefined) u.reasoningTokens = reasoning;
   return Object.keys(u).length === 0 ? undefined : u;
 }

@@ -168,6 +168,21 @@ test('cache breakpoints are stable across turns and construction; synthetic cach
   } finally { await f.close(); }
 });
 
+for (const wire of ['chat_completions', 'codex_responses', 'anthropic_messages'] as const) {
+  test(`${wire}: cache writes and reads reach usage accounting (RE-14/P4)`, async () => {
+    const records: { cacheReadTokens: number; cacheCreationTokens: number; inputTokens: number }[] = [];
+    const w = wireFixture(wire, [{ text: 'done', inputTokens: 3000, cacheRead: 2000, cacheWrite: 900 }]);
+    const adapter = wireAdapter(wire, w.fetch);
+    const family = wire === 'anthropic_messages' ? 'anthropic' : wire === 'codex_responses' ? 'openai-responses' : 'openai-chat';
+    const f = await fixture(adapter, { family: { fixture: family }, onUsage: r => records.push(r) });
+    try {
+      await collect(f.provider);
+      assert.equal(records.length, 1);
+      assert.deepEqual([records[0]!.cacheReadTokens, records[0]!.cacheCreationTokens, records[0]!.inputTokens], [2000, 900, 100], 'fresh input is the prompt minus reads and writes');
+    } finally { await f.close(); }
+  });
+}
+
 test('the wire tool block is sorted by name, so the same tool set gives the same prefix bytes', async () => {
   const seen: string[][] = [];
   const f = await fixture({ async *stream(r) { seen.push((r.tools ?? []).map(t => t.name)); yield { type: 'done', result: result() }; } });
