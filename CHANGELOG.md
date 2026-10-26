@@ -127,6 +127,12 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- **An agent's first chat turn no longer holds the core for seconds on a slow disk.** The turn writes every tool of the
+  agent's capability view into `state/capabilities.sqlite`, one transaction per tool. With the rollback journal each one
+  waited for about four fsyncs, which kept the core's event loop busy for 5 to 8 s on the Windows CI runner's system drive
+  (a `core.status` health poll timed out meanwhile) and now and then for longer than the CLI's 30 s. The registry now
+  writes ahead (WAL, `synchronous = NORMAL`), like the session and collaboration stores: 150 tools cost 11 fsyncs instead
+  of 720.
 - **A re-embedding switch is recorded as switched although the core restarts before the reply.** The supervisor writes
   `config.json` and restarts the core before it answers the switch's `config.set`, so the reply was lost with the
   connection and the checkpoint stayed `ready-to-switch` with `switch-failed` while the new embedding was active. The driver

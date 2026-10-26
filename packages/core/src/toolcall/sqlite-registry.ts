@@ -11,6 +11,11 @@ export class SqliteCapabilityRegistry implements RegistrationPort {
   constructor(path: string, clock: () => number = Date.now) {
     this.#clock = clock;
     this.#db = new DatabaseSync(path);
+    // A turn's first view of an agent upserts every tool, one transaction each, on the core's event loop. With the
+    // rollback journal each commit cost about four fsyncs and a journal file created and deleted; on a slow disk (the
+    // Windows CI runner's C:) the first chat turn spent 6 to 8 s here and sometimes more than the CLI's 30 s. In WAL with
+    // synchronous=NORMAL a commit no longer waits for the disk, as in the session and collaboration stores.
+    if (path !== ':memory:') this.#db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;');
     this.#db.exec(`CREATE TABLE IF NOT EXISTS capability_index (id TEXT PRIMARY KEY, version TEXT NOT NULL, entry TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS capability_stats (id TEXT NOT NULL, agent TEXT NOT NULL, offered INTEGER NOT NULL DEFAULT 0, used INTEGER NOT NULL DEFAULT 0, searched INTEGER NOT NULL DEFAULT 0, succeeded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (id, agent));
       CREATE TABLE IF NOT EXISTS capability_usage (id TEXT NOT NULL, agent TEXT NOT NULL, bucket INTEGER NOT NULL, offered INTEGER NOT NULL DEFAULT 0, used INTEGER NOT NULL DEFAULT 0, searched INTEGER NOT NULL DEFAULT 0, succeeded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(id,agent,bucket));
