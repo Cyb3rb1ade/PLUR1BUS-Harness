@@ -169,10 +169,12 @@ export function emitProviderCache(format: string, body: Body, headers: HeaderSin
   }
   if (!row || route.vendor !== row.provider) return body;
   for (const a of row.affinity) if (forWire(a, format)) applyAffinity(a, prompt.session_id, body, headers);
-  if (row.class === 'implicit-ttl-tier' && (format === 'chat_completions' || format === 'codex_responses') && body.prompt_cache_options === undefined) {
+  if (row.class === 'implicit-ttl-tier') {
+    // The tier goes in `prompt_cache_options` on Chat and Responses, in a top-level `cache_control` on the Messages wire.
     const offered = row.ttls.filter(t => forWire(t, format)).map(t => t.ttl);
     const ttl = prompt.cache.ttl !== null && offered.includes(prompt.cache.ttl) ? prompt.cache.ttl : offered[0];
-    if (ttl) body.prompt_cache_options = { mode: 'implicit', ttl };
+    if (ttl && (format === 'chat_completions' || format === 'codex_responses') && body.prompt_cache_options === undefined) body.prompt_cache_options = { mode: 'implicit', ttl };
+    if (ttl && format === 'anthropic_messages' && body.cache_control === undefined) body.cache_control = { type: 'ephemeral', ttl };
   }
   if (format === 'codex_responses' && row.provider === 'openai' && row.class === 'explicit-breakpoints' && (route.platform ?? 'first-party') === 'first-party') responsesMarkers(body, prompt);
   return body;

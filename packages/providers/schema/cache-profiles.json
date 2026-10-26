@@ -470,14 +470,14 @@
       "ttls": [],
       "warmMs": null,
       "ttlField": null,
-      "affinity": [{"field": "prompt_cache_key", "in": "body", "maxLength": null}],
+      "affinity": [],
       "usage": {"read": ["usage.input_tokens_details.cached_tokens"], "write": ["usage.input_tokens_details.cache_write_tokens"], "inputIncludesCache": true},
       "suppressWrite": "not-applicable",
       "tokenizerFamily": "o200k",
       "source": "developers.openai.com/siwc/token-sharing-open-source/preview-limitations; github.com/openai/codex (secondary); docs/superpowers/plans/rust-engine/provider-cache-profiles-2026-10-25.md",
       "verified": "2026-10-25",
       "status": "unverified",
-      "notes": "Sign in with ChatGPT and the Codex backend: `store:false` and `stream:true` required, `prompt_cache_retention` unsupported, `prompt_cache_key` and `prompt_cache_options` unverified. Codex sends a session-derived `prompt_cache_key` and a `session-id` header (from its source). No cache-write charge on credits."
+      "notes": "Sign in with ChatGPT and the Codex backend: `store:false` and `stream:true` required, `prompt_cache_retention` unsupported, `prompt_cache_key` and `prompt_cache_options` unverified. Codex sends a session-derived `prompt_cache_key` and a `session-id` header (from its source). RULING: nothing is sent on this route until a live test shows the plan endpoint accepts the key; the adapter sends the plan backend only fields it is known to take. No cache-write charge on credits."
     },
     {
       "id": "openai.gpt-6",

@@ -56,13 +56,15 @@ provider cache fields. `providerFetch` calls it inside a turn (a rendered prompt
 `anthropic_messages`, `chat_completions` and `codex_responses` wires; Gemini's wire is never rewritten. Each provider's
 route comes from its base URL through the table's `hosts` list (`cacheRouteForUrl`): an OpenRouter gateway, a platform
 (Bedrock, Vertex, the ChatGPT plan) or a provider's own API (`vendor`). A provider's body fields go only to its own API.
+The route is computed once per provider definition (`cacheRouteFor`), for the composed transports and for the managed
+OpenAI binding's own transport alike.
 
 | Class (table `class`) | Example | What the emitter writes |
 | --- | --- | --- |
 | explicit breakpoints | Anthropic wire | `cache_control` on the builder's blocks (stable zones, conversation), never on the recall tail |
-| explicit breakpoints | OpenAI GPT-5.6+ on Responses | `instructions` become a leading developer message, one `input_text` part per stable segment; `prompt_cache_breakpoint: {mode: "explicit"}` on the marked parts, the last user text or a tool output; `prompt_cache_options: {mode: "explicit"}`, which with no breakpoint also suppresses a paid write. Chat Completions and the ChatGPT plan get no breakpoint fields (not documented there) |
+| explicit breakpoints | OpenAI GPT-5.6+ on Responses | `instructions` become a leading developer message, one `input_text` part per stable segment; `prompt_cache_breakpoint: {mode: "explicit"}` on the marked parts, the last user text or a tool output; `prompt_cache_options: {mode: "explicit"}`, which with no breakpoint also suppresses a paid write. Chat Completions gets only `prompt_cache_key`; the ChatGPT plan route gets nothing until a live test shows which fields it accepts |
 | explicit breakpoints | OpenRouter to Claude | `cache_control` on system, user and tool text parts and on the last tool; `session_id` |
-| implicit with a TTL tier | Moonshot K3 | `prompt_cache_options: {mode: "implicit", ttl}` (the stable TTL the builder chose, `5m` by default) and `prompt_cache_key` |
+| implicit with a TTL tier | Moonshot K3 | the stable TTL the builder chose (`5m` by default): `prompt_cache_options: {mode: "implicit", ttl}` and `prompt_cache_key` on Chat and Responses, a top-level `cache_control: {type: "ephemeral", ttl}` and `metadata.user_id` on the Messages wire |
 | implicit with a routing key | xAI, OpenAI before 5.6, Mistral | the row's affinity key per wire, for example `x-grok-conv-id` (xAI Chat) or `prompt_cache_key` |
 | implicit, no control; local KV cache | DeepSeek, Gemini, Z.ai, local servers | nothing |
 

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { defaults, type HarnessConfig } from "@plur1bus/config-schema";
-import { composeAuth, type ProviderDefinition } from "../../src/composition/auth.ts";
+import { cacheRouteFor, composeAuth, type ProviderDefinition } from "../../src/composition/auth.ts";
 import { ProviderError } from "../../../providers/src/index.ts";
 import { wireFixture, type Wire } from "../integration/wire-fixture.ts";
 import { fakeEgress, fakeSecretService, recordingLog } from "./helpers.ts";
@@ -202,5 +202,27 @@ describe("composition/auth composeAuth: the provider adapters it builds", () => 
     try {
       await assert.rejects(() => drain(c.profiles.default![0]!.adapter.stream(userMessage)), (e) => e instanceof ProviderError && e.kind === "auth" && e.status === 401);
     } finally { c.close(); }
+  });
+});
+
+describe("composition/auth cacheRouteFor", () => {
+  const withUrl = (wire: Def["wireFormat"], url: string | undefined, over: Parameters<typeof definition>[1] = {}): Def => {
+    const d = definition(wire, over);
+    const profile = { ...d.profile } as Record<string, unknown>;
+    if (url === undefined) delete profile.base_url; else profile.base_url = url;
+    return { ...d, profile } as unknown as Def;
+  };
+  it("takes the route from the base URL, or from the wire's default URL when none is set", () => {
+    assert.deepEqual(cacheRouteFor(withUrl("chat_completions", "https://openrouter.ai/api/v1"), false), { gateway: "openrouter" });
+    assert.deepEqual(cacheRouteFor(withUrl("chat_completions", "https://api.x.ai/v1"), false), { vendor: "xai" });
+    assert.deepEqual(cacheRouteFor(withUrl("anthropic_messages", undefined), false), { vendor: "anthropic" });
+    assert.deepEqual(cacheRouteFor(withUrl("codex_responses", undefined), false), { vendor: "openai" });
+    assert.deepEqual(cacheRouteFor(withUrl("chat_completions", "https://fixture.invalid/v1"), false), {});
+  });
+  it("a managed OpenAI definition that bills the ChatGPT plan is the chatgpt-plan platform; a federated one is the API", () => {
+    const plan = { ...withUrl("codex_responses", undefined), profile: { ...withUrl("codex_responses", undefined).profile, client_registration: "dynamic_on_authorize" } } as Def;
+    assert.deepEqual(cacheRouteFor(plan, true), { vendor: "openai", platform: "chatgpt-plan" });
+    assert.deepEqual(cacheRouteFor(withUrl("codex_responses", undefined, { kind: "federated_token" }), true), { vendor: "openai" });
+    assert.deepEqual(cacheRouteFor(plan, false), { vendor: "openai" }, "only the managed OpenAI binding is the plan route");
   });
 });

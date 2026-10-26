@@ -101,6 +101,7 @@ describe("cache emitter: explicit breakpoints", () => {
     assert.equal(onChat.prompt_cache_key, rendered.session_id);
     const plan = emit("codex_responses", responses(request), { vendor: "openai", platform: "chatgpt-plan" }, rendered).body;
     assert.equal(plan.prompt_cache_options, undefined);
+    assert.equal(plan.prompt_cache_key, undefined, "the plan endpoint gets only fields it is known to accept");
     assert.equal(JSON.stringify(plan).includes("prompt_cache_breakpoint"), false);
   });
 
@@ -122,6 +123,17 @@ describe("cache emitter: implicit providers", () => {
       assert.deepEqual(body.prompt_cache_options, { mode: "implicit", ttl: want });
       assert.equal(body.prompt_cache_key, rendered.session_id);
       assert.equal(marked(body), false);
+    }
+  });
+
+  it("Moonshot K3 on the Messages wire: the tier as a top-level cache_control and the user id as the affinity key", () => {
+    for (const [ttl, want] of [[undefined, "5m"], ["1h", "1h"]] as const) {
+      const { rendered, request } = turn("kimi-k3", [ask], ttl ? { cacheTtl: ttl } : {});
+      const body = buildAnthropicBody(request, { stream: true, defaultMaxTokens: 1024 });
+      emit("anthropic_messages", body, { vendor: "moonshot" }, rendered);
+      assert.deepEqual(body.cache_control, { type: "ephemeral", ttl: want });
+      assert.deepEqual(body.metadata, { user_id: rendered.session_id });
+      assert.equal(JSON.stringify(body.messages).includes("cache_control"), false, "no block markers for an implicit cache");
     }
   });
 

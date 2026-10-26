@@ -22,6 +22,15 @@ export function billingClassOf(def: Pick<ProviderDefinition, 'billingPath' | 'pr
   const kind = def.profile?.kind;
   return kind === 'api_key' || kind === 'adc' || kind === 'federated_token' ? 'paid' : kind === 'oauth_pkce' || kind === 'device_code' || kind === 'external_cli' ? 'plan' : undefined;
 }
+/**
+ * Where a provider's requests go, for the cache profile and the cache emitter: the base URL (or the wire's default URL)
+ * says which API a request reaches (a gateway, a platform, a provider's own API). The managed OpenAI binding billing
+ * the ChatGPT plan is its own platform, whose fields differ from the API's.
+ */
+export function cacheRouteFor(def: ProviderDefinition, managed: boolean): CacheRoute {
+  const route = cacheRouteForUrl(def.profile.base_url ?? DEFAULT_BASE_URL[def.wireFormat]);
+  return managed && billingClassOf(def) === 'plan' ? { ...route, platform: 'chatgpt-plan' } : route;
+}
 /** A provider definition composition refused: it is not composed and never offered for a turn. `code` is always `E_CONFIG_INVALID`. */
 export interface RefusedProvider { provider: string; code: 'E_CONFIG_INVALID'; reason: string }
 /**
@@ -73,10 +82,8 @@ export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Re
   const cacheRoutes: Record<string, CacheRoute> = {};
   for (const [id, def] of Object.entries(definitions)) {
     const format = def.wireFormat;
-    // The base URL says which API a request reaches (a gateway, a platform, a provider's own API); the cache emitter
-    // sends a provider's own cache fields only there.
-    const route = cacheRouteForUrl(def.profile.base_url ?? DEFAULT_BASE_URL[format]);
-    cacheRoutes[id] = o.openai?.handles(def) && billing[id] === 'plan' ? { ...route, platform: 'chatgpt-plan' } : route;
+    // The managed OpenAI binding builds its own transport with the same route (openai-auth/runtime.ts).
+    const route = cacheRoutes[id] = cacheRouteFor(def, o.openai?.handles(def) === true);
     const fetch = providerFetch(o.egress, format, o.fetch, route);
     families[id] = format === 'anthropic_messages' ? 'anthropic' : format === 'codex_responses' ? 'openai-responses' : format === 'gemini' ? 'gemini' : 'openai-chat';
     const managed = o.openai?.handles(def) ? o.openai.adapter(def) : undefined;
