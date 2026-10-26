@@ -1,7 +1,7 @@
 // E3: CLI → daemon → core on a fresh home, then backup → verify → restore into a second home. Real binary, real
 // supervisor and core, fake chat provider (test-internals env guard). Real-model mode downloads pinned models.
 // Native five-target CI runs both flat functional and real embedding/reranker installed-runtime smoke.
-import { describe, it } from "node:test";
+import { describe, it, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, rmSync } from "node:fs";
 import { join, parse, resolve } from "node:path";
@@ -23,6 +23,50 @@ function installationParent(): string {
 }
 
 const FACT = "Please remember that the e2e smoke test fact is the harbour tour at noon.";
+
+/** `<mtime> <bytes> <path>` for every file under the home's model cache. A finished artefact's mtime is when its
+ *  download ended; a `.part-<pid>-…` file is a download still running, or one a stopped core left behind. */
+function modelFiles(h: string): string[] {
+  const dir = join(h, "models");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { recursive: true, encoding: "utf8" }).map((rel) => ({ rel, s: statSync(join(dir, rel)) })).filter(({ s }) => s.isFile())
+    .map(({ rel, s }) => `${s.mtime.toISOString()} ${String(s.size).padStart(11)} ${rel}`).sort();
+}
+
+/** The core's own timing lines from `logs/core.log`: each start (`core.process.ready`), the model warm-up (`models warm`,
+ *  `recall path warm`, `reranker warm` and its patience limit) and, per turn, how long each pipeline stage took (a stage
+ *  without an end record is still running). */
+function coreTimings(h: string): string[] {
+  const file = join(h, "logs", "core.log");
+  if (!existsSync(file)) return [];
+  const out: string[] = []; const turns = new Map<string, Map<string, string>>();
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    let r: any; try { r = JSON.parse(line); } catch { continue; }
+    if (r.msg === "turn.stage") {
+      const spans = turns.get(r.trace_id) ?? new Map<string, string>(); turns.set(r.trace_id, spans);
+      spans.set(r.span_id, r.phase === "start" ? `${r.stage} running since ${r.at}` : `${r.stage}${r.phase === "error" ? ` error ${r.code}` : ""} ${Math.round(r.durationMs)} ms`);
+    } else if (r.event === "core.process.ready" || /^(models warm|recall path warm|reranker warm)/.test(r.msg ?? "")) out.push(line);
+  }
+  for (const [trace, spans] of turns) out.push(`turn ${trace.slice(0, 8)}: ${[...spans.values()].join(", ")}`);
+  return out;
+}
+
+/** What a red run needs to say where the time went: the tails of the home's core and supervisor logs, the core's
+ *  timing lines and the model cache. Printed for every failure (the logs of a home that never started are absent). */
+function printHome(h: string): void {
+  for (const name of ["core.log", "supervisor.log"]) {
+    const file = join(h, "logs", name);
+    if (existsSync(file)) console.error(`--- ${name} of ${h} (tail) ---\n${readFileSync(file, "utf8").slice(-12_000)}`);
+  }
+  console.error(`--- core timings of ${h} ---\n${coreTimings(h).join("\n")}\n--- models of ${h} ---\n${modelFiles(h).join("\n")}`);
+}
+
+/** Runs `f` and records its wall time as a test diagnostic, also when it throws: a green run gives the numbers a red
+ *  one is compared with. */
+function timed<T>(t: TestContext, what: string, f: () => T): T {
+  const t0 = performance.now();
+  try { return f(); } finally { t.diagnostic(`${what}: ${Math.round(performance.now() - t0)} ms`); }
+}
 
 describe("E3 — CLI → daemon → core smoke", () => {
   it("fresh home: daemon, agent, chat, backup → verify → restore elsewhere, clean stop", { timeout: REAL ? 600_000 : 240_000 }, async (t) => {
@@ -50,17 +94,12 @@ describe("E3 — CLI → daemon → core smoke", () => {
       assert.deepEqual(readdirSync(h1), [], "the home starts empty before installation");
       let setupOut: string;
       try {
-        setupOut = execFileSync(installedBinary, ["--json", "--home", h1, "setup", "--non-interactive", "--no-service", "--core-from", payload], { encoding: "utf8", env: installedEnv, timeout: 300_000 });
+        setupOut = timed(t, "setup", () => execFileSync(installedBinary, ["--json", "--home", h1, "setup", "--non-interactive", "--no-service", "--core-from", payload], { encoding: "utf8", env: installedEnv, timeout: 300_000 }));
       } catch (e) {
         // `setup` answers a failure with a JSON document on stdout (`reason`: not-ready, core-crashed, ... and the last supervisor status);
-        // without it a red run only says "exit 1".
+        // without it a red run only says "exit 1". A crashed core reports only "gave-up": the catch below prints its log.
         const failure = (e as { stdout?: unknown }).stdout;
         if (typeof failure === "string" && failure !== "") console.error(`--- setup stdout (tail) ---\n${failure.slice(-4000)}`);
-        // A crashed core reports only "gave-up"; its log says why.
-        for (const name of ["core.log", "supervisor.log"]) {
-          const file = join(h1, "logs", name);
-          if (existsSync(file)) console.error(`--- ${name} (tail) ---\n${readFileSync(file, "utf8").slice(-4000)}`);
-        }
         throw e;
       }
       const setup = JSON.parse(setupOut);
@@ -76,6 +115,7 @@ describe("E3 — CLI → daemon → core smoke", () => {
       assert.ok(existsSync(join(h1, "config.json")), "the first write materialises the home");
 
       // ── daemon
+      t.diagnostic(`daemon start at ${new Date().toISOString()}`);
       cli(h1, ["daemon", "start"], { env: installedEnv });
       const status = daemonStatus(h1);
       assert.equal(typeof status.supervisor.pid, "number");
@@ -83,15 +123,15 @@ describe("E3 — CLI → daemon → core smoke", () => {
       assert.equal(status.children[0].process.state, "ready", JSON.stringify(status.children[0]));
       assert.equal(typeof status.children[0].pid, "number");
 
-      await waitEngineReady(h1, REAL ? 60_000 : 30_000);
+      t.diagnostic(`models warm ${Math.round(await waitEngineReady(h1, REAL ? 60_000 : 30_000))} ms after daemon start`);
 
       // ── memory + one chat session (create + submit) and a second turn on it
-      assert.equal(cli(h1, ["memory", "add", "--agent", "bernd", "--session", "s1", FACT]).stored, 1);
-      const turn = cli(h1, ["chat", "--agent", "bernd", "hello from the smoke test"]);
+      assert.equal(timed(t, "memory add", () => cli(h1, ["memory", "add", "--agent", "bernd", "--session", "s1", FACT])).stored, 1);
+      const turn = timed(t, "first chat turn", () => cli(h1, ["chat", "--agent", "bernd", "hello from the smoke test"]));
       assert.equal(turn.schema, "chat.turn/1");
       assert.equal(turn.state, "completed");
       assert.equal(turn.reply, "echo[bernd]: hello from the smoke test");
-      const again = cli(h1, ["chat", "--session", turn.sessionId, "and a second turn"]);
+      const again = timed(t, "second chat turn", () => cli(h1, ["chat", "--session", turn.sessionId, "and a second turn"]));
       assert.equal(again.sessionId, turn.sessionId);
       const shown = cli(h1, ["session", "show", turn.sessionId]);
       assert.deepEqual(shown.messages.map((m: any) => m.role), ["user", "assistant", "user", "assistant"]);
@@ -108,11 +148,13 @@ describe("E3 — CLI → daemon → core smoke", () => {
         assert.equal(logs.split("\n").find(line => RERANK_FAILURE.test(line)), undefined, "no reranker fallback");
       }
       stopDaemon(h1);
+      t.diagnostic(`daemon restart at ${new Date().toISOString()}`);
       cli(h1, ["daemon", "start"], { env: installedEnv });
-      await waitEngineReady(h1, REAL ? 60_000 : 30_000);
+      t.diagnostic(`models warm ${Math.round(await waitEngineReady(h1, REAL ? 60_000 : 30_000))} ms after the restart`);
       const restartedRecall = cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "after-restart", "--joined", "harbour tour"]);
       assert.equal(restartedRecall.degraded, null);
       assert.match(restartedRecall.joined.text, /harbour tour/);
+      for (const line of [...coreTimings(h1), ...(REAL ? modelFiles(h1) : [])]) t.diagnostic(line);
       const idsBefore = memoryIds(h1);
       assert.ok(idsBefore.length >= 1, "the fact is stored");
 
@@ -148,6 +190,9 @@ describe("E3 — CLI → daemon → core smoke", () => {
       await waitFor("installed binary removed (deferred on Windows)", () => !existsSync(installedBinary), 10_000);
       assert.equal(existsSync(join(h1, "runtime")), false);
       assert.equal(daemonStatus(h1).supervisor.process.state, "stopped");
+    } catch (e) {
+      for (const h of [h1, h2]) printHome(h);
+      throw e;
     } finally {
       for (const h of [h1, h2]) {
         try { cli(h, ["daemon", "stop"], { allowFail: true }); } catch { /* best effort */ }
