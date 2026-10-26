@@ -96,6 +96,8 @@ Per D112 spec §2.4 and R9, provider profile rows in the harness map to `discove
 
 Feeds D7 (Phase 0 brief): provider prompt caching is layer 1 of the three-layer caching design; the client must place volatile recall/temporal/mood blocks **after** the cached prefix.
 
+The rows the harness acts on are data in `packages/providers/schema/cache-profiles.json` (RE-D21, refreshed 2026-10-25, every row with source, verification date and status); where this table and that file differ, the file wins. RE-14/T1 generates this section from it.
+
 | Provider | Mechanism | Min tokens | TTL | Pricing multipliers | Client layout rule | Source |
 |---|---|---|---|---|---|---|
 | **Anthropic** | Explicit `cache_control: {"type":"ephemeral"[,"ttl":"1h"]}` breakpoints, ≤4/request; automatic-advancing mode consumes one slot per turn | Model-dependent: 512 (Fable 5.1/Mythos 5.1, Opus 5, Fable 5, Mythos 5) · 1,024 (Sonnet 5, Sonnet 4.5/4.6, Opus 4/4.1) · 2,048 (Mythos Preview, Opus 4.7, Haiku 3.5) · 4,096 (Opus 4.5/4.6, Haiku 4.5) | 5 min default (free refresh on hit) or 1 h paid opt-in; generation time counts against the window; 1h entries must precede 5min entries in the same request | Write 1.25× (5min) / 2.0× (1h) base input; read 0.1× (0.025× for Fable 5.1/Mythos 5.1) | Longest stable prefix first; single breakpoint on the last block identical across requests, never on per-request content (timestamps); 20-block backward lookback — long-growing transcripts may need a second breakpoint ~15–20 blocks back | [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) |

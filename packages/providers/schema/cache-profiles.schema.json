@@ -1,0 +1,466 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plur1bus.dev/schema/cache-profiles/1",
+  "title": "Provider prompt-cache profiles",
+  "$comment": "RE-D21 (plan §2.6): one versioned table of provider prompt-caching rules, read by the core's prompt builder and emitters and, from RE-14/T1, by the Rust engine. Rows are tried in order and the first match wins, so a narrower row precedes a broader one. `src/cache-profiles.ts` validates the table against this schema when it loads.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "aliases",
+    "rows",
+    "gateways"
+  ],
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "aliases": {
+      "description": "Served-model aliases applied after normalisation: a request for `from` is served by `to`.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/alias"
+      }
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/row"
+      }
+    },
+    "gateways": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "openrouter"
+      ],
+      "properties": {
+        "openrouter": {
+          "$ref": "#/$defs/gateway"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "provider": {
+      "enum": [
+        "anthropic",
+        "openai",
+        "google",
+        "xai",
+        "moonshot",
+        "deepseek",
+        "alibaba",
+        "zai",
+        "mistral",
+        "local"
+      ]
+    },
+    "wire": {
+      "enum": [
+        "anthropic_messages",
+        "chat_completions",
+        "codex_responses",
+        "gemini"
+      ]
+    },
+    "ttl": {
+      "enum": [
+        "5m",
+        "30m",
+        "1h",
+        "12h"
+      ]
+    },
+    "status": {
+      "enum": [
+        "verified",
+        "unverified",
+        "conflict"
+      ]
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "ttlEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ttl",
+        "write",
+        "read"
+      ],
+      "properties": {
+        "ttl": {
+          "$ref": "#/$defs/ttl"
+        },
+        "write": {
+          "description": "Write price as a multiple of base input; null when undocumented.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "read": {
+          "description": "Read price as a multiple of base input; null when undocumented.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "wires": {
+          "description": "Wires that accept this TTL; absent means every wire of the row.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire"
+          }
+        }
+      }
+    },
+    "affinity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "in",
+        "maxLength"
+      ],
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "in": {
+          "enum": [
+            "body",
+            "header"
+          ]
+        },
+        "maxLength": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "wires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire"
+          }
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read",
+        "write",
+        "inputIncludesCache"
+      ],
+      "properties": {
+        "read": {
+          "description": "Dotted paths of the cache-read count in the response usage, first present wins; empty when the provider reports none.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "write": {
+          "description": "Dotted paths of the cache-write count; empty when the provider reports none.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "miss": {
+          "description": "Dotted paths of an explicit cache-miss count (DeepSeek).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inputIncludesCache": {
+          "description": "True when the provider's input total includes read and written tokens (OpenAI shape), false when it excludes them (Anthropic shape).",
+          "type": "boolean"
+        }
+      }
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "match",
+        "provider",
+        "platforms",
+        "class",
+        "mechanism",
+        "minTokens",
+        "minTokensCounts",
+        "belowMinimum",
+        "maxBreakpoints",
+        "lookbackPositions",
+        "lookbackCollapsesRuns",
+        "ttls",
+        "warmMs",
+        "ttlField",
+        "affinity",
+        "usage",
+        "suppressWrite",
+        "tokenizerFamily",
+        "source",
+        "verified",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(\\.[a-z0-9+.-]+)+$"
+        },
+        "match": {
+          "description": "Regular expression over the normalised model id (lower case, no gateway prefix, dots as dashes).",
+          "type": "string"
+        },
+        "provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "platforms": {
+          "description": "Platforms the row applies to; `local` rows match any model id served by a local server.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "first-party",
+              "bedrock",
+              "bedrock-legacy",
+              "google-managed",
+              "vertex",
+              "chatgpt-plan",
+              "local"
+            ]
+          }
+        },
+        "class": {
+          "description": "Plan §2.6 provider class.",
+          "enum": [
+            "explicit-breakpoints",
+            "implicit-ttl-tier",
+            "implicit-routing-key",
+            "implicit",
+            "local-kv"
+          ]
+        },
+        "mechanism": {
+          "description": "What the prompt builder does: `explicit` places breakpoints, `implicit` keeps a stable prefix only.",
+          "enum": [
+            "explicit",
+            "implicit"
+          ]
+        },
+        "minTokens": {
+          "description": "Smallest cacheable prefix in tokens; an undocumented floor is an assumption and the row is `unverified`.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "minTokensCounts": {
+          "description": "What the floor counts: the whole prefix up to the breakpoint, or only visible input (OpenAI GPT-5.6+).",
+          "enum": [
+            "prefix",
+            "visible-input"
+          ]
+        },
+        "belowMinimum": {
+          "description": "What a marker below the floor does (RE-D26 margin rule).",
+          "enum": [
+            "silent",
+            "error",
+            "unverified"
+          ]
+        },
+        "maxBreakpoints": {
+          "description": "Most explicit breakpoints (writes) per request; 0 for implicit rows.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "lookbackPositions": {
+          "description": "How many block positions a cache read walks back from a breakpoint; 0 where none is documented.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "lookbackCollapsesRuns": {
+          "description": "Whether a run of tool_use or tool_result blocks counts as one lookback position.",
+          "type": "boolean"
+        },
+        "ttls": {
+          "description": "TTL tiers the caller can choose, shortest first; empty when the TTL is not controllable.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ttlEntry"
+          }
+        },
+        "warmMs": {
+          "description": "Window in which the builder predicts a warm prefix; null when unknown.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "ttlField": {
+          "description": "Where the chosen TTL goes on the wire, as `marker:<path>` (on each marker) or `body:<path>`; null when the TTL is not sent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "affinity": {
+          "description": "Routing or cache keys the host sends per session, by wire.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/affinity"
+          }
+        },
+        "usage": {
+          "$ref": "#/$defs/usage"
+        },
+        "holdConstant": {
+          "description": "Request parameters that change the cached prefix when they change within a conversation.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "suppressWrite": {
+          "description": "How a request with no expected reuse avoids a paid write.",
+          "enum": [
+            "omit-marker",
+            "explicit-mode-without-breakpoint",
+            "short-ttl",
+            "not-possible",
+            "not-applicable"
+          ]
+        },
+        "tokenizerFamily": {
+          "description": "Token-counting family for RE-14 (RE-D20).",
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verified": {
+          "$ref": "#/$defs/date"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "gateway": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slugPrefixes",
+        "affinity",
+        "markers",
+        "ttlForwarded",
+        "usage",
+        "source",
+        "verified",
+        "status"
+      ],
+      "properties": {
+        "slugPrefixes": {
+          "description": "Model-slug prefixes the gateway uses, mapped to the upstream provider.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/provider"
+          }
+        },
+        "affinity": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/affinity"
+          }
+        },
+        "markers": {
+          "description": "Where the gateway accepts cache markers.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "text-parts",
+              "tools"
+            ]
+          }
+        },
+        "markerProviders": {
+          "description": "Upstream providers for which the gateway forwards explicit markers.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/provider"
+          }
+        },
+        "ttlForwarded": {
+          "description": "Whether a TTL on a marker reaches the upstream.",
+          "enum": [
+            "yes",
+            "no",
+            "unverified"
+          ]
+        },
+        "usage": {
+          "$ref": "#/$defs/usage"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verified": {
+          "$ref": "#/$defs/date"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "alias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "since",
+        "source"
+      ],
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "since": {
+          "$ref": "#/$defs/date"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

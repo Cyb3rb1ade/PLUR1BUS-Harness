@@ -1,5 +1,5 @@
 import type { ContextBlock } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
-import type { CacheTtl } from "./model-table.ts";
+import type { CacheProfile, CacheRoute, CacheTtl } from "./model-table.ts";
 
 /** ADR-010 §1, in the only order they are ever rendered. `volatile` rides after the last breakpoint and is never cached. */
 export type ZoneName = "tools" | "system" | "memory" | "conversation" | "volatile";
@@ -60,6 +60,8 @@ export interface VolatileInput {
 export interface RenderInput {
   agentId: string;
   model: string;
+  /** Where the request goes (gateway, platform, a local server), so the cache profile matches the route; first-party when absent. */
+  route?: CacheRoute;
   /** Host session identity, kept out of all prompt bytes. Omitted means the default session for this agent. */
   sessionId?: string;
   /** Explicit snapshot refresh; supplied by PromptSession for one render. */
@@ -113,7 +115,7 @@ export interface RenderedPrompt {
   /** OpenRouter sticky routing hint, <= 256 chars, never rendered into a zone. */
   session_id: string;
   cache: {
-    provider: "anthropic" | "openai" | "google" | "unknown";
+    provider: CacheProfile["provider"];
     mechanism: "explicit" | "implicit" | "none";
     minimumTokens: number;
     eligible: boolean;

@@ -1,7 +1,7 @@
 import { stickySessionId } from "./telemetry.ts";
 import { joinBlocks } from "../join.ts";
 import { canonicalJson, normalizeText, sha256Hex } from "./canonical.ts";
-import { lookupCacheProfile, normalizeModelId, PROVIDER_CACHE_CONFIG, type CacheProfile, type CacheTtl } from "./model-table.ts";
+import { lookupCacheProfile, normalizeModelId, type CacheProfile, type CacheTtl } from "./model-table.ts";
 import {
   DEFAULT_MEMORY_CAP_CHARS, DEFAULT_VOLATILE_CAP_CHARS, STABLE_ZONES,
   type Breakpoint, type ZoneMetadata, type ConversationItem, type PromptEvent, type RenderInput, type RenderedPrompt, type Segment, type StableZone, type VolatileInput, type ZoneName,
@@ -94,7 +94,6 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
   const lastRender = new Map<string, { at: number; hash: string; ttlMs: number | null; eligible: boolean }>();
   const activeModels = new Map<string, string>();
   const now = options.now ?? Date.now;
-  const ttlConfig = { ...PROVIDER_CACHE_CONFIG };
   const ttlOverrides = { ...options.cacheTtlMs };
   for (const ttl of Object.values(ttlOverrides)) {
     if (ttl !== null && ttl !== undefined && (!Number.isFinite(ttl) || ttl < 0)) throw new TypeError("cache TTL must be finite and nonnegative or null");
@@ -106,7 +105,7 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
     if (!Number.isFinite(at)) throw new TypeError("prompt clock must be finite");
     const events: PromptEvent[] = [];
     const push = (e: PromptEvent) => { events.push(e); options.emit?.(e); };
-    const profile: CacheProfile = lookupCacheProfile(model);
+    const profile: CacheProfile = lookupCacheProfile(model, input.route);
     if (!profile.known) push({ type: "prompt.unknown-model", agentId, model });
 
     // Zone 1: tools, one segment each, sorted by name so registration order never reaches the prefix.
@@ -228,7 +227,7 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
 
     const configuredTtl = ttlOverrides[profile.provider];
     const ttlMs = configuredTtl !== undefined ? configuredTtl
-      : profile.provider === "anthropic" && stableTtl === "1h" ? 3_600_000 : ttlConfig[profile.provider].ttlMs;
+      : profile.provider === "anthropic" && stableTtl === "1h" ? 3_600_000 : profile.warmMs;
     const renderKey = canonicalJson({ prefixKey, session_id });
     const last = lastRender.get(renderKey);
     const ageMs = last ? at - last.at : null;

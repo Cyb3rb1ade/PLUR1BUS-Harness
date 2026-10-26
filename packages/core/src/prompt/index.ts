@@ -2,7 +2,7 @@
 // turn them into requests live in packages/providers.
 export { createPromptBuilder, joinRecall, type PromptBuilder, type PromptBuilderOptions } from "./builder.ts";
 export { createPromptSession, type PromptSession, type PromptSessionOptions, type RecallInput } from "./session.ts";
-export { PROVIDER_CACHE_CONFIG, CACHE_PROFILES, lookupCacheProfile, normalizeModelId, type CacheProfile, type CacheTtl } from "./model-table.ts";
+export { CACHE_PROFILES, lookupCacheProfile, normalizeModelId, type CacheProfile, type CacheRoute, type CacheTtl } from "./model-table.ts";
 export { chooseCacheTtl } from "./ttl.ts";
 export { canonicalJson, normalizeText, sha256Hex } from "./canonical.ts";
 export {
