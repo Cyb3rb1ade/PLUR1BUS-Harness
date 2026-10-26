@@ -9,5 +9,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 
+pub mod cache_profiles;
+
 /// The crate version, which is the workspace version (`[workspace.package] version` in the root `Cargo.toml`).
 pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");

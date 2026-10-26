@@ -4524,11 +4524,13 @@ dependencies = [
  "jsonschema",
  "lance",
  "lancedb",
+ "regex",
  "rusqlite",
  "serde",
  "serde_json",
  "tempfile",
  "ureq",
+ "url",
 ]
 
 [[package]]

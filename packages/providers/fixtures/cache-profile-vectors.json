@@ -1,0 +1,4512 @@
+{
+  "version": 1,
+  "profiles": [
+    {
+      "name": "row:anthropic.bedrock.opus-4-7:claude-opus-4-7:default",
+      "model": "claude-opus-4-7",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-7"
+      }
+    },
+    {
+      "name": "row:anthropic.bedrock.opus-4-7:claude-opus-4-7:bedrock",
+      "model": "claude-opus-4-7",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "row:anthropic.bedrock.opus-4-7:claude-opus-4-7:bedrock-legacy",
+      "model": "claude-opus-4-7",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "row:anthropic.mythos-preview:claude-mythos-preview:default",
+      "model": "claude-mythos-preview",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-preview"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.mythos-preview"
+      }
+    },
+    {
+      "name": "row:anthropic.mythos-preview:claude-mythos-preview:first-party",
+      "model": "claude-mythos-preview",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-preview"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.mythos-preview"
+      }
+    },
+    {
+      "name": "row:anthropic.mythos-preview:claude-mythos-preview:bedrock",
+      "model": "claude-mythos-preview",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-preview"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.mythos-preview"
+      }
+    },
+    {
+      "name": "row:anthropic.mythos-preview:claude-mythos-preview:bedrock-legacy",
+      "model": "claude-mythos-preview",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-preview"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.mythos-preview"
+      }
+    },
+    {
+      "name": "row:anthropic.mythos-preview:claude-mythos-preview:google-managed",
+      "model": "claude-mythos-preview",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-preview"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.mythos-preview"
+      }
+    },
+    {
+      "name": "row:anthropic.mythos-preview:claude-mythos-preview:vertex",
+      "model": "claude-mythos-preview",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-preview"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.mythos-preview"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-fable-5-1:default",
+      "model": "claude-fable-5-1",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5-1"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-fable-5-1:first-party",
+      "model": "claude-fable-5-1",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5-1"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-fable-5-1:bedrock",
+      "model": "claude-fable-5-1",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5-1"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-fable-5-1:bedrock-legacy",
+      "model": "claude-fable-5-1",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5-1"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-fable-5-1:google-managed",
+      "model": "claude-fable-5-1",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5-1"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-fable-5-1:vertex",
+      "model": "claude-fable-5-1",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5-1"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-mythos-5-1:default",
+      "model": "claude-mythos-5-1",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-1"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-mythos-5-1:first-party",
+      "model": "claude-mythos-5-1",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-1"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-mythos-5-1:bedrock",
+      "model": "claude-mythos-5-1",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-1"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-mythos-5-1:bedrock-legacy",
+      "model": "claude-mythos-5-1",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-1"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-mythos-5-1:google-managed",
+      "model": "claude-mythos-5-1",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-1"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5-1:claude-mythos-5-1:vertex",
+      "model": "claude-mythos-5-1",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-1"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5-1"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-fable-5:default",
+      "model": "claude-fable-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-fable-5:first-party",
+      "model": "claude-fable-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-fable-5:bedrock",
+      "model": "claude-fable-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-fable-5:bedrock-legacy",
+      "model": "claude-fable-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-fable-5:google-managed",
+      "model": "claude-fable-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-fable-5:vertex",
+      "model": "claude-fable-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-fable-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-mythos-5-2:default",
+      "model": "claude-mythos-5-2",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-2"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-mythos-5-2:first-party",
+      "model": "claude-mythos-5-2",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-2"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-mythos-5-2:bedrock",
+      "model": "claude-mythos-5-2",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-2"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-mythos-5-2:bedrock-legacy",
+      "model": "claude-mythos-5-2",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-2"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-mythos-5-2:google-managed",
+      "model": "claude-mythos-5-2",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-2"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.fable-mythos-5:claude-mythos-5-2:vertex",
+      "model": "claude-mythos-5-2",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-mythos-5-2"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.fable-mythos-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5-5:claude-opus-5-5:default",
+      "model": "claude-opus-5-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5-5:claude-opus-5-5:first-party",
+      "model": "claude-opus-5-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5-5:claude-opus-5-5:bedrock",
+      "model": "claude-opus-5-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5-5:claude-opus-5-5:bedrock-legacy",
+      "model": "claude-opus-5-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5-5:claude-opus-5-5:google-managed",
+      "model": "claude-opus-5-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5-5:claude-opus-5-5:vertex",
+      "model": "claude-opus-5-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5:default",
+      "model": "claude-opus-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5:first-party",
+      "model": "claude-opus-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5:bedrock",
+      "model": "claude-opus-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5:bedrock-legacy",
+      "model": "claude-opus-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5:google-managed",
+      "model": "claude-opus-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5:vertex",
+      "model": "claude-opus-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5-2:default",
+      "model": "claude-opus-5-2",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-2"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5-2:first-party",
+      "model": "claude-opus-5-2",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-2"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5-2:bedrock",
+      "model": "claude-opus-5-2",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-2"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5-2:bedrock-legacy",
+      "model": "claude-opus-5-2",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-2"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5-2:google-managed",
+      "model": "claude-opus-5-2",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-2"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-5:claude-opus-5-2:vertex",
+      "model": "claude-opus-5-2",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5-2"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5-5:claude-sonnet-5-5:default",
+      "model": "claude-sonnet-5-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5-5:claude-sonnet-5-5:first-party",
+      "model": "claude-sonnet-5-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5-5:claude-sonnet-5-5:bedrock",
+      "model": "claude-sonnet-5-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5-5:claude-sonnet-5-5:bedrock-legacy",
+      "model": "claude-sonnet-5-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5-5:claude-sonnet-5-5:google-managed",
+      "model": "claude-sonnet-5-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5-5:claude-sonnet-5-5:vertex",
+      "model": "claude-sonnet-5-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5:claude-sonnet-5:default",
+      "model": "claude-sonnet-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5:claude-sonnet-5:first-party",
+      "model": "claude-sonnet-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5:claude-sonnet-5:bedrock",
+      "model": "claude-sonnet-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5:claude-sonnet-5:bedrock-legacy",
+      "model": "claude-sonnet-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5:claude-sonnet-5:google-managed",
+      "model": "claude-sonnet-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-5:claude-sonnet-5:vertex",
+      "model": "claude-sonnet-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5:default",
+      "model": "claude-haiku-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5:first-party",
+      "model": "claude-haiku-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5:bedrock",
+      "model": "claude-haiku-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5:bedrock-legacy",
+      "model": "claude-haiku-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5:google-managed",
+      "model": "claude-haiku-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5:vertex",
+      "model": "claude-haiku-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5-5:default",
+      "model": "claude-haiku-5-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5-5:first-party",
+      "model": "claude-haiku-5-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5-5:bedrock",
+      "model": "claude-haiku-5-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5-5:bedrock-legacy",
+      "model": "claude-haiku-5-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5-5:google-managed",
+      "model": "claude-haiku-5-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-5:claude-haiku-5-5:vertex",
+      "model": "claude-haiku-5-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-5-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-5"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-8:claude-opus-4-8:default",
+      "model": "claude-opus-4-8",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-8"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-8"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-8:claude-opus-4-8:first-party",
+      "model": "claude-opus-4-8",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-8"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-8"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-8:claude-opus-4-8:bedrock",
+      "model": "claude-opus-4-8",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-8"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-8"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-8:claude-opus-4-8:bedrock-legacy",
+      "model": "claude-opus-4-8",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-8"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-8"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-8:claude-opus-4-8:google-managed",
+      "model": "claude-opus-4-8",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-8"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-8"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-8:claude-opus-4-8:vertex",
+      "model": "claude-opus-4-8",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-8"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-8"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-7:claude-opus-4-7:default",
+      "model": "claude-opus-4-7",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-7"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-7:claude-opus-4-7:first-party",
+      "model": "claude-opus-4-7",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-7"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-7:claude-opus-4-7:bedrock",
+      "model": "claude-opus-4-7",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-7:claude-opus-4-7:bedrock-legacy",
+      "model": "claude-opus-4-7",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-7:claude-opus-4-7:google-managed",
+      "model": "claude-opus-4-7",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-7"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-7:claude-opus-4-7:vertex",
+      "model": "claude-opus-4-7",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-7"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-5:default",
+      "model": "claude-sonnet-4-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-5:first-party",
+      "model": "claude-sonnet-4-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-5:bedrock",
+      "model": "claude-sonnet-4-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-5:bedrock-legacy",
+      "model": "claude-sonnet-4-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-5:google-managed",
+      "model": "claude-sonnet-4-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-5:vertex",
+      "model": "claude-sonnet-4-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-6:default",
+      "model": "claude-sonnet-4-6",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-6"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-6:first-party",
+      "model": "claude-sonnet-4-6",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-6"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-6:bedrock",
+      "model": "claude-sonnet-4-6",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-6"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-6:bedrock-legacy",
+      "model": "claude-sonnet-4-6",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-6"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-6:google-managed",
+      "model": "claude-sonnet-4-6",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-6"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4-5-4-6:claude-sonnet-4-6:vertex",
+      "model": "claude-sonnet-4-6",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-6"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-5:default",
+      "model": "claude-opus-4-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-5:first-party",
+      "model": "claude-opus-4-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-5:bedrock",
+      "model": "claude-opus-4-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-5:bedrock-legacy",
+      "model": "claude-opus-4-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-5:google-managed",
+      "model": "claude-opus-4-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-5:vertex",
+      "model": "claude-opus-4-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-6:default",
+      "model": "claude-opus-4-6",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-6"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-6:first-party",
+      "model": "claude-opus-4-6",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-6"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-6:bedrock",
+      "model": "claude-opus-4-6",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-6"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-6:bedrock-legacy",
+      "model": "claude-opus-4-6",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-6"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-6:google-managed",
+      "model": "claude-opus-4-6",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-6"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-5-4-6:claude-opus-4-6:vertex",
+      "model": "claude-opus-4-6",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-6"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4:default",
+      "model": "claude-opus-4",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4:first-party",
+      "model": "claude-opus-4",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4:bedrock",
+      "model": "claude-opus-4",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4:bedrock-legacy",
+      "model": "claude-opus-4",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4:google-managed",
+      "model": "claude-opus-4",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4:vertex",
+      "model": "claude-opus-4",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-1:default",
+      "model": "claude-opus-4-1",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-1"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-1:first-party",
+      "model": "claude-opus-4-1",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-1"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-1:bedrock",
+      "model": "claude-opus-4-1",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-1"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-1:bedrock-legacy",
+      "model": "claude-opus-4-1",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-1"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-1:google-managed",
+      "model": "claude-opus-4-1",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-1"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-1:vertex",
+      "model": "claude-opus-4-1",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-1"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-20250514:default",
+      "model": "claude-opus-4-20250514",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-20250514"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-20250514:first-party",
+      "model": "claude-opus-4-20250514",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-20250514"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-20250514:bedrock",
+      "model": "claude-opus-4-20250514",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-20250514"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-20250514:bedrock-legacy",
+      "model": "claude-opus-4-20250514",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-20250514"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-20250514:google-managed",
+      "model": "claude-opus-4-20250514",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-20250514"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.opus-4-4-1:claude-opus-4-20250514:vertex",
+      "model": "claude-opus-4-20250514",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-20250514"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4:default",
+      "model": "claude-sonnet-4",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4:first-party",
+      "model": "claude-sonnet-4",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4:bedrock",
+      "model": "claude-sonnet-4",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4:bedrock-legacy",
+      "model": "claude-sonnet-4",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4:google-managed",
+      "model": "claude-sonnet-4",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4:vertex",
+      "model": "claude-sonnet-4",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4-20250514:default",
+      "model": "claude-sonnet-4-20250514",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-20250514"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4-20250514:first-party",
+      "model": "claude-sonnet-4-20250514",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-20250514"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4-20250514:bedrock",
+      "model": "claude-sonnet-4-20250514",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-20250514"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4-20250514:bedrock-legacy",
+      "model": "claude-sonnet-4-20250514",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-20250514"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4-20250514:google-managed",
+      "model": "claude-sonnet-4-20250514",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-20250514"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.sonnet-4:claude-sonnet-4-20250514:vertex",
+      "model": "claude-sonnet-4-20250514",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-sonnet-4-20250514"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.sonnet-4"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-4-5:claude-haiku-4-5:default",
+      "model": "claude-haiku-4-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-4-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-4-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-4-5:claude-haiku-4-5:first-party",
+      "model": "claude-haiku-4-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-4-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-4-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-4-5:claude-haiku-4-5:bedrock",
+      "model": "claude-haiku-4-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-4-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-4-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-4-5:claude-haiku-4-5:bedrock-legacy",
+      "model": "claude-haiku-4-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-4-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-4-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-4-5:claude-haiku-4-5:google-managed",
+      "model": "claude-haiku-4-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-4-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-4-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-4-5:claude-haiku-4-5:vertex",
+      "model": "claude-haiku-4-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-4-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-4-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-haiku-3-5:default",
+      "model": "claude-haiku-3-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-3-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-haiku-3-5:first-party",
+      "model": "claude-haiku-3-5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-3-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-haiku-3-5:bedrock",
+      "model": "claude-haiku-3-5",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-3-5"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-haiku-3-5:bedrock-legacy",
+      "model": "claude-haiku-3-5",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-3-5"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-haiku-3-5:google-managed",
+      "model": "claude-haiku-3-5",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-3-5"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-haiku-3-5:vertex",
+      "model": "claude-haiku-3-5",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-haiku-3-5"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-3-5-haiku-latest:default",
+      "model": "claude-3-5-haiku-latest",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-3-5-haiku-latest"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-3-5-haiku-latest:first-party",
+      "model": "claude-3-5-haiku-latest",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-3-5-haiku-latest"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-3-5-haiku-latest:bedrock",
+      "model": "claude-3-5-haiku-latest",
+      "route": {
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-3-5-haiku-latest"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-3-5-haiku-latest:bedrock-legacy",
+      "model": "claude-3-5-haiku-latest",
+      "route": {
+        "platform": "bedrock-legacy"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-3-5-haiku-latest"
+        },
+        "platform": "bedrock-legacy",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-3-5-haiku-latest:google-managed",
+      "model": "claude-3-5-haiku-latest",
+      "route": {
+        "platform": "google-managed"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-3-5-haiku-latest"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:anthropic.haiku-3-5:claude-3-5-haiku-latest:vertex",
+      "model": "claude-3-5-haiku-latest",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-3-5-haiku-latest"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "anthropic.haiku-3-5"
+      }
+    },
+    {
+      "name": "row:openai.chatgpt-plan:gpt-6:default",
+      "model": "gpt-6",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-6"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.gpt-6"
+      }
+    },
+    {
+      "name": "row:openai.chatgpt-plan:gpt-6:chatgpt-plan",
+      "model": "gpt-6",
+      "route": {
+        "platform": "chatgpt-plan"
+      },
+      "expected": {
+        "ref": {
+          "id": "gpt-6"
+        },
+        "platform": "chatgpt-plan",
+        "gateway": "direct",
+        "rowId": "openai.chatgpt-plan"
+      }
+    },
+    {
+      "name": "row:openai.chatgpt-plan:codex-mini:default",
+      "model": "codex-mini",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "codex-mini"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": null
+      }
+    },
+    {
+      "name": "row:openai.chatgpt-plan:codex-mini:chatgpt-plan",
+      "model": "codex-mini",
+      "route": {
+        "platform": "chatgpt-plan"
+      },
+      "expected": {
+        "ref": {
+          "id": "codex-mini"
+        },
+        "platform": "chatgpt-plan",
+        "gateway": "direct",
+        "rowId": "openai.chatgpt-plan"
+      }
+    },
+    {
+      "name": "row:openai.chatgpt-plan:o4-mini:default",
+      "model": "o4-mini",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "o4-mini"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.implicit"
+      }
+    },
+    {
+      "name": "row:openai.chatgpt-plan:o4-mini:chatgpt-plan",
+      "model": "o4-mini",
+      "route": {
+        "platform": "chatgpt-plan"
+      },
+      "expected": {
+        "ref": {
+          "id": "o4-mini"
+        },
+        "platform": "chatgpt-plan",
+        "gateway": "direct",
+        "rowId": "openai.chatgpt-plan"
+      }
+    },
+    {
+      "name": "row:openai.gpt-6:gpt-6.1-sol:default",
+      "model": "gpt-6.1-sol",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-6-1-sol"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.gpt-6"
+      }
+    },
+    {
+      "name": "row:openai.gpt-6:gpt-6.1-sol:first-party",
+      "model": "gpt-6.1-sol",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gpt-6-1-sol"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.gpt-6"
+      }
+    },
+    {
+      "name": "row:openai.gpt-5-6-plus:gpt-5.6:default",
+      "model": "gpt-5.6",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-5-6"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.gpt-5-6-plus"
+      }
+    },
+    {
+      "name": "row:openai.gpt-5-6-plus:gpt-5.6:first-party",
+      "model": "gpt-5.6",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gpt-5-6"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.gpt-5-6-plus"
+      }
+    },
+    {
+      "name": "row:openai.gpt-5-6-plus:gpt-5.9-mini:default",
+      "model": "gpt-5.9-mini",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-5-9-mini"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.gpt-5-6-plus"
+      }
+    },
+    {
+      "name": "row:openai.gpt-5-6-plus:gpt-5.9-mini:first-party",
+      "model": "gpt-5.9-mini",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gpt-5-9-mini"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.gpt-5-6-plus"
+      }
+    },
+    {
+      "name": "row:openai.gpt-5-6-plus:gpt-5.10:default",
+      "model": "gpt-5.10",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-5-10"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.gpt-5-6-plus"
+      }
+    },
+    {
+      "name": "row:openai.gpt-5-6-plus:gpt-5.10:first-party",
+      "model": "gpt-5.10",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gpt-5-10"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.gpt-5-6-plus"
+      }
+    },
+    {
+      "name": "row:openai.implicit:gpt-4.1:default",
+      "model": "gpt-4.1",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-4-1"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.implicit"
+      }
+    },
+    {
+      "name": "row:openai.implicit:gpt-4.1:first-party",
+      "model": "gpt-4.1",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gpt-4-1"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.implicit"
+      }
+    },
+    {
+      "name": "row:openai.implicit:gpt-5.5:default",
+      "model": "gpt-5.5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-5-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.implicit"
+      }
+    },
+    {
+      "name": "row:openai.implicit:gpt-5.5:first-party",
+      "model": "gpt-5.5",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gpt-5-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.implicit"
+      }
+    },
+    {
+      "name": "row:openai.implicit:o4-mini:default",
+      "model": "o4-mini",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "o4-mini"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.implicit"
+      }
+    },
+    {
+      "name": "row:openai.implicit:o4-mini:first-party",
+      "model": "o4-mini",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "o4-mini"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.implicit"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-6144:gemini-3.8-flash:default",
+      "model": "gemini-3.8-flash",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-8-flash"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-6144:gemini-3.8-flash:vertex",
+      "model": "gemini-3.8-flash",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-3-8-flash"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "google.vertex.gemini-6144"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-6144:gemini-3.0-flash-preview:default",
+      "model": "gemini-3.0-flash-preview",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-0-flash-preview"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-6144:gemini-3.0-flash-preview:vertex",
+      "model": "gemini-3.0-flash-preview",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-3-0-flash-preview"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "google.vertex.gemini-6144"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-3-4:gemini-4-pro:default",
+      "model": "gemini-4-pro",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-4-pro"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-4"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-3-4:gemini-4-pro:vertex",
+      "model": "gemini-4-pro",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-4-pro"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "google.vertex.gemini-3-4"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-3-4:gemini-3.1-flash-lite:default",
+      "model": "gemini-3.1-flash-lite",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-1-flash-lite"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3-gemma4"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-3-4:gemini-3.1-flash-lite:vertex",
+      "model": "gemini-3.1-flash-lite",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-3-1-flash-lite"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "google.vertex.gemini-3-4"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-2:gemini-2.5-pro:default",
+      "model": "gemini-2.5-pro",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-2-5-pro"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-2-5"
+      }
+    },
+    {
+      "name": "row:google.vertex.gemini-2:gemini-2.5-pro:vertex",
+      "model": "gemini-2.5-pro",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-2-5-pro"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": "google.vertex.gemini-2"
+      }
+    },
+    {
+      "name": "row:google.gemini-2-5:gemini-2.5-flash:default",
+      "model": "gemini-2.5-flash",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-2-5-flash"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-2-5"
+      }
+    },
+    {
+      "name": "row:google.gemini-2-5:gemini-2.5-flash:first-party",
+      "model": "gemini-2.5-flash",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-2-5-flash"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-2-5"
+      }
+    },
+    {
+      "name": "row:google.gemini-3-gemma4:gemini-3.1-flash-lite:default",
+      "model": "gemini-3.1-flash-lite",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-1-flash-lite"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3-gemma4"
+      }
+    },
+    {
+      "name": "row:google.gemini-3-gemma4:gemini-3.1-flash-lite:first-party",
+      "model": "gemini-3.1-flash-lite",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-3-1-flash-lite"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3-gemma4"
+      }
+    },
+    {
+      "name": "row:google.gemini-3-gemma4:gemini-3.1-pro-preview:default",
+      "model": "gemini-3.1-pro-preview",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-1-pro-preview"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3-gemma4"
+      }
+    },
+    {
+      "name": "row:google.gemini-3-gemma4:gemini-3.1-pro-preview:first-party",
+      "model": "gemini-3.1-pro-preview",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-3-1-pro-preview"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3-gemma4"
+      }
+    },
+    {
+      "name": "row:google.gemini-3:gemini-3.8-flash:default",
+      "model": "gemini-3.8-flash",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-8-flash"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "row:google.gemini-3:gemini-3.8-flash:first-party",
+      "model": "gemini-3.8-flash",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-3-8-flash"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "row:google.gemini-4:gemini-4-pro:default",
+      "model": "gemini-4-pro",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-4-pro"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-4"
+      }
+    },
+    {
+      "name": "row:google.gemini-4:gemini-4-pro:first-party",
+      "model": "gemini-4-pro",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-4-pro"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-4"
+      }
+    },
+    {
+      "name": "row:google.gemini-other:gemini-unknown:default",
+      "model": "gemini-unknown",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-unknown"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-other"
+      }
+    },
+    {
+      "name": "row:google.gemini-other:gemini-unknown:first-party",
+      "model": "gemini-unknown",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "gemini-unknown"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-other"
+      }
+    },
+    {
+      "name": "row:xai.grok:grok-4.7:default",
+      "model": "grok-4.7",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "grok-4-7"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "xai.grok"
+      }
+    },
+    {
+      "name": "row:xai.grok:grok-4.7:first-party",
+      "model": "grok-4.7",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "grok-4-7"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "xai.grok"
+      }
+    },
+    {
+      "name": "row:moonshot.kimi-k3:kimi-k3.1-pro-highspeed:default",
+      "model": "kimi-k3.1-pro-highspeed",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "kimi-k3-1-pro-highspeed"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "moonshot.kimi-k3"
+      }
+    },
+    {
+      "name": "row:moonshot.kimi-k3:kimi-k3.1-pro-highspeed:first-party",
+      "model": "kimi-k3.1-pro-highspeed",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "kimi-k3-1-pro-highspeed"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "moonshot.kimi-k3"
+      }
+    },
+    {
+      "name": "row:moonshot.kimi-k2:kimi-k2-instruct:default",
+      "model": "kimi-k2-instruct",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "kimi-k2-instruct"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "moonshot.kimi-k2"
+      }
+    },
+    {
+      "name": "row:moonshot.kimi-k2:kimi-k2-instruct:first-party",
+      "model": "kimi-k2-instruct",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "kimi-k2-instruct"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "moonshot.kimi-k2"
+      }
+    },
+    {
+      "name": "row:deepseek.all:deepseek-v4.1-flash:default",
+      "model": "deepseek-v4.1-flash",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "deepseek-v4-1-flash"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "deepseek.all"
+      }
+    },
+    {
+      "name": "row:deepseek.all:deepseek-v4.1-flash:first-party",
+      "model": "deepseek-v4.1-flash",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "deepseek-v4-1-flash"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "deepseek.all"
+      }
+    },
+    {
+      "name": "row:alibaba.qwen:qwen3.8-max:default",
+      "model": "qwen3.8-max",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "qwen3-8-max"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "alibaba.qwen"
+      }
+    },
+    {
+      "name": "row:alibaba.qwen:qwen3.8-max:first-party",
+      "model": "qwen3.8-max",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "qwen3-8-max"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "alibaba.qwen"
+      }
+    },
+    {
+      "name": "row:zai.glm:glm-5.3:default",
+      "model": "glm-5.3",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "glm-5-3"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "zai.glm"
+      }
+    },
+    {
+      "name": "row:zai.glm:glm-5.3:first-party",
+      "model": "glm-5.3",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "glm-5-3"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "zai.glm"
+      }
+    },
+    {
+      "name": "row:mistral.all:mistral-large-4:default",
+      "model": "mistral-large-4",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "mistral-large-4"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:mistral-large-4:first-party",
+      "model": "mistral-large-4",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "mistral-large-4"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:magistral-small:default",
+      "model": "magistral-small",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "magistral-small"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:magistral-small:first-party",
+      "model": "magistral-small",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "magistral-small"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:devstral-2:default",
+      "model": "devstral-2",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "devstral-2"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:devstral-2:first-party",
+      "model": "devstral-2",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "devstral-2"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:codestral-latest:default",
+      "model": "codestral-latest",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "codestral-latest"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:codestral-latest:first-party",
+      "model": "codestral-latest",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "codestral-latest"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:ministral-3:default",
+      "model": "ministral-3",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "ministral-3"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:ministral-3:first-party",
+      "model": "ministral-3",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "ministral-3"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:pixtral-12b:default",
+      "model": "pixtral-12b",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "pixtral-12b"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:mistral.all:pixtral-12b:first-party",
+      "model": "pixtral-12b",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "pixtral-12b"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "row:local.kv-prefix:qwen3:8b:default",
+      "model": "qwen3:8b",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "qwen3:8b"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "alibaba.qwen"
+      }
+    },
+    {
+      "name": "row:local.kv-prefix:qwen3:8b:local",
+      "model": "qwen3:8b",
+      "route": {
+        "platform": "local"
+      },
+      "expected": {
+        "ref": {
+          "id": "qwen3:8b"
+        },
+        "platform": "local",
+        "gateway": "direct",
+        "rowId": "local.kv-prefix"
+      }
+    },
+    {
+      "name": "row:local.kv-prefix:claude-opus-5:default",
+      "model": "claude-opus-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "row:local.kv-prefix:claude-opus-5:local",
+      "model": "claude-opus-5",
+      "route": {
+        "platform": "local"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "local",
+        "gateway": "direct",
+        "rowId": "local.kv-prefix"
+      }
+    },
+    {
+      "name": "row:local.kv-prefix:unknown-local-model:default",
+      "model": "unknown-local-model",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "unknown-local-model"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": null
+      }
+    },
+    {
+      "name": "row:local.kv-prefix:unknown-local-model:local",
+      "model": "unknown-local-model",
+      "route": {
+        "platform": "local"
+      },
+      "expected": {
+        "ref": {
+          "id": "unknown-local-model"
+        },
+        "platform": "local",
+        "gateway": "direct",
+        "rowId": "local.kv-prefix"
+      }
+    },
+    {
+      "name": "alias:gemini-3-5-flash",
+      "model": "gemini-3-5-flash",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-6-flash"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "alias:gemini-3-5-flash:decorated",
+      "model": "  GOOGLE/gemini.3.5.flash:free  ",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-6-flash",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "alias:gemini-3-7-flash",
+      "model": "gemini-3-7-flash",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-8-flash"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "alias:gemini-3-7-flash:decorated",
+      "model": "  GOOGLE/gemini.3.7.flash:free  ",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-8-flash",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "alias:gemini-3-pro-preview",
+      "model": "gemini-3-pro-preview",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-1-pro-preview"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "google.gemini-3-gemma4"
+      }
+    },
+    {
+      "name": "alias:gemini-3-pro-preview:decorated",
+      "model": "  GOOGLE/gemini.3.pro.preview:free  ",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-1-pro-preview",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "google.gemini-3-gemma4"
+      }
+    },
+    {
+      "name": "gateway:anthropic",
+      "model": "anthropic/claude-opus-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "gateway:anthropic:suffix",
+      "model": "anthropic/claude-opus-5:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "gateway:~anthropic",
+      "model": "~anthropic/claude-opus-5",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "gateway:~anthropic:suffix",
+      "model": "~anthropic/claude-opus-5:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "gateway:openai",
+      "model": "openai/gpt-6",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-6",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "openai.gpt-6"
+      }
+    },
+    {
+      "name": "gateway:openai:suffix",
+      "model": "openai/gpt-6:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-6",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "openai.gpt-6"
+      }
+    },
+    {
+      "name": "gateway:google",
+      "model": "google/gemini-3.8-flash",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-8-flash",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "gateway:google:suffix",
+      "model": "google/gemini-3.8-flash:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gemini-3-8-flash",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "google.gemini-3"
+      }
+    },
+    {
+      "name": "gateway:x-ai",
+      "model": "x-ai/grok-4.7",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "grok-4-7",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "xai.grok"
+      }
+    },
+    {
+      "name": "gateway:x-ai:suffix",
+      "model": "x-ai/grok-4.7:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "grok-4-7",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "xai.grok"
+      }
+    },
+    {
+      "name": "gateway:moonshotai",
+      "model": "moonshotai/kimi-k3",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "kimi-k3",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "moonshot.kimi-k3"
+      }
+    },
+    {
+      "name": "gateway:moonshotai:suffix",
+      "model": "moonshotai/kimi-k3:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "kimi-k3",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "moonshot.kimi-k3"
+      }
+    },
+    {
+      "name": "gateway:deepseek",
+      "model": "deepseek/deepseek-chat",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "deepseek-chat",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "deepseek.all"
+      }
+    },
+    {
+      "name": "gateway:deepseek:suffix",
+      "model": "deepseek/deepseek-chat:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "deepseek-chat",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "deepseek.all"
+      }
+    },
+    {
+      "name": "gateway:qwen",
+      "model": "qwen/qwen3",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "qwen3",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "alibaba.qwen"
+      }
+    },
+    {
+      "name": "gateway:qwen:suffix",
+      "model": "qwen/qwen3:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "qwen3",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "alibaba.qwen"
+      }
+    },
+    {
+      "name": "gateway:z-ai",
+      "model": "z-ai/glm-5.3",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "glm-5-3",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "zai.glm"
+      }
+    },
+    {
+      "name": "gateway:z-ai:suffix",
+      "model": "z-ai/glm-5.3:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "glm-5-3",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "zai.glm"
+      }
+    },
+    {
+      "name": "gateway:mistralai",
+      "model": "mistralai/mistral-large-4",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "mistral-large-4",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "gateway:mistralai:suffix",
+      "model": "mistralai/mistral-large-4:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "mistral-large-4",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "mistral.all"
+      }
+    },
+    {
+      "name": "bedrock:us",
+      "model": "us.anthropic.claude-opus-4-7-v1:0",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7",
+          "platform": "bedrock"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "bedrock:eu",
+      "model": "eu.anthropic.claude-opus-4-7-v1:0",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7",
+          "platform": "bedrock"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "bedrock:apac",
+      "model": "apac.anthropic.claude-opus-4-7-v1:0",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7",
+          "platform": "bedrock"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "bedrock:jp",
+      "model": "jp.anthropic.claude-opus-4-7-v1:0",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7",
+          "platform": "bedrock"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "bedrock:au",
+      "model": "au.anthropic.claude-opus-4-7-v1:0",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7",
+          "platform": "bedrock"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "bedrock:global",
+      "model": "global.anthropic.claude-opus-4-7-v1:0",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7",
+          "platform": "bedrock"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "bedrock:unregional",
+      "model": "anthropic.claude-opus-4-7-v2",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7",
+          "platform": "bedrock"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "bedrock:no-version",
+      "model": "anthropic.claude-opus-4-7",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7",
+          "platform": "bedrock"
+        },
+        "platform": "bedrock",
+        "gateway": "direct",
+        "rowId": "anthropic.bedrock.opus-4-7"
+      }
+    },
+    {
+      "name": "google:dated",
+      "model": "claude-opus-4-1@20250805",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-1",
+          "platform": "google-managed"
+        },
+        "platform": "google-managed",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-4-1"
+      }
+    },
+    {
+      "name": "google:invalid-date-shape",
+      "model": "claude-opus-4-1@2025080",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-1@2025080"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": null
+      }
+    },
+    {
+      "name": "route:override-platform",
+      "model": "us.anthropic.claude-opus-4-7-v1:0",
+      "route": {
+        "platform": "first-party"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-7",
+          "platform": "bedrock"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-4-7"
+      }
+    },
+    {
+      "name": "route:override-gateway",
+      "model": "anthropic/claude-opus-5",
+      "route": {
+        "gateway": "direct"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "route:local",
+      "model": "anthropic/claude-opus-5",
+      "route": {
+        "local": true,
+        "platform": "bedrock"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5",
+          "gateway": "openrouter"
+        },
+        "platform": "local",
+        "gateway": "openrouter",
+        "rowId": "local.kv-prefix"
+      }
+    },
+    {
+      "name": "route:local-false",
+      "model": "claude-opus-5",
+      "route": {
+        "local": false
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "route:unsupported-platform",
+      "model": "gpt-6",
+      "route": {
+        "platform": "vertex"
+      },
+      "expected": {
+        "ref": {
+          "id": "gpt-6"
+        },
+        "platform": "vertex",
+        "gateway": "direct",
+        "rowId": null
+      }
+    },
+    {
+      "name": "route:gateway",
+      "model": "claude-opus-5",
+      "route": {
+        "gateway": "openrouter",
+        "vendor": "anthropic"
+      },
+      "expected": {
+        "ref": {
+          "id": "claude-opus-5"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "anthropic.opus-5"
+      }
+    },
+    {
+      "name": "unknown:model",
+      "model": "mystery-model",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "mystery-model"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": null
+      }
+    },
+    {
+      "name": "unknown:prefix",
+      "model": "unknown/gpt-6:free",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "unknown/gpt-6:free"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": null
+      }
+    },
+    {
+      "name": "unknown:empty",
+      "model": "",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": ""
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": null
+      }
+    },
+    {
+      "name": "normalization:case",
+      "model": " Anthropic/Claude-Opus-4.5:free ",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "claude-opus-4-5",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "anthropic.opus-4-5-4-6"
+      }
+    },
+    {
+      "name": "normalization:bom",
+      "model": "﻿OpenAI/GPT-6:free﻿",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-6",
+          "gateway": "openrouter"
+        },
+        "platform": "first-party",
+        "gateway": "openrouter",
+        "rowId": "openai.gpt-6"
+      }
+    },
+    {
+      "name": "normalization:next-line-is-not-trimmed",
+      "model": "gpt-6",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-6"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": null
+      }
+    },
+    {
+      "name": "normalization:unicode-digits",
+      "model": "gpt-5-٦",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "gpt-5-٦"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": "openai.implicit"
+      }
+    },
+    {
+      "name": "normalization:unicode-case",
+      "model": "ΟΣ",
+      "route": {},
+      "expected": {
+        "ref": {
+          "id": "ος"
+        },
+        "platform": "first-party",
+        "gateway": "direct",
+        "rowId": null
+      }
+    },
+    {
+      "name": "normalization:internal-line",
+      "model": "unknown\r\nmodel",
+      "route": {
+        "local": true
+      },
+      "expected": {
+        "ref": {
+          "id": "unknown\r\nmodel"
+        },
+        "platform": "local",
+        "gateway": "direct",
+        "rowId": "local.kv-prefix"
+      }
+    }
+  ],
+  "urls": [
+    {
+      "url": "https://openrouter.ai/v1",
+      "expected": {
+        "gateway": "openrouter"
+      }
+    },
+    {
+      "url": "HTTPS://OPENROUTER.AI:443/v1?model=gpt-6",
+      "expected": {
+        "gateway": "openrouter"
+      }
+    },
+    {
+      "url": "https://openrouter.ai.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.openrouter.ai/v1",
+      "expected": {
+        "gateway": "openrouter"
+      }
+    },
+    {
+      "url": "HTTPS://API.OPENROUTER.AI:443/v1?model=gpt-6",
+      "expected": {
+        "gateway": "openrouter"
+      }
+    },
+    {
+      "url": "https://api.openrouter.ai.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.openai.com/v1",
+      "expected": {
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "HTTPS://API.OPENAI.COM:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "https://api.openai.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://chatgpt.com/v1",
+      "expected": {
+        "platform": "chatgpt-plan",
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "HTTPS://CHATGPT.COM:443/v1?model=gpt-6",
+      "expected": {
+        "platform": "chatgpt-plan",
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "https://chatgpt.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.chatgpt.com/v1",
+      "expected": {
+        "platform": "chatgpt-plan",
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "HTTPS://API.CHATGPT.COM:443/v1?model=gpt-6",
+      "expected": {
+        "platform": "chatgpt-plan",
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "https://api.chatgpt.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.anthropic.com/v1",
+      "expected": {
+        "vendor": "anthropic"
+      }
+    },
+    {
+      "url": "HTTPS://API.ANTHROPIC.COM:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "anthropic"
+      }
+    },
+    {
+      "url": "https://api.anthropic.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://bedrock-runtime.us-east-1.amazonaws.com/v1",
+      "expected": {
+        "platform": "bedrock"
+      }
+    },
+    {
+      "url": "HTTPS://BEDROCK-RUNTIME.US-EAST-1.AMAZONAWS.COM:443/v1?model=gpt-6",
+      "expected": {
+        "platform": "bedrock"
+      }
+    },
+    {
+      "url": "https://bedrock-runtime.us-east-1.amazonaws.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://bedrock.eu-west-1.amazonaws.com/v1",
+      "expected": {
+        "platform": "bedrock"
+      }
+    },
+    {
+      "url": "HTTPS://BEDROCK.EU-WEST-1.AMAZONAWS.COM:443/v1?model=gpt-6",
+      "expected": {
+        "platform": "bedrock"
+      }
+    },
+    {
+      "url": "https://bedrock.eu-west-1.amazonaws.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://aiplatform.googleapis.com/v1",
+      "expected": {
+        "platform": "vertex"
+      }
+    },
+    {
+      "url": "HTTPS://AIPLATFORM.GOOGLEAPIS.COM:443/v1?model=gpt-6",
+      "expected": {
+        "platform": "vertex"
+      }
+    },
+    {
+      "url": "https://aiplatform.googleapis.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://us-east5-aiplatform.googleapis.com/v1",
+      "expected": {
+        "platform": "vertex"
+      }
+    },
+    {
+      "url": "HTTPS://US-EAST5-AIPLATFORM.GOOGLEAPIS.COM:443/v1?model=gpt-6",
+      "expected": {
+        "platform": "vertex"
+      }
+    },
+    {
+      "url": "https://us-east5-aiplatform.googleapis.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1",
+      "expected": {
+        "vendor": "google"
+      }
+    },
+    {
+      "url": "HTTPS://GENERATIVELANGUAGE.GOOGLEAPIS.COM:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "google"
+      }
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.x.ai/v1",
+      "expected": {
+        "vendor": "xai"
+      }
+    },
+    {
+      "url": "HTTPS://API.X.AI:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "xai"
+      }
+    },
+    {
+      "url": "https://api.x.ai.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.moonshot.ai/v1",
+      "expected": {
+        "vendor": "moonshot"
+      }
+    },
+    {
+      "url": "HTTPS://API.MOONSHOT.AI:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "moonshot"
+      }
+    },
+    {
+      "url": "https://api.moonshot.ai.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.moonshot.cn/v1",
+      "expected": {
+        "vendor": "moonshot"
+      }
+    },
+    {
+      "url": "HTTPS://API.MOONSHOT.CN:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "moonshot"
+      }
+    },
+    {
+      "url": "https://api.moonshot.cn.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.kimi.ai/v1",
+      "expected": {
+        "vendor": "moonshot"
+      }
+    },
+    {
+      "url": "HTTPS://API.KIMI.AI:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "moonshot"
+      }
+    },
+    {
+      "url": "https://api.kimi.ai.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.kimi.com/v1",
+      "expected": {
+        "vendor": "moonshot"
+      }
+    },
+    {
+      "url": "HTTPS://API.KIMI.COM:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "moonshot"
+      }
+    },
+    {
+      "url": "https://api.kimi.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.deepseek.com/v1",
+      "expected": {
+        "vendor": "deepseek"
+      }
+    },
+    {
+      "url": "HTTPS://API.DEEPSEEK.COM:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "deepseek"
+      }
+    },
+    {
+      "url": "https://api.deepseek.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://dashscope.aliyuncs.com/v1",
+      "expected": {
+        "vendor": "alibaba"
+      }
+    },
+    {
+      "url": "HTTPS://DASHSCOPE.ALIYUNCS.COM:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "alibaba"
+      }
+    },
+    {
+      "url": "https://dashscope.aliyuncs.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://dashscope-intl.aliyuncs.com/v1",
+      "expected": {
+        "vendor": "alibaba"
+      }
+    },
+    {
+      "url": "HTTPS://DASHSCOPE-INTL.ALIYUNCS.COM:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "alibaba"
+      }
+    },
+    {
+      "url": "https://dashscope-intl.aliyuncs.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://dashscope-us.aliyuncs.com/v1",
+      "expected": {
+        "vendor": "alibaba"
+      }
+    },
+    {
+      "url": "HTTPS://DASHSCOPE-US.ALIYUNCS.COM:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "alibaba"
+      }
+    },
+    {
+      "url": "https://dashscope-us.aliyuncs.com.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.z.ai/v1",
+      "expected": {
+        "vendor": "zai"
+      }
+    },
+    {
+      "url": "HTTPS://API.Z.AI:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "zai"
+      }
+    },
+    {
+      "url": "https://api.z.ai.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://open.bigmodel.cn/v1",
+      "expected": {
+        "vendor": "zai"
+      }
+    },
+    {
+      "url": "HTTPS://OPEN.BIGMODEL.CN:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "zai"
+      }
+    },
+    {
+      "url": "https://open.bigmodel.cn.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.mistral.ai/v1",
+      "expected": {
+        "vendor": "mistral"
+      }
+    },
+    {
+      "url": "HTTPS://API.MISTRAL.AI:443/v1?model=gpt-6",
+      "expected": {
+        "vendor": "mistral"
+      }
+    },
+    {
+      "url": "https://api.mistral.ai.evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://notopenrouter.ai/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://api.openai.com@evil.example/v1",
+      "expected": {}
+    },
+    {
+      "url": "https://user:pass@api.openai.com:8443/v1",
+      "expected": {
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "https://api%2eopenai%2ecom/v1",
+      "expected": {
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "https://api.openai.com./v1",
+      "expected": {}
+    },
+    {
+      "url": "https://llm.example.com/v1",
+      "expected": {}
+    },
+    {
+      "url": "http://localhost:11434/v1",
+      "expected": {}
+    },
+    {
+      "url": "http://127.0.0.1:1234/v1",
+      "expected": {}
+    },
+    {
+      "url": "http://[::1]:8080/v1",
+      "expected": {}
+    },
+    {
+      "url": "file:///tmp/cache-profiles.json",
+      "expected": {}
+    },
+    {
+      "url": "mailto:api.openai.com",
+      "expected": {}
+    },
+    {
+      "url": "not a url",
+      "expected": {}
+    },
+    {
+      "url": "",
+      "expected": {}
+    },
+    {
+      "url": "https://[invalid/v1",
+      "expected": {}
+    },
+    {
+      "url": "file://api.openai.com/cache",
+      "expected": {
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "custom://API.OPENAI.COM/v1",
+      "expected": {
+        "vendor": "openai"
+      }
+    },
+    {
+      "url": "https://api.\topenai.com/v1",
+      "expected": {
+        "vendor": "openai"
+      }
+    }
+  ]
+}
