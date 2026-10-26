@@ -32,7 +32,7 @@ const blank = (s: string): boolean => s.trim() === "";
  * `call_id` is at most 64 characters on this wire; an id minted by another adapter in the same session (Gemini's carries
  * a base64 thought signature) is replaced by a stable hash of itself, the same everywhere it occurs in the request.
  */
-function wireCallId(id: string): string {
+export function wireCallId(id: string): string {
   return id.length <= MAX_CALL_ID ? id : `call_h_${createHash("sha256").update(id).digest("hex").slice(0, 32)}`;
 }
 

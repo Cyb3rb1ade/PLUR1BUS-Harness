@@ -1,6 +1,6 @@
 import type { OpenAIRuntime } from '../openai-auth/runtime.ts';
 import type { OpenAIProviderBinding } from '../openai-auth/provider.ts';
-import { createChatCompletionsAdapter, createAnthropicAdapter, createResponsesAdapter, createGeminiAdapter, ProviderError, resolveModelProfiles, type ProviderRegistry, type StreamingAdapter, type ProfileTable } from '../../../providers/src/index.ts';
+import { createChatCompletionsAdapter, createAnthropicAdapter, createResponsesAdapter, createGeminiAdapter, ProviderError, resolveModelProfiles, cacheRouteForUrl, ANTHROPIC_DEFAULT_BASE_URL, RESPONSES_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, type CacheRoute, type ProviderRegistry, type StreamingAdapter, type ProfileTable } from '../../../providers/src/index.ts';
 import { createCredentialsProvider, createAuthSecretStore, GoogleAdc, HttpRefresher, createOAuthHttp, type ProfileCredentials, type AuthorizationLease, AuthError } from '../auth/index.ts';
 import type { SecretStore } from '../secrets/store.ts';
 import type { Egress } from '../egress/service.ts';
@@ -13,6 +13,7 @@ import type { BillingClass } from './provider.ts';
 /** `billingPath` (ADR-005 D110 vocabulary): `chatgpt_plan`/`cli_login`/`plan` bill a subscription, `api_key`/`workload`/`paid` are metered. */
 export interface ProviderDefinition extends ProfileCredentials { openai?: OpenAIProviderBinding; wireFormat: 'chat_completions' | 'anthropic_messages' | 'codex_responses' | 'gemini'; defaultModel?: string; models?: string[]; billingPath?: string }
 const PLAN_PATHS = new Set(['chatgpt_plan', 'cli_login', 'plan']), PAID_PATHS = new Set(['api_key', 'workload', 'paid']);
+const DEFAULT_BASE_URL: Record<ProviderDefinition['wireFormat'], string> = { anthropic_messages: ANTHROPIC_DEFAULT_BASE_URL, codex_responses: RESPONSES_DEFAULT_BASE_URL, gemini: GEMINI_DEFAULT_BASE_URL, chat_completions: 'https://api.openai.com/v1' };
 /** Explicit billing path first; otherwise from the credential kind: keys and ADC are metered, interactive logins are a plan. */
 export function billingClassOf(def: Pick<ProviderDefinition, 'billingPath' | 'profile'>): BillingClass | undefined {
   if (def.profile?.client_registration === 'dynamic_on_authorize') return 'plan'; // The credential kind fixes SIWC billing, regardless of a stale profile label.
@@ -69,9 +70,14 @@ export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Re
   const credentialsForDiscovery = (def: ProviderDefinition) => discoveryProfiles.get(def.profile.id) === JSON.stringify([def.profile, def.entries, def.strategy]) ? credentials : undefined;
   const registry: Map<string, ProviderRegistry extends ReadonlyMap<string, infer E> ? E : never> = new Map();
   const families: Record<string, ProviderFamily> = {};
+  const cacheRoutes: Record<string, CacheRoute> = {};
   for (const [id, def] of Object.entries(definitions)) {
     const format = def.wireFormat;
-    const fetch = providerFetch(o.egress, format, o.fetch);
+    // The base URL says which API a request reaches (a gateway, a platform, a provider's own API); the cache emitter
+    // sends a provider's own cache fields only there.
+    const route = cacheRouteForUrl(def.profile.base_url ?? DEFAULT_BASE_URL[format]);
+    cacheRoutes[id] = o.openai?.handles(def) && billing[id] === 'plan' ? { ...route, platform: 'chatgpt-plan' } : route;
+    const fetch = providerFetch(o.egress, format, o.fetch, route);
     families[id] = format === 'anthropic_messages' ? 'anthropic' : format === 'codex_responses' ? 'openai-responses' : format === 'gemini' ? 'gemini' : 'openai-chat';
     const managed = o.openai?.handles(def) ? o.openai.adapter(def) : undefined;
     const wrapper: StreamingAdapter = { async *stream(request, options) {
@@ -84,7 +90,7 @@ export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Re
         options?.signal?.throwIfAborted(); return lease.header.value;
       };
       const config = { ...(def.profile.base_url ? { baseUrl: def.profile.base_url } : {}), fetch, ...(def.profile.extra_headers ? { headers: def.profile.extra_headers } : {}) };
-      const adapter = format === 'anthropic_messages' ? createAnthropicAdapter({ ...config, credentials: { apiKey: header } }) : format === 'codex_responses' ? createResponsesAdapter({ ...config, credentials: { authorization: header } }) : format === 'gemini' ? createGeminiAdapter({ ...config, credentials: { apiKey: header } }) : createChatCompletionsAdapter({ ...config, baseUrl: def.profile.base_url ?? 'https://api.openai.com/v1', credentials: { authorization: header } });
+      const adapter = format === 'anthropic_messages' ? createAnthropicAdapter({ ...config, credentials: { apiKey: header } }) : format === 'codex_responses' ? createResponsesAdapter({ ...config, credentials: { authorization: header } }) : format === 'gemini' ? createGeminiAdapter({ ...config, credentials: { apiKey: header } }) : createChatCompletionsAdapter({ ...config, baseUrl: def.profile.base_url ?? DEFAULT_BASE_URL.chat_completions, credentials: { authorization: header } });
       try {
         for await (const e of adapter.stream(request, options)) yield e;
         if (lease) await credentials.reportResult(lease, { ok: true, model: request.model });
@@ -97,5 +103,5 @@ export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Re
     registry.set(id, { adapter: wrapper, ...(def.defaultModel ? { defaultModel: def.defaultModel } : {}), ...(def.models ? { models: def.models } : {}) });
   }
   const resolved = resolveModelProfiles(withoutRefused(o.config.modelProfiles, refusedIds), registry);
-  return { credentialsForDiscovery, profiles: resolved.table as ProfileTable, families, billing, refused, resolved, close: () => credentials.close() };
+  return { credentialsForDiscovery, profiles: resolved.table as ProfileTable, families, billing, refused, resolved, cacheRoutes, close: () => credentials.close() };
 }

@@ -170,7 +170,7 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
       const metadata = metadataAt(segment);
       if (metadata.tokenEstimate >= profile.minTokens) breakpoints.push({ ...metadata, segment, ttl, kind });
     };
-    if (eligible && profile.mechanism === "explicit" && profile.maxBreakpoints > 0) {
+    if (eligible && profile.mechanism === "explicit" && profile.maxBreakpoints > 0 && input.cacheHint !== "none") {
       // RULING: the trailing breakpoint always takes the shortest TTL (its content changes every turn); 1h entries therefore precede 5m ones.
       const trailingTtl: CacheTtl = profile.ttls.includes("5m") ? "5m" : profile.ttls[0]!;
       const hasTrailing = convSegs.length > 0;
@@ -244,7 +244,7 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
       : !eligible ? "below-minimum" : profile.mechanism === "implicit" ? "implicit-provider" : "eligible";
     return { agentId, model, prefixKey, segments, breakpoints, zoneHashes, prefixHashes, prefix, stableTokensEstimate,
       zones, session_id, cache: { provider: profile.provider, mechanism: profile.mechanism, minimumTokens: profile.minTokens,
-        eligible, reason, expected: warm ? "warm" : "cold", ageMs, ttlMs }, events };
+        eligible, reason, expected: warm ? "warm" : "cold", ageMs, ttlMs, ttl: profile.ttls.length ? stableTtl : null }, events };
   }
 
   return { render };

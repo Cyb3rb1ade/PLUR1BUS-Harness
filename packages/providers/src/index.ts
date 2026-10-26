@@ -47,5 +47,5 @@ export * from "./profiles/index.ts";
 export * from "./local/index.ts";
 
 // Prompt-cache profiles (RE-D21): the table, its normaliser and the row lookup
-export { CACHE_PROFILE_TABLE, loadCacheProfileTable, checkAgainstSchema, normalizeModelRef, findCacheProfile } from "./cache-profiles.ts";
-export type { CacheProfileTable, CacheProfileRow, CacheGatewayProfile, CacheProfileMatch, CacheRoute, NormalizedModelRef, CacheProvider, CacheWire, CacheTtl, CachePlatform, CacheClass, CacheGateway, CacheTtlEntry, CacheAffinity, CacheUsageMap } from "./cache-profiles.ts";
+export { CACHE_PROFILE_TABLE, loadCacheProfileTable, checkAgainstSchema, normalizeModelRef, findCacheProfile, cacheRouteForUrl } from "./cache-profiles.ts";
+export type { CacheProfileTable, CacheHost, CacheProfileRow, CacheGatewayProfile, CacheProfileMatch, CacheRoute, NormalizedModelRef, CacheProvider, CacheWire, CacheTtl, CachePlatform, CacheClass, CacheGateway, CacheTtlEntry, CacheAffinity, CacheUsageMap } from "./cache-profiles.ts";

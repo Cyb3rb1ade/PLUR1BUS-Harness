@@ -57,9 +57,12 @@ export interface CacheGatewayProfile {
   notes?: string;
 }
 
+export interface CacheHost { pattern: string; gateway?: "openrouter"; platform?: CachePlatform; vendor?: CacheProvider }
+
 export interface CacheProfileTable {
   version: number;
   aliases: Array<{ from: string; to: string; since: string; source: string }>;
+  hosts: CacheHost[];
   rows: CacheProfileRow[];
   gateways: { openrouter: CacheGatewayProfile };
 }
@@ -122,6 +125,9 @@ export function loadCacheProfileTable(raw: unknown): CacheProfileTable {
     try { new RegExp(r.match, "u"); } catch { throw new TypeError(`cache-profiles.json: row ${r.id} has an invalid match pattern`); }
     if ((r.mechanism === "explicit") !== (r.maxBreakpoints > 0)) throw new TypeError(`cache-profiles.json: row ${r.id}: only explicit rows have breakpoints`);
   }
+  for (const h of t.hosts) {
+    try { new RegExp(h.pattern, "u"); } catch { throw new TypeError(`cache-profiles.json: host pattern ${h.pattern} is invalid`); }
+  }
   return t;
 }
 
@@ -129,8 +135,20 @@ export const CACHE_PROFILE_TABLE: CacheProfileTable = loadCacheProfileTable(tabl
 const MATCHERS = new Map(CACHE_PROFILE_TABLE.rows.map((r) => [r.id, new RegExp(r.match, "u")]));
 const ALIASES = new Map(CACHE_PROFILE_TABLE.aliases.map((a) => [a.from, a.to]));
 
-/** Where a request goes, as far as the caller knows it; every field optional. */
-export interface CacheRoute { gateway?: CacheGateway; platform?: CachePlatform; local?: boolean }
+/** Where a request goes, as far as the caller knows it; every field optional. `vendor` is set when the route reaches that
+ *  provider's own first-party API, the only place its body fields are sent. */
+export interface CacheRoute { gateway?: CacheGateway; platform?: CachePlatform; local?: boolean; vendor?: CacheProvider }
+
+const HOSTS = CACHE_PROFILE_TABLE.hosts.map((h) => ({ ...h, re: new RegExp(h.pattern, "u") }));
+
+/** The route a base URL reaches, from the table's host list; an unknown host is a route with nothing known about it. */
+export function cacheRouteForUrl(url: string): CacheRoute {
+  let host: string;
+  try { host = new URL(url).hostname.toLowerCase(); } catch { return {}; }
+  const h = HOSTS.find((x) => x.re.test(host));
+  if (!h) return {};
+  return { ...(h.gateway ? { gateway: h.gateway } : {}), ...(h.platform ? { platform: h.platform } : {}), ...(h.vendor ? { vendor: h.vendor } : {}) };
+}
 
 export interface NormalizedModelRef {
   /** Lower case, no gateway or platform decoration, dots as dashes, served aliases applied. */
