@@ -51,6 +51,14 @@ function coreTimings(h: string): string[] {
   return out;
 }
 
+/** The supervisor's view of its children: every warning and error (a failed health poll is a core that did not answer
+ *  `core.status` within 2 s; 30 s without an answer is a hang, and the core is terminated) and every spawn and exit. */
+function supervisorEvents(h: string): string[] {
+  const file = join(h, "logs", "supervisor.log");
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8").split("\n").filter((line) => /"level":"(warn|error)"|"msg":"([\w.-]+ (exited|spawned|ready|adopted)|restarting )/.test(line));
+}
+
 /** What a red run needs to say where the time went: the tails of the home's core and supervisor logs, the core's
  *  timing lines and the model cache. Printed for every failure (the logs of a home that never started are absent). */
 function printHome(h: string): void {
@@ -58,7 +66,8 @@ function printHome(h: string): void {
     const file = join(h, "logs", name);
     if (existsSync(file)) console.error(`--- ${name} of ${h} (tail) ---\n${readFileSync(file, "utf8").slice(-12_000)}`);
   }
-  console.error(`--- core timings of ${h} ---\n${coreTimings(h).join("\n")}\n--- models of ${h} ---\n${modelFiles(h).join("\n")}`);
+  console.error(`--- core timings of ${h} ---\n${coreTimings(h).join("\n")}\n--- supervisor events of ${h} ---\n${supervisorEvents(h).join("\n")}`);
+  console.error(`--- models of ${h} ---\n${modelFiles(h).join("\n")}`);
 }
 
 /** Runs `f` and records its wall time as a test diagnostic, also when it throws: a green run gives the numbers a red
@@ -154,7 +163,7 @@ describe("E3 — CLI → daemon → core smoke", () => {
       const restartedRecall = cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "after-restart", "--joined", "harbour tour"]);
       assert.equal(restartedRecall.degraded, null);
       assert.match(restartedRecall.joined.text, /harbour tour/);
-      for (const line of [...coreTimings(h1), ...(REAL ? modelFiles(h1) : [])]) t.diagnostic(line);
+      for (const line of [...coreTimings(h1), ...supervisorEvents(h1), ...(REAL ? modelFiles(h1) : [])]) t.diagnostic(line);
       const idsBefore = memoryIds(h1);
       assert.ok(idsBefore.length >= 1, "the fact is stored");
 
