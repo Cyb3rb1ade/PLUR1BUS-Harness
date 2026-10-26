@@ -237,6 +237,15 @@ for (const wire of ['chat_completions', 'anthropic_messages', 'codex_responses',
   try { const chunks = await collect(f.provider, request); assert.equal(runs, 1); assert.equal(w.calls, 2); const output = chunks.find(c => c.type === 'tool.result'); assert.ok(output && output.type === 'tool.result'); if (operation === 'mcp') assert.match(output.output, /MCP wire ok/); else { const manifest = JSON.parse(output.output).value; assert.ok(await store.get(manifest.id)); } assert.ok(f.logs.some(r => r.stage === 'tool-dispatch' && r.phase === 'end')); } finally { r.service.dispose(); r.stores.close(); await f.close(); await rm(home, { recursive: true, force: true }); }
 });
 
+test('fallback to the same model on a provider of another locality re-renders the prompt for that route', async () => {
+  const first: StreamingAdapter = { async *stream() { throw new ProviderError('rate_limit', 'synthetic', { retryable: false }); } };
+  const w = wireFixture('anthropic_messages', [{ text: 'fallback' }]);
+  const second = wireAdapter('anthropic_messages', w.fetch);
+  const routes: string[] = [];
+  const f = await fixture(first, { maxTokens: 32, router: { retry: { maxRetries: 0 } }, isLocalProvider: p => p === 'first', profiles: { default: [{ provider: 'first', model: 'claude-sonnet-4-5', adapter: first }, { provider: 'second', model: 'claude-sonnet-4-5', adapter: second }] }, family: { first: 'anthropic', second: 'anthropic' }, system: ['stable '.repeat(3000)], onPrompt: p => routes.push(p.cache.provider) });
+  try { await collect(f.provider); assert.deepEqual(routes.slice(-2), ['local', 'anthropic']); assert.ok((w.bodies[0]!.system as Record<string, unknown>[]).some(b => b.cache_control), 'the cloud request carries its markers'); } finally { await f.close(); }
+});
+
 test('fallback changes prompt cache profile and usage model to the actual candidate', async () => {
   const prompts: string[] = [], usageModels: string[] = [];
   const first: StreamingAdapter = { async *stream() { throw new ProviderError('rate_limit', 'synthetic', { retryable: false }); } };

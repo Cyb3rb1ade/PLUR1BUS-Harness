@@ -318,6 +318,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const turn = { sessionId: req.sessionId, turnId, agentId: req.agentId, principal };
     const emitEvent = (event: TurnRouterEvent) => { try { o.onRouterEvent?.(selection && 'profile' in event ? { ...event, profile: logicalProfile } : event, turn); } catch { /* a faulty sink never changes routing */ } };
     let rendered: RenderedPrompt | undefined;
+    // The provider the prompt was rendered for: its route (local or not) selects the cache profile, so a fallback to the
+    // same model on another provider renders again.
+    let renderedFor: string | undefined;
     let renderInput: RenderInput | undefined;
     const family = (provider: string): ProviderFamily => o.family?.[provider] ?? 'openai-chat';
     const aliases = new Map(selected.map(t => [t.name, t.name.replaceAll('.', '_')]));
@@ -328,8 +331,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const profiles = Object.fromEntries(Object.entries(routeProfiles).map(([name, candidates]) => [name, candidates.map(c => ({ ...c, adapter: {
       async *stream(request: WireRequest, options?: Parameters<typeof c.adapter.stream>[1]) {
         const attempt = routing.getStore()?.call.current;
-        if (renderInput && rendered?.model !== c.model) {
+        if (renderInput && (rendered?.model !== c.model || renderedFor !== c.provider)) {
           rendered = await stage('prompt', signal, o.log, () => builder.render({ ...renderInput!, model: c.model, route: { local: isLocal(c.provider) } }));
+          renderedFor = c.provider;
           o.onPrompt?.(rendered);
         }
         const dialect = family(c.provider);
@@ -462,6 +466,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         const enrich = async (signal: AbortSignal) => stage('prompt', signal, o.log, () => builder.render(renderInput!));
         rendered = req.turnProfile ? await req.turnProfile.run('promptEnrichment', enrich, undefined, signal) : await enrich(signal);
         rendered ??= builder.render({ ...renderInput, memory: '', volatile: { blocks: [] } });
+        renderedFor = candidate.provider;
         o.onPrompt?.(rendered);
         const prefix: ChatMessage[] = rendered.segments.filter(s => s.zone === 'system' || s.zone === 'memory').map(s => ({ role: 'system', content: s.text }));
         const tail: ChatMessage[] = rendered.segments.filter(s => s.zone === 'volatile').map(s => ({ role: 'user', content: s.text }));
