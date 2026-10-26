@@ -11,6 +11,8 @@ multiple-versions = "warn"
 [licenses]
 version = 2
 confidence-threshold = 0.93
+# RE-14/T2 (RE-D19): tokenizers 0.23.2 is Apache-2.0; its pure-Rust fancy-regex backend and new transitives use
+# the existing permissive policy below. No tokenizer-vocabulary license or conditional artifact is approved here.
 allow = [
     "0BSD",
     "Apache-2.0",

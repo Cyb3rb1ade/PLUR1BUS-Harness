@@ -13,7 +13,7 @@ behaviour. The modules of plan §2.4 arrive with RE-01 onwards.
 
 | Target | Name | What it is |
 |---|---|---|
-| library | `plur1bus_engine` | `CRATE_VERSION` and the `cache_profiles` table reader (RE-14/T1) |
+| library | `plur1bus_engine` | `CRATE_VERSION`, the `cache_profiles` table reader (RE-14/T1), and the unused `tokens` counting service (RE-14/T2) |
 | binary | `plur1bus-engine` | `--version`; the hidden placeholder `serve`, which RE-08 fills (`plur1bus-engine serve --home <dir> ...`). Today `serve` exits 2 with `E_NOT_AVAILABLE reason=not-implemented`; a usage error exits 2 (clap), as `docs/errors.md` says |
 
 ## Build and test
@@ -24,6 +24,50 @@ behaviour. The modules of plan §2.4 arrive with RE-01 onwards.
 metadata through shared references. `tests/cache_profiles_parity.rs` checks the TypeScript-generated
 `packages/providers/fixtures/cache-profile-vectors.json`, including route overrides and URL routing. No engine
 runtime behavior consumes this module in Phase 1 (RE-R1).
+
+### Token counting (RE-14/T2)
+
+`tokens::TokenCounter::heuristic()` exposes the table's tokenizer families without reading files.
+`TokenCounter::from_directory(&path)` verifies the pinned files listed in `src/tokens/artifacts.json`, then loads
+them once. `count(&CountRequest)` performs no file or network I/O. Missing or damaged artifacts remain explicit
+family states and return `heuristic`; `families()` distinguishes missing, invalid, hash-mismatched, unconfigured,
+and license-pending artifacts. Gemma 3 and Grok remain estimators without owner approval (RE-D25).
+
+A request selects exactly one `family` or `route` and independent `items`, each with an `id` and exactly one of
+`text`, `messages` or `tools`. The shared table resolves a route's model/platform to its tokenizer family.
+For a `chatgpt-plan` route, its generic o200k cache row is checked against the same model's first-party row:
+an `openai-unpublished` model (such as GPT-6) stays heuristic on the plan too (RE-D20). Explicitly selecting
+`family: "o200k"` still requests the exact raw-text encoding of that family.
+Every result exposes `family`, `method`, `calibration: { version: 1, observations: 0 }`, and
+`items: [{ id, tokens, lower, upper }]`. The methods are:
+
+- `exact`: raw-text tokenization with a SHA-verified artifact, without added special tokens, padding or truncation.
+- `tokenizer-text`: visible message/tool text only; provider chat-template framing is unknown and is not counted as exact.
+- `heuristic`: the existing Core estimate, `ceil(UTF-16 code units / 4)`, with conservative visible-text bounds
+  from zero to the UTF-8 byte count. These bounds do not claim to include hidden provider framing.
+
+Message boundaries stay independent. Adjacent segments within a message are joined before encoding; optional
+`cumulative: true` returns a recount of each joined segment prefix, reset at the next message. Counts are not
+assumed additive across BPE segment boundaries. Message inputs have the shape
+`[{ role, segments: [{ text }] }]`; cumulative output is
+`[{ id, message, counts: [{ tokens, lower, upper }] }]`, where `message` is the zero-based message index.
+T3 adds calibration, T4 adds RPC, and T5 adds Core consumers;
+none is implemented here, and the Phase 1 engine keeps its existing budgets and prompt behavior (RE-R1).
+
+Install the separately fetched, pinned tokenizer files in a cache outside the checkout, then require them in tests:
+
+```bash
+export PLUR1BUS_TOKENIZER_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/plur1bus/tokenizers"
+node scripts/tokens/setup-tokenizers.mjs
+PLUR1BUS_TOKENIZER_FILES_REQUIRED=1 cargo test --locked -p plur1bus-engine
+cargo run --locked -p plur1bus-engine --example token_count_measure
+```
+
+CI sets `PLUR1BUS_TOKENIZER_FILES_REQUIRED=1`; a missing, corrupt or incompatible listed artifact fails its Golden
+test instead of silently omitting the reference count. The setup verifies source and output hashes on download and
+re-verifies cached files. It never grants license approval. The committed count and token-ID Goldens, original
+DE/EN/code/JSON/Unicode texts, recorder, source pins and license evidence are documented in
+[`tests/engine-parity/goldens/tokens/README.md`](../../tests/engine-parity/goldens/tokens/README.md).
 
 From the repository root, with the toolchain of `AGENTS.md` (Rust 1.95):
 
@@ -48,10 +92,13 @@ crates more than the rest of the workspace); the RE-00 pull request records the 
 | `jsonschema` | `0.26`, no default features | config and contract validation, the same validator `plur1bus-config` uses |
 | `regex` | `1` | compiled cache-profile model and host patterns; reuses the locked workspace dependency (MIT OR Apache-2.0) |
 | `url` | `2` | WHATWG URL hostname parsing for provider-route parity; reuses the locked workspace dependency (MIT OR Apache-2.0) |
+| `tokenizers` | `=0.23.2`, no default features, `fancy-regex` | raw-text tokenization (Apache-2.0), with the pure-Rust regex backend (RE-D19); reference token IDs gate compatibility |
+| `sha2` | `0.10` | artifact integrity before tokenizer loading; reuses the locked MIT OR Apache-2.0 dependency |
 | `ureq` | `3`, `rustls` + `platform-verifier` | remote providers; the same HTTP client policy as `crates/plur1bus` |
 | `serde`, `serde_json`, `clap` | workspace | data and the command line |
 
-`ort` and `tokenizers` are added by RE-03 with their own gate step.
+`ort` is added by RE-03 with its own gate step; RE-03 reuses the pinned tokenizer implementation and adds its
+embedding/reranker-specific token-ID gates.
 
 ## Lints
 

@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "texts": [
+    {
+      "id": "empty",
+      "text": ""
+    },
+    {
+      "id": "german",
+      "text": "Die zuverlässige Krankenversicherung berücksichtigt größere Änderungen. Für zwölf sorgfältig geprüfte Datensätze bleiben Maßstäbe, Weißräume und überlange zusammengesetzte Wörter erhalten."
+    },
+    {
+      "id": "english",
+      "text": "The reliable token counter preserves every message boundary. We'll compare exact raw-text counts with independent references, including contractions, punctuation, and repeated spaces."
+    },
+    {
+      "id": "code",
+      "text": "fn count_items(items: &[Item]) -> Result<Vec<u64>, Error> {\n    items.iter().map(|item| count(&item.text)).collect()\n}\n// UTF-8: Grüße aus Köln; an empty input stays empty.\n"
+    },
+    {
+      "id": "json",
+      "text": "{\"route\":{\"provider\":\"openai\",\"model\":\"gpt-5.6\"},\"items\":[{\"id\":\"de\",\"text\":\"Grüße 🌍\"}],\"cumulative\":true}\n"
+    },
+    {
+      "id": "whitespace",
+      "text": " \t\t  \n\r\n\n    \t\n"
+    },
+    {
+      "id": "nfd",
+      "text": "Café Café; Größe Größe; Å Å; naïve naïve."
+    },
+    {
+      "id": "emoji",
+      "text": "👩🏽‍💻 👨‍👩‍👧‍👦 🏳️‍🌈 😀🚀🇩🇪"
+    },
+    {
+      "id": "cjk",
+      "text": "你好世界。日本語の文章と한국어 문장을 함께 비교합니다。"
+    },
+    {
+      "id": "special-literals",
+      "text": "<|endoftext|> <|endofprompt|> <|im_start|>system<|im_sep|>A literal marker is user text."
+    },
+    {
+      "id": "contractions",
+      "text": "can't won't we'll We're I'd SHE'S you've they're I'M 'll 'd 're 've 's 't 'm"
+    },
+    {
+      "id": "numbers",
+      "text": "0 12 123 1234 123456789012345678901234567890 1.234,56 -0.001 0xDEADBEEF"
+    },
+    {
+      "id": "controls",
+      "text": "NUL\u0000 TAB\t CR\r LF\n ESC\u001b separator paragraph end"
+    },
+    {
+      "id": "punctuation",
+      "text": "„Deutsch“ — «français» … «Ελληνικά» ¿Español? العربية /\\//\n🙂!\n"
+    }
+  ]
+}

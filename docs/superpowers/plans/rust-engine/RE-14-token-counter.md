@@ -79,8 +79,8 @@ P1–P4 merged 2026-10-26: #781, #783, #784, #785. What they built is described 
 
 ### T1 — The table, read by both languages
 
-Implemented in open PR #786 (2026-10-26): `crates/plur1bus-engine/src/cache_profiles.rs`,
-`tests/cache_profiles_parity.rs`, `scripts/gen-provider-matrix.mjs`. Full acceptance and merge are pending.
+Merged 2026-10-26 (#786): `crates/plur1bus-engine/src/cache_profiles.rs`,
+`tests/cache_profiles_parity.rs`, `scripts/gen-provider-matrix.mjs`.
 
 - [x] Generate `cache-profile-vectors.json` from the TypeScript loader (`pnpm gen`): model ids and routes in,
   normalised id, gateway, platform and row id out, plus `cacheRouteForUrl` over the table's `hosts`. The engine reads
@@ -90,6 +90,9 @@ Implemented in open PR #786 (2026-10-26): `crates/plur1bus-engine/src/cache_prof
 ### T2 — The counter
 
 Starts only after the confirmed merge of T1 (#786).
+
+Implementation started from `main` `0058ae70` after GitHub confirmed T1's merge. The counter remains an unused
+library service in Phase 1; calibration and RPC are separate packages.
 
 - [ ] Failing tests first: `lower ≤ tokens ≤ upper` for every family and method; count goldens (fixture texts × family →
   count) recorded from the reference tokenizers (o200k, Gemma 4, the local models' files) on German, English, code and

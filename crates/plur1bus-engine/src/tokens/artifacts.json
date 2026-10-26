@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "artifacts": [
+    {
+      "family": "o200k",
+      "id": "o200k-base-tiktoken",
+      "repository": "zurawiki/tiktoken-rs",
+      "revision": "72a5a800651a1cea1ad609292446ba02c80e3bcd",
+      "file": "tokenizer.json",
+      "url": "https://raw.githubusercontent.com/zurawiki/tiktoken-rs/72a5a800651a1cea1ad609292446ba02c80e3bcd/tiktoken-rs/assets/o200k_base.tiktoken",
+      "sourceFormat": "tiktoken-ranks",
+      "sourceSha256": "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
+      "sha256": "ce0e5d85d93742a3e1a31c4cc6ad1b6eae6a4a757fd39f4ca7056c8865e82799",
+      "license": "MIT",
+      "licenseStatus": "permissive"
+    }
+  ]
+}
