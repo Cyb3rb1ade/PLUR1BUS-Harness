@@ -60,10 +60,14 @@ export interface ChatRequest {
  * (LM Studio, Ollama, ...) often send partial usage; consumers must treat every field as possibly absent.
  */
 export interface Usage {
+  /** The whole prompt, cache reads and writes included, on every wire (Anthropic's own `input_tokens` excludes them). */
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  /** The part of `inputTokens` read from the provider's cache. */
   cachedInputTokens?: number;
+  /** The part of `inputTokens` written to the provider's cache (billed at a premium where the provider charges writes). */
+  cacheWriteTokens?: number;
   reasoningTokens?: number;
 }
 

@@ -15,7 +15,7 @@ export function wireFixture(wire: Wire, replies: readonly FixtureReply[]) {
     const events: [string | null, unknown][] = [];
     if (wire === 'chat_completions') {
       events.push([null, { id: 'fixture', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: call ? { tool_calls: [{ index: 0, id: 'c1', type: 'function', function: { name: call.name, arguments: raw } }] } : { content: text }, finish_reason: null }] }]);
-      events.push([null, { id: 'fixture', choices: [{ index: 0, delta: {}, finish_reason: call ? 'tool_calls' : 'stop' }], usage: { prompt_tokens: input, completion_tokens: 10, total_tokens: input + 10, prompt_tokens_details: { cached_tokens: read } } }]);
+      events.push([null, { id: 'fixture', choices: [{ index: 0, delta: {}, finish_reason: call ? 'tool_calls' : 'stop' }], usage: { prompt_tokens: input, completion_tokens: 10, total_tokens: input + 10, prompt_tokens_details: { cached_tokens: read, ...(reply.cacheWrite === undefined ? {} : { cache_write_tokens: write }) } } }]);
     } else if (wire === 'anthropic_messages') {
       events.push(['message_start', { type: 'message_start', message: { id: 'fixture', type: 'message', role: 'assistant', model: body.model, content: [], stop_reason: null, usage: { input_tokens: input - read - write, output_tokens: 0, cache_read_input_tokens: read, cache_creation_input_tokens: write } } }]);
       events.push(['content_block_start', { type: 'content_block_start', index: 0, content_block: call ? { type: 'tool_use', id: 'c1', name: call.name, input: {} } : { type: 'text', text: '' } }]);
@@ -30,7 +30,7 @@ export function wireFixture(wire: Wire, replies: readonly FixtureReply[]) {
       if (call) events.push(['response.function_call_arguments.delta', { type: 'response.function_call_arguments.delta', output_index: 0, item_id: 'fc1', delta: raw }]);
       else { events.push(['response.content_part.added', { type: 'response.content_part.added', output_index: 0, item_id: 'msg1', content_index: 0, part: { type: 'output_text', text: '' } }]); events.push(['response.output_text.delta', { type: 'response.output_text.delta', output_index: 0, item_id: 'msg1', content_index: 0, delta: text }]); }
       events.push(['response.output_item.done', { type: 'response.output_item.done', output_index: 0, item }]);
-      events.push(['response.completed', { type: 'response.completed', response: { id: 'fixture', model: body.model, status: 'completed', output: [item], usage: { input_tokens: input, output_tokens: 10, total_tokens: input + 10, input_tokens_details: { cached_tokens: read } } } }]);
+      events.push(['response.completed', { type: 'response.completed', response: { id: 'fixture', model: body.model, status: 'completed', output: [item], usage: { input_tokens: input, output_tokens: 10, total_tokens: input + 10, input_tokens_details: { cached_tokens: read, ...(reply.cacheWrite === undefined ? {} : { cache_write_tokens: write }) } } } }]);
     } else {
       events.push([null, { candidates: [{ index: 0, content: { role: 'model', parts: call ? [{ functionCall: { name: call.name, args: call.args } }] : [{ text }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: input, candidatesTokenCount: 10, totalTokenCount: input + 10, cachedContentTokenCount: read } }]);
     }

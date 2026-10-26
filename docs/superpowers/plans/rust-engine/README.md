@@ -27,11 +27,11 @@ the work. Read the plan's §1 (starting point) and §2 (target architecture) onc
 
 ## Working assumptions
 
-The plan lists owner decisions RE-D1…RE-D29 (plan §6). RE-D15…RE-D19 are the tokenization and text-analysis decisions of plan §2.5, RE-D20…RE-D29 the token-counting and provider prompt-caching decisions of plan §2.6; all are open as of 2026-10-25. RE-D11…RE-D13 are the three behaviours of plan §1.6 that Phase 1
+The plan lists owner decisions RE-D1…RE-D29 (plan §6). RE-D15…RE-D19 are the tokenization and text-analysis decisions of plan §2.5, RE-D20…RE-D29 the token-counting and provider prompt-caching decisions of plan §2.6; RE-D20 was decided (a) on 2026-10-26, the others are open. RE-D11…RE-D13 are the three behaviours of plan §1.6 that Phase 1
 keeps at parity on purpose; the owner decided on 2026-10-24 that all three are fixed in Phase 2, on the same day that
 the three dropped adapter functions of plan §1.7 get harness surfaces (RE-13), and, also on 2026-10-24, that an advisory
 inside the pinned Lance closure is answered with a fork at the pinned tag carrying only the fix, not with an allow-list
-exception (RE-D14). Until the owner decides otherwise, every brief assumes the
+exception (RE-D14); for the zstd advisories of 2026-10-26, which need a major step, the owner allowed a time-limited exception until 2026-11-25 while those forks are built. Until the owner decides otherwise, every brief assumes the
 recommendation. If a decision changes, the briefs named in the last column change; nothing else does.
 
 | Decision | Assumed | Briefs that depend on it |
@@ -56,7 +56,7 @@ recommendation. If a decision changes, the briefs named in the last column chang
 | RE-D17 JS string behaviours | assumed, open: a slice cut inside a surrogate pair stays a `JsString`, written as Node writes it per target (the JSON escape in JSON text and JSON-built hashes, U+FFFD at UTF-8 boundaries); Node-written JSON read with a tolerant reader; the collator locale recorded from Node 24.21 under the CI locale | RE-02, RE-03, RE-04, RE-05, RE-06 |
 | RE-D18 own tokenizer | assumed, open: no subword tokenizer; a German decompounding lexicon only behind the gate (RE-10 T11); a future own model adopts a permissive vocabulary | RE-10 |
 | RE-D19 `tokenizers` | assumed, open: `=0.23.2`, regex backend chosen by RE-03 T0's token-id goldens; jina goldens in RE-09 T3's real-model leg unless the owner allows committing them | RE-03, RE-09 |
-| RE-D20 token counting | assumed (a), open: one Rust counter in the engine (`src/tokens/`), served to the core over `engine.tokens.*`; exact tokenizer files where public, calibrated estimates elsewhere; the core keeps chars/4 until Phase 2 | RE-14, RE-08, RE-10 |
+| RE-D20 token counting | decided 2026-10-26: (a), one Rust counter in the engine (`src/tokens/`), served to the core over `engine.tokens.*`; exact tokenizer files where public, calibrated estimates elsewhere; the core keeps chars/4 until Phase 2 | RE-14, RE-08, RE-10 |
 | RE-D21 cache-profile table | assumed, open: one versioned JSON table in `packages/providers`, read by the core and by the engine (`include_str!`, parity vectors) | RE-14 |
 | RE-D22 cache markers | assumed, open: only the core writes markers, TTLs and affinity keys, through one emitter; the engine states segments, boundaries and a reuse class | RE-01, RE-06, RE-08, RE-14 |
 | RE-D23 engine budgets | assumed, open: byte-identical in Phase 1 (words, characters, chars/3 and chars/4 heuristics) | RE-04, RE-05, RE-06 |
@@ -65,7 +65,7 @@ recommendation. If a decision changes, the briefs named in the last column chang
 | RE-D26 margin near minimums | assumed, open: every count carries `lower`/`upper`; markers and budgets use the side the profile requires | RE-14 |
 | RE-D27 calibration | assumed, open: an affine fit per route and family in the engine, fed by reported usage | RE-14 |
 | RE-D28 OpenRouter | assumed, open: a route-level profile per upstream, always `session_id`, documented marker forms only | RE-14 |
-| RE-D29 cache reads in the token budget | open, owner decision: full weight in Phase 1, reads and writes recorded separately | RE-14 |
+| RE-D29 cache reads in the token budget | open, owner decision: full weight in Phase 1, reads and writes recorded separately; RE-14/P5 builds the setting (default 1.0) and the split view the decision needs | RE-14 |
 
 ## How a brief is worked
 
@@ -128,4 +128,4 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | RE-11 | not started | — |
 | RE-12 | not started | — |
 | RE-13 | not started (Phase 2; decided 2026-10-24) | — |
-| RE-14 | not started (core prerequisites can start now) | — |
+| RE-14 | P1–P4 merged 2026-10-26 (#781, #783, #784, #785); P5 (RE-D29 setting) can start; T1 after P2, T2–T3 after T1, T4 with RE-08, T5 with RE-10 | — |
