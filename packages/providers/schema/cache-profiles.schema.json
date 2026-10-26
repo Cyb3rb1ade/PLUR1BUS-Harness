@@ -8,6 +8,7 @@
   "required": [
     "version",
     "aliases",
+    "hosts",
     "rows",
     "gateways"
   ],
@@ -24,6 +25,13 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/alias"
+      }
+    },
+    "hosts": {
+      "description": "Which API a base URL host reaches, first match wins: a gateway, a platform, or a provider's own first-party API (`vendor`). Provider body fields are sent only to that provider's own API.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/host"
       }
     },
     "rows": {
@@ -459,6 +467,38 @@
         "source": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pattern"
+      ],
+      "properties": {
+        "pattern": {
+          "description": "Regular expression over the lower-case host name.",
+          "type": "string"
+        },
+        "gateway": {
+          "enum": [
+            "openrouter"
+          ]
+        },
+        "platform": {
+          "enum": [
+            "first-party",
+            "bedrock",
+            "bedrock-legacy",
+            "google-managed",
+            "vertex",
+            "chatgpt-plan",
+            "local"
+          ]
+        },
+        "vendor": {
+          "$ref": "#/$defs/provider"
         }
       }
     }

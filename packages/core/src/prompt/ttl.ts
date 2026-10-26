@@ -1,4 +1,4 @@
-import { lookupCacheProfile, type CacheTtl } from "./model-table.ts";
+import { lookupCacheProfile, type CacheRoute, type CacheTtl } from "./model-table.ts";
 
 /** ADR-010 R7/Q1: with the 1-hour TTL a write costs 2.0x instead of 1.25x, so it pays once the window is read this often. */
 const MIN_PROJECTED_READS_FOR_LONG_TTL = 3;
@@ -9,8 +9,8 @@ const MIN_PROJECTED_READS_FOR_LONG_TTL = 3;
  * only `30m`). `policy: "never"` pins the short TTL. A manual 1-hour request is simply `cacheTtl: "1h"` on the render
  * input. An unknown model gets `5m` (no markers are emitted for it anyway).
  */
-export function chooseCacheTtl(o: { model: string; projectedReads: number; policy?: "auto" | "never" }): CacheTtl {
-  const p = lookupCacheProfile(o.model);
+export function chooseCacheTtl(o: { model: string; projectedReads: number; policy?: "auto" | "never"; route?: CacheRoute }): CacheTtl {
+  const p = lookupCacheProfile(o.model, o.route);
   const short: CacheTtl = p.ttls.includes("5m") ? "5m" : (p.ttls[0] ?? "5m");
   if ((o.policy ?? "auto") === "never" || !p.ttls.includes("1h")) return short;
   return Number.isFinite(o.projectedReads) && o.projectedReads >= MIN_PROJECTED_READS_FOR_LONG_TTL ? "1h" : short;

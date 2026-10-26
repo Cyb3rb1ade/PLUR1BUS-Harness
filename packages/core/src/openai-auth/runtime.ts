@@ -6,7 +6,7 @@ import { PlanUsageStore } from './usage.ts';
 import { createAuthSecretStore } from '../auth/secret-store.ts';
 import { openAIAdapter, isOpenAIManaged } from './provider.ts';
 import type { CompositionDeps } from '../composition/index.ts';
-import type { ProviderDefinition } from '../composition/auth.ts';
+import { cacheRouteFor, type ProviderDefinition } from '../composition/auth.ts';
 import { providerFetch } from '../composition/http.ts';
 import { turnContext } from '../composition/context.ts';
 export function createOpenAIRuntime(d: CompositionDeps) {
@@ -20,6 +20,6 @@ export function createOpenAIRuntime(d: CompositionDeps) {
   mkdirSync(join(d.home, 'state'), { recursive: true, mode: 0o700 });
   const usage = new PlanUsageStore(join(d.home, 'state', 'openai-plan-usage.sqlite'));
   d.options?.onOpenAI?.(auth);
-  return { auth, usage, http, audit, handles: isOpenAIManaged, adapter: (definition: ProviderDefinition) => openAIAdapter({ definition: definition.profile.kind === 'federated_token' && definition.openai ? { ...definition, openai: { ...definition.openai, federated: definition.openai.federated ?? cfg?.federated ?? {} } } : definition, auth, usage, clock: d.clock, fetch: providerFetch(d.egress, 'codex_responses', d.options?.fetch), currentPerson: () => turnContext.getStore()?.approver?.person ?? turnContext.getStore()?.authenticatedPerson }), async close() { await auth.close(); usage.close(); } };
+  return { auth, usage, http, audit, handles: isOpenAIManaged, adapter: (definition: ProviderDefinition) => openAIAdapter({ definition: definition.profile.kind === 'federated_token' && definition.openai ? { ...definition, openai: { ...definition.openai, federated: definition.openai.federated ?? cfg?.federated ?? {} } } : definition, auth, usage, clock: d.clock, fetch: providerFetch(d.egress, 'codex_responses', d.options?.fetch, cacheRouteFor(definition, true)), currentPerson: () => turnContext.getStore()?.approver?.person ?? turnContext.getStore()?.authenticatedPerson }), async close() { await auth.close(); usage.close(); } };
 }
 export type OpenAIRuntime = ReturnType<typeof createOpenAIRuntime>;

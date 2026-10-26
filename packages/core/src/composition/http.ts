@@ -2,70 +2,56 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import { Readable } from 'node:stream';
 import type { Egress } from '../egress/service.ts';
-import { ProviderError, anthropicToolId } from '../../../providers/src/index.ts';
-import { normalizeText } from '../prompt/canonical.ts';
+import { ProviderError, type CacheRoute } from '../../../providers/src/index.ts';
+import { anthropicMarkers, emitProviderCache } from './cache-emit.ts';
 import { promptContext } from './context.ts';
 
-/**
- * Translate precise builder breakpoints after the adapter has produced the Anthropic body. Never cache volatile recall.
- * Conversation segments are matched to wire blocks in order: tool blocks by id (in the adapter's id alphabet), text by its
- * normalised content. A segment with no block (an assistant turn whose text was null) leaves the cursor where it was, so
- * the blocks after it still match.
- */
+/** The builder's breakpoints on an Anthropic body, for the rendered prompt in scope; the body is returned untouched without one. */
 export function anthropicBreakpoints(body: Record<string, unknown>): Record<string, unknown> {
   const prompt = promptContext.getStore();
-  if (!prompt) return body;
-  const tools = body.tools as Record<string, unknown>[] | undefined;
-  const system = body.system as Record<string, unknown>[] | undefined;
-  const messages = body.messages as { role: string; content: Record<string, unknown>[] }[] | undefined;
-  const blocks = messages?.flatMap(m => m.content) ?? [];
-  const stable = prompt.segments.filter(s => s.zone === 'system' || s.zone === 'memory');
-  for (const a of [...(tools ?? []), ...(system ?? []), ...blocks]) delete a.cache_control;
-  let cursor = 0;
-  const positions = new Map<number, Record<string, unknown>>();
-  prompt.segments.forEach((s, i) => {
-    if (s.zone !== 'conversation') return;
-    const id = s.id === undefined ? undefined : anthropicToolId(s.id);
-    const at = blocks.findIndex((b, j) => j >= cursor && (s.kind === 'tool_use' ? b.type === 'tool_use' && b.id === id
-      : s.kind === 'tool_result' ? b.type === 'tool_result' && b.tool_use_id === id
-      : b.type === 'text' && typeof b.text === 'string' && normalizeText(b.text) === s.text));
-    if (at >= 0) { positions.set(i, blocks[at]!); cursor = at + 1; }
-  });
-  for (const bp of prompt.breakpoints) {
-    const s = prompt.segments[bp.segment]!;
-    let block: Record<string, unknown> | undefined;
-    if (s.zone === 'tools') block = tools?.at(-1);
-    else if (s.zone === 'system' || s.zone === 'memory') block = system?.[stable.indexOf(s)];
-    else if (s.zone === 'conversation') block = positions.get(bp.segment);
-    if (block) block.cache_control = { type: 'ephemeral', ...(bp.ttl === '1h' ? { ttl: '1h' } : {}) };
-  }
-  return body;
+  return prompt ? anthropicMarkers(body, prompt) : body;
 }
 
 /** The adapter's wire body as an object; anything else is refused locally (typed, nothing sent) instead of a raw SyntaxError. */
-function anthropicBody(body: string): Record<string, unknown> {
+function wireBody(body: string): Record<string, unknown> {
   let parsed: unknown;
   try { parsed = JSON.parse(body); } catch { parsed = undefined; }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new ProviderError('invalid_request', 'provider request body is not a JSON object', { code: 'request_refused_locally' });
   return parsed as Record<string, unknown>;
 }
 
-/** POST/GET streaming fetch with the existing egress decision, pinned DNS and original TLS name. Redirects never carry credentials. */
-export function providerFetch(egress: Pick<Egress, 'decide'>, format: string, transport?: typeof fetch): typeof fetch {
+const CACHE_WIRES = new Set(['anthropic_messages', 'chat_completions', 'codex_responses']);
+
+/**
+ * POST/GET streaming fetch with the existing egress decision, pinned DNS and original TLS name. Redirects never carry credentials.
+ * Inside a turn (a rendered prompt in scope) the body gets the provider's cache fields for `route` (RE-D22, `cache-emit.ts`).
+ */
+export function providerFetch(egress: Pick<Egress, 'decide'>, format: string, transport?: typeof fetch, route: CacheRoute = {}): typeof fetch {
   return (async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(typeof input === 'string' || input instanceof URL ? input.toString() : input.url);
     const signal = init?.signal;
     signal?.throwIfAborted();
     let body = init?.body;
-    if (format === 'anthropic_messages' && typeof body === 'string') body = JSON.stringify(anthropicBreakpoints(anthropicBody(body)));
+    let headersInit = init?.headers;
+    const prompt = promptContext.getStore();
+    if (typeof body === 'string' && (format === 'anthropic_messages' || (prompt && CACHE_WIRES.has(format)))) {
+      const parsed = wireBody(body);
+      if (prompt) {
+        const given = new Headers(init?.headers);
+        const extra: Record<string, string> = {};
+        emitProviderCache(format, parsed, { has: name => given.has(name) || name.toLowerCase() in extra, set: (name, value) => { extra[name.toLowerCase()] = value; } }, route, prompt);
+        if (Object.keys(extra).length > 0) { const all: Record<string, string> = {}; given.forEach((value, key) => { all[key] = value; }); headersInit = { ...all, ...extra }; }
+      }
+      body = JSON.stringify(parsed);
+    }
     // Injected transports are for recorded fixtures: they perform no DNS or network, but receive the exact final wire body.
-    if (transport) return transport(input, { ...init, ...(body === undefined ? {} : { body }), redirect: 'error' });
+    if (transport) return transport(input, { ...init, ...(body === undefined ? {} : { body }), ...(headersInit === init?.headers || headersInit === undefined ? {} : { headers: headersInit }), redirect: 'error' });
     const d = await egress.decide(url.toString());
     signal?.throwIfAborted();
     if (!d.allowed) throw new ProviderError('invalid_request', 'provider egress denied', { code: 'egress_denied' });
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || (body != null && typeof body !== 'string')) throw new ProviderError('invalid_request', 'unsupported provider request', { code: 'request_refused_locally' });
     return new Promise<Response>((resolve, reject) => {
-      const headers: Record<string, string> = {}; new Headers(init?.headers).forEach((value, key) => { headers[key] = value; });
+      const headers: Record<string, string> = {}; new Headers(headersInit).forEach((value, key) => { headers[key] = value; });
       if (typeof body === 'string') headers['content-length'] = String(Buffer.byteLength(body));
       const request = (url.protocol === 'https:' ? https : http).request(url, { method: init?.method ?? 'GET', headers, agent: false, ...(signal ? { signal } : {}), lookup: (_hostname, options, cb) => {
         if (typeof options === 'object' && options.all) cb(null, [{ address: d.address, family: d.family }]); else cb(null, d.address, d.family);

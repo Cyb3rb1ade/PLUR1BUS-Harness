@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { CACHE_PROFILE_TABLE, checkAgainstSchema, findCacheProfile, loadCacheProfileTable, normalizeModelRef } from "../src/cache-profiles.ts";
+import { CACHE_PROFILE_TABLE, cacheRouteForUrl, checkAgainstSchema, findCacheProfile, loadCacheProfileTable, normalizeModelRef } from "../src/cache-profiles.ts";
 
 const raw = (): Record<string, unknown> => JSON.parse(readFileSync(new URL("../schema/cache-profiles.json", import.meta.url), "utf8")) as Record<string, unknown>;
 const rowsOf = (t: Record<string, unknown>) => t.rows as Record<string, unknown>[];
@@ -104,5 +104,29 @@ describe("findCacheProfile", () => {
     const row = findCacheProfile("gpt-5.6").row!;
     assert.deepEqual(row.ttls.map((t) => [t.ttl, t.wires ?? "any"]), [["30m", "any"], ["12h", ["codex_responses"]]]);
     assert.equal(row.status, "conflict");
+  });
+});
+
+describe("cacheRouteForUrl", () => {
+  it("maps a base URL host to a gateway, a platform or a provider's own API", () => {
+    assert.deepEqual(cacheRouteForUrl("https://openrouter.ai/api/v1"), { gateway: "openrouter" });
+    assert.deepEqual(cacheRouteForUrl("https://api.openai.com/v1"), { vendor: "openai" });
+    assert.deepEqual(cacheRouteForUrl("https://chatgpt.com/backend-api/codex"), { platform: "chatgpt-plan", vendor: "openai" });
+    assert.deepEqual(cacheRouteForUrl("https://api.anthropic.com/v1"), { vendor: "anthropic" });
+    assert.deepEqual(cacheRouteForUrl("https://bedrock-runtime.us-east-1.amazonaws.com"), { platform: "bedrock" });
+    assert.deepEqual(cacheRouteForUrl("https://europe-west4-aiplatform.googleapis.com/v1"), { platform: "vertex" });
+    assert.deepEqual(cacheRouteForUrl("https://api.x.ai/v1"), { vendor: "xai" });
+    assert.deepEqual(cacheRouteForUrl("https://api.moonshot.ai/v1"), { vendor: "moonshot" });
+    assert.deepEqual(cacheRouteForUrl("https://dashscope-intl.aliyuncs.com/compatible-mode/v1"), { vendor: "alibaba" });
+    assert.deepEqual(cacheRouteForUrl("https://api.mistral.ai/v1"), { vendor: "mistral" });
+  });
+  it("an unknown host, a look-alike host or a bad URL is a route with nothing known", () => {
+    assert.deepEqual(cacheRouteForUrl("https://llm.example.com/v1"), {});
+    assert.deepEqual(cacheRouteForUrl("https://api.openai.com.evil.example/v1"), {});
+    assert.deepEqual(cacheRouteForUrl("https://notopenrouter.ai/v1"), {});
+    assert.deepEqual(cacheRouteForUrl("not a url"), {});
+  });
+  it("Claude on Vertex resolves to its Anthropic row", () => {
+    assert.equal(findCacheProfile("claude-sonnet-4-5", cacheRouteForUrl("https://us-east5-aiplatform.googleapis.com")).row?.id, "anthropic.sonnet-4-5-4-6");
   });
 });

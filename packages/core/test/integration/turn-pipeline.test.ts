@@ -168,6 +168,28 @@ test('cache breakpoints are stable across turns and construction; synthetic cach
   } finally { await f.close(); }
 });
 
+test('the wire tool block is sorted by name, so the same tool set gives the same prefix bytes', async () => {
+  const seen: string[][] = [];
+  const f = await fixture({ async *stream(r) { seen.push((r.tools ?? []).map(t => t.name)); yield { type: 'done', result: result() }; } });
+  for (const name of ['zeta.read', 'file.read', 'alpha.read']) f.registry.register({ ...fileTool(), name });
+  try { await collect(f.provider); assert.ok(seen[0]!.length >= 2); assert.deepEqual(seen[0], [...seen[0]!].sort()); } finally { await f.close(); }
+});
+
+test('modelProfiles cache: hint prefer takes the 1h TTL for the stable zones, hint none places no breakpoint', async () => {
+  for (const [hint, expect] of [['prefer', '1h'], ['none', undefined], ['auto', '5m']] as const) {
+    const prompts: ReturnType<ReturnType<typeof createPromptBuilder>['render']>[] = [];
+    const w = wireFixture('anthropic_messages', [{ text: 'done' }]);
+    const adapter = wireAdapter('anthropic_messages', w.fetch);
+    const f = await fixture(adapter, { profiles: { default: [{ provider: 'fixture', model: 'claude-sonnet-4-5', adapter }] }, family: { fixture: 'anthropic' }, system: ['stable instructions '.repeat(600)], profileCache: { default: { hint } }, onPrompt: p => prompts.push(p) });
+    try {
+      await collect(f.provider);
+      const zone = prompts[0]!.breakpoints.find(b => b.kind === 'zone');
+      assert.equal(zone?.ttl, expect, hint);
+      assert.equal(JSON.stringify(w.bodies[0]).includes('cache_control'), expect !== undefined, hint);
+    } finally { await f.close(); }
+  }
+});
+
 test('anthropic tool loop: round 2 keeps its conversation breakpoint on the tool result, never on the recall tail', async () => {
   const w = wireFixture('anthropic_messages', [{ call: { name: 'file_read', args: { path: 'fixture' } } }, { text: 'all done' }]);
   const adapter = wireAdapter('anthropic_messages', w.fetch);

@@ -75,6 +75,8 @@ export interface RenderInput {
   volatile?: VolatileInput;
   /** Stable-zone breakpoint TTL (default `"5m"`); the trailing breakpoint is always the shortest the model supports. */
   cacheTtl?: CacheTtl;
+  /** The model profile's cache hint (`modelProfiles.*.cache.hint`): `none` places no breakpoint, so no write is paid for. */
+  cacheHint?: "auto" | "none" | "prefer";
   /** Zone caps in chars. Tools and system are never clipped. */
   zoneCaps?: { memory?: number };
 }
@@ -122,6 +124,8 @@ export interface RenderedPrompt {
     reason: "eligible" | "below-minimum" | "empty-prefix" | "implicit-provider" | "unknown-model";
     /** Prediction only; provider usage is the source of measured cache hits. */
     expected: "warm" | "cold";
+    /** The TTL tier chosen for the stable zones, or null when the model offers no tier. */
+    ttl: CacheTtl | null;
     ageMs: number | null;
     ttlMs: number | null;
   };
