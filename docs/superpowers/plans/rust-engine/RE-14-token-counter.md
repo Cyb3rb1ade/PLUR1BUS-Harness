@@ -79,7 +79,9 @@ P1–P4 merged 2026-10-26: #781, #783, #784, #785. What they built is described 
 
 ### T1 — The table, read by both languages
 
-- [ ] Generate `cache-profile-vectors.json` from the TypeScript loader (`pnpm gen`): model ids and routes in,
+Merged 2026-10-26 (#786): `crates/plur1bus-engine/src/cache_profiles.rs`, `tests/cache_profiles_parity.rs`, `scripts/gen-provider-matrix.mjs`.
+
+- [x] Generate `cache-profile-vectors.json` from the TypeScript loader (`pnpm gen`): model ids and routes in,
   normalised id, gateway, platform and row id out, plus `cacheRouteForUrl` over the table's `hosts`. The engine reads
   the table with `include_str!` and a parity test fails on any lookup that disagrees. `docs/provider-matrix.md` §3 is generated from the
   table and `pnpm docs:check` fails on drift.
