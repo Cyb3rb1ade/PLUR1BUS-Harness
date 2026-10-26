@@ -79,8 +79,9 @@ P1–P4 merged 2026-10-26: #781, #783, #784, #785. What they built is described 
 
 ### T1 — The table, read by both languages
 
-Implemented in open PR #786 (2026-10-26): `crates/plur1bus-engine/src/cache_profiles.rs`,
-`tests/cache_profiles_parity.rs`, `scripts/gen-provider-matrix.mjs`. Full acceptance and merge are pending.
+Merged 2026-10-26 (#786, merge `0058ae70`): `crates/plur1bus-engine/src/cache_profiles.rs`,
+`tests/cache_profiles_parity.rs`, `scripts/gen-provider-matrix.mjs`. CI ran `cargo test --workspace` on Linux; the T1
+tests passed on Linux, macOS and Windows.
 
 - [x] Generate `cache-profile-vectors.json` from the TypeScript loader (`pnpm gen`): model ids and routes in,
   normalised id, gateway, platform and row id out, plus `cacheRouteForUrl` over the table's `hosts`. The engine reads
@@ -89,7 +90,7 @@ Implemented in open PR #786 (2026-10-26): `crates/plur1bus-engine/src/cache_prof
 
 ### T2 — The counter
 
-Starts only after the confirmed merge of T1 (#786).
+T1 merged (#786); T2 can start.
 
 - [ ] Failing tests first: `lower ≤ tokens ≤ upper` for every family and method; count goldens (fixture texts × family →
   count) recorded from the reference tokenizers (o200k, Gemma 4, the local models' files) on German, English, code and
@@ -100,7 +101,7 @@ Starts only after the confirmed merge of T1 (#786).
 
 ### T3 — Calibration
 
-Starts only after the confirmed merge of T2.
+Starts after T2 merges.
 
 - [ ] An affine fit per (route, family, method) against inclusive prompt totals, stored under the engine's state
   directory, fed by `LlmResult.usage` and by `engine.tokens.observe`. Totals are normalised first (plan §2.6, rule 5).
