@@ -61,6 +61,34 @@ describe("composition/http anthropicBreakpoints", () => {
     assert.deepEqual((body.messages[1]!.content[0] as Record<string, unknown>).cache_control, { type: "ephemeral" });
   });
 
+  it("a segment with no block on the wire does not hide the blocks after it (tool loop, round 2)", () => {
+    // An assistant turn whose text was null renders an empty text segment; the wire has only its tool_use block.
+    const loop = [...segments.slice(0, 5), { zone: "conversation", kind: "text", role: "assistant", text: "" }, ...segments.slice(6)];
+    const body = anthropicBody();
+    promptContext.run(prompt(loop, [bp(6, "5m")]), () => anthropicBreakpoints(body));
+    assert.deepEqual((body.messages[2]!.content[0] as Record<string, unknown>).cache_control, { type: "ephemeral" });
+    assert.equal((body.messages[2]!.content[1] as Record<string, unknown>).cache_control, undefined, "volatile recall is never cached");
+  });
+
+  it("matches a tool id the Anthropic adapter rewrote to its id alphabet", () => {
+    const foreign = segments.map(s => ("id" in s ? { ...s, id: "call~1/a" } : s));
+    const body = anthropicBody();
+    (body.messages[1]!.content[0] as Record<string, unknown>).id = "call_1_a";
+    (body.messages[2]!.content[0] as Record<string, unknown>).tool_use_id = "call_1_a";
+    promptContext.run(prompt(foreign, [bp(5, "5m"), bp(6, "5m")]), () => anthropicBreakpoints(body));
+    assert.deepEqual((body.messages[1]!.content[0] as Record<string, unknown>).cache_control, { type: "ephemeral" });
+    assert.deepEqual((body.messages[2]!.content[0] as Record<string, unknown>).cache_control, { type: "ephemeral" });
+  });
+
+  it("matches text the builder normalised (CRLF, NFC) against the raw wire text", () => {
+    const raw = "line one\r\nCafé";
+    const normalised = [...segments.slice(0, 4), { ...segments[4]!, text: "line one\nCafé" }, ...segments.slice(5)];
+    const body = anthropicBody();
+    (body.messages[0]!.content[0] as Record<string, unknown>).text = raw;
+    promptContext.run(prompt(normalised, [bp(4, "5m")]), () => anthropicBreakpoints(body));
+    assert.deepEqual((body.messages[0]!.content[0] as Record<string, unknown>).cache_control, { type: "ephemeral" });
+  });
+
   it("a breakpoint whose segment has no counterpart in the body is dropped rather than misplaced", () => {
     const body = anthropicBody();
     body.messages = [{ role: "user", content: [{ type: "text", text: "something else" }] }];
