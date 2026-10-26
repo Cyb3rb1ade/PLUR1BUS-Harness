@@ -168,6 +168,22 @@ test('cache breakpoints are stable across turns and construction; synthetic cach
   } finally { await f.close(); }
 });
 
+test('anthropic tool loop: round 2 keeps its conversation breakpoint on the tool result, never on the recall tail', async () => {
+  const w = wireFixture('anthropic_messages', [{ call: { name: 'file_read', args: { path: 'fixture' } } }, { text: 'all done' }]);
+  const adapter = wireAdapter('anthropic_messages', w.fetch);
+  const f = await fixture(adapter, { profiles: { default: [{ provider: 'fixture', model: 'claude-sonnet-4-5', adapter }] }, family: { fixture: 'anthropic' }, system: ['stable instructions '.repeat(600)] });
+  f.registry.register(fileTool());
+  try {
+    await collect(f.provider);
+    assert.equal(w.calls, 2);
+    const messages = w.bodies[1]!.messages as { role: string; content: Record<string, unknown>[] }[];
+    // Round 2 on the wire: user text, assistant tool_use (its text was null), user tool_result + the recall tail.
+    assert.deepEqual(messages.map(m => m.content.map(b => b.type)), [['text'], ['tool_use'], ['tool_result', 'text']]);
+    assert.deepEqual(messages[2]!.content[0]!.cache_control, { type: 'ephemeral' }, 'the trailing breakpoint sits on the tool result');
+    assert.equal(messages[2]!.content[1]!.cache_control, undefined, 'recall tail must not be cached');
+  } finally { await f.close(); }
+});
+
 for (const wire of ['chat_completions', 'anthropic_messages', 'codex_responses', 'gemini'] as const) {
   const family = wire === 'anthropic_messages' ? 'anthropic' : wire === 'codex_responses' ? 'openai-responses' : wire === 'gemini' ? 'gemini' : 'openai-chat';
   test(`${wire}: plain chat and stable cache prefix across three turns`, async () => {

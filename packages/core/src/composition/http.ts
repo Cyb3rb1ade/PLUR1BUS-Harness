@@ -2,10 +2,16 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import { Readable } from 'node:stream';
 import type { Egress } from '../egress/service.ts';
-import { ProviderError } from '../../../providers/src/index.ts';
+import { ProviderError, anthropicToolId } from '../../../providers/src/index.ts';
+import { normalizeText } from '../prompt/canonical.ts';
 import { promptContext } from './context.ts';
 
-/** Translate precise builder breakpoints after the adapter has produced the Anthropic body. Never cache volatile recall. */
+/**
+ * Translate precise builder breakpoints after the adapter has produced the Anthropic body. Never cache volatile recall.
+ * Conversation segments are matched to wire blocks in order: tool blocks by id (in the adapter's id alphabet), text by its
+ * normalised content. A segment with no block (an assistant turn whose text was null) leaves the cursor where it was, so
+ * the blocks after it still match.
+ */
 export function anthropicBreakpoints(body: Record<string, unknown>): Record<string, unknown> {
   const prompt = promptContext.getStore();
   if (!prompt) return body;
@@ -19,11 +25,11 @@ export function anthropicBreakpoints(body: Record<string, unknown>): Record<stri
   const positions = new Map<number, Record<string, unknown>>();
   prompt.segments.forEach((s, i) => {
     if (s.zone !== 'conversation') return;
-    for (; cursor < blocks.length; cursor++) {
-      const b = blocks[cursor]!;
-      const match = s.kind === 'tool_use' ? b.type === 'tool_use' && b.id === s.id : s.kind === 'tool_result' ? b.type === 'tool_result' && b.tool_use_id === s.id : b.type === 'text' && b.text === s.text;
-      if (match) { positions.set(i, b); cursor++; break; }
-    }
+    const id = s.id === undefined ? undefined : anthropicToolId(s.id);
+    const at = blocks.findIndex((b, j) => j >= cursor && (s.kind === 'tool_use' ? b.type === 'tool_use' && b.id === id
+      : s.kind === 'tool_result' ? b.type === 'tool_result' && b.tool_use_id === id
+      : b.type === 'text' && typeof b.text === 'string' && normalizeText(b.text) === s.text));
+    if (at >= 0) { positions.set(i, blocks[at]!); cursor = at + 1; }
   });
   for (const bp of prompt.breakpoints) {
     const s = prompt.segments[bp.segment]!;

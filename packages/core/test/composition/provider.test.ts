@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { TurnToolError, createTurnProvider, toolErrorDetail } from "../../src/composition/provider.ts";
+import { TurnToolError, conversationItems, createTurnProvider, toolErrorDetail } from "../../src/composition/provider.ts";
 import { collect, readTool, scriptedAdapter, turnFixture, turnRequest, useTempDirs, type ScriptedRound } from "./helpers.ts";
 import type { ChatChunk } from "../../src/session/provider.ts";
 
@@ -14,6 +14,27 @@ async function setup(rounds: ScriptedRound[], extra: Parameters<typeof turnFixtu
   const f = turnFixture(s.adapter, extra, tmp.make());
   return { ...s, ...f };
 }
+
+describe("composition/provider conversationItems", () => {
+  it("gives an assistant turn its text and one tool_use per call; a null text gives no item", () => {
+    assert.deepEqual(conversationItems([
+      { role: "system", content: "never" },
+      { role: "user", content: "read it" },
+      { role: "assistant", content: null, toolCalls: [{ id: "c1", name: "file_read", arguments: "{\"path\":\"x\"}" }, { id: "c2", name: "file_read", arguments: "{}" }] },
+      { role: "tool", toolCallId: "c1", content: "bytes" },
+      { role: "tool", toolCallId: "c2", content: "more" },
+      { role: "assistant", content: "done", toolCalls: [{ id: "c3", name: "file_read", arguments: "{}" }] },
+    ]), [
+      { role: "user", kind: "text", text: "read it" },
+      { role: "assistant", kind: "tool_use", text: "{\"path\":\"x\"}", id: "c1" },
+      { role: "assistant", kind: "tool_use", text: "{}", id: "c2" },
+      { role: "user", kind: "tool_result", text: "bytes", id: "c1" },
+      { role: "user", kind: "tool_result", text: "more", id: "c2" },
+      { role: "assistant", kind: "text", text: "done" },
+      { role: "assistant", kind: "tool_use", text: "{}", id: "c3" },
+    ]);
+  });
+});
 
 describe("composition/provider TurnToolError", () => {
   it("carries a code, the original detail, and uses the code as its message", () => {

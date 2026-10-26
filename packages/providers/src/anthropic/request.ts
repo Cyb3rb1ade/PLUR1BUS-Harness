@@ -28,6 +28,11 @@ function bad(msg: string): ProviderError {
 
 const blank = (s: string): boolean => s.trim() === "";
 
+/** A tool-call id in this wire's alphabet `^[a-zA-Z0-9_-]+$`: every other character becomes `_`. */
+export function anthropicToolId(id: string): string {
+  return TOOL_ID_OK.test(id) ? id : id.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
 /**
  * Tool-call ids must match `^[a-zA-Z0-9_-]+$` on this wire; ids minted by other adapters in the same session (Gemini's
  * carry `~` and base64 characters) are rewritten deterministically, and a collision after rewriting is refused.
@@ -39,7 +44,7 @@ class ToolIds {
   wire(id: string): string {
     const known = this.#forward.get(id);
     if (known !== undefined) return known;
-    const safe = TOOL_ID_OK.test(id) ? id : id.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const safe = anthropicToolId(id);
     const owner = this.#taken.get(safe);
     if (owner !== undefined && owner !== id) throw bad("two tool call ids collide once rewritten to the Anthropic id alphabet");
     this.#forward.set(id, safe);
