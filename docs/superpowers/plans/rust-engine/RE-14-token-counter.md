@@ -10,10 +10,12 @@ markers, TTLs and affinity keys. Size M. Design: plan §2.5 (job J8) and §2.6. 
 RE-08 (serving `engine.tokens.*`). **Enables.** RE-10 (the core consumes engine counts), RE-06 (reuse classes per job
 purpose use the same table).
 
-**Assumes.** RE-D20 (a): one Rust counter in the engine, the core calls it over RPC, chars/4 stays the core's fallback.
+**Decided.** RE-D20 (a), 2026-10-26: one Rust counter in the engine, the core calls it over RPC, chars/4 stays the core's
+fallback. **Assumes.**
 RE-D21: the table lives in `packages/providers`. RE-D22: only the core emits provider cache fields. RE-D23/RE-D24:
 engine budgets and job prompt text stay byte-identical in Phase 1. RE-D25: tokenizer files are fetched, never bundled.
-If RE-D20 changes to (b), T4 builds a WebAssembly target of the same module instead of RPC handlers.
+If RE-8's hop measurement fails, RE-D20's fallback (b) builds a WebAssembly target of the same module instead of RPC
+handlers.
 
 **Read first.**
 - Plan §2.6 (classes, rules, interfaces, phases) and §2.5 J7/J8; the reference values in
@@ -51,25 +53,35 @@ behaviour.
 
 ## Tasks
 
-### P1–P4 — Core prerequisites (one PR each, independent of the engine)
+### P1–P5 — Core prerequisites (one PR each, independent of the engine)
 
-- [ ] **P1:** failing test first: an Anthropic tool loop keeps its conversation breakpoints from round 2 on
+P1–P4 merged 2026-10-26: #781, #783, #784, #785. What they built is described in `docs/prompt-cache.md`
+("Provider emitter") and `packages/providers/README.md`; the table is `packages/providers/schema/cache-profiles.json`.
+
+- [x] **P1:** failing test first: an Anthropic tool loop keeps its conversation breakpoints from round 2 on
   (`composition/http.ts` `anthropicBreakpoints` against an assistant tool-call message with null content). Then fix it.
-- [ ] **P2:** move `CACHE_PROFILES` into `cache-profiles.json` with its schema; `model-table.ts` loads it. Add the rows
+- [x] **P2:** move `CACHE_PROFILES` into `cache-profiles.json` with its schema; `model-table.ts` loads it. Add the rows
   plan §2.6 lists (missing Claude families, the GPT-6 family in the GPT-5.6+ class, xAI, Moonshot, DeepSeek, Alibaba,
   Z.ai, Mistral, OpenRouter, local servers, platform rows where floors differ), the alias normaliser, `12h` in
   `CacheTtl`. Every row carries `source`, `verified` and `status`.
-- [ ] **P3:** emitters per provider class (plan §2.6 table): OpenAI GPT-5.6+ breakpoints, the Kimi TTL tier,
+- [x] **P3:** emitters per provider class (plan §2.6 table): OpenAI GPT-5.6+ breakpoints, the Kimi TTL tier,
   OpenRouter `cache_control` plus `session_id`, xAI conversation keys, `modelProfiles.*.cache` through `chooseCacheTtl`,
   a stable sorted wire tool block. One fixture wire per class asserts the expected fields.
-- [ ] **P4:** usage: parse `cache_write_tokens` (OpenAI 5.6+, OpenRouter, Kimi) and DeepSeek's
+- [x] **P4:** usage: parse `cache_write_tokens` (OpenAI 5.6+, OpenRouter, Kimi) and DeepSeek's
   `prompt_cache_hit_tokens`/`prompt_cache_miss_tokens` into the usage store; fixtures per wire for inclusive versus
   exclusive totals and absent fields.
+- [ ] **P5 (RE-D29):** the weight with which cache reads count against token limits becomes a budget setting next to
+  `timeZone` (`budget.set` `cacheReadWeight` 0..1, CLI `budget set --cache-read-weight`), default 1.0, so today's
+  behaviour is unchanged. Settlement counts `input - cacheRead × (1 - w) + output`, applied at query time; the
+  reservation stays the unweighted upper estimate. `budget.status` shows fresh input, reads, writes and output apart.
+  The budget README's "cache tokens are recorded but not counted" is wrong today (they are inside `inputTokens`) and
+  is corrected. The owner picks the default from the numbers this shows.
 
 ### T1 — The table, read by both languages
 
-- [ ] Generate `cache-profile-vectors.json` from the TypeScript loader (`pnpm gen`); the engine reads the table with
-  `include_str!` and a parity test fails on any lookup that disagrees. `docs/provider-matrix.md` §3 is generated from the
+- [ ] Generate `cache-profile-vectors.json` from the TypeScript loader (`pnpm gen`): model ids and routes in,
+  normalised id, gateway, platform and row id out, plus `cacheRouteForUrl` over the table's `hosts`. The engine reads
+  the table with `include_str!` and a parity test fails on any lookup that disagrees. `docs/provider-matrix.md` §3 is generated from the
   table and `pnpm docs:check` fails on drift.
 
 ### T2 — The counter
@@ -113,5 +125,6 @@ Money in budgets (token limits only since #601; the multipliers serve TTL and wr
 
 ## Hand-off
 
-PR titles `RE-14/P1: …` to `RE-14/T5: …`, one per task. Descriptions per coding-standard §11, with the measured numbers
+PR titles `RE-14/P1: …` to `RE-14/T5: …`, one per task. Ready-to-send work packages for T1–T3 and P5 were handed to
+the owner on 2026-10-26. Descriptions per coding-standard §11, with the measured numbers
 and the table rows touched. Reviewer: the controller; RE-D29 and every tokenizer licence row need the owner.
