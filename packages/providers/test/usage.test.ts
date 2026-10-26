@@ -178,3 +178,24 @@ test("Gemini stream: one cumulative usage event; empty usageMetadata later does 
     assert.deepEqual(us[0]?.type === "usage" && us[0].usage, { inputTokens: 5, outputTokens: 2, totalTokens: 7 });
   } finally { await stub.close(); }
 });
+
+test("cache counts (RE-14/P4): reads and writes per wire, absent stays absent", () => {
+  // OpenAI GPT-5.6+, OpenRouter and Moonshot K3 on Chat Completions: reads and writes are disjoint subsets of prompt_tokens
+  assert.deepEqual(parseUsage({ prompt_tokens: 2000, completion_tokens: 10, prompt_tokens_details: { cached_tokens: 1500, cache_write_tokens: 400 } }),
+    { inputTokens: 2000, outputTokens: 10, totalTokens: 2010, cachedInputTokens: 1500, cacheWriteTokens: 400 });
+  // Alibaba names the written part like Anthropic does
+  assert.deepEqual(parseUsage({ prompt_tokens: 1200, completion_tokens: 3, prompt_tokens_details: { cached_tokens: 0, cache_creation_input_tokens: 1100 } }),
+    { inputTokens: 1200, outputTokens: 3, totalTokens: 1203, cachedInputTokens: 0, cacheWriteTokens: 1100 });
+  // DeepSeek: hit and miss beside prompt_tokens; cached_tokens wins when both are present
+  assert.deepEqual(parseUsage({ prompt_tokens: 900, completion_tokens: 5, prompt_cache_hit_tokens: 640, prompt_cache_miss_tokens: 260 }),
+    { inputTokens: 900, outputTokens: 5, totalTokens: 905, cachedInputTokens: 640 });
+  assert.equal(parseUsage({ prompt_tokens: 900, prompt_cache_hit_tokens: 640, prompt_tokens_details: { cached_tokens: 600 } })?.cachedInputTokens, 600);
+  // DeepSeek without prompt_tokens: hit + miss is the prompt
+  assert.deepEqual(parseUsage({ completion_tokens: 5, prompt_cache_hit_tokens: 640, prompt_cache_miss_tokens: 260 }),
+    { inputTokens: 900, outputTokens: 5, totalTokens: 905, cachedInputTokens: 640 });
+  // Moonshot's legacy top-level count
+  assert.equal(parseUsage({ prompt_tokens: 300, cached_tokens: 256 })?.cachedInputTokens, 256);
+  // nothing reported, nothing invented
+  assert.deepEqual(parseUsage({ prompt_tokens: 10, completion_tokens: 1, prompt_tokens_details: {} }), { inputTokens: 10, outputTokens: 1, totalTokens: 11 });
+  for (const bad of [{ prompt_cache_hit_tokens: -1 }, { prompt_tokens_details: { cache_write_tokens: 1.5 } }, { cached_tokens: "3" }]) assert.throws(() => parseUsage(bad), isUnknown, JSON.stringify(bad));
+});

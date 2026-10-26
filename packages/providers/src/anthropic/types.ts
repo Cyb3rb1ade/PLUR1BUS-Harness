@@ -61,9 +61,9 @@ export interface AnthropicConfig {
 }
 
 /**
- * `Usage` plus the one Anthropic count the neutral `Usage` has no field for. `inputTokens` already INCLUDES cache
- * creation and cache reads (it is the whole prompt, as for the other adapters); `cachedInputTokens` is the cache-read
- * part; `cacheCreationInputTokens` is the part written to the cache (billed at a premium).
+ * `Usage` plus Anthropic's wire name for the written part. `inputTokens` already INCLUDES cache creation and cache reads
+ * (it is the whole prompt, as for the other adapters); `cachedInputTokens` is the cache-read part; `cacheWriteTokens`
+ * is the part written to the cache (billed at a premium), and `cacheCreationInputTokens` carries the same count.
  */
 export interface AnthropicUsage extends Usage {
   cacheCreationInputTokens?: number;

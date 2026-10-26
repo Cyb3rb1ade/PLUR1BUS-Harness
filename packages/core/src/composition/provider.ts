@@ -160,7 +160,7 @@ function nothingBillable(a: AttemptState): boolean {
 const estimate = (request: WireRequest) => Math.ceil(JSON.stringify(request.messages).length / 4) + Math.ceil(JSON.stringify(request.tools ?? []).length / 4);
 function actual(usage: Usage) {
   if (usage.inputTokens === undefined || usage.outputTokens === undefined) return undefined;
-  return { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cacheReadTokens: usage.cachedInputTokens ?? 0, cacheWriteTokens: (usage as Usage & { cacheCreationInputTokens?: number }).cacheCreationInputTokens ?? 0 };
+  return { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cacheReadTokens: usage.cachedInputTokens ?? 0, cacheWriteTokens: usage.cacheWriteTokens ?? 0 };
 }
 
 /** One provider seam for sessions and collaboration: all attempts, repair and tool execution share a turn owner. */

@@ -42,8 +42,8 @@ function readUsage(v: unknown): RawUsage {
  * RULING: Anthropic's `input_tokens` counts only the part of the prompt that was neither read from nor written to the
  * cache. The neutral `inputTokens` is the whole prompt (as for chat_completions, where cached tokens are a subset), so
  * it is `input_tokens + cache_creation_input_tokens + cache_read_input_tokens` (the sum of those present);
- * `cachedInputTokens` is the cache-read part and `cacheCreationInputTokens` (an `AnthropicUsage` extra) the written
- * part. `totalTokens` is input + output when BOTH are known. A count the wire did not report stays absent, never 0; a
+ * `cachedInputTokens` is the cache-read part and `cacheWriteTokens` the written part (`cacheCreationInputTokens`, an
+ * `AnthropicUsage` extra, carries the same count under its wire name). `totalTokens` is input + output when BOTH are known. A count the wire did not report stays absent, never 0; a
  * reported 0 is kept.
  */
 function normaliseUsage(r: RawUsage): AnthropicUsage | undefined {
@@ -54,7 +54,7 @@ function normaliseUsage(r: RawUsage): AnthropicUsage | undefined {
   if (r.output !== undefined) u.outputTokens = r.output;
   if (input !== undefined && r.output !== undefined) u.totalTokens = input + r.output;
   if (r.cacheRead !== undefined) u.cachedInputTokens = r.cacheRead;
-  if (r.cacheCreation !== undefined) u.cacheCreationInputTokens = r.cacheCreation;
+  if (r.cacheCreation !== undefined) { u.cacheWriteTokens = r.cacheCreation; u.cacheCreationInputTokens = r.cacheCreation; }
   return Object.keys(u).length === 0 ? undefined : u;
 }
 

@@ -18,7 +18,7 @@ function count(v: Record<string, unknown>, key: string): number | undefined {
 
 /**
  * RULING: `input_tokens` is the whole prompt and `cached_tokens` a subset of it (as for chat_completions), so the neutral
- * fields map one to one. `totalTokens` is the reported `total_tokens`, else input + output when BOTH are known. A count
+ * fields map one to one; so does `cache_write_tokens` (GPT-5.6+: written tokens, disjoint from the billed reads). `totalTokens` is the reported `total_tokens`, else input + output when BOTH are known. A count
  * the wire did not report stays absent, never 0; a reported 0 is kept.
  */
 function readUsage(v: unknown): Usage | undefined {
@@ -26,6 +26,7 @@ function readUsage(v: unknown): Usage | undefined {
   const input = count(v, "input_tokens"), output = count(v, "output_tokens"), total = count(v, "total_tokens");
   const inDetails = v["input_tokens_details"], outDetails = v["output_tokens_details"];
   const cached = isRecord(inDetails) ? count(inDetails, "cached_tokens") : undefined;
+  const written = isRecord(inDetails) ? count(inDetails, "cache_write_tokens") : undefined;
   const reasoning = isRecord(outDetails) ? count(outDetails, "reasoning_tokens") : undefined;
   const u: Usage = {};
   if (input !== undefined) u.inputTokens = input;
@@ -33,6 +34,7 @@ function readUsage(v: unknown): Usage | undefined {
   if (total !== undefined) u.totalTokens = total;
   else if (input !== undefined && output !== undefined) u.totalTokens = input + output;
   if (cached !== undefined) u.cachedInputTokens = cached;
+  if (written !== undefined) u.cacheWriteTokens = written;
   if (reasoning !== undefined) u.reasoningTokens = reasoning;
   return Object.keys(u).length === 0 ? undefined : u;
 }
