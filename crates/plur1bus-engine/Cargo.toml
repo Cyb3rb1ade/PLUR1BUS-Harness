@@ -29,6 +29,8 @@ lancedb = "=0.26.2"
 lance = { version = "=2.0.0", default-features = false, features = ["protoc"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 jsonschema = { version = "0.26", default-features = false }
+regex = "1"
+url = "2"
 # One HTTP client policy in the workspace: the same version and features as crates/plur1bus (rustls, no native-tls).
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
 

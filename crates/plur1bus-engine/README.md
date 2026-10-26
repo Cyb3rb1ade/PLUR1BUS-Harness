@@ -13,10 +13,17 @@ behaviour. The modules of plan §2.4 arrive with RE-01 onwards.
 
 | Target | Name | What it is |
 |---|---|---|
-| library | `plur1bus_engine` | `CRATE_VERSION` only, for now |
+| library | `plur1bus_engine` | `CRATE_VERSION` and the `cache_profiles` table reader (RE-14/T1) |
 | binary | `plur1bus-engine` | `--version`; the hidden placeholder `serve`, which RE-08 fills (`plur1bus-engine serve --home <dir> ...`). Today `serve` exits 2 with `E_NOT_AVAILABLE reason=not-implemented`; a usage error exits 2 (clap), as `docs/errors.md` says |
 
 ## Build and test
+
+`cache_profiles::CacheProfileTable::bundled()` embeds the provider-owned JSON table and validates it against
+`packages/providers/schema/cache-profiles.schema.json`. Its `normalize_model_ref`, `find_cache_profile` and
+`cache_route_for_url` methods follow the TypeScript provider loader; `rows()` and `openrouter()` expose validated
+metadata through shared references. `tests/cache_profiles_parity.rs` checks the TypeScript-generated
+`packages/providers/fixtures/cache-profile-vectors.json`, including route overrides and URL routing. No engine
+runtime behavior consumes this module in Phase 1 (RE-R1).
 
 From the repository root, with the toolchain of `AGENTS.md` (Rust 1.95):
 
@@ -39,6 +46,8 @@ crates more than the rest of the workspace); the RE-00 pull request records the 
 | `lance` | `=2.0.0` | not used in code; named only for its `protoc` feature (see above) |
 | `rusqlite` | `0.40`, `bundled` | the three SQLite caches (plan §1.4) |
 | `jsonschema` | `0.26`, no default features | config and contract validation, the same validator `plur1bus-config` uses |
+| `regex` | `1` | compiled cache-profile model and host patterns; reuses the locked workspace dependency (MIT OR Apache-2.0) |
+| `url` | `2` | WHATWG URL hostname parsing for provider-route parity; reuses the locked workspace dependency (MIT OR Apache-2.0) |
 | `ureq` | `3`, `rustls` + `platform-verifier` | remote providers; the same HTTP client policy as `crates/plur1bus` |
 | `serde`, `serde_json`, `clap` | workspace | data and the command line |
 
