@@ -1,7 +1,7 @@
 // RE-14/T1: reference inputs and generated TypeScript results consumed by the Rust parity test.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CACHE_PROFILE_TABLE, cacheRouteForUrl, findCacheProfile } from "./cache-profiles.ts";
 import type { CachePlatform, CacheProvider, CacheRoute, NormalizedModelRef } from "./cache-profiles.ts";
 
@@ -171,4 +171,4 @@ function main(): void {
   writeFileSync(output, expected);
 }
 
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) main();
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) main();

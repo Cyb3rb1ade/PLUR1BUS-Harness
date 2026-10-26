@@ -1,6 +1,6 @@
 // The generated fixture is the cross-language contract for RE-14/T1; coverage must grow with the source table.
 import assert from "node:assert/strict";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -75,19 +75,25 @@ describe("cache-profile parity vectors", () => {
     assert.deepEqual(buildCacheProfileVectors(), buildCacheProfileVectors());
   });
 
-  it("refuse stale or missing fixtures in check mode without rewriting them", () => {
-    const root = mkdtempSync(join(tmpdir(), "cache-vectors-"));
+  it("refuse stale or missing fixtures through a directory symlink without rewriting them", () => {
+    const scratch = mkdtempSync(join(tmpdir(), "cache-vectors-"));
+    const root = join(scratch, "real");
+    const linked = join(scratch, "linked");
     try {
+      mkdirSync(root);
+      symlinkSync(root, linked, "junction");
       writeFileSync(join(root, "package.json"), '{"type":"module"}\n');
       mkdirSync(join(root, "src"));
       cpSync(new URL("../schema", import.meta.url), join(root, "schema"), { recursive: true });
       for (const file of ["cache-profiles.ts", "cache-profile-vectors.ts"]) {
         cpSync(new URL(`../src/${file}`, import.meta.url), join(root, "src", file));
       }
-      const script = join(root, "src/cache-profile-vectors.ts");
+      const script = join(linked, "src/cache-profile-vectors.ts");
       const run = (...args: string[]) => spawnSync(process.execPath, ["--experimental-strip-types", script, ...args],
         { encoding: "utf8" });
-      assert.equal(run("--check").status, 1);
+      const missing = run("--check");
+      assert.equal(missing.status, 1, missing.stderr);
+      assert.match(missing.stderr, /stale:.*cache-profile-vectors/);
       const generated = run();
       assert.equal(generated.status, 0, generated.stderr);
       assert.equal(run("--check").status, 0);
@@ -98,7 +104,7 @@ describe("cache-profile parity vectors", () => {
       assert.match(stale.stderr, /stale:.*cache-profile-vectors/);
       assert.equal(readFileSync(fixture, "utf8"), "{}\n");
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      rmSync(scratch, { recursive: true, force: true });
     }
   });
 });

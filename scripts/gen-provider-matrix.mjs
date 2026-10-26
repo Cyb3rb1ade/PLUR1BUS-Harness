@@ -1,7 +1,7 @@
 /** Generates only the bounded cache-profile reference in provider-matrix.md from the shared JSON table. */
 import { readFile, writeFile } from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
 
 const START = "<!-- BEGIN GENERATED CACHE PROFILES -->";
 const END = "<!-- END GENERATED CACHE PROFILES -->";
@@ -153,7 +153,7 @@ async function main() {
   if (updated !== document) await writeFile(docPath, updated);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main().catch((error) => {
     console.error(error.message);
     process.exitCode = 1;

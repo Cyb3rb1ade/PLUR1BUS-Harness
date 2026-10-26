@@ -1,6 +1,6 @@
 /** Tests generated cache-profile facts, drift refusal and preservation of handwritten documentation. */
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -76,9 +76,13 @@ test("updating the block preserves all outside bytes and is deterministic", asyn
   assert.throws(() => updateProviderMatrix(`${input}\n${START}`, TABLE), /marker/i);
 });
 
-test("the real CLI check rejects stale generated content and leaves handwritten bytes unchanged", async () => {
-  const fixture = await mkdtemp(join(tmpdir(), "provider-matrix-"));
+test("the CLI checks drift through a directory symlink and leaves handwritten bytes unchanged", async () => {
+  const scratch = await mkdtemp(join(tmpdir(), "provider-matrix-"));
+  const fixture = join(scratch, "real");
+  const linked = join(scratch, "linked");
   try {
+    await mkdir(fixture);
+    await symlink(fixture, linked, "junction");
     await mkdir(join(fixture, "scripts"));
     await mkdir(join(fixture, "docs"));
     await mkdir(join(fixture, "packages/providers/schema"), { recursive: true });
@@ -87,7 +91,7 @@ test("the real CLI check rejects stale generated content and leaves handwritten 
     const doc = join(fixture, "docs/provider-matrix.md");
     const input = `prefix  \n${START}\nstale\n${END}\nsuffix  \n`;
     await writeFile(doc, input);
-    const run = (...args) => spawnSync(process.execPath, [join(fixture, "scripts/gen-provider-matrix.mjs"), ...args], {
+    const run = (...args) => spawnSync(process.execPath, [join(linked, "scripts/gen-provider-matrix.mjs"), ...args], {
       encoding: "utf8",
     });
     const stale = run("--check");
@@ -109,6 +113,6 @@ test("the real CLI check rejects stale generated content and leaves handwritten 
     assert.equal(run().status, 0);
     assert.equal(await readFile(doc, "utf8"), windowsDocument);
   } finally {
-    await rm(fixture, { recursive: true, force: true });
+    await rm(scratch, { recursive: true, force: true });
   }
 });
