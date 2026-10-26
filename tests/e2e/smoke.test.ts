@@ -1,5 +1,6 @@
 // E3: CLI → daemon → core on a fresh home, then backup → verify → restore into a second home. Real binary, real
-// supervisor and core, fake chat provider (test-internals env guard). Real-model mode downloads pinned models.
+// supervisor and core, fake chat provider (test-internals env guard). Real-model mode uses the pinned models: from
+// PLUR1BUS_MODELS_CACHE when set (CI points it at the cache the real-model acceptance step just filled), else downloaded.
 // Native five-target CI runs both flat functional and real embedding/reranker installed-runtime smoke.
 import { describe, it, type TestContext } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +8,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { join, parse, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { BIN, REAL, RERANK_FAILURE, waitEngineReady, waitFor, cli, daemonStatus, home, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
+import { BIN, REAL, RERANK_FAILURE, waitEngineReady, waitFor, cli, daemonStatus, home, linkModelCache, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
 
 const FAKE = { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_CHAT_PROVIDER: "fake" };
 /** pnpm's deploy joins the workspace directory with a path relative to it; across Windows drives that path is
@@ -79,7 +80,7 @@ function timed<T>(t: TestContext, what: string, f: () => T): T {
 
 describe("E3 — CLI → daemon → core smoke", () => {
   it("fresh home: daemon, agent, chat, backup → verify → restore elsewhere, clean stop", { timeout: REAL ? 600_000 : 240_000 }, async (t) => {
-    const h1 = home();
+    const h1 = home({ modelCache: false }); // linked once the home is shown to start empty
     const h2 = home();
     const archive = join(h1, "smoke.tar.gz");
     const installation = mkdtempSync(join(installationParent(), "p1b-smoke-install-"));
@@ -101,6 +102,9 @@ describe("E3 — CLI → daemon → core smoke", () => {
       execFileSync("pnpm", ["--filter", "@plur1bus/core", "deploy", "--legacy", "--prod", "--config.node-linker=hoisted", payload], { stdio: ["ignore", "inherit", "inherit"], shell: process.platform === "win32" });
       cpSync(resolve("packages/core/dist"), payload, { recursive: true });
       assert.deepEqual(readdirSync(h1), [], "the home starts empty before installation");
+      // Before `setup` starts the first core: without a cache that core begins the ~1 GB model download into the home,
+      // and stopping it right after setup throws away what it fetched, so the next start downloads everything again.
+      linkModelCache(h1);
       let setupOut: string;
       try {
         setupOut = timed(t, "setup", () => execFileSync(installedBinary, ["--json", "--home", h1, "setup", "--non-interactive", "--no-service", "--core-from", payload], { encoding: "utf8", env: installedEnv, timeout: 300_000 }));

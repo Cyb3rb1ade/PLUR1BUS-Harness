@@ -67,22 +67,6 @@ jobs:
           PLUR1BUS_REAL_MODELS: '1'
           PLUR1BUS_MODELS_CACHE: ${{ runner.temp }}/release-real-models
           PLUR1BUS_CI_RECALL_HARD_MS: '3000'
-      - name: runner facts (temporary evidence for the win-x64 T6 smoke)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-MpComputerStatus | Select-Object AMServiceEnabled,AntivirusEnabled,RealTimeProtectionEnabled,OnAccessProtectionEnabled,IoavProtectionEnabled | Format-List
-          "Defender exclusions: $((Get-MpPreference).ExclusionPath -join ', ')"
-          "TEMP=$env:TEMP RUNNER_TEMP=$env:RUNNER_TEMP"
-          Get-PSDrive -PSProvider FileSystem | Format-Table Name,Used,Free,Root
-          foreach ($d in @($env:TEMP, $env:RUNNER_TEMP)) {
-            $f = Join-Path $d 'p1b-disk-probe.bin'; $buf = New-Object byte[] (8MB)
-            $sw = [Diagnostics.Stopwatch]::StartNew(); $fs = [IO.File]::Create($f)
-            for ($i = 0; $i -lt 64; $i++) { $fs.Write($buf, 0, $buf.Length) }
-            $fs.Flush($true); $fs.Close(); $w = $sw.ElapsedMilliseconds
-            $sw.Restart(); $h = Get-FileHash $f -Algorithm SHA256; $r = $sw.ElapsedMilliseconds
-            "$d : write+flush 512 MB $w ms, SHA-256 read $r ms"; Remove-Item $f
-          }
       - name: installed-runtime T6 smoke with real models
         shell: bash
         run: |
@@ -91,6 +75,10 @@ jobs:
           node --experimental-strip-types --test --test-timeout=600000 tests/e2e/smoke.test.ts
         env:
           PLUR1BUS_REAL_MODELS: '1'
+          # The models the acceptance step above downloaded and verified (the engine checks every file's SHA-256 again
+          # at each start). That step covers the download; without the cache this smoke fetched the ~1 GB again into its
+          # home, on Windows on the slow C: drive, and the core that `setup` starts threw a second copy away.
+          PLUR1BUS_MODELS_CACHE: ${{ runner.temp }}/release-real-models
           PLUR1BUS_CI_RECALL_HARD_MS: '3000'
       - run: node --experimental-strip-types --test tests/system/helpers.test.ts
       - name: encrypted full-state and vault round trip
