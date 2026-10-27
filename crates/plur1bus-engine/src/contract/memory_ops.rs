@@ -1,7 +1,7 @@
 //! ACL-filtered memory operations, proposals and human curation.
 
 use super::{
-    AgentContext, EngineError, MemoryCard, MemoryCorrectResult, MemoryCurationAction,
+    AgentContext, Cancel, EngineError, MemoryCard, MemoryCorrectResult, MemoryCurationAction,
     MemoryCurationListQuery, MemoryCurationListResult, MemoryCurationResolveResult,
     MemoryForgetResult, MemoryImportRequest, MemoryImportResult, MemoryLinkRequest,
     MemoryLinkResult, MemoryListQuery, MemoryListResult, MemoryPromoteRequest,
@@ -75,6 +75,7 @@ pub trait MemoryOps: Send + Sync {
     fn import(
         &self,
         request: MemoryImportRequest,
+        cancel: &Cancel,
         principal: &Principal,
         agent: &AgentContext,
     ) -> Result<MemoryImportResult, EngineError>;
@@ -83,6 +84,7 @@ pub trait MemoryOps: Send + Sync {
     fn rebind(
         &self,
         request: MemoryRebindRequest,
+        cancel: &Cancel,
         principal: &Principal,
         agent: &AgentContext,
     ) -> Result<MemoryRebindResult, EngineError>;
@@ -90,6 +92,7 @@ pub trait MemoryOps: Send + Sync {
     fn unbind(
         &self,
         request: MemoryUnbindRequest,
+        cancel: &Cancel,
         principal: &Principal,
         agent: &AgentContext,
     ) -> Result<MemoryUnbindResult, EngineError>;
@@ -98,6 +101,7 @@ pub trait MemoryOps: Send + Sync {
     fn unimport(
         &self,
         request: MemoryUnimportRequest,
+        cancel: &Cancel,
         principal: &Principal,
         agent: &AgentContext,
     ) -> Result<MemoryUnimportResult, EngineError>;

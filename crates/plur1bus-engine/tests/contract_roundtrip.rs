@@ -106,3 +106,102 @@ fn constant_boolean_fields_refuse_the_opposite_value() {
     )
     .is_err());
 }
+
+fn assert_value_roundtrip<T: DeserializeOwned + Serialize>(value: &serde_json::Value) {
+    let typed: T = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(&serde_json::to_value(typed).unwrap(), value);
+}
+
+#[test]
+fn referenced_scalar_union_reasons_remain_json_strings() {
+    for reason in ["already-imported", "invalid-input", "duplicate-in-batch"] {
+        assert_value_roundtrip::<MemoryImportCardResult>(&serde_json::json!({
+            "idempotencyKey":"fixture", "outcome":"rejected", "reason":reason
+        }));
+    }
+    for reason in ["superseded", "aborted", "storage"] {
+        assert_value_roundtrip::<MemoryUnimportCardResult>(&serde_json::json!({
+            "idempotencyKey":"fixture", "id":"card", "outcome":"failed", "reason":reason
+        }));
+    }
+    for reason in ["provider-failed", "invalid-vector", "invalid-result"] {
+        assert_value_roundtrip::<ModelReadiness>(&serde_json::json!({
+            "state":"failed", "warming":false, "checkedAt":0, "error":reason
+        }));
+    }
+}
+
+#[test]
+fn embedded_model_readiness_errors_remain_strings() {
+    let raw: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/contract/engine-status.json")).unwrap();
+    let mut models = raw["models"].clone();
+    models["embedder"]["state"] = serde_json::json!("failed");
+    models["embedder"]["error"] = serde_json::json!("provider-failed");
+    models["reranker"]["state"] = serde_json::json!("failed");
+    models["reranker"]["error"] = serde_json::json!("invalid-result");
+    assert_value_roundtrip::<ModelsStatus>(&models);
+}
+
+#[test]
+fn history_limit_preserves_the_declared_number_domain() {
+    for limit in [
+        serde_json::json!(-1),
+        serde_json::json!(1.0),
+        serde_json::json!(1.5),
+    ] {
+        assert_value_roundtrip::<HistoryFilter>(&serde_json::json!({"limit":limit}));
+    }
+}
+
+#[test]
+fn principals_keep_template_prefixes_without_extra_suffix_constraints() {
+    for value in ["workspace:v1:", "workspace-dir:v1:folder/😀"] {
+        assert_value_roundtrip::<WorkspacePrincipal>(&serde_json::json!(value));
+    }
+    for value in ["user:v1:", "user:v2:identity/😀"] {
+        assert_value_roundtrip::<UserPrincipal>(&serde_json::json!(value));
+    }
+    assert!(serde_json::from_value::<WorkspacePrincipal>(serde_json::json!("garbage")).is_err());
+    assert!(serde_json::from_value::<UserPrincipal>(serde_json::json!("garbage")).is_err());
+}
+
+#[test]
+fn closed_uncapped_recall_roundtrips() {
+    roundtrip::<RecallResult>("recall-result-closed");
+}
+
+// These compile-time consumers keep request cancellation available at every
+// expensive memory boundary without inventing an implementation of MemoryOps.
+type MemoryRequestCall<Request, Response> = fn(
+    &dyn MemoryOps,
+    Request,
+    &Cancel,
+    &Principal,
+    &AgentContext,
+) -> Result<Response, EngineError>;
+const _: MemoryRequestCall<MemoryImportRequest, MemoryImportResult> =
+    |ops, req, cancel, principal, agent| ops.import(req, cancel, principal, agent);
+const _: MemoryRequestCall<MemoryRebindRequest, MemoryRebindResult> =
+    |ops, req, cancel, principal, agent| ops.rebind(req, cancel, principal, agent);
+const _: MemoryRequestCall<MemoryUnbindRequest, MemoryUnbindResult> =
+    |ops, req, cancel, principal, agent| ops.unbind(req, cancel, principal, agent);
+const _: MemoryRequestCall<MemoryUnimportRequest, MemoryUnimportResult> =
+    |ops, req, cancel, principal, agent| ops.unimport(req, cancel, principal, agent);
+
+#[test]
+fn capture_carries_cancellation_without_serializing_the_runtime_flag() {
+    let value = serde_json::json!({
+        "agentId":"contract-agent", "incognito":false, "messages":[],
+        "principal": {
+            "agentId":"contract-agent", "workspace":"workspace:v1:contract",
+            "channel":"cli", "accountId":"account", "chat":{"id":"chat","kind":"direct"}, "trust":"proved"
+        },
+        "agent":{"origin":"user","background":false}
+    });
+    let turn: TurnRecord = serde_json::from_value(value.clone()).unwrap();
+    let caller = turn.cancel.clone();
+    caller.cancel();
+    assert!(turn.cancel.is_cancelled());
+    assert_eq!(serde_json::to_value(turn).unwrap(), value);
+}

@@ -36,26 +36,68 @@ fn schemas(value: &mut Value, apply: &mut impl FnMut(&mut Map<String, Value>)) {
     }
 }
 
+fn scalar_branches(
+    node: &Value,
+    definitions: &Map<String, Value>,
+    seen: &mut BTreeSet<String>,
+) -> Option<Vec<Value>> {
+    if let Some(reference) = node.get("$ref").and_then(Value::as_str) {
+        let name = reference
+            .strip_prefix("#/$defs/")
+            .or_else(|| reference.strip_prefix("#/definitions/"))?;
+        if !seen.insert(name.to_owned()) {
+            return None;
+        }
+        let mut target = definitions.get(name)?.clone();
+        let object = target.as_object_mut()?;
+        for (key, value) in node.as_object()? {
+            if key != "$ref" {
+                object.insert(key.clone(), value.clone());
+            }
+        }
+        let result = scalar_branches(&target, definitions, seen);
+        seen.remove(name);
+        return result;
+    }
+    if let Some(branches) = node
+        .get("anyOf")
+        .or_else(|| node.get("oneOf"))
+        .and_then(Value::as_array)
+    {
+        let mut result = Vec::new();
+        for branch in branches {
+            result.extend(scalar_branches(branch, definitions, seen)?);
+        }
+        return Some(result);
+    }
+    let scalar = matches!(
+        node.get("type").and_then(Value::as_str),
+        Some("string" | "number" | "integer" | "boolean" | "null")
+    ) && node.as_object()?.keys().all(|key| {
+        matches!(key.as_str(), "type" | "enum" | "description" | "title") || key.starts_with("x-")
+    });
+    scalar.then(|| vec![node.clone()])
+}
+
 fn prepare(value: &mut Value, config: bool) {
+    let definitions = value
+        .get("definitions")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
     schemas(value, &mut |node| {
         // TypeScript scalar unions may contain several string literals and null.
         // Typify interprets a multi-branch anyOf as flattened optional fields;
         // coalesce scalar alternatives into disjoint typed branches instead.
-        if let Some(branches) = node.get("anyOf").and_then(Value::as_array) {
-            let scalar = branches.iter().all(|branch| {
-                matches!(
-                    branch.get("type").and_then(Value::as_str),
-                    Some("string" | "number" | "integer" | "boolean" | "null")
-                ) && branch.as_object().is_some_and(|fields| {
-                    fields.keys().all(|key| {
-                        matches!(key.as_str(), "type" | "enum" | "description")
-                            || key.starts_with("x-")
-                    })
-                })
-            });
-            if scalar {
+        if node.contains_key("anyOf") {
+            let resolved = scalar_branches(
+                &Value::Object(node.clone()),
+                &definitions,
+                &mut BTreeSet::new(),
+            );
+            if let Some(branches) = resolved {
                 let mut alternatives = BTreeMap::<String, Option<Vec<Value>>>::new();
-                for branch in branches {
+                for branch in &branches {
                     let kind = branch["type"].as_str().expect("scalar type").to_owned();
                     let values = branch.get("enum").and_then(Value::as_array).cloned();
                     match alternatives.entry(kind) {
@@ -77,7 +119,13 @@ fn prepare(value: &mut Value, config: bool) {
                     .map(|(kind, values)| {
                         let mut branch = serde_json::json!({"type":kind});
                         if let Some(values) = values {
-                            branch["enum"] = Value::Array(values);
+                            let mut unique = Vec::new();
+                            for value in values {
+                                if !unique.contains(&value) {
+                                    unique.push(value);
+                                }
+                            }
+                            branch["enum"] = Value::Array(unique);
                         }
                         branch
                     })
@@ -195,6 +243,19 @@ fn generate(mut root: Value, config: bool, output: &str) {
     if let Some(defs) = root.as_object_mut().expect("schema object").remove("$defs") {
         root["definitions"] = defs;
     }
+    let runtime_cancel_fields: BTreeMap<String, String> = root["definitions"]
+        .as_object()
+        .map(|definitions| {
+            definitions
+                .iter()
+                .filter_map(|(name, schema)| {
+                    schema["x-rust-cancel-field"]
+                        .as_str()
+                        .map(|field| (name.clone(), field.to_owned()))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     prepare(&mut root, config);
     let definitions = root["definitions"].as_object().cloned().unwrap_or_default();
     let root_title = root["title"].as_str().expect("schema title").to_owned();
@@ -272,6 +333,23 @@ fn generate(mut root: Value, config: bool, output: &str) {
     }
     let names = all_definitions.keys().cloned().collect::<Vec<_>>();
     keep_explicit_values(&mut file, &all_definitions, &names);
+    for item in &mut file.items {
+        let syn::Item::Struct(record) = item else {
+            continue;
+        };
+        let Some(field) = runtime_cancel_fields.get(&record.ident.to_string()) else {
+            continue;
+        };
+        let syn::Fields::Named(fields) = &mut record.fields else {
+            panic!("runtime cancellation requires a record")
+        };
+        let name = syn::Ident::new(field, record.ident.span());
+        fields.named.push(syn::parse_quote! {
+            /// Caller cancellation shared with the capture pipeline; never serialized.
+            #[serde(skip, default = "super::Cancel::never")]
+            pub #name: super::Cancel
+        });
+    }
     file.items.extend(
         syn::parse_str::<syn::File>(SUPPORT)
             .expect("wire helpers")

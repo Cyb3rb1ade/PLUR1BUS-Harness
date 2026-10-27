@@ -57,6 +57,19 @@
       "kind": "runtime-number-semantics",
       "path": "integer constraints",
       "reason": "Node Number.isInteger accepts integral JSON numbers such as 1.0. The schema walker checks their numeric value; the generated config projection uses lossless JSON numbers after validation and omits numeric restrictions already checked at the boundary."
+    },
+    {
+      "id": "nullable-uncapped-recall-cap",
+      "kind": "runtime-wider-value",
+      "path": "RecallResult.capChars",
+      "declaration": "number",
+      "runtimeSchema": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "reason": "Uncapped closed, warm, aborted and other early exits return Infinity in Node; JSON serializes it as null. Preserve null as the uncapped sentinel."
     }
   ],
   "acceptedManifestFields": [

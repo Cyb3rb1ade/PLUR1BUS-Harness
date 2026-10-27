@@ -301,3 +301,37 @@ fn documented_runtime_drift_stays_explicit() {
     assert_eq!(defaults["runtime"]["traceRegistrations"], false);
     assert_eq!(defaults["groupReasoningFilter"]["enabled"], true);
 }
+
+#[test]
+fn installed_node_runtime_defaults_match_the_drift_ledger() {
+    let output = std::process::Command::new("node")
+        .arg(
+            repository_root()
+                .join("crates/plur1bus-engine/tests/fixtures/config/check-runtime-drift.mjs"),
+        )
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn a_changed_node_runtime_default_is_detected_without_rerecording() {
+    let temporary = tempfile::tempdir().unwrap();
+    let candidate = temporary.path().join("candidate.mjs");
+    fs::write(&candidate, "export function resolveEffectiveConfig(){return {runtime:{deferPostTurnLlm:false,traceRegistrations:false}};}\n").unwrap();
+    let output = std::process::Command::new("node")
+        .arg(
+            repository_root()
+                .join("crates/plur1bus-engine/tests/fixtures/config/check-runtime-drift.mjs"),
+        )
+        .arg("--config-module")
+        .arg(candidate)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("runtime.deferPostTurnLlm drift"));
+}

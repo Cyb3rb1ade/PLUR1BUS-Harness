@@ -140,6 +140,8 @@ pub trait EmbeddingService: Send + Sync {
 // src/contract/memory_ops.rs and admin_ops.rs: one method per member of types/engine.d.ts `MemoryOps` and `AdminOps`,
 // same names in snake_case, (principal: &Principal, agent: &AgentContext) as the last two parameters, plus the
 // `reembedding.validate` (1.17.0) and the A1 curation members from the 9b935ce diff.
+// Request AbortSignals in import/rebind/unbind/unimport become an explicit &Cancel before those last two parameters.
+// Capture retains Engine::capture's exact signature; TurnRecord.cancel is a Rust-only, serde-skipped Cancel field.
 
 // src/config/validate.rs
 pub fn validate(raw: &serde_json::Value) -> Result<EngineConfig, Vec<ConfigError>>;  // ConfigError { path, message }

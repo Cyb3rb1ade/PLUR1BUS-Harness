@@ -67,7 +67,8 @@ Workspace Principal in the engine contract.
   "title": "WorkspacePrincipal",
   "type": "string",
   "x-since": "1.0.0",
-  "description": "Workspace Principal in the engine contract."
+  "description": "Workspace Principal in the engine contract.",
+  "pattern": "^(?:workspace:v1:|workspace-dir:v1:)"
 }
 ```
 
@@ -86,7 +87,8 @@ Workspace Principal in the engine contract.
   "title": "UserPrincipal",
   "type": "string",
   "x-since": "1.0.0",
-  "description": "`user:v1:` + sha256(JSON.stringify([channel, accountId, userId])), or from 1.12.0 `user:v2:` + sha256(harnessUserId). The v1 hash is the on-disk pool directory name and must not change (memory-request-context.js)."
+  "description": "`user:v1:` + sha256(JSON.stringify([channel, accountId, userId])), or from 1.12.0 `user:v2:` + sha256(harnessUserId). The v1 hash is the on-disk pool directory name and must not change (memory-request-context.js).",
+  "pattern": "^user:v[12]:"
 }
 ```
 
@@ -2690,13 +2692,13 @@ A block the host's joiner clipped or dropped to fit `capChars`.
 
 Recall Result in the engine contract.
 
-**Type:** `{ diagnostics?: Array<PerCallDiagnostic>; blocks: Array<ContextBlock>; capChars: number; degraded: Degraded \| null; trace?: DecisionTrace; timing: RecallTiming; deferrals: Array<Deferral> }`
+**Type:** `{ diagnostics?: Array<PerCallDiagnostic>; blocks: Array<ContextBlock>; capChars: number \| null; degraded: Degraded \| null; trace?: DecisionTrace; timing: RecallTiming; deferrals: Array<Deferral> }`
 
 | Property | Type | Required | Since | Description |
 |---|---|---|---|---|
 | `diagnostics` | `Array<PerCallDiagnostic>` | no | 1.0.0 |  |
 | `blocks` | `Array<ContextBlock>` | yes | 1.0.0 |  |
-| `capChars` | `number` | yes | 1.0.0 | Non-finite (Infinity) on the exits that inject an uncapped join. |
+| `capChars` | `number \| null` | yes | 1.0.0 | Character cap, or null for the JSON representation of an uncapped non-finite limit (Infinity in Node). |
 | `degraded` | `Degraded \| null` | yes | 1.0.0 | null means not degraded. Structured, never a bare boolean (B8). |
 | `trace` | `DecisionTrace` | no | 1.0.0 |  |
 | `timing` | `RecallTiming` | yes | 1.4.0 |  |
@@ -2724,8 +2726,11 @@ Recall Result in the engine contract.
       "x-since": "1.0.0"
     },
     "capChars": {
-      "type": "number",
-      "description": "Non-finite (Infinity) on the exits that inject an uncapped join.",
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Character cap, or null for the JSON representation of an uncapped non-finite limit (Infinity in Node).",
       "x-since": "1.0.0"
     },
     "degraded": {
@@ -2789,7 +2794,7 @@ Turn Record in the engine contract.
 
 | Runtime property | Since | Rust behavior |
 |---|---|---|
-| `signal` | 1.0.0 | Cancellation is supplied through the Rust Cancel parameter. |
+| `signal` | 1.0.0 | Caller cancellation is carried by the Rust-only TurnRecord.cancel field, which is omitted from JSON. |
 
 **Schema**
 
@@ -2841,12 +2846,13 @@ Turn Record in the engine contract.
   "additionalProperties": false,
   "x-runtime-properties": {
     "signal": {
-      "description": "Cancellation is supplied through the Rust Cancel parameter.",
+      "description": "Caller cancellation is carried by the Rust-only TurnRecord.cancel field, which is omitted from JSON.",
       "x-since": "1.0.0"
     }
   },
   "x-since": "1.0.0",
-  "description": "Turn Record in the engine contract."
+  "description": "Turn Record in the engine contract.",
+  "x-rust-cancel-field": "cancel"
 }
 ```
 
@@ -10255,13 +10261,13 @@ Optional job invocation settings. Cancellation uses the separate Cancel paramete
 
 Optional filters for a per-agent job ledger query.
 
-**Type:** `{ job?: JobName; since?: number; limit?: integer }`
+**Type:** `{ job?: JobName; since?: number; limit?: number }`
 
 | Property | Type | Required | Since | Description |
 |---|---|---|---|---|
 | `job` | `JobName` | no | 1.0.0 |  |
 | `since` | `number` | no | 1.0.0 |  |
-| `limit` | `integer` | no | 1.0.0 |  |
+| `limit` | `number` | no | 1.0.0 | The Node registry caps results only for a positive integer; other numbers mean no cap. |
 
 **Schema**
 
@@ -10277,8 +10283,8 @@ Optional filters for a per-agent job ledger query.
       "type": "number"
     },
     "limit": {
-      "type": "integer",
-      "minimum": 0
+      "type": "number",
+      "description": "The Node registry caps results only for a positive integer; other numbers mean no cap."
     }
   },
   "additionalProperties": false,

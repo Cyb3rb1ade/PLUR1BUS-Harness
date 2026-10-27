@@ -133,3 +133,58 @@ questions are recorded here as they are resolved.
 - Dependency licence audit: 686 Cargo packages, zero violations. Raw cargo-deny
   advisories fail on unchanged pinned dependencies (paste and zstd/lz4).
   Its bans, licences, and sources checks pass; no allow-list was changed.
+
+## Final review and fix pass
+
+A fresh read-only whole-branch review found five important contract gaps, no
+critical findings, no deferred minor findings, and no declined judgments.
+
+- Referenced scalar unions: valid import/unimport reason and model-error
+  strings failed deserialization. Five new contract tests first failed;
+  generation now resolves scalar references and merges literals before typify.
+- Principal template prefixes: arbitrary strings were accepted despite the
+  frozen declarations. Prefix rejection/acceptance tests failed first, then
+  passed with the declared workspace/user prefixes and no extra suffix rule.
+- History limits: fractional, negative, and integral-float numbers were
+  incorrectly refused. The test failed first; the schema now preserves the
+  original number domain and leaves cap semantics to the registry.
+- Live defaults: a Node-only default change was invisible to the Rust-only
+  check. New tests failed without the checker; they now query the installed
+  startup module and prove that a simulated default-only change is detected
+  without re-recording fixtures.
+- Uncapped recall: raw Node closed-engine recall serializes Infinity as null.
+  The newly recorded sixth contract fixture failed to deserialize, then passed
+  with number-or-null capChars and an explicit drift entry. No pin changed.
+- Cancellation ruling: the four memory requests retain their source signals
+  as explicit Cancel arguments before principal/agent. Capture retains its
+  fixed method signature and carries a shared, nonserialized TurnRecord.cancel.
+  Compile-time consumers and the capture flag test failed first, then passed.
+
+After the fix pass, `cargo test --locked -p plur1bus-engine` passes 88 tests,
+including 16 contract and 14 config tests. The original five goldens remain
+byte-identical; the extra uncapped fixture is recorded by Node, never edited.
+Workspace verification and generated documentation are refreshed after this
+code-generation change before publishing the PR.
+
+## Final verification
+
+- Engine tests: 88 passed, zero failures. Workspace clippy with all targets
+  and warnings denied passes. Engine Rustdoc has no warnings. Formatting,
+  hygiene, actionlint, 15 Node drift tests, generated docs, links, and CLI
+  command/exit-code checks pass.
+- The isolated full workspace run reports 2,673 passed, exactly the three
+  explicitly known host failures, and three existing ignored tests (the two
+  known API-key/Docker gaps and the nightly extension fuzzer). No new test was
+  ignored or disabled.
+- A preceding parallel docs build replaced the running CLI inode and caused
+  two transient extension-worker failures with `(deleted)`. The final complete
+  run was repeated without a concurrent build and those tests passed.
+- The raw cargo-deny advisory failures remain paste RUSTSEC-2024-0436 and the
+  pinned zstd/lz4 RUSTSEC-2026-0391/0398/0403 chain. Bans, licences and sources
+  pass; dependency audit reports 686 packages and no licence violations.
+- Attribution `--reuse-npm --check` passes. Parsed Cargo.lock comparison still
+  differs only in the engine dependency list. Engine pin, npm lockfile, tokens
+  and cache-profile source files remain unchanged. The PR reproduces the full
+  lockfile diff and names all six already-locked direct dependencies/licences.
+- A1's final version remains the owner question. CI is not polled and merging
+  is left to the controller.

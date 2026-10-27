@@ -133,6 +133,12 @@ try {
     "memory-card": memories.items[0],
     "engine-status": status,
   };
+  await engine.close({ budgetMs: 5_000 });
+  fixtures["recall-result-closed"] = await engine.recall({
+    query: "A recall after close must retain its uncapped JSON result.", principal, agent, signal,
+  });
+  assert.equal(fixtures["recall-result-closed"].degraded.reason, "engine-closed");
+  assert.equal(JSON.parse(JSON.stringify(fixtures["recall-result-closed"])).capChars, null);
   await mkdir(fixtureDir, { recursive: true });
   for (const [name, value] of Object.entries(fixtures)) {
     await writeFile(join(fixtureDir, `${name}.json`), `${JSON.stringify(value, null, 2)}\n`);

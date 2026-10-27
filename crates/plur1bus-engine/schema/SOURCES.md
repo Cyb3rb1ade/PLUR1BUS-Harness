@@ -35,7 +35,10 @@ Rust traits or handles, so the data generator excludes its definition.
 handle in Rust; a serialized completed result is not a capture handle.
 
 `AbortSignal` fields are documented in `x-runtime-properties` and become
-separate `Cancel` arguments. `Promise<T>` contributes its completed `T` data
+separate `Cancel` arguments for recall, LLM calls and the four memory requests.
+Capture keeps the brief's fixed method signature: `TurnRecord.cancel` carries
+its caller token as a Rust-only field marked by `x-rust-cancel-field`, skipped
+by serde and defaulting to `Cancel::never()` for JSON input. `Promise<T>` contributes its completed `T` data
 shape only to method metadata. Inheritance and intersection object members
 are expanded into their full structured properties, and `Partial<T>` makes
 those properties optional. String template principals retain their prefix
@@ -104,6 +107,13 @@ default namespace is returned as `null` by the pinned engine even though its
 declaration names only `string`. The field remains required, so its generated
 `Option<String>` serializes `null` explicitly. The recorded recall fixture
 exercises this value; no fixture was changed by hand.
+
+Uncapped early recall exits return `capChars: Infinity` in JavaScript, which
+JSON represents as `null`. `RecallResult.capChars` therefore also permits null
+as an uncapped sentinel, with an additional ledger entry and a raw closed-engine
+recall recorded by the same deterministic public-API recorder. The live startup
+default checker compares the installed engine with the ledger without changing
+goldens, and a simulated changed module proves that a default-only pin change fails.
 
 ## Neutralized contract descriptions
 
@@ -199,3 +209,10 @@ validation differences are recorded separately in `DRIFT.json`.
 ## Generator representations
 
 The config accepts both camelCase and legacy snake_case keys in workspace entries. Their Rust fields use distinct names (the legacy field has `_legacy`), with explicit serde names preserving both original wire keys. Scalar literal unions are consolidated into disjoint branches for typify 0.8; absent, explicit null, and empty collections remain distinct. Schema integer fields deserialize through lossless JSON numbers after validation, which also accepts integral values written as `1.0`.
+
+Scalar union consolidation resolves local scalar references first and removes
+duplicate literals. This preserves string-valued import/unimport reasons and
+model failures. Principal template types retain exactly their declared prefix
+alternatives, without adding suffix restrictions. `HistoryFilter.limit` retains
+the declared unconstrained number domain; the registry's later implementation
+decides which values impose a cap.

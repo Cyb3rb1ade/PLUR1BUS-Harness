@@ -27,13 +27,15 @@
       "title": "WorkspacePrincipal",
       "type": "string",
       "x-since": "1.0.0",
-      "description": "Workspace Principal in the engine contract."
+      "description": "Workspace Principal in the engine contract.",
+      "pattern": "^(?:workspace:v1:|workspace-dir:v1:)"
     },
     "UserPrincipal": {
       "title": "UserPrincipal",
       "type": "string",
       "x-since": "1.0.0",
-      "description": "`user:v1:` + sha256(JSON.stringify([channel, accountId, userId])), or from 1.12.0 `user:v2:` + sha256(harnessUserId). The v1 hash is the on-disk pool directory name and must not change (memory-request-context.js)."
+      "description": "`user:v1:` + sha256(JSON.stringify([channel, accountId, userId])), or from 1.12.0 `user:v2:` + sha256(harnessUserId). The v1 hash is the on-disk pool directory name and must not change (memory-request-context.js).",
+      "pattern": "^user:v[12]:"
     },
     "ChatKind": {
       "title": "ChatKind",
@@ -1841,8 +1843,11 @@
           "x-since": "1.0.0"
         },
         "capChars": {
-          "type": "number",
-          "description": "Non-finite (Infinity) on the exits that inject an uncapped join.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Character cap, or null for the JSON representation of an uncapped non-finite limit (Infinity in Node).",
           "x-since": "1.0.0"
         },
         "degraded": {
@@ -1931,12 +1936,13 @@
       "additionalProperties": false,
       "x-runtime-properties": {
         "signal": {
-          "description": "Cancellation is supplied through the Rust Cancel parameter.",
+          "description": "Caller cancellation is carried by the Rust-only TurnRecord.cancel field, which is omitted from JSON.",
           "x-since": "1.0.0"
         }
       },
       "x-since": "1.0.0",
-      "description": "Turn Record in the engine contract."
+      "description": "Turn Record in the engine contract.",
+      "x-rust-cancel-field": "cancel"
     },
     "CaptureOptions": {
       "title": "CaptureOptions",
@@ -7199,8 +7205,8 @@
           "type": "number"
         },
         "limit": {
-          "type": "integer",
-          "minimum": 0
+          "type": "number",
+          "description": "The Node registry caps results only for a positive integer; other numbers mean no cap."
         }
       },
       "additionalProperties": false,
