@@ -128,4 +128,4 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | RE-11 | not started | — |
 | RE-12 | not started | — |
 | RE-13 | not started (Phase 2; decided 2026-10-24) | — |
-| RE-14 | P1–P4 and T1 merged 2026-10-26 (#781, #783, #784, #785, #786), T2a 2026-10-27 (#788); T3 in progress on `codex/re-14-t3-usage-calibration`; P5 (RE-D29 setting) remains a separate package; T2b (exact Gemma 4, DeepSeek V4, Qwen 3.8, GLM counts) waits for the original files and their licences; T4 with RE-08, T5 with RE-10 | — |
+| RE-14 | P1–P4 and T1 merged 2026-10-26 (#781, #783, #784, #785, #786), T2a and T3 2026-10-27 (#788, #790); P5 (RE-D29 setting) can start; T2b (exact Gemma 4, DeepSeek V4, Qwen 3.8, GLM counts) waits for the original files and their licences; T4 with RE-08, T5 with RE-10 | — |

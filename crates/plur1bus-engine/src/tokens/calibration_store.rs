@@ -257,6 +257,7 @@ impl Drop for TemporaryFile {
 }
 
 fn private_options() -> OpenOptions {
+    #[allow(unused_mut)] // only Unix sets the file mode
     let mut options = OpenOptions::new();
     #[cfg(unix)]
     {

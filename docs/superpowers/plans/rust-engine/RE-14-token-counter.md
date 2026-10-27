@@ -110,15 +110,17 @@ and Grok-2 have no licence approval; Kimi stays an estimate until the owner deci
 
 ### T3 — Calibration
 
-In progress after the confirmed T2a merge (#788, 2026-10-27T01:55:34Z):
-[`2026-10-27-re-14-t3-usage-calibration.md`](../2026-10-27-re-14-t3-usage-calibration.md).
+T3 merged 2026-10-27 (#790), plan
+[`2026-10-27-re-14-t3-usage-calibration.md`](../2026-10-27-re-14-t3-usage-calibration.md): the fit, its store and
+`count_prompt` in `crates/plur1bus-engine/src/tokens/`.
 This package remains a library: T4 owns RPC and T5 owns Core consumers. Existing provider adapters already return
 inclusive prompt totals, so calibration must not add their cache components a second time. Full-prompt calibration
 applies its intercept once after summing raw item counts; T2 item and cumulative-prefix counts remain reusable.
 
-- [ ] An affine fit per (route, family, method) against inclusive prompt totals, stored under the engine's state
-  directory, fed by `LlmResult.usage` and by `engine.tokens.observe`. Totals are normalised first (plan §2.6, rule 5).
-  A family with no observations keeps the heuristic. Provider count endpoints are used only off the critical path.
+- [x] An affine fit per (route, family, method) against inclusive prompt totals, stored under the engine's state
+  directory. Totals are normalised first (plan §2.6, rule 5). A family with no observations keeps the heuristic.
+- [ ] Fed by `LlmResult.usage` and by `engine.tokens.observe` (with T4 and T5). Provider count endpoints are used only
+  off the critical path.
 
 ### T4 — RPC
 
