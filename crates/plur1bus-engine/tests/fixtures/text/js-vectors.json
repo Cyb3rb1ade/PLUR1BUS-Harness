@@ -1,0 +1,6623 @@
+{
+  "runtime": {
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3",
+    "collatorLocale": "en-US"
+  },
+  "whitespace": [
+    {
+      "codePoint": 0,
+      "hex": "U+0000",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 8,
+      "hex": "U+0008",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 9,
+      "hex": "U+0009",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 10,
+      "hex": "U+000A",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 11,
+      "hex": "U+000B",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 12,
+      "hex": "U+000C",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 13,
+      "hex": "U+000D",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 14,
+      "hex": "U+000E",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 31,
+      "hex": "U+001F",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 32,
+      "hex": "U+0020",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 33,
+      "hex": "U+0021",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 127,
+      "hex": "U+007F",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 133,
+      "hex": "U+0085",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 160,
+      "hex": "U+00A0",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 5760,
+      "hex": "U+1680",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 6158,
+      "hex": "U+180E",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 8191,
+      "hex": "U+1FFF",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 8192,
+      "hex": "U+2000",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8193,
+      "hex": "U+2001",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8194,
+      "hex": "U+2002",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8195,
+      "hex": "U+2003",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8196,
+      "hex": "U+2004",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8197,
+      "hex": "U+2005",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8198,
+      "hex": "U+2006",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8199,
+      "hex": "U+2007",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8200,
+      "hex": "U+2008",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8201,
+      "hex": "U+2009",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8202,
+      "hex": "U+200A",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8203,
+      "hex": "U+200B",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 8204,
+      "hex": "U+200C",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 8205,
+      "hex": "U+200D",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 8232,
+      "hex": "U+2028",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8233,
+      "hex": "U+2029",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8239,
+      "hex": "U+202F",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8287,
+      "hex": "U+205F",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 8288,
+      "hex": "U+2060",
+      "matchesJsWhitespace": false
+    },
+    {
+      "codePoint": 12288,
+      "hex": "U+3000",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 65279,
+      "hex": "U+FEFF",
+      "matchesJsWhitespace": true
+    },
+    {
+      "codePoint": 65534,
+      "hex": "U+FFFE",
+      "matchesJsWhitespace": false
+    }
+  ],
+  "strings": [
+    {
+      "name": "german_umlauts_and_accents",
+      "input": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+      "utf16Len": 57,
+      "trimmed": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+      "lowered": "herr müller wohnt in köln an der straße, café naïve größe",
+      "nfkd": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+      "nfc": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+      "nfkc": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+      "slices": [
+        {
+          "end": 0,
+          "utf16Units": [],
+          "json": "\"\"",
+          "utf8Lossy": "",
+          "sha256Raw": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256JsonMaterial": "4cd35da2fbbb79bd43998d269468d96a10537813764c8538f922d3f148444f4d"
+        },
+        {
+          "end": 4,
+          "utf16Units": [
+            72,
+            101,
+            114,
+            114
+          ],
+          "json": "\"Herr\"",
+          "utf8Lossy": "Herr",
+          "sha256Raw": "eb08008ccd531c391ba2024fd10baf2a6ced27027cf573bf14cc52a915883380",
+          "sha256JsonMaterial": "ad4d28335d12ce911daa757da6a36c195e2a7c63eb2cac5345896d290cfbc875"
+        },
+        {
+          "end": 11,
+          "utf16Units": [
+            72,
+            101,
+            114,
+            114,
+            32,
+            77,
+            252,
+            108,
+            108,
+            101,
+            114
+          ],
+          "json": "\"Herr Müller\"",
+          "utf8Lossy": "Herr Müller",
+          "sha256Raw": "9d14109bf60e1c6f230f97cc16e1344fe22bc586b61d4d1f7c0de4f88fa57b97",
+          "sha256JsonMaterial": "7f9e14d74628f338fd6c32fdf9ed54cc7c628547230ababc4a72653fa0ce4c08"
+        },
+        {
+          "end": 25,
+          "utf16Units": [
+            72,
+            101,
+            114,
+            114,
+            32,
+            77,
+            252,
+            108,
+            108,
+            101,
+            114,
+            32,
+            119,
+            111,
+            104,
+            110,
+            116,
+            32,
+            105,
+            110,
+            32,
+            75,
+            246,
+            108,
+            110
+          ],
+          "json": "\"Herr Müller wohnt in Köln\"",
+          "utf8Lossy": "Herr Müller wohnt in Köln",
+          "sha256Raw": "8d98e4fb7a35e699d22fea7195a25dc355d679a2c9f3bb9a5b981f8ab318376f",
+          "sha256JsonMaterial": "a4808ff67bd2ce0091b28a358ff74cbea759084637c7300be6f37f68227886c2"
+        },
+        {
+          "end": 57,
+          "utf16Units": [
+            72,
+            101,
+            114,
+            114,
+            32,
+            77,
+            252,
+            108,
+            108,
+            101,
+            114,
+            32,
+            119,
+            111,
+            104,
+            110,
+            116,
+            32,
+            105,
+            110,
+            32,
+            75,
+            246,
+            108,
+            110,
+            32,
+            97,
+            110,
+            32,
+            100,
+            101,
+            114,
+            32,
+            83,
+            116,
+            114,
+            97,
+            223,
+            101,
+            44,
+            32,
+            99,
+            97,
+            102,
+            233,
+            32,
+            110,
+            97,
+            239,
+            118,
+            101,
+            32,
+            71,
+            114,
+            246,
+            223,
+            101
+          ],
+          "json": "\"Herr Müller wohnt in Köln an der Straße, café naïve Größe\"",
+          "utf8Lossy": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+          "sha256Raw": "fca9692c4315476ff2a3b94bc5ca99b89561289cad6b93207a07a2c423752367",
+          "sha256JsonMaterial": "1f874291a572db659ea1d9b9897051be89e03b66345a9084b9504f165feaee0d"
+        },
+        {
+          "end": 100,
+          "utf16Units": [
+            72,
+            101,
+            114,
+            114,
+            32,
+            77,
+            252,
+            108,
+            108,
+            101,
+            114,
+            32,
+            119,
+            111,
+            104,
+            110,
+            116,
+            32,
+            105,
+            110,
+            32,
+            75,
+            246,
+            108,
+            110,
+            32,
+            97,
+            110,
+            32,
+            100,
+            101,
+            114,
+            32,
+            83,
+            116,
+            114,
+            97,
+            223,
+            101,
+            44,
+            32,
+            99,
+            97,
+            102,
+            233,
+            32,
+            110,
+            97,
+            239,
+            118,
+            101,
+            32,
+            71,
+            114,
+            246,
+            223,
+            101
+          ],
+          "json": "\"Herr Müller wohnt in Köln an der Straße, café naïve Größe\"",
+          "utf8Lossy": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+          "sha256Raw": "fca9692c4315476ff2a3b94bc5ca99b89561289cad6b93207a07a2c423752367",
+          "sha256JsonMaterial": "1f874291a572db659ea1d9b9897051be89e03b66345a9084b9504f165feaee0d"
+        }
+      ]
+    },
+    {
+      "name": "german_trim_feff_and_uppercase_eszett",
+      "input": "﻿ \t\nHerr Müller & GROSSE STRAßE (ẞ)  　﻿",
+      "utf16Len": 39,
+      "trimmed": "Herr Müller & GROSSE STRAßE (ẞ)",
+      "lowered": "﻿ \t\nherr müller & grosse straße (ß)  　﻿",
+      "nfkd": "﻿ \t\nHerr Müller & GROSSE STRAßE (ẞ)   ﻿",
+      "nfc": "﻿ \t\nHerr Müller & GROSSE STRAßE (ẞ)  　﻿",
+      "nfkc": "﻿ \t\nHerr Müller & GROSSE STRAßE (ẞ)   ﻿",
+      "slices": [
+        {
+          "end": 0,
+          "utf16Units": [],
+          "json": "\"\"",
+          "utf8Lossy": "",
+          "sha256Raw": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256JsonMaterial": "4cd35da2fbbb79bd43998d269468d96a10537813764c8538f922d3f148444f4d"
+        },
+        {
+          "end": 1,
+          "utf16Units": [
+            65279
+          ],
+          "json": "\"﻿\"",
+          "utf8Lossy": "﻿",
+          "sha256Raw": "f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5",
+          "sha256JsonMaterial": "a8a015f6dd4a68bbccae64ce7321112865f64663ab984d967dd0fa97263b4f8b"
+        },
+        {
+          "end": 4,
+          "utf16Units": [
+            65279,
+            32,
+            9,
+            10
+          ],
+          "json": "\"﻿ \\t\\n\"",
+          "utf8Lossy": "﻿ \t\n",
+          "sha256Raw": "57876b53b580ad9630edee385687948ed6d210051ee6009d4d4765a6166d0b6d",
+          "sha256JsonMaterial": "d150e2e2dc5f270e268a38a3a5b4245735f97d7ea0721a7a786747619e76c592"
+        },
+        {
+          "end": 15,
+          "utf16Units": [
+            65279,
+            32,
+            9,
+            10,
+            72,
+            101,
+            114,
+            114,
+            32,
+            77,
+            252,
+            108,
+            108,
+            101,
+            114
+          ],
+          "json": "\"﻿ \\t\\nHerr Müller\"",
+          "utf8Lossy": "﻿ \t\nHerr Müller",
+          "sha256Raw": "c7e77b9f9ef47249a4dce07e408a297d84ade42c32904df3a2c916103d1a3789",
+          "sha256JsonMaterial": "74c49467025353756a8776837545d9a5f3dddcf3e55bf6f7c45a16378cf06367"
+        },
+        {
+          "end": 35,
+          "utf16Units": [
+            65279,
+            32,
+            9,
+            10,
+            72,
+            101,
+            114,
+            114,
+            32,
+            77,
+            252,
+            108,
+            108,
+            101,
+            114,
+            32,
+            38,
+            32,
+            71,
+            82,
+            79,
+            83,
+            83,
+            69,
+            32,
+            83,
+            84,
+            82,
+            65,
+            223,
+            69,
+            32,
+            40,
+            7838,
+            41
+          ],
+          "json": "\"﻿ \\t\\nHerr Müller & GROSSE STRAßE (ẞ)\"",
+          "utf8Lossy": "﻿ \t\nHerr Müller & GROSSE STRAßE (ẞ)",
+          "sha256Raw": "acf9f5cf20e2b228a1de7517dee260cd7e37fbacae91d2a7df20f6f6a70b9cee",
+          "sha256JsonMaterial": "81e4852d4c5ae68096aa1eccc1fef179222958687c6d478c83fe523daa072008"
+        },
+        {
+          "end": 39,
+          "utf16Units": [
+            65279,
+            32,
+            9,
+            10,
+            72,
+            101,
+            114,
+            114,
+            32,
+            77,
+            252,
+            108,
+            108,
+            101,
+            114,
+            32,
+            38,
+            32,
+            71,
+            82,
+            79,
+            83,
+            83,
+            69,
+            32,
+            83,
+            84,
+            82,
+            65,
+            223,
+            69,
+            32,
+            40,
+            7838,
+            41,
+            160,
+            8232,
+            12288,
+            65279
+          ],
+          "json": "\"﻿ \\t\\nHerr Müller & GROSSE STRAßE (ẞ)  　﻿\"",
+          "utf8Lossy": "﻿ \t\nHerr Müller & GROSSE STRAßE (ẞ)  　﻿",
+          "sha256Raw": "eb119c5ee1c16f220973019060835238e40626504ce51c199a56576cf94f52ec",
+          "sha256JsonMaterial": "7d0d0bf8f3c350af13521beeb483b9029c99e369623ad43637bdfb3e06c741e3"
+        }
+      ]
+    },
+    {
+      "name": "nel_is_not_trimmed",
+      "input": "  kept around NEL \t",
+      "utf16Len": 21,
+      "trimmed": "  kept around NEL \t",
+      "lowered": "  kept around nel \t",
+      "nfkd": "  kept around NEL \t",
+      "nfc": "  kept around NEL \t",
+      "nfkc": "  kept around NEL \t",
+      "slices": [
+        {
+          "end": 0,
+          "utf16Units": [],
+          "json": "\"\"",
+          "utf8Lossy": "",
+          "sha256Raw": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256JsonMaterial": "4cd35da2fbbb79bd43998d269468d96a10537813764c8538f922d3f148444f4d"
+        },
+        {
+          "end": 1,
+          "utf16Units": [
+            133
+          ],
+          "json": "\"\"",
+          "utf8Lossy": "",
+          "sha256Raw": "f7e0ef1c73a0bb196477a2fa9a5de1d790b0a32c6c8ea20e72e2b7e092bf1985",
+          "sha256JsonMaterial": "9521729e801edab7670fa0b102093c8d1f7df7194eb90bf6bb22fe736b485f80"
+        },
+        {
+          "end": 3,
+          "utf16Units": [
+            133,
+            32,
+            32
+          ],
+          "json": "\"  \"",
+          "utf8Lossy": "  ",
+          "sha256Raw": "f5e68521c4c23149c7c864c727304e31ea1316d99bfc2e674f61c000fbd6e6c1",
+          "sha256JsonMaterial": "e7698ed22e0baed3e01df0e76a39e30a5f22c9b45ee1fe87da58bb62e2414d8c"
+        },
+        {
+          "end": 18,
+          "utf16Units": [
+            133,
+            32,
+            32,
+            107,
+            101,
+            112,
+            116,
+            32,
+            97,
+            114,
+            111,
+            117,
+            110,
+            100,
+            32,
+            78,
+            69,
+            76
+          ],
+          "json": "\"  kept around NEL\"",
+          "utf8Lossy": "  kept around NEL",
+          "sha256Raw": "167fc6e3068731268d68844b062041596e966e82d7fddda2d90d49e4360fd51c",
+          "sha256JsonMaterial": "90dbc27d7c0a19ee6114088c58251e099b18e054122a897acb93cb8619ddbda9"
+        },
+        {
+          "end": 21,
+          "utf16Units": [
+            133,
+            32,
+            32,
+            107,
+            101,
+            112,
+            116,
+            32,
+            97,
+            114,
+            111,
+            117,
+            110,
+            100,
+            32,
+            78,
+            69,
+            76,
+            32,
+            9,
+            133
+          ],
+          "json": "\"  kept around NEL \\t\"",
+          "utf8Lossy": "  kept around NEL \t",
+          "sha256Raw": "3f4b29053db25a09c6ce0a49c08901886a0675249be46466e294d71457ddb62b",
+          "sha256JsonMaterial": "2777caffad4ea209a7f99781a33aaad7d45bc9eb024ed0a8b45fefa49b933113"
+        }
+      ]
+    },
+    {
+      "name": "nfd_combining_and_compatibility",
+      "input": "Müller Köln café naïve Å Å ﬁnançais ①②",
+      "utf16Len": 44,
+      "trimmed": "Müller Köln café naïve Å Å ﬁnançais ①②",
+      "lowered": "müller köln café naïve å å ﬁnançais ①②",
+      "nfkd": "Müller Köln café naïve Å Å finançais 12",
+      "nfc": "Müller Köln café naïve Å Å ﬁnançais ①②",
+      "nfkc": "Müller Köln café naïve Å Å finançais 12",
+      "slices": [
+        {
+          "end": 0,
+          "utf16Units": [],
+          "json": "\"\"",
+          "utf8Lossy": "",
+          "sha256Raw": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256JsonMaterial": "4cd35da2fbbb79bd43998d269468d96a10537813764c8538f922d3f148444f4d"
+        },
+        {
+          "end": 2,
+          "utf16Units": [
+            77,
+            117
+          ],
+          "json": "\"Mu\"",
+          "utf8Lossy": "Mu",
+          "sha256Raw": "e63717504f43d1699f229076a3cc62364f00fdf8f8dad0ef630129204fa441a1",
+          "sha256JsonMaterial": "70f80821d8e20e8f374ec161f1764250bb9c19805c41526d6710a1aa8ecbf55b"
+        },
+        {
+          "end": 3,
+          "utf16Units": [
+            77,
+            117,
+            776
+          ],
+          "json": "\"Mü\"",
+          "utf8Lossy": "Mü",
+          "sha256Raw": "7bd4e43868c538af88258238de709871966beba183454e2be137e574aaa9637d",
+          "sha256JsonMaterial": "fba052387cb02763e6b806cd8ca802f30f72d4b9c9cb2351ec046683301bdcf2"
+        },
+        {
+          "end": 7,
+          "utf16Units": [
+            77,
+            117,
+            776,
+            108,
+            108,
+            101,
+            114
+          ],
+          "json": "\"Müller\"",
+          "utf8Lossy": "Müller",
+          "sha256Raw": "fa6a2313ed2910a7ea010814b90a5e6d4815d667f30132010deb6c0ddf524a07",
+          "sha256JsonMaterial": "f4fac0d3f97b628221923a0911a7f25fcb516b5ecb81f608c8f26335b4cab7fe"
+        },
+        {
+          "end": 12,
+          "utf16Units": [
+            77,
+            117,
+            776,
+            108,
+            108,
+            101,
+            114,
+            32,
+            75,
+            111,
+            776,
+            108
+          ],
+          "json": "\"Müller Köl\"",
+          "utf8Lossy": "Müller Köl",
+          "sha256Raw": "3b5291f85fc842113a8d060beff46e18876d529005c5a9f39da85c39a12f1ea6",
+          "sha256JsonMaterial": "6196ef0231f2445d1d723708a52f0bf0e8eb3b4ac5262bccc8f77ee93fb8713f"
+        },
+        {
+          "end": 24,
+          "utf16Units": [
+            77,
+            117,
+            776,
+            108,
+            108,
+            101,
+            114,
+            32,
+            75,
+            111,
+            776,
+            108,
+            110,
+            32,
+            99,
+            97,
+            102,
+            101,
+            769,
+            32,
+            110,
+            97,
+            105,
+            776
+          ],
+          "json": "\"Müller Köln café naï\"",
+          "utf8Lossy": "Müller Köln café naï",
+          "sha256Raw": "0fc33e58177fc06e9fd9cf8dbc011fcc752774fb9e4880eed3626d8ac9ec5e8b",
+          "sha256JsonMaterial": "d89e5f1437685f6af241bfd04802e4ac98e2db0799106e334f3c9dc22d1f5d82"
+        },
+        {
+          "end": 42,
+          "utf16Units": [
+            77,
+            117,
+            776,
+            108,
+            108,
+            101,
+            114,
+            32,
+            75,
+            111,
+            776,
+            108,
+            110,
+            32,
+            99,
+            97,
+            102,
+            101,
+            769,
+            32,
+            110,
+            97,
+            105,
+            776,
+            118,
+            101,
+            32,
+            65,
+            778,
+            32,
+            8491,
+            32,
+            64257,
+            110,
+            97,
+            110,
+            99,
+            807,
+            97,
+            105,
+            115,
+            32
+          ],
+          "json": "\"Müller Köln café naïve Å Å ﬁnançais \"",
+          "utf8Lossy": "Müller Köln café naïve Å Å ﬁnançais ",
+          "sha256Raw": "8500e91b0ed433768f5d40b94a0b34010436d8b3c698c609f1bdb07a2cab2c7a",
+          "sha256JsonMaterial": "66dc2f2e6aa98e1348b072c20082450d8eeaae3ba40af96197d653194ca4e518"
+        }
+      ]
+    },
+    {
+      "name": "emoji_surrogate_cuts",
+      "input": "Grüße 🚀🔥 und 🧠✨",
+      "utf16Len": 18,
+      "trimmed": "Grüße 🚀🔥 und 🧠✨",
+      "lowered": "grüße 🚀🔥 und 🧠✨",
+      "nfkd": "Grüße 🚀🔥 und 🧠✨",
+      "nfc": "Grüße 🚀🔥 und 🧠✨",
+      "nfkc": "Grüße 🚀🔥 und 🧠✨",
+      "slices": [
+        {
+          "end": 0,
+          "utf16Units": [],
+          "json": "\"\"",
+          "utf8Lossy": "",
+          "sha256Raw": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256JsonMaterial": "4cd35da2fbbb79bd43998d269468d96a10537813764c8538f922d3f148444f4d"
+        },
+        {
+          "end": 5,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101
+          ],
+          "json": "\"Grüße\"",
+          "utf8Lossy": "Grüße",
+          "sha256Raw": "f83e039796c6453a10f5519e39fd113901572316a1a8ea07cb525d2801dfd074",
+          "sha256JsonMaterial": "94ee81f995d662f9b9f2458e7226c6dace1e857e3496bba0b6ac84c4e6fb7bad"
+        },
+        {
+          "end": 6,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32
+          ],
+          "json": "\"Grüße \"",
+          "utf8Lossy": "Grüße ",
+          "sha256Raw": "a8ad5dd1a84820892e02bb36ffc09f8e73218cbb5e95a6f689b4270abe53ddba",
+          "sha256JsonMaterial": "c0204cdd12aee8c2d301ec94434417ad1d0372a50ca7959a74de931aa5d99b80"
+        },
+        {
+          "end": 7,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32,
+            55357
+          ],
+          "json": "\"Grüße \\ud83d\"",
+          "utf8Lossy": "Grüße �",
+          "sha256Raw": "85ae436dd5e169bf1c761497962a5228ed0a4abb0214e9fe12bd94b2f21dcaa5",
+          "sha256JsonMaterial": "165ce2e67b5f82e81e54c02e4ca041b88cc2a3fe73e510632a7e0e0a8de3b8bd"
+        },
+        {
+          "end": 8,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32,
+            55357,
+            56960
+          ],
+          "json": "\"Grüße 🚀\"",
+          "utf8Lossy": "Grüße 🚀",
+          "sha256Raw": "6a63ec56bbb94cf415a3131ea4e5a24efc6869bfd697a68978c085cee2c1700e",
+          "sha256JsonMaterial": "7fa7cbe81832aaa6a1ce2d1e7dd68145e6170c0e9d541e3550720f198dfdd0d4"
+        },
+        {
+          "end": 9,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32,
+            55357,
+            56960,
+            55357
+          ],
+          "json": "\"Grüße 🚀\\ud83d\"",
+          "utf8Lossy": "Grüße 🚀�",
+          "sha256Raw": "8bfb5df08329a28fafec5688c9231e59a7ff4e598ab623e3a946306114b695a8",
+          "sha256JsonMaterial": "a6cf558ecbe61d78a3c77164d1346e12eeb1b129e631341e408b55adc1be1d9c"
+        },
+        {
+          "end": 10,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32,
+            55357,
+            56960,
+            55357,
+            56613
+          ],
+          "json": "\"Grüße 🚀🔥\"",
+          "utf8Lossy": "Grüße 🚀🔥",
+          "sha256Raw": "936232da082d0df42406e08b742c5e6135f06db92d3a63eae800f8d463521674",
+          "sha256JsonMaterial": "e0360b5a792ed2242022a42a9304e52ca03ffa5d7587856c4d36ce66bc7fb254"
+        },
+        {
+          "end": 15,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32,
+            55357,
+            56960,
+            55357,
+            56613,
+            32,
+            117,
+            110,
+            100,
+            32
+          ],
+          "json": "\"Grüße 🚀🔥 und \"",
+          "utf8Lossy": "Grüße 🚀🔥 und ",
+          "sha256Raw": "3ef2eacc04351e75d778cbde1f7dca05d358920eb5a21d4a12b4943dff03b499",
+          "sha256JsonMaterial": "f2d002444fc31cdb54dc154dd6e38eaa88bc6dfe51501be27527fad793eff02a"
+        },
+        {
+          "end": 16,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32,
+            55357,
+            56960,
+            55357,
+            56613,
+            32,
+            117,
+            110,
+            100,
+            32,
+            55358
+          ],
+          "json": "\"Grüße 🚀🔥 und \\ud83e\"",
+          "utf8Lossy": "Grüße 🚀🔥 und �",
+          "sha256Raw": "aa1813f18c5b64c61e3dbe90922ebfdf7d19693f0e8ac8511bb61632dc9d0af7",
+          "sha256JsonMaterial": "5375718da31861b53d0833571ad0036cac49d206be5e7832433ef94986e05a89"
+        },
+        {
+          "end": 17,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32,
+            55357,
+            56960,
+            55357,
+            56613,
+            32,
+            117,
+            110,
+            100,
+            32,
+            55358,
+            56800
+          ],
+          "json": "\"Grüße 🚀🔥 und 🧠\"",
+          "utf8Lossy": "Grüße 🚀🔥 und 🧠",
+          "sha256Raw": "50d84b35bc694bac485bb0254c8d628fee4dee87816a116979ca1252c3b50c70",
+          "sha256JsonMaterial": "007c9662ebc3a64e6bda12db0118dcb43d345edb0930fabf9cba20dc77bfaddf"
+        },
+        {
+          "end": 18,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32,
+            55357,
+            56960,
+            55357,
+            56613,
+            32,
+            117,
+            110,
+            100,
+            32,
+            55358,
+            56800,
+            10024
+          ],
+          "json": "\"Grüße 🚀🔥 und 🧠✨\"",
+          "utf8Lossy": "Grüße 🚀🔥 und 🧠✨",
+          "sha256Raw": "57a4009d411d503d3ca849f4d532d665c04db42efb18d74a64fad5cb8b80f382",
+          "sha256JsonMaterial": "8a44d34f8ac7d63e0f9c1826b6c1c4176a2f8c05471ee6f50bfc1e6861bf7e09"
+        },
+        {
+          "end": 25,
+          "utf16Units": [
+            71,
+            114,
+            252,
+            223,
+            101,
+            32,
+            55357,
+            56960,
+            55357,
+            56613,
+            32,
+            117,
+            110,
+            100,
+            32,
+            55358,
+            56800,
+            10024
+          ],
+          "json": "\"Grüße 🚀🔥 und 🧠✨\"",
+          "utf8Lossy": "Grüße 🚀🔥 und 🧠✨",
+          "sha256Raw": "57a4009d411d503d3ca849f4d532d665c04db42efb18d74a64fad5cb8b80f382",
+          "sha256JsonMaterial": "8a44d34f8ac7d63e0f9c1826b6c1c4176a2f8c05471ee6f50bfc1e6861bf7e09"
+        }
+      ]
+    },
+    {
+      "name": "emoji_leading_and_zwj",
+      "input": "🌍🤖💡 Familie 👨‍👩‍👧‍👦 Test",
+      "utf16Len": 31,
+      "trimmed": "🌍🤖💡 Familie 👨‍👩‍👧‍👦 Test",
+      "lowered": "🌍🤖💡 familie 👨‍👩‍👧‍👦 test",
+      "nfkd": "🌍🤖💡 Familie 👨‍👩‍👧‍👦 Test",
+      "nfc": "🌍🤖💡 Familie 👨‍👩‍👧‍👦 Test",
+      "nfkc": "🌍🤖💡 Familie 👨‍👩‍👧‍👦 Test",
+      "slices": [
+        {
+          "end": 0,
+          "utf16Units": [],
+          "json": "\"\"",
+          "utf8Lossy": "",
+          "sha256Raw": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256JsonMaterial": "4cd35da2fbbb79bd43998d269468d96a10537813764c8538f922d3f148444f4d"
+        },
+        {
+          "end": 1,
+          "utf16Units": [
+            55356
+          ],
+          "json": "\"\\ud83c\"",
+          "utf8Lossy": "�",
+          "sha256Raw": "83d544ccc223c057d2bf80d3f2a32982c32c3c0db8e2674820da5064783fb097",
+          "sha256JsonMaterial": "c476aeaae01adc3ae6edf1061a2b16b77e631fc5952e4ac1d9922ed41df06703"
+        },
+        {
+          "end": 2,
+          "utf16Units": [
+            55356,
+            57101
+          ],
+          "json": "\"🌍\"",
+          "utf8Lossy": "🌍",
+          "sha256Raw": "8cba3282fe37fa6054ce64531ce17410a1404e2bc4afbf113824097037b1e498",
+          "sha256JsonMaterial": "823b087c3e2f7f5001423121f1a4525aabcf542d354d36f849b5733935c523c8"
+        },
+        {
+          "end": 3,
+          "utf16Units": [
+            55356,
+            57101,
+            55358
+          ],
+          "json": "\"🌍\\ud83e\"",
+          "utf8Lossy": "🌍�",
+          "sha256Raw": "26e2af6dbb9b557719404036f2affb87ffb36b5d2a54ef6007815fbea61535ea",
+          "sha256JsonMaterial": "47a04c2ebd8e8ffb2f219bb7e369f571a9cdb6aeaed3af479ee6b4543d7c8fc1"
+        },
+        {
+          "end": 4,
+          "utf16Units": [
+            55356,
+            57101,
+            55358,
+            56598
+          ],
+          "json": "\"🌍🤖\"",
+          "utf8Lossy": "🌍🤖",
+          "sha256Raw": "429ff2e12fa93c84a0564180323d4cc14f062fdb65e2adc562d3497a4f52c494",
+          "sha256JsonMaterial": "3f0f0170a00c493a22a033c4e204e3b489546bde456a61e08806a8dc1d570541"
+        },
+        {
+          "end": 5,
+          "utf16Units": [
+            55356,
+            57101,
+            55358,
+            56598,
+            55357
+          ],
+          "json": "\"🌍🤖\\ud83d\"",
+          "utf8Lossy": "🌍🤖�",
+          "sha256Raw": "b6554cf0ffae40f052ecb3cf59eb7993b6d7ed9f33891401cbae2e1df2c745bc",
+          "sha256JsonMaterial": "ae125a639aac4e978a5ae872a8d49e6fd98e0e868f7fe205d15eafec7b9856f2"
+        },
+        {
+          "end": 6,
+          "utf16Units": [
+            55356,
+            57101,
+            55358,
+            56598,
+            55357,
+            56481
+          ],
+          "json": "\"🌍🤖💡\"",
+          "utf8Lossy": "🌍🤖💡",
+          "sha256Raw": "314063a167d10c8b5afb5641b7274394b021322657494522c56f08682e7079c3",
+          "sha256JsonMaterial": "d12b8fb1c1164acb2b67d1fc2e2ce4c0258347de9e71e88066062ea4c358e8e5"
+        },
+        {
+          "end": 15,
+          "utf16Units": [
+            55356,
+            57101,
+            55358,
+            56598,
+            55357,
+            56481,
+            32,
+            70,
+            97,
+            109,
+            105,
+            108,
+            105,
+            101,
+            32
+          ],
+          "json": "\"🌍🤖💡 Familie \"",
+          "utf8Lossy": "🌍🤖💡 Familie ",
+          "sha256Raw": "f0e22f343e49daffc5511c0c96fbfb7acf6d7820365aca75eb6d942970b633e2",
+          "sha256JsonMaterial": "1043ed4ca19c553247e77c60647880c3657d5fa9db71d1454a2c3affc1ff33da"
+        },
+        {
+          "end": 16,
+          "utf16Units": [
+            55356,
+            57101,
+            55358,
+            56598,
+            55357,
+            56481,
+            32,
+            70,
+            97,
+            109,
+            105,
+            108,
+            105,
+            101,
+            32,
+            55357
+          ],
+          "json": "\"🌍🤖💡 Familie \\ud83d\"",
+          "utf8Lossy": "🌍🤖💡 Familie �",
+          "sha256Raw": "dfcf28ef110a5aa9dae7d1c7a0f06770f2fccf0034a2ad8bdd03eecbc7a3218f",
+          "sha256JsonMaterial": "dcd3e26e1eb60934259f1980568b32fc2bbe5b8507296d3df5beb030b96ca497"
+        },
+        {
+          "end": 17,
+          "utf16Units": [
+            55356,
+            57101,
+            55358,
+            56598,
+            55357,
+            56481,
+            32,
+            70,
+            97,
+            109,
+            105,
+            108,
+            105,
+            101,
+            32,
+            55357,
+            56424
+          ],
+          "json": "\"🌍🤖💡 Familie 👨\"",
+          "utf8Lossy": "🌍🤖💡 Familie 👨",
+          "sha256Raw": "3054fd53b7265c59830ace9d3e1c66343c3ca3e9e46c598a13d788448963353e",
+          "sha256JsonMaterial": "9a635d92336f6678d9e6eb35b79fe270ee7da4f3e60eba056e5209bbaee7fb5f"
+        },
+        {
+          "end": 26,
+          "utf16Units": [
+            55356,
+            57101,
+            55358,
+            56598,
+            55357,
+            56481,
+            32,
+            70,
+            97,
+            109,
+            105,
+            108,
+            105,
+            101,
+            32,
+            55357,
+            56424,
+            8205,
+            55357,
+            56425,
+            8205,
+            55357,
+            56423,
+            8205,
+            55357,
+            56422
+          ],
+          "json": "\"🌍🤖💡 Familie 👨‍👩‍👧‍👦\"",
+          "utf8Lossy": "🌍🤖💡 Familie 👨‍👩‍👧‍👦",
+          "sha256Raw": "702ea759e927bbb9b755d3e8cbb2b1b3a6b4c24a7e599ef6c48cf0467bde2ec9",
+          "sha256JsonMaterial": "0ee54381f7ea8da2cf371476f121dd79ac05bedd174abfe5e4e0b96543da4524"
+        },
+        {
+          "end": 31,
+          "utf16Units": [
+            55356,
+            57101,
+            55358,
+            56598,
+            55357,
+            56481,
+            32,
+            70,
+            97,
+            109,
+            105,
+            108,
+            105,
+            101,
+            32,
+            55357,
+            56424,
+            8205,
+            55357,
+            56425,
+            8205,
+            55357,
+            56423,
+            8205,
+            55357,
+            56422,
+            32,
+            84,
+            101,
+            115,
+            116
+          ],
+          "json": "\"🌍🤖💡 Familie 👨‍👩‍👧‍👦 Test\"",
+          "utf8Lossy": "🌍🤖💡 Familie 👨‍👩‍👧‍👦 Test",
+          "sha256Raw": "a0aad2a3285d467c37767d51e60915f91826fdc4322c94d1489a5aa0ca45afcc",
+          "sha256JsonMaterial": "b30b3a799d9d620527ca1e4c7b83ef25b3b176c2d163b9c1a07df498acdc36f0"
+        }
+      ]
+    },
+    {
+      "name": "cjk_and_fullwidth",
+      "input": "東京のメモリ検索と日本語テキスト処理（テスト１２３・🚀）",
+      "utf16Len": 29,
+      "trimmed": "東京のメモリ検索と日本語テキスト処理（テスト１２３・🚀）",
+      "lowered": "東京のメモリ検索と日本語テキスト処理（テスト１２３・🚀）",
+      "nfkd": "東京のメモリ検索と日本語テキスト処理(テスト123・🚀)",
+      "nfc": "東京のメモリ検索と日本語テキスト処理（テスト１２３・🚀）",
+      "nfkc": "東京のメモリ検索と日本語テキスト処理(テスト123・🚀)",
+      "slices": [
+        {
+          "end": 0,
+          "utf16Units": [],
+          "json": "\"\"",
+          "utf8Lossy": "",
+          "sha256Raw": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256JsonMaterial": "4cd35da2fbbb79bd43998d269468d96a10537813764c8538f922d3f148444f4d"
+        },
+        {
+          "end": 2,
+          "utf16Units": [
+            26481,
+            20140
+          ],
+          "json": "\"東京\"",
+          "utf8Lossy": "東京",
+          "sha256Raw": "130016b2599bf7e5978cae78e528c67f29aa47eaa2490ffedd729df334a2790c",
+          "sha256JsonMaterial": "4d7579bc46ac855315b0c92e949e9c732bd0ab92811fe3096c362977648905d9"
+        },
+        {
+          "end": 8,
+          "utf16Units": [
+            26481,
+            20140,
+            12398,
+            12513,
+            12514,
+            12522,
+            26908,
+            32034
+          ],
+          "json": "\"東京のメモリ検索\"",
+          "utf8Lossy": "東京のメモリ検索",
+          "sha256Raw": "300e6834522d7cd50d44c4a56eff331a657dbc22a67c9c66eb06297206c45150",
+          "sha256JsonMaterial": "3e254cdcd8d2c91c5fbe4d42a5445d1d9774a3adb20754752cfb91895bad13be"
+        },
+        {
+          "end": 18,
+          "utf16Units": [
+            26481,
+            20140,
+            12398,
+            12513,
+            12514,
+            12522,
+            26908,
+            32034,
+            12392,
+            26085,
+            26412,
+            35486,
+            12486,
+            12461,
+            12473,
+            12488,
+            20966,
+            29702
+          ],
+          "json": "\"東京のメモリ検索と日本語テキスト処理\"",
+          "utf8Lossy": "東京のメモリ検索と日本語テキスト処理",
+          "sha256Raw": "476363d2de09e7eb370e0294b85b292d7c60124a3805965b4bf323a79e406f0e",
+          "sha256JsonMaterial": "a095d057d30cc0180e3f5675a5d74bc5f63dafbf4073eb5314a2b25989dd821b"
+        },
+        {
+          "end": 25,
+          "utf16Units": [
+            26481,
+            20140,
+            12398,
+            12513,
+            12514,
+            12522,
+            26908,
+            32034,
+            12392,
+            26085,
+            26412,
+            35486,
+            12486,
+            12461,
+            12473,
+            12488,
+            20966,
+            29702,
+            65288,
+            12486,
+            12473,
+            12488,
+            65297,
+            65298,
+            65299
+          ],
+          "json": "\"東京のメモリ検索と日本語テキスト処理（テスト１２３\"",
+          "utf8Lossy": "東京のメモリ検索と日本語テキスト処理（テスト１２３",
+          "sha256Raw": "d64ea5864fd5ac9d75976a43a9d054a562cad40c9b37628db82b0a31c127a5c4",
+          "sha256JsonMaterial": "c3b38539d45565533011fa838ca06c9227c85680136ce6281124303d14c0c6dc"
+        },
+        {
+          "end": 26,
+          "utf16Units": [
+            26481,
+            20140,
+            12398,
+            12513,
+            12514,
+            12522,
+            26908,
+            32034,
+            12392,
+            26085,
+            26412,
+            35486,
+            12486,
+            12461,
+            12473,
+            12488,
+            20966,
+            29702,
+            65288,
+            12486,
+            12473,
+            12488,
+            65297,
+            65298,
+            65299,
+            12539
+          ],
+          "json": "\"東京のメモリ検索と日本語テキスト処理（テスト１２３・\"",
+          "utf8Lossy": "東京のメモリ検索と日本語テキスト処理（テスト１２３・",
+          "sha256Raw": "fc4f2da2c1544d1baab8e59dd9914f6fdefb37854fe9c1e8436d447c42c73a74",
+          "sha256JsonMaterial": "fb1c71b55c8fb88deb39526ea6475081f52c6156540e22e0ba7216b22195894c"
+        },
+        {
+          "end": 27,
+          "utf16Units": [
+            26481,
+            20140,
+            12398,
+            12513,
+            12514,
+            12522,
+            26908,
+            32034,
+            12392,
+            26085,
+            26412,
+            35486,
+            12486,
+            12461,
+            12473,
+            12488,
+            20966,
+            29702,
+            65288,
+            12486,
+            12473,
+            12488,
+            65297,
+            65298,
+            65299,
+            12539,
+            55357
+          ],
+          "json": "\"東京のメモリ検索と日本語テキスト処理（テスト１２３・\\ud83d\"",
+          "utf8Lossy": "東京のメモリ検索と日本語テキスト処理（テスト１２３・�",
+          "sha256Raw": "ab4f5cc09b9aa22316f46d074ec24ccd7d034f33396ccf49a3b30e3b24b4f61e",
+          "sha256JsonMaterial": "d325ac5d4dc9f3491ffebd980d779e331a9afe75a5897a6f6094f836a0d42980"
+        },
+        {
+          "end": 28,
+          "utf16Units": [
+            26481,
+            20140,
+            12398,
+            12513,
+            12514,
+            12522,
+            26908,
+            32034,
+            12392,
+            26085,
+            26412,
+            35486,
+            12486,
+            12461,
+            12473,
+            12488,
+            20966,
+            29702,
+            65288,
+            12486,
+            12473,
+            12488,
+            65297,
+            65298,
+            65299,
+            12539,
+            55357,
+            56960
+          ],
+          "json": "\"東京のメモリ検索と日本語テキスト処理（テスト１２３・🚀\"",
+          "utf8Lossy": "東京のメモリ検索と日本語テキスト処理（テスト１２３・🚀",
+          "sha256Raw": "11eea74d882ff69124caa083baff516ca76f9804d8552ef668a91ca17aa1fa95",
+          "sha256JsonMaterial": "ce06b51ad8b000ff0981b258ba971fe982a8b18d3abb03dd2b26bdb96f786d43"
+        }
+      ]
+    },
+    {
+      "name": "special_casing_turkish_and_greek",
+      "input": "İSTANBUL IŞIK ΣΟΣ ΦΙΛΟΣ Σ",
+      "utf16Len": 25,
+      "trimmed": "İSTANBUL IŞIK ΣΟΣ ΦΙΛΟΣ Σ",
+      "lowered": "i̇stanbul işik σος φιλος σ",
+      "nfkd": "İSTANBUL IŞIK ΣΟΣ ΦΙΛΟΣ Σ",
+      "nfc": "İSTANBUL IŞIK ΣΟΣ ΦΙΛΟΣ Σ",
+      "nfkc": "İSTANBUL IŞIK ΣΟΣ ΦΙΛΟΣ Σ",
+      "slices": [
+        {
+          "end": 0,
+          "utf16Units": [],
+          "json": "\"\"",
+          "utf8Lossy": "",
+          "sha256Raw": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256JsonMaterial": "4cd35da2fbbb79bd43998d269468d96a10537813764c8538f922d3f148444f4d"
+        },
+        {
+          "end": 1,
+          "utf16Units": [
+            304
+          ],
+          "json": "\"İ\"",
+          "utf8Lossy": "İ",
+          "sha256Raw": "a65018cffe8e0ed3f3112a79326e4c9718dc498a1f18a3a72f2f77c792c48b70",
+          "sha256JsonMaterial": "db1a75f9157f33624d164e0a660d63a0a0c5c65ea21b59a55d24d13fd3505312"
+        },
+        {
+          "end": 8,
+          "utf16Units": [
+            304,
+            83,
+            84,
+            65,
+            78,
+            66,
+            85,
+            76
+          ],
+          "json": "\"İSTANBUL\"",
+          "utf8Lossy": "İSTANBUL",
+          "sha256Raw": "bc5612cffe50eb52408085275492ecb84ce1a35fd3ac8b9c1caf5da2ff8c2d37",
+          "sha256JsonMaterial": "c367b6e282a35e44ede1325d093b3347b8a38882504203f17a13368af6bc55a8"
+        },
+        {
+          "end": 13,
+          "utf16Units": [
+            304,
+            83,
+            84,
+            65,
+            78,
+            66,
+            85,
+            76,
+            32,
+            73,
+            350,
+            73,
+            75
+          ],
+          "json": "\"İSTANBUL IŞIK\"",
+          "utf8Lossy": "İSTANBUL IŞIK",
+          "sha256Raw": "e6070ff58ed287af325e0f91e89a5d6b53d9b274806d39f04fc1909d61f3aef4",
+          "sha256JsonMaterial": "0ab00b5de6575224d1532e31a035cef709e2d7e6a9148f706a5b164967a12e31"
+        },
+        {
+          "end": 17,
+          "utf16Units": [
+            304,
+            83,
+            84,
+            65,
+            78,
+            66,
+            85,
+            76,
+            32,
+            73,
+            350,
+            73,
+            75,
+            32,
+            931,
+            927,
+            931
+          ],
+          "json": "\"İSTANBUL IŞIK ΣΟΣ\"",
+          "utf8Lossy": "İSTANBUL IŞIK ΣΟΣ",
+          "sha256Raw": "cdaea0f028725043619c01eb3d0e9ed9abde4d620e8b2ab2529fbe07362292d2",
+          "sha256JsonMaterial": "05c3fe2c662a9d8678f026291dfafd065cc90bb9c72fd273b88ca2822eff19e6"
+        },
+        {
+          "end": 25,
+          "utf16Units": [
+            304,
+            83,
+            84,
+            65,
+            78,
+            66,
+            85,
+            76,
+            32,
+            73,
+            350,
+            73,
+            75,
+            32,
+            931,
+            927,
+            931,
+            32,
+            934,
+            921,
+            923,
+            927,
+            931,
+            32,
+            931
+          ],
+          "json": "\"İSTANBUL IŞIK ΣΟΣ ΦΙΛΟΣ Σ\"",
+          "utf8Lossy": "İSTANBUL IŞIK ΣΟΣ ΦΙΛΟΣ Σ",
+          "sha256Raw": "c36a371d28b55e629edd861ee0073bb624b5b37455cbfbf4f8cc180e7241c6be",
+          "sha256JsonMaterial": "da5b1b060f830a99c0e35efb09b4a4fae77a902dbac06b818251e882f6ea88f6"
+        }
+      ]
+    }
+  ],
+  "localeCompare": [
+    {
+      "site": "lib/episodes.js:230",
+      "args": [],
+      "keys": [
+        "müller",
+        "mueller",
+        "muller",
+        "köln",
+        "koeln",
+        "straße",
+        "strasse",
+        "größe",
+        "groesse",
+        "café",
+        "cafe",
+        "naïve",
+        "naive",
+        "äpfel",
+        "apfel",
+        "über",
+        "uber",
+        "zürich",
+        "zurich"
+      ],
+      "sorted": [
+        "apfel",
+        "äpfel",
+        "cafe",
+        "café",
+        "groesse",
+        "größe",
+        "koeln",
+        "köln",
+        "mueller",
+        "muller",
+        "müller",
+        "naive",
+        "naïve",
+        "strasse",
+        "straße",
+        "uber",
+        "über",
+        "zurich",
+        "zürich"
+      ],
+      "pairs": [
+        {
+          "a": "müller",
+          "b": "müller",
+          "sign": 0
+        },
+        {
+          "a": "müller",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "muller",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "mueller",
+          "sign": 0
+        },
+        {
+          "a": "mueller",
+          "b": "muller",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "muller",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "muller",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "muller",
+          "b": "muller",
+          "sign": 0
+        },
+        {
+          "a": "muller",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "muller",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "muller",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "muller",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "muller",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "muller",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "muller",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "muller",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "muller",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "muller",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "muller",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "muller",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "muller",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "muller",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "muller",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "muller",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "muller",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "köln",
+          "sign": 0
+        },
+        {
+          "a": "köln",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "köln",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "köln",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "köln",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "köln",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "köln",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "köln",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "köln",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "köln",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "muller",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "köln",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "koeln",
+          "sign": 0
+        },
+        {
+          "a": "koeln",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "koeln",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "koeln",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "koeln",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "koeln",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "koeln",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "koeln",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "koeln",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "straße",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "muller",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "straße",
+          "sign": 0
+        },
+        {
+          "a": "straße",
+          "b": "strasse",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "naïve",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "naive",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "straße",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "straße",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "straße",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "strasse",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "muller",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "strasse",
+          "b": "strasse",
+          "sign": 0
+        },
+        {
+          "a": "strasse",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "naïve",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "naive",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "strasse",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "strasse",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "strasse",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "muller",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "köln",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "koeln",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "größe",
+          "sign": 0
+        },
+        {
+          "a": "größe",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "muller",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "köln",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "koeln",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "groesse",
+          "sign": 0
+        },
+        {
+          "a": "groesse",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "groesse",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "groesse",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "groesse",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "groesse",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "muller",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "köln",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "koeln",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "groesse",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "café",
+          "sign": 0
+        },
+        {
+          "a": "café",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "café",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "café",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "café",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "café",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "muller",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "köln",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "koeln",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "groesse",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "café",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "cafe",
+          "sign": 0
+        },
+        {
+          "a": "cafe",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "cafe",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "cafe",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "cafe",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "naïve",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "muller",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "naïve",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "naïve",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "naïve",
+          "sign": 0
+        },
+        {
+          "a": "naïve",
+          "b": "naive",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "naïve",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "naïve",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "naïve",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "naïve",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "naive",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "muller",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "naive",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "naive",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "naive",
+          "b": "naive",
+          "sign": 0
+        },
+        {
+          "a": "naive",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "naive",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "naive",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "naive",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "naive",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "muller",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "köln",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "koeln",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "groesse",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "café",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "cafe",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "äpfel",
+          "sign": 0
+        },
+        {
+          "a": "äpfel",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "äpfel",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "äpfel",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "muller",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "köln",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "koeln",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "groesse",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "café",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "cafe",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "naïve",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "naive",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "äpfel",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "apfel",
+          "sign": 0
+        },
+        {
+          "a": "apfel",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "uber",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "apfel",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "über",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "muller",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "straße",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "strasse",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "naïve",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "naive",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "über",
+          "sign": 0
+        },
+        {
+          "a": "über",
+          "b": "uber",
+          "sign": 1
+        },
+        {
+          "a": "über",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "über",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "uber",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "muller",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "straße",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "strasse",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "naïve",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "naive",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "uber",
+          "b": "über",
+          "sign": -1
+        },
+        {
+          "a": "uber",
+          "b": "uber",
+          "sign": 0
+        },
+        {
+          "a": "uber",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "uber",
+          "b": "zurich",
+          "sign": -1
+        },
+        {
+          "a": "zürich",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "muller",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "straße",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "strasse",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "naïve",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "naive",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "über",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "uber",
+          "sign": 1
+        },
+        {
+          "a": "zürich",
+          "b": "zürich",
+          "sign": 0
+        },
+        {
+          "a": "zürich",
+          "b": "zurich",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "muller",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "köln",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "koeln",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "straße",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "strasse",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "café",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "cafe",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "naïve",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "naive",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "äpfel",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "apfel",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "über",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "uber",
+          "sign": 1
+        },
+        {
+          "a": "zurich",
+          "b": "zürich",
+          "sign": -1
+        },
+        {
+          "a": "zurich",
+          "b": "zurich",
+          "sign": 0
+        }
+      ]
+    },
+    {
+      "site": "lib/memory-graph.js:245",
+      "args": [],
+      "keys": [
+        "018f4a90-1234-7000-8000-000000000001",
+        "018f4a90-1234-7000-8000-000000000002",
+        "018f4a90-1234-7000-8000-00000000000a",
+        "018f4a90-1234-7000-8000-00000000000A",
+        "mem_alpha-1",
+        "mem_alpha_1",
+        "mem_Alpha-1",
+        "mem_beta",
+        "mem_äpfel",
+        "mem_apfel"
+      ],
+      "sorted": [
+        "018f4a90-1234-7000-8000-000000000001",
+        "018f4a90-1234-7000-8000-000000000002",
+        "018f4a90-1234-7000-8000-00000000000a",
+        "018f4a90-1234-7000-8000-00000000000A",
+        "mem_alpha_1",
+        "mem_alpha-1",
+        "mem_Alpha-1",
+        "mem_apfel",
+        "mem_äpfel",
+        "mem_beta"
+      ],
+      "pairs": [
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 0
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "mem_alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "mem_alpha_1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "mem_Alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "mem_beta",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "mem_äpfel",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000001",
+          "b": "mem_apfel",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": 0
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "mem_alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "mem_alpha_1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "mem_Alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "mem_beta",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "mem_äpfel",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-000000000002",
+          "b": "mem_apfel",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": 1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": 0
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "mem_alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "mem_alpha_1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "mem_Alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "mem_beta",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "mem_äpfel",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000a",
+          "b": "mem_apfel",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": 1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": 1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": 0
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "mem_alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "mem_alpha_1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "mem_Alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "mem_beta",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "mem_äpfel",
+          "sign": -1
+        },
+        {
+          "a": "018f4a90-1234-7000-8000-00000000000A",
+          "b": "mem_apfel",
+          "sign": -1
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": 1
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": 1
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": 1
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "mem_alpha-1",
+          "sign": 0
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "mem_alpha_1",
+          "sign": 1
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "mem_Alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "mem_beta",
+          "sign": -1
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "mem_äpfel",
+          "sign": -1
+        },
+        {
+          "a": "mem_alpha-1",
+          "b": "mem_apfel",
+          "sign": -1
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": 1
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": 1
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": 1
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "mem_alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "mem_alpha_1",
+          "sign": 0
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "mem_Alpha-1",
+          "sign": -1
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "mem_beta",
+          "sign": -1
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "mem_äpfel",
+          "sign": -1
+        },
+        {
+          "a": "mem_alpha_1",
+          "b": "mem_apfel",
+          "sign": -1
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": 1
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": 1
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": 1
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "mem_alpha-1",
+          "sign": 1
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "mem_alpha_1",
+          "sign": 1
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "mem_Alpha-1",
+          "sign": 0
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "mem_beta",
+          "sign": -1
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "mem_äpfel",
+          "sign": -1
+        },
+        {
+          "a": "mem_Alpha-1",
+          "b": "mem_apfel",
+          "sign": -1
+        },
+        {
+          "a": "mem_beta",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "mem_beta",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": 1
+        },
+        {
+          "a": "mem_beta",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": 1
+        },
+        {
+          "a": "mem_beta",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": 1
+        },
+        {
+          "a": "mem_beta",
+          "b": "mem_alpha-1",
+          "sign": 1
+        },
+        {
+          "a": "mem_beta",
+          "b": "mem_alpha_1",
+          "sign": 1
+        },
+        {
+          "a": "mem_beta",
+          "b": "mem_Alpha-1",
+          "sign": 1
+        },
+        {
+          "a": "mem_beta",
+          "b": "mem_beta",
+          "sign": 0
+        },
+        {
+          "a": "mem_beta",
+          "b": "mem_äpfel",
+          "sign": 1
+        },
+        {
+          "a": "mem_beta",
+          "b": "mem_apfel",
+          "sign": 1
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": 1
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": 1
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": 1
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "mem_alpha-1",
+          "sign": 1
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "mem_alpha_1",
+          "sign": 1
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "mem_Alpha-1",
+          "sign": 1
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "mem_beta",
+          "sign": -1
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "mem_äpfel",
+          "sign": 0
+        },
+        {
+          "a": "mem_äpfel",
+          "b": "mem_apfel",
+          "sign": 1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "018f4a90-1234-7000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "018f4a90-1234-7000-8000-000000000002",
+          "sign": 1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "018f4a90-1234-7000-8000-00000000000a",
+          "sign": 1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "018f4a90-1234-7000-8000-00000000000A",
+          "sign": 1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "mem_alpha-1",
+          "sign": 1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "mem_alpha_1",
+          "sign": 1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "mem_Alpha-1",
+          "sign": 1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "mem_beta",
+          "sign": -1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "mem_äpfel",
+          "sign": -1
+        },
+        {
+          "a": "mem_apfel",
+          "b": "mem_apfel",
+          "sign": 0
+        }
+      ]
+    },
+    {
+      "site": "lib/memory-compaction.js:61",
+      "args": [],
+      "keys": [
+        "",
+        "00000000-0000-4000-8000-000000000000",
+        "00000000-0000-4000-8000-000000000001",
+        "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+        "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+        "f0000000-0000-4000-8000-000000000000"
+      ],
+      "sorted": [
+        "",
+        "00000000-0000-4000-8000-000000000000",
+        "00000000-0000-4000-8000-000000000001",
+        "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+        "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+        "f0000000-0000-4000-8000-000000000000"
+      ],
+      "pairs": [
+        {
+          "a": "",
+          "b": "",
+          "sign": 0
+        },
+        {
+          "a": "",
+          "b": "00000000-0000-4000-8000-000000000000",
+          "sign": -1
+        },
+        {
+          "a": "",
+          "b": "00000000-0000-4000-8000-000000000001",
+          "sign": -1
+        },
+        {
+          "a": "",
+          "b": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "sign": -1
+        },
+        {
+          "a": "",
+          "b": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "sign": -1
+        },
+        {
+          "a": "",
+          "b": "f0000000-0000-4000-8000-000000000000",
+          "sign": -1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000000",
+          "b": "",
+          "sign": 1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000000",
+          "b": "00000000-0000-4000-8000-000000000000",
+          "sign": 0
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000000",
+          "b": "00000000-0000-4000-8000-000000000001",
+          "sign": -1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000000",
+          "b": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "sign": -1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000000",
+          "b": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "sign": -1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000000",
+          "b": "f0000000-0000-4000-8000-000000000000",
+          "sign": -1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000001",
+          "b": "",
+          "sign": 1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000001",
+          "b": "00000000-0000-4000-8000-000000000000",
+          "sign": 1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000001",
+          "b": "00000000-0000-4000-8000-000000000001",
+          "sign": 0
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000001",
+          "b": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "sign": -1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000001",
+          "b": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "sign": -1
+        },
+        {
+          "a": "00000000-0000-4000-8000-000000000001",
+          "b": "f0000000-0000-4000-8000-000000000000",
+          "sign": -1
+        },
+        {
+          "a": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "b": "",
+          "sign": 1
+        },
+        {
+          "a": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "b": "00000000-0000-4000-8000-000000000000",
+          "sign": 1
+        },
+        {
+          "a": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "b": "00000000-0000-4000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "b": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "sign": 0
+        },
+        {
+          "a": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "b": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "sign": -1
+        },
+        {
+          "a": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "b": "f0000000-0000-4000-8000-000000000000",
+          "sign": -1
+        },
+        {
+          "a": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "b": "",
+          "sign": 1
+        },
+        {
+          "a": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "b": "00000000-0000-4000-8000-000000000000",
+          "sign": 1
+        },
+        {
+          "a": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "b": "00000000-0000-4000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "b": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "sign": 1
+        },
+        {
+          "a": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "b": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "sign": 0
+        },
+        {
+          "a": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "b": "f0000000-0000-4000-8000-000000000000",
+          "sign": -1
+        },
+        {
+          "a": "f0000000-0000-4000-8000-000000000000",
+          "b": "",
+          "sign": 1
+        },
+        {
+          "a": "f0000000-0000-4000-8000-000000000000",
+          "b": "00000000-0000-4000-8000-000000000000",
+          "sign": 1
+        },
+        {
+          "a": "f0000000-0000-4000-8000-000000000000",
+          "b": "00000000-0000-4000-8000-000000000001",
+          "sign": 1
+        },
+        {
+          "a": "f0000000-0000-4000-8000-000000000000",
+          "b": "a1b2c3d4-e5f6-4789-8012-3456789abcde",
+          "sign": 1
+        },
+        {
+          "a": "f0000000-0000-4000-8000-000000000000",
+          "b": "A1B2C3D4-E5F6-4789-8012-3456789ABCDE",
+          "sign": 1
+        },
+        {
+          "a": "f0000000-0000-4000-8000-000000000000",
+          "b": "f0000000-0000-4000-8000-000000000000",
+          "sign": 0
+        }
+      ]
+    },
+    {
+      "site": "lib/memory-compaction.js:80",
+      "args": [],
+      "keys": [
+        "11111111-2222-4333-8444-555555555554",
+        "11111111-2222-4333-8444-555555555555",
+        "11111111-2222-4333-8444-555555555556",
+        "11111111-2222-4333-8444-55555555555a",
+        "11111111-2222-4333-8444-55555555555f"
+      ],
+      "sorted": [
+        "11111111-2222-4333-8444-555555555554",
+        "11111111-2222-4333-8444-555555555555",
+        "11111111-2222-4333-8444-555555555556",
+        "11111111-2222-4333-8444-55555555555a",
+        "11111111-2222-4333-8444-55555555555f"
+      ],
+      "pairs": [
+        {
+          "a": "11111111-2222-4333-8444-555555555554",
+          "b": "11111111-2222-4333-8444-555555555554",
+          "sign": 0
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555554",
+          "b": "11111111-2222-4333-8444-555555555555",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555554",
+          "b": "11111111-2222-4333-8444-555555555556",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555554",
+          "b": "11111111-2222-4333-8444-55555555555a",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555554",
+          "b": "11111111-2222-4333-8444-55555555555f",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555555",
+          "b": "11111111-2222-4333-8444-555555555554",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555555",
+          "b": "11111111-2222-4333-8444-555555555555",
+          "sign": 0
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555555",
+          "b": "11111111-2222-4333-8444-555555555556",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555555",
+          "b": "11111111-2222-4333-8444-55555555555a",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555555",
+          "b": "11111111-2222-4333-8444-55555555555f",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555556",
+          "b": "11111111-2222-4333-8444-555555555554",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555556",
+          "b": "11111111-2222-4333-8444-555555555555",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555556",
+          "b": "11111111-2222-4333-8444-555555555556",
+          "sign": 0
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555556",
+          "b": "11111111-2222-4333-8444-55555555555a",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-555555555556",
+          "b": "11111111-2222-4333-8444-55555555555f",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555a",
+          "b": "11111111-2222-4333-8444-555555555554",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555a",
+          "b": "11111111-2222-4333-8444-555555555555",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555a",
+          "b": "11111111-2222-4333-8444-555555555556",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555a",
+          "b": "11111111-2222-4333-8444-55555555555a",
+          "sign": 0
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555a",
+          "b": "11111111-2222-4333-8444-55555555555f",
+          "sign": -1
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555f",
+          "b": "11111111-2222-4333-8444-555555555554",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555f",
+          "b": "11111111-2222-4333-8444-555555555555",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555f",
+          "b": "11111111-2222-4333-8444-555555555556",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555f",
+          "b": "11111111-2222-4333-8444-55555555555a",
+          "sign": 1
+        },
+        {
+          "a": "11111111-2222-4333-8444-55555555555f",
+          "b": "11111111-2222-4333-8444-55555555555f",
+          "sign": 0
+        }
+      ]
+    },
+    {
+      "site": "lib/memory-compaction.js:660",
+      "args": [],
+      "keys": [
+        "22222222-0000-4000-8000-000000000009",
+        "22222222-0000-4000-8000-000000000010",
+        "22222222-0000-4000-8000-00000000001a",
+        "22222222-0000-4000-8000-000000000020"
+      ],
+      "sorted": [
+        "22222222-0000-4000-8000-000000000009",
+        "22222222-0000-4000-8000-000000000010",
+        "22222222-0000-4000-8000-00000000001a",
+        "22222222-0000-4000-8000-000000000020"
+      ],
+      "pairs": [
+        {
+          "a": "22222222-0000-4000-8000-000000000009",
+          "b": "22222222-0000-4000-8000-000000000009",
+          "sign": 0
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000009",
+          "b": "22222222-0000-4000-8000-000000000010",
+          "sign": -1
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000009",
+          "b": "22222222-0000-4000-8000-00000000001a",
+          "sign": -1
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000009",
+          "b": "22222222-0000-4000-8000-000000000020",
+          "sign": -1
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000010",
+          "b": "22222222-0000-4000-8000-000000000009",
+          "sign": 1
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000010",
+          "b": "22222222-0000-4000-8000-000000000010",
+          "sign": 0
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000010",
+          "b": "22222222-0000-4000-8000-00000000001a",
+          "sign": -1
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000010",
+          "b": "22222222-0000-4000-8000-000000000020",
+          "sign": -1
+        },
+        {
+          "a": "22222222-0000-4000-8000-00000000001a",
+          "b": "22222222-0000-4000-8000-000000000009",
+          "sign": 1
+        },
+        {
+          "a": "22222222-0000-4000-8000-00000000001a",
+          "b": "22222222-0000-4000-8000-000000000010",
+          "sign": 1
+        },
+        {
+          "a": "22222222-0000-4000-8000-00000000001a",
+          "b": "22222222-0000-4000-8000-00000000001a",
+          "sign": 0
+        },
+        {
+          "a": "22222222-0000-4000-8000-00000000001a",
+          "b": "22222222-0000-4000-8000-000000000020",
+          "sign": -1
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000020",
+          "b": "22222222-0000-4000-8000-000000000009",
+          "sign": 1
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000020",
+          "b": "22222222-0000-4000-8000-000000000010",
+          "sign": 1
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000020",
+          "b": "22222222-0000-4000-8000-00000000001a",
+          "sign": 1
+        },
+        {
+          "a": "22222222-0000-4000-8000-000000000020",
+          "b": "22222222-0000-4000-8000-000000000020",
+          "sign": 0
+        }
+      ]
+    },
+    {
+      "site": "lib/reembedding/fingerprint.js:68",
+      "args": [],
+      "keys": [
+        "config.json",
+        "onnx/model.onnx",
+        "onnx/model_quantized.onnx",
+        "onnx/model-q8.onnx",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+      ],
+      "sorted": [
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "config.json",
+        "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+        "onnx/model_quantized.onnx",
+        "onnx/model-q8.onnx",
+        "onnx/model.onnx",
+        "special_tokens_map.json",
+        "tokenizer_config.json",
+        "tokenizer.json"
+      ],
+      "pairs": [
+        {
+          "a": "config.json",
+          "b": "config.json",
+          "sign": 0
+        },
+        {
+          "a": "config.json",
+          "b": "onnx/model.onnx",
+          "sign": -1
+        },
+        {
+          "a": "config.json",
+          "b": "onnx/model_quantized.onnx",
+          "sign": -1
+        },
+        {
+          "a": "config.json",
+          "b": "onnx/model-q8.onnx",
+          "sign": -1
+        },
+        {
+          "a": "config.json",
+          "b": "tokenizer.json",
+          "sign": -1
+        },
+        {
+          "a": "config.json",
+          "b": "tokenizer_config.json",
+          "sign": -1
+        },
+        {
+          "a": "config.json",
+          "b": "special_tokens_map.json",
+          "sign": -1
+        },
+        {
+          "a": "config.json",
+          "b": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "sign": 1
+        },
+        {
+          "a": "config.json",
+          "b": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model.onnx",
+          "b": "config.json",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model.onnx",
+          "b": "onnx/model.onnx",
+          "sign": 0
+        },
+        {
+          "a": "onnx/model.onnx",
+          "b": "onnx/model_quantized.onnx",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model.onnx",
+          "b": "onnx/model-q8.onnx",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model.onnx",
+          "b": "tokenizer.json",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model.onnx",
+          "b": "tokenizer_config.json",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model.onnx",
+          "b": "special_tokens_map.json",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model.onnx",
+          "b": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model.onnx",
+          "b": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model_quantized.onnx",
+          "b": "config.json",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model_quantized.onnx",
+          "b": "onnx/model.onnx",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model_quantized.onnx",
+          "b": "onnx/model_quantized.onnx",
+          "sign": 0
+        },
+        {
+          "a": "onnx/model_quantized.onnx",
+          "b": "onnx/model-q8.onnx",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model_quantized.onnx",
+          "b": "tokenizer.json",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model_quantized.onnx",
+          "b": "tokenizer_config.json",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model_quantized.onnx",
+          "b": "special_tokens_map.json",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model_quantized.onnx",
+          "b": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model_quantized.onnx",
+          "b": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model-q8.onnx",
+          "b": "config.json",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model-q8.onnx",
+          "b": "onnx/model.onnx",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model-q8.onnx",
+          "b": "onnx/model_quantized.onnx",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model-q8.onnx",
+          "b": "onnx/model-q8.onnx",
+          "sign": 0
+        },
+        {
+          "a": "onnx/model-q8.onnx",
+          "b": "tokenizer.json",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model-q8.onnx",
+          "b": "tokenizer_config.json",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model-q8.onnx",
+          "b": "special_tokens_map.json",
+          "sign": -1
+        },
+        {
+          "a": "onnx/model-q8.onnx",
+          "b": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "sign": 1
+        },
+        {
+          "a": "onnx/model-q8.onnx",
+          "b": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer.json",
+          "b": "config.json",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer.json",
+          "b": "onnx/model.onnx",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer.json",
+          "b": "onnx/model_quantized.onnx",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer.json",
+          "b": "onnx/model-q8.onnx",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer.json",
+          "b": "tokenizer.json",
+          "sign": 0
+        },
+        {
+          "a": "tokenizer.json",
+          "b": "tokenizer_config.json",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer.json",
+          "b": "special_tokens_map.json",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer.json",
+          "b": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer.json",
+          "b": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer_config.json",
+          "b": "config.json",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer_config.json",
+          "b": "onnx/model.onnx",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer_config.json",
+          "b": "onnx/model_quantized.onnx",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer_config.json",
+          "b": "onnx/model-q8.onnx",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer_config.json",
+          "b": "tokenizer.json",
+          "sign": -1
+        },
+        {
+          "a": "tokenizer_config.json",
+          "b": "tokenizer_config.json",
+          "sign": 0
+        },
+        {
+          "a": "tokenizer_config.json",
+          "b": "special_tokens_map.json",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer_config.json",
+          "b": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "sign": 1
+        },
+        {
+          "a": "tokenizer_config.json",
+          "b": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "sign": 1
+        },
+        {
+          "a": "special_tokens_map.json",
+          "b": "config.json",
+          "sign": 1
+        },
+        {
+          "a": "special_tokens_map.json",
+          "b": "onnx/model.onnx",
+          "sign": 1
+        },
+        {
+          "a": "special_tokens_map.json",
+          "b": "onnx/model_quantized.onnx",
+          "sign": 1
+        },
+        {
+          "a": "special_tokens_map.json",
+          "b": "onnx/model-q8.onnx",
+          "sign": 1
+        },
+        {
+          "a": "special_tokens_map.json",
+          "b": "tokenizer.json",
+          "sign": -1
+        },
+        {
+          "a": "special_tokens_map.json",
+          "b": "tokenizer_config.json",
+          "sign": -1
+        },
+        {
+          "a": "special_tokens_map.json",
+          "b": "special_tokens_map.json",
+          "sign": 0
+        },
+        {
+          "a": "special_tokens_map.json",
+          "b": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "sign": 1
+        },
+        {
+          "a": "special_tokens_map.json",
+          "b": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "sign": 1
+        },
+        {
+          "a": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "b": "config.json",
+          "sign": -1
+        },
+        {
+          "a": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "b": "onnx/model.onnx",
+          "sign": -1
+        },
+        {
+          "a": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "b": "onnx/model_quantized.onnx",
+          "sign": -1
+        },
+        {
+          "a": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "b": "onnx/model-q8.onnx",
+          "sign": -1
+        },
+        {
+          "a": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "b": "tokenizer.json",
+          "sign": -1
+        },
+        {
+          "a": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "b": "tokenizer_config.json",
+          "sign": -1
+        },
+        {
+          "a": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "b": "special_tokens_map.json",
+          "sign": -1
+        },
+        {
+          "a": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "b": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "sign": 0
+        },
+        {
+          "a": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "b": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "sign": -1
+        },
+        {
+          "a": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "b": "config.json",
+          "sign": 1
+        },
+        {
+          "a": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "b": "onnx/model.onnx",
+          "sign": -1
+        },
+        {
+          "a": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "b": "onnx/model_quantized.onnx",
+          "sign": -1
+        },
+        {
+          "a": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "b": "onnx/model-q8.onnx",
+          "sign": -1
+        },
+        {
+          "a": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "b": "tokenizer.json",
+          "sign": -1
+        },
+        {
+          "a": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "b": "tokenizer_config.json",
+          "sign": -1
+        },
+        {
+          "a": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "b": "special_tokens_map.json",
+          "sign": -1
+        },
+        {
+          "a": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "b": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "sign": 1
+        },
+        {
+          "a": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "b": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "sign": 0
+        }
+      ]
+    },
+    {
+      "site": "lib/jobs/skill-miner/evidence-aggregator.js:306",
+      "args": [],
+      "keys": [
+        "agent",
+        "ähneln",
+        "aehneln",
+        "docker",
+        "größe",
+        "groesse",
+        "lancedb",
+        "müller",
+        "mueller",
+        "ökonomie",
+        "oekonomie",
+        "rust",
+        "straße",
+        "strasse",
+        "überprüfung",
+        "ueberpruefung"
+      ],
+      "sorted": [
+        "aehneln",
+        "agent",
+        "ähneln",
+        "docker",
+        "groesse",
+        "größe",
+        "lancedb",
+        "mueller",
+        "müller",
+        "oekonomie",
+        "ökonomie",
+        "rust",
+        "strasse",
+        "straße",
+        "überprüfung",
+        "ueberpruefung"
+      ],
+      "pairs": [
+        {
+          "a": "agent",
+          "b": "agent",
+          "sign": 0
+        },
+        {
+          "a": "agent",
+          "b": "ähneln",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "agent",
+          "b": "docker",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "groesse",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "lancedb",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "oekonomie",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "agent",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "ähneln",
+          "b": "ähneln",
+          "sign": 0
+        },
+        {
+          "a": "ähneln",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "ähneln",
+          "b": "docker",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "groesse",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "lancedb",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "oekonomie",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "ähneln",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "agent",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "ähneln",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "aehneln",
+          "sign": 0
+        },
+        {
+          "a": "aehneln",
+          "b": "docker",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "groesse",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "lancedb",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "oekonomie",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "aehneln",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "docker",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "docker",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "docker",
+          "b": "docker",
+          "sign": 0
+        },
+        {
+          "a": "docker",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "groesse",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "lancedb",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "oekonomie",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "docker",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "größe",
+          "sign": 0
+        },
+        {
+          "a": "größe",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "größe",
+          "b": "lancedb",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "oekonomie",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "größe",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "groesse",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "groesse",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "groesse",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "groesse",
+          "b": "größe",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "groesse",
+          "sign": 0
+        },
+        {
+          "a": "groesse",
+          "b": "lancedb",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "oekonomie",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "groesse",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "lancedb",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "lancedb",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "lancedb",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "lancedb",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "lancedb",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "lancedb",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "lancedb",
+          "b": "lancedb",
+          "sign": 0
+        },
+        {
+          "a": "lancedb",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "lancedb",
+          "b": "mueller",
+          "sign": -1
+        },
+        {
+          "a": "lancedb",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "lancedb",
+          "b": "oekonomie",
+          "sign": -1
+        },
+        {
+          "a": "lancedb",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "lancedb",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "lancedb",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "lancedb",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "lancedb",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "lancedb",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "müller",
+          "sign": 0
+        },
+        {
+          "a": "müller",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "müller",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "oekonomie",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "müller",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "lancedb",
+          "sign": 1
+        },
+        {
+          "a": "mueller",
+          "b": "müller",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "mueller",
+          "sign": 0
+        },
+        {
+          "a": "mueller",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "oekonomie",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "mueller",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "ökonomie",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "lancedb",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "ökonomie",
+          "sign": 0
+        },
+        {
+          "a": "ökonomie",
+          "b": "oekonomie",
+          "sign": 1
+        },
+        {
+          "a": "ökonomie",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "ökonomie",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "ökonomie",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "ökonomie",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "ökonomie",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "oekonomie",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "oekonomie",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "oekonomie",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "oekonomie",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "oekonomie",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "oekonomie",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "oekonomie",
+          "b": "lancedb",
+          "sign": 1
+        },
+        {
+          "a": "oekonomie",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "oekonomie",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "oekonomie",
+          "b": "ökonomie",
+          "sign": -1
+        },
+        {
+          "a": "oekonomie",
+          "b": "oekonomie",
+          "sign": 0
+        },
+        {
+          "a": "oekonomie",
+          "b": "rust",
+          "sign": -1
+        },
+        {
+          "a": "oekonomie",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "oekonomie",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "oekonomie",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "oekonomie",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "rust",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "lancedb",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "ökonomie",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "oekonomie",
+          "sign": 1
+        },
+        {
+          "a": "rust",
+          "b": "rust",
+          "sign": 0
+        },
+        {
+          "a": "rust",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "rust",
+          "b": "strasse",
+          "sign": -1
+        },
+        {
+          "a": "rust",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "rust",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "straße",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "lancedb",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "ökonomie",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "oekonomie",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "rust",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "straße",
+          "sign": 0
+        },
+        {
+          "a": "straße",
+          "b": "strasse",
+          "sign": 1
+        },
+        {
+          "a": "straße",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "straße",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "strasse",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "lancedb",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "ökonomie",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "oekonomie",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "rust",
+          "sign": 1
+        },
+        {
+          "a": "strasse",
+          "b": "straße",
+          "sign": -1
+        },
+        {
+          "a": "strasse",
+          "b": "strasse",
+          "sign": 0
+        },
+        {
+          "a": "strasse",
+          "b": "überprüfung",
+          "sign": -1
+        },
+        {
+          "a": "strasse",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "überprüfung",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "lancedb",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "ökonomie",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "oekonomie",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "rust",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "straße",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "strasse",
+          "sign": 1
+        },
+        {
+          "a": "überprüfung",
+          "b": "überprüfung",
+          "sign": 0
+        },
+        {
+          "a": "überprüfung",
+          "b": "ueberpruefung",
+          "sign": -1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "agent",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "ähneln",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "aehneln",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "docker",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "größe",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "groesse",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "lancedb",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "müller",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "mueller",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "ökonomie",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "oekonomie",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "rust",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "straße",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "strasse",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "überprüfung",
+          "sign": 1
+        },
+        {
+          "a": "ueberpruefung",
+          "b": "ueberpruefung",
+          "sign": 0
+        }
+      ]
+    }
+  ],
+  "asciiBoundaries": [
+    {
+      "name": "emotional_state_leading_umlaut_words",
+      "pattern": "\\b(überrasch|ärger|übel|übernommen|öfter|ändern)\\b",
+      "flags": "i",
+      "results": [
+        {
+          "input": "überrasch",
+          "matched": false
+        },
+        {
+          "input": "Ich bin überrascht",
+          "matched": false
+        },
+        {
+          "input": "ärger im Projekt",
+          "matched": false
+        },
+        {
+          "input": "Ärger",
+          "matched": false
+        },
+        {
+          "input": "übel",
+          "matched": false
+        },
+        {
+          "input": "übernommen",
+          "matched": false
+        },
+        {
+          "input": "öfter",
+          "matched": false
+        },
+        {
+          "input": "ändern",
+          "matched": false
+        },
+        {
+          "input": "xüberrasch",
+          "matched": true
+        },
+        {
+          "input": "a_überrasch",
+          "matched": true
+        }
+      ]
+    },
+    {
+      "name": "recall_budget_project_signals",
+      "pattern": "\\b(project|plan|milestone|roadmap|deadline)\\b",
+      "flags": "i",
+      "results": [
+        {
+          "input": "Das Projekt hat eine neue Struktur",
+          "matched": false
+        },
+        {
+          "input": "Unser Projektplan steht",
+          "matched": false
+        },
+        {
+          "input": "The project milestone is tomorrow",
+          "matched": true
+        },
+        {
+          "input": "We need a plan for the roadmap",
+          "matched": true
+        },
+        {
+          "input": "überplan und Ära",
+          "matched": false
+        }
+      ]
+    },
+    {
+      "name": "ascii_digits_and_word_chars",
+      "pattern": "^\\d+:[\\w]+$",
+      "flags": "",
+      "results": [
+        {
+          "input": "123:abc_DEF_9",
+          "matched": true
+        },
+        {
+          "input": "123:müller",
+          "matched": false
+        },
+        {
+          "input": "123:straße",
+          "matched": false
+        },
+        {
+          "input": "٦:abc",
+          "matched": false
+        },
+        {
+          "input": "１２３:abc",
+          "matched": false
+        }
+      ]
+    }
+  ],
+  "lookarounds": [
+    {
+      "name": "fact_quality_phrase_boundary_nie",
+      "pattern": "(?<![\\p{L}\\p{N}])nie(?![\\p{L}\\p{N}])",
+      "flags": "iu",
+      "results": [
+        {
+          "input": "Ich war nie in Berlin.",
+          "matched": true,
+          "matches": [
+            {
+              "match": "nie",
+              "byteStart": 8
+            }
+          ]
+        },
+        {
+          "input": "Melanie hat ihr Knie verletzt.",
+          "matched": false,
+          "matches": []
+        },
+        {
+          "input": "Ein Ingenieur arbeitet nie allein.",
+          "matched": true,
+          "matches": [
+            {
+              "match": "nie",
+              "byteStart": 23
+            }
+          ]
+        },
+        {
+          "input": "Nie wieder!",
+          "matched": true,
+          "matches": [
+            {
+              "match": "Nie",
+              "byteStart": 0
+            }
+          ]
+        },
+        {
+          "input": "übernie und nie_mals",
+          "matched": true,
+          "matches": [
+            {
+              "match": "nie",
+              "byteStart": 13
+            }
+          ]
+        },
+        {
+          "input": "nie_mals",
+          "matched": true,
+          "matches": [
+            {
+              "match": "nie",
+              "byteStart": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fact_quality_phrase_boundary_immer",
+      "pattern": "(?<![\\p{L}\\p{N}])immer(?![\\p{L}\\p{N}])",
+      "flags": "iu",
+      "results": [
+        {
+          "input": "Das Zimmer ist immer warm.",
+          "matched": true,
+          "matches": [
+            {
+              "match": "immer",
+              "byteStart": 15
+            }
+          ]
+        },
+        {
+          "input": "Im Zimmer schimmern Lichter.",
+          "matched": false,
+          "matches": []
+        },
+        {
+          "input": "Immer wenn es regnet.",
+          "matched": true,
+          "matches": [
+            {
+              "match": "Immer",
+              "byteStart": 0
+            }
+          ]
+        },
+        {
+          "input": "immer!",
+          "matched": true,
+          "matches": [
+            {
+              "match": "immer",
+              "byteStart": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "memory_chunking_sentence_end_decimal_guard",
+      "pattern": "(?<!\\d)[.!?…]+(?!\\d)(?:\\s|$)",
+      "flags": "g",
+      "results": [
+        {
+          "input": "Wert 3.5 mmol/l ist normal. Zweiter Satz! Dritter?",
+          "matched": true,
+          "matches": [
+            {
+              "match": ". ",
+              "byteStart": 26
+            },
+            {
+              "match": "! ",
+              "byteStart": 40
+            },
+            {
+              "match": "?",
+              "byteStart": 49
+            }
+          ]
+        },
+        {
+          "input": "Version 1.2.3 wurde veröffentlicht… Ende.",
+          "matched": true,
+          "matches": [
+            {
+              "match": "… ",
+              "byteStart": 35
+            },
+            {
+              "match": ".",
+              "byteStart": 43
+            }
+          ]
+        },
+        {
+          "input": "Nur 3.14 und 2.718 ohne Punkt am Ende",
+          "matched": false,
+          "matches": []
+        }
+      ]
+    },
+    {
+      "name": "memory_chunking_sentence_split_lookbehind",
+      "pattern": "(?<=(?<!\\d)[.!?…])\\s+(?!\\d)",
+      "flags": "g",
+      "results": [
+        {
+          "input": "Wert 3.5 mmol/l bleibt stabil. Neuer Satz folgt! Und noch einer… 2. Punkt.",
+          "matched": true,
+          "matches": [
+            {
+              "match": " ",
+              "byteStart": 30
+            },
+            {
+              "match": " ",
+              "byteStart": 48
+            }
+          ]
+        },
+        {
+          "input": "Dr. Müller wohnt in Köln. Er trinkt 1.5 Liter Wasser.",
+          "matched": true,
+          "matches": [
+            {
+              "match": " ",
+              "byteStart": 3
+            },
+            {
+              "match": " ",
+              "byteStart": 27
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "temporal_parser_duration_negative_lookahead",
+      "pattern": "\\b(?:bis\\s+(?:heute|jetzt|dato)|until\\s+(?:today|now)|up\\s+to\\s+(?:today|now)|so\\s+far|to\\s+date)\\b(?!\\s+(?:abend|mittag|nachmittag|vormittag|früh|frueh|morgen|nacht|um\\b|\\d|evening|noon|afternoon|morning|night|at\\b))",
+      "flags": "gi",
+      "results": [
+        {
+          "input": "Bis heute lief das System stabil.",
+          "matched": true,
+          "matches": [
+            {
+              "match": "Bis heute",
+              "byteStart": 0
+            }
+          ]
+        },
+        {
+          "input": "Bis heute abend um 18 Uhr.",
+          "matched": false,
+          "matches": []
+        },
+        {
+          "input": "Everything worked until today morning.",
+          "matched": false,
+          "matches": []
+        },
+        {
+          "input": "Everything worked until today.",
+          "matched": true,
+          "matches": [
+            {
+              "match": "until today",
+              "byteStart": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dream_narrative_sentence_split_lookbehind",
+      "pattern": "(?<=[.!?])\\s+",
+      "flags": "g",
+      "results": [
+        {
+          "input": "Erster Satz. Zweiter Satz! Dritter Satz?",
+          "matched": true,
+          "matches": [
+            {
+              "match": " ",
+              "byteStart": 12
+            },
+            {
+              "match": " ",
+              "byteStart": 26
+            }
+          ]
+        },
+        {
+          "input": "Keine Satzgrenze am Ende",
+          "matched": false,
+          "matches": []
+        }
+      ]
+    }
+  ]
+}

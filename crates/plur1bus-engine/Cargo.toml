@@ -30,6 +30,10 @@ lance = { version = "=2.0.0", default-features = false, features = ["protoc"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 jsonschema = { version = "0.26", default-features = false }
 regex = "1"
+fancy-regex = "0.17"
+icu_normalizer = "2.3"
+icu_collator = "2.3"
+icu_locale_core = "2.3"
 url = "2"
 tokenizers = { version = "=0.23.2", default-features = false, features = ["fancy-regex"] }
 sha2 = "0.10"
