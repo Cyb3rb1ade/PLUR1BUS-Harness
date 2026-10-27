@@ -76,3 +76,17 @@ questions are recorded here as they are resolved.
   `MemoryRow.vector` generates `Vec<f32>`.
 - Attribution regenerated with `--reuse-npm`; check uses
   `--reuse-npm --check` to preserve the verified native npm baseline.
+
+## T2 completion
+
+- Actual crate cancellation tests first failed with the missing Cancel,
+  Cancelled, and CancelReason declarations, then passed after implementation.
+- Added the exact Engine/HostServices/JobRegistry/EmbeddingService interfaces,
+  all memory/admin operations including nested A1 services, models/channels,
+  runtime handles, typed errors, and the feature-gated FakeHost.
+- `cargo test --locked -p plur1bus-engine`: 66 unit/integration tests and two
+  compile-fail doctests passed. The doctests guard SecretValue diagnostics.
+- `cargo doc --locked -p plur1bus-engine --no-deps`: passed without warnings
+  after rendering inherited JS comment syntax for Rust documentation.
+- Contract generation preserves mixed scalar unions, legacy wire aliases,
+  explicit null/empty values, and integral JSON number representations.
