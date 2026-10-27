@@ -16,6 +16,9 @@ path = "src/main.rs"
 [lints]
 workspace = true
 
+[features]
+testkit = []
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
@@ -35,6 +38,8 @@ icu_normalizer = "2.3"
 icu_collator = "2.3"
 icu_locale_core = "2.3"
 url = "2"
+chrono-tz.workspace = true
+regress.workspace = true
 tokenizers = { version = "=0.23.2", default-features = false, features = ["fancy-regex"] }
 sha2 = "0.10"
 # One HTTP client policy in the workspace: the same version and features as crates/plur1bus (rustls, no native-tls).
@@ -42,3 +47,10 @@ ureq = { version = "3", default-features = false, features = ["rustls", "platfor
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[build-dependencies]
+typify.workspace = true
+schemars.workspace = true
+serde_json.workspace = true
+syn.workspace = true
+prettyplease.workspace = true

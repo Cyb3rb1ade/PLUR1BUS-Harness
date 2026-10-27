@@ -1,0 +1,190 @@
+# RE-01 progress and controller decisions
+
+Baseline: harness `05a50d88` (#790), engine
+`9f34008c143c5da87b2194b5a28442b407ff8ba7`, A1
+`9b935ce1f970bd92a931aa99a58c620669c8085f`. Node reference: 24.21.0.
+
+## Controller decisions, 2026-10-27
+
+- One PR for T1–T4; the controller merges. No CI polling, rebasing, force pushes,
+  engine pin changes, or dependency version changes.
+- Runtime behavior at the pin is the oracle. The recorder calls
+  `validatePluginConfig` from `lib/setup/config-contract.js`, the validation
+  used by `resolveEffectiveConfig` on engine startup. Error paths are relative
+  to the engine config. Record 30 accepted and 30 rejected configurations.
+- An empty `reranker` object is accepted. Use genuinely rejected field values
+  for its invalid vectors. The engine has no `recall.hardBudgetMs`; replace the
+  proposed budget relation vector with a rejected engine recall field.
+- Preserve the pinned config schema's keys, constraints, defaults, and
+  `x-contract`. The original package's hygiene exception permits neutralizing
+  host-specific descriptions only; `SOURCES.md` lists every changed pointer.
+  Runtime differences belong in a separate, tested drift ledger.
+- Accept boolean `runtime.traceRegistrations` additively. Its drift test must
+  fail when a later pin includes the key in its own engine schema.
+- Record schema default `runtime.deferPostTurnLlm = false` and effective Node
+  default `true`. A test pins both values so a pin change requires review.
+- `RecallTiming.namespacePhases[].namespace` accepts strings and null. Null
+  must serialize as null. Track the narrower upstream declaration as drift.
+- The three deviations above are engine issues, not reasons to change pins.
+  Apply the same tested ledger pattern to further runtime-only keys, default
+  discrepancies, or broader values. Stop for removals, renames, incompatible
+  type changes, changed recall/capture meaning, or contract/wire changes.
+- Try `python3 -m pip install --user cmake`; it succeeded. Include
+  `~/.local/bin` on PATH. A blocked build is never reported as green.
+- Lockfile clarification: reuse existing packages and versions through workspace
+  dependencies. Only lines in the `plur1bus-engine` dependency list may change;
+  no package, version, source, or checksum change. A parsed comparison verified
+  this restriction. The final PR includes the complete lockfile diff.
+
+## Execution
+
+- Preparatory commit `9bd58d82`: AST contract drift checker and 15 tests.
+  The tests failed before the implementation existed, then all passed under
+  Node 24.21.0.
+- `pnpm test:prep`: passed with the pinned engine installed.
+- T1 contract recorder: five raw outputs, reproduced byte for byte on two
+  runs. Fixed host clock and recording-process time/random sources; no output
+  normalization or manual fixture changes.
+- Initial Rust attempt stopped in dependency preparation because cmake was
+  missing. After installation the real crate verification was restarted;
+  this is not yet a passing result.
+
+## Implementation rulings
+
+- Preserve the Node `StoreAdoptRequest` argument of `StoreOps::adopt`, including
+  identity and dry-run fields. The brief's `path, expected_schema` comment was
+  shorthand, not a defined trait signature. `AdoptReport` remains the Rust
+  alias of the generated result type.
+- `embedding.local` belongs to engine configuration. The runtime embedding
+  service exposes embed, rerank, probe, identities, and serve; no additional
+  runtime `local` method is invented.
+
+Task completion, final verification, module dispositions, and remaining owner
+questions are recorded here as they are resolved.
+
+## T1 completion
+
+- Actual crate RED: `cargo test --locked -p plur1bus-engine --test
+  contract_roundtrip` failed with missing `plur1bus_engine::contract` after the
+  dependency build completed.
+- GREEN: all 10 contract tests pass, including five Node payload roundtrips,
+  a valid closed input plus an extra key, nullable/empty presence, config wire
+  aliases, omitted defaults, and constant booleans.
+- `cargo test --locked -p plur1bus-engine`: 57 tests passed, zero failures.
+- Drift checker against the installed pin exits 0; its 15 Node tests pass.
+- Input limits: all 17 constants and 46 Node vectors recorded and tested;
+  `MemoryRow.vector` generates `Vec<f32>`.
+- Attribution regenerated with `--reuse-npm`; check uses
+  `--reuse-npm --check` to preserve the verified native npm baseline.
+
+## T2 completion
+
+- Actual crate cancellation tests first failed with the missing Cancel,
+  Cancelled, and CancelReason declarations, then passed after implementation.
+- Added the exact Engine/HostServices/JobRegistry/EmbeddingService interfaces,
+  all memory/admin operations including nested A1 services, models/channels,
+  runtime handles, typed errors, and the feature-gated FakeHost.
+- `cargo test --locked -p plur1bus-engine`: 66 unit/integration tests and two
+  compile-fail doctests passed. The doctests guard SecretValue diagnostics.
+- `cargo doc --locked -p plur1bus-engine --no-deps`: passed without warnings
+  after rendering inherited JS comment syntax for Rust documentation.
+- Contract generation preserves mixed scalar unions, legacy wire aliases,
+  explicit null/empty values, and integral JSON number representations.
+
+## T3 completion
+
+- Actual crate RED: config parity tests failed with missing `config` module.
+- Both default and `testkit` engine test runs pass: 80 tests total, including
+  12 config tests covering 30 accepted/30 rejected configurations, eight
+  effective-config references, 20 pure setup references, timezone cases,
+  the source-schema copy, and ledger assumptions.
+- All 89 config fixture files reproduce byte for byte. The recorder uses
+  `validatePluginConfig` and relative paths; empty reranker is valid.
+- Additional ledger entries cover Node's ignored `chatModels.propertyNames`,
+  UTF-16 string length, and integral JSON number spelling. The copied schema's
+  constraints/defaults remain unchanged.
+- Exploratory checks of 9,310 Node configurations found no verdict/path
+  differences, also when using the actual generated EngineConfig type.
+- Engine clippy (all targets, `testkit`), rustdoc (no dependencies), fmt,
+  hygiene, and whitespace checks pass. Rustdoc emits no warnings.
+- Adapter-only profile filesystem discovery/onboarding/notices are explicitly
+  dropped: harness setup owns those effects. Pure engine profile/default
+  behavior is ported and recorded.
+- First-error order for multiple invalid siblings follows the supplied
+  `serde_json::Value` order. The Value API does not retain the original JSON
+  insertion order; individual recorded error paths match Node exactly.
+
+## T4 completion
+
+- `pnpm docs:gen` and `pnpm docs:check` pass. The generated engine reference
+  contains all 160 definitions, properties, version annotations, and methods.
+  Every rendered schema block matches its source definition.
+- AGENTS.md identifies the new generated document. `docs-hygiene` already
+  installs the engine and now runs the drift checker and its 15 tests.
+  `actionlint` 1.7.12 passes; no runner context was added to a job environment.
+- MODULE-MAP retains all 322 source rows and 100,593 lines. Every original
+  RE-01 row now points to its Rust implementation, a reasoned fold/drop, or
+  an explicit destination brief. Concrete lifecycle, provider, and pipeline
+  behavior remains with the implementation briefs; no engine trait is
+  implemented by RE-01.
+- Workspace clippy (all targets, warnings denied) passes. Workspace tests are
+  still running; the known supervisor CPU-affinity host failure is observed.
+- `pnpm lint`: exit 0, 155 passed, three existing Laya TODO tests, zero failures.
+- Dependency licence audit: 686 Cargo packages, zero violations. Raw cargo-deny
+  advisories fail on unchanged pinned dependencies (paste and zstd/lz4).
+  Its bans, licences, and sources checks pass; no allow-list was changed.
+
+## Final review and fix pass
+
+A fresh read-only whole-branch review found five important contract gaps, no
+critical findings, no deferred minor findings, and no declined judgments.
+
+- Referenced scalar unions: valid import/unimport reason and model-error
+  strings failed deserialization. Five new contract tests first failed;
+  generation now resolves scalar references and merges literals before typify.
+- Principal template prefixes: arbitrary strings were accepted despite the
+  frozen declarations. Prefix rejection/acceptance tests failed first, then
+  passed with the declared workspace/user prefixes and no extra suffix rule.
+- History limits: fractional, negative, and integral-float numbers were
+  incorrectly refused. The test failed first; the schema now preserves the
+  original number domain and leaves cap semantics to the registry.
+- Live defaults: a Node-only default change was invisible to the Rust-only
+  check. New tests failed without the checker; they now query the installed
+  startup module and prove that a simulated default-only change is detected
+  without re-recording fixtures.
+- Uncapped recall: raw Node closed-engine recall serializes Infinity as null.
+  The newly recorded sixth contract fixture failed to deserialize, then passed
+  with number-or-null capChars and an explicit drift entry. No pin changed.
+- Cancellation ruling: the four memory requests retain their source signals
+  as explicit Cancel arguments before principal/agent. Capture retains its
+  fixed method signature and carries a shared, nonserialized TurnRecord.cancel.
+  Compile-time consumers and the capture flag test failed first, then passed.
+
+After the fix pass, `cargo test --locked -p plur1bus-engine` passes 88 tests,
+including 16 contract and 14 config tests. The original five goldens remain
+byte-identical; the extra uncapped fixture is recorded by Node, never edited.
+Workspace verification and generated documentation are refreshed after this
+code-generation change before publishing the PR.
+
+## Final verification
+
+- Engine tests: 88 passed, zero failures. Workspace clippy with all targets
+  and warnings denied passes. Engine Rustdoc has no warnings. Formatting,
+  hygiene, actionlint, 15 Node drift tests, generated docs, links, and CLI
+  command/exit-code checks pass.
+- The isolated full workspace run reports 2,673 passed, exactly the three
+  explicitly known host failures, and three existing ignored tests (the two
+  known API-key/Docker gaps and the nightly extension fuzzer). No new test was
+  ignored or disabled.
+- A preceding parallel docs build replaced the running CLI inode and caused
+  two transient extension-worker failures with `(deleted)`. The final complete
+  run was repeated without a concurrent build and those tests passed.
+- The raw cargo-deny advisory failures remain paste RUSTSEC-2024-0436 and the
+  pinned zstd/lz4 RUSTSEC-2026-0391/0398/0403 chain. Bans, licences and sources
+  pass; dependency audit reports 686 packages and no licence violations.
+- Attribution `--reuse-npm --check` passes. Parsed Cargo.lock comparison still
+  differs only in the engine dependency list. Engine pin, npm lockfile, tokens
+  and cache-profile source files remain unchanged. The PR reproduces the full
+  lockfile diff and names all six already-locked direct dependencies/licences.
+- A1's final version remains the owner question. CI is not polled and merging
+  is left to the controller.

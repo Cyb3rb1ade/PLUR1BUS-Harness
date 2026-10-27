@@ -13,8 +13,10 @@ leaves `AdminOps.reembedding.validate` and the A1 members out; the rest of the b
 **Read first.**
 - Plan §1.3 (the 27 members the core calls, the eight private deep imports), §2.4 (layout), RE-1 in §4.
 - Engine repository at the pin `9f34008c`: `types/engine.d.ts` (1,289 lines — the source of truth for every type and doc
-  comment), `engine/config/engine-config.schema.json` (57 top-level keys) and `engine/config/engine-config-schema.js`
-  (194 lines, the validator entry), `engine/create-engine.js:1-200` (what `createEngine(host, config, testInternals)`
+  comment), `engine/config/engine-config.schema.json` (57 top-level keys), `engine/config/engine-config-schema.js`
+  (schema loader and metadata), and `lib/setup/config-contract.js` (`validatePluginConfig` and
+  `resolveEffectiveConfig`, the startup validator and effective defaults at pin `9f34008c`, verified with
+  Node 24.21.0), `engine/create-engine.js:1-220` (what `createEngine(host, config, testInternals)`
   accepts). Branch `codex/gp3-a1-curated-memory` tip `9b935ce`: `git diff 98dfe2f..9b935ce -- types/engine.d.ts` is
   the A1 delta (curation, recall stats, promotion, the `knowledge-update` job; no memory-tree fields). It labels itself 1.17.0, which collides with the pin.
 - Harness: `packages/core/src/engine.ts` (`CORE_CONTRACT = "1.17.0"`, `SUPPORTED_CONTRACT_MAJOR = 1`,
@@ -94,7 +96,7 @@ pub trait Engine: Send + Sync {
     fn models(&self) -> &dyn ModelsService;                      // status(), warm(cancel, refresh)
     fn memory(&self) -> &dyn MemoryOps;
     fn admin(&self) -> &dyn AdminOps;
-    fn stores(&self) -> &dyn StoreOps;                           // adopt(path, expected_schema) -> AdoptReport
+    fn stores(&self) -> &dyn StoreOps;                           // adopt(StoreAdoptRequest) -> AdoptReport, preserving identity and dry-run
     fn channels(&self) -> &dyn ChannelRegistry;                  // register(ChannelRef) -> String, has, list — the core calls engine.channels.register
     fn events(&self) -> EventReceiver;                           // std::sync::mpsc::Receiver<EngineEvent>
 }
@@ -138,6 +140,8 @@ pub trait EmbeddingService: Send + Sync {
 // src/contract/memory_ops.rs and admin_ops.rs: one method per member of types/engine.d.ts `MemoryOps` and `AdminOps`,
 // same names in snake_case, (principal: &Principal, agent: &AgentContext) as the last two parameters, plus the
 // `reembedding.validate` (1.17.0) and the A1 curation members from the 9b935ce diff.
+// Request AbortSignals in import/rebind/unbind/unimport become an explicit &Cancel before those last two parameters.
+// Capture retains Engine::capture's exact signature; TurnRecord.cancel is a Rust-only, serde-skipped Cancel field.
 
 // src/config/validate.rs
 pub fn validate(raw: &serde_json::Value) -> Result<EngineConfig, Vec<ConfigError>>;  // ConfigError { path, message }
@@ -220,7 +224,12 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
 ### T3 — Engine-config validation at parity (one pull request)
 
 - [ ] **Step 1: copy** `engine/config/engine-config.schema.json` from the pin `9f34008c` (identical to `98dfe2f0` except `x-contract: "1.17.0"`) to `schema/engine-config.schema.json`
-  byte for byte; `SOURCES.md` records the commit. Two facts about that file (audit 2026-10-23): on `main` it has 57
+  with only the controller-approved neutral descriptions for crate hygiene; `SOURCES.md` records the commit and
+  each changed JSON pointer. Compare parsed values after recursively removing `description`, preserving every
+  other field and `x-contract`. The runtime oracle is `validatePluginConfig` in `lib/setup/config-contract.js`,
+  called by `resolveEffectiveConfig` on startup in `engine/create-engine.js` at pin `9f34008c` (Node 24.21.0).
+  Differences from that runtime are explicit, tested entries in `schema/DRIFT.json`, never edits to the copied
+  constraints or defaults. On `main` the engine schema has 57
   top-level keys while `openclaw.plugin.json#configSchema` has 58 — `groupReasoningFilter` is manifest-only and read by
   adapter code (`lib/group-reasoning-filter.js` is not in the engine closure), so `config::validate` accepts it and
   nothing applies it; and the plugin line (`v7.18.31`) has no `engine-config.schema.json` at all — its contract is the
@@ -228,13 +237,21 @@ fn roundtrip<T: serde::de::DeserializeOwned + serde::Serialize>(name: &str) {
   error naming the secret store: a secret reaches the engine by name (`apiKeyEnv` → `SecretPort`), never inside
   `config.json` (plan §2.1). Add the drift test `the_copied_config_schema_equals_the_pinned_engines`
   in `tests/config_parity.rs`: when `packages/core/node_modules/@cyb3rb1ade/plur1bus-memory/engine/config/engine-config.schema.json`
-  exists, the two files are byte-identical; when it does not exist, the test **fails** with the message
+  exists, their parsed values are equal after removing `description` fields recursively; when it does not exist, the test **fails** with the message
   "run pnpm test:prep (the engine package is not installed)" — no silent skip (AGENTS.md "Tests lokal").
 - [ ] **Step 2: record parity vectors.** `tests/fixtures/config/record.mjs` feeds 30 valid and 30 invalid
-  configurations to the Node validator (`engine/config/engine-config-schema.js` — read its exports) and writes each as
+  configurations to `validatePluginConfig` from `lib/setup/config-contract.js` at pin `9f34008c`, using Node 24.21.0,
+  with diagnostic paths relative to the engine config (no plugin-entry prefix), and writes each as
   `{ config, valid, errors: [paths] }`. Choose the invalid ones to cover: unknown top-level key, wrong type, out-of-range
-  number, a `namespaces` entry with a wrong shape, a `reranker` block without `provider`, a `recall` budget with
-  `softBudgetMs > hardBudgetMs`, `captureChunkingJev.apiKey` set (unknown on `main`; the Rust error names the secret store).
+  number, a `namespaces` entry with a wrong shape, a wrong type or enum in `reranker`, a wrong type or out-of-range
+  field in engine `recall`, and `captureChunkingJev.apiKey` set (unknown on `main`; the Rust error names the secret store).
+  Preserve `{ "reranker": {} }` as a valid recorded case: `reranker.required` is empty. `hardBudgetMs` is a
+  harness-config setting, not an engine recall field; the proposed budget relation case does not apply here.
+  Record runtime-only `runtime.traceRegistrations` and the effective `runtime.deferPostTurnLlm` default through
+  the drift ledger. A drift test fails when the upstream schema gains the missing key or either default changes.
+  Runtime-only keys, default differences, and wider runtime values (including null and enum additions) follow
+  that same tested ledger pattern. Stop for removed/renamed fields, incompatible type or meaning changes,
+  or contract-version/wire changes. These corrections are controller decisions verified against the pin on Node 24.21.0.
 - [ ] **Step 3: failing test** `every_recorded_configuration_gets_the_same_verdict` in `tests/config_parity.rs`.
 - [ ] **Step 4: implement `config::validate`** with `jsonschema 0.26` compiled once (`OnceLock`), the schema embedded
   with `include_str!`; `ConfigError { path, message }` from the validator's instance path; `EngineConfig` is the

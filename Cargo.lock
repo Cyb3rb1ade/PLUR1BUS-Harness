@@ -4743,6 +4743,7 @@ dependencies = [
 name = "plur1bus-engine"
 version = "0.1.0"
 dependencies = [
+ "chrono-tz",
  "clap",
  "fancy-regex 0.17.0",
  "icu_collator",
@@ -4751,13 +4752,18 @@ dependencies = [
  "jsonschema",
  "lance",
  "lancedb",
+ "prettyplease 0.2.37",
  "regex",
+ "regress 0.10.5",
  "rusqlite",
+ "schemars 0.8.22",
  "serde",
  "serde_json",
  "sha2",
+ "syn 2.0.119",
  "tempfile",
  "tokenizers",
+ "typify",
  "ureq",
  "url",
 ]

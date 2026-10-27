@@ -16,19 +16,21 @@ Regenerate: walk the relative import closure from `engine/create-engine.js` (reg
 
 ## Totals by owner
 
+RE-01 disposition update (2026-10-27): pure contracts, cancellation, limits and configuration stay with RE-01. Runtime composition, provider/pipeline helpers, resource shutdown and verification reads move to the named follow-up owners below, because RE-01 excludes concrete trait implementations. Mixed files list every consumer and adapter-only drop. Existing RE-04 recall-value and RE-05 speaker behavior retain their owners.
+
 | Owner | Files | Lines | port | fold | decide | drop | review |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| RE-01 | 13 | 5,707 | 11 | 2 | 0 | 0 | 0 |
+| RE-01 | 5 | 1,217 | 3 | 2 | 0 | 0 | 0 |
 | RE-02 | 29 | 10,267 | 22 | 7 | 0 | 0 | 0 |
-| RE-03 | 25 | 5,808 | 23 | 2 | 0 | 0 | 0 |
+| RE-03 | 26 | 5,966 | 23 | 3 | 0 | 0 | 0 |
 | RE-04 | 43 | 15,780 | 42 | 1 | 0 | 0 | 0 |
-| RE-05 | 46 | 16,177 | 43 | 3 | 0 | 0 | 0 |
+| RE-05 | 48 | 16,275 | 43 | 5 | 0 | 0 | 0 |
 | RE-06 | 59 | 16,424 | 58 | 1 | 0 | 0 | 0 |
-| RE-07 | 69 | 16,380 | 33 | 0 | 36 | 0 | 0 |
-| RE-08 | 10 | 1,598 | 0 | 10 | 0 | 0 | 0 |
+| RE-07 | 70 | 16,448 | 33 | 1 | 36 | 0 | 0 |
+| RE-08 | 13 | 5,742 | 2 | 11 | 0 | 0 | 0 |
 | RE-13 | 2 | 262 | 2 | 0 | 0 | 0 | 0 |
-| — | 26 | 12,190 | 0 | 0 | 0 | 26 | 0 |
-| **all** | 322 | 100,593 | 234 | 26 | 36 | 26 | 0 |
+| — | 27 | 12,212 | 0 | 0 | 0 | 27 | 0 |
+| **all** | 322 | 100,593 | 228 | 31 | 36 | 27 | 0 |
 
 ## Files that exist only on the OpenClaw plugin line (`v7.18.31`)
 
@@ -51,19 +53,11 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 
 | File | Lines | Disposition | Named in | Purpose | Note |
 |---|---:|---|---|---|---|
-| `lib/abort.js` | 141 | fold | RE-08 | Throw when an operation's cancellation signal has been aborted. | `Cancel` |
-| `lib/with-timeout.js` | 54 | fold | RE-08 | Race a promise against a timeout. | `Cancel` deadlines |
-| `engine/create-engine.js` | 3991 | port | RE-01, RE-05, plan | the one construction path (spec 3.1, owner decision A). | 3,998 lines at the pin `9f34008c` (+7: the `validate` facade and the `reembeddingTargetProvider` seam) |
-| `lib/setup/feature-profiles.js` | 607 | port | RE-01 | explicit PLUR1BUS feature profiles. | `setupProfile` → feature flags, read by recall and create-engine (RE-01 T3 config) |
-| `lib/setup/config-contract.js` | 324 | port | RE-01 | profile config contract (key lists per setup profile; no header comment) | profile config contract: which keys a setup profile sets (RE-01 T3) |
-| `engine/runtime/env-config.js` | 158 | port | RE-01 | environment-variable and config resolution, summaries and small command helpers. |  |
-| `engine/lifecycle/close-resources.js` | 129 | port | RE-01, RE-08 | the engine's close path (spec 3.1). |  |
-| `lib/input-limits.js` | 91 | port | RE-01, RE-08 | Centralized input validation with clear error messages. | limits are contract constants (RE-01) |
-| `engine/config/live-config.js` | 68 | port | RE-01 | the engine's one host-neutral re-read of its |  |
-| `engine/runtime/debug-log.js` | 66 | port | — | the module-level debug logger (`dbg`), the purge throttle and the speaker-proposal pipeline. |  |
-| `engine/runtime/constants.js` | 32 | port | — | module-level constants shared by the recall, capture and command paths. |  |
-| `engine/events.js` | 24 | port | RE-01 | The single path engine code uses to tell the host something happened |  |
-| `engine/internals.js` | 22 | port | plan | the adapter's transitional window into EngineInternals. |  |
+| `lib/abort.js` | 141 | fold | RE-08 | Throw when an operation's cancellation signal has been aborted. | Folded into `src/contract/cancel.rs`; caller cancellation and deadline reasons are tested by RE-01/T2. |
+| `lib/with-timeout.js` | 54 | fold | RE-08 | Race a promise against a timeout. | Folded into `Cancel` deadlines and `remaining()` in `src/contract/cancel.rs` (RE-01/T2). |
+| `lib/setup/feature-profiles.js` | 607 | port | RE-01 | explicit PLUR1BUS feature profiles. | Pure profile/default behavior is ported into `src/config/profiles.rs` and `defaults.rs`: profile flags, legacy normalization, status/diff/missing-feature reports and pending-apply decisions, tested against recorded Node outputs; the caller supplies the clock. Host-plugin vault/workspace discovery and pending-notice filesystem effects are adapter-only and are dropped; harness setup owns its layout and onboarding. |
+| `lib/setup/config-contract.js` | 324 | port | RE-01 | profile config contract (key lists per setup profile; no header comment) | Ported into `src/config/validate.rs` and `defaults.rs`: structural validation, aliases, unsafe-field/secret/timezone checks and manifest/effective defaults, tested against 60 Node verdicts and eight effective configs. Runtime/schema differences are explicit in `schema/DRIFT.json`. |
+| `lib/input-limits.js` | 91 | port | RE-01, RE-08 | Centralized input validation with clear error messages. | Ported into `src/contract/limits.rs`: 17 recorded contract constants and all ten typed input validators, tested against 46 recorded Node vectors. |
 
 ### RE-02
 
@@ -128,6 +122,7 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/providers/reranker-chained.js` | 60 | port | RE-03 | Chained Reranker mit Fallback. |  |
 | `lib/providers/rerank-signal.js` | 20 | port | RE-03 | the single owner of a rerank timeout (PR-09). |  |
 | `lib/providers/reranker-cohere.js` | 17 | port | RE-03 | the Cohere preset of the remote reranker. |  |
+| `engine/runtime/env-config.js` | 158 | fold | RE-01 | environment-variable and config resolution, summaries and small command helpers. | Deferred from RE-01 because these helpers execute providers/pipelines: credential resolution → RE-03/T5 `SecretPort`; generateSummary → RE-04/T0 `text::legacy`; query summarizer → RE-04/T2; capture summarizer → RE-05/T2; prompt parameters and stable error classes → RE-06/T2. Adapter-only commandOption and readFileHeadSync are dropped with `engine/commands/*`. |
 
 ### RE-04
 
@@ -170,7 +165,7 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/recall-confidence-framing.js` | 65 | port | RE-04 | Unsicherheits-Hedging nach Recall-Score. |  |
 | `lib/contradiction-disclosure.js` | 58 | port | RE-04 | formatContradictionDisclosure(pairs, opts) -> string \| null |  |
 | `lib/frontmatter.js` | 55 | port | RE-04 | YAML-Frontmatter Parser/Builder für KNOWLEDGE.md. |  |
-| `engine/recall/recall-result.js` | 54 | port | RE-01, RE-04 | Value helpers for the recall contract (types/engine.d.ts, target 1.4.1): |  |
+| `engine/recall/recall-result.js` | 54 | port | RE-01, RE-04 | Value helpers for the recall contract (types/engine.d.ts, target 1.4.1): | RE-01 defines the RecallResult/ContextBlock data shapes; value construction, defaults and copy behavior remain RE-04/T5,T6, including UTF-16 block lengths through RE-04/T0. |
 | `lib/knowledge-pending-prune.js` | 51 | port | RE-04 | Stale-entry detection for the KNOWLEDGE.md promotion queue | on `main` reached only through the chat command module; engine behaviour all the same |
 | `engine/recall/system-supplement.js` | 30 | port | RE-04, RE-07 | The static system-prompt supplement (was index.js:7082-7087): the recall |  |
 | `lib/memory-context-sanitize.js` | 26 | port | RE-04 | Sanitizers for memory context attributes and prompt text. |  |
@@ -199,7 +194,7 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/memory-chunking.js` | 346 | port | RE-05 | entscheidet, ob eine Erinnerung als ein Vektor | the lookbehind sentence splits (`:57-70`, `:166-179`) go through `text::js`; they decide which rows and vectors are stored |
 | `lib/emotion-engine.js` | 340 | port | RE-05 | Core emotion analysis engine. |  |
 | `lib/continuity-gate.js` | 322 | port | RE-05 | Taste gate that prevents PLUR1BUS from surfacing spontaneous memory associations |  |
-| `lib/speaker-segment-schema.js` | 313 | port | RE-01, RE-05 | Canonical speaker-segment schema shared between PLUR1BUS and OpenClaw. | canonical speaker-segment schema shared with OpenClaw → also a contract type (RE-01) |
+| `lib/speaker-segment-schema.js` | 313 | port | RE-01, RE-05 | Canonical speaker-segment schema shared between PLUR1BUS and OpenClaw. | Deferred to existing owner RE-05/T3 `capture/speaker.rs`: canonical schema, normalizers, constructors, formatting, media-output token helpers and mappings require recorded Node parity. No SpeakerSegment export exists in the pinned declaration file; RE-01 adds no speculative public type. |
 | `lib/emotion.js` | 283 | port | RE-05 | Emotions-Inferenz für PLUR1BUS Memories. |  |
 | `lib/encoding-llm.js` | 283 | port | RE-05 | LLM-Einstiegspunkt für Emotion UND Bedeutung in einem Call. | on `main` reached only through the chat command module; engine behaviour all the same |
 | `engine/capture/turn-replay-guard.js` | 274 | port | RE-05 | Q3 (E4 Task 5): a replayed turn never |  |
@@ -227,6 +222,8 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/reminder-nudge.js` | 39 | port | RE-05 | Formats due reminders into a prependContext nudge string. |  |
 | `lib/epistemic-capture.js` | 36 | port | RE-05 | decide observed vs untrusted for new writes. |  |
 | `lib/post-turn-detach.js` | 27 | port | RE-05 | Post-turn work (capture, episodes, insights, light dream) is enqueued from |  |
+| `engine/runtime/debug-log.js` | 66 | fold | — | the module-level debug logger (`dbg`), the purge throttle and the speaker-proposal pipeline. | Deferred from RE-01 with consumers: speaker proposal pipeline → RE-05/T3 `capture/speaker.rs`; per-database purge throttle and 300000 ms limit → RE-02/T2 `store/lance.rs`; debug logging → RE-08/T2 logger using log-schema. Module-global logger plumbing is dropped. |
+| `engine/runtime/constants.js` | 32 | fold | — | module-level constants shared by the recall, capture and command paths. | Deferred from RE-01 with consumers: memories table name → RE-02/T1; legacy model default → RE-03/T1; 2097152-byte reply-outcome read cap → RE-04/T5; 2000 remembered episode turn IDs and five postprocessing retries → RE-05/T1,T5; 300-character correction evidence preview → RE-07/T1 `ops/memory.rs`. The legacy host-specific default path is replaced by the RE-08/T2 configured layout. |
 
 ### RE-06
 
@@ -365,6 +362,7 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `engine/memory-ops/import-id.js` | 49 | port | — | deterministic card ids for `memory.import` |  |
 | `engine/memory-ops/errors.js` | 27 | port | — | "not-found", "denied", "invalid-input", "approval-required", |  |
 | `lib/curation-resolve.js` | 27 | port | RE-07 | human keep/drop for neo conflict records. | on `main` reached only through the chat command module; engine behaviour all the same |
+| `engine/config/live-config.js` | 68 | fold | RE-01 | the engine's one host-neutral re-read of its | Deferred from RE-01 to RE-07/T6 `ops/reembedding/{switch,probe}.rs`: preserve the verification re-read of reembedding.activeGeneration; host config retrieval needs the RE-08 bridge. Adapter plugin-entry unwrapping is dropped. |
 
 ### RE-08
 
@@ -380,6 +378,9 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/event-loop-lag-snapshot.js` | 63 | fold | RE-08 | cheap event-loop lag snapshot. | not applicable (no event loop); report scheduler lag instead |
 | `lib/private-fs.js` | 57 | fold | RE-08 | Owner-only file and directory modes for sidecar files that hold message text | `plur1bus-rpc`/supervisor file modes |
 | `lib/process-singleton.js` | 30 | fold | RE-08 | singleton.js (7.12.36) | supervisor lock identity |
+| `engine/create-engine.js` | 3991 | port | RE-01, RE-05, plan | the one construction path (spec 3.1, owner decision A). | Deferred from RE-01 to RE-08/T2 runtime composition: construction needs the concrete RE-02…RE-07 implementations, excluded from RE-01. Capture/checkpoint/replay remain RE-05/T1,T6; service implementations retain their owning briefs. RE-01 supplies the types, traits and pure config helpers. The pin adds the validate facade and reembeddingTargetProvider seam. |
+| `engine/lifecycle/close-resources.js` | 129 | port | RE-01, RE-08 | the engine's close path (spec 3.1). | Deferred from RE-01 to RE-08/T2: preserve idempotence, budgeted shutdown and resource ordering after the concrete RE-02…RE-07 resources exist; RE-01 defines the close contract and cancellation only. |
+| `engine/events.js` | 24 | fold | RE-01 | The single path engine code uses to tell the host something happened | Deferred from RE-01 to RE-08/T2 `HostServices::emit` bridge and engine notifications; preserve best-effort delivery so listener failure never breaks a turn. RE-01 supplies event data shapes and the emit port. |
 
 ### RE-13
 
@@ -418,3 +419,4 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/native/sharp-stub.js` | 43 | drop | — | callable stand-in for `sharp` when the native | transformers.js workaround |
 | `lib/host-sdk-loader.js` | 24 | drop | RE-08 | the one seam lib/ uses to reach a host SDK module | Node module plumbing |
 | `lib/plugin-meta.js` | 17 | drop | RE-08 | the plugin's root directory and version, read once. | Node module plumbing |
+| `engine/internals.js` | 22 | drop | plan | the adapter's transitional window into EngineInternals. | Adapter-only transitional access to private engine internals; the harness uses the public Engine contract. |

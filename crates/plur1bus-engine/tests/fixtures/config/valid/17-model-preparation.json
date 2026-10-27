@@ -1,0 +1,10 @@
+{
+  "config": {
+    "modelPreparation": {
+      "profile": "e5-multilingual-384",
+      "acceptNonCommercialLicense": false
+    }
+  },
+  "valid": true,
+  "errors": []
+}

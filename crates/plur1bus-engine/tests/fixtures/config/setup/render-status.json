@@ -1,0 +1,30 @@
+{
+  "operation": "renderPlur1busStartStatus",
+  "args": [
+    {
+      "autoCapture": false,
+      "autoRecall": true,
+      "reranker": {
+        "enabled": true
+      },
+      "obsidianBridge": {
+        "enabled": true,
+        "requireVaultPathConfirmation": true,
+        "morningReview": {
+          "enabled": true,
+          "status": "pending_setup"
+        },
+        "eveningReview": {
+          "enabled": false,
+          "status": "pending_setup"
+        }
+      }
+    },
+    {
+      "vaultPath": "/fixture/vault",
+      "workspaceRoot": "/fixture/workspace",
+      "reviewRoot": "review"
+    }
+  ],
+  "output": "PLUR1BUS — Make your agent yours!\n\nActive: 4  Disabled: 2  New/missing: 23\n\nActive:\n- Auto Recall\n- Reranker\n- Obsidian Bridge\n- Morning Review\n\nDisabled:\n- Auto Capture\n- Evening Review\n\nNew/missing:\n- Neo Context Injection (follows manifest default)\n- Recall Dedup (follows manifest default)\n- Canonical-First Recall (follows manifest default)\n- Temporal Continuity Context (follows manifest default)\n- Embedding Cache (follows manifest default)\n- LLM Result Cache (follows manifest default)\n- Emotion Tier 2 (follows manifest default)\n- Emotion Tier 3, provider-gated/fail-soft (follows manifest default)\n- Meta-Cognition (follows manifest default)\n- Meta-Cognition LLM Report, budgeted/fail-soft (follows manifest default)\n- Merging (follows manifest default)\n- Low-risk Merge Auto-Apply (follows manifest default)\n- Schicht 1.5 Knowledge Promotion (follows manifest default)\n- Skill Miner (follows manifest default)\n- Daily Consolidation (follows manifest default)\n- Dashboard Layer (follows manifest default)\n- Semantic Graph (follows manifest default)\n- Provenance Graph (follows manifest default)\n- Adversarial Deep (follows manifest default)\n- Critical Push, rate-limited (follows manifest default)\n- SoulPatch (follows manifest default)\n- SoulPatch createIfMissing (follows manifest default)\n- SoulPatch backup (follows manifest default)\n\nObsidian: vaultPath=/fixture/vault workspaceRoot=/fixture/workspace reviewRoot=review\nReviews: morning=on evening=off dashboard=on\n\nUse /plur1bus enable|disable <feature>."
+}

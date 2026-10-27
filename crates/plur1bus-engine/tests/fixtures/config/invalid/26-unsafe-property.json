@@ -1,0 +1,13 @@
+{
+  "config": {
+    "emotion": {
+      "temperaments": {
+        "__proto__": {}
+      }
+    }
+  },
+  "valid": false,
+  "errors": [
+    "emotion.temperaments.__proto__"
+  ]
+}

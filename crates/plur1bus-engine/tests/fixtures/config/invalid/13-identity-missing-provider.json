@@ -1,0 +1,15 @@
+{
+  "config": {
+    "embedding": {
+      "routes": [
+        {
+          "identity": {}
+        }
+      ]
+    }
+  },
+  "valid": false,
+  "errors": [
+    "embedding.routes[0].identity.provider"
+  ]
+}

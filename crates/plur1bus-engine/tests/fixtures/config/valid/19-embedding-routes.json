@@ -1,0 +1,32 @@
+{
+  "config": {
+    "embedding": {
+      "routes": [
+        {
+          "agentId": "fixture-agent",
+          "namespace": "team_1",
+          "scope": "workspace",
+          "identity": {
+            "provider": "local-transformers",
+            "model": "fixture-model",
+            "revision": "fixture-revision",
+            "dimension": 384,
+            "normalization": "l2",
+            "prefixScheme": "none",
+            "instruction": "",
+            "dtype": "q8",
+            "artifacts": [
+              {
+                "path": "models/fixture.onnx",
+                "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ],
+            "tokenCap": null
+          }
+        }
+      ]
+    }
+  },
+  "valid": true,
+  "errors": []
+}

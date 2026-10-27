@@ -1,0 +1,16 @@
+{
+  "config": {
+    "reranker": {
+      "enabled": true,
+      "provider": "remote",
+      "protocol": "cohere",
+      "baseUrl": "https://fixture.invalid/rerank",
+      "maxDocuments": 1,
+      "maxRequestBytes": 1,
+      "maxResponseBytes": 1,
+      "fallbackProvider": "disabled"
+    }
+  },
+  "valid": true,
+  "errors": []
+}

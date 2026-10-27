@@ -1,0 +1,9 @@
+{
+  "config": {
+    "runtime": {
+      "deferPostTurnLlm": false
+    }
+  },
+  "valid": true,
+  "errors": []
+}

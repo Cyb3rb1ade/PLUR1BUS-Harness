@@ -1,0 +1,11 @@
+{
+  "config": {
+    "reembedding": {
+      "activeGeneration": "generation-1",
+      "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dimensions": 384
+    }
+  },
+  "valid": true,
+  "errors": []
+}

@@ -1,0 +1,21 @@
+{
+  "config": {
+    "emotion": {
+      "moodInfluence": 0,
+      "temperaments": {
+        "fixture": {
+          "sensitivity": 0,
+          "decayMultiplier": 0,
+          "blendFactor": 1,
+          "moodInfluence": 1,
+          "baseline": {
+            "joy": 1,
+            "fear": 0
+          }
+        }
+      }
+    }
+  },
+  "valid": true,
+  "errors": []
+}

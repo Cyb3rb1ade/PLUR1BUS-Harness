@@ -1,0 +1,9 @@
+{
+  "config": {
+    "timezone": "Mars/Olympus"
+  },
+  "valid": false,
+  "errors": [
+    "timezone"
+  ]
+}

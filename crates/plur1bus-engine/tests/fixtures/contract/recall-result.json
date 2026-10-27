@@ -1,0 +1,139 @@
+{
+  "blocks": [
+    {
+      "name": "neo",
+      "text": "",
+      "droppable": true,
+      "chars": 0
+    },
+    {
+      "name": "start",
+      "text": "",
+      "droppable": true,
+      "chars": 0
+    },
+    {
+      "name": "memories",
+      "text": "Schreibe freundlich, aber zurückhaltend heiter. Nenne deine Stimmung nicht als Label/Statuszeile; lass sie nur den Ton färben. Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"preference\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000003\" epistemic=\"observed\" created-at=\"2026-10-15T12:00:00.000Z\" age=\"0m ago\" freshness=\"fresh\"><quoted-evidence>Please remember that I always prefer green tea over coffee in the morning.</quoted-evidence></memory-record>\n</relevant-memories>",
+      "droppable": true,
+      "chars": 834
+    },
+    {
+      "name": "time",
+      "text": "<time-context>\nFirst activity. Current time: 2026-10-15 14:00 Europe/Zurich (UTC 2026-10-15 12:00).\n</time-context>",
+      "droppable": false,
+      "chars": 115
+    },
+    {
+      "name": "temporal",
+      "text": "",
+      "droppable": false,
+      "chars": 0
+    },
+    {
+      "name": "reminder",
+      "text": "",
+      "droppable": false,
+      "chars": 0
+    }
+  ],
+  "capChars": 17000,
+  "degraded": null,
+  "timing": {
+    "phases": {
+      "elapsedMs": 0,
+      "softBudgetMs": 35000,
+      "hardTimeoutMs": 10000,
+      "activePhase": null,
+      "completed": [
+        {
+          "phase": "entry",
+          "ms": 0
+        },
+        {
+          "phase": "queue",
+          "ms": 0
+        },
+        {
+          "phase": "prelude",
+          "ms": 0
+        },
+        {
+          "phase": "namespace-recall",
+          "ms": 0
+        }
+      ],
+      "errors": [],
+      "exceededBudget": false
+    },
+    "totalMs": 0,
+    "namespacePhases": [
+      {
+        "namespace": null,
+        "phase": "embedding",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "vector_search",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "query_refinement",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "temporal",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "canonical",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "scoring",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "graph",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "graph_hydration",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "rerank",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "budget",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "dedup",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "acl",
+        "ms": 0
+      },
+      {
+        "namespace": null,
+        "phase": "finalize",
+        "ms": 0
+      }
+    ]
+  },
+  "deferrals": []
+}

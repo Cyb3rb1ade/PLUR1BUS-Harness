@@ -1,0 +1,13 @@
+{
+  "config": {
+    "groupReasoningFilter": {
+      "enabled": true,
+      "prefixes": [
+        "🧠",
+        "<think>"
+      ]
+    }
+  },
+  "valid": true,
+  "errors": []
+}

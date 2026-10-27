@@ -1,0 +1,11 @@
+{
+  "config": {
+    "embedding": {
+      "dimensions": 0
+    }
+  },
+  "valid": false,
+  "errors": [
+    "embedding.dimensions"
+  ]
+}

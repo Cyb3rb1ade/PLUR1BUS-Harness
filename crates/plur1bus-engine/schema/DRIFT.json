@@ -1,0 +1,98 @@
+{
+  "engineCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "nodeVersion": "24.21.0",
+  "issues": [
+    {
+      "id": "runtime-trace-registrations",
+      "kind": "runtime-additional-property",
+      "path": "runtime.traceRegistrations",
+      "schemaPointer": "/properties/runtime/properties/traceRegistrations",
+      "schemaExpectedAbsent": true,
+      "runtimeSchema": {
+        "type": "boolean",
+        "default": false
+      },
+      "reason": "The startup validator accepts the manifest field; the closed engine runtime schema omits it."
+    },
+    {
+      "id": "defer-post-turn-default",
+      "kind": "runtime-default",
+      "path": "runtime.deferPostTurnLlm",
+      "schemaPointer": "/properties/runtime/properties/deferPostTurnLlm/default",
+      "schemaValue": false,
+      "runtimeValue": true,
+      "reason": "The effective startup default comes from the manifest, which differs from the engine schema."
+    },
+    {
+      "id": "nullable-recall-namespace",
+      "kind": "runtime-wider-value",
+      "path": "RecallTiming.namespacePhases[].namespace",
+      "declaration": "string",
+      "runtimeSchema": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "reason": "The default namespace is emitted as null. Preserve null in serialized recall results."
+    },
+    {
+      "id": "ignored-chat-model-property-names",
+      "kind": "runtime-ignored-constraint",
+      "path": "chatModels",
+      "schemaPointer": "/properties/chatModels/propertyNames",
+      "schemaValue": {
+        "pattern": "^[A-Za-z0-9_-]{1,64}$"
+      },
+      "reason": "The startup walker ignores propertyNames. Preserve accepted model-map keys while validating their values; the generated type projection omits this constraint."
+    },
+    {
+      "id": "utf16-config-string-lengths",
+      "kind": "runtime-string-semantics",
+      "path": "string constraints",
+      "reason": "The startup walker measures minLength and maxLength in UTF-16 code units. Rust performs that check explicitly and removes scalar-count lengths from the compiled compatibility validator and generated projection."
+    },
+    {
+      "id": "integral-json-number-spelling",
+      "kind": "runtime-number-semantics",
+      "path": "integer constraints",
+      "reason": "Node Number.isInteger accepts integral JSON numbers such as 1.0. The schema walker checks their numeric value; the generated config projection uses lossless JSON numbers after validation and omits numeric restrictions already checked at the boundary."
+    },
+    {
+      "id": "nullable-uncapped-recall-cap",
+      "kind": "runtime-wider-value",
+      "path": "RecallResult.capChars",
+      "declaration": "number",
+      "runtimeSchema": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "reason": "Uncapped closed, warm, aborted and other early exits return Infinity in Node; JSON serializes it as null. Preserve null as the uncapped sentinel."
+    }
+  ],
+  "acceptedManifestFields": [
+    {
+      "path": "groupReasoningFilter",
+      "reason": "Manifest-only adapter configuration, accepted and preserved by startup validation.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "prefixes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  ]
+}

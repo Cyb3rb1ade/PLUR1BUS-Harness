@@ -1,0 +1,14 @@
+{
+  "config": {
+    "runtime": {
+      "lancedbCompaction": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 1,
+        "checkIntervalMs": 60000,
+        "timeoutMs": 10000
+      }
+    }
+  },
+  "valid": true,
+  "errors": []
+}

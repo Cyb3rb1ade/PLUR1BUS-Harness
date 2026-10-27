@@ -1,0 +1,11 @@
+{
+  "config": {
+    "recall": {
+      "candidateTopK": 101
+    }
+  },
+  "valid": false,
+  "errors": [
+    "recall.candidateTopK"
+  ]
+}

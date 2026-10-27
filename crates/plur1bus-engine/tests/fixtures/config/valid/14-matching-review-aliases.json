@@ -1,0 +1,20 @@
+{
+  "config": {
+    "morningReview": {
+      "enabled": true,
+      "timezone": "Europe/Berlin",
+      "status": "pending_setup",
+      "applyMode": "manual"
+    },
+    "obsidianBridge": {
+      "morningReview": {
+        "enabled": true,
+        "timezone": "Europe/Berlin",
+        "status": "pending_setup",
+        "applyMode": "manual"
+      }
+    }
+  },
+  "valid": true,
+  "errors": []
+}

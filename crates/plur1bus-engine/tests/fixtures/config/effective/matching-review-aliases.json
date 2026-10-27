@@ -1,0 +1,40 @@
+{
+  "operation": "validatePluginConfig",
+  "args": [
+    {
+      "morningReview": {
+        "enabled": true,
+        "timezone": "Europe/Berlin",
+        "status": "pending_setup",
+        "applyMode": "manual"
+      },
+      "obsidianBridge": {
+        "morningReview": {
+          "enabled": true,
+          "timezone": "Europe/Berlin",
+          "status": "pending_setup",
+          "applyMode": "manual"
+        }
+      }
+    },
+    {
+      "path": ""
+    }
+  ],
+  "output": {
+    "morningReview": {
+      "enabled": true,
+      "timezone": "Europe/Berlin",
+      "status": "pending_setup",
+      "applyMode": "manual"
+    },
+    "obsidianBridge": {
+      "morningReview": {
+        "enabled": true,
+        "timezone": "Europe/Berlin",
+        "status": "pending_setup",
+        "applyMode": "manual"
+      }
+    }
+  }
+}

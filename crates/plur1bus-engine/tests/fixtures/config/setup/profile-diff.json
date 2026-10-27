@@ -1,0 +1,47 @@
+{
+  "operation": "describeProfileDiff",
+  "args": [
+    {
+      "autoCapture": false,
+      "autoRecall": true,
+      "reranker": {
+        "enabled": true
+      },
+      "obsidianBridge": {
+        "enabled": true,
+        "requireVaultPathConfirmation": true,
+        "morningReview": {
+          "enabled": true,
+          "status": "pending_setup"
+        },
+        "eveningReview": {
+          "enabled": false,
+          "status": "pending_setup"
+        }
+      }
+    },
+    {
+      "autoCapture": true,
+      "autoRecall": false,
+      "reranker": {
+        "enabled": true
+      },
+      "neo": {
+        "enabled": true
+      }
+    }
+  ],
+  "output": {
+    "isUpdate": true,
+    "alreadyActive": [
+      "reranker"
+    ],
+    "newlyActivated": [
+      "autoCapture",
+      "neo"
+    ],
+    "disabled": [
+      "autoRecall"
+    ]
+  }
+}

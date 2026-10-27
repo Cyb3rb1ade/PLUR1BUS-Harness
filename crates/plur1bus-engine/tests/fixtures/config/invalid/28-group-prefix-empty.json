@@ -1,0 +1,13 @@
+{
+  "config": {
+    "groupReasoningFilter": {
+      "prefixes": [
+        ""
+      ]
+    }
+  },
+  "valid": false,
+  "errors": [
+    "groupReasoningFilter.prefixes[0]"
+  ]
+}

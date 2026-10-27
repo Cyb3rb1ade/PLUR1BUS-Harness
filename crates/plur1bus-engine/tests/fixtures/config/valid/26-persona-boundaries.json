@@ -1,0 +1,12 @@
+{
+  "config": {
+    "personaVoice": {
+      "maxDirectiveChars": 200,
+      "maxBullets": 6,
+      "minDaysBetween": 0,
+      "minOutcomes": 1
+    }
+  },
+  "valid": true,
+  "errors": []
+}

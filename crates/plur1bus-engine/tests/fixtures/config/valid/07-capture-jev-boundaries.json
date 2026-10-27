@@ -1,0 +1,11 @@
+{
+  "config": {
+    "captureChunkingJev": {
+      "apiKeyEnv": "FIXTURE_JEV_KEY",
+      "minConfidence": 1,
+      "timeoutMs": 30000
+    }
+  },
+  "valid": true,
+  "errors": []
+}

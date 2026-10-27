@@ -1,0 +1,16 @@
+{
+  "config": {
+    "morningReview": {
+      "enabled": true
+    },
+    "obsidianBridge": {
+      "morningReview": {
+        "enabled": false
+      }
+    }
+  },
+  "valid": false,
+  "errors": [
+    "obsidianBridge.morningReview"
+  ]
+}

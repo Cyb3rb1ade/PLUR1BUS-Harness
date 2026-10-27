@@ -1,0 +1,11 @@
+{
+  "config": {
+    "styleDirective": {
+      "timezone": "   "
+    }
+  },
+  "valid": false,
+  "errors": [
+    "styleDirective.timezone"
+  ]
+}

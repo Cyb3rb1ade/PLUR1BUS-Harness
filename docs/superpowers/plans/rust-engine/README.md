@@ -115,10 +115,10 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | Brief | Status | Pull requests |
 |---|---|---|
 | RE-00 | merged 2026-10-24 (T1–T4 in one PR, merge commit 76b54e9d); MSVC `protoc` follow-up #769 merged 2026-10-25 | [#759](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/759), [#769](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/769) |
-| RE-01 | not started | — |
-| RE-02 | not started | — |
+| RE-01 | merged 2026-10-27 (T1–T4 in one PR); the A1 members carry `x-since: a1-pending` until the engine numbers them | [#793](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/793) |
+| RE-02 | not started; can start, RE-01 and RE-04 T0 are merged | — |
 | RE-03 | not started | — |
-| RE-04 | not started | — |
+| RE-04 | T0 merged 2026-10-27; T1 onwards waits for RE-02 and RE-03 | [#792](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/792) |
 | RE-05 | not started | — |
 | RE-06 | not started (go/no-go pending) | — |
 | RE-07 | not started | — |

@@ -1,0 +1,9 @@
+{
+  "config": {
+    "autoCapture": false,
+    "autoRecall": true,
+    "captureChunking": false
+  },
+  "valid": true,
+  "errors": []
+}

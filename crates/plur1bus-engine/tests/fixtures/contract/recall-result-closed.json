@@ -1,0 +1,14 @@
+{
+  "blocks": [],
+  "capChars": null,
+  "degraded": {
+    "reason": "engine-closed",
+    "detail": "engine closed",
+    "capability": "recall"
+  },
+  "timing": {
+    "phases": null,
+    "totalMs": 0
+  },
+  "deferrals": []
+}

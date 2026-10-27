@@ -1,0 +1,46 @@
+{
+  "operation": "normalizePluginEntryCompatibility",
+  "args": [
+    {
+      "enabled": false,
+      "config": {
+        "hooks": {
+          "fixtureHook": true
+        },
+        "morningReview": {
+          "enabled": true,
+          "timezone": "Europe/Berlin",
+          "status": "pending_setup",
+          "applyMode": "manual"
+        },
+        "merging": {
+          "backupBeforeApply": false,
+          "auditLog": false
+        }
+      }
+    },
+    {
+      "profileName": "recommended"
+    }
+  ],
+  "output": {
+    "enabled": false,
+    "config": {
+      "merging": {
+        "backupBeforeApply": true,
+        "auditLog": true
+      },
+      "obsidianBridge": {
+        "morningReview": {
+          "enabled": true,
+          "timezone": "Europe/Berlin",
+          "status": "pending_setup",
+          "applyMode": "manual"
+        }
+      }
+    },
+    "hooks": {
+      "fixtureHook": true
+    }
+  }
+}
