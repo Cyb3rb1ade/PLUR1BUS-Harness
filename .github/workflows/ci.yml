@@ -1294,6 +1294,8 @@ jobs:
       - name: hygiene and documentation checks
         run: |
           node scripts/lint-hygiene.mjs
+          node scripts/check-engine-contract.mjs packages/core/node_modules/@cyb3rb1ade/plur1bus-memory/types/engine.d.ts
+          node --test scripts/test/check-engine-contract.test.mjs
           node scripts/release/check-source-quality.mjs
           node scripts/check-i18n.mjs
           node --test scripts/lint-hygiene.test.mjs scripts/check-doc-links.test.mjs scripts/check-docs-commands.test.mjs scripts/bundle-user-docs.test.mjs

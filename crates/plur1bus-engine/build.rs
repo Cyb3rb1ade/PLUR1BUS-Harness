@@ -91,6 +91,27 @@ fn prepare(value: &mut Value, config: bool) {
         node.remove("default");
         node.remove("$id");
         node.retain(|name, _| !name.starts_with("x-") && name != "readAt");
+        // Declaration comments use JS regex and path notation. Render those
+        // tokens as code and bare endpoints as links in the Rust projection.
+        if let Some(Value::String(description)) = node.get_mut("description") {
+            *description = description
+                .replace(
+                    "/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/",
+                    "`/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/`",
+                )
+                .replace("[A-Za-z0-9._:/@-]", "`[A-Za-z0-9._:/@-]`")
+                .replace(
+                    "<baseDbPath>/llm-router-errors.log",
+                    "`<baseDbPath>/llm-router-errors.log`",
+                );
+            for endpoint in [
+                "https://api.cohere.com/v2",
+                "https://api.jina.ai/v1",
+                "https://api.voyageai.com/v1",
+            ] {
+                *description = description.replace(endpoint, &format!("<{endpoint}>"));
+            }
+        }
         // Validation precedes configuration deserialization. The Node validator counts
         // UTF-16 units, ignores propertyNames, and accepts the JSON number 1.0 as integer.
         if config {
@@ -98,6 +119,15 @@ fn prepare(value: &mut Value, config: bool) {
             node.remove("minLength");
             node.remove("maxLength");
             node.remove("pattern");
+            for constraint in [
+                "minimum",
+                "maximum",
+                "exclusiveMinimum",
+                "exclusiveMaximum",
+                "multipleOf",
+            ] {
+                node.remove(constraint);
+            }
             if node.get("type").and_then(Value::as_str) == Some("integer") {
                 node.insert("type".into(), Value::String("number".into()));
             }

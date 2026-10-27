@@ -1,4 +1,5 @@
 //! Recorded engine payloads retain their JSON representation through the contract types.
+#![allow(clippy::unwrap_used)]
 use plur1bus_engine::contract::*;
 use serde::{de::DeserializeOwned, Serialize};
 
