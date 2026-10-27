@@ -131,5 +131,5 @@ fn is_marker_temporary(name: &str) -> bool {
 }
 
 fn io_error(error: std::io::Error) -> StoreError {
-    StoreError::Io { kind: error.kind() }
+    StoreError::from(error)
 }

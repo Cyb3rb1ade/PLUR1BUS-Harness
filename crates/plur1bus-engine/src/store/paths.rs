@@ -149,5 +149,5 @@ fn verify_directory(path: &Path) -> Result<(), StoreError> {
 }
 
 fn io_error(error: std::io::Error) -> StoreError {
-    StoreError::Io { kind: error.kind() }
+    StoreError::from(error)
 }

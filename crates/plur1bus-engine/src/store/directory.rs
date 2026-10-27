@@ -17,7 +17,7 @@ use super::paths::assert_trusted_path;
 struct DirectoryId(u64, u64);
 
 fn io_error(error: std::io::Error) -> StoreError {
-    StoreError::Io { kind: error.kind() }
+    StoreError::from(error)
 }
 
 fn absolute_path(path: &Path) -> Result<PathBuf, StoreError> {
