@@ -17,6 +17,7 @@ fn run(home_dir: &Path, cwd: &Path, args: &[&str], env: &[(&str, &str)]) -> Outp
         .env("PATH", "/usr/bin:/bin")
         .env("HOME", home_dir)
         .env("USERPROFILE", home_dir)
+        .env("LOCALAPPDATA", home_dir.join("AppData").join("Local"))
         .stdin(Stdio::null());
     for (k, v) in env {
         c.env(k, v);
@@ -146,38 +147,48 @@ fn a_home_with_spaces_and_umlauts_works_for_create_list_and_remove() {
     ] {
         let home = d.path().join(name).join(".plur1bus");
         let h = home.to_str().unwrap();
-        assert_eq!(
-            run(
-                d.path(),
-                d.path(),
-                &["--home", h, "--json", "agent", "create", "bernd"],
-                &[]
-            )
-            .status
-            .code(),
-            Some(0),
-            "{name}"
-        );
-        let listed = json(&run(
+        let before = tree(d.path());
+        let created = run(
             d.path(),
             d.path(),
-            &["--home", h, "--json", "agent", "list"],
+            &["--home", h, "--json", "agent", "create", "bernd"],
             &[],
-        ));
-        assert_eq!(listed["agents"][0]["agentId"], "bernd", "{name}: {listed}");
-        assert!(home.join("config.json").is_file(), "{name}");
-        assert_eq!(
-            run(
-                d.path(),
-                d.path(),
-                &["--home", h, "--json", "agent", "remove", "bernd"],
-                &[]
-            )
-            .status
-            .code(),
-            Some(0),
-            "{name}"
         );
+        if cfg!(windows) && name.contains('"') {
+            // Windows forbids `"` in a path component; this case must fail cleanly without creating state.
+            assert_eq!(created.status.code(), Some(1), "{name}");
+            let error = json(&created);
+            assert_eq!(error["schema"], "error/1", "{name}: {error}");
+            assert_eq!(error["error"], "E_CONFIG_INVALID", "{name}: {error}");
+            assert!(
+                error["message"].as_str().unwrap().starts_with("io:"),
+                "{error}"
+            );
+            assert!(!String::from_utf8_lossy(&created.stderr).contains("panicked"));
+            assert_eq!(tree(d.path()), before, "{name} created or changed a file");
+        } else {
+            assert_eq!(created.status.code(), Some(0), "{name}");
+            let listed = json(&run(
+                d.path(),
+                d.path(),
+                &["--home", h, "--json", "agent", "list"],
+                &[],
+            ));
+            assert_eq!(listed["agents"][0]["agentId"], "bernd", "{name}: {listed}");
+            assert!(home.join("config.json").is_file(), "{name}");
+            assert_eq!(
+                run(
+                    d.path(),
+                    d.path(),
+                    &["--home", h, "--json", "agent", "remove", "bernd"],
+                    &[]
+                )
+                .status
+                .code(),
+                Some(0),
+                "{name}"
+            );
+        }
     }
 }
 
@@ -202,9 +213,14 @@ fn xdg_variables_and_an_empty_plur1bus_home_do_not_move_the_default_home() {
         "{}",
         String::from_utf8_lossy(&o.stderr)
     );
+    let default_home = if cfg!(windows) {
+        user.join("AppData").join("Local").join("PLUR1BUS")
+    } else {
+        user.join(".plur1bus")
+    };
     assert!(
-        user.join(".plur1bus/config.json").is_file(),
-        "the default home is ~/.plur1bus"
+        default_home.join("config.json").is_file(),
+        "the documented platform default home is {default_home:?}"
     );
     assert!(
         tree(&xdg).is_empty(),
@@ -269,11 +285,15 @@ fn a_relative_home_is_resolved_against_the_working_directory_of_the_process() {
 #[test]
 fn a_home_beyond_the_file_systems_limits_is_a_clean_error_and_creates_nothing() {
     let d = tempfile::tempdir().unwrap();
-    // A component beyond NAME_MAX (255) and a whole path beyond PATH_MAX.
+    // A component beyond NAME_MAX (255) and a nested path beyond the platform's limits.
     let long_name = d.path().join("n".repeat(300));
     let mut long_path = d.path().to_path_buf();
     for _ in 0..40 {
         long_path.push("d".repeat(200));
+    }
+    if cfg!(windows) {
+        // Long paths are enabled on the runner, but an NTFS component still cannot exceed 255 UTF-16 units.
+        long_path.push("n".repeat(256));
     }
     for home in [&long_name, &long_path] {
         for args in [
