@@ -1,5 +1,5 @@
 //! Synchronous store boundary over one dedicated Tokio runtime per store.
-use super::{row, schema_version, RowFilter, StoreSchemaVersion};
+use super::{row, schema_version, RowFilter, RowPatch, Scored, StoreSchemaVersion};
 use crate::contract::{MemoryRow, StoreError, VectorSpaceIdentity};
 use arrow_schema::SchemaRef;
 use futures::TryStreamExt;
@@ -229,20 +229,23 @@ impl Store {
         text
     }
     /// Count committed memory rows.
-    pub fn count(&self, _filter: &RowFilter) -> Result<usize, StoreError> {
+    pub fn count(&self, filter: &RowFilter) -> Result<usize, StoreError> {
         let table = self.table.clone();
+        let filter = filter.to_sql();
         self.executor
-            .run(async move { table.count_rows(None).await.map_err(backend_error) })
+            .run(async move { table.count_rows(Some(filter)).await.map_err(backend_error) })
     }
     /// Read committed rows up to the requested limit.
-    pub fn scan(&self, _filter: &RowFilter, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
+    pub fn scan(&self, filter: &RowFilter, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
         if limit == 0 {
             return Ok(Vec::new());
         }
         let table = self.table.clone();
+        let filter = filter.to_sql();
         self.executor.run(async move {
             let batches = table
                 .query()
+                .only_if(filter)
                 .limit(limit)
                 .execute()
                 .await
@@ -269,6 +272,151 @@ impl Store {
                 .await
                 .map_err(backend_error)?;
             Ok(row::from_batches(&batches)?.into_iter().next())
+        })
+    }
+    fn writable(&self) -> Result<(), StoreError> {
+        if self.mode == OpenMode::ReadOnly {
+            Err(StoreError::ReadOnly)
+        } else {
+            Ok(())
+        }
+    }
+    /// Search using Lance's default metric and safely rendered predicates.
+    pub fn search(
+        &self,
+        vector: &[f32],
+        limit: usize,
+        filter: &RowFilter,
+    ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        self.validate_vector(vector)?;
+        let table = self.table.clone();
+        let vector = vector.to_vec();
+        let filter = filter.to_sql();
+        self.executor.run(async move {
+            let batches = table
+                .vector_search(vector)
+                .map_err(backend_error)?
+                .only_if(filter)
+                .limit(limit)
+                .execute()
+                .await
+                .map_err(backend_error)?
+                .try_collect::<Vec<_>>()
+                .await
+                .map_err(backend_error)?;
+            let mut rows = Vec::new();
+            for batch in batches {
+                for mut value in row::json_rows(&batch)? {
+                    let distance = value
+                        .as_object_mut()
+                        .and_then(|row| row.remove("_distance"))
+                        .and_then(|value| value.as_f64())
+                        .ok_or(StoreError::Corrupt)? as f32;
+                    rows.push(Scored {
+                        row: serde_json::from_value(value).map_err(|_| StoreError::Corrupt)?,
+                        distance,
+                    });
+                }
+            }
+            Ok(rows)
+        })
+    }
+    fn validate_vector(&self, vector: &[f32]) -> Result<(), StoreError> {
+        let dim = match self
+            .schema
+            .field_with_name("vector")
+            .map_err(|_| StoreError::Corrupt)?
+            .data_type()
+        {
+            arrow_schema::DataType::FixedSizeList(_, dim) => *dim as usize,
+            _ => return Err(StoreError::Corrupt),
+        };
+        if vector.len() != dim || vector.iter().any(|value| !value.is_finite()) {
+            return Err(StoreError::InvalidInput);
+        }
+        Ok(())
+    }
+    /// Merge rows on their ID; success is returned only after Lance commits.
+    pub fn upsert(&self, rows: &[MemoryRow]) -> Result<(), StoreError> {
+        self.writable()?;
+        if rows.is_empty() {
+            return Ok(());
+        }
+        for row in rows {
+            self.validate_vector(&row.vector)?;
+        }
+        let batch = row::to_batch(rows, self.schema.clone())?;
+        let table = self.table.clone();
+        let schema = self.schema.clone();
+        self.executor.run(async move {
+            let batches = arrow_array::RecordBatchIterator::new(vec![Ok(batch)], schema);
+            let mut merge = table.merge_insert(&["id"]);
+            merge
+                .when_matched_update_all(None)
+                .when_not_matched_insert_all();
+            merge
+                .execute(Box::new(batches))
+                .await
+                .map_err(backend_error)?;
+            Ok(())
+        })
+    }
+    /// Patch selected columns without dropping the row's other persisted values.
+    pub fn patch(&self, id: &str, patch: &RowPatch) -> Result<(), StoreError> {
+        self.writable()?;
+        let Some(existing) = self.get(id)? else {
+            return Ok(());
+        };
+        let mut value = serde_json::to_value(existing).map_err(|_| StoreError::Corrupt)?;
+        let changes = serde_json::to_value(patch).map_err(|_| StoreError::InvalidInput)?;
+        let object = value.as_object_mut().ok_or(StoreError::Corrupt)?;
+        for (key, value) in changes.as_object().ok_or(StoreError::InvalidInput)? {
+            object.insert(key.clone(), value.clone());
+        }
+        self.upsert(&[serde_json::from_value(value).map_err(|_| StoreError::InvalidInput)?])
+    }
+    /// Delete matching safe IDs and report how many committed rows matched.
+    pub fn delete(&self, ids: &[&str]) -> Result<usize, StoreError> {
+        self.writable()?;
+        let filter = RowFilter {
+            ids: Some(ids.iter().map(|id| (*id).to_owned()).collect()),
+            ..Default::default()
+        }
+        .to_sql();
+        let table = self.table.clone();
+        self.executor.run(async move {
+            let count = table
+                .count_rows(Some(filter.clone()))
+                .await
+                .map_err(backend_error)?;
+            table.delete(&filter).await.map_err(backend_error)?;
+            Ok(count)
+        })
+    }
+    /// Compact fragments and retain at least the Node policy's default 24 hours of versions.
+    pub fn optimize(&self) -> Result<(), StoreError> {
+        self.writable()?;
+        let table = self.table.clone();
+        self.executor.run(async move {
+            table
+                .optimize(lancedb::table::OptimizeAction::Compact {
+                    options: Default::default(),
+                    remap_options: None,
+                })
+                .await
+                .map_err(backend_error)?;
+            table
+                .optimize(lancedb::table::OptimizeAction::Prune {
+                    older_than: Some(chrono::Duration::hours(24)),
+                    delete_unverified: Some(false),
+                    error_if_tagged_old_versions: None,
+                })
+                .await
+                .map_err(backend_error)?;
+            Ok(())
         })
     }
 }

@@ -125,16 +125,54 @@ pub fn schema_text(schema: &Schema) -> String {
 }
 
 pub(super) fn to_batch(rows: &[MemoryRow], schema: SchemaRef) -> Result<RecordBatch, StoreError> {
-    let mut decoder = arrow_json::ReaderBuilder::new(schema)
-        .with_batch_size(rows.len().max(1))
-        .with_strict_mode(true)
-        .build_decoder()
+    use arrow_array::{
+        ArrayRef, BooleanArray, FixedSizeListArray, Float32Array, Float64Array, StringArray,
+    };
+    let values = rows
+        .iter()
+        .map(serde_json::to_value)
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|_| StoreError::Corrupt)?;
-    decoder.serialize(rows).map_err(|_| StoreError::Corrupt)?;
-    decoder
-        .flush()
-        .map_err(|_| StoreError::Corrupt)?
-        .ok_or(StoreError::Corrupt)
+    let columns = schema
+        .fields()
+        .iter()
+        .map(|field| -> Result<ArrayRef, StoreError> {
+            let name = field.name();
+            Ok(match field.data_type() {
+                DataType::Utf8 => Arc::new(StringArray::from(
+                    values
+                        .iter()
+                        .map(|row| row[name].as_str().ok_or(StoreError::Corrupt))
+                        .collect::<Result<Vec<_>, _>>()?,
+                )),
+                DataType::Boolean => Arc::new(BooleanArray::from(
+                    values
+                        .iter()
+                        .map(|row| row[name].as_bool().ok_or(StoreError::Corrupt))
+                        .collect::<Result<Vec<_>, _>>()?,
+                )),
+                DataType::Float64 => Arc::new(Float64Array::from(
+                    values
+                        .iter()
+                        .map(|row| row[name].as_f64().ok_or(StoreError::Corrupt))
+                        .collect::<Result<Vec<_>, _>>()?,
+                )),
+                DataType::FixedSizeList(child, dim) => {
+                    let vectors = Float32Array::from(
+                        rows.iter()
+                            .flat_map(|row| row.vector.iter().copied())
+                            .collect::<Vec<_>>(),
+                    );
+                    Arc::new(
+                        FixedSizeListArray::try_new(child.clone(), *dim, Arc::new(vectors), None)
+                            .map_err(|_| StoreError::Corrupt)?,
+                    )
+                }
+                _ => return Err(StoreError::Corrupt),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    RecordBatch::try_new(schema, columns).map_err(|_| StoreError::Corrupt)
 }
 
 pub(super) fn json_rows(batch: &RecordBatch) -> Result<Vec<serde_json::Value>, StoreError> {
@@ -151,4 +189,246 @@ pub(super) fn from_batches(batches: &[RecordBatch]) -> Result<Vec<MemoryRow>, St
         }
         Ok(rows)
     })
+}
+
+/// A committed row paired with Lance's unmodified squared-L2 distance.
+#[derive(Clone, Debug)]
+pub struct Scored<T> {
+    /// Persisted row.
+    pub row: T,
+    /// Lance distance; no square root or metric conversion is applied.
+    pub distance: f32,
+}
+/// Optional values for each patchable memory column; absence leaves that column unchanged.
+#[derive(Clone, Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RowPatch {
+    /// Replacement for the persisted `type` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "type")]
+    pub type_: Option<String>,
+    /// Replacement for the persisted `confirmed` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "confirmed")]
+    pub confirmed: Option<bool>,
+    /// Replacement for the persisted `text` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "text")]
+    pub text: Option<String>,
+    /// Replacement for the persisted `summary` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "summary")]
+    pub summary: Option<String>,
+    /// Replacement for the persisted `origin` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "origin")]
+    pub origin: Option<String>,
+    /// Replacement for the persisted `vector` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "vector")]
+    pub vector: Option<Vec<f32>>,
+    /// Replacement for the persisted `importance` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "importance")]
+    pub importance: Option<f64>,
+    /// Replacement for the persisted `category` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "category")]
+    pub category: Option<String>,
+    /// Replacement for the persisted `createdAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "createdAt")]
+    pub created_at: Option<f64>,
+    /// Replacement for the persisted `mergedFrom` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "mergedFrom")]
+    pub merged_from: Option<String>,
+    /// Replacement for the persisted `expiresAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "expiresAt")]
+    pub expires_at: Option<f64>,
+    /// Replacement for the persisted `agentId` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "agentId")]
+    pub agent_id: Option<String>,
+    /// Replacement for the persisted `storedBy` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "storedBy")]
+    pub stored_by: Option<String>,
+    /// Replacement for the persisted `sourceTurnId` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "sourceTurnId")]
+    pub source_turn_id: Option<String>,
+    /// Replacement for the persisted `sourceMessageRole` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "sourceMessageRole")]
+    pub source_message_role: Option<String>,
+    /// Replacement for the persisted `sourceTimestamp` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "sourceTimestamp")]
+    pub source_timestamp: Option<f64>,
+    /// Replacement for the persisted `sourceUrl` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "sourceUrl")]
+    pub source_url: Option<String>,
+    /// Replacement for the persisted `evidenceQuote` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "evidenceQuote")]
+    pub evidence_quote: Option<String>,
+    /// Replacement for the persisted `scope` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "scope")]
+    pub scope: Option<String>,
+    /// Replacement for the persisted `ownerUserId` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "ownerUserId")]
+    pub owner_user_id: Option<String>,
+    /// Replacement for the persisted `emotionalValence` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "emotionalValence")]
+    pub emotional_valence: Option<String>,
+    /// Replacement for the persisted `emotionalIntensity` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "emotionalIntensity")]
+    pub emotional_intensity: Option<f64>,
+    /// Replacement for the persisted `emotionalDominant` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "emotionalDominant")]
+    pub emotional_dominant: Option<String>,
+    /// Replacement for the persisted `moodContextAtCapture` column.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "moodContextAtCapture"
+    )]
+    pub mood_context_at_capture: Option<String>,
+    /// Replacement for the persisted `emotionStatus` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "emotionStatus")]
+    pub emotion_status: Option<String>,
+    /// Replacement for the persisted `importanceStatus` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "importanceStatus")]
+    pub importance_status: Option<String>,
+    /// Replacement for the persisted `replayCount` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "replayCount")]
+    pub replay_count: Option<f64>,
+    /// Replacement for the persisted `lastReplayed` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "lastReplayed")]
+    pub last_replayed: Option<f64>,
+    /// Replacement for the persisted `retrievalCount` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "retrievalCount")]
+    pub retrieval_count: Option<f64>,
+    /// Replacement for the persisted `lastRetrievedAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "lastRetrievedAt")]
+    pub last_retrieved_at: Option<f64>,
+    /// Replacement for the persisted `memoryStrength` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "memoryStrength")]
+    pub memory_strength: Option<f64>,
+    /// Replacement for the persisted `halfLifeDays` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "halfLifeDays")]
+    pub half_life_days: Option<f64>,
+    /// Replacement for the persisted `lastStrengthenedAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "lastStrengthenedAt")]
+    pub last_strengthened_at: Option<f64>,
+    /// Replacement for the persisted `lastDynamicsAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "lastDynamicsAt")]
+    pub last_dynamics_at: Option<f64>,
+    /// Replacement for the persisted `memoryClass` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "memoryClass")]
+    pub memory_class: Option<String>,
+    /// Replacement for the persisted `neverForget` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "neverForget")]
+    pub never_forget: Option<f64>,
+    /// Replacement for the persisted `coreMemoryScore` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "coreMemoryScore")]
+    pub core_memory_score: Option<f64>,
+    /// Replacement for the persisted `coreMemoryReason` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "coreMemoryReason")]
+    pub core_memory_reason: Option<String>,
+    /// Replacement for the persisted `versionNumber` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "versionNumber")]
+    pub version_number: Option<f64>,
+    /// Replacement for the persisted `previousVersion` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "previousVersion")]
+    pub previous_version: Option<String>,
+    /// Replacement for the persisted `supersededBy` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "supersededBy")]
+    pub superseded_by: Option<String>,
+    /// Replacement for the persisted `updateSource` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "updateSource")]
+    pub update_source: Option<String>,
+    /// Replacement for the persisted `updateEvidence` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "updateEvidence")]
+    pub update_evidence: Option<String>,
+    /// Replacement for the persisted `reconsolidationConfidence` column.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "reconsolidationConfidence"
+    )]
+    pub reconsolidation_confidence: Option<f64>,
+    /// Replacement for the persisted `status` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "status")]
+    pub status: Option<String>,
+    /// Replacement for the persisted `versionCreatedAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "versionCreatedAt")]
+    pub version_created_at: Option<f64>,
+    /// Replacement for the persisted `updatedAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "updatedAt")]
+    pub updated_at: Option<f64>,
+    /// Replacement for the persisted `workspaceId` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "workspaceId")]
+    pub workspace_id: Option<String>,
+    /// Replacement for the persisted `workspaceKey` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "workspaceKey")]
+    pub workspace_key: Option<String>,
+    /// Replacement for the persisted `memoryKind` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "memoryKind")]
+    pub memory_kind: Option<String>,
+    /// Replacement for the persisted `reminderStatus` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "reminderStatus")]
+    pub reminder_status: Option<String>,
+    /// Replacement for the persisted `remindAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "remindAt")]
+    pub remind_at: Option<f64>,
+    /// Replacement for the persisted `remindedAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "remindedAt")]
+    pub reminded_at: Option<f64>,
+    /// Replacement for the persisted `dispatchedAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "dispatchedAt")]
+    pub dispatched_at: Option<f64>,
+    /// Replacement for the persisted `acknowledgedAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "acknowledgedAt")]
+    pub acknowledged_at: Option<f64>,
+    /// Replacement for the persisted `cancelledAt` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "cancelledAt")]
+    pub cancelled_at: Option<f64>,
+    /// Replacement for the persisted `reminderKey` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "reminderKey")]
+    pub reminder_key: Option<String>,
+    /// Replacement for the persisted `dispatchCount` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "dispatchCount")]
+    pub dispatch_count: Option<f64>,
+    /// Replacement for the persisted `lastDispatchAttemptAt` column.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "lastDispatchAttemptAt"
+    )]
+    pub last_dispatch_attempt_at: Option<f64>,
+    /// Replacement for the persisted `nextDispatchAttemptAt` column.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "nextDispatchAttemptAt"
+    )]
+    pub next_dispatch_attempt_at: Option<f64>,
+    /// Replacement for the persisted `epistemicStatus` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "epistemicStatus")]
+    pub epistemic_status: Option<String>,
+    /// Replacement for the persisted `epistemicStatusUpdatedAt` column.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "epistemicStatusUpdatedAt"
+    )]
+    pub epistemic_status_updated_at: Option<f64>,
+    /// Replacement for the persisted `epistemicStatusActor` column.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "epistemicStatusActor"
+    )]
+    pub epistemic_status_actor: Option<String>,
+    /// Replacement for the persisted `epistemicStatusReason` column.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "epistemicStatusReason"
+    )]
+    pub epistemic_status_reason: Option<String>,
+    /// Replacement for the persisted `previousEpistemicStatus` column.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "previousEpistemicStatus"
+    )]
+    pub previous_epistemic_status: Option<String>,
+    /// Replacement for the persisted `validFrom` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "validFrom")]
+    pub valid_from: Option<f64>,
+    /// Replacement for the persisted `validUntil` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "validUntil")]
+    pub valid_until: Option<f64>,
+    /// Replacement for the persisted `chunkGroupId` column.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "chunkGroupId")]
+    pub chunk_group_id: Option<String>,
 }

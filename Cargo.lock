@@ -4746,6 +4746,7 @@ dependencies = [
  "arrow-array",
  "arrow-json",
  "arrow-schema",
+ "chrono",
  "chrono-tz",
  "clap",
  "fancy-regex 0.17.0",
