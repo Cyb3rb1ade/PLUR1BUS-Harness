@@ -7,6 +7,7 @@ pub mod paths;
 pub mod pool;
 pub mod row;
 pub mod schema_version;
+pub mod sqlite;
 pub use filter::RowFilter;
 pub use lance::{IdentityStatus, OpenMode, Store};
 pub use schema_version::StoreSchemaVersion;
