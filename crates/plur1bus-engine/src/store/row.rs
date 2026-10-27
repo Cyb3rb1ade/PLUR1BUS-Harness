@@ -104,6 +104,27 @@ pub fn arrow_schema(dim: usize) -> Result<SchemaRef, StoreError> {
     Ok(Arc::new(Schema::new(fields)))
 }
 
+// Node explicitly accepts UTF-8 columns promoted by Lance to 64-bit offsets.
+// Preserve that existing physical type while keeping the recorded bootstrap schema exact.
+pub(super) fn validate_schema(schema: &Schema, dim: usize) -> Result<(), StoreError> {
+    let expected = arrow_schema(dim)?;
+    if schema.fields().len() != expected.fields().len() {
+        return Err(StoreError::Corrupt);
+    }
+    for (actual, expected) in schema.fields().iter().zip(expected.fields()) {
+        let compatible = actual.data_type() == expected.data_type()
+            || (expected.data_type() == &DataType::Utf8
+                && actual.data_type() == &DataType::LargeUtf8);
+        if actual.name() != expected.name()
+            || actual.is_nullable() != expected.is_nullable()
+            || !compatible
+        {
+            return Err(StoreError::Corrupt);
+        }
+    }
+    Ok(())
+}
+
 /// Neutral Arrow text shared with the Node recorder.
 pub fn schema_text(schema: &Schema) -> String {
     schema
@@ -112,6 +133,7 @@ pub fn schema_text(schema: &Schema) -> String {
         .map(|field| {
             let kind = match field.data_type() {
                 DataType::Utf8 => "Utf8".to_owned(),
+                DataType::LargeUtf8 => "LargeUtf8".to_owned(),
                 DataType::Boolean => "Boolean".to_owned(),
                 DataType::Float64 => "Float64".to_owned(),
                 DataType::FixedSizeList(child, dim) if child.data_type() == &DataType::Float32 => {
@@ -126,7 +148,8 @@ pub fn schema_text(schema: &Schema) -> String {
 
 pub(super) fn to_batch(rows: &[MemoryRow], schema: SchemaRef) -> Result<RecordBatch, StoreError> {
     use arrow_array::{
-        ArrayRef, BooleanArray, FixedSizeListArray, Float32Array, Float64Array, StringArray,
+        ArrayRef, BooleanArray, FixedSizeListArray, Float32Array, Float64Array, LargeStringArray,
+        StringArray,
     };
     let values = rows
         .iter()
@@ -140,6 +163,12 @@ pub(super) fn to_batch(rows: &[MemoryRow], schema: SchemaRef) -> Result<RecordBa
             let name = field.name();
             Ok(match field.data_type() {
                 DataType::Utf8 => Arc::new(StringArray::from(
+                    values
+                        .iter()
+                        .map(|row| row[name].as_str().ok_or(StoreError::Corrupt))
+                        .collect::<Result<Vec<_>, _>>()?,
+                )),
+                DataType::LargeUtf8 => Arc::new(LargeStringArray::from(
                     values
                         .iter()
                         .map(|row| row[name].as_str().ok_or(StoreError::Corrupt))

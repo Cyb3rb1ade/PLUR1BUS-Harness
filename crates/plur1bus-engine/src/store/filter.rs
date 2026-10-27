@@ -28,6 +28,8 @@ pub struct RowFilter {
     pub category: Option<String>,
     /// Canonical source/origin.
     pub origin: Option<String>,
+    /// Source alias kept independent from an explicit origin constraint, as in Node.
+    pub source: Option<String>,
     /// Dominant emotion.
     pub emotion: Option<String>,
     /// Minimum persisted memory strength.
@@ -60,6 +62,7 @@ impl RowFilter {
             ("memoryKind", &self.memory_kind),
             ("category", &self.category),
             ("origin", &self.origin),
+            ("origin", &self.source),
             ("emotionalDominant", &self.emotion),
         ] {
             if let Some(value) = value {
@@ -126,7 +129,7 @@ impl RowFilter {
             match key.as_str() {
                 "über" | "about" | "cat" | "category" => result.filter.category = Some(value),
                 "aus" | "source" | "src" | "origin" => {
-                    result.filter.origin = Some(
+                    let normalized = Some(
                         match value.as_str() {
                             "chat" | "konversation" | "conversation" | "direct" => "dm",
                             "gruppe" | "channel" => "group",
@@ -138,7 +141,12 @@ impl RowFilter {
                             _ => &value,
                         }
                         .to_owned(),
-                    )
+                    );
+                    if key == "origin" {
+                        result.filter.origin = normalized;
+                    } else {
+                        result.filter.source = normalized;
+                    }
                 }
                 "gefühl" | "emotion" | "mood" => result.filter.emotion = Some(value),
                 "wichtig" | "min" | "important" | "minimportance" => {
@@ -194,7 +202,15 @@ pub struct ParsedFilter {
     pub errors: Vec<String>,
 }
 fn date(value: &str) -> Option<i64> {
-    if value.len() != 10 || value.as_bytes()[4] != b'-' || value.as_bytes()[7] != b'-' {
+    if value.len() != 10
+        || value.as_bytes().iter().enumerate().any(|(index, byte)| {
+            if index == 4 || index == 7 {
+                *byte != b'-'
+            } else {
+                !byte.is_ascii_digit()
+            }
+        })
+    {
         return None;
     }
     let year = value.get(..4)?.parse().ok()?;

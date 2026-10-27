@@ -22,6 +22,6 @@ if(args[0]==="--sqlite"){
   try{
     const rows=await db.table.query().toArray();
     assert.equal(rows.length,Number(args[1]));
-    console.log(JSON.stringify({count:rows.length,ids:rows.map(row=>row.id).sort(),identityStatus:db.identityStatus}));
+    console.log(JSON.stringify({count:rows.length,ids:rows.map(row=>row.id).sort(),identityStatus:db.identityStatus,textType:String((await db.table.schema()).fields.find(field=>field.name==="text").type)}));
   }finally{await db.shutdown();}
 }

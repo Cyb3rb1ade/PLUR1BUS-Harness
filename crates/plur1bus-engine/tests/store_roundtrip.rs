@@ -281,7 +281,7 @@ fn filters_quote_node_literals_and_parse_the_same_suffix_grammar() {
     assert!(parsed.errors.is_empty());
     assert_eq!(parsed.topic, "Projekt Müller");
     assert_eq!(parsed.filter.category.as_deref(), Some("work"));
-    assert_eq!(parsed.filter.origin.as_deref(), Some("dm"));
+    assert_eq!(parsed.filter.source.as_deref(), Some("dm"));
     assert_eq!(parsed.filter.min_importance, Some(0.7));
     assert_eq!(parsed.filter.since, Some(1767225600000));
     assert_eq!(parsed.filter.until, Some(1767398399999));
@@ -400,4 +400,79 @@ fn a_symlinked_store_directory_is_refused() {
         Store::open(&alias, OpenMode::ReadOnly, None),
         Err(plur1bus_engine::contract::StoreError::UntrustedPath)
     ));
+}
+
+#[test]
+fn concurrent_patches_of_different_columns_preserve_both_changes() {
+    use plur1bus_engine::store::RowPatch;
+    let (temporary, first) = writable();
+    let second = Store::open(temporary.path(), OpenMode::ReadWrite, None).unwrap();
+    let prototype = appended_rows(&first).remove(0);
+    for iteration in 0..8 {
+        first.upsert(std::slice::from_ref(&prototype)).unwrap();
+        let barrier = std::sync::Barrier::new(2);
+        let text = format!("Concurrent partial update {iteration}");
+        std::thread::scope(|scope| {
+            let a = scope.spawn(|| {
+                barrier.wait();
+                first.patch(
+                    &prototype.id,
+                    &RowPatch {
+                        text: Some(text.clone()),
+                        ..Default::default()
+                    },
+                )
+            });
+            let b = scope.spawn(|| {
+                barrier.wait();
+                second.patch(
+                    &prototype.id,
+                    &RowPatch {
+                        status: Some("archived".into()),
+                        ..Default::default()
+                    },
+                )
+            });
+            a.join().unwrap().unwrap();
+            b.join().unwrap().unwrap();
+        });
+        let row = first.get(&prototype.id).unwrap().unwrap();
+        assert_eq!(row.text, text);
+        assert_eq!(row.status, "archived");
+    }
+}
+
+#[test]
+fn a_promoted_large_utf8_column_remains_readable_and_writable() {
+    let temporary = copied_fixture("store-v1");
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        let connection = lancedb::connect(temporary.path().to_str().unwrap())
+            .execute()
+            .await
+            .unwrap();
+        let table = connection.open_table("memories").execute().await.unwrap();
+        table
+            .alter_columns(&[lancedb::table::ColumnAlteration::new("text".into())
+                .cast_to(arrow_schema::DataType::LargeUtf8)])
+            .await
+            .unwrap();
+    });
+    let store = Store::open(temporary.path(), OpenMode::ReadWrite, None).unwrap();
+    store.upsert(&appended_rows(&store)).unwrap();
+    assert_eq!(
+        node(&[temporary.path().to_str().unwrap(), "17"])["textType"],
+        "LargeUtf8"
+    );
+}
+#[test]
+fn filter_dates_require_ascii_digits_and_source_and_origin_remain_independent() {
+    for input in ["topic seit:2026-+1-01", "topic bis:2026-01-+1"] {
+        let parsed = RowFilter::parse(input);
+        assert_eq!(parsed.errors.len(), 1);
+        assert!(parsed.filter.since.is_none() && parsed.filter.until.is_none());
+    }
+    let (_temporary, store) = writable();
+    let parsed = RowFilter::parse("topic source:chat origin:voice");
+    assert!(parsed.errors.is_empty());
+    assert_eq!(store.count(&parsed.filter).unwrap(), 0);
 }

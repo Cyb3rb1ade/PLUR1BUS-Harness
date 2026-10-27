@@ -210,9 +210,7 @@ impl Store {
             arrow_schema::DataType::FixedSizeList(_, dim) => *dim as usize,
             _ => return Err(StoreError::Corrupt),
         };
-        if schema != row::arrow_schema(dim)? {
-            return Err(StoreError::Corrupt);
-        }
+        row::validate_schema(&schema, dim)?;
         if let Some(identity) = &identity {
             if identity.dimension.as_u64() != Some(dim as u64) {
                 return Err(StoreError::Corrupt);
@@ -469,17 +467,31 @@ impl Store {
     /// Patch selected columns without dropping the row's other persisted values.
     pub fn patch(&self, id: &str, patch: &RowPatch) -> Result<(), StoreError> {
         self.writable()?;
-        let Some(existing) = self.get(id)? else {
-            return Ok(());
-        };
-        let mut value = serde_json::to_value(existing).map_err(|_| StoreError::Corrupt)?;
-        let changes = serde_json::to_value(patch).map_err(|_| StoreError::InvalidInput)?;
-        let object = value.as_object_mut().ok_or(StoreError::Corrupt)?;
-        for (key, value) in changes.as_object().ok_or(StoreError::InvalidInput)? {
-            object.insert(key.clone(), value.clone());
+        if let Some(vector) = &patch.vector {
+            self.validate_vector(vector)?;
         }
-        self.upsert(&[serde_json::from_value(value).map_err(|_| StoreError::InvalidInput)?])
+        let values = serde_json::to_value(patch).map_err(|_| StoreError::InvalidInput)?;
+        let values = values
+            .as_object()
+            .ok_or(StoreError::InvalidInput)?
+            .iter()
+            .map(|(column, value)| Ok((column.clone(), update_literal(value)?)))
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        if values.is_empty() {
+            return Ok(());
+        }
+        let table = self.table.clone();
+        let predicate = format!("id = {}", super::filter::sql_string(id));
+        self.executor.run(async move {
+            let mut update = table.update().only_if(predicate);
+            for (column, value) in values {
+                update = update.column(column, value);
+            }
+            update.execute().await.map_err(backend_error)?;
+            Ok(())
+        })
     }
+
     /// Delete matching safe IDs and report how many committed rows matched.
     pub fn delete(&self, ids: &[&str]) -> Result<usize, StoreError> {
         self.writable()?;
@@ -524,4 +536,23 @@ impl Store {
 }
 fn backend_error(_: lancedb::Error) -> StoreError {
     StoreError::Unavailable
+}
+
+// The SDK's update-value renderer differs from its WHERE safety helper: only quotes
+// are escaped in string values; doubling backslashes here would change persisted text.
+fn update_literal(value: &serde_json::Value) -> Result<String, StoreError> {
+    match value {
+        serde_json::Value::String(value) => Ok(format!("'{}'", value.replace('\'', "''"))),
+        serde_json::Value::Bool(value) => Ok(if *value { "TRUE" } else { "FALSE" }.into()),
+        serde_json::Value::Number(value) => Ok(value.to_string()),
+        serde_json::Value::Array(values) => Ok(format!(
+            "[{}]",
+            values
+                .iter()
+                .map(update_literal)
+                .collect::<Result<Vec<_>, _>>()?
+                .join(", ")
+        )),
+        _ => Err(StoreError::InvalidInput),
+    }
 }
