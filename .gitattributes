@@ -14,3 +14,5 @@ packages/core/test/fixtures/web-fetch/** -text
 scripts/spikes/** text eol=lf
 # Node engine parity recordings are byte-exact goldens across checkout platforms.
 crates/plur1bus-engine/tests/fixtures/**/*.json -text
+# Recorded JS text vectors and lone-surrogate JSONL fixtures are asserted byte for byte (RE-04/T0, RE-D17).
+crates/plur1bus-engine/tests/fixtures/text/** -text

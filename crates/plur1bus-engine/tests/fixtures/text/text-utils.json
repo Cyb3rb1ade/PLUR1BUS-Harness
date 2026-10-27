@@ -1,0 +1,335 @@
+{
+  "tokenize": [
+    {
+      "input": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+      "tokens": [
+        "herr",
+        "mu",
+        "ller",
+        "wohnt",
+        "in",
+        "ko",
+        "ln",
+        "an",
+        "der",
+        "straße",
+        "cafe",
+        "nai",
+        "ve",
+        "gro",
+        "ße"
+      ]
+    },
+    {
+      "input": "﻿ \t\nHerr Müller & GROSSE STRAßE (ẞ)  　﻿",
+      "tokens": [
+        "herr",
+        "mu",
+        "ller",
+        "grosse",
+        "straße"
+      ]
+    },
+    {
+      "input": "  kept around NEL \t",
+      "tokens": [
+        "kept",
+        "around",
+        "nel"
+      ]
+    },
+    {
+      "input": "Müller Köln café naïve Å Å ﬁnançais ①②",
+      "tokens": [
+        "mu",
+        "ller",
+        "ko",
+        "ln",
+        "cafe",
+        "nai",
+        "ve",
+        "financ",
+        "ais",
+        "12"
+      ]
+    },
+    {
+      "input": "Grüße 🚀🔥 und 🧠✨",
+      "tokens": [
+        "gru",
+        "ße",
+        "und"
+      ]
+    },
+    {
+      "input": "🌍🤖💡 Familie 👨‍👩‍👧‍👦 Test",
+      "tokens": [
+        "familie",
+        "test"
+      ]
+    },
+    {
+      "input": "東京のメモリ検索と日本語テキスト処理（テスト１２３・🚀）",
+      "tokens": [
+        "東京のメモリ検索と日本語テキスト処理",
+        "テスト123"
+      ]
+    },
+    {
+      "input": "İSTANBUL IŞIK ΣΟΣ ΦΙΛΟΣ Σ",
+      "tokens": [
+        "stanbul",
+        "is",
+        "ik",
+        "σος",
+        "φιλος"
+      ]
+    },
+    {
+      "input": "",
+      "tokens": []
+    },
+    {
+      "input": "a b c 1 22 333",
+      "tokens": [
+        "22",
+        "333"
+      ]
+    },
+    {
+      "input": "überraschend äpfel öfen übung straße",
+      "tokens": [
+        "berraschend",
+        "pfel",
+        "fen",
+        "bung",
+        "straße"
+      ]
+    },
+    {
+      "input": "Müller vs Müller vs Mueller",
+      "tokens": [
+        "mu",
+        "ller",
+        "vs",
+        "mueller"
+      ]
+    }
+  ],
+  "jaccardSimilarity": [
+    {
+      "a": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+      "b": "Herr Mueller wohnt in Koeln an der Strasse, cafe naive Groesse",
+      "similarity": 0.3
+    },
+    {
+      "a": "Herr Müller wohnt in Köln an der Straße",
+      "b": "Herr Müller wohnt in Köln an der Straße",
+      "similarity": 1
+    },
+    {
+      "a": "Grüße 🚀🔥 und 🧠✨",
+      "b": "Grüße und Freude",
+      "similarity": 0.75
+    },
+    {
+      "a": "東京のメモリ検索と日本語テキスト処理（テスト１２３・🚀）",
+      "b": "東京のメモリ検索とテスト123",
+      "similarity": 0
+    },
+    {
+      "a": "",
+      "b": "nicht leer",
+      "similarity": 0
+    },
+    {
+      "a": "",
+      "b": "",
+      "similarity": 0
+    },
+    {
+      "a": "a b c",
+      "b": "d e f",
+      "similarity": 0
+    },
+    {
+      "a": "identisch eins zwei drei",
+      "b": "identisch eins zwei drei",
+      "similarity": 1
+    }
+  ],
+  "generateSummary": [
+    {
+      "text": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+      "maxWords": 15,
+      "summary": "Herr Müller wohnt in Köln an der Straße, café naïve Größe"
+    },
+    {
+      "text": "Herr Müller wohnt in Köln an der Straße, café naïve Größe",
+      "maxWords": 5,
+      "summary": "Herr Müller wohnt in Köln…"
+    },
+    {
+      "text": "Erster Satz mit fünf Wörtern. Zweiter Satz folgt sofort! Dritter Satz am Ende?",
+      "maxWords": 9,
+      "summary": "Erster Satz mit fünf Wörtern. Zweiter Satz folgt sofort!"
+    },
+    {
+      "text": "Erster kurzer Satz. Danach folgen sehr viele Wörter ohne irgendeine weitere Satzgrenze bis weit hinter das Limit hinaus.",
+      "maxWords": 10,
+      "summary": "Erster kurzer Satz. Danach folgen sehr viele Wörter ohne irgendeine…"
+    },
+    {
+      "text": "Eins zwei drei vier fünf sechs sieben acht neun zehn. Elf zwölf.",
+      "maxWords": 10,
+      "summary": "Eins zwei drei vier fünf sechs sieben acht neun zehn."
+    },
+    {
+      "text": "   ﻿Viel   Platz\t\tzwischen   Wörtern   bleibt   erhalten﻿   ",
+      "maxWords": 10,
+      "summary": "Viel   Platz\t\tzwischen   Wörtern   bleibt   erhalten"
+    },
+    {
+      "text": "NEL zählt als Wort am Anfang und wird nach zehn Wörtern abgeschnitten ohne Punkt",
+      "maxWords": 5,
+      "summary": "NEL zählt als Wort am…"
+    },
+    {
+      "text": "Abschnitt 1: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 2: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 3: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 4: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 5: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 6: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 7: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 8: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 9: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 10: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 11: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 12: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 13: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 14: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 15: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 16: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 17: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 18: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 19: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 20: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 21: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 22: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 23: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 24: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 25: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 26: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 27: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 28: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 29: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 30: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 31: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 32: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 33: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 34: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 35: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 36: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 37: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 38: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 39: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 40: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve.",
+      "maxWords": 150,
+      "summary": "Abschnitt 1: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 2: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 3: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 4: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 5: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 6: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 7: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 8: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 9: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve. Abschnitt 10: Herr Müller prüft in Köln die Größe der Straße und notiert Café naïve."
+    }
+  ],
+  "compressMemorySlotsForPrompt": [
+    {
+      "name": "empty_memories",
+      "tokenBudget": 50,
+      "memories": [],
+      "slots": []
+    },
+    {
+      "name": "mixed_priorities_within_budget",
+      "tokenBudget": 40,
+      "memories": [
+        {
+          "entry": {
+            "id": "m1",
+            "text": "Core Erinnerung mit mehreren Wörtern über Herrn Müller in Köln an der Straße.",
+            "summary": "",
+            "category": "general",
+            "memoryClass": "core"
+          }
+        },
+        {
+          "entry": {
+            "id": "m2",
+            "text": "Projekt Entscheidung für die Datenbank Architektur und das Schema.",
+            "summary": "Kurzfassung: Projekt Entscheidung für die Datenbank Architektur.",
+            "category": "project",
+            "memoryClass": "standard"
+          }
+        },
+        {
+          "entry": {
+            "id": "m3",
+            "text": "Episodische Notiz vom Gespräch am Nachmittag bei Café naïve.",
+            "summary": "",
+            "category": "episodic",
+            "memoryClass": "standard"
+          }
+        }
+      ],
+      "slots": [
+        "Core Erinnerung mit mehreren Wörtern über Herrn Müller in Köln an der Straße.",
+        "Kurzfassung: Projekt Entscheidung für die Datenbank Architektur.",
+        "Episodische Notiz vom Gespräch am Nachmittag bei…"
+      ]
+    },
+    {
+      "name": "budget_exceeded_reduces_lowest_priority_first",
+      "tokenBudget": 7,
+      "memories": [
+        {
+          "entry": {
+            "id": "c1",
+            "text": "Eins zwei drei vier fünf sechs sieben acht neun zehn.",
+            "summary": "",
+            "category": "canonical",
+            "memoryClass": "standard"
+          }
+        },
+        {
+          "entry": {
+            "id": "d1",
+            "text": "Alpha beta gamma delta epsilon zeta eta theta iota kappa.",
+            "summary": "",
+            "category": "decision",
+            "memoryClass": "standard"
+          }
+        },
+        {
+          "entry": {
+            "id": "e1",
+            "text": "Rot grün blau gelb orange lila schwarz weiß grau braun.",
+            "summary": "",
+            "category": "episodic",
+            "memoryClass": "standard"
+          }
+        },
+        {
+          "entry": {
+            "id": "e2",
+            "text": "Nord süd ost west oben unten links rechts vorne hinten.",
+            "summary": "",
+            "category": "other",
+            "memoryClass": "standard"
+          }
+        }
+      ],
+      "slots": [
+        "Eins zwei…",
+        "Alpha…",
+        "Rot…",
+        "Nord…"
+      ]
+    },
+    {
+      "name": "tight_budget_zeroes_low_priority_slots",
+      "tokenBudget": 1,
+      "memories": [
+        {
+          "entry": {
+            "id": "m1",
+            "text": "Erste wichtige Erinnerung mit langem Text.",
+            "summary": "",
+            "category": "canonical",
+            "memoryClass": "core"
+          }
+        },
+        {
+          "entry": {
+            "id": "m2",
+            "text": "Zweite Erinnerung mit Projektdetails.",
+            "summary": "",
+            "category": "project",
+            "memoryClass": "standard"
+          }
+        },
+        {
+          "entry": {
+            "id": "m3",
+            "text": "Dritte Erinnerung mit niedriger Priorität.",
+            "summary": "",
+            "category": "episodic",
+            "memoryClass": "standard"
+          }
+        }
+      ],
+      "slots": [
+        "",
+        "",
+        ""
+      ]
+    }
+  ]
+}

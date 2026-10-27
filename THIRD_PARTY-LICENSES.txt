@@ -10766,6 +10766,33 @@ DEALINGS IN THE SOFTWARE.
 
 ============================================================
 
+SHA256 3210be7332b5bdf48eb24a945258b9f38616a2cceb0dfc06e3c3c7e9740475a0
+cargo:write16@1.0.0/COPYRIGHT
+
+Copyright Mozilla Foundation
+
+Licensed under the Apache License (Version 2.0), or the MIT license,
+(the "Licenses") at your option. You may not use this file except in
+compliance with one of the Licenses. You may obtain copies of the
+Licenses at:
+
+   https://www.apache.org/licenses/LICENSE-2.0
+   https://opensource.org/licenses/MIT
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the Licenses is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the Licenses for the specific language governing permissions and
+limitations under the Licenses.
+
+--
+
+Test code is dedicated to the Public Domain when so designated (see
+the individual files for PD/CC0-dedicated sections).
+
+
+============================================================
+
 SHA256 3234ac55816264ee7b6c7ee27efd61cf0a1fe775806870e3d9b4c41ea73c5cb1
 cargo:memoffset@0.9.1/LICENSE
 
@@ -12997,7 +13024,9 @@ SOFTWARE.
 SHA256 3fa4ca83dcc9237839b1bdeb2e6d16bdfb5ec0c5ce42b24694d8bbf0dcbef72c
 cargo:encoding_rs@0.8.42/LICENSE-MIT
 cargo:multiversion_no_op@1.0.0/LICENSE-MIT
+cargo:utf16_iter@1.0.5/LICENSE-MIT
 cargo:utf8_iter@1.0.4/LICENSE-MIT
+cargo:write16@1.0.0/LICENSE-MIT
 
 Copyright Mozilla Foundation
 
@@ -32597,6 +32626,55 @@ SOFTWARE.
 
 ============================================================
 
+SHA256 b84efe109a420fa3ca98be33f4227327af7ffa426195812c270feb1268bc2426
+cargo:utf16_iter@1.0.5/COPYRIGHT
+
+Copyright Mozilla Foundation
+
+Licensed under the Apache License (Version 2.0), or the MIT license,
+(the "Licenses") at your option. You may not use this file except in
+compliance with one of the Licenses. You may obtain copies of the
+Licenses at:
+
+   https://www.apache.org/licenses/LICENSE-2.0
+   https://opensource.org/licenses/MIT
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the Licenses is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the Licenses for the specific language governing permissions and
+limitations under the Licenses.
+
+--
+
+Test code is dedicated to the Public Domain when so designated (see
+the individual files for PD/CC0-dedicated sections).
+
+--
+
+The implementation for Utf16CharIndices was adapted from the
+CharIndices implementation of the Rust standard library at revision
+ab32548539ec38a939c1b58599249f3b54130026
+(https://github.com/rust-lang/rust/blob/ab32548539ec38a939c1b58599249f3b54130026/library/core/src/str/iter.rs).
+
+Excerpt from https://github.com/rust-lang/rust/blob/ab32548539ec38a939c1b58599249f3b54130026/COPYRIGHT ,
+which refers to
+https://github.com/rust-lang/rust/blob/ab32548539ec38a939c1b58599249f3b54130026/LICENSE-APACHE
+and
+https://github.com/rust-lang/rust/blob/ab32548539ec38a939c1b58599249f3b54130026/LICENSE-MIT
+:
+
+For full authorship information, see the version control history or
+https://thanks.rust-lang.org
+
+Except as otherwise noted (below and/or in individual files), Rust is
+licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
+<http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+<LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
+
+
+============================================================
+
 SHA256 b8c6939380a400f53e11923d50fcc4dd2fa1ba8339fd9d04cda38a0251b6c9b0
 cargo:aes-gcm@0.11.1/LICENSE-MIT
 cargo:chacha20@0.10.2/LICENSE-MIT
@@ -35213,7 +35291,9 @@ cargo:spade@2.15.1/LICENSE-APACHE
 cargo:static_assertions@1.1.0/LICENSE-APACHE
 cargo:tinyvec@1.13.3/LICENSE-APACHE.md
 cargo:ureq-proto@0.6.4/LICENSE-APACHE.txt
+cargo:utf16_iter@1.0.5/LICENSE-APACHE
 cargo:utf8_iter@1.0.4/LICENSE-APACHE
+cargo:write16@1.0.0/LICENSE-APACHE
 cargo:zeroize@1.9.0/LICENSE-APACHE
 npm:@huggingface/transformers@4.3.1/LICENSE
 npm:flatbuffers@24.12.23/LICENSE
@@ -39086,8 +39166,12 @@ THE SOFTWARE.
 ============================================================
 
 SHA256 f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2
+cargo:icu_collator@2.3.1/LICENSE
+cargo:icu_collator_data@2.3.0/LICENSE
 cargo:icu_collections@2.3.0/LICENSE
 cargo:icu_locale_core@2.3.0/LICENSE
+cargo:icu_locale_fallback@2.3.0/LICENSE
+cargo:icu_locale_fallback_data@2.3.0/LICENSE
 cargo:icu_normalizer@2.3.0/LICENSE
 cargo:icu_normalizer_data@2.3.0/LICENSE
 cargo:icu_properties@2.3.0/LICENSE

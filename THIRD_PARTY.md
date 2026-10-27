@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 79acd16025291447867af598bfcfa64f316f7ca6fef459f15a7b5afaa92f9281
-Cargo.lock: 44b6cb8e46b18dc22a5eba536fff81ba9bdc7e94766b7d873a3c80fe24fcac90
+Cargo.lock: bdd24dfcbcac4489ba34405c9a2cca89069649040f8486bc452abe8bbafbf472
 apps/desktop/Cargo.lock: 366c724719e61b091897735a6ce79cbc20405cf011ad275c7a029adcf054ada8
 ```
 
@@ -423,8 +423,12 @@ apps/desktop/Cargo.lock: 366c724719e61b091897735a6ce79cbc20405cf011ad275c7a029ad
 | cargo | iana-time-zone-haiku | 0.1.2 | MIT OR Apache-2.0 | René Kijewski <crates.io@k6i.de> |
 | cargo | iana-time-zone | 0.1.65 | MIT OR Apache-2.0 | Andrew Straw <strawman@astraw.com>, René Kijewski <rene.kijewski@fu-berlin.de>, Ryan Lopopolo <rjl@hyperbo.la> |
 | cargo | ico | 0.5.0 | MIT | Matthew D. Steele <mdsteele@alum.mit.edu> |
+| cargo | icu_collator | 2.3.1 | Unicode-3.0 | The ICU4X Project Developers |
+| cargo | icu_collator_data | 2.3.0 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | icu_collections | 2.3.0 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | icu_locale_core | 2.3.0 | Unicode-3.0 | The ICU4X Project Developers |
+| cargo | icu_locale_fallback | 2.3.0 | Unicode-3.0 | The ICU4X Project Developers |
+| cargo | icu_locale_fallback_data | 2.3.0 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | icu_normalizer | 2.3.0 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | icu_normalizer_data | 2.3.0 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | icu_properties | 2.3.0 | Unicode-3.0 | The ICU4X Project Developers |
@@ -979,6 +983,7 @@ apps/desktop/Cargo.lock: 366c724719e61b091897735a6ce79cbc20405cf011ad275c7a029ad
 | cargo | url | 2.5.8 | MIT OR Apache-2.0 | The rust-url developers |
 | cargo | urlpattern | 0.6.0 | MIT | the Deno authors, crowlKats <crowlkats@toaxl.com> |
 | cargo | utf-8 | 0.7.6 | MIT OR Apache-2.0 | Simon Sapin <simon.sapin@exyr.org> |
+| cargo | utf16_iter | 1.0.5 | Apache-2.0 OR MIT | Henri Sivonen <hsivonen@hsivonen.fi> |
 | cargo | utf8-ranges | 1.0.5 | Unlicense/MIT | Andrew Gallant <jamslam@gmail.com> |
 | cargo | utf8-zero | 0.8.1 | MIT OR Apache-2.0 | Simon Sapin <simon.sapin@exyr.org>, Martin Algesten <martin@algesten.se> |
 | cargo | utf8_iter | 1.0.4 | Apache-2.0 OR MIT | Henri Sivonen <hsivonen@hsivonen.fi> |
@@ -1084,6 +1089,7 @@ apps/desktop/Cargo.lock: 366c724719e61b091897735a6ce79cbc20405cf011ad275c7a029ad
 | cargo | wkb | 0.9.3 | MIT OR Apache-2.0 | Kyle Barron <kylebarron2@gmail.com> |
 | cargo | wkt | 0.14.0 | MIT OR Apache-2.0 |  |
 | cargo | wnaf | 0.14.1 | Apache-2.0 OR MIT | RustCrypto Developers |
+| cargo | write16 | 1.0.0 | Apache-2.0 OR MIT |  |
 | cargo | writeable | 0.6.4 | Unicode-3.0 | The ICU4X Project Developers |
 | cargo | wry | 0.57.0 | Apache-2.0 OR MIT | Tauri Programme within The Commons Conservancy |
 | cargo | wyz | 0.5.1 | MIT | myrrlyn <self@myrrlyn.dev> |

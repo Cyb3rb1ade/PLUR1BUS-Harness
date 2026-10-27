@@ -12,6 +12,7 @@
 pub mod cache_profiles;
 pub mod config;
 pub mod contract;
+pub mod text;
 pub mod tokens;
 
 /// The crate version, which is the workspace version (`[workspace.package] version` in the root `Cargo.toml`).

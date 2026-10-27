@@ -1,0 +1,4 @@
+{"id":"neo_1","statement":"Grüße \ud83d","fullText":"Herr Müller wohnt in Köln an der Straße","count":1}
+{"id":"neo_2","statement":"\ude80 Start","tags":["leading-low-surrogate","🌍\ud83e"]}
+{"id":"neo_3","text":"Pair 🚀 then lone \ud83e with \"quotes\" \\ backslash \n newline \t tab and ümlaut","nested":{"ok":true,"empty":"","items":["\ud83d","✨","\udd25"]}}
+{"id":"neo_4","adjacentLoneSurrogates":"\ud83d\ud83d","reversedSurrogates":"\ude80\ud83d","numbers":[0,-1,42.5,1000000],"flags":[true,false,null]}
