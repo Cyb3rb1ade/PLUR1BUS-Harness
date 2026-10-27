@@ -180,9 +180,16 @@ test("CI verifies pinned tokenizer caches before every workspace Cargo test with
   for (const name of ["unit", "unit-os"]) {
     const job = jobs[name];
     assert.match(job, /^      PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"$/m, name);
-    assert.match(job, /^      PLUR1BUS_TOKENIZER_DIR: \$\{\{ runner.temp \}\}\/plur1bus-tokenizers$/m, name);
-    const setupStep = job.split(/(?=^      - )/m).find((step) => /node scripts\/tokens\/setup-tokenizers\.mjs/.test(step));
+    // A job's env has no `runner` context; referencing it there makes GitHub reject the whole workflow file, so no
+    // job runs at all. The directory is set on the two steps that use it.
+    const jobEnv = /^    env:\n((?:(?: {6}.*)?\n)*)/m.exec(job.slice(0, job.indexOf("\n    steps:\n")))?.[1] ?? "";
+    assert.doesNotMatch(jobEnv, /\$\{\{\s*runner\./, `${name}: no runner context in the job's env`);
+    const steps = job.split(/(?=^      - )/m);
+    const directory = /^          PLUR1BUS_TOKENIZER_DIR: \$\{\{ runner.temp \}\}\/plur1bus-tokenizers$/m;
+    const setupStep = steps.find((step) => /node scripts\/tokens\/setup-tokenizers\.mjs/.test(step));
     assert.ok(setupStep, `${name}: explicit verified setup required`);
+    assert.match(setupStep, directory, `${name}: setup writes the cache directory`);
+    assert.match(steps.find((step) => /run: cargo test --workspace/.test(step)) ?? "", directory, `${name}: tests read it`);
     assert.match(setupStep, /if: needs\.changes\.outputs\.rust == 'true'/, name);
     assert.ok(job.indexOf(setupStep) < job.indexOf("run: cargo test --workspace"), name);
     const cacheStep = job.split(/(?=^      - )/m).find((step) => /path: \$\{\{ runner.temp \}\}\/plur1bus-tokenizers/.test(step));
