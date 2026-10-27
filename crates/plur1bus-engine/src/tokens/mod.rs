@@ -264,15 +264,19 @@ fn count_messages(
             let mut text = String::new();
             let mut counts = Vec::new();
             let mut count = TokenBounds::default();
-            for segment in &message.segments {
-                text.push_str(&segment.text);
-                count = methods::count_text(tokenizer, &text)?;
-                if tokenizer.is_some() {
-                    count = methods::visible_template_bounds(count, &text);
-                }
-                if cumulative {
+            if cumulative {
+                // A merge across a segment boundary changes the count, so each running total recounts its whole prefix.
+                for segment in &message.segments {
+                    text.push_str(&segment.text);
+                    count = count_message_text(tokenizer, &text)?;
                     counts.push(count);
                 }
+            } else if !message.segments.is_empty() {
+                // Only the message total is returned: count the joined text once, not every growing prefix.
+                for segment in &message.segments {
+                    text.push_str(&segment.text);
+                }
+                count = count_message_text(tokenizer, &text)?;
             }
             methods::add(&mut total, count)?;
             if cumulative {
@@ -285,4 +289,17 @@ fn count_messages(
         }
     }
     Ok((total, prefixes))
+}
+
+/// A message's visible text: tokenizer counts carry the template-overhead bounds, the heuristic stays as it is.
+fn count_message_text(
+    tokenizer: Option<&Tokenizer>,
+    text: &str,
+) -> Result<TokenBounds, TokenError> {
+    let count = methods::count_text(tokenizer, text)?;
+    Ok(if tokenizer.is_some() {
+        methods::visible_template_bounds(count, text)
+    } else {
+        count
+    })
 }

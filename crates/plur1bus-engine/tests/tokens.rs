@@ -473,6 +473,15 @@ fn installed_tokenizers_recount_bpe_prefixes_and_label_messages_as_visible_text_
             json!({"family":family.family,"items":[{"id":"text","text":segments.concat()}]}),
         );
         assert_eq!(messages.items[0].tokens, text.items[0].tokens);
+        // Without cumulative counts the joined message is counted once; the total must not change.
+        let total_only = run(
+            &counter,
+            json!({"family":family.family,"items":[{
+                "id":"message", "messages":[{"role":"user", "segments":segments.iter().map(|text| json!({"text":text})).collect::<Vec<_>>()}]
+            }]}),
+        );
+        assert_eq!(total_only.items, messages.items, "{}", family.family);
+        assert!(total_only.cumulative.is_none());
         assert!(
             messages.items[0].lower <= messages.items[0].tokens
                 && messages.items[0].tokens <= messages.items[0].upper
