@@ -72,6 +72,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95", components: "clippy, rustfmt" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: false
       # The lockfile records the engine's git repo as git@github.com:..., and runners have no SSH key:
       # fetch it over HTTPS instead, with the read token when the engine repo is private. Runs in every
       # job that installs; never echoes the rewritten URL.
@@ -136,39 +139,46 @@ jobs:
           if-no-files-found: error
       # The vacuous-run guard must trip on every OS (a filter that matches nothing is what hid the Windows TS tests).
       - name: test guard trips on an empty filter
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
           if node scripts/run-ts-tests.mjs --filter=@nonexistent/pkg; then
             echo "guard did not fail on an empty filter"; exit 1
           fi
       # The release scripts (harness-release.yml): payload assembly and release-native.json.
-      - run: node --experimental-strip-types --test --test-timeout=120000 "scripts/release/test/*.test.ts"
+      - if: ${{ !cancelled() }}
+        run: node --experimental-strip-types --test --test-timeout=120000 "scripts/release/test/*.test.ts"
         timeout-minutes: 5
       # The Windows one-liner, install.ps1, against a local file:// release (Linux and macOS run install.sh in the
       # system job).
-      - if: runner.os == 'Windows'
+      - if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: node --experimental-strip-types --test --test-timeout=120000 tests/system/install-scripts.test.ts
         timeout-minutes: 5
-      - if: needs.changes.outputs.rust == 'true'
+      - if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo fmt --all -- --check
-      - if: needs.changes.outputs.rust == 'true'
+      - if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: tokenizer setup regression tests
-        if: needs.changes.outputs.rust == 'true'
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: node --test scripts/tokens/*.test.mjs
       - name: pinned tokenizer cache
-        if: needs.changes.outputs.rust == 'true'
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/plur1bus-tokenizers
           key: tokenizers-v1-${{ hashFiles('crates/plur1bus-engine/src/tokens/artifacts.json', 'scripts/tokens/tiktoken-to-json.mjs') }}
       - name: install pinned tokenizer files
-        if: needs.changes.outputs.rust == 'true'
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: node scripts/tokens/setup-tokenizers.mjs
         timeout-minutes: 10
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
-      - if: needs.changes.outputs.rust == 'true'
+      - name: build Rust workspace tests
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
+        run: cargo test --workspace --no-run
+        timeout-minutes: 25
+      - name: run Rust workspace tests
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo test --workspace --no-fail-fast
         timeout-minutes: 30
         env:
@@ -202,6 +212,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95", components: "clippy, rustfmt" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: false
       # The lockfile records the engine's git repo as git@github.com:..., and runners have no SSH key:
       # fetch it over HTTPS instead, with the read token when the engine repo is private. Runs in every
       # job that installs; never echoes the rewritten URL.
@@ -270,39 +283,46 @@ jobs:
           if-no-files-found: error
       # The vacuous-run guard must trip on every OS (a filter that matches nothing is what hid the Windows TS tests).
       - name: test guard trips on an empty filter
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
           if node scripts/run-ts-tests.mjs --filter=@nonexistent/pkg; then
             echo "guard did not fail on an empty filter"; exit 1
           fi
       # The release scripts (harness-release.yml): payload assembly and release-native.json.
-      - run: node --experimental-strip-types --test --test-timeout=120000 "scripts/release/test/*.test.ts"
+      - if: ${{ !cancelled() }}
+        run: node --experimental-strip-types --test --test-timeout=120000 "scripts/release/test/*.test.ts"
         timeout-minutes: 5
       # The Windows one-liner, install.ps1, against a local file:// release (Linux and macOS run install.sh in the
       # system job).
-      - if: runner.os == 'Windows'
+      - if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: node --experimental-strip-types --test --test-timeout=120000 tests/system/install-scripts.test.ts
         timeout-minutes: 5
-      - if: needs.changes.outputs.rust == 'true'
+      - if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo fmt --all -- --check
-      - if: needs.changes.outputs.rust == 'true'
+      - if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: tokenizer setup regression tests
-        if: needs.changes.outputs.rust == 'true'
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: node --test scripts/tokens/*.test.mjs
       - name: pinned tokenizer cache
-        if: needs.changes.outputs.rust == 'true'
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/plur1bus-tokenizers
           key: tokenizers-v1-${{ hashFiles('crates/plur1bus-engine/src/tokens/artifacts.json', 'scripts/tokens/tiktoken-to-json.mjs') }}
       - name: install pinned tokenizer files
-        if: needs.changes.outputs.rust == 'true'
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: node scripts/tokens/setup-tokenizers.mjs
         timeout-minutes: 10
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
-      - if: needs.changes.outputs.rust == 'true'
+      - name: build Rust workspace tests
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
+        run: cargo test --workspace --no-run
+        timeout-minutes: 25
+      - name: run Rust workspace tests
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo test --workspace --no-fail-fast
         timeout-minutes: 30
         env:
