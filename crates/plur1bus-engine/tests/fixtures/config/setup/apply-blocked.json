@@ -1,0 +1,40 @@
+{
+  "operation": "isApplyBlocked",
+  "args": [
+    {
+      "autoCapture": false,
+      "autoRecall": true,
+      "reranker": {
+        "enabled": true
+      },
+      "obsidianBridge": {
+        "enabled": true,
+        "requireVaultPathConfirmation": true,
+        "morningReview": {
+          "enabled": true,
+          "status": "pending_setup"
+        },
+        "eveningReview": {
+          "enabled": false,
+          "status": "pending_setup"
+        }
+      }
+    }
+  ],
+  "output": {
+    "blocked": true,
+    "reason": "pending_setup",
+    "pending": [
+      {
+        "feature": "morningReview",
+        "reason": "delivery_target_not_confirmed",
+        "explicit": true
+      },
+      {
+        "feature": "obsidianBridge",
+        "reason": "vault_path_not_confirmed",
+        "explicit": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "config": {
+    "fixtureUnknown": true
+  },
+  "valid": false,
+  "errors": [
+    "fixtureUnknown"
+  ]
+}

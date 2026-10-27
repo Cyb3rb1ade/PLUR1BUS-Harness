@@ -1,0 +1,9 @@
+{
+  "config": {
+    "reactionNudge": {
+      "enabled": "auto"
+    }
+  },
+  "valid": true,
+  "errors": []
+}

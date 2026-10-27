@@ -1,0 +1,23 @@
+{
+  "config": {
+    "recall": {
+      "fullTextTopRecords": 0,
+      "fullTextMaxChars": 400,
+      "candidateTopK": 1,
+      "adaptiveBudget": {
+        "tokenBudgetPct": 0
+      },
+      "semanticCompression": {
+        "tokenBudget": 1
+      },
+      "decisionTrace": {
+        "persist": false,
+        "visibleHints": false,
+        "maxCandidates": 1,
+        "maxTextPreviewChars": 0
+      }
+    }
+  },
+  "valid": true,
+  "errors": []
+}

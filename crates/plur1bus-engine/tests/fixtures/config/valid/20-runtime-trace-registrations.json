@@ -1,0 +1,9 @@
+{
+  "config": {
+    "runtime": {
+      "traceRegistrations": true
+    }
+  },
+  "valid": true,
+  "errors": []
+}

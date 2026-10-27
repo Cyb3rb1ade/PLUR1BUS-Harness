@@ -1,0 +1,11 @@
+{
+  "config": {
+    "runtime": {
+      "recallTimeoutMs": -1,
+      "maxConcurrentRecall": 1.5,
+      "metricsDebounceMs": 0
+    }
+  },
+  "valid": true,
+  "errors": []
+}

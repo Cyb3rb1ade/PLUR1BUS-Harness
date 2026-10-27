@@ -1,0 +1,9 @@
+{
+  "config": {
+    "autoCapture": "true"
+  },
+  "valid": false,
+  "errors": [
+    "autoCapture"
+  ]
+}

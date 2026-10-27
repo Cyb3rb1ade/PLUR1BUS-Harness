@@ -1,0 +1,16 @@
+{
+  "operation": "isApplyBlocked",
+  "args": [
+    {
+      "obsidianBridge": {
+        "enabled": false
+      }
+    },
+    {
+      "vaultConfirmed": true
+    }
+  ],
+  "output": {
+    "blocked": false
+  }
+}

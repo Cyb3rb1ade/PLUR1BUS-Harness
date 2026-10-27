@@ -1,0 +1,11 @@
+{
+  "config": {
+    "namespaces": {
+      "activeRecallNamespaces": []
+    }
+  },
+  "valid": false,
+  "errors": [
+    "namespaces.activeRecallNamespaces"
+  ]
+}

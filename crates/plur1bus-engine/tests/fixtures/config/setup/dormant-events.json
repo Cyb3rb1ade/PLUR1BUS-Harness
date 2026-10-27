@@ -1,0 +1,36 @@
+{
+  "operation": "reportDormantFeature",
+  "args": [
+    [
+      {
+        "explicit": true,
+        "message": "explicit fixture"
+      },
+      {
+        "explicit": false,
+        "message": "implicit fixture"
+      },
+      {
+        "message": "unspecified fixture"
+      },
+      {
+        "explicit": true,
+        "message": ""
+      }
+    ]
+  ],
+  "output": [
+    {
+      "level": "warn",
+      "message": "explicit fixture"
+    },
+    {
+      "level": "info",
+      "message": "implicit fixture"
+    },
+    {
+      "level": "info",
+      "message": "unspecified fixture"
+    }
+  ]
+}

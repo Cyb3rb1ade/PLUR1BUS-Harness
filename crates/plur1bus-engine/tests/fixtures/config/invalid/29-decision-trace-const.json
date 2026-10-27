@@ -1,0 +1,13 @@
+{
+  "config": {
+    "recall": {
+      "decisionTrace": {
+        "persist": true
+      }
+    }
+  },
+  "valid": false,
+  "errors": [
+    "recall.decisionTrace.persist"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "config": {
+    "eveningReview": {
+      "enabled": false,
+      "timezone": "UTC",
+      "status": "active"
+    }
+  },
+  "valid": true,
+  "errors": []
+}

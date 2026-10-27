@@ -1,0 +1,13 @@
+{
+  "config": {
+    "runtime": {
+      "lancedbCompaction": {
+        "fragmentThreshold": 7
+      }
+    }
+  },
+  "valid": false,
+  "errors": [
+    "runtime.lancedbCompaction.fragmentThreshold"
+  ]
+}

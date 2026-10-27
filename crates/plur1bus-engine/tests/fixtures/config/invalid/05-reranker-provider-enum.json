@@ -1,0 +1,11 @@
+{
+  "config": {
+    "reranker": {
+      "provider": "fixture-unknown"
+    }
+  },
+  "valid": false,
+  "errors": [
+    "reranker.provider"
+  ]
+}

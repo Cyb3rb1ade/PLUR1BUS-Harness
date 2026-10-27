@@ -1,0 +1,13 @@
+{
+  "config": {
+    "timezone": "UTC",
+    "styleDirective": {
+      "timezone": null
+    },
+    "afterthought": {
+      "timezone": "Europe/Berlin"
+    }
+  },
+  "valid": true,
+  "errors": []
+}

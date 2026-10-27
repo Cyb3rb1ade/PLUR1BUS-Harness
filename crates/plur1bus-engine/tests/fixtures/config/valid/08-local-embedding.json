@@ -1,0 +1,16 @@
+{
+  "config": {
+    "embedding": {
+      "provider": "local-transformers",
+      "dimensions": 1,
+      "local": {
+        "dimensions": 1,
+        "maxTokens": 32,
+        "maxBatchSize": 1,
+        "dtype": "q4"
+      }
+    }
+  },
+  "valid": true,
+  "errors": []
+}

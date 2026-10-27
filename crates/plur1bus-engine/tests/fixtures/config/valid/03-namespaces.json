@@ -1,0 +1,17 @@
+{
+  "config": {
+    "namespaces": {
+      "activeWriteNamespace": "team_1",
+      "activeRecallNamespaces": [
+        "team_1",
+        "shared-2"
+      ],
+      "legacyReadOnlyNamespaces": [
+        "archive"
+      ],
+      "crossNamespaceRecall": true
+    }
+  },
+  "valid": true,
+  "errors": []
+}

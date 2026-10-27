@@ -1,0 +1,302 @@
+{
+  "operation": "summarizeFullExperienceStatus",
+  "args": [
+    {
+      "autoCapture": false,
+      "autoRecall": true,
+      "reranker": {
+        "enabled": true
+      },
+      "obsidianBridge": {
+        "enabled": true,
+        "requireVaultPathConfirmation": true,
+        "morningReview": {
+          "enabled": true,
+          "status": "pending_setup"
+        },
+        "eveningReview": {
+          "enabled": false,
+          "status": "pending_setup"
+        }
+      }
+    }
+  ],
+  "output": {
+    "active": [
+      {
+        "key": "autoRecall",
+        "label": "Auto Recall",
+        "path": [
+          "autoRecall"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "reranker",
+        "label": "Reranker",
+        "path": [
+          "reranker",
+          "enabled"
+        ],
+        "defaultValue": false
+      },
+      {
+        "key": "obsidianBridge",
+        "label": "Obsidian Bridge",
+        "path": [
+          "obsidianBridge",
+          "enabled"
+        ],
+        "defaultValue": false
+      },
+      {
+        "key": "morningReview",
+        "label": "Morning Review",
+        "path": [
+          "obsidianBridge",
+          "morningReview",
+          "enabled"
+        ],
+        "defaultValue": false
+      }
+    ],
+    "disabled": [
+      {
+        "key": "autoCapture",
+        "label": "Auto Capture",
+        "path": [
+          "autoCapture"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "eveningReview",
+        "label": "Evening Review",
+        "path": [
+          "obsidianBridge",
+          "eveningReview",
+          "enabled"
+        ],
+        "defaultValue": false
+      }
+    ],
+    "missing": [
+      {
+        "key": "neo",
+        "label": "Neo Context Injection",
+        "path": [
+          "neo",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "recallDedup",
+        "label": "Recall Dedup",
+        "path": [
+          "recall",
+          "dedup"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "recallCanonicalFirst",
+        "label": "Canonical-First Recall",
+        "path": [
+          "recall",
+          "canonicalFirst"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "temporalContext",
+        "label": "Temporal Continuity Context",
+        "path": [
+          "temporalContext",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "embeddingCache",
+        "label": "Embedding Cache",
+        "path": [
+          "runtime",
+          "embeddingCacheEnabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "llmResultCache",
+        "label": "LLM Result Cache",
+        "path": [
+          "runtime",
+          "llmResultCacheEnabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "emotionT2",
+        "label": "Emotion Tier 2",
+        "path": [
+          "emotion",
+          "t2",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "emotionT3",
+        "label": "Emotion Tier 3, provider-gated/fail-soft",
+        "path": [
+          "emotion",
+          "t3",
+          "enabled"
+        ],
+        "defaultValue": false
+      },
+      {
+        "key": "metaCognition",
+        "label": "Meta-Cognition",
+        "path": [
+          "metaCognition",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "metaCognitionLlmReport",
+        "label": "Meta-Cognition LLM Report, budgeted/fail-soft",
+        "path": [
+          "metaCognition",
+          "llmReport"
+        ],
+        "defaultValue": false
+      },
+      {
+        "key": "merging",
+        "label": "Merging",
+        "path": [
+          "merging",
+          "enabled"
+        ],
+        "defaultValue": false
+      },
+      {
+        "key": "mergingAutoApply",
+        "label": "Low-risk Merge Auto-Apply",
+        "path": [
+          "merging",
+          "autoApply"
+        ],
+        "defaultValue": false
+      },
+      {
+        "key": "schicht15",
+        "label": "Schicht 1.5 Knowledge Promotion",
+        "path": [
+          "schicht15",
+          "enabled"
+        ],
+        "defaultValue": false
+      },
+      {
+        "key": "skillMiner",
+        "label": "Skill Miner",
+        "path": [
+          "skillMiner",
+          "enabled"
+        ],
+        "defaultValue": false
+      },
+      {
+        "key": "dailyConsolidation",
+        "label": "Daily Consolidation",
+        "path": [
+          "dailyConsolidation",
+          "enabled"
+        ],
+        "defaultValue": false
+      },
+      {
+        "key": "dashboardLayer",
+        "label": "Dashboard Layer",
+        "path": [
+          "obsidianBridge",
+          "dashboardLayer",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "semanticGraph",
+        "label": "Semantic Graph",
+        "path": [
+          "obsidianBridge",
+          "semanticGraph",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "provenanceGraph",
+        "label": "Provenance Graph",
+        "path": [
+          "obsidianBridge",
+          "provenanceGraph",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "adversarialDeep",
+        "label": "Adversarial Deep",
+        "path": [
+          "obsidianBridge",
+          "adversarialDeep",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "criticalPush",
+        "label": "Critical Push, rate-limited",
+        "path": [
+          "criticalPush",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "soulPatch",
+        "label": "SoulPatch",
+        "path": [
+          "obsidianBridge",
+          "soulPatch",
+          "enabled"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "soulPatchCreateIfMissing",
+        "label": "SoulPatch createIfMissing",
+        "path": [
+          "obsidianBridge",
+          "soulPatch",
+          "createIfMissing"
+        ],
+        "defaultValue": true
+      },
+      {
+        "key": "soulPatchBackup",
+        "label": "SoulPatch backup",
+        "path": [
+          "obsidianBridge",
+          "soulPatch",
+          "backup"
+        ],
+        "defaultValue": true
+      }
+    ]
+  }
+}

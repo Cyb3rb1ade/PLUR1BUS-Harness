@@ -1,0 +1,13 @@
+{
+  "config": {
+    "timezone": "",
+    "styleDirective": {
+      "timezone": null
+    },
+    "afterthought": {
+      "timezone": ""
+    }
+  },
+  "valid": true,
+  "errors": []
+}

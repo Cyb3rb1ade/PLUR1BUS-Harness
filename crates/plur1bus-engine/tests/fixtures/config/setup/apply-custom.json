@@ -1,0 +1,958 @@
+{
+  "operation": "applyFeatureProfile",
+  "args": [
+    {
+      "fixtureDocument": "retained",
+      "plugins": {
+        "entries": {
+          "memory-lancedb-namespaced": {
+            "enabled": false,
+            "config": {
+              "autoCapture": false,
+              "reranker": {
+                "enabled": true,
+                "timeoutMs": 1200
+              },
+              "merging": {
+                "enabled": true
+              },
+              "obsidianBridge": {
+                "allowWrite": true,
+                "semanticGraph": {
+                  "mutateMemory": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "embeddingBatchSize": 8,
+      "language": "de",
+      "timezone": null,
+      "replyOutcomeTracking": {
+        "enabled": true,
+        "maxAgeMs": 604800000,
+        "maxMemoryIds": 12,
+        "maxReplyChars": 4000,
+        "maxAssistantChars": 4000,
+        "maxOutcomeLogEntries": 5000,
+        "maxFeedbackLogEntries": 5000
+      },
+      "dreaming": {
+        "enabled": false,
+        "narrative": {
+          "enabled": true,
+          "temperature": 0.9,
+          "storeAsMemory": true,
+          "importanceMax": 0.45,
+          "diary": true,
+          "diaryFromUserChats": false
+        }
+      },
+      "reminders": {
+        "deliveryMode": "pending_only"
+      },
+      "neo": {
+        "enabled": true,
+        "mode": "augment",
+        "embeddingDrain": {
+          "enabled": true,
+          "impact": "low",
+          "maxItems": 250
+        }
+      },
+      "autoCapture": false,
+      "captureChunking": true,
+      "captureChunkingMode": "beides",
+      "captureChunkingJev": {
+        "apiKeyEnv": "TYPESAFE_API_KEY",
+        "model": "jev-latest",
+        "minConfidence": 0.85,
+        "timeoutMs": 5000
+      },
+      "groupReasoningFilter": {
+        "enabled": true
+      },
+      "autoRecall": true,
+      "runtime": {
+        "recallTimeoutMs": 45000,
+        "captureTimeoutMs": 60000,
+        "maxConcurrentRecall": 1,
+        "maxConcurrentCapturePerAgent": 1,
+        "backgroundPriority": "low",
+        "recallCacheTtlMs": 120000,
+        "recallCacheMaxEntries": 128,
+        "maxQueueDepthRecall": 20,
+        "maxQueueDepthCapturePerAgent": 10,
+        "pressureGateEnabled": true,
+        "rssWarningBytes": 3221225472,
+        "rssCriticalBytes": 4831838208,
+        "embeddingCacheEnabled": true,
+        "embeddingCacheTtlMs": 300000,
+        "embeddingCacheMaxEntries": 128,
+        "embeddingCachePersist": false,
+        "embeddingCachePersistDebug": false,
+        "embeddingCacheCoalesce": true,
+        "embeddingCacheMetrics": false,
+        "embeddingCacheScope": "agent",
+        "detachPostTurnWork": false,
+        "traceRegistrations": false,
+        "deferPostTurnLlm": true,
+        "llmResultCacheEnabled": true,
+        "llmResultCacheTtlMs": 86400000,
+        "llmResultCacheMaxEntries": 256,
+        "llmResultCachePersist": false,
+        "llmResultCacheMaxBytes": 67108864,
+        "llmResultCacheMetrics": true,
+        "metricsDebounceMs": 5000,
+        "eventLoopLagResolutionMs": 10,
+        "lancedbCompaction": {
+          "enabled": true,
+          "fragmentThreshold": 64,
+          "checkEveryWrites": 16,
+          "checkIntervalMs": 600000,
+          "timeoutMs": 60000
+        }
+      },
+      "temporalContext": {
+        "enabled": true
+      },
+      "recallMinScore": 0.15,
+      "autoRecallMinScore": 0.2,
+      "duplicateThreshold": 0.95,
+      "forgetThreshold": 0.3,
+      "summaryMaxWords": 150,
+      "reranker": {
+        "enabled": true,
+        "timeoutMs": 5000,
+        "maxDocuments": 1000,
+        "maxRequestBytes": 4194304,
+        "maxResponseBytes": 1048576,
+        "fallbackOnError": true
+      },
+      "merging": {
+        "enabled": false,
+        "threshold": 0.7,
+        "autoApply": false,
+        "autoApplyRisk": "low-only",
+        "backupBeforeApply": true,
+        "auditLog": true,
+        "mode": "safe-versioned"
+      },
+      "schicht15": {
+        "enabled": false,
+        "minImportance": 0.7,
+        "maxPromotionsPerRun": 0
+      },
+      "llmRouter": {
+        "errorDiagnostics": false
+      },
+      "skillMiner": {
+        "enabled": false,
+        "cron": "0 5 * * *",
+        "timezone": "Europe/Berlin",
+        "maxPerRun": 5,
+        "minConfidence": 0.6,
+        "minEvidenceScore": 3,
+        "autoApply": "host"
+      },
+      "gc": {
+        "enabled": true
+      },
+      "recall": {
+        "importanceBoost": 0.3,
+        "dedup": true,
+        "dedupJaccard": 0.78,
+        "canonicalFirst": true,
+        "canonicalMinScore": 0.3,
+        "canonicalMaxItems": 5,
+        "fullTextTopRecords": 3,
+        "fullTextMaxChars": 2000,
+        "maxPromptMemories": 12,
+        "globalInjectMaxChars": 17000,
+        "memoriesMaxChars": 12000,
+        "candidateTopK": 40,
+        "queryRefinement": {
+          "enabled": true
+        },
+        "adaptiveBudget": {
+          "enabled": false,
+          "tokenBudgetPct": 0.3
+        },
+        "semanticCompression": {
+          "enabled": false,
+          "tokenBudget": 240
+        },
+        "softBudgetMs": 35000,
+        "softBudgetFallback": true,
+        "eventLoopLagSnapshot": true,
+        "halfLifeDaysMap": {
+          "transient": 60,
+          "episodic": 180,
+          "longContext": 600,
+          "project": 600
+        },
+        "decisionTrace": {
+          "enabled": false,
+          "includeInPrompt": false,
+          "maxCandidates": 50,
+          "maxTextPreviewChars": 160,
+          "persist": false,
+          "visibleHints": false
+        }
+      },
+      "recallHedging": {
+        "enabled": true,
+        "minSpread": 0.1
+      },
+      "semanticLens": {
+        "enabled": true,
+        "maxLensMemories": 3,
+        "maxBridgeMemories": 2,
+        "maxFadedMemories": 1,
+        "maxCommunities": 2,
+        "timeoutMs": 50,
+        "cacheTtlMs": 30000
+      },
+      "controlUi": {
+        "writeActions": "off"
+      },
+      "continuityEngine": {
+        "enabled": true,
+        "associativeRecall": {
+          "enabled": true,
+          "maxDepth": 2,
+          "maxNeighborsPerNode": 8,
+          "maxAssociatedResults": 40,
+          "minCumulativeRelevance": 0.2,
+          "graphHydrationRelevanceThreshold": 0.25,
+          "graphIndex": {
+            "enabled": true
+          },
+          "assocThreshold": 0.75
+        },
+        "patternSurfacing": {
+          "enabled": false,
+          "patternThreshold": 0.7,
+          "maxPerSession": 1
+        },
+        "tasteGate": {
+          "enabled": true,
+          "maxAssociationsPerSession": 1,
+          "maxPatternsPerSession": 1
+        },
+        "overlays": {
+          "enabled": true,
+          "autoCreateOnRecall": false,
+          "maxAgeDays": 30,
+          "confidenceThreshold": 0.7,
+          "maxPerSession": 3,
+          "provisionalByDefault": true,
+          "autoResolveContradictions": false
+        },
+        "contradictionDetection": {
+          "enabled": false,
+          "maxPairsPerRecall": 20
+        },
+        "doctor": {
+          "enabled": false,
+          "maxAgeDays": 90
+        }
+      },
+      "conversationReactivationRecall": {
+        "enabled": false,
+        "idleThresholdMinutes": 45,
+        "cooldownMinutes": 30,
+        "maxReactivationMemories": 3,
+        "maxFadedReactivationMemories": 1,
+        "maxOpenThreads": 3,
+        "maxCommunities": 2,
+        "timeoutMs": 50,
+        "visibleHints": false
+      },
+      "obsidianBridge": {
+        "enabled": false,
+        "mode": "augment",
+        "vaultPath": null,
+        "workspaceRoot": null,
+        "reviewRoot": "plur1bus",
+        "requireUserApproval": true,
+        "applyApprovedOnly": true,
+        "writeManagedBlocks": false,
+        "allowWrite": false,
+        "allowDotObsidianWrite": false,
+        "backupBeforeApply": true,
+        "auditLog": true,
+        "requireVaultPathConfirmation": true,
+        "capabilityPack": "full",
+        "agents": {
+          "include": [
+            "*"
+          ],
+          "equalCapabilities": true,
+          "defaultProfiles": {
+            "default": "standard"
+          }
+        },
+        "morningReview": {
+          "enabled": false,
+          "cron": "0 9 * * *",
+          "timezone": "Europe/Berlin",
+          "delivery": "announce",
+          "session": "isolated",
+          "writeReviewBundle": true,
+          "applyMode": "manual",
+          "status": "pending_setup"
+        },
+        "eveningReview": {
+          "enabled": false,
+          "cron": "0 18 * * *",
+          "timezone": "Europe/Berlin",
+          "delivery": "announce",
+          "session": "isolated",
+          "applyMode": "manual",
+          "status": "pending_setup"
+        },
+        "maintenance": {
+          "daily": "light",
+          "weekly": "deep"
+        },
+        "adversarial": {
+          "daily": "light",
+          "weekly": "deep"
+        },
+        "optionalIntegrations": {
+          "dataview": false,
+          "tasks": false,
+          "bases": false
+        },
+        "maxFileBytes": 262144,
+        "maxItems": 200,
+        "bundleCooldownMs": 0,
+        "staleBundleMaxAgeDays": 7,
+        "autoApplyLowRisk": false,
+        "dryRun": true,
+        "watch": false,
+        "tombstoneOnDelete": true,
+        "sourceOfTruth": "plur1bus-lancedb",
+        "recallAuthority": "lancedb-reranked-vector",
+        "dashboardLayer": {
+          "enabled": false,
+          "records": true,
+          "markdownDashboards": true,
+          "bases": false,
+          "dataview": false,
+          "tasks": false,
+          "autoLinkSuggestions": true
+        },
+        "deepMaintenance": {
+          "enabled": true,
+          "archiveAfterDays": 30,
+          "staleDecisionAfterDays": 45,
+          "semanticDuplicateScan": true
+        },
+        "adversarialDeep": {
+          "enabled": false,
+          "semanticContradictionScan": true,
+          "evidenceScoring": true,
+          "llmClassifier": false,
+          "fallbackOnError": true,
+          "onlyWhenProviderAvailable": true
+        },
+        "semanticGraph": {
+          "enabled": false,
+          "proposalOnly": true,
+          "writeDerivedEdges": true,
+          "mutateMemory": false
+        },
+        "provenanceGraph": {
+          "enabled": false
+        },
+        "impactAnalysis": {
+          "enabled": true,
+          "proposalOnly": true
+        },
+        "graphLinks": {
+          "maxPerNote": 5,
+          "includeSemantic": false,
+          "semanticThreshold": 0.78,
+          "blockId": "graph-links",
+          "tiers": [
+            "explicit",
+            "type",
+            "semantic"
+          ],
+          "semanticDiscovery": {
+            "enabled": false,
+            "maxPerRun": 500,
+            "threshold": 0.78,
+            "maxLinksPerRecord": 5,
+            "topK": 20
+          }
+        },
+        "weekly": {
+          "enabled": true,
+          "archive": true,
+          "trendWindowWeeks": 4
+        },
+        "soulPatch": {
+          "enabled": false,
+          "force": false,
+          "migrateLegacy": false,
+          "createIfMissing": false,
+          "backup": true,
+          "promptForLegacyMigration": true
+        }
+      },
+      "criticalPush": {
+        "enabled": false,
+        "buttons": true,
+        "maxPerDay": 3,
+        "hideTypes": []
+      },
+      "dailyConsolidation": {
+        "enabled": false
+      },
+      "styleDirective": {
+        "timeOfDay": true,
+        "opinion": true,
+        "askBack": true
+      },
+      "dreamEcho": {
+        "enabled": true
+      },
+      "personaVoice": {
+        "enabled": true
+      },
+      "afterthought": {
+        "enabled": true
+      },
+      "reactionNudge": {
+        "enabled": "auto"
+      },
+      "contradictionDisclosure": {
+        "enabled": true
+      },
+      "featureCronSetup": {
+        "auto": true
+      },
+      "security": {
+        "allowChatConfigCommands": true,
+        "allowModelDestructiveMemoryOps": true,
+        "allowedUserIds": [],
+        "allowedChatIds": []
+      },
+      "featuresConfirmedAt": null,
+      "metaCognition": {
+        "enabled": true,
+        "llmReport": false,
+        "llmReportMode": "budgeted",
+        "fallbackOnError": true,
+        "sessionThreshold": 50,
+        "intervalDays": 7
+      },
+      "emotion": {
+        "tier": "auto",
+        "t2": {
+          "enabled": true
+        },
+        "t3": {
+          "enabled": false,
+          "fallbackOnError": true,
+          "onlyWhenProviderAvailable": true,
+          "escalationConfidence": 0.85,
+          "timeoutMs": 4000
+        },
+        "moodInfluence": 0.3,
+        "intensityHalfLifeFactor": 1
+      },
+      "healthWatch": {
+        "gatewayLog": true
+      },
+      "memoryDynamics": {
+        "flashbulbEncoding": false
+      },
+      "setupProfile": "custom",
+      "embedding": {
+        "provider": "local-transformers",
+        "local": {
+          "dimensions": 384
+        }
+      }
+    },
+    {
+      "confirmedAt": "2026-10-15T12:00:00.000Z",
+      "disabledFeatures": [
+        "autoRecall",
+        "unknown-feature"
+      ]
+    }
+  ],
+  "output": {
+    "fixtureDocument": "retained",
+    "plugins": {
+      "entries": {
+        "memory-lancedb-namespaced": {
+          "enabled": true,
+          "config": {
+            "autoCapture": false,
+            "reranker": {
+              "enabled": true,
+              "timeoutMs": 1200,
+              "maxDocuments": 1000,
+              "maxRequestBytes": 4194304,
+              "maxResponseBytes": 1048576,
+              "fallbackOnError": true
+            },
+            "merging": {
+              "enabled": true,
+              "threshold": 0.7,
+              "autoApply": false,
+              "autoApplyRisk": "low-only",
+              "backupBeforeApply": true,
+              "auditLog": true,
+              "mode": "safe-versioned"
+            },
+            "obsidianBridge": {
+              "allowWrite": true,
+              "semanticGraph": {
+                "mutateMemory": true,
+                "enabled": false,
+                "proposalOnly": true,
+                "writeDerivedEdges": true
+              },
+              "enabled": false,
+              "mode": "augment",
+              "vaultPath": null,
+              "workspaceRoot": null,
+              "reviewRoot": "plur1bus",
+              "requireUserApproval": true,
+              "applyApprovedOnly": true,
+              "writeManagedBlocks": false,
+              "allowDotObsidianWrite": false,
+              "backupBeforeApply": true,
+              "auditLog": true,
+              "requireVaultPathConfirmation": true,
+              "capabilityPack": "full",
+              "agents": {
+                "include": [
+                  "*"
+                ],
+                "equalCapabilities": true,
+                "defaultProfiles": {
+                  "default": "standard"
+                }
+              },
+              "morningReview": {
+                "enabled": false,
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin",
+                "delivery": "announce",
+                "session": "isolated",
+                "writeReviewBundle": true,
+                "applyMode": "manual",
+                "status": "pending_setup"
+              },
+              "eveningReview": {
+                "enabled": false,
+                "cron": "0 18 * * *",
+                "timezone": "Europe/Berlin",
+                "delivery": "announce",
+                "session": "isolated",
+                "applyMode": "manual",
+                "status": "pending_setup"
+              },
+              "maintenance": {
+                "daily": "light",
+                "weekly": "deep"
+              },
+              "adversarial": {
+                "daily": "light",
+                "weekly": "deep"
+              },
+              "optionalIntegrations": {
+                "dataview": false,
+                "tasks": false,
+                "bases": false
+              },
+              "maxFileBytes": 262144,
+              "maxItems": 200,
+              "bundleCooldownMs": 0,
+              "staleBundleMaxAgeDays": 7,
+              "autoApplyLowRisk": false,
+              "dryRun": true,
+              "watch": false,
+              "tombstoneOnDelete": true,
+              "sourceOfTruth": "plur1bus-lancedb",
+              "recallAuthority": "lancedb-reranked-vector",
+              "dashboardLayer": {
+                "enabled": false,
+                "records": true,
+                "markdownDashboards": true,
+                "bases": false,
+                "dataview": false,
+                "tasks": false,
+                "autoLinkSuggestions": true
+              },
+              "deepMaintenance": {
+                "enabled": true,
+                "archiveAfterDays": 30,
+                "staleDecisionAfterDays": 45,
+                "semanticDuplicateScan": true
+              },
+              "adversarialDeep": {
+                "enabled": false,
+                "semanticContradictionScan": true,
+                "evidenceScoring": true,
+                "llmClassifier": false,
+                "fallbackOnError": true,
+                "onlyWhenProviderAvailable": true
+              },
+              "provenanceGraph": {
+                "enabled": false
+              },
+              "impactAnalysis": {
+                "enabled": true,
+                "proposalOnly": true
+              },
+              "graphLinks": {
+                "maxPerNote": 5,
+                "includeSemantic": false,
+                "semanticThreshold": 0.78,
+                "blockId": "graph-links",
+                "tiers": [
+                  "explicit",
+                  "type",
+                  "semantic"
+                ],
+                "semanticDiscovery": {
+                  "enabled": false,
+                  "maxPerRun": 500,
+                  "threshold": 0.78,
+                  "maxLinksPerRecord": 5,
+                  "topK": 20
+                }
+              },
+              "weekly": {
+                "enabled": true,
+                "archive": true,
+                "trendWindowWeeks": 4
+              },
+              "soulPatch": {
+                "enabled": false,
+                "force": false,
+                "migrateLegacy": false,
+                "createIfMissing": false,
+                "backup": true,
+                "promptForLegacyMigration": true
+              }
+            },
+            "embeddingBatchSize": 8,
+            "language": "de",
+            "timezone": null,
+            "replyOutcomeTracking": {
+              "enabled": true,
+              "maxAgeMs": 604800000,
+              "maxMemoryIds": 12,
+              "maxReplyChars": 4000,
+              "maxAssistantChars": 4000,
+              "maxOutcomeLogEntries": 5000,
+              "maxFeedbackLogEntries": 5000
+            },
+            "dreaming": {
+              "enabled": false,
+              "narrative": {
+                "enabled": true,
+                "temperature": 0.9,
+                "storeAsMemory": true,
+                "importanceMax": 0.45,
+                "diary": true,
+                "diaryFromUserChats": false
+              }
+            },
+            "reminders": {
+              "deliveryMode": "pending_only"
+            },
+            "neo": {
+              "enabled": true,
+              "mode": "augment",
+              "embeddingDrain": {
+                "enabled": true,
+                "impact": "low",
+                "maxItems": 250
+              }
+            },
+            "captureChunking": true,
+            "captureChunkingMode": "beides",
+            "captureChunkingJev": {
+              "apiKeyEnv": "TYPESAFE_API_KEY",
+              "model": "jev-latest",
+              "minConfidence": 0.85,
+              "timeoutMs": 5000
+            },
+            "groupReasoningFilter": {
+              "enabled": true
+            },
+            "autoRecall": false,
+            "runtime": {
+              "recallTimeoutMs": 45000,
+              "captureTimeoutMs": 60000,
+              "maxConcurrentRecall": 1,
+              "maxConcurrentCapturePerAgent": 1,
+              "backgroundPriority": "low",
+              "recallCacheTtlMs": 120000,
+              "recallCacheMaxEntries": 128,
+              "maxQueueDepthRecall": 20,
+              "maxQueueDepthCapturePerAgent": 10,
+              "pressureGateEnabled": true,
+              "rssWarningBytes": 3221225472,
+              "rssCriticalBytes": 4831838208,
+              "embeddingCacheEnabled": true,
+              "embeddingCacheTtlMs": 300000,
+              "embeddingCacheMaxEntries": 128,
+              "embeddingCachePersist": false,
+              "embeddingCachePersistDebug": false,
+              "embeddingCacheCoalesce": true,
+              "embeddingCacheMetrics": false,
+              "embeddingCacheScope": "agent",
+              "detachPostTurnWork": false,
+              "traceRegistrations": false,
+              "deferPostTurnLlm": true,
+              "llmResultCacheEnabled": true,
+              "llmResultCacheTtlMs": 86400000,
+              "llmResultCacheMaxEntries": 256,
+              "llmResultCachePersist": false,
+              "llmResultCacheMaxBytes": 67108864,
+              "llmResultCacheMetrics": true,
+              "metricsDebounceMs": 5000,
+              "eventLoopLagResolutionMs": 10,
+              "lancedbCompaction": {
+                "enabled": true,
+                "fragmentThreshold": 64,
+                "checkEveryWrites": 16,
+                "checkIntervalMs": 600000,
+                "timeoutMs": 60000
+              }
+            },
+            "temporalContext": {
+              "enabled": true
+            },
+            "recallMinScore": 0.15,
+            "autoRecallMinScore": 0.2,
+            "duplicateThreshold": 0.95,
+            "forgetThreshold": 0.3,
+            "summaryMaxWords": 150,
+            "schicht15": {
+              "enabled": false,
+              "minImportance": 0.7,
+              "maxPromotionsPerRun": 0
+            },
+            "llmRouter": {
+              "errorDiagnostics": false
+            },
+            "skillMiner": {
+              "enabled": false,
+              "cron": "0 5 * * *",
+              "timezone": "Europe/Berlin",
+              "maxPerRun": 5,
+              "minConfidence": 0.6,
+              "minEvidenceScore": 3,
+              "autoApply": "host"
+            },
+            "gc": {
+              "enabled": true
+            },
+            "recall": {
+              "importanceBoost": 0.3,
+              "dedup": true,
+              "dedupJaccard": 0.78,
+              "canonicalFirst": true,
+              "canonicalMinScore": 0.3,
+              "canonicalMaxItems": 5,
+              "fullTextTopRecords": 3,
+              "fullTextMaxChars": 2000,
+              "maxPromptMemories": 12,
+              "globalInjectMaxChars": 17000,
+              "memoriesMaxChars": 12000,
+              "candidateTopK": 40,
+              "queryRefinement": {
+                "enabled": true
+              },
+              "adaptiveBudget": {
+                "enabled": false,
+                "tokenBudgetPct": 0.3
+              },
+              "semanticCompression": {
+                "enabled": false,
+                "tokenBudget": 240
+              },
+              "softBudgetMs": 35000,
+              "softBudgetFallback": true,
+              "eventLoopLagSnapshot": true,
+              "halfLifeDaysMap": {
+                "transient": 60,
+                "episodic": 180,
+                "longContext": 600,
+                "project": 600
+              },
+              "decisionTrace": {
+                "enabled": false,
+                "includeInPrompt": false,
+                "maxCandidates": 50,
+                "maxTextPreviewChars": 160,
+                "persist": false,
+                "visibleHints": false
+              }
+            },
+            "recallHedging": {
+              "enabled": true,
+              "minSpread": 0.1
+            },
+            "semanticLens": {
+              "enabled": true,
+              "maxLensMemories": 3,
+              "maxBridgeMemories": 2,
+              "maxFadedMemories": 1,
+              "maxCommunities": 2,
+              "timeoutMs": 50,
+              "cacheTtlMs": 30000
+            },
+            "controlUi": {
+              "writeActions": "off"
+            },
+            "continuityEngine": {
+              "enabled": true,
+              "associativeRecall": {
+                "enabled": true,
+                "maxDepth": 2,
+                "maxNeighborsPerNode": 8,
+                "maxAssociatedResults": 40,
+                "minCumulativeRelevance": 0.2,
+                "graphHydrationRelevanceThreshold": 0.25,
+                "graphIndex": {
+                  "enabled": true
+                },
+                "assocThreshold": 0.75
+              },
+              "patternSurfacing": {
+                "enabled": false,
+                "patternThreshold": 0.7,
+                "maxPerSession": 1
+              },
+              "tasteGate": {
+                "enabled": true,
+                "maxAssociationsPerSession": 1,
+                "maxPatternsPerSession": 1
+              },
+              "overlays": {
+                "enabled": true,
+                "autoCreateOnRecall": false,
+                "maxAgeDays": 30,
+                "confidenceThreshold": 0.7,
+                "maxPerSession": 3,
+                "provisionalByDefault": true,
+                "autoResolveContradictions": false
+              },
+              "contradictionDetection": {
+                "enabled": false,
+                "maxPairsPerRecall": 20
+              },
+              "doctor": {
+                "enabled": false,
+                "maxAgeDays": 90
+              }
+            },
+            "conversationReactivationRecall": {
+              "enabled": false,
+              "idleThresholdMinutes": 45,
+              "cooldownMinutes": 30,
+              "maxReactivationMemories": 3,
+              "maxFadedReactivationMemories": 1,
+              "maxOpenThreads": 3,
+              "maxCommunities": 2,
+              "timeoutMs": 50,
+              "visibleHints": false
+            },
+            "criticalPush": {
+              "enabled": false,
+              "buttons": true,
+              "maxPerDay": 3,
+              "hideTypes": []
+            },
+            "dailyConsolidation": {
+              "enabled": false
+            },
+            "styleDirective": {
+              "timeOfDay": true,
+              "opinion": true,
+              "askBack": true
+            },
+            "dreamEcho": {
+              "enabled": true
+            },
+            "personaVoice": {
+              "enabled": true
+            },
+            "afterthought": {
+              "enabled": true
+            },
+            "reactionNudge": {
+              "enabled": "auto"
+            },
+            "contradictionDisclosure": {
+              "enabled": true
+            },
+            "featureCronSetup": {
+              "auto": true
+            },
+            "security": {
+              "allowChatConfigCommands": true,
+              "allowModelDestructiveMemoryOps": true,
+              "allowedUserIds": [],
+              "allowedChatIds": []
+            },
+            "featuresConfirmedAt": "2026-10-15T12:00:00.000Z",
+            "metaCognition": {
+              "enabled": true,
+              "llmReport": false,
+              "llmReportMode": "budgeted",
+              "fallbackOnError": true,
+              "sessionThreshold": 50,
+              "intervalDays": 7
+            },
+            "emotion": {
+              "tier": "auto",
+              "t2": {
+                "enabled": true
+              },
+              "t3": {
+                "enabled": false,
+                "fallbackOnError": true,
+                "onlyWhenProviderAvailable": true,
+                "escalationConfidence": 0.85,
+                "timeoutMs": 4000
+              },
+              "moodInfluence": 0.3,
+              "intensityHalfLifeFactor": 1
+            },
+            "healthWatch": {
+              "gatewayLog": true
+            },
+            "memoryDynamics": {
+              "flashbulbEncoding": false
+            },
+            "setupProfile": "custom",
+            "embedding": {
+              "provider": "local-transformers",
+              "local": {
+                "dimensions": 384
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

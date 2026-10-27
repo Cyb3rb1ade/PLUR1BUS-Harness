@@ -90,3 +90,26 @@ questions are recorded here as they are resolved.
   after rendering inherited JS comment syntax for Rust documentation.
 - Contract generation preserves mixed scalar unions, legacy wire aliases,
   explicit null/empty values, and integral JSON number representations.
+
+## T3 completion
+
+- Actual crate RED: config parity tests failed with missing `config` module.
+- Both default and `testkit` engine test runs pass: 80 tests total, including
+  12 config tests covering 30 accepted/30 rejected configurations, eight
+  effective-config references, 20 pure setup references, timezone cases,
+  the source-schema copy, and ledger assumptions.
+- All 89 config fixture files reproduce byte for byte. The recorder uses
+  `validatePluginConfig` and relative paths; empty reranker is valid.
+- Additional ledger entries cover Node's ignored `chatModels.propertyNames`,
+  UTF-16 string length, and integral JSON number spelling. The copied schema's
+  constraints/defaults remain unchanged.
+- Exploratory checks of 9,310 Node configurations found no verdict/path
+  differences, also when using the actual generated EngineConfig type.
+- Engine clippy (all targets, `testkit`), rustdoc (no dependencies), fmt,
+  hygiene, and whitespace checks pass. Rustdoc emits no warnings.
+- Adapter-only profile filesystem discovery/onboarding/notices are explicitly
+  dropped: harness setup owns those effects. Pure engine profile/default
+  behavior is ported and recorded.
+- First-error order for multiple invalid siblings follows the supplied
+  `serde_json::Value` order. The Value API does not retain the original JSON
+  insertion order; individual recorded error paths match Node exactly.

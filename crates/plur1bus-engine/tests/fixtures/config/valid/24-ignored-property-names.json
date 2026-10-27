@@ -1,0 +1,17 @@
+{
+  "config": {
+    "chatModels": {
+      "invalid agent key": "fixture/model"
+    },
+    "security": {
+      "allowedUserIds": [
+        "fixture-user"
+      ],
+      "allowedChatIds": [
+        "fixture-chat"
+      ]
+    }
+  },
+  "valid": true,
+  "errors": []
+}

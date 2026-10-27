@@ -10,6 +10,7 @@
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 
 pub mod cache_profiles;
+pub mod config;
 pub mod contract;
 pub mod tokens;
 

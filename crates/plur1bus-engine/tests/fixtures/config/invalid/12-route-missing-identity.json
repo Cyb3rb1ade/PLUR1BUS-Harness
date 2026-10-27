@@ -1,0 +1,15 @@
+{
+  "config": {
+    "embedding": {
+      "routes": [
+        {
+          "agentId": "fixture-agent"
+        }
+      ]
+    }
+  },
+  "valid": false,
+  "errors": [
+    "embedding.routes[0].identity"
+  ]
+}
