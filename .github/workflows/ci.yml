@@ -60,6 +60,9 @@ jobs:
     timeout-minutes: ${{ matrix.os == 'windows-2025' && 90 || 65 }}
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"
+      # PLUR1BUS_TOKENIZER_DIR is set on the steps that use it: a job's env has no `runner` context, and GitHub rejects
+      # the whole workflow file when one is referenced there.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -150,9 +153,26 @@ jobs:
         run: cargo fmt --all -- --check
       - if: needs.changes.outputs.rust == 'true'
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: tokenizer setup regression tests
+        if: needs.changes.outputs.rust == 'true'
+        run: node --test scripts/tokens/*.test.mjs
+      - name: pinned tokenizer cache
+        if: needs.changes.outputs.rust == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/plur1bus-tokenizers
+          key: tokenizers-v1-${{ hashFiles('crates/plur1bus-engine/src/tokens/artifacts.json', 'scripts/tokens/tiktoken-to-json.mjs') }}
+      - name: install pinned tokenizer files
+        if: needs.changes.outputs.rust == 'true'
+        run: node scripts/tokens/setup-tokenizers.mjs
+        timeout-minutes: 10
+        env:
+          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
       - if: needs.changes.outputs.rust == 'true'
         run: cargo test --workspace --no-fail-fast
         timeout-minutes: 30
+        env:
+          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
   # Not gated: macOS (Core qualification remains unproven) and Windows (slow) legs, named as before, `unit (macos-15)` etc.
   # Every leg here is non-Linux, so the whole job follows the full-platform policy (`changes.macos`: push to main, schedule,
   # dispatch, label `ci:macos`, platform-sensitive paths; docs/ci.md) instead of excluding matrix entries (an all-excluded
@@ -170,6 +190,9 @@ jobs:
     timeout-minutes: ${{ matrix.os == 'windows-2025' && 90 || 65 }}
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"
+      # PLUR1BUS_TOKENIZER_DIR is set on the steps that use it: a job's env has no `runner` context, and GitHub rejects
+      # the whole workflow file when one is referenced there.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -264,9 +287,26 @@ jobs:
         run: cargo fmt --all -- --check
       - if: needs.changes.outputs.rust == 'true'
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: tokenizer setup regression tests
+        if: needs.changes.outputs.rust == 'true'
+        run: node --test scripts/tokens/*.test.mjs
+      - name: pinned tokenizer cache
+        if: needs.changes.outputs.rust == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/plur1bus-tokenizers
+          key: tokenizers-v1-${{ hashFiles('crates/plur1bus-engine/src/tokens/artifacts.json', 'scripts/tokens/tiktoken-to-json.mjs') }}
+      - name: install pinned tokenizer files
+        if: needs.changes.outputs.rust == 'true'
+        run: node scripts/tokens/setup-tokenizers.mjs
+        timeout-minutes: 10
+        env:
+          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
       - if: needs.changes.outputs.rust == 'true'
         run: cargo test --workspace --no-fail-fast
         timeout-minutes: 30
+        env:
+          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
   core-unit-shard:
     needs: changes
     if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.ts-core == 'true'

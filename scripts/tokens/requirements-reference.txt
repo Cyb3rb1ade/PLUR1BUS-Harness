@@ -1,0 +1,4 @@
+# Offline golden-recording tools only; never runtime dependencies or bundled tokenizers.
+# OpenAI tiktoken MIT; Hugging Face tokenizers Apache-2.0.
+tiktoken==0.14.0
+tokenizers==0.23.2
