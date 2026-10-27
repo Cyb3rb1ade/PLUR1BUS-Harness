@@ -45,6 +45,13 @@ sha2 = "0.10"
 # One HTTP client policy in the workspace: the same version and features as crates/plur1bus (rustls, no native-tls).
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
 
+# Keep these direct dependencies on the exact lines already resolved by lancedb 0.26.2.
+arrow-array = "=57.3.1"
+arrow-schema = "=57.3.1"
+arrow-json = "=57.3.1"
+futures = "=0.3.34"
+tokio = { version = "=1.53.3", features = ["rt-multi-thread"] }
+
 [dev-dependencies]
 tempfile.workspace = true
 

@@ -4743,9 +4743,13 @@ dependencies = [
 name = "plur1bus-engine"
 version = "0.1.0"
 dependencies = [
+ "arrow-array",
+ "arrow-json",
+ "arrow-schema",
  "chrono-tz",
  "clap",
  "fancy-regex 0.17.0",
+ "futures",
  "icu_collator",
  "icu_locale_core",
  "icu_normalizer",
@@ -4763,6 +4767,7 @@ dependencies = [
  "syn 2.0.119",
  "tempfile",
  "tokenizers",
+ "tokio",
  "typify",
  "ureq",
  "url",
