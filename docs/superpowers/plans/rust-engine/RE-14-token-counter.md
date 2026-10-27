@@ -79,8 +79,9 @@ P1–P4 merged 2026-10-26: #781, #783, #784, #785. What they built is described 
 
 ### T1 — The table, read by both languages
 
-Merged 2026-10-26 (#786): `crates/plur1bus-engine/src/cache_profiles.rs`,
-`tests/cache_profiles_parity.rs`, `scripts/gen-provider-matrix.mjs`.
+Merged 2026-10-26 (#786, merge `0058ae70`): `crates/plur1bus-engine/src/cache_profiles.rs`,
+`tests/cache_profiles_parity.rs`, `scripts/gen-provider-matrix.mjs`. CI ran `cargo test --workspace` on Linux; the T1
+tests passed on Linux, macOS and Windows.
 
 - [x] Generate `cache-profile-vectors.json` from the TypeScript loader (`pnpm gen`): model ids and routes in,
   normalised id, gateway, platform and row id out, plus `cacheRouteForUrl` over the table's `hosts`. The engine reads
@@ -89,21 +90,27 @@ Merged 2026-10-26 (#786): `crates/plur1bus-engine/src/cache_profiles.rs`,
 
 ### T2 — The counter
 
-Starts only after the confirmed merge of T1 (#786).
+T2a merged 2026-10-27 (#788): the `tokens` library (`crates/plur1bus-engine/src/tokens/`). o200k counts are exact,
+from `o200k_base.tiktoken` at `zurawiki/tiktoken-rs@72a5a800` (MIT); the owner accepted that source on 2026-10-27
+in place of the `tokenizer.json` of `openai/gpt-oss-20b` (Apache-2.0, same vocabulary). Every other family counts
+`heuristic`. CI fetches the pinned file and checks its SHA-256 before the workspace Cargo tests; the file never
+enters the repository. The counter remains an unused library service in Phase 1; calibration and RPC are separate
+packages.
 
-Implementation started from `main` `0058ae70` after GitHub confirmed T1's merge. The counter remains an unused
-library service in Phase 1; calibration and RPC are separate packages.
+T2b, open: exact counts and goldens for Gemma 4, DeepSeek V4, Qwen 3.8 and GLM, once their original files,
+immutable pins and licence evidence are available (Hugging Face was unreachable from T2a's environment). Gemma 3
+and Grok-2 have no licence approval; Kimi stays an estimate until the owner decides.
 
 - [ ] Failing tests first: `lower ≤ tokens ≤ upper` for every family and method; count goldens (fixture texts × family →
   count) recorded from the reference tokenizers (o200k, Gemma 4, the local models' files) on German, English, code and
-  JSON text.
-- [ ] Implement `src/tokens/`: families from the table, `exact` through the `tokenizers` crate pinned by RE-03 (RE-D19)
+  JSON text. o200k: T2a; Gemma 4 and the local models' files: T2b.
+- [x] Implement `src/tokens/`: families from the table, `exact` through the `tokenizers` crate pinned by RE-03 (RE-D19)
   for families whose file is present, `heuristic` (chars/4, labelled) otherwise. Items end at message boundaries;
   `cumulative` gives running totals inside a message.
 
 ### T3 — Calibration
 
-Starts only after the confirmed merge of T2.
+Starts after T2 merges.
 
 - [ ] An affine fit per (route, family, method) against inclusive prompt totals, stored under the engine's state
   directory, fed by `LlmResult.usage` and by `engine.tokens.observe`. Totals are normalised first (plan §2.6, rule 5).

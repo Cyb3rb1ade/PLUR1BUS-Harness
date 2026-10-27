@@ -75,6 +75,10 @@ jobs:
           node --experimental-strip-types --test --test-timeout=600000 tests/e2e/smoke.test.ts
         env:
           PLUR1BUS_REAL_MODELS: '1'
+          # The models the acceptance step above downloaded and verified (the engine checks every file's SHA-256 again
+          # at each start). That step covers the download; without the cache this smoke fetched the ~1 GB again into its
+          # home, on Windows on the slow C: drive, and the core that `setup` starts threw a second copy away.
+          PLUR1BUS_MODELS_CACHE: ${{ runner.temp }}/release-real-models
           PLUR1BUS_CI_RECALL_HARD_MS: '3000'
       - run: node --experimental-strip-types --test tests/system/helpers.test.ts
       - name: encrypted full-state and vault round trip

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SqliteCapabilityRegistry } from '../../src/toolcall/sqlite-registry.ts';
@@ -19,5 +20,19 @@ test('persistent registry survives restart; updates/disable/remove route immedia
     const index2 = new CapabilityIndex(); index2.connect(registry);
     registry.upsert({ ...entry, version: '2', enabled: false }); assert.equal(index2.search('report').length, 0);
     registry.remove('skill'); assert.equal(registry.snapshot().length, 0);
+  } finally { registry.close(); rmSync(home, { recursive: true, force: true }); }
+});
+test('a file registry writes ahead: a commit does not wait for the disk', () => {
+  // The first turn of an agent upserts every tool in its own transaction; with the rollback journal each one cost about
+  // four fsyncs (6 to 8 s of a blocked core on the Windows CI runner's C:). WAL is a property of the file, so a second
+  // connection sees it; synchronous=NORMAL belongs to the registry's connection.
+  const home = mkdtempSync(join(tmpdir(), 'toolcall-index-')); const path = join(home, 'capabilities.sqlite');
+  const registry = new SqliteCapabilityRegistry(path);
+  try {
+    for (let i = 0; i < 3; i++) registry.upsert({ id: `tool:${i}`, name: `tool_${i}`, description: `Tool ${i}`, category: 'ops.system', kind: 'tool', effect: 'read', risk: 'low', source: 'turn:x', version: '1' });
+    assert.ok(existsSync(`${path}-wal`), 'commits go to the write-ahead log');
+    const other = new DatabaseSync(path, { readOnly: true });
+    try { assert.equal(other.prepare('PRAGMA journal_mode').get()?.['journal_mode'], 'wal'); } finally { other.close(); }
+    assert.equal(registry.snapshot().length, 3);
   } finally { registry.close(); rmSync(home, { recursive: true, force: true }); }
 });
