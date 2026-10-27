@@ -119,6 +119,8 @@ impl RowFilter {
             errors: Vec::new(),
         };
         let mut end = tokens.len();
+        let number_prefix =
+            regex::Regex::new(r"^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?").ok();
         for (index, token) in tokens.iter().enumerate().rev() {
             let Some((key, value)) = token.split_once(':').filter(|(key, _)| !key.is_empty())
             else {
@@ -150,11 +152,10 @@ impl RowFilter {
                 }
                 "gefühl" | "emotion" | "mood" => result.filter.emotion = Some(value),
                 "wichtig" | "min" | "important" | "minimportance" => {
-                    let parsed = regex::Regex::new(
-                        r"^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?",
-                    )
-                    .ok()
-                    .and_then(|re| re.find(&value).and_then(|m| m.as_str().parse::<f64>().ok()));
+                    let parsed = number_prefix.as_ref().and_then(|re| {
+                        re.find(&value)
+                            .and_then(|matched| matched.as_str().parse::<f64>().ok())
+                    });
                     match parsed {
                         Some(number) if (0.0..=1.0).contains(&number) => {
                             result.filter.min_importance = Some(number)

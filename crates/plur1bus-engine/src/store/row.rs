@@ -461,3 +461,8 @@ pub struct RowPatch {
     #[serde(skip_serializing_if = "Option::is_none", rename = "chunkGroupId")]
     pub chunk_group_id: Option<String>,
 }
+
+/// Node's Phase 1 distance score, including the nullish default and its unmodified edge cases.
+pub fn distance_to_score(distance: Option<f64>) -> f64 {
+    1.0 / (1.0 + distance.unwrap_or(0.0))
+}

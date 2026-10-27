@@ -9,6 +9,7 @@ pub mod acl;
 pub mod capabilities;
 pub mod client;
 pub mod error;
+pub mod process;
 pub mod transport;
 pub mod trust;
 #[cfg(windows)]

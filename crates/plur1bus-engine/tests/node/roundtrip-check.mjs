@@ -10,8 +10,14 @@ if(args[0]==="--sqlite"){
 }else if(args[0]==="--neo"){
   const {checkNeo}=await import("./neo-check.mjs");
   console.log(JSON.stringify(await checkNeo(args[1],{append:args.includes("--append")})));
+}else if(args[0]==="--neo-lock"){
+  const {checkNeoLock}=await import("./neo-lock-check.mjs");
+  const result=await checkNeoLock(args.slice(1));
+  if(result!==null)console.log(JSON.stringify(result));
 }else if(args[0]==="--lock"){
-  await import("./lock-check.mjs");
+  const {checkLock}=await import("./lock-check.mjs");
+  const result=await checkLock(args.slice(1));
+  if(result!==null)console.log(JSON.stringify(result));
 }else{
   let engineRoot;
   try{engineRoot=path.dirname(createRequire(path.join(process.cwd(),"package.json")).resolve("@cyb3rb1ade/plur1bus-memory/package.json"));}

@@ -1,3 +1,4 @@
+//! Cross-runtime store compatibility and persistence invariants.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use plur1bus_engine::contract::VectorSpaceIdentity;
 use plur1bus_engine::store::{IdentityStatus, OpenMode, RowFilter, Store, StoreSchemaVersion};
@@ -475,4 +476,51 @@ fn filter_dates_require_ascii_digits_and_source_and_origin_remain_independent() 
     let parsed = RowFilter::parse("topic source:chat origin:voice");
     assert!(parsed.errors.is_empty());
     assert_eq!(store.count(&parsed.filter).unwrap(), 0);
+}
+
+#[test]
+fn purging_expired_rows_keeps_the_boundary_and_protected_memories() {
+    let (_temporary, store) = writable();
+    let mut rows = appended_rows(&store);
+    for row in &mut rows {
+        row.expires_at = 99.into();
+        row.never_forget = 0.into();
+        row.memory_class = "standard".into();
+    }
+    rows[1].never_forget = 1.into();
+    rows[2].memory_class = "core".into();
+    rows[3].expires_at = 100.into();
+    rows[4].expires_at = 0.into();
+    store.upsert(&rows).unwrap();
+    assert_eq!(store.purge_expired(100).unwrap(), 1);
+    assert!(store.get(&rows[0].id).unwrap().is_none());
+    for row in &rows[1..] {
+        assert!(store.get(&row.id).unwrap().is_some());
+    }
+}
+#[test]
+fn purge_throttling_is_shared_by_handles_for_the_same_physical_database() {
+    let (temporary, first) = writable();
+    let second = Store::open(temporary.path(), OpenMode::ReadWrite, None).unwrap();
+    let mut row = appended_rows(&first).remove(0);
+    row.expires_at = 99.into();
+    row.never_forget = 0.into();
+    row.memory_class = "standard".into();
+    first.upsert(std::slice::from_ref(&row)).unwrap();
+    assert_eq!(first.purge_expired_throttled(100).unwrap(), 1);
+    first.upsert(std::slice::from_ref(&row)).unwrap();
+    assert_eq!(second.purge_expired_throttled(101).unwrap(), 0);
+    assert!(first.get(&row.id).unwrap().is_some());
+    assert_eq!(second.purge_expired_throttled(300100).unwrap(), 1);
+}
+#[test]
+fn the_phase_one_distance_score_matches_the_pins_unmodified_formula() {
+    use plur1bus_engine::store::row::distance_to_score;
+    assert_eq!(distance_to_score(None), 1.0);
+    assert_eq!(distance_to_score(Some(0.0)), 1.0);
+    assert_eq!(distance_to_score(Some(2.0)), 1.0 / 3.0);
+    assert_eq!(distance_to_score(Some(4.0)), 0.2);
+    assert_eq!(distance_to_score(Some(f64::INFINITY)), 0.0);
+    assert!(distance_to_score(Some(f64::NAN)).is_nan());
+    assert_eq!(distance_to_score(Some(-1.0)), f64::INFINITY);
 }

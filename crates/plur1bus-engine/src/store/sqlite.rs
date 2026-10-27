@@ -81,21 +81,27 @@ const BUSY_TIMEOUT: Duration = Duration::from_millis(5_000);
 const CACHE_VERSION: &str = "v2";
 const LLM_METADATA_BYTES: usize = 256;
 
+#[derive(Clone, Copy)]
 enum VacuumPolicy {
     Incremental,
     EmptySchema,
     Unchanged,
 }
 
-fn sqlite_error(error: rusqlite::Error) -> StoreError {
-    match error.sqlite_error_code() {
-        Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked) => StoreError::Busy,
-        Some(ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase) => StoreError::Corrupt,
-        Some(ErrorCode::CannotOpen) => StoreError::Unavailable,
-        _ => StoreError::Io {
-            kind: std::io::ErrorKind::Other,
-        },
+impl From<rusqlite::Error> for StoreError {
+    fn from(error: rusqlite::Error) -> Self {
+        match error.sqlite_error_code() {
+            Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked) => StoreError::Busy,
+            Some(ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase) => StoreError::Corrupt,
+            Some(ErrorCode::CannotOpen) => StoreError::Unavailable,
+            _ => StoreError::Io {
+                kind: std::io::ErrorKind::Other,
+            },
+        }
     }
+}
+fn sqlite_error(error: rusqlite::Error) -> StoreError {
+    error.into()
 }
 
 fn now_ms() -> Result<i64, StoreError> {

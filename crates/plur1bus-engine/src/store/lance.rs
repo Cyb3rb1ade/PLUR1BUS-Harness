@@ -31,7 +31,7 @@ pub enum IdentityStatus {
     /// The recorded identity differs from the request.
     Mismatch {
         /// The identity found on disk.
-        found: VectorSpaceIdentity,
+        found: Box<VectorSpaceIdentity>,
     },
 }
 
@@ -132,8 +132,12 @@ impl Store {
         let path = path
             .canonicalize()
             .map_err(|error| StoreError::Io { kind: error.kind() })?;
-        let directory=super::directory::TrustedDirectory::open(&path)?;
-        let path_text=directory.lance_path().to_str().ok_or(StoreError::InvalidInput)?.to_owned();
+        let directory = super::directory::TrustedDirectory::open(&path)?;
+        let path_text = directory
+            .lance_path()
+            .to_str()
+            .ok_or(StoreError::InvalidInput)?
+            .to_owned();
         let (table, identity, schema, identity_schema) = executor.run(async move {
             let connection = lancedb::connect(&path_text)
                 .read_consistency_interval(Duration::ZERO)
@@ -195,7 +199,7 @@ impl Store {
                     != super::identity::identity_id(expected)? =>
             {
                 IdentityStatus::Mismatch {
-                    found: found.clone(),
+                    found: Box::new(found.clone()),
                 }
             }
             (Some(_), _) => IdentityStatus::Verified,
@@ -257,8 +261,12 @@ impl Store {
         )?;
         paths::secure_dir(path)?;
         let schema = row::arrow_schema(dim)?;
-        let directory=super::directory::TrustedDirectory::open(path)?;
-        let path_text=directory.lance_path().to_str().ok_or(StoreError::InvalidInput)?.to_owned();
+        let directory = super::directory::TrustedDirectory::open(path)?;
+        let path_text = directory
+            .lance_path()
+            .to_str()
+            .ok_or(StoreError::InvalidInput)?
+            .to_owned();
         let executor = Executor::new()?;
         executor.run(async move {
             let connection = lancedb::connect(&path_text)
@@ -372,6 +380,19 @@ impl Store {
             Ok(row::from_batches(&batches)?.into_iter().next())
         })
     }
+    fn tombstone_context<'a>(&self, row: &'a MemoryRow) -> std::borrow::Cow<'a, MemoryRow> {
+        if !row.agent_id.is_empty() || !row.stored_by.is_empty() {
+            return std::borrow::Cow::Borrowed(row);
+        }
+        let mut context = row.clone();
+        context.agent_id = self
+            .path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("")
+            .to_owned();
+        std::borrow::Cow::Owned(context)
+    }
     fn trusted(&self) -> Result<(), StoreError> {
         self.directory.assert_unchanged()?;
         paths::assert_trusted_path(&self.path)?;
@@ -451,6 +472,10 @@ impl Store {
             return Ok(());
         }
         for row in rows {
+            super::tombstone::assert_card_write_allowed(
+                self.path.parent().ok_or(StoreError::InvalidInput)?,
+                self.tombstone_context(row).as_ref(),
+            )?;
             self.validate_vector(&row.vector)?;
         }
         let batch = row::to_batch(rows, self.schema.clone())?;
@@ -472,6 +497,15 @@ impl Store {
     /// Patch selected columns without dropping the row's other persisted values.
     pub fn patch(&self, id: &str, patch: &RowPatch) -> Result<(), StoreError> {
         self.writable()?;
+        if patch.text.is_some() || patch.summary.is_some() {
+            if let Some(existing) = self.get(id)? {
+                super::tombstone::assert_patch_write_allowed(
+                    self.path.parent().ok_or(StoreError::InvalidInput)?,
+                    self.tombstone_context(&existing).as_ref(),
+                    patch,
+                )?;
+            }
+        }
         if let Some(vector) = &patch.vector {
             self.validate_vector(vector)?;
         }
@@ -514,6 +548,46 @@ impl Store {
             table.delete(&filter).await.map_err(backend_error)?;
             Ok(count)
         })
+    }
+
+    /// Remove expired non-core rows that are not marked never-forget, as Node does.
+    pub fn purge_expired(&self, now: i64) -> Result<usize, StoreError> {
+        self.writable()?;
+        if !(0..=1_000_000_000_000_000).contains(&now) {
+            return Err(StoreError::InvalidInput);
+        }
+        let filter=format!("expiresAt > 0 AND expiresAt < {now} AND (neverForget IS NULL OR neverForget = 0) AND (memoryClass IS NULL OR memoryClass != 'core')");
+        let table = self.table.clone();
+        self.executor.run(async move {
+            let count = table
+                .count_rows(Some(filter.clone()))
+                .await
+                .map_err(backend_error)?;
+            table.delete(&filter).await.map_err(backend_error)?;
+            Ok(count)
+        })
+    }
+    /// Share the pin's five-minute purge throttle across handles for the same physical database.
+    pub fn purge_expired_throttled(&self, now: i64) -> Result<usize, StoreError> {
+        self.writable()?;
+        const PURGE_THROTTLE_MS: i64 = 300_000;
+        static LAST: std::sync::OnceLock<
+            std::sync::Mutex<std::collections::BTreeMap<PathBuf, i64>>,
+        > = std::sync::OnceLock::new();
+        {
+            let mut last = LAST
+                .get_or_init(Default::default)
+                .lock()
+                .map_err(|_| StoreError::Unavailable)?;
+            if last
+                .get(&self.path)
+                .is_some_and(|last| *last != 0 && now - *last < PURGE_THROTTLE_MS)
+            {
+                return Ok(0);
+            }
+            last.insert(self.path.clone(), now);
+        }
+        self.purge_expired(now)
     }
     /// Compact fragments and retain at least the Node policy's default 24 hours of versions.
     pub fn optimize(&self) -> Result<(), StoreError> {
