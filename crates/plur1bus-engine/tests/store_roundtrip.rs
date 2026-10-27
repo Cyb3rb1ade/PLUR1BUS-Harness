@@ -5,7 +5,16 @@ use std::path::PathBuf;
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/store-v1")
 }
-fn copied_fixture(name: &str) -> tempfile::TempDir {
+struct Scratch {
+    _guard: tempfile::TempDir,
+    path: PathBuf,
+}
+impl Scratch {
+    fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+}
+fn copied_fixture(name: &str) -> Scratch {
     fn copy(source: &std::path::Path, target: &std::path::Path) {
         std::fs::create_dir_all(target).unwrap();
         for entry in std::fs::read_dir(source).unwrap() {
@@ -20,7 +29,11 @@ fn copied_fixture(name: &str) -> tempfile::TempDir {
     }
     let temporary = tempfile::tempdir().unwrap();
     copy(&fixture().with_file_name(name), temporary.path());
-    temporary
+    let path = temporary.path().canonicalize().unwrap();
+    Scratch {
+        _guard: temporary,
+        path,
+    }
 }
 fn identity() -> VectorSpaceIdentity {
     serde_json::from_str(&std::fs::read_to_string(fixture().join("identity.json")).unwrap())
@@ -51,7 +64,7 @@ fn a_node_row_cut_inside_an_emoji_reads_back_as_u_fffd() {
     );
 }
 
-fn writable() -> (tempfile::TempDir, Store) {
+fn writable() -> (Scratch, Store) {
     let temporary = copied_fixture("store-v1");
     let store = Store::open(temporary.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
     (temporary, store)
@@ -283,4 +296,108 @@ fn filters_quote_node_literals_and_parse_the_same_suffix_grammar() {
         .to_sql(),
         "false"
     );
+}
+
+#[test]
+fn create_writes_the_identity_row_the_node_engine_expects() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().canonicalize().unwrap().join("base/a1");
+    let store = Store::create(&path, &identity(), 384).unwrap();
+    assert_eq!(store.count(&RowFilter::default()).unwrap(), 0);
+    assert_eq!(store.schema_version(), StoreSchemaVersion::V1);
+    assert_eq!(
+        node(&[path.to_str().unwrap(), "0"])["identityStatus"],
+        "verified"
+    );
+    let fixture = copied_fixture("store-v1");
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        for table in ["memories.lance", "_embedding_identity.lance"] {
+            let rust = lance::Dataset::open(path.join(table).to_str().unwrap())
+                .await
+                .unwrap();
+            let node = lance::Dataset::open(fixture.path().join(table).to_str().unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                rust.manifest().data_storage_format,
+                node.manifest().data_storage_format,
+                "storage version differs for {table}"
+            );
+            assert_eq!(
+                rust.manifest_location().naming_scheme,
+                node.manifest_location().naming_scheme,
+                "manifest naming differs for {table}"
+            );
+            assert_eq!(
+                rust.manifest().reader_feature_flags,
+                node.manifest().reader_feature_flags,
+                "reader flags differ for {table}"
+            );
+            assert_eq!(
+                rust.manifest().writer_feature_flags,
+                node.manifest().writer_feature_flags,
+                "writer flags differ for {table}"
+            );
+            let rust_connection = lancedb::connect(path.to_str().unwrap())
+                .execute()
+                .await
+                .unwrap();
+            let node_connection = lancedb::connect(fixture.path().to_str().unwrap())
+                .execute()
+                .await
+                .unwrap();
+            let name = table.trim_end_matches(".lance");
+            assert_eq!(
+                rust_connection
+                    .open_table(name)
+                    .execute()
+                    .await
+                    .unwrap()
+                    .list_indices()
+                    .await
+                    .unwrap()
+                    .len(),
+                node_connection
+                    .open_table(name)
+                    .execute()
+                    .await
+                    .unwrap()
+                    .list_indices()
+                    .await
+                    .unwrap()
+                    .len(),
+                "index options differ for {table}"
+            );
+        }
+    });
+}
+#[test]
+fn a_legacy_store_without_version_reports_legacy0() {
+    let temporary = copied_fixture("store-v1");
+    std::fs::remove_file(temporary.path().join("_schema.json")).unwrap();
+    assert_eq!(
+        Store::open(temporary.path(), OpenMode::ReadOnly, None)
+            .unwrap()
+            .schema_version(),
+        StoreSchemaVersion::Legacy0
+    );
+}
+#[test]
+fn a_missing_read_only_store_is_not_created() {
+    let temporary = tempfile::tempdir().unwrap();
+    let missing = temporary.path().join("absent");
+    assert!(Store::open(&missing, OpenMode::ReadOnly, None).is_err());
+    assert!(!missing.exists());
+}
+#[cfg(unix)]
+#[test]
+fn a_symlinked_store_directory_is_refused() {
+    let fixture = copied_fixture("store-v1");
+    let temporary = tempfile::tempdir().unwrap();
+    let alias = temporary.path().join("alias");
+    std::os::unix::fs::symlink(fixture.path(), &alias).unwrap();
+    assert!(matches!(
+        Store::open(&alias, OpenMode::ReadOnly, None),
+        Err(plur1bus_engine::contract::StoreError::UntrustedPath)
+    ));
 }

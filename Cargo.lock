@@ -4757,6 +4757,8 @@ dependencies = [
  "jsonschema",
  "lance",
  "lancedb",
+ "libc",
+ "plur1bus-rpc",
  "prettyplease 0.2.37",
  "regex",
  "regress 0.10.5",
@@ -4772,6 +4774,8 @@ dependencies = [
  "typify",
  "ureq",
  "url",
+ "uuid",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

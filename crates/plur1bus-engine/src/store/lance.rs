@@ -1,11 +1,14 @@
 //! Synchronous store boundary over one dedicated Tokio runtime per store.
-use super::{row, schema_version, RowFilter, RowPatch, Scored, StoreSchemaVersion};
+use super::{
+    identity::canonical_identity, paths, row, schema_version, RowFilter, RowPatch, Scored,
+    StoreSchemaVersion,
+};
 use crate::contract::{MemoryRow, StoreError, VectorSpaceIdentity};
 use arrow_schema::SchemaRef;
 use futures::TryStreamExt;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use std::future::Future;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -94,6 +97,7 @@ impl Drop for Executor {
 
 /// A physical `memories` table, its metadata and its runtime boundary.
 pub struct Store {
+    path: PathBuf,
     table: lancedb::Table,
     identity: Option<VectorSpaceIdentity>,
     status: IdentityStatus,
@@ -110,8 +114,24 @@ impl Store {
         mode: OpenMode,
         expected: Option<&VectorSpaceIdentity>,
     ) -> Result<Self, StoreError> {
-        let path_text = path.to_str().ok_or(StoreError::Corrupt)?.to_owned();
-        let executor = Executor::new()?;
+        Self::open_with_executor(path, mode, expected, Executor::new()?)
+    }
+    fn open_with_executor(
+        path: &Path,
+        mode: OpenMode,
+        expected: Option<&VectorSpaceIdentity>,
+        executor: Executor,
+    ) -> Result<Self, StoreError> {
+        paths::assert_trusted_path(path)?;
+        paths::assert_trusted_path(&path.join("memories.lance"))?;
+        paths::assert_trusted_path(&path.join("_embedding_identity.lance"))?;
+        if !path.is_dir() {
+            return Err(StoreError::Unavailable);
+        }
+        let path = path
+            .canonicalize()
+            .map_err(|error| StoreError::Io { kind: error.kind() })?;
+        let path_text = path.to_str().ok_or(StoreError::InvalidInput)?.to_owned();
         let (table, identity, schema, identity_schema) = executor.run(async move {
             let connection = lancedb::connect(&path_text)
                 .read_consistency_interval(Duration::ZERO)
@@ -159,6 +179,8 @@ impl Store {
                     let text = records[0]["identity"].as_str().ok_or(StoreError::Corrupt)?;
                     let identity: VectorSpaceIdentity =
                         serde_json::from_str(text).map_err(|_| StoreError::Corrupt)?;
+                    let (identity, _, _) =
+                        canonical_identity(&identity).map_err(|_| StoreError::Corrupt)?;
                     (Some(identity), Some(identity_schema))
                 } else {
                     (None, None)
@@ -167,7 +189,8 @@ impl Store {
         })?;
         let status = match (&identity, expected) {
             (Some(found), Some(expected))
-                if serde_json::to_value(found).ok() != serde_json::to_value(expected).ok() =>
+                if super::identity::identity_id(found)?
+                    != super::identity::identity_id(expected)? =>
             {
                 IdentityStatus::Mismatch {
                     found: found.clone(),
@@ -190,16 +213,86 @@ impl Store {
         if schema != row::arrow_schema(dim)? {
             return Err(StoreError::Corrupt);
         }
+        if let Some(identity) = &identity {
+            if identity.dimension.as_u64() != Some(dim as u64) {
+                return Err(StoreError::Corrupt);
+            }
+        }
         Ok(Self {
+            path: path.clone(),
             table,
             identity,
             status,
-            schema_version: schema_version::read(path)?,
+            schema_version: schema_version::read(&path)?,
             schema,
             identity_schema,
             mode,
             executor,
         })
+    }
+
+    /// Create a new physical agent store using the pinned Node SDK's default table options.
+    pub fn create(
+        path: &Path,
+        identity: &VectorSpaceIdentity,
+        dim: usize,
+    ) -> Result<Self, StoreError> {
+        let (identity, json, id) = canonical_identity(identity)?;
+        if identity.dimension.as_u64() != Some(dim as u64) {
+            return Err(StoreError::InvalidInput);
+        }
+        paths::assert_trusted_path(path)?;
+        if path.join("memories.lance").exists() {
+            return Err(StoreError::InvalidInput);
+        }
+        let base = path
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .ok_or(StoreError::InvalidInput)?;
+        schema_version::initialize_base(
+            base,
+            &chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            env!("CARGO_PKG_VERSION"),
+        )?;
+        paths::secure_dir(path)?;
+        let schema = row::arrow_schema(dim)?;
+        let path_text = path.to_str().ok_or(StoreError::InvalidInput)?.to_owned();
+        let executor = Executor::new()?;
+        executor.run(async move {
+            let connection = lancedb::connect(&path_text)
+                .read_consistency_interval(Duration::ZERO)
+                .execute()
+                .await
+                .map_err(backend_error)?;
+            // Node MemoryDB passes no createTable option: the identical pinned Rust backend defaults apply.
+            connection
+                .create_empty_table("memories", schema)
+                .execute()
+                .await
+                .map_err(backend_error)?;
+            let schema = std::sync::Arc::new(arrow_schema::Schema::new(vec![
+                arrow_schema::Field::new("identity", arrow_schema::DataType::Utf8, true),
+                arrow_schema::Field::new("identityId", arrow_schema::DataType::Utf8, true),
+            ]));
+            let batch = arrow_array::RecordBatch::try_new(
+                schema.clone(),
+                vec![
+                    std::sync::Arc::new(arrow_array::StringArray::from(vec![json])),
+                    std::sync::Arc::new(arrow_array::StringArray::from(vec![id])),
+                ],
+            )
+            .map_err(|_| StoreError::Corrupt)?;
+            connection
+                .create_table(
+                    "_embedding_identity",
+                    arrow_array::RecordBatchIterator::new(vec![Ok(batch)], schema),
+                )
+                .execute()
+                .await
+                .map_err(backend_error)?;
+            Ok(())
+        })?;
+        Self::open_with_executor(path, OpenMode::ReadWrite, Some(&identity), executor)
     }
     /// The recorded identity, when present.
     pub fn identity(&self) -> Option<&VectorSpaceIdentity> {
@@ -230,6 +323,7 @@ impl Store {
     }
     /// Count committed memory rows.
     pub fn count(&self, filter: &RowFilter) -> Result<usize, StoreError> {
+        self.trusted()?;
         let table = self.table.clone();
         let filter = filter.to_sql();
         self.executor
@@ -237,6 +331,7 @@ impl Store {
     }
     /// Read committed rows up to the requested limit.
     pub fn scan(&self, filter: &RowFilter, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
+        self.trusted()?;
         if limit == 0 {
             return Ok(Vec::new());
         }
@@ -258,6 +353,7 @@ impl Store {
     }
     /// Read one row by its exact persisted identifier.
     pub fn get(&self, id: &str) -> Result<Option<MemoryRow>, StoreError> {
+        self.trusted()?;
         let table = self.table.clone();
         let filter = format!("id = '{}'", id.replace('\\', "\\\\").replace('\'', "''"));
         self.executor.run(async move {
@@ -274,7 +370,12 @@ impl Store {
             Ok(row::from_batches(&batches)?.into_iter().next())
         })
     }
+    fn trusted(&self) -> Result<(), StoreError> {
+        paths::assert_trusted_path(&self.path)?;
+        paths::assert_trusted_path(&self.path.join("memories.lance"))
+    }
     fn writable(&self) -> Result<(), StoreError> {
+        self.trusted()?;
         if self.mode == OpenMode::ReadOnly {
             Err(StoreError::ReadOnly)
         } else {
@@ -291,6 +392,7 @@ impl Store {
         if limit == 0 {
             return Ok(Vec::new());
         }
+        self.trusted()?;
         self.validate_vector(vector)?;
         let table = self.table.clone();
         let vector = vector.to_vec();
