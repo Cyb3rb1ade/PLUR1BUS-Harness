@@ -2,10 +2,22 @@
 //! Construction may read installed tokenizer files; counting performs no I/O. No Phase 1 runtime uses this service.
 
 mod artifacts;
+mod calibration;
+mod calibration_fit;
+mod calibration_store;
+mod calibration_types;
 mod methods;
 mod types;
 
 pub use artifacts::TokenizerArtifact;
+pub use calibration::normalize_profile_usage;
+pub use calibration_store::CalibrationStore;
+pub use calibration_types::{
+    BaseEstimate, CalibrationError, CalibrationFit, NormalizedTokenUsage, ObservationResult,
+    ProfileUsage, PromptCountResult, TokenObservation, BASE_COUNT_VERSION, MAX_CALIBRATION_BYTES,
+    MAX_CALIBRATION_COUNT, MAX_CALIBRATION_KEYS, MAX_CALIBRATION_KEY_BYTES,
+    MAX_CALIBRATION_OBSERVATIONS, MIN_CALIBRATION_OBSERVATIONS,
+};
 pub use types::{
     ArtifactState, CalibrationInfo, CountItem, CountRequest, CountResult, CumulativeCount,
     FamilyInfo, ItemCount, TextSegment, TokenBounds, TokenMessage, TokenMethod, TokenRoute,
@@ -46,7 +58,7 @@ impl fmt::Display for TokenError {
 
 impl std::error::Error for TokenError {}
 
-/// Loaded tokenizers and provider-family metadata. No network, disk writes, provider calls or learned calibration.
+/// Loaded tokenizers and provider-family metadata. Raw counting performs no I/O; calibration has explicit edges.
 pub struct TokenCounter {
     profiles: CacheProfileTable,
     artifacts: Vec<TokenizerArtifact>,
@@ -96,7 +108,7 @@ impl TokenCounter {
 
     /// Count independent items; adjacent segments merge only within their own message boundary.
     /// `exact` covers raw text only; messages/tools are labeled `tokenizer-text` when a file is installed.
-    /// Route selection currently uses the table's model/platform semantics; provider and wire are reserved for T3.
+    /// Route family selection uses the table's model/platform semantics; full-prompt calibration uses all route fields.
     pub fn count(&self, request: &CountRequest) -> Result<CountResult, TokenError> {
         let family = self.select_family(request)?;
         validate_items(&request.items)?;

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// How a count was obtained; tokenizer text counts do not claim knowledge of a provider's template.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum TokenMethod {
     /// Exact raw-text encoding with a verified tokenizer artifact and no added special tokens.
@@ -13,6 +13,8 @@ pub enum TokenMethod {
     TokenizerText,
     /// The existing UTF-16-character estimate, rounded up at four code units per token.
     Heuristic,
+    /// Learned full-prompt prediction; raw item and prefix counting never returns this method.
+    Calibrated,
 }
 
 /// Why a family can or cannot use a local tokenizer file.
@@ -52,14 +54,14 @@ pub struct FamilyInfo {
 }
 
 /// One resolved provider route. No field is used to emit or parse provider protocol data.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct TokenRoute {
-    /// Provider identifier retained for future route calibration; model/platform select the current table row.
+    /// Provider identifier in the calibration key; model/platform select the current table row.
     pub provider: String,
     /// Cache-profile platform, such as `first-party`, `bedrock` or `local`.
     pub platform: String,
-    /// Wire identifier retained for future route calibration; the table does not yet select rows by wire.
+    /// Wire identifier in the calibration key; the table does not yet select rows by wire.
     pub wire: String,
     /// Served model identifier; the shared normalizer resolves decorated aliases.
     pub model: String,
@@ -150,13 +152,13 @@ pub struct CumulativeCount {
     pub counts: Vec<TokenBounds>,
 }
 
-/// Calibration state; RE-14/T2 has no observations or learned adjustments.
+/// Base counting version and retained prompt-calibration observations; raw counts always report zero.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalibrationInfo {
     /// Library count algorithm version.
     pub version: u32,
-    /// Always zero until RE-14/T3 adds observation-based calibration.
+    /// Retained observations for the prompt key; raw item counts always report zero.
     pub observations: u64,
 }
 

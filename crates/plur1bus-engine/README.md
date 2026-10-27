@@ -13,7 +13,7 @@ behaviour. The modules of plan §2.4 arrive with RE-01 onwards.
 
 | Target | Name | What it is |
 |---|---|---|
-| library | `plur1bus_engine` | `CRATE_VERSION`, the `cache_profiles` table reader (RE-14/T1), and the unused `tokens` counting service (RE-14/T2) |
+| library | `plur1bus_engine` | `CRATE_VERSION`, the `cache_profiles` table reader (RE-14/T1), and the unused `tokens` counting/calibration service (RE-14/T2–T3) |
 | binary | `plur1bus-engine` | `--version`; the hidden placeholder `serve`, which RE-08 fills (`plur1bus-engine serve --home <dir> ...`). Today `serve` exits 2 with `E_NOT_AVAILABLE reason=not-implemented`; a usage error exits 2 (clap), as `docs/errors.md` says |
 
 ## Build and test
@@ -51,8 +51,8 @@ Message boundaries stay independent. Adjacent segments within a message are join
 assumed additive across BPE segment boundaries. Message inputs have the shape
 `[{ role, segments: [{ text }] }]`; cumulative output is
 `[{ id, message, counts: [{ tokens, lower, upper }] }]`, where `message` is the zero-based message index.
-T3 adds calibration, T4 adds RPC, and T5 adds Core consumers;
-none is implemented here, and the Phase 1 engine keeps its existing budgets and prompt behavior (RE-R1).
+T3's full-prompt calibration is a separate call described below. T4 adds RPC and T5 adds Core consumers;
+the Phase 1 engine keeps its existing budgets and prompt behavior (RE-R1).
 
 Install the separately fetched, pinned tokenizer files in a cache outside the checkout, then require them in tests:
 
@@ -68,6 +68,49 @@ test instead of silently omitting the reference count. The setup verifies source
 re-verifies cached files. It never grants license approval. The committed count and token-ID Goldens, original
 DE/EN/code/JSON/Unicode texts, recorder, source pins and license evidence are documented in
 [`tests/engine-parity/goldens/tokens/README.md`](../../tests/engine-parity/goldens/tokens/README.md).
+
+### Usage calibration (RE-14/T3)
+
+`CalibrationStore::open(&engine_state_dir)` opens versioned calibration state under an explicitly supplied engine
+state directory. `TokenCounter::observe(&mut store, &observations)` learns from complete prompt estimates paired
+with reported usage. Each `TokenObservation` carries the full `route`, `family`, `base: BaseEstimate` with
+`tokens`, underlying `method` and counting `version`, and `reported: NormalizedTokenUsage`. Its `input_total`,
+`cache_read` and `cache_write` are optional counts: absent remains unknown, while an explicitly reported zero is
+preserved. Missing input totals are counted as `missing_input`, not trained as zero. Invalid batches fail before
+changing the saved or in-memory observations; learned (`calibrated`) estimates cannot train themselves.
+
+**Normalized input is already inclusive.** The provider adapters' `Usage.inputTokens` includes cache reads and
+writes, including on Anthropic. Pass that total through unchanged. `normalize_profile_usage(&usage_map, &parts)`
+is a separate conversion for host-extracted `ProfileUsage` numeric parts, using the resolved profile/gateway's
+`usage.inputIncludesCache`: inclusive input passes through; exclusive input requires known input, cache read and
+cache write parts and adds them with overflow checking. Missing exclusive parts produce an unknown total. This
+helper never parses provider JSON and must never be applied to already-normalized usage. The caller owns the
+completeness of an inclusive total; optional subset details alone cannot establish it.
+
+`count_prompt(&request, &store)` treats all request items as one complete prompt. It returns `base` (the original
+raw `CountResult`), the summed or adjusted `total: TokenBounds`, `method`, `calibration`, and an optional `fit`.
+It sums the raw item counts first, then applies the slope and the framing intercept **once**. Raw `count()`, its
+independent items, message-local cumulative prefixes, and `families()` keep their T2 semantics. Do not sum
+independently calibrated prompt totals to estimate one larger prompt. Counting and prediction perform no I/O.
+
+Fits are isolated by provider, platform, wire, model, tokenizer family and underlying method. At least six retained
+observations and distinct base counts are needed. A deterministic median of pairwise slopes and a median intercept
+limit isolated outliers' influence; nonpositive or degenerate slopes keep the base fallback. Residual dispersion
+sets outward-rounded bounds, widened when extrapolating beyond the observed range. These are empirical uncertainty
+intervals, not guaranteed provider limits. Every result satisfies `lower <= tokens <= upper`. Without a route or
+usable fit, the summed raw method and bounds stay unchanged; an unobserved estimator stays `heuristic`.
+
+State is `<engine-state>/token-calibration.json`, with a version-1 closed format and numeric observations only,
+alongside `token-calibration.lock` and private staging during writes. One store owns the exclusive lock until
+dropped; the lock file is permanent and must not be deleted while a store owns it. Writes sync the private staging
+file and atomically replace the state file before updating memory; reopening restores the committed observations.
+The parent directory is not synced, so this does not guarantee directory-entry durability across power loss.
+Corrupt, newer-version, oversized or invalid state is an error, never a silent reset.
+Retention is bounded to 64 observations per key and
+128 keys, with a 1 MiB state-file limit and 1,024-byte key-field limits. New keys beyond capacity are refused;
+old observations within a key are replaced oldest-first. Learning accepts counting version 1 and counts up to
+`2^53 - 1`, so integer samples remain representable during fitting. The persisted format version and base counting
+version have separate meanings. Provider count endpoints are not called; runtime usage/RPC consumers remain T4/T5.
 
 From the repository root, with the toolchain of `AGENTS.md` (Rust 1.95):
 

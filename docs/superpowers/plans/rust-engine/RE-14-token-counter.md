@@ -110,7 +110,11 @@ and Grok-2 have no licence approval; Kimi stays an estimate until the owner deci
 
 ### T3 — Calibration
 
-Starts after T2 merges.
+In progress after the confirmed T2a merge (#788, 2026-10-27T01:55:34Z):
+[`2026-10-27-re-14-t3-usage-calibration.md`](../2026-10-27-re-14-t3-usage-calibration.md).
+This package remains a library: T4 owns RPC and T5 owns Core consumers. Existing provider adapters already return
+inclusive prompt totals, so calibration must not add their cache components a second time. Full-prompt calibration
+applies its intercept once after summing raw item counts; T2 item and cumulative-prefix counts remain reusable.
 
 - [ ] An affine fit per (route, family, method) against inclusive prompt totals, stored under the engine's state
   directory, fed by `LlmResult.usage` and by `engine.tokens.observe`. Totals are normalised first (plan §2.6, rule 5).
