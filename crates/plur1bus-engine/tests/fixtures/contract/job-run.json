@@ -1,0 +1,17 @@
+{
+  "runId": "00000000-0000-4000-8000-00000000000a",
+  "job": "gc-run",
+  "phase": null,
+  "agentId": "contract-agent",
+  "trigger": "harness",
+  "startedAt": 1792065600000,
+  "finishedAt": 1792065600000,
+  "durationMs": 0,
+  "outcome": "skipped",
+  "reason": "gc_disabled",
+  "attempt": 1,
+  "cost": {
+    "ms": 0
+  },
+  "counts": {}
+}

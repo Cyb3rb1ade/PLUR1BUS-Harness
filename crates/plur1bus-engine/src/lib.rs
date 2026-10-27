@@ -10,6 +10,7 @@
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 
 pub mod cache_profiles;
+pub mod contract;
 pub mod tokens;
 
 /// The crate version, which is the workspace version (`[workspace.package] version` in the root `Cargo.toml`).
