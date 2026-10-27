@@ -1,5 +1,6 @@
 //! Node-compatible persisted memory stores.
 pub mod atomic_write;
+pub mod directory;
 pub mod filter;
 pub mod identity;
 pub mod lance;

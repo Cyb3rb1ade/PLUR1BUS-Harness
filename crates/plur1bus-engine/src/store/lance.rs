@@ -106,6 +106,7 @@ pub struct Store {
     identity_schema: Option<SchemaRef>,
     mode: OpenMode,
     executor: Executor,
+    directory: super::directory::TrustedDirectory,
 }
 impl Store {
     /// Open an existing physical store without migrating its schema.
@@ -131,7 +132,8 @@ impl Store {
         let path = path
             .canonicalize()
             .map_err(|error| StoreError::Io { kind: error.kind() })?;
-        let path_text = path.to_str().ok_or(StoreError::InvalidInput)?.to_owned();
+        let directory=super::directory::TrustedDirectory::open(&path)?;
+        let path_text=directory.lance_path().to_str().ok_or(StoreError::InvalidInput)?.to_owned();
         let (table, identity, schema, identity_schema) = executor.run(async move {
             let connection = lancedb::connect(&path_text)
                 .read_consistency_interval(Duration::ZERO)
@@ -226,6 +228,7 @@ impl Store {
             identity_schema,
             mode,
             executor,
+            directory,
         })
     }
 
@@ -254,7 +257,8 @@ impl Store {
         )?;
         paths::secure_dir(path)?;
         let schema = row::arrow_schema(dim)?;
-        let path_text = path.to_str().ok_or(StoreError::InvalidInput)?.to_owned();
+        let directory=super::directory::TrustedDirectory::open(path)?;
+        let path_text=directory.lance_path().to_str().ok_or(StoreError::InvalidInput)?.to_owned();
         let executor = Executor::new()?;
         executor.run(async move {
             let connection = lancedb::connect(&path_text)
@@ -369,6 +373,7 @@ impl Store {
         })
     }
     fn trusted(&self) -> Result<(), StoreError> {
+        self.directory.assert_unchanged()?;
         paths::assert_trusted_path(&self.path)?;
         paths::assert_trusted_path(&self.path.join("memories.lance"))
     }
