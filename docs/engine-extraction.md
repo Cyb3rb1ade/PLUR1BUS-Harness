@@ -50,6 +50,9 @@
 | `lib/acl-middleware.js`, `lib/workspace-policy.js` (194), `lib/sql-safety.js`, `lib/input-limits.js` | — | pure policy and sanitization; `lib/acl-middleware.js:102-159` reason codes are the de-facto contract |
 | `index.js:7216-7252` | 37 | deny-by-default action classification tables |
 
+The Rust store formats, fixture regeneration, shared lock protocols and Lance upgrade rule are specified in
+[Engine stores](engine-stores.md). RE-02 preserves the pinned Node files; it does not migrate them.
+
 ### a.3 OpenClaw adapter — re-implement for the harness
 
 | Path | Lines | What it binds |
