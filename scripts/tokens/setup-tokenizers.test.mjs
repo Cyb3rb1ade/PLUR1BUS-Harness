@@ -173,7 +173,9 @@ test("the CLI verifies an existing cache and exits nonzero on an invalid manifes
 });
 
 test("CI verifies pinned tokenizer caches before every workspace Cargo test without allowing missing artifacts", async () => {
-  const yaml = await readFile(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
+  // A Windows checkout (core.autocrlf) has CRLF line ends; every pattern below expects LF.
+  const yaml = (await readFile(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8"))
+    .replace(/\r\n/g, "\n");
   const jobs = Object.fromEntries(yaml.slice(yaml.indexOf("\njobs:\n")).split(/(?=^  [a-z][\w-]*:\n)/m).slice(1)
     .map((block) => [/^  ([\w-]+):/.exec(block)[1], block]));
   assert.equal((yaml.match(/node scripts\/tokens\/setup-tokenizers\.mjs/g) ?? []).length, 2);
