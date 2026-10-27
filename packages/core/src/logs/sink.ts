@@ -1,4 +1,4 @@
-import { chmodSync, closeSync, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, fstatSync, fsyncSync, futimesSync, lstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
 import path from "node:path";
 import { acquireExclusiveLock, createSecurePath, type ExclusiveLock, type SecurePath } from "@plur1bus/module-api";
 const DAY = 86400000;
@@ -9,6 +9,7 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
   if (!lstatSync(o.dir).isDirectory()) throw new Error("log directory is not a directory");
   const securePath = o.securePath ?? createSecurePath();
   let securedIdentity: string | null = null; let dirty = false;
+  const identityOf = (fd: number) => { const st = fstatSync(fd); return `${st.dev}:${st.ino}:${st.birthtimeMs}`; };
   const secure = (p: string, mode: number) => { const r = securePath(p, { mode }); if (!r.applied) throw new Error("cannot secure log path"); };
   const file = path.join(o.dir, `${o.role}.log`); let maxBytes = o.maxBytes ?? 20 * 1024 * 1024; let keep = o.keep ?? 5;
   const retentionDays = o.retentionDays ?? 14;
@@ -69,7 +70,7 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
         if (!chunk.length) return;
         const fd = openSync(file, "a", 0o600);
         try {
-          const st = fstatSync(fd); const identity = `${st.dev}:${st.ino}:${st.birthtimeMs}`;
+          const identity = identityOf(fd);
           if (identity !== securedIdentity) {
             if (process.platform !== "win32") chmodSync(file, 0o600);
             secure(file, 0o600); securedIdentity = identity;
@@ -79,8 +80,10 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
           dirty = true;
           const count = chunk.length; size += chunkBytes; chunk = []; chunkBytes = 0;
           written?.(count);
+          const now = new Date(o.now()); futimesSync(fd, now, now);
+          // APFS may lower birthtime with earlier timestamps; cache the identity after our own update.
+          securedIdentity = identityOf(fd);
         } finally { closeSync(fd); }
-        utimesSync(file, new Date(o.now()), new Date(o.now()));
       };
       for (const line of lines) {
         const bytes = Buffer.byteLength(line);
