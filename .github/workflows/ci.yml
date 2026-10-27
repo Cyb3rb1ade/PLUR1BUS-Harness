@@ -177,6 +177,8 @@ jobs:
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo test --workspace --no-run
         timeout-minutes: 25
+        env:
+          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
       - name: run Rust workspace tests
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo test --workspace --no-fail-fast
@@ -321,6 +323,8 @@ jobs:
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo test --workspace --no-run
         timeout-minutes: 25
+        env:
+          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
       - name: run Rust workspace tests
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: cargo test --workspace --no-fail-fast
