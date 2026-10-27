@@ -128,4 +128,4 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | RE-11 | not started | — |
 | RE-12 | not started | — |
 | RE-13 | not started (Phase 2; decided 2026-10-24) | — |
-| RE-14 | P1–P4 merged 2026-10-26 (#781, #783, #784, #785); T1 implemented in open PR #786, full acceptance and merge pending; P5 (RE-D29 setting) can start; T2 after confirmed T1 merge, T3 after confirmed T2 merge; T4 with RE-08, T5 with RE-10 | — |
+| RE-14 | P1–P4 and T1 merged 2026-10-26 (#781, #783, #784, #785, #786); P5 (RE-D29 setting) and T2 can start; T3 after T2 merges; T4 with RE-08, T5 with RE-10 | — |
