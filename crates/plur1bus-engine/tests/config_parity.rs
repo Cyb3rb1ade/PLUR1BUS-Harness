@@ -1,3 +1,4 @@
+//! Recorded Node verdicts, effective profiles, schema drift, and timezone parity.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use plur1bus_engine::config::{self, profiles, Tier};
 use serde_json::{json, Value};

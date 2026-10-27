@@ -1,3 +1,5 @@
+//! Pure feature-profile selection, safety policies, and setup status.
+
 use super::Embedded;
 use super::{
     effective_config, error, get_path, manifest_defaults, normalize, set_path, ConfigError,

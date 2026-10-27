@@ -1,3 +1,5 @@
+//! Startup configuration validation and normalization at the pinned Node boundary.
+
 use super::Embedded;
 use super::{
     child_path, error, get_path, resolved_schema, schema, set_path, ConfigError, EngineConfig,

@@ -1,3 +1,5 @@
+//! Manifest-compatible materialization of effective engine configuration.
+
 use super::Embedded;
 use super::{normalize, resolved_schema, schema, ConfigError};
 use serde_json::{Map, Value};

@@ -1,3 +1,5 @@
+//! Settings tiers resolved from the nearest annotated harness-schema ancestor.
+
 use super::Embedded;
 use serde_json::Value;
 use std::sync::OnceLock;
