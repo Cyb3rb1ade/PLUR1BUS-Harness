@@ -113,3 +113,23 @@ questions are recorded here as they are resolved.
 - First-error order for multiple invalid siblings follows the supplied
   `serde_json::Value` order. The Value API does not retain the original JSON
   insertion order; individual recorded error paths match Node exactly.
+
+## T4 completion
+
+- `pnpm docs:gen` and `pnpm docs:check` pass. The generated engine reference
+  contains all 160 definitions, properties, version annotations, and methods.
+  Every rendered schema block matches its source definition.
+- AGENTS.md identifies the new generated document. `docs-hygiene` already
+  installs the engine and now runs the drift checker and its 15 tests.
+  `actionlint` 1.7.12 passes; no runner context was added to a job environment.
+- MODULE-MAP retains all 322 source rows and 100,593 lines. Every original
+  RE-01 row now points to its Rust implementation, a reasoned fold/drop, or
+  an explicit destination brief. Concrete lifecycle, provider, and pipeline
+  behavior remains with the implementation briefs; no engine trait is
+  implemented by RE-01.
+- Workspace clippy (all targets, warnings denied) passes. Workspace tests are
+  still running; the known supervisor CPU-affinity host failure is observed.
+- `pnpm lint`: exit 0, 155 passed, three existing Laya TODO tests, zero failures.
+- Dependency licence audit: 686 Cargo packages, zero violations. Raw cargo-deny
+  advisories fail on unchanged pinned dependencies (paste and zstd/lz4).
+  Its bans, licences, and sources checks pass; no allow-list was changed.

@@ -1,7 +1,8 @@
 // Generates docs/rpc.md (from packages/rpc-schema/schema/rpc.schema.json), docs/cli.md (from the clap
 // definitions via the hidden `plur1bus __markdown` subcommand), docs/config.md (from
 // packages/config-schema/schema/config.schema.json's x-tier annotations) and docs/log-schema.md (from the
-// packages/log-schema/schema/*.json files: record schema, level map, event catalogue, redaction data; D111). `--check` compares instead of
+// packages/log-schema/schema/*.json files: record schema, level map, event catalogue, redaction data; D111), plus
+// docs/engine-contract.md (from crates/plur1bus-engine/schema/engine-contract.schema.json). `--check` compares instead of
 // writing and exits 1 when any file is stale; CI runs it as `pnpm docs:check`.
 //
 // The binary is $PLUR1BUS_BIN, default target/debug/plur1bus(.exe) under the repo root; `pnpm docs:gen` and
@@ -277,9 +278,62 @@ ${redactionRules}
 Never logged at all (not redacted — not written): ${logRedaction.neverLogged.map((n) => n.description).join("; ")}.
 `;
 
+// docs/engine-contract.md: schema order is the contract's declaration order. Runtime interfaces
+// remain visible alongside data types; their x-methods metadata records parameters and results.
+const engineContract = JSON.parse(readFileSync(new URL("crates/plur1bus-engine/schema/engine-contract.schema.json", root), "utf8"));
+const engineType = (node) => {
+  if (node === false) return "never";
+  if (node === true) return "unknown";
+  if (node.$ref) return node.$ref.startsWith("#/$defs/") ? node.$ref.slice("#/$defs/".length) : node.$ref;
+  if (node.const !== undefined) return JSON.stringify(node.const);
+  if (node.enum) return node.enum.map((v) => JSON.stringify(v)).join(" | ");
+  if (node.anyOf || node.oneOf) return (node.anyOf ?? node.oneOf).map(engineType).join(" | ");
+  if (node.allOf) return node.allOf.map(engineType).join(" & ");
+  if (Array.isArray(node.type)) return node.type.map((type) => engineType({ ...node, type })).join(" | ");
+  if (node.type === "array") return `Array<${engineType(node.items ?? {})}>`;
+  if (node.type === "object" || node.properties || node.additionalProperties !== undefined) {
+    const required = new Set(node.required ?? []);
+    const fields = Object.entries(node.properties ?? {}).map(([name, property]) => `${name}${required.has(name) ? "" : "?"}: ${engineType(property)}`);
+    if (node.additionalProperties !== false) fields.push(`[key: string]: ${engineType(node.additionalProperties ?? {})}`);
+    return fields.length ? `{ ${fields.join("; ")} }` : "{}";
+  }
+  return node.type ?? (node["x-runtime"] ? "runtime" : "unknown");
+};
+const engineSignature = (name, method) => `${name}(${(method.parameters ?? []).map((parameter) => `${parameter.rest ? "..." : ""}${parameter.name}${parameter.optional ? "?" : ""}: ${engineType(parameter.schema)}`).join(", ")}): ${engineType(method.returns ?? {})}`;
+let engineMd = `# Engine contract reference (contract ${engineContract["x-contract"]})
+
+Generated from \`crates/plur1bus-engine/schema/engine-contract.schema.json\` by \`scripts/gen-docs.mjs\` — do not edit by hand; run \`pnpm docs:gen\`.
+
+${engineContract.description}
+
+Source engine commit: \`${engineContract["x-source-commit"]}\`. Additive A1 commit: \`${engineContract["x-a1-commit"]}\`.
+\`a1-pending\` marks additive members whose final contract version the engine owner has not assigned.
+Type summaries describe the schema. Method signatures preserve its \`x-methods\` parameters and resolved result shapes;
+the Rust traits, cancellation parameters and runtime ports live under \`crates/plur1bus-engine/src/contract/\`.
+The schema block in each section retains every constraint, annotation and runtime-member definition.
+`;
+for (const [name, definition] of Object.entries(engineContract.$defs)) {
+  engineMd += `\n## \`${name}\`\n\n**Since:** ${definition["x-since"]}\n\n${definition.description ?? ""}\n\n**Type:** ${code(engineType(definition))}\n`;
+  if (definition["x-runtime"]) engineMd += "\n**Runtime interface:** methods and ports are supplied by the Rust contract.\n";
+  if (Object.keys(definition.properties ?? {}).length) {
+    const required = new Set(definition.required ?? []);
+    engineMd += `\n| Property | Type | Required | Since | Description |\n|---|---|---|---|---|\n${Object.entries(definition.properties).map(([property, value]) => `| ${code(property)} | ${code(engineType(value))} | ${required.has(property) ? "yes" : "no"} | ${value["x-since"] ?? definition["x-since"]} | ${cell(value.description ?? "")} |`).join("\n")}\n`;
+  }
+  if (definition["x-enum-since"]) {
+    engineMd += `\n| Enum member | Since |\n|---|---|\n${Object.entries(definition["x-enum-since"]).map(([value, since]) => `| ${code(value)} | ${since} |`).join("\n")}\n`;
+  }
+  if (definition["x-runtime-properties"]) {
+    engineMd += `\n| Runtime property | Since | Rust behavior |\n|---|---|---|\n${Object.entries(definition["x-runtime-properties"]).map(([property, value]) => `| ${code(property)} | ${value["x-since"] ?? definition["x-since"]} | ${cell(value.description ?? "")} |`).join("\n")}\n`;
+  }
+  if (Object.keys(definition["x-methods"] ?? {}).length) {
+    engineMd += `\n| Method signature | Since | Description |\n|---|---|---|\n${Object.entries(definition["x-methods"]).map(([method, value]) => `| ${code(engineSignature(method, value))} | ${value["x-since"] ?? definition["x-since"]} | ${cell(value.description ?? "")} |`).join("\n")}\n`;
+  }
+  engineMd += `\n**Schema**\n\n${fence(definition)}\n`;
+}
+
 const lf = (s) => s.replace(/\r\n/g, "\n");
 let stale = 0;
-for (const [path, content] of [["docs/rpc.md", rpc], ["docs/cli.md", cli], ["docs/config.md", configMd], ["docs/log-schema.md", logMd]]) {
+for (const [path, content] of [["docs/rpc.md", rpc], ["docs/cli.md", cli], ["docs/config.md", configMd], ["docs/log-schema.md", logMd], ["docs/engine-contract.md", engineMd]]) {
   const url = new URL(path, root);
   if (check) {
     let cur = "";
