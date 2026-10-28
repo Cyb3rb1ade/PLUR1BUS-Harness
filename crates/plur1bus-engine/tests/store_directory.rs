@@ -66,7 +66,22 @@ fn ancestor_replacement_cannot_redirect_an_open_child() {
     directory(&path, "child", "original-child");
     let guard = TrustedDirectory::open(&path).unwrap();
     let child = guard.open_child("child").unwrap();
-    fs::rename(&path, root.path().join("moved")).unwrap();
+    let moved = fs::rename(&path, root.path().join("moved"));
+    if cfg!(windows) {
+        // Windows refuses to rename a directory while a handle below it is open, so the
+        // ancestor of a held child cannot be replaced at all.
+        assert_eq!(
+            moved.unwrap_err().kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+        child.assert_unchanged().unwrap();
+        assert_eq!(
+            fs::read_to_string(child.path().join("marker")).unwrap(),
+            "original-child"
+        );
+        return;
+    }
+    moved.unwrap();
     let replacement = directory(root.path(), "parent", "replacement-parent");
     directory(&replacement, "child", "replacement-child");
     assert!(guard.open_child("child").is_err());
