@@ -189,7 +189,6 @@ jobs:
       - name: real model tool and skill use through createTurnProvider
         env:
           PLUR1BUS_TURN_EVAL_MODELS: ${{ vars.PLUR1BUS_TURN_EVAL_MODELS }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           PLUR1BUS_TURN_EVAL_API_KEY: ${{ secrets.PLUR1BUS_TURN_EVAL_API_KEY }}

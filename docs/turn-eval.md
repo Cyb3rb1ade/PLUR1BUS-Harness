@@ -57,8 +57,10 @@ The variable is a JSON array of at most 32 entries:
 Supported wires are `chat_completions`, `codex_responses`,
 `anthropic_messages` and `gemini`. `keyEnv` names a credential provided to the
 job; URLs cannot contain credentials. The job exposes the configured
-`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY` and generic
-`PLUR1BUS_TURN_EVAL_API_KEY` GitHub secrets. Explicit `local: true` permits a
+`ANTHROPIC_API_KEY`, `GOOGLE_API_KEY` and generic
+`PLUR1BUS_TURN_EVAL_API_KEY` GitHub secrets. D110 keeps direct OpenAI credentials out of this scheduled job;
+OpenAI configuration requires the separate owner-approved live flow or an explicit local CLI invocation.
+Explicit `local: true` permits a
 keyless local endpoint; conservative local tool-choice capabilities still apply.
 
 ```sh
