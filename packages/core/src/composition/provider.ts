@@ -22,6 +22,7 @@ import { createRedactor } from '../logs/redact.ts';
 import { AuthError } from '../auth/errors.ts';
 import type { SurfaceTrustLevel } from '../rbac/surface.ts';
 import { ToolRegistry } from '../tools/registry.ts';
+import { enrichedSkillQuery, isSkillFollowup } from '../decision/skill-context.ts';
 import { skillHistoryMessages } from './skill-history.ts';
 import type { RestoredSessionSkills } from './session-skills.ts';
 import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
@@ -108,7 +109,7 @@ export interface TurnProviderOptions {
   capabilities?: LiveCapabilityIndex;
   skillsForAgent?: (agent: string) => SkillSelection;
   /** Final D69 choice over current admitted/shortlisted catalogue metadata, never instructions. */
-  selectSkills?: (request: ChatRequest, candidates: readonly { id:string; name:string; description:string }[], signal: AbortSignal) => Promise<readonly string[]>;
+  selectSkills?: (request: ChatRequest, candidates: readonly { id:string; name:string; description:string; confidence?:number }[], signal: AbortSignal) => Promise<readonly string[]>;
   registry: ToolRegistry; budget: CallBudget; profiles: ProfileTable;
   profile?: string; profileForClass?: (modelClass: string) => string | undefined;
   family?: Readonly<Record<string, ProviderFamily>>;
@@ -180,6 +181,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
   const snapshots = new Map<string, string>();
   const taskProfiles = new Map<string, string>();
   const skillLoads = new Map<string, Map<string, RestoredSessionSkills['loaded'][number]>>();
+  const lastSkillIds = new Map<string, readonly string[]>();
   const skillCatalogues = new Map<string, string>();
   const retryBudget = new RetryBudget();
   interface RoutingContext { profiles: ProfileTable; guard: BudgetGuard; call: CallState; event(event: RouterEvent): void }
@@ -223,6 +225,10 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const modelClass = (req.collaborationTier ? { cheap: 'small', standard: 'medium', premium: 'large' }[req.collaborationTier] : undefined) ?? resolved?.modelClass ?? decision.tasks.reduce<string>((chosen, task) => classes.indexOf(task.chosenClass) > classes.indexOf(chosen) ? task.chosenClass : chosen, 'small');
     const defaultProfile = (!req.role ? o.profileForAgent?.(req.agentId) : undefined) ?? o.profile ?? 'default';
     const taskScope = JSON.stringify([req.agentId, principal, req.sessionId]);
+    const userMessages = req.messages.filter(message => message.role === 'user');
+    const currentUser = userMessages.at(-1)?.text ?? '';
+    const previousUser = userMessages.at(-2)?.text;
+    const skillQuery = enrichedSkillQuery({ current: currentUser, ...(previousUser ? { previousUser } : {}), tasks: decision.tasks });
     const atBoundary = req.taskBoundary?.atBoundary ?? decision.shape !== 'followup';
     let profile = defaultProfile;
     // A session-selected model profile (session.setModel) overrides the class choice; the decision role keeps its own model.
@@ -311,7 +317,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (skillCatalogues.size > 1024) skillCatalogues.delete(skillCatalogues.keys().next().value!);
         skillCatalogue = o.skillCatalogueSnapshot?.(req, skillCatalogue) ?? skillCatalogues.get(taskScope)!;
       }
-      const index = view && o.capabilities && !coreOnly ? await o.capabilities.prepare(req.messages.filter(m => m.role === 'user').at(-1)?.text ?? '', view, signal) : view?.index ?? new CapabilityIndex();
+      const index = view && o.capabilities && !coreOnly ? await o.capabilities.prepare(skillQuery, view, signal) : view?.index ?? new CapabilityIndex();
       searchIndex = view?.discovery ?? index; searchView = view;
       for (const d of view ? [] : registry.describe().filter(d => eligible(described(d.name)!))) {
         const t = registry.entries().find(t => t.name === d.name)!;
@@ -324,14 +330,19 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const categories: Record<string, number> = {};
       for (const task of decision.tasks) for (const [category, weight] of Object.entries(task.categories)) categories[category] = (categories[category] ?? 0) + weight;
       if (!decision.tasks.length) categories['general.chat'] = 1;
-      const hits = index.route(req.messages.filter(m => m.role === 'user').at(-1)?.text ?? '', categories, req.turnProfile?.localRealtime.enabled && req.turnProfile.localRealtime.toolSchemas === 'reduced' ? 4 : o.topK ?? 12, Math.min(1, ...decision.tasks.map(t => t.confidence))).items;
+      const hits = index.route(skillQuery, categories, req.turnProfile?.localRealtime.enabled && req.turnProfile.localRealtime.toolSchemas === 'reduced' ? 4 : o.topK ?? 12, Math.min(1, ...decision.tasks.map(t => t.confidence))).items;
       const pinned = view?.skills.filter(s => o.skillsForAgent?.(req.agentId)?.pinned?.includes(s.entry.name)).map(s => ({ entry: s.entry, score: 1, reasons: ['pinned'] })) ?? [];
-      const candidates = [...new Map([...pinned, ...hits.filter(h => h.entry.kind === 'skill' && h.score > 0)].map(h => [h.entry.id, h])).values()];
+      const inherited = isSkillFollowup(currentUser) ? restoredSkills?.selected ?? lastSkillIds.get(taskScope) : undefined;
+      const retained = view?.skills.filter(skill => inherited?.includes(skill.entry.id))
+        .map(skill => ({ entry: skill.entry, score: 1, reasons: ['followup'] })) ?? [];
+      const candidates = [...new Map([...pinned, ...retained, ...hits.filter(h => h.entry.kind === 'skill' && h.score > 0)].map(h => [h.entry.id, h])).values()];
       // Without a hook the rule shortlist (pins first) is injected as before; the hook returns the final ids in order and owns its fallbacks.
-      const picked = o.selectSkills ? await o.selectSkills(req,candidates.map(h=>({id:h.entry.id,name:h.entry.name,description:h.entry.description})),signal) : undefined;
+      const picked = inherited ?? (o.selectSkills ? await o.selectSkills({ ...req, skillQuery },candidates.map(h=>({id:h.entry.id,name:h.entry.name,description:h.entry.description,confidence:h.score})),signal) : undefined);
       const blocked = new Set(o.skillsForAgent?.(req.agentId)?.blocked ?? []);
       const byId = new Map(candidates.map(h=>[h.entry.id,h] as const));
       const skills = (picked ? picked.map(id=>byId.get(id)).filter((h): h is NonNullable<typeof h> => !!h) : candidates).filter(h=>!blocked.has(h.entry.name)).slice(0,3);
+      lastSkillIds.set(taskScope, skills.map(skill => skill.entry.id));
+      if (lastSkillIds.size > 1024) lastSkillIds.delete(lastSkillIds.keys().next().value!);
       chosenSkills = skills.flatMap(hit => view?.skills.filter(skill => skill.entry.id === hit.entry.id) ?? []);
       for (const hit of hits) o.capabilities?.registry.record(hit.entry.id, req.agentId, 'offered');
       const tools = hits.filter(h => h.entry.kind !== 'skill').map(h => described(h.entry.name)).filter((t): t is NonNullable<typeof t> => !!t);
