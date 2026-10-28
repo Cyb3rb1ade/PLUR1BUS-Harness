@@ -568,6 +568,114 @@ fn ext_watch_receives_ext_changed_for_install_enable_uninstall() {
     stop(&mut s, &h.home);
 }
 
+#[test]
+fn mcp_activation_persists_agent_config_and_broadcasts_over_the_real_supervisor() {
+    let h = Home::new();
+    let mut cfg = plur1bus_config::defaults();
+    cfg["agents"] = json!({"bernd": {}, "anna": {}});
+    plur1bus_config::write_atomic(&h.home.join("config.json"), &cfg).unwrap();
+    let mut supervisor = h.start_no_core(&[]);
+    let mut connection = common::raw(&h.home);
+    writeln!(connection, "{}\n{}",
+        json!({"jsonrpc": "2.0", "id": 1, "method": "supervisor.auth", "params": {"token": common::token(&h.home)}}),
+        json!({"jsonrpc": "2.0", "id": 2, "method": "ext.watch", "params": {}})).unwrap();
+    connection.flush().unwrap();
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        for line in BufReader::new(connection).lines() {
+            let Ok(line) = line else {
+                return;
+            };
+            let Ok(value) = serde_json::from_str::<Value>(&line) else {
+                return;
+            };
+            if tx.send(value).is_err() {
+                return;
+            }
+        }
+    });
+    assert_eq!(rx.recv_timeout(WAIT).unwrap()["id"], 1);
+    assert_eq!(rx.recv_timeout(WAIT).unwrap()["id"], 2);
+    let manifest = json!({
+        "$schema": "https://plur1bus.app/schema/p1x/1/p1x.schema.json", "format": 1,
+        "id": "demo/docs", "name": "docs", "version": "1.0.0", "kind": "mcp-server",
+        "title": {"en": "Docs"}, "summary": {"en": "A remote MCP fixture"},
+        "publisher": {"id": "demo", "name": "Demo"}, "licence": "MIT",
+        "compat": {"harness": ">=0.0.0"}, "requires": {"runtime": {"type": "none"}},
+        "remote": {"url": "https://mcp.example.org/v1", "auth": "none"},
+        "capabilities": {"network": {"mode": "allowlist", "hosts": ["mcp.example.org"]},
+            "filesystem": [], "processes": {"spawn": false}, "harness": {"authority": "none"}}
+    });
+    let package = build_package_from(
+        &manifest,
+        vec![PayloadFile {
+            rel: "README.md".into(),
+            bytes: b"Remote fixture\n".to_vec(),
+            exec: false,
+        }],
+        Some(&h.key),
+    );
+    let source = h.write("docs.p1x", &package);
+    let inspected = ok(&h.home, "ext.inspect", json!({"source": {"path": source}}));
+    ok(
+        &h.home,
+        "ext.install",
+        json!({"inspectionId": inspected["inspectionId"]}),
+    );
+    assert_eq!(
+        rx.recv_timeout(WAIT).unwrap()["params"]["state"],
+        "installed"
+    );
+    ok(
+        &h.home,
+        "ext.enable",
+        json!({"name": "docs", "agents": ["bernd"], "acknowledge": ["capabilities"]}),
+    );
+    let changed = rx.recv_timeout(WAIT).unwrap();
+    assert_eq!(changed["method"], "ext.changed");
+    assert_eq!(changed["params"]["kind"], "mcp-server");
+    assert_eq!(changed["params"]["state"], "enabled");
+    assert_eq!(
+        h.config()["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": ["bernd"]})
+    );
+    let selected = ok(
+        &h.home,
+        "ext.list",
+        json!({"kind": ["mcp-server"], "agent": "bernd"}),
+    );
+    assert_eq!(selected["items"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        ok(
+            &h.home,
+            "ext.list",
+            json!({"kind": ["mcp-server"], "agent": "anna"})
+        )["items"],
+        json!([])
+    );
+    ok(
+        &h.home,
+        "ext.disable",
+        json!({"name": "docs", "agents": ["bernd"]}),
+    );
+    assert_eq!(
+        rx.recv_timeout(WAIT).unwrap()["params"]["state"],
+        "installed"
+    );
+    assert_eq!(h.config()["mcp"]["servers"]["docs"]["enabled"], false);
+    assert_eq!(
+        refused(
+            &h.home,
+            "ext.enable",
+            json!({"name": "docs", "agents": ["unknown"]})
+        )
+        .0,
+        "E_AGENT_UNKNOWN"
+    );
+    assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
+    stop(&mut supervisor, &h.home);
+}
+
 fn daemon_status_text(h: &Home) -> String {
     let out = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
         .arg("--home")

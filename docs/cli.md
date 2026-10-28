@@ -4463,8 +4463,8 @@ Plugins (modules and channels) from packages: list, show, install, uninstall, re
 * `install` — [experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
 * `uninstall` — [experimental] Stop and uninstall a module or channel into the trash
 * `restore` — [experimental] Restore a module or channel from the trash (disabled)
-* `enable` — [experimental] Enable a module or channel: prints its capabilities and the restart plan first
-* `disable` — [experimental] Disable a module or channel: prints the modules that will be held back first
+* `enable` — [experimental] Enable a plugin: MCP servers can be limited to selected agents
+* `disable` — [experimental] Disable a plugin, or remove selected agents from an MCP server
 
 
 
@@ -4554,7 +4554,7 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ## `plur1bus plugin enable`
 
-[experimental] Enable a module or channel: prints its capabilities and the restart plan first
+[experimental] Enable a plugin: MCP servers can be limited to selected agents
 
 **Usage:** `plur1bus plugin enable [OPTIONS] <NAME>`
 
@@ -4564,13 +4564,14 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ###### **Options:**
 
+* `--agent <ID>` — Only for this agent (repeatable; MCP servers only)
 * `--yes` — Acknowledge the capabilities without asking (required outside a terminal)
 
 
 
 ## `plur1bus plugin disable`
 
-[experimental] Disable a module or channel: prints the modules that will be held back first
+[experimental] Disable a plugin, or remove selected agents from an MCP server
 
 **Usage:** `plur1bus plugin disable [OPTIONS] <NAME>`
 
@@ -4580,6 +4581,7 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ###### **Options:**
 
+* `--agent <ID>` — Only for this agent (repeatable; MCP servers only)
 * `--yes` — Do not ask (required outside a terminal)
 
 

@@ -1878,16 +1878,22 @@ pub enum PluginCmd {
         #[arg(value_name = "TRASH_ID")]
         trash_id: String,
     },
-    /// [experimental] Enable a module or channel: prints its capabilities and the restart plan first
+    /// [experimental] Enable a plugin: MCP servers can be limited to selected agents
     Enable {
         name: String,
+        /// Only for this agent (repeatable; MCP servers only)
+        #[arg(long = "agent", value_name = "ID")]
+        agents: Vec<String>,
         /// Acknowledge the capabilities without asking (required outside a terminal)
         #[arg(long)]
         yes: bool,
     },
-    /// [experimental] Disable a module or channel: prints the modules that will be held back first
+    /// [experimental] Disable a plugin, or remove selected agents from an MCP server
     Disable {
         name: String,
+        /// Only for this agent (repeatable; MCP servers only)
+        #[arg(long = "agent", value_name = "ID")]
+        agents: Vec<String>,
         /// Do not ask (required outside a terminal)
         #[arg(long)]
         yes: bool,

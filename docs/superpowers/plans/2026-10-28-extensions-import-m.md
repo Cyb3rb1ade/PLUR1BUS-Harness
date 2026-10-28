@@ -79,8 +79,13 @@ Files: extension lifecycle/list and supervisor host; tests in `ext_lifecycle.rs`
 
 Interfaces: `ModuleHost::set_config` and `notify`; MCP flags write only through supervisor configuration.
 
-- [ ] Test `all`, selected valid agents, unknown agents, disable, notification and rollback.
-- [ ] Implement activation, derived agent lists and `ext.changed`; commit `M-A3` after tests.
+- [x] Test `all`, selected valid agents, unknown agents, disable, notification and rollback.
+- [x] Implement activation, derived agent lists and `ext.changed`; commit `M-A3` after tests.
+
+A3 writes one MCP activation section through the existing config port. Disabling selected agents expands `all` over
+configured agents; removing the last selection disables the server. Unknown or repeated agent identifiers are refused
+before writes, unchanged selections are no-ops, and the CLI gains repeatable `plugin enable|disable --agent` options.
+The real supervisor regression checks persisted configuration and `ext.changed`, in addition to offline rollback tests.
 
 ### Task A4: Live MCP composition
 

@@ -203,6 +203,230 @@ fn module_pkg(name: &str, key: &TestKey) -> Vec<u8> {
     module_pkg_caps(name, "1.0.0", base_caps(), key)
 }
 
+fn mcp_pkg(name: &str, key: &TestKey) -> Vec<u8> {
+    let mut caps = base_caps();
+    caps["network"] = json!({"mode": "allowlist", "hosts": ["mcp.example.org"]});
+    let mut t = template(name, "mcp-server", "1.0.0", caps);
+    t["requires"]["runtime"] = json!({"type": "none"});
+    t["remote"] = json!({"url": "https://mcp.example.org/v1", "auth": "none"});
+    build_package_from(
+        &t,
+        vec![f("README.md", b"Remote fixture\n", false)],
+        Some(key),
+    )
+}
+
+#[test]
+fn mcp_agent_selection_is_config_backed_and_notifies_each_applied_change() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    install(d.path(), &l, "docs.p1x", &mcp_pkg("docs", &key), &plain()).unwrap();
+    let mut host = OfflineHost::new(&l);
+    let before = guarded(&l);
+    let plan = enable(&l, &mut host, "docs", &toggle(some(&["bernd"]), true, true)).unwrap();
+    assert_eq!(plan["state"], "enabled");
+    assert_eq!(guarded(&l), before, "a dry run never writes");
+    assert!(host.notified.is_empty());
+
+    enable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd"]), true, false),
+    )
+    .unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": ["bernd"]})
+    );
+    assert_eq!(item(&l, "docs")["agents"], json!(["bernd"]));
+    for (agent, count) in [("bernd", 1), ("anna", 0)] {
+        let list = list_items(
+            &l,
+            &config(&l),
+            &ListFilter {
+                agent: Some(agent.into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(list["items"].as_array().unwrap().len(), count, "{agent}");
+    }
+    assert_eq!(host.notified.len(), 1);
+    assert_eq!(host.notified[0]["kind"], "mcp-server");
+    assert_eq!(host.notified[0]["state"], "enabled");
+    enable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd"]), true, false),
+    )
+    .unwrap();
+    assert_eq!(host.notified.len(), 1, "a repeated selection is a no-op");
+
+    disable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd"]), false, false),
+    )
+    .unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": false, "agents": []})
+    );
+    assert_eq!(item(&l, "docs")["agents"], json!([]));
+    assert_eq!(host.notified.len(), 2);
+    enable(&l, &mut host, "docs", &toggle(None, true, false)).unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": "all"})
+    );
+    disable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["anna"]), false, false),
+    )
+    .unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": ["bernd"]})
+    );
+    disable(&l, &mut host, "docs", &toggle(None, false, false)).unwrap();
+    assert_eq!(item(&l, "docs")["enabled"], false);
+    assert_eq!(host.notified.len(), 5);
+}
+
+#[test]
+fn mcp_unknown_agent_and_duplicate_selection_refuse_before_any_write() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    install(d.path(), &l, "docs.p1x", &mcp_pkg("docs", &key), &plain()).unwrap();
+    let before = guarded(&l);
+    let mut host = OfflineHost::new(&l);
+    for on in [true, false] {
+        let o = toggle(some(&["unknown"]), true, false);
+        let error = if on {
+            enable(&l, &mut host, "docs", &o)
+        } else {
+            disable(&l, &mut host, "docs", &o)
+        }
+        .unwrap_err();
+        assert_eq!(error.code, "E_AGENT_UNKNOWN");
+        assert_eq!(error.data["agentId"], "unknown");
+        assert_eq!(guarded(&l), before);
+    }
+    let error = enable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd", "bernd"]), true, false),
+    )
+    .unwrap_err();
+    assert_eq!(error.code, "E_INVALID_PARAMS");
+    assert_eq!(guarded(&l), before);
+    assert!(host.notified.is_empty());
+}
+
+#[test]
+fn mcp_install_enable_uses_the_same_agent_selection_as_a_later_enable() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    let installed = install(
+        d.path(),
+        &l,
+        "docs.p1x",
+        &mcp_pkg("docs", &key),
+        &InstallOpts {
+            acknowledge: vec!["capabilities".into()],
+            enable: Some(Agents::Some(vec!["anna".into()])),
+        },
+    )
+    .unwrap();
+    assert_eq!(installed["state"], "enabled");
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": ["anna"]})
+    );
+    assert_eq!(item(&l, "docs")["agents"], json!(["anna"]));
+}
+
+#[test]
+fn mcp_failed_config_write_restores_the_capability_acknowledgment() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    install(d.path(), &l, "docs.p1x", &mcp_pkg("docs", &key), &plain()).unwrap();
+    let before = guarded(&l);
+    let mut host = FailingHost {
+        inner: OfflineHost::new(&l),
+    };
+    let error = enable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd"]), true, false),
+    )
+    .unwrap_err();
+    assert_eq!(reason(&error), ("E_INTERNAL", "io"));
+    assert_eq!(guarded(&l), before);
+    assert!(host.inner.notified.is_empty());
+}
+
+#[test]
+fn mcp_plugin_cli_can_select_an_agent_without_changing_module_flags() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    install(d.path(), &l, "docs.p1x", &mcp_pkg("docs", &key), &plain()).unwrap();
+    let run = |verb: &str| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+            .args([
+                "--home",
+                l.home.to_str().unwrap(),
+                "--json",
+                "plugin",
+                verb,
+                "docs",
+                "--agent",
+                "anna",
+                "--yes",
+            ])
+            .output()
+            .unwrap()
+    };
+    let enabled = run("enable");
+    assert!(
+        enabled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&enabled.stdout)
+    );
+    let result: Value = serde_json::from_slice(&enabled.stdout).unwrap();
+    assert_eq!(result["schema"], "plugin.enable/1");
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"]["agents"],
+        json!(["anna"])
+    );
+    let disabled = run("disable");
+    assert!(
+        disabled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&disabled.stdout)
+    );
+    let result: Value = serde_json::from_slice(&disabled.stdout).unwrap();
+    assert_eq!(result["schema"], "plugin.disable/1");
+    assert_eq!(config(&l)["mcp"]["servers"]["docs"]["enabled"], false);
+}
+
 /// A local module directory (no package record) that `needs` the given modules.
 fn local_module(l: &Layout, name: &str, needs: &[&str]) {
     let dir = l.modules_dir().join(name);

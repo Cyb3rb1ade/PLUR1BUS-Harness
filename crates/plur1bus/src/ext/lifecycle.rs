@@ -34,7 +34,7 @@ use crate::paths::Layout;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 
-/// `ext.enable|disable`'s options: the agents (skills only; `None` means everywhere for enable and "the entry" for
+/// `ext.enable|disable`'s options: the agents (skills and MCP servers; `None` means everywhere for enable and "the entry" for
 /// disable), the acknowledgments given (`capabilities`) and whether to only plan.
 #[derive(Clone, Debug, Default)]
 pub struct ToggleOpts {
@@ -55,12 +55,20 @@ fn check_agents(name: &str, kind: &str, cfg: &Value, agents: &Agents) -> Result<
     let Agents::Some(list) = agents else {
         return Ok(());
     };
-    if kind != "skill" {
+    if !matches!(kind, "skill" | "mcp-server") {
         return Err(ExtError::new(
             "E_INVALID_PARAMS",
             "agents-not-supported",
             format!("{name} is a {kind}; modules.{name}.enabled is its only switch"),
         ));
+    }
+    if kind == "mcp-server" && list.iter().collect::<BTreeSet<_>>().len() != list.len() {
+        return Err(ExtError {
+            code: "E_INVALID_PARAMS",
+            reason: None,
+            message: "MCP agent selections must not repeat an agent".into(),
+            data: Value::Null,
+        });
     }
     if let Some(unknown) = list
         .iter()
@@ -155,6 +163,53 @@ pub(crate) fn skill_enable_changes(cfg: &Value, name: &str, agents: &Agents) -> 
             Agents::Some(list) => list.iter().any(|x| x == id),
         })
     })
+}
+
+/// Config is the sole MCP activation owner. A selected disable expands `all` over configured agents, and the
+/// last selected agent leaving stops the server. The whole prior section is retained for transaction rollback.
+pub(crate) fn mcp_activation_changes(
+    cfg: &Value,
+    name: &str,
+    agents: &Agents,
+    on: bool,
+) -> (Changes, Changes, bool) {
+    let previous = super::record::config_section(cfg, name, "mcp-server");
+    let (selection, enabled) = match (on, agents) {
+        (true, Agents::All) => (json!("all"), true),
+        (true, Agents::Some(ids)) => (json!(ids), !ids.is_empty()),
+        (false, Agents::All) => (
+            previous.get("agents").cloned().unwrap_or(json!("all")),
+            false,
+        ),
+        (false, Agents::Some(excluded)) => {
+            let current = if previous["agents"] == "all" || previous.get("agents").is_none() {
+                cfg["agents"]
+                    .as_object()
+                    .map(|a| a.keys().cloned().collect())
+                    .unwrap_or_default()
+            } else {
+                strings(&previous["agents"])
+            };
+            let remaining: Vec<String> = current
+                .into_iter()
+                .filter(|id| !excluded.contains(id))
+                .collect();
+            let enabled = previous["enabled"] == true && !remaining.is_empty();
+            (json!(remaining), enabled)
+        }
+    };
+    let mut next = if previous.is_object() {
+        previous.clone()
+    } else {
+        json!({})
+    };
+    next["enabled"] = json!(enabled);
+    next["agents"] = selection;
+    if next == previous {
+        return (vec![], vec![], enabled);
+    }
+    let key = super::record::config_key(name, "mcp-server");
+    (vec![(key.clone(), next)], vec![(key, previous)], enabled)
 }
 
 /// A skill disable for some agents: the name is added to their lists only.
@@ -550,6 +605,8 @@ fn toggle_locked(
                 }
             }
         }
+    } else if t.kind == "mcp-server" {
+        mcp_activation_changes(&cfg, name, &agents, on)
     } else {
         let current = super::commit::enabled_now(layout, &cfg, name, &t.kind);
         let section = super::record::config_section(&cfg, name, &t.kind);

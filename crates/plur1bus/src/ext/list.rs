@@ -65,6 +65,16 @@ pub(crate) fn install_units(layout: &Layout, key: &str) -> BTreeMap<String, (Str
 /// `"all"` or the agents a skill is effective for (X1-R11): none when it is disabled, else every configured agent that
 /// does not block it, and `"all"` when none does. Modules and channels: `"all"`.
 fn agents_of(cfg: &Value, name: &str, kind: &str, enabled: bool) -> Value {
+    if kind == "mcp-server" {
+        return if enabled {
+            cfg["mcp"]["servers"][name]
+                .get("agents")
+                .cloned()
+                .unwrap_or(json!("all"))
+        } else {
+            json!([])
+        };
+    }
     if kind != "skill" {
         return json!("all");
     }

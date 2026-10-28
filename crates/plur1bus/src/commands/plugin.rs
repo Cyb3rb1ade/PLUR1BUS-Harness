@@ -32,7 +32,11 @@ pub fn run(out: &Out, layout: &Layout, cmd: PluginCmd) {
             yes,
         } => verbs::uninstall(out, layout, v, &name, purge, cascade, yes),
         PluginCmd::Restore { trash_id } => verbs::restore(out, layout, v, &trash_id),
-        PluginCmd::Enable { name, yes } => verbs::enable(out, layout, v, &name, vec![], yes),
-        PluginCmd::Disable { name, yes } => verbs::disable(out, layout, v, &name, vec![], yes),
+        PluginCmd::Enable { name, agents, yes } => {
+            verbs::enable(out, layout, v, &name, agents, yes)
+        }
+        PluginCmd::Disable { name, agents, yes } => {
+            verbs::disable(out, layout, v, &name, agents, yes)
+        }
     }
 }

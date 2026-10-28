@@ -18,7 +18,9 @@
 //! Config and module work go through a [`ModuleHost`], so the same code runs in the supervisor (Task 11) and in the
 //! offline CLI ([`OfflineHost`]).
 use super::index::{self, lock_skills, package_entry, ImportLock};
-use super::lifecycle::{capabilities_acknowledged, enable_prechecks, skill_enable_changes};
+use super::lifecycle::{
+    capabilities_acknowledged, enable_prechecks, mcp_activation_changes, skill_enable_changes,
+};
 use super::overlays::{load_revocations, overlays_of, revoked};
 use super::paths::ExtPaths;
 use super::record::{
@@ -950,7 +952,11 @@ fn run_steps<'a>(
     // enable (only when asked): the same writes as `ext.enable`, recorded with the acknowledged capability hash.
     if let Some(agents) = &c.opts.enable {
         enable_now(c, host, agents, &mut record, rb)?;
-        state_name = "enabled";
+        state_name = if enabled_now(layout, &host.config(), &name, &record.kind) {
+            "enabled"
+        } else {
+            "installed"
+        };
         fail_at("enable")?;
     }
 
@@ -1120,6 +1126,11 @@ fn enable_now<'a>(
         rb.push("enable", restore_file(ipath, before));
 
         let (changes, restore) = skill_enable_changes(&cfg, name, agents);
+        if !changes.is_empty() {
+            config_change(host, "enable", changes, restore, rb)?;
+        }
+    } else if c.staged.kind == Kind::McpServer {
+        let (changes, restore, _) = mcp_activation_changes(&cfg, name, agents, true);
         if !changes.is_empty() {
             config_change(host, "enable", changes, restore, rb)?;
         }
