@@ -5465,7 +5465,7 @@
         "x-stability": "experimental",
         "x-since": "1.7.0",
         "x-feature": "engine",
-        "description": "Engine delegation only; uses the normal provider router, budget admission and D109 gates.",
+        "description": "Engine delegation only; uses the normal provider router, budget admission, privacy and D109 gates. T2 must send the owning registered agentId outside RE-01 LlmParams. agentId stays optional in the additive wire schema, but Core denies missing, unknown or unauthorized attribution before accessing the provider.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -5473,6 +5473,9 @@
             "params"
           ],
           "properties": {
+            "agentId": {
+              "$ref": "#/$defs/EngineContractAgentIdData"
+            },
             "params": {
               "$ref": "#/$defs/EngineContractLlmParamsData"
             }

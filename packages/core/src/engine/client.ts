@@ -41,6 +41,7 @@ type PendingCapture = {
   remoteId?: string;
   aborted?: string;
   removeAbort: () => void;
+  releaseAgent?: () => void;
 };
 
 const memoryErrors = new Set(["not-found", "denied", "invalid-input", "approval-required", "conflict", "storage", "unsupported", "identity-already-bound", "ledger-corrupt", "lock-lost"]);
@@ -84,6 +85,7 @@ export class EngineClient implements E.Engine {
   readonly tools: E.ToolSpec[] = [];
   readonly commands: E.CommandSpec[] = [];
   private readonly options: EngineClientOptions;
+  private readonly agentScopes = new Map<string, number>();
   private connection: CoreClient | undefined;
   private bootstrapConnection: CoreClient | undefined;
   private readonly shutdown = new AbortController();
@@ -104,6 +106,20 @@ export class EngineClient implements E.Engine {
   private readonly earlyCaptureResults = new Map<string, E.CaptureResult>();
 
   constructor(options: EngineClientOptions) { this.options = options; }
+
+  /** Reverse calls cannot charge an unrelated configured agent. Scope comes only from trusted outbound Core work. */
+  canCompleteFor(agentId: string): boolean { return !this.closed && (this.agentScopes.get(agentId) ?? 0) > 0; }
+
+  private holdAgent(agentId: unknown): () => void {
+    if (this.closed || typeof agentId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/u.test(agentId)) return () => {};
+    this.agentScopes.set(agentId, (this.agentScopes.get(agentId) ?? 0) + 1);
+    let released = false;
+    return () => {
+      if (released) return; released = true;
+      const count = this.agentScopes.get(agentId) ?? 0;
+      if (count > 1) this.agentScopes.set(agentId, count - 1); else this.agentScopes.delete(agentId);
+    };
+  }
 
   get contract(): E.ContractVersion { return this.version; }
   get capabilities(): E.EngineCapabilities { return this.advertised; }
@@ -164,8 +180,11 @@ export class EngineClient implements E.Engine {
   }
 
   private async call<T>(method: string, params: object = {}): Promise<T> {
+    const attribution = params as { agentId?: string; principal?: E.Principal; p?: E.Principal; query?: E.RecallQuery };
+    const release = this.holdAgent(attribution.agentId ?? attribution.principal?.agentId ?? attribution.p?.agentId ?? attribution.query?.principal?.agentId);
     try { return await (await this.client()).call<T>(method, wire(params) as object); }
     catch (error) { throw rpcFailure(error, method.startsWith("engine.memory.") || method.startsWith("engine.admin.")); }
+    finally { release(); }
   }
 
   private method<F extends AsyncMethod>(method: string, names: readonly string[]): F {
@@ -173,10 +192,12 @@ export class EngineClient implements E.Engine {
   }
 
   async open(agentId: E.AgentId): Promise<E.AgentStore> {
+    const release = this.holdAgent(agentId);
     try { await this.call("engine.open", { agentId }); }
-    catch (error) { if (!(error instanceof RpcError) || error.error !== "E_NOT_AVAILABLE" || error.reason !== "engine-unavailable") throw error; }
+    catch (error) { if (!(error instanceof RpcError) || error.error !== "E_NOT_AVAILABLE" || error.reason !== "engine-unavailable") { release(); throw error; } }
     let closing: Promise<void> | undefined;
     return { agentId, close: () => closing ??= (async () => {
+      release();
       if (this.closed) return;
       try { await this.call("engine.agent.close", { agentId }); }
       catch (error) { if (!(error instanceof RpcError) || error.error !== "E_NOT_AVAILABLE" || error.reason !== "engine-unavailable") throw error; }
@@ -186,6 +207,7 @@ export class EngineClient implements E.Engine {
   close(opts?: { budgetMs?: number }): Promise<void> {
     if (!this.closing) {
       this.closed = true;
+      this.agentScopes.clear();
       this.shutdown.abort();
       this.failCaptures(unavailable());
       const client = this.connection ?? this.bootstrapConnection;
@@ -249,7 +271,7 @@ export class EngineClient implements E.Engine {
     const done = new Promise<E.CaptureResult>((res, rej) => { resolve = res; reject = rej; });
     // Abandoning a handle is supported by the Engine contract; rejection still reaches anyone awaiting the original.
     void done.catch(() => {});
-    const pending: PendingCapture = { resolve, reject, removeAbort: () => {} };
+    const pending: PendingCapture = { resolve, reject, removeAbort: () => {}, releaseAgent: this.holdAgent(turn.principal.agentId) };
     this.captures.add(pending);
     const abort = (reason = "aborted") => {
       if (!this.captures.has(pending)) return;
@@ -287,6 +309,7 @@ export class EngineClient implements E.Engine {
   private finishCapture(pending: PendingCapture, result?: E.CaptureResult, error?: Error): void {
     if (!this.captures.delete(pending)) return;
     pending.removeAbort();
+    pending.releaseAgent?.();
     if (pending.remoteId) this.capturesByRemoteId.delete(pending.remoteId);
     if (error) pending.reject(error); else pending.resolve(result!);
   }

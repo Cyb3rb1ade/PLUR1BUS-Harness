@@ -21,8 +21,10 @@ function fixture() {
   let completions = 0, decisions = 0, workspaces = 0, events = 0, backlogReads = 0;
   const methods = createHostMethods({
     secrets,
+    agents: { has: id => id === "a" || id === "unassigned" },
+    canCompleteFor: id => id === "a",
     egress: { decide: async () => { decisions++; return { allowed: false, reason: "host-not-allowed", message: "fixture" }; } },
-    complete: async params => { completions++; return { text: params.messages[0]?.content ?? "", usage: { inputTokens: 1, outputTokens: 1 } }; },
+    complete: async (_agentId, params) => { completions++; const p = params; return { text: p.messages[0]?.content ?? "", usage: { inputTokens: 1, outputTokens: 1 } }; },
     host: {
       workspaceDir: async () => { workspaces++; return undefined; },
       events: { emit: () => { events++; } },
@@ -35,7 +37,7 @@ function fixture() {
 test("every host handler refuses an ordinary context before accessing a host service", async () => {
   const f = fixture();
   const params: Record<string, object> = {
-    "host.secret.get": { name: "models/key" }, "host.llm.complete": { params: { messages: [{ role: "user", content: "fixture" }] } },
+    "host.secret.get": { name: "models/key" }, "host.llm.complete": { agentId: "a", params: { messages: [{ role: "user", content: "fixture" }] } },
     "host.egress.decide": { scheme: "https", host: "example.com", port: 443 }, "host.workspaceDir": { agentId: "a" },
     "host.event": { name: "recall.completed", payload: {} }, "host.journalBacklog": {},
   };
@@ -73,7 +75,7 @@ test("engine host secret reads use durable audited leases, revoke them and regis
 
 test("engine host handlers preserve completion cancellation and host results", async () => {
   const f = fixture(), ctx = context(); bindEnginePrincipal(ctx);
-  assert.deepEqual(await f.methods["host.llm.complete"]!({ params: { messages: [{ role: "user", content: "fixture" }] } }, ctx), { text: "fixture", usage: { inputTokens: 1, outputTokens: 1 } });
+  assert.deepEqual(await f.methods["host.llm.complete"]!({ agentId: "a", params: { messages: [{ role: "user", content: "fixture" }] } }, ctx), { text: "fixture", usage: { inputTokens: 1, outputTokens: 1 } });
   assert.deepEqual(await f.methods["host.workspaceDir"]!({ agentId: "a" }, ctx), { path: null });
   assert.deepEqual(await f.methods["host.journalBacklog"]!({}, ctx), { entries: 1, oldestAt: null });
   assert.deepEqual(await f.methods["host.event"]!({ name: "recall.completed", payload: {} }, ctx), {});
@@ -101,7 +103,7 @@ test("an authenticated ordinary client invoking every host method by name gets E
   const f = await rpcFixture(t);
   assert.ok(!Object.keys(f.ordinary.hello.capabilities!.methods).some(name => name.startsWith("host.")));
   const params: Record<string, object> = {
-    "host.secret.get": { name: "models/key" }, "host.llm.complete": { params: { messages: [{ role: "user", content: "fixture" }] } },
+    "host.secret.get": { name: "models/key" }, "host.llm.complete": { agentId: "a", params: { messages: [{ role: "user", content: "fixture" }] } },
     "host.egress.decide": { scheme: "https", host: "example.com", port: 443 }, "host.workspaceDir": { agentId: "a" },
     "host.event": { name: "recall.completed", payload: {} }, "host.journalBacklog": {},
   };
@@ -119,7 +121,7 @@ test("engine credential authenticates independently, accesses audited host servi
   t.after(() => engine.close());
   assert.ok(engine.hello.capabilities!.methods["host.secret.get"]);
   assert.deepEqual(await engine.call("host.secret.get", { name: "models/key" }), { value: secret });
-  assert.deepEqual(await engine.call("host.llm.complete", { params: { messages: [{ role: "user", content: "fixture" }] } }), { text: "fixture", usage: { inputTokens: 1, outputTokens: 1 } });
+  assert.deepEqual(await engine.call("host.llm.complete", { agentId: "a", params: { messages: [{ role: "user", content: "fixture" }] } }), { text: "fixture", usage: { inputTokens: 1, outputTokens: 1 } });
   await assert.rejects(() => engine.call("core.shutdown"), { error: "E_DENIED", reason: "engine-method" });
   await assert.rejects(() => engine.call("events.subscribe"), { error: "E_DENIED", reason: "engine-method" });
   await engine.call("events.subscribe", { names: ["egress.changed"] });
@@ -143,4 +145,29 @@ test("wrong or missing engine credentials fail closed, rotation is applied and a
   f.rotate(undefined);
   await assert.rejects(() => connect({ address: f.address, token, expectedServerPid: process.pid,
     engine: { clientId: "plur1bus-engine", token } }), { error: "E_UNAUTHORIZED", reason: "engine-delegation" });
+});
+
+test("engine LLM attribution rejects missing, malformed, unknown and unassigned agents before provider access", async () => {
+  const f = fixture(), ctx = context(); bindEnginePrincipal(ctx);
+  for (const agentId of [undefined, "", "../a", "unknown", "unassigned"]) {
+    await assert.rejects(() => f.methods["host.llm.complete"]!({ ...(agentId === undefined ? {} : { agentId }), params: { messages: [] } }, ctx), { error: "E_DENIED", reason: "engine-agent-required" });
+  }
+  assert.equal(f.counts().completions, 0);
+});
+
+test("engine LLM checks cancellation before accessing the completion service", async () => {
+  const f = fixture(), ctx = context(); bindEnginePrincipal(ctx);
+  const ac = new AbortController(); ac.abort();
+  const aborted = { ...ctx, signal: ac.signal }; bindEnginePrincipal(aborted);
+  await assert.rejects(() => f.methods["host.llm.complete"]!({ agentId: "a", params: { messages: [] } }, aborted), { name: "AbortError" });
+  assert.equal(f.counts().completions, 0);
+});
+
+test("an already authenticated engine loses host access when its run credential rotates", async t => {
+  const f = await rpcFixture(t);
+  const engine = await connect({ address: f.address, token, expectedServerPid: process.pid, engine: { clientId: "plur1bus-engine", token } });
+  t.after(() => engine.close());
+  f.rotate("f".repeat(64));
+  await assert.rejects(() => engine.call("host.llm.complete", { agentId: "a", params: { messages: [] } }), { error: "E_UNAUTHORIZED", reason: "engine-delegation" });
+  assert.equal(f.counts().completions, 0);
 });

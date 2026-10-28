@@ -39,7 +39,7 @@ endpoint, whose first call is \`supervisor.auth\`. Methods served by a module (*
 module's own endpoint (\`run/module-<name>.sock\`, or the per-home \`-module-<name>\` pipe), whose first call is
 \`module.auth\`. Engine methods use the engine endpoint (\`run/engine.sock\` or the per-home \`-engine\` pipe),
 whose first call is \`engine.auth\`. The Core serves \`host.*\` only to an engine-delegated connection; omission from ordinary
-capabilities is a convenience, while every handler enforces the principal at dispatch. The engine transport also emits
+capabilities is a convenience, while every handler enforces the principal at dispatch. Engine delegation is revalidated on every call. \`host.llm.complete\` additionally requires an outer \`agentId\` belonging to a registered, active agent opened by this Core or carrying its in-flight engine work; the optional schema field preserves compatibility, while production rejects absent or unrelated attribution before provider access. The engine transport also emits
 \`engine.event\` with its \`x-engine-notification\` schema; the deprecated Core emitter keeps its existing payload and opt-in rule.
 Design and rationale: \`docs/adr/ADR-012-process-model-and-languages.md\`.
 ${schema.description ? `\n${schema.description}\n` : ""}

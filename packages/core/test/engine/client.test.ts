@@ -152,7 +152,9 @@ test("capture returns immediately and done resolves from engine.capture.done, in
   try {
     const handle = f.client.capture({ agentId: "a", principal, agent, messages: [], incognito: false, signal });
     assert.equal(typeof handle.id, "string"); assert.equal(typeof handle.acceptedAt, "number");
+    assert.equal(f.client.canCompleteFor("a"), true);
     assert.deepEqual(await handle.done, result);
+    assert.equal(f.client.canCompleteFor("a"), false);
     assert.ok(f.calls.some(c => c.method === "engine.capture"));
   } finally { await f.close(); }
 });
@@ -345,5 +347,35 @@ test("ordinary JSON fields named signal survive opaque engine parameters", async
     const patch = { signal: "user data", nested: { signal: { flag: true } } };
     await f.client.admin.workspacePolicy.set(patch);
     assert.deepEqual(f.calls.find(call => call.method === "engine.admin.workspacePolicy.set")?.params, { patch });
+  } finally { await f.close(); }
+});
+
+test("EngineClient binds completion attribution only to opened stores and revokes it on close", async () => {
+  const f = await fixture();
+  try {
+    assert.equal(f.client.canCompleteFor?.("a") ?? false, false);
+    const first = await f.client.open("a"), second = await f.client.open("a");
+    assert.equal(f.client.canCompleteFor?.("a"), true);
+    assert.equal(f.client.canCompleteFor?.("other") ?? false, false);
+    await first.close();
+    assert.equal(f.client.canCompleteFor?.("a"), true);
+    await first.close();
+    await second.close();
+    assert.equal(f.client.canCompleteFor?.("a"), false);
+    await f.client.open("a");
+    await f.client.close();
+    assert.equal(f.client.canCompleteFor?.("a"), false);
+  } finally { await f.close(); }
+});
+
+test("EngineClient authorizes a job agent only for that in-flight Core request", async () => {
+  let authorized = false;
+  const f = await fixture({ respond(method) {
+    if (method === "engine.jobs.run") authorized = f.client.canCompleteFor?.("a") ?? false;
+  } });
+  try {
+    await f.client.jobs.run("afterthought", "a", { signal });
+    assert.equal(authorized, true);
+    assert.equal(f.client.canCompleteFor?.("a") ?? false, false);
   } finally { await f.close(); }
 });

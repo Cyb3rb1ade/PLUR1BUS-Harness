@@ -4,23 +4,30 @@ import type { Egress } from "../egress/service.ts";
 import type { SecretStore } from "../secrets/store.ts";
 import { createEngineSecrets } from "../engine-host-ports.ts";
 import { isEngineContext } from "./engine-principal.ts";
+import type { AgentRegistry } from "../agents.ts";
 
 export interface HostMethodDependencies {
   host: Pick<HostServices, "workspaceDir" | "events" | "capabilities">;
   egress: Pick<Egress, "decide">;
   secrets: SecretStore;
+  agents?: Pick<AgentRegistry, "has">;
+  /** Only agents opened by, or currently executing work for, this Core's EngineClient. */
+  canCompleteFor?: (agentId: string) => boolean;
   /** Core composition supplies its provider router, budget admission and D109 policy path. */
-  complete?: (params: LlmParams) => Promise<LlmResult>;
+  complete?: (agentId: string, params: LlmParams) => Promise<LlmResult>;
 }
 
 /** Reverse RPC uses the same services as the Node adapter, including audited, promptly revoked secret leases. */
 export function createHostMethods(deps: HostMethodDependencies): Record<string, Handler> {
   const secrets = createEngineSecrets(deps.secrets);
   return {
-    "host.llm.complete": async ({ params }, ctx) => {
+    "host.llm.complete": async ({ agentId, params }, ctx) => {
       if (!isEngineContext(ctx)) throw new RpcError("E_DENIED", "engine principal required", { reason: "engine-principal-required" });
+      if (typeof agentId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/u.test(agentId) || !deps.agents?.has(agentId) || !deps.canCompleteFor?.(agentId))
+        throw new RpcError("E_DENIED", "engine agent attribution required", { reason: "engine-agent-required" });
+      ctx.signal.throwIfAborted();
       if (!deps.complete) throw new RpcError("E_NOT_AVAILABLE", "engine LLM service is unavailable", { reason: "llm-unavailable" });
-      return deps.complete({ ...params, signal: ctx.signal });
+      return deps.complete(agentId, { ...params, signal: ctx.signal });
     },
     "host.egress.decide": async ({ scheme, host, port }, ctx) => {
       if (!isEngineContext(ctx)) throw new RpcError("E_DENIED", "engine principal required", { reason: "engine-principal-required" });

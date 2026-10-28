@@ -74,7 +74,7 @@ function warnIfDeprecated(logger: HarnessLogger, role: RpcServerRole, kind: "met
 }
 
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
-interface Conn { engine?: boolean; clientToken?: string; api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean; notifications: Promise<void>; pendingNotifications: number }
+interface Conn { engine?: boolean; engineToken?: string; clientToken?: string; api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean; notifications: Promise<void>; pendingNotifications: number }
 
 /** Endpoint, handshake, handlers, and lifecycle hooks for {@link createRpcServer}. */
 export interface RpcServerOptions {
@@ -182,6 +182,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       } else if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       c.authed = true;
       c.engine = hasEngine;
+      if (hasEngine) c.engineToken = params.engine.token;
       if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
       if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
       let principal: ApiPrincipal | null = null;
@@ -192,6 +193,11 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       return send(c, { jsonrpc: "2.0", id, result: { ...hello, ...(hasEngine ? { capabilities: buildCapabilities([...features, "engine"], role) } : {}), ...(hasApi ? { apiPrincipal: principal } : {}) } });
     }
     if (!c.authed) return errorReply(c, id, new RpcError("E_UNAUTHORIZED", "authenticate first", { reason: "auth-required" }));
+    // A stale engine connection must not inherit a restarted process's new agent work scopes.
+    if (c.engine) {
+      try { verifyEngineDelegation({ clientId: "plur1bus-engine", token: c.engineToken }, o.engineToken?.()); }
+      catch { return errorReply(c, id, new RpcError("E_UNAUTHORIZED", "engine delegation refused", { reason: "engine-delegation" })); }
+    }
     // The engine credential grants only host services and its policy-invalidation subscription, never local-owner RPC.
     if (c.engine && !method.startsWith("host.") && !["events.subscribe", "events.unsubscribe"].includes(method))
       return errorReply(c, id, new RpcError("E_DENIED", "engine connection cannot call this method", { reason: "engine-method" }));

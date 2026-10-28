@@ -8,7 +8,7 @@ endpoint, whose first call is `supervisor.auth`. Methods served by a module (**S
 module's own endpoint (`run/module-<name>.sock`, or the per-home `-module-<name>` pipe), whose first call is
 `module.auth`. Engine methods use the engine endpoint (`run/engine.sock` or the per-home `-engine` pipe),
 whose first call is `engine.auth`. The Core serves `host.*` only to an engine-delegated connection; omission from ordinary
-capabilities is a convenience, while every handler enforces the principal at dispatch. The engine transport also emits
+capabilities is a convenience, while every handler enforces the principal at dispatch. Engine delegation is revalidated on every call. `host.llm.complete` additionally requires an outer `agentId` belonging to a registered, active agent opened by this Core or carrying its in-flight engine work; the optional schema field preserves compatibility, while production rejects absent or unrelated attribution before provider access. The engine transport also emits
 `engine.event` with its `x-engine-notification` schema; the deprecated Core emitter keeps its existing payload and opt-in rule.
 Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
 
@@ -761,7 +761,7 @@ Engine delegation only; evaluates the exact target with the core egress policy b
 
 **Served by:** core
 
-Engine delegation only; uses the normal provider router, budget admission and D109 gates.
+Engine delegation only; uses the normal provider router, budget admission, privacy and D109 gates. T2 must send the owning registered agentId outside RE-01 LlmParams. agentId stays optional in the additive wire schema, but Core denies missing, unknown or unauthorized attribution before accessing the provider.
 
 **params**
 
@@ -773,6 +773,9 @@ Engine delegation only; uses the normal provider router, budget admission and D1
     "params"
   ],
   "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
     "params": {
       "$ref": "#/$defs/EngineContractLlmParamsData"
     }

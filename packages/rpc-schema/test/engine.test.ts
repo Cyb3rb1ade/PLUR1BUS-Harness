@@ -88,6 +88,16 @@ describe("RE-08 engine RPC", () => {
       assert.ok(buildCapabilities(["engine"]).methods[name]);
     }
   });
+  it("adds outer LLM attribution without changing RE-01 params or rejecting older envelopes", () => {
+    const params = { messages: [{ role: "user", content: "summarize" }] };
+    assert.equal(validateParams("host.llm.complete", { agentId: "bernd", params }).ok, true);
+    assert.equal(validateParams("host.llm.complete", { params }).ok, true, "wire omission stays additive; the handler denies it");
+    for (const agentId of ["", "../bernd", 3, null])
+      assert.equal(validateParams("host.llm.complete", { agentId, params }).ok, false);
+    assert.equal(validateParams("host.llm.complete", { params: { ...params, agentId: "bernd" } }).ok, false);
+    assert.deepEqual(schema.$defs.methods["host.llm.complete"].params.required, ["params"]);
+    assert.equal(Object.hasOwn(schema.$defs.EngineContractLlmParamsData.properties, "agentId"), false);
+  });
   it("preserves the deprecated core engine.event schema and has a separate engine emitter schema", () => {
     const core = schema.$defs.notifications["engine.event"];
     assert.equal(core["x-server"], "core");

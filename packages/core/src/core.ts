@@ -46,6 +46,7 @@ import { CORE_FEATURES } from "./capabilities.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
 import { assertEngineContract } from "./engine.ts";
 import { selectEngine } from "./engine/select.ts";
+import { EngineClient } from "./engine/client.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
@@ -515,7 +516,8 @@ export function createCore(o: CoreOptions): Core {
       // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
       await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
-      const eng = lifecycleEngine(selectEngine(config, host, engineConfig, o.testInternals ? engineInternals : undefined), lifecycle); engine = eng;
+      const selectedEngine = selectEngine(config, host, engineConfig, o.testInternals ? engineInternals : undefined);
+      const eng = lifecycleEngine(selectedEngine, lifecycle); engine = eng;
       assertEngineContract(eng);
       const es = await eng.status();
       cacheEngineStatus(es);
@@ -1028,7 +1030,13 @@ export function createCore(o: CoreOptions): Core {
         return projectAuditStatus(result, principal, () => auditHealth.status());
       };
       const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
-      registerHostMethods(methods, { host, egress, secrets: secretStore });
+      registerHostMethods(methods, { host, egress, secrets: secretStore, agents: executionRegistry,
+        canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
+        complete: (agentId, params) => {
+          if (!turnComposition) return Promise.reject(new RpcError("E_NOT_AVAILABLE", "engine LLM service is unavailable", { reason: "llm-unavailable" }));
+          return turnComposition.engineComplete(agentId, { ...params, signal: AbortSignal.any([params.signal ?? shutdown.signal, shutdown.signal]) });
+        },
+      });
       const subscribe = methods["events.subscribe"]!;
       methods["events.subscribe"] = async (p, ctx) => {
         if (isEngineContext(ctx) && p.agentId === undefined && Array.isArray(p.names) && p.names.length === 1 && p.names[0] === "egress.changed") return {};

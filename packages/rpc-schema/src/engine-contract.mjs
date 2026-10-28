@@ -208,10 +208,10 @@ export function engineRpcSurface() {
   add("engine.tombstones.reapply", {}, [], opaque, "The engine-owned restored tombstone reapplication report (RE-10).");
   add(
     "host.llm.complete",
-    { params: ref("LlmParams") },
+    { agentId: ref("AgentId"), params: ref("LlmParams") },
     ["params"],
     ref("LlmResult"),
-    "Engine delegation only; uses the normal provider router, budget admission and D109 gates.",
+    "Engine delegation only; uses the normal provider router, budget admission, privacy and D109 gates. T2 must send the owning registered agentId outside RE-01 LlmParams. agentId stays optional in the additive wire schema, but Core denies missing, unknown or unauthorized attribution before accessing the provider.",
   );
   const denyReasons = ["invalid-url", "scheme", "port", "host-not-allowed", "loopback", "private-address", "not-found"];
   const decision = {
