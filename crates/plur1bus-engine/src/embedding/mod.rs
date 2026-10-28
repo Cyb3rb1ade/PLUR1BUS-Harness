@@ -180,12 +180,13 @@ fn local_cache(normalized: &normalize::NormalizedEmbeddingConfig) -> Result<Path
         })
 }
 
-/// Construct the Node factory mapping while borrowing the live host ports safely.
-/// Local models remain unloaded until the first provider call.
-pub fn build_embedding<'a>(
+/// Construct a lazy local provider through the original host-borrowing interface.
+/// Remote configurations require [`build_embedding_owned`]: arbitrary synchronous
+/// borrowed host callbacks cannot safely be interrupted at the caller's deadline.
+pub fn build_embedding(
     config: &EngineConfig,
-    host: &'a dyn HostServices,
-) -> Result<Box<dyn EmbeddingProvider + 'a>, EngineError> {
+    host: &dyn HostServices,
+) -> Result<Box<dyn EmbeddingProvider>, EngineError> {
     let raw = configuration(config)?;
     let normalized = normalized_embedding(&raw, host)?;
     if normalized.provider() == "local-transformers" {
@@ -195,19 +196,10 @@ pub fn build_embedding<'a>(
             accept_nc(&raw),
         );
     }
-    let identity = identity::identity_from_value(normalized.as_value()).map_err(|error| {
-        EngineError::Invalid {
-            field: error.path,
-            message: error.message,
-        }
-    })?;
-    let client = Arc::new(GuardedClient::new(host.egress(), Box::new(SystemResolver)));
-    Ok(Box::new(remote_openai::OpenAiEmbeddingProvider::new(
-        normalized.as_value(),
-        identity,
-        client,
-        host.secrets(),
-    )?))
+    Err(invalid_config(
+        "embedding.provider",
+        "remote providers require build_embedding_owned with Arc<dyn HostServices>",
+    ))
 }
 
 struct HostGate(Arc<dyn HostServices>);
@@ -230,7 +222,9 @@ fn owned_client(host: Arc<dyn HostServices>) -> Arc<GuardedClient<'static>> {
     ))
 }
 
-/// Construct a provider retaining owned live host ports for the service's probe workers.
+/// Construct the complete local/remote mapping with owned live host ports.
+/// Remote production services must use this factory so host-port waits can honor
+/// cancellation and the single absolute request deadline without leaked borrows.
 pub fn build_embedding_owned(
     config: &EngineConfig,
     host: Arc<dyn HostServices>,
@@ -398,11 +392,12 @@ fn build_local_reranker_chain(
     local_reranker(raw, host, consent)
 }
 
-/// Construct local, remote, Cohere or fallback rerankers using Node's factory rules.
-pub fn build_reranker<'a>(
+/// Construct local rerankers through the original host-borrowing interface.
+/// Remote primaries, including those with local fallbacks, require [`build_reranker_owned`].
+pub fn build_reranker(
     config: &EngineConfig,
-    host: &'a dyn HostServices,
-) -> Result<Option<Box<dyn Reranker + 'a>>, EngineError> {
+    host: &dyn HostServices,
+) -> Result<Option<Box<dyn Reranker>>, EngineError> {
     let config = configuration(config)?;
     let Some(raw) = reranker_configuration(&config, host)? else {
         return Ok(None);
@@ -414,25 +409,15 @@ pub fn build_reranker<'a>(
             accept_nc(&config),
         )?));
     }
-    let client = Arc::new(GuardedClient::new(host.egress(), Box::new(SystemResolver)));
-    let primary: Box<dyn Reranker + 'a> = if raw["provider"] == "cohere" {
-        Box::new(
-            rerank::cohere::CohereReranker::new(&raw, client, host.secrets())
-                .map_err(|error| rerank_error(&error))?,
-        )
-    } else {
-        Box::new(
-            rerank::remote::RemoteReranker::new(&raw, client, host.secrets())
-                .map_err(|error| rerank_error(&error))?,
-        )
-    };
-    Ok(Some(Box::new(rerank::chained::ChainedReranker::new(
-        primary,
-        fallback_reranker(&raw, host, accept_nc(&config))?,
-    ))))
+    Err(invalid_config(
+        "reranker.provider",
+        "remote providers require build_reranker_owned with Arc<dyn HostServices>",
+    ))
 }
 
-/// Construct rerankers retaining owned live host ports for independent probe workers.
+/// Construct Node's full local/remote/fallback mapping with owned live host ports.
+/// Use this factory for remote production services, including a remote primary
+/// with a local fallback; the borrowing factory never captures remote host ports.
 pub fn build_reranker_owned(
     config: &EngineConfig,
     host: Arc<dyn HostServices>,
@@ -471,7 +456,68 @@ pub fn build_reranker_owned(
 mod factory_tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
-    use crate::contract::{testing::FakeHost, EngineConfig};
+    use crate::contract::{
+        testing::FakeHost, AgentId, EngineConfig, JournalBacklog, LlmPort, PlatformCapabilities,
+    };
+    use std::path::Path;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::{Duration, Instant};
+
+    struct BlockingHost {
+        fake: FakeHost,
+        gate_blocks: bool,
+        calls: AtomicUsize,
+    }
+    impl HostServices for BlockingHost {
+        fn state_dir(&self) -> &Path {
+            self.fake.state_dir()
+        }
+        fn config(&self) -> EngineConfig {
+            self.fake.config()
+        }
+        fn workspace_dir(&self, agent: &AgentId) -> Result<Option<PathBuf>, HostError> {
+            self.fake.workspace_dir(agent)
+        }
+        fn llm(&self) -> Option<&dyn LlmPort> {
+            None
+        }
+        fn secrets(&self) -> Option<&dyn SecretPort> {
+            Some(self)
+        }
+        fn egress(&self) -> &dyn EgressGate {
+            self
+        }
+        fn emit(&self, event: &str, payload: Value) {
+            self.fake.emit(event, payload);
+        }
+        fn now_ms(&self) -> i64 {
+            self.fake.now_ms()
+        }
+        fn platform(&self) -> &PlatformCapabilities {
+            self.fake.platform()
+        }
+        fn journal_backlog(&self) -> Option<JournalBacklog> {
+            self.fake.journal_backlog()
+        }
+    }
+    impl SecretPort for BlockingHost {
+        fn get(&self, name: &str) -> Result<Option<SecretValue>, HostError> {
+            if !self.gate_blocks {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            SecretPort::get(&self.fake, name)
+        }
+    }
+    impl EgressGate for BlockingHost {
+        fn decide(&self, target: &Target) -> Decision {
+            if self.gate_blocks {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            EgressGate::decide(&self.fake, target)
+        }
+    }
 
     #[test]
     fn factories_construct_local_defaults_without_loading_models() {
@@ -510,6 +556,109 @@ mod factory_tests {
         assert!(
             build_reranker_owned(&config, host).unwrap().is_none(),
             "hosted reranker with no configured credential is disabled by Node normalization"
+        );
+    }
+
+    #[test]
+    fn borrowed_embedding_factory_refuses_remote_and_names_the_owned_factory() {
+        let root = tempfile::tempdir().unwrap();
+        let config: EngineConfig = serde_json::from_value(json!({
+            "embedding": { "provider": "openai", "model": "text-embedding-3-small", "dimensions": 3,
+                "baseUrl": "http://127.0.0.1:1/v1", "apiKeyRef": "fixture-key" }
+        }))
+        .unwrap();
+        let host = FakeHost::new(root.path().into(), config.clone());
+        host.set_secret("fixture-key", "test-only-fixture");
+        assert!(matches!(build_embedding(&config, &host),
+            Err(EngineError::Invalid { field, message })
+            if field == "embedding.provider" && message.contains("build_embedding_owned")));
+    }
+
+    #[test]
+    fn borrowed_reranker_factory_refuses_remote_even_with_a_local_fallback() {
+        let root = tempfile::tempdir().unwrap();
+        for provider in ["remote", "cohere", "jina", "voyage"] {
+            let config: EngineConfig = serde_json::from_value(json!({
+                "reranker": { "provider": provider, "baseUrl": "http://127.0.0.1:1/v1",
+                    "apiKeyRef": "fixture-key", "fallbackProvider": "local-transformers",
+                    "fallbackModel": "woxpas-ai/bge-reranker-v2-m3-onnx" }
+            }))
+            .unwrap();
+            let host = Arc::new(FakeHost::new(root.path().into(), config.clone()));
+            host.set_secret("fixture-key", "test-only-fixture");
+            assert!(matches!(build_reranker(&config, host.as_ref()),
+                Err(EngineError::Invalid { field, message })
+                if field == "reranker.provider" && message.contains("build_reranker_owned")));
+            assert!(build_reranker_owned(&config, host).unwrap().is_some());
+        }
+    }
+
+    #[test]
+    fn owned_factories_bound_a_blocking_host_gate_or_secret_to_the_callers_deadline() {
+        let root = tempfile::tempdir().unwrap();
+        let config: EngineConfig = serde_json::from_value(json!({
+            "embedding": { "provider": "openai", "model": "text-embedding-3-small", "dimensions": 3,
+                "baseUrl": "http://127.0.0.1:1/v1", "apiKeyRef": "fixture-key" },
+            "reranker": { "provider": "remote", "baseUrl": "http://127.0.0.1:1/v1",
+                "apiKeyRef": "fixture-key" }
+        }))
+        .unwrap();
+        for gate_blocks in [true, false] {
+            let fake = FakeHost::new(root.path().into(), config.clone());
+            fake.set_secret("fixture-key", "test-only-fixture");
+            let host = Arc::new(BlockingHost {
+                fake,
+                gate_blocks,
+                calls: AtomicUsize::new(0),
+            });
+            let provider = build_embedding_owned(&config, host.clone()).unwrap();
+            let start = Instant::now();
+            let cancel = Cancel::with_deadline(start + Duration::from_millis(50));
+            assert!(provider
+                .embed(&["query".into()], EmbedKind::Query, &cancel)
+                .is_err());
+            assert!(
+                start.elapsed() < Duration::from_millis(300),
+                "a 500ms host callback held the 50ms embedding call"
+            );
+            let reranker = build_reranker_owned(&config, host.clone())
+                .unwrap()
+                .unwrap();
+            let start = Instant::now();
+            let cancel = Cancel::with_deadline(start + Duration::from_millis(50));
+            assert!(reranker
+                .rerank("query", &["document".into()], 1, &cancel)
+                .is_err());
+            assert!(
+                start.elapsed() < Duration::from_millis(300),
+                "a 500ms host callback held the 50ms rerank call"
+            );
+            assert_eq!(host.calls.load(Ordering::SeqCst), 2);
+        }
+    }
+
+    #[test]
+    fn local_compatibility_factories_do_not_retain_host_borrows() {
+        let root = tempfile::tempdir().unwrap();
+        let config: EngineConfig = serde_json::from_value(json!({
+            "reranker": { "provider": "local-transformers" }
+        }))
+        .unwrap();
+        let (provider, reranker) = {
+            let host = FakeHost::new(root.path().into(), config.clone());
+            (
+                build_embedding(&config, &host).unwrap(),
+                build_reranker(&config, &host).unwrap(),
+            )
+        };
+        assert_eq!(provider.identity().model, "intfloat/multilingual-e5-small");
+        assert!(reranker.is_some());
+        assert!(
+            serde_json::from_value::<EngineConfig>(json!({
+                "reranker": { "provider": "local-transformers", "fallbackProvider": "remote" }
+            }))
+            .is_err(),
+            "the contract must reject unsupported remote fallbacks before factory construction"
         );
     }
 

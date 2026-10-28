@@ -78,8 +78,10 @@ real-model parity by themselves.
 memoized; concurrent probes coalesce, refresh queues one new probe, and cancellation ends one caller's wait.
 `ServiceOptions::from_config` carries top-level `embeddingBatchSize` (default 8), cache entry/TTL policy and scope
 into the facade. Its bounded memory cache uses RE-02 `EmbeddingCache` for optional SQLite persistence. Concurrent
-misses coalesce per key; provider computation releases the memory lock, so an unrelated warm hit can return within
-its own budget. Overlapping batches publish their owned keys before waiting on another caller's keys, and completed
+misses coalesce per key in an owned shared worker, independently of the initiating caller's cancellation or deadline.
+Every caller waits with its own cancellation budget; an expired initiator cannot poison an active waiter. Provider
+computation releases the memory lock, so an unrelated warm hit can return within its own budget. Overlapping batches
+publish their owned keys before waiting on another caller's keys, and completed
 errors are observed across the batch. SQLite cache read/write failures are best effort and do not reject otherwise
 valid provider results. Keys retain
 the complete Node v2 tuple and JS trim/lowercase text hash. Local model keys include `:query`/`:passage`; Gemma
@@ -87,6 +89,24 @@ includes `@dtype` before the purpose. A missing envelope space still uses the pr
 New entries start their TTL at compute completion; a hit preserves the original expiry. Serving returns the identity envelope;
 the RE-08 host owns RPC listeners and transport tokens. `FlatEmbedder::new(width, cold)` and explicit
 `bind_identity` support the configured-width test seam; RE-08 remains responsible for its environment guard.
+
+For RE-08 production integration, construct remote providers with `build_embedding_owned` and
+`build_reranker_owned`, passing `Arc<dyn HostServices>`. These retain live host ports and honor cancellation while
+waiting for policy, DNS, credentials, TLS, headers and response bodies. Cancellation/deadline shuts down the active
+socket. All hops and retries keep the same absolute deadline.
+
+The original `build_embedding(&EngineConfig, &dyn HostServices) -> Result<Box<dyn EmbeddingProvider>, EngineError>`
+and corresponding `build_reranker` signature remain available for lazy local providers and disabled rerankers.
+They return a structured invalid-configuration error naming the owned factory for an active remote configuration,
+including a remote primary with a local fallback. The current contract allows only disabled/local fallbacks;
+unsupported remote fallbacks fail configuration deserialization.
+
+This is an explicit ownership correction to the brief's host-borrowing remote mapping, not a claim that the
+borrowed path satisfies f.6. Arbitrary blocking synchronous borrowed gate/secret callbacks cannot safely be
+preempted without owning their lifetime. Direct borrowed client/provider constructors remain cooperative
+compatibility and test interfaces; their docs state that restriction. No unsafe lifetime widening or leaked
+borrowed worker is used. Current K and L sources have no production call to migrate; the RE-08 service wiring
+must select the owned factories.
 
 Remote providers share `transport::guarded` and named host secret ports. The host forwards `egress.changed` through
 `Service::invalidate_egress` to discard decisions in every embedding/reranker client. The Cargo `log` facade has
@@ -183,6 +203,11 @@ test consent gates, not production licence records. Production still requires th
 confirmation and explicit `modelPreparation.acceptNonCommercialLicense`; possession of model files grants no
 consent. The full `embedding_parity` target includes jina and therefore also requires these gates.
 
+For this package's pinned local parity runs, the owner explicitly granted noncommercial test consent on
+2026-10-28. The two test variables were set only on those test processes. The consented recorder passed its
+consent check, then failed at the enforced HTTP proxy with CONNECT 403 before acquiring model artifacts.
+This test authorization does not populate production licence records or permit committing the temporary output.
+
 **Open prerequisites:** the implementation environment's Hugging Face requests returned proxy HTTP 403 for
 `--e5`, `--gemma` and `--token-ids`. Consequently their genuine model/token recordings and measured HF parity are
 still outstanding. BGE's `woxpas-ai/bge-reranker-v2-m3-onnx` conversion at
@@ -190,6 +215,15 @@ still outstanding. BGE's `woxpas-ai/bge-reranker-v2-m3-onnx` conversion at
 `--bge` refuses to produce derived goldens until that evidence exists; the normal tokenizer recorder records its
 explicit exclusion. No BGE or jina goldens are approved for commit by this implementation. Synthetic graph tests,
 catalogue/identity fixtures and recorder unit tests do not close these prerequisites or establish RE-03 completion.
+
+The official pinned model cards corroborate e5's [MIT declaration](https://huggingface.co/intfloat/multilingual-e5-small/blob/614241f622f53c4eeff9890bdc4f31cfecc418b3/README.md)
+and Gemma's [Apache-2.0 declaration and licence link](https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/blob/daa72c51243991dfcaf9f9137d2c573d8f7790c0/README.md).
+BGE's [conversion README at its exact pin](https://huggingface.co/woxpas-ai/bge-reranker-v2-m3-onnx/blob/c44ebc43de724ae8816668bb44d2e728e17faa18/README.md)
+claims inherited MIT, but the [upstream model card](https://huggingface.co/BAAI/bge-reranker-v2-m3/blob/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e/README.md)
+declares Apache-2.0. The [pinned conversion tree](https://huggingface.co/woxpas-ai/bge-reranker-v2-m3-onnx/tree/c44ebc43de724ae8816668bb44d2e728e17faa18)
+contains no LICENSE file in its root or ONNX directory. That mismatch does not establish the required licence
+receipt and does not authorize BGE-derived goldens. The local cache inventory found only RE-14's o200k tokenizer,
+with no pinned e5/Gemma tokenizer or ONNX payload to reuse.
 
 ## Locks
 
