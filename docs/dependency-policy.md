@@ -139,29 +139,39 @@ Only an advisory actually found exits 1. Python advisories are not wired.
 | 2 | usage error, unreadable or malformed policy / exceptions file |
 | 3 | an ecosystem could not be collected (`--allow-incomplete` turns this into a warning) |
 
-## Advisory licence job (GP5 S4)
+## Licence job (GP5 S4)
 
-`.github/workflows/dependency-licenses.yml` runs a separate **non-blocking** job on dependency,
-policy and auditor PR changes, every main push, weekly and manually. It is not a required check
-and does not replace `release-quality` or change the existing advisory gate. No user-document-only
-PR starts it. Every action uses an immutable commit SHA with its version comment.
+`.github/workflows/dependency-licenses.yml` checks the licences on every pull request and merge
+group, on every main push, weekly and manually. Its check `dependency-licenses-gate` is required
+(owner decision of 2026-10-28, below). It does not replace `release-quality` or change the existing
+advisory gate. Every action uses an immutable commit SHA with its version comment.
 
-The job runs on `ubuntu-24.04`, `macos-15` and `windows-2025`, because pnpm installs different
+The workflow starts on every pull request, without a paths filter, so that the gate always
+reports. Its `changes` job (`scripts/ci/license-changes.mjs`) selects the platform legs only when
+the pull request touches an input of the report: a `package.json`, `pnpm-lock.yaml`, a `Cargo.toml`
+or `Cargo.lock`, a `pyproject.toml`, the Hermes provider, the policy and exception files, the
+auditor, or the workflow and its selection. The gate fails unless the selection ran and either every
+selected leg passed or no leg was selected.
+
+The legs run on `ubuntu-24.04`, `macos-15` and `windows-2025`, because pnpm installs different
 native packages on each platform. A main push runs only the Linux leg: the pull request that
 changed a dependency has already run all three.
 
 Each leg performs a frozen workspace install, then runs `node scripts/audit-deps.mjs --json`.
 Its `dependency-licenses-<os>` artifact retains `licenses.json`, `errors.txt` and `exit-code.txt` for
-14 days. Collection and upload run even after an earlier failure. A non-zero auditor exit is
-preserved in the job and artifact; `continue-on-error` at job scope keeps the result advisory.
+14 days. Collection and upload run even after an earlier failure. A non-zero auditor exit fails the
+leg and with it the gate; the artifact keeps the report.
 Missing ecosystems remain visible as incomplete; the job never passes `--allow-incomplete`.
 Python packages are not installed by this job, so their missing licence metadata may be reported
 as incomplete/unknown. Root and desktop Cargo metadata use the pinned Rust 1.95 toolchain.
 No report contents are copied into an executable workflow command or used as an approval.
 
-By the owner decision of 2026-10-28 the job becomes required once all three legs have run green.
-In the same change it loses `continue-on-error`, the owner marks the three checks as required in
-branch protection, and `CLAUDE.md` lists them among the checks that decide a merge.
+By the owner decision of 2026-10-28 the job became required once all three legs had run green.
+They did on the pull request that added the macOS and Windows legs (#798), and the Linux leg again
+on the following main push. Since then the job has no `continue-on-error`, and `CLAUDE.md` lists
+`dependency-licenses-gate` among the checks that decide a merge. Branch protection requires the
+gate, not the three legs: a pull request without dependency changes skips them, and a required
+check that never reports would block it.
 
 ### Licence exception format
 
@@ -196,7 +206,7 @@ The owner decided the cases the S4 report left open:
 | `@img/sharp-libvips-*` and `@img/sharp-win32-*`, LGPL-3.0-or-later, via sharp and `@huggingface/transformers` | A narrow, expiring exception in `dependency-exceptions.json` (below). |
 | `nostr-tools`, Unlicense | Unlicense is on the allow-list. |
 | Python-2.0 (`argparse`), MIT-0, Zlib, CDLA-Permissive-2.0 | All four are on the allow-list; MIT-0, Zlib and CDLA-Permissive-2.0 had already been added on 2026-10-24. |
-| Make licence CI blocking | After clean runs: the licence job runs on Linux, macOS and Windows and becomes required once all three are green (above). |
+| Make licence CI blocking | After clean runs: the licence job runs on Linux, macOS and Windows and became required, through `dependency-licenses-gate`, once all three were green (above). |
 
 The libvips exception covers exactly these packages at their locked versions, until 2027-04-28:
 
@@ -241,5 +251,5 @@ the current allow-list reports Python-2.0 (`argparse`), MIT-0 (`borrow-or-share`
 (`foldhash`, `zlib-rs`) and CDLA-Permissive-2.0 (`webpki-root-certs`, `webpki-roots`).
 Several rows appear in both Cargo workspaces. These are unlisted-policy findings, not a claim
 that each licence is forbidden. None was silently approved, suppressed or added as an exception.
-The advisory job exposes the full target-specific report for the owner policy review. The licence
+The licence job exposes the full target-specific report for the owner policy review. The licence
 decisions of 2026-10-28 above settle these findings.
