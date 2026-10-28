@@ -33,6 +33,35 @@ it("keeps a sorted full-description catalogue in the system zone without blocked
   } finally { live.close(); f.close(); }
 });
 
+it("returns twelve skill search matches as bounded metadata without instruction bodies", async () => {
+  const home = tmp.make();
+  mkdirSync(join(home, "state"));
+  const names = Array.from({ length: 12 }, (_, i) => `reports-${i}`);
+  for (const name of names) {
+    mkdirSync(join(home, "skills", name), { recursive: true });
+    writeFileSync(join(home, "skills", name, "SKILL.md"),
+      `---\nname: ${name}\ndescription: reports\ncategory: docs.create\n---\nPRIVATE_BODY ${"x".repeat(4000)}`);
+  }
+  writeFileSync(join(home, "skills", "index.json"), JSON.stringify({ version: 1,
+    skills: names.map(id => ({ id, enabled: true })) }));
+  const live = new LiveCapabilityIndex(home);
+  const wire = scriptedAdapter([
+    { calls: [{ id: "search", name: "capabilities.search", args: { query: "reports", category: "docs.create" } }] },
+    { text: "done" },
+  ]);
+  const f = turnFixture(wire.adapter, { capabilities: live, selectSkills: async () => [] }, home);
+  try {
+    const chunks = await collect(f.provider);
+    const output = chunks.find(c => c.type === "tool.result" && c.id === "search");
+    assert.ok(output && output.type === "tool.result");
+    const result = JSON.parse(output.output);
+    assert.equal(result.value.length, 12);
+    assert.ok(result.value.every((item: { kind: string }) => item.kind === "skill"));
+    assert.ok(Buffer.byteLength(output.output) < 32 * 1024);
+    assert.doesNotMatch(output.output, /PRIVATE_BODY|instructions/);
+  } finally { live.close(); f.close(); }
+});
+
 it("preloads a selected skill after its user message and retains it without a second load", async () => {
   const home = tmp.make();
   mkdirSync(join(home, "state"));

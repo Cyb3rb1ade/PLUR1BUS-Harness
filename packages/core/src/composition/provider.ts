@@ -269,12 +269,13 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     };
     const eligible = (t: import('../tools/registry.ts').RegisteredTool) => viewable(t) && !policyDenied(t);
     if (o.capabilities && !req.role && !described(searchName)) registry.register({
-      name: searchName, description: 'Find available capabilities by literal query; discovered tools are available on the next model round.', capability: 'fs.read', effect: 'read', risk: 'low', trust: 'first-party',
+      name: searchName, description: 'Find available tools and skills by query and optional category. Skill matches contain metadata; load instructions with skill.load.', capability: 'fs.read', effect: 'read', risk: 'low', trust: 'first-party',
       inputSchema: { type: 'object', additionalProperties: false, properties: { query: { type: 'string', minLength: 1, maxLength: 4096 }, category: { type: 'string', maxLength: 100 } }, required: ['query'] },
       classify: () => ({ flags: { outsideRoots: false, denyListHit: false } }),
       execute: async args => {
         const { query, category } = args as { query: string; category?: string };
-        const hits = searchIndex?.search(query, { ...(category ? { category } : {}), limit: 12 }) ?? [];
+        const prepared = searchView && o.capabilities ? await o.capabilities.prepare(query, searchView, signal) : searchIndex;
+        const hits = prepared?.search(query, { ...(category ? { category } : {}), limit: 12 }) ?? [];
         for (const hit of hits) {
           if (o.capabilities?.registry.hash(hit.entry.id)) o.capabilities.registry.record(hit.entry.id, req.agentId, 'foundBySearch');
           const tool = described(hit.entry.name);
@@ -284,7 +285,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             selected.push(tool); aliases.set(tool.name, alias); original.set(alias, tool.name);
           }
         }
-        return hits.map(h => ({ ...h.entry, ...(h.entry.kind === 'skill' ? { instructions: searchView?.skills.find(s => s.entry.id === h.entry.id)?.text } : {}) }));
+        return hits.map(({ entry }) => ({ name: entry.name, kind: entry.kind,
+          description: searchView?.skills.find(skill => skill.entry.id === entry.id)?.authoredDescription ?? entry.description,
+          ...(entry.useWhen ? { useWhen: entry.useWhen } : {}) }));
       },
     });
     const selected = await stage('capability-index', signal, o.log, async () => {
