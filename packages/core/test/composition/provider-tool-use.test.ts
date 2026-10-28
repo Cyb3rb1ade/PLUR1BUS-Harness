@@ -35,6 +35,52 @@ it("plain chat and an explicit auto override keep automatic choice", async () =>
   } finally { f.close(); }
 });
 
+it("retries a buffered answer without tool evidence once and exposes only the verified answer", async () => {
+  const wire = scriptedAdapter([
+    { text: "UNVERIFIED PRELIMINARY" },
+    { calls: [{ id: "read", name: "file.read", args: { path: "x" } }] },
+    { text: "VERIFIED FINAL" },
+  ]);
+  const f = turnFixture(wire.adapter, {}, tmp.make());
+  f.registry.register(readTool("file.read", async () => "contents"));
+  try {
+    const chunks = await collect(f.provider, turnRequest({ buffered: true,
+      messages: [{ role: "user", text: "Read ./x" }] }));
+    assert.equal(wire.requests.length, 3);
+    assert.deepEqual(wire.requests.map(r => r.toolChoice), ["required", "required", "auto"]);
+    assert.equal(chunks.filter(c => c.type === "delta").map(c => c.text).join(""), "VERIFIED FINAL");
+    assert.equal(chunks.filter(c => c.type === "tool.call").length, 1);
+    const last = chunks.at(-1);
+    assert.equal(last?.type === "telemetry" && last.telemetry.rounds, 3);
+  } finally { f.close(); }
+});
+
+it("does not retract or retry a streamed answer after it has been delivered", async () => {
+  const wire = scriptedAdapter([{ text: "STREAMED ANSWER" }]);
+  const f = turnFixture(wire.adapter, {}, tmp.make());
+  f.registry.register(readTool("file.read", async () => "unused"));
+  try {
+    const chunks = await collect(f.provider, turnRequest({ messages: [{ role: "user", text: "Read ./x" }] }));
+    assert.equal(wire.requests.length, 1);
+    assert.equal(chunks.filter(c => c.type === "delta").map(c => c.text).join(""), "STREAMED ANSWER");
+    const last = chunks.at(-1);
+    assert.equal(last?.type === "telemetry" && last.telemetry.toolCalls, 0);
+    assert.equal(last?.type === "telemetry" && last.telemetry.toolNeed.detected, true);
+  } finally { f.close(); }
+});
+
+it("bounds buffered retries even when both required-choice answers contain no call", async () => {
+  const wire = scriptedAdapter([{ text: "NO EVIDENCE" }]);
+  const f = turnFixture(wire.adapter, {}, tmp.make());
+  f.registry.register(readTool("file.read", async () => "unused"));
+  try {
+    const chunks = await collect(f.provider, turnRequest({ buffered: true,
+      messages: [{ role: "user", text: "Read ./x" }] }));
+    assert.equal(wire.requests.length, 2);
+    assert.equal(chunks.filter(c => c.type === "delta").map(c => c.text).join(""), "NO EVIDENCE");
+  } finally { f.close(); }
+});
+
 it("counts unsupported forcing for Anthropic Extended Thinking without sending a forced choice", async () => {
   const wire = scriptedAdapter([{ text: "thinking answer" }]);
   const f = turnFixture(wire.adapter, {

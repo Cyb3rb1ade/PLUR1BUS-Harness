@@ -438,6 +438,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const original = new Map([...aliases].map(([name, alias]) => [alias, name]));
     // A call to a tool withheld only by policy goes to the dispatcher, which refuses it (tool-denied, audited) as when it was offered.
     const withheld = new Map(registry.entries().filter(t => !selected.includes(t) && viewable(t) && policyDenied(t)).flatMap(t => [[t.name, t], [t.name.replaceAll('.', '_'), t]] as const));
+    const buffered = req.buffered ?? (!!req.headlessJobId || !!req.recurring || !!req.collaborationTier);
+    let retriedWithoutTool = false;
     let modelRound = 0, hasModelToolCall = false;
     const profiles = Object.fromEntries(Object.entries(routeProfiles).map(([name, candidates]) => [name, candidates.map(c => ({ ...c, adapter: {
       async *stream(request: WireRequest, options?: Parameters<typeof c.adapter.stream>[1]) {
@@ -631,13 +633,20 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           catch (e) { await stream.return(undefined); throw fatal ?? e; }
           if (next.done) break;
           const e = next.value;
-          if (e.type === 'text_delta') { roundText += e.text; yield { type: 'delta', text: e.text }; }
+          if (e.type === 'text_delta') { roundText += e.text; if (!buffered) yield { type: 'delta', text: e.text }; }
           if (e.type === 'done') done = e.result;
         }
         if (fatal) throw fatal;
         if (!done) throw new ProviderError('unknown', 'provider stream ended without result');
-        if (done.text.startsWith(roundText) && done.text.length > roundText.length) yield { type: 'delta', text: done.text.slice(roundText.length) };
+        if (!buffered && done.text.startsWith(roundText) && done.text.length > roundText.length) yield { type: 'delta', text: done.text.slice(roundText.length) };
         if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens }; }
+        if (!done.toolCalls.length && round === 0 && buffered && !retriedWithoutTool
+          && observation.toolNeed.detected && mode !== 'auto' && observation.toolChoice.status !== 'unsupported') {
+          retriedWithoutTool = true;
+          round--;
+          continue;
+        }
+        if (buffered && (done.text || roundText)) yield { type: 'delta', text: done.text || roundText };
         if (!done.toolCalls.length) { completed = true; return; }
         hasModelToolCall = true;
         const calls = uniqueToolCallIds(done.toolCalls);
