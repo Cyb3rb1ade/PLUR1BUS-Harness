@@ -38,6 +38,18 @@ async function rig(t: import('node:test').TestContext) {
   return { cfg, calls, events, audit, secrets, budget, options, reply: (f: typeof reply) => { reply = f; } };
 }
 const ctx = () => ({ agentId: 'bernd', principal: 'user:alice', cloudEligible: true, signal: signal() });
+/** Polls until the rig's server has read `count` requests into `calls`. It watches `run`, so a run that ends first
+ * fails the wait rather than surfacing as an unhandled rejection, and it gives up after `limitMs`: a poll that never
+ * ends keeps this file's test process, and with it the whole Core test run, alive. */
+async function untilServerRead(calls: readonly unknown[], count: number, run: Promise<unknown>, limitMs = 10_000) {
+  let ended = ''; run.then(() => { ended = 'resolved'; }, e => { ended = `rejected with ${e}`; });
+  const end = performance.now() + limitMs;
+  while (calls.length < count) {
+    if (ended) assert.fail(`the run ${ended} before the server read request ${count}`);
+    if (performance.now() > end) assert.fail(`the server read ${calls.length} of ${count} requests in ${limitMs} ms`);
+    await new Promise(resolve => setTimeout(resolve, 1));
+  }
+}
 
 test('real loopback Egress maps all three primitives, charges actual usage and revokes fresh core leases', async t => {
   const r = await rig(t); const client = new DecisionClient({ config: () => r.cfg, backends: { jev: createSystemOneBackend('jev', r.options) } });
@@ -121,10 +133,15 @@ test('revoked fresh lease and a caller abort during leasing cannot issue HTTP', 
 test('deadline and in-flight abort close the real HTTP request, revoke the lease and settle estimates', async t => {
   const r = await rig(t); r.reply(() => {});
   const backend = createSystemOneBackend('jev', r.options);
-  const request = { ...input, requestId: 'r', primitive: 'choice', deadline: performance.now() + 25, context: ctx() } as DecisionRequest;
-  await assert.rejects(backend.run(request, signal()), /timeout/);
-  const controller = new AbortController(); const pending = backend.run({ ...request, deadline: performance.now() + 1000 }, controller.signal);
-  while (r.calls.length < 2) await new Promise(resolve => setTimeout(resolve, 1));
+  // A real deadline timer, far enough away that the server reads the request before it fires even under CPU load (eight
+  // copies of this file on one core: read within 88 ms), so the deadline closes a request in flight.
+  const request = { ...input, requestId: 'r', primitive: 'choice', deadline: performance.now() + 250, context: ctx() } as DecisionRequest;
+  const expiring = backend.run(request, signal());
+  await untilServerRead(r.calls, 1, expiring);
+  await assert.rejects(expiring, /timeout/);
+  // Only the abort may end this run, so its deadline is a minute away.
+  const controller = new AbortController(); const pending = backend.run({ ...request, deadline: performance.now() + 60_000 }, controller.signal);
+  await untilServerRead(r.calls, 2, pending);
   controller.abort(); await assert.rejects(pending, /cancelled/);
   assert.equal(r.events.filter(e => e.type === 'settle').length, 2); assert.equal(r.secrets.activeLeases({ kind: 'core' }).length, 0);
 });
@@ -134,7 +151,7 @@ test('a deadline timer that fires before performance.now() reaches the deadline 
   const r = await rig(t); r.reply(() => {}); const early = new AbortController(); t.mock.method(AbortSignal, 'timeout', () => early.signal);
   const request = { ...input, requestId: 'r', primitive: 'choice', deadline: performance.now() + 60_000, context: ctx() } as DecisionRequest;
   const pending = createSystemOneBackend('jev', r.options).run(request, signal());
-  while (r.calls.length < 1) await new Promise(resolve => setTimeout(resolve, 1));
+  await untilServerRead(r.calls, 1, pending);
   early.abort(); await assert.rejects(pending, /timeout/); assert.ok(performance.now() < request.deadline);
   assert.equal(r.events.filter(e => e.type === 'settle').length, 1); assert.equal(r.secrets.activeLeases({ kind: 'core' }).length, 0);
 });
