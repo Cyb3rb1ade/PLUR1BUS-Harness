@@ -16,3 +16,8 @@ scripts/spikes/** text eol=lf
 crates/plur1bus-engine/tests/fixtures/**/*.json -text
 # Recorded JS text vectors and lone-surrogate JSONL fixtures are asserted byte for byte (RE-04/T0, RE-D17).
 crates/plur1bus-engine/tests/fixtures/text/** -text
+# RE-02 store files and neutral schema dumps retain the bytes written by the pinned Node engine.
+crates/plur1bus-engine/tests/fixtures/store-v1/** -text
+crates/plur1bus-engine/tests/fixtures/store-surrogate/** -text
+crates/plur1bus-engine/tests/fixtures/sqlite/** -text
+crates/plur1bus-engine/tests/fixtures/neo-v1/** -text

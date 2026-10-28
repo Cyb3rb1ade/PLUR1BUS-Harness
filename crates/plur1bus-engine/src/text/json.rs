@@ -9,6 +9,9 @@ use std::fmt;
 
 use crate::text::js::JsString;
 
+/// Maximum number of nested JSON arrays and objects accepted by the tolerant reader.
+pub const MAX_JSON_DEPTH: usize = 128;
+
 /// A JSON value whose strings and object keys are stored as UTF-16 [`JsString`] values so that
 /// lone surrogates survive a read-modify-write cycle.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -30,10 +33,21 @@ pub enum TolerantJsonValue {
 /// Error returned when parsing tolerant JSON fails.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TolerantJsonError {
+    /// Whether parsing failed because of invalid syntax or excessive nesting.
+    pub kind: TolerantJsonErrorKind,
     /// Byte offset in the input where parsing failed.
     pub offset: usize,
     /// Human-readable description of the syntax error.
     pub message: String,
+}
+
+/// A bounded category for tolerant JSON failures.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TolerantJsonErrorKind {
+    /// The input does not have valid JSON syntax.
+    Syntax,
+    /// The input exceeds [`MAX_JSON_DEPTH`] nested arrays and objects.
+    DepthLimit,
 }
 
 impl fmt::Display for TolerantJsonError {
@@ -65,6 +79,7 @@ impl<'a> Parser<'a> {
 
     fn err<T>(&self, message: impl Into<String>) -> Result<T, TolerantJsonError> {
         Err(TolerantJsonError {
+            kind: TolerantJsonErrorKind::Syntax,
             offset: self.pos,
             message: message.into(),
         })
@@ -84,18 +99,25 @@ impl<'a> Parser<'a> {
         self.bytes.get(self.pos).copied()
     }
 
-    fn parse_value(&mut self) -> Result<TolerantJsonValue, TolerantJsonError> {
+    fn parse_value(&mut self, depth: usize) -> Result<TolerantJsonValue, TolerantJsonError> {
         self.skip_ws();
         let Some(b) = self.peek() else {
             return self.err("unexpected end of JSON input");
         };
+        if matches!(b, b'[' | b'{') && depth >= MAX_JSON_DEPTH {
+            return Err(TolerantJsonError {
+                kind: TolerantJsonErrorKind::DepthLimit,
+                offset: self.pos,
+                message: "JSON nesting limit exceeded".to_owned(),
+            });
+        }
         match b {
             b'n' => self.parse_null(),
             b't' => self.parse_true(),
             b'f' => self.parse_false(),
             b'"' => self.parse_string().map(TolerantJsonValue::String),
-            b'[' => self.parse_array(),
-            b'{' => self.parse_object(),
+            b'[' => self.parse_array(depth + 1),
+            b'{' => self.parse_object(depth + 1),
             b'-' | b'0'..=b'9' => self.parse_number(),
             _ => self.err(format!("unexpected byte 0x{b:02x}")),
         }
@@ -170,6 +192,7 @@ impl<'a> Parser<'a> {
             .input
             .get(start..self.pos)
             .ok_or_else(|| TolerantJsonError {
+                kind: TolerantJsonErrorKind::Syntax,
                 offset: start,
                 message: "invalid UTF-8 boundary in number".to_owned(),
             })?;
@@ -237,6 +260,7 @@ impl<'a> Parser<'a> {
                         .input
                         .get(self.pos..)
                         .ok_or_else(|| TolerantJsonError {
+                            kind: TolerantJsonErrorKind::Syntax,
                             offset: self.pos,
                             message: "invalid UTF-8 boundary in string".to_owned(),
                         })?;
@@ -254,7 +278,7 @@ impl<'a> Parser<'a> {
         self.err("unterminated JSON string")
     }
 
-    fn parse_array(&mut self) -> Result<TolerantJsonValue, TolerantJsonError> {
+    fn parse_array(&mut self, depth: usize) -> Result<TolerantJsonValue, TolerantJsonError> {
         self.pos += 1; // '['
         self.skip_ws();
         let mut items = Vec::new();
@@ -263,7 +287,7 @@ impl<'a> Parser<'a> {
             return Ok(TolerantJsonValue::Array(items));
         }
         loop {
-            let item = self.parse_value()?;
+            let item = self.parse_value(depth)?;
             items.push(item);
             self.skip_ws();
             match self.peek() {
@@ -279,7 +303,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_object(&mut self) -> Result<TolerantJsonValue, TolerantJsonError> {
+    fn parse_object(&mut self, depth: usize) -> Result<TolerantJsonValue, TolerantJsonError> {
         self.pos += 1; // '{'
         self.skip_ws();
         let mut entries = Vec::new();
@@ -295,7 +319,7 @@ impl<'a> Parser<'a> {
                 return self.err("expected ':' after object key");
             }
             self.pos += 1;
-            let val = self.parse_value()?;
+            let val = self.parse_value(depth)?;
             entries.push((key, val));
             self.skip_ws();
             match self.peek() {
@@ -317,10 +341,11 @@ impl<'a> Parser<'a> {
 ///
 /// # Errors
 ///
-/// Returns [`TolerantJsonError`] if the input is not syntactically valid JSON.
+/// Returns [`TolerantJsonError`] if the input is not syntactically valid JSON or exceeds
+/// [`MAX_JSON_DEPTH`] nested arrays and objects.
 pub fn parse_json(input: &str) -> Result<TolerantJsonValue, TolerantJsonError> {
     let mut parser = Parser::new(input);
-    let value = parser.parse_value()?;
+    let value = parser.parse_value(0)?;
     parser.skip_ws();
     if parser.pos != parser.bytes.len() {
         return parser.err("trailing characters after JSON value");
@@ -390,4 +415,42 @@ pub fn write_json(value: &TolerantJsonValue) -> String {
 #[must_use]
 pub fn write_json_str(value: &JsString) -> String {
     value.to_json()
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use super::*;
+
+    #[test]
+    fn a_document_nested_128_containers_deep_is_accepted() {
+        let input = format!("{}0{}", "[".repeat(128), "]".repeat(128));
+        assert_eq!(write_json(&parse_json(&input).unwrap()), input);
+    }
+
+    #[test]
+    fn a_document_nested_129_containers_deep_reports_the_depth_limit() {
+        let input = format!("{}0{}", "[".repeat(129), "]".repeat(129));
+        let error = parse_json(&input).unwrap_err();
+        assert_eq!(error.kind, TolerantJsonErrorKind::DepthLimit);
+    }
+
+    #[test]
+    fn one_hundred_thousand_unclosed_arrays_report_the_depth_limit() {
+        let error = parse_json(&"[".repeat(100_000)).unwrap_err();
+        assert_eq!(error.kind, TolerantJsonErrorKind::DepthLimit);
+        assert_eq!(error.offset, 128);
+    }
+
+    #[test]
+    fn mixed_objects_and_arrays_share_one_depth_limit() {
+        let input = format!("{}0{}", "{\"a\":[".repeat(64), "]}".repeat(64));
+        assert!(parse_json(&input).is_ok());
+        let input = format!("[{}]", input);
+        assert_eq!(
+            parse_json(&input).unwrap_err().kind,
+            TolerantJsonErrorKind::DepthLimit
+        );
+    }
 }

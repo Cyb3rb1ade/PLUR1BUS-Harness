@@ -1,0 +1,33 @@
+{
+  "engineCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "vectors": [
+    {
+      "id": "node-turn-0",
+      "vector": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "node-turn-1",
+      "vector": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "id": "node-turn-2",
+      "vector": [
+        0,
+        0,
+        -1
+      ]
+    }
+  ],
+  "generationFile": "vector-index.json",
+  "turnCount": 4,
+  "loneSurrogateFile": "memory-candidates.jsonl",
+  "loneSurrogateField": "normalizedStatement"
+}
