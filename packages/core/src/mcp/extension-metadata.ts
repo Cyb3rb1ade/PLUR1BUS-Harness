@@ -1,4 +1,4 @@
-/** Read-only, bounded MCP metadata loading from the existing installed package store (M-A4, owner assumption 5).
+/** Read-only, bounded MCP metadata loading from the active versioned package tree (M-A4-v2, owner decision 5).
  * Runtime resolution never searches PATH, downloads an interpreter or executes installation hooks.
  */
 import { constants } from "node:fs";
@@ -12,6 +12,11 @@ const MAX_STATE_BYTES = 8 * 1024 * 1024;
 const MAX_METADATA_BYTES = 1024 * 1024;
 const MAX_ITEMS = 4096;
 const NAME = /^[a-z0-9][a-z0-9-]{0,127}$/;
+const VERSION = new RegExp(
+  "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)" +
+  "(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?" +
+  "(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
+);
 type ObjectValue = Record<string, unknown>;
 
 /** Manifest disclosure carried into the D109 bridge; server annotations can only raise these effects (M-A6). */
@@ -28,6 +33,8 @@ export interface McpExtensionRuntime {
 /** One verified installed record and its current launch definition, or the overlay that prevents launching it. */
 export interface InstalledMcpExtension {
   name: string;
+  /** One installation-wide version; retained and reserved per-agent versions never choose the executable tree. */
+  activeVersion?: string;
   /** Digest recorded by the verified installer, also binds code updates to a fresh registration generation. */
   manifestSha256?: string;
   definition?: McpServerDefinition;
@@ -167,7 +174,7 @@ async function localDefinition(name: string, manifest: ObjectValue, packageRoot:
       if (typeof requirement.lock !== "string" || !requirement.lock.startsWith("payload/")) return undefined;
       await contained(packageRoot, join(packageRoot, requirement.lock));
       // D58: no runtime installation or unconstrained dependency resolution from a package start.
-      prefix = ["run", "--frozen", "--offline", "--no-python-downloads", "--python", python];
+      prefix = ["run", "--project", payload, "--frozen", "--offline", "--no-python-downloads", "--python", python];
       break;
     }
     case "binary":
@@ -181,17 +188,21 @@ async function localDefinition(name: string, manifest: ObjectValue, packageRoot:
   if (config.env && Object.keys(object(config.env)).length) return undefined;
   const args = requirement.type === "binary" && config.args === undefined ? [] : launchArgs(config.args, payload, entry);
   return { name, scope: { kind: "installation" }, transport: { type: "stdio", command, args: [...prefix, ...args],
-    cwd: payload, env: {}, fromHost: [] }, trust: "untrusted", timeouts: { ...DEFAULT_TIMEOUTS } };
+    cwd: packageRoot, env: {}, fromHost: [] }, trust: "untrusted", timeouts: { ...DEFAULT_TIMEOUTS } };
 }
 
-async function loadItem(packagesRoot: string, name: string, raw: unknown,
+async function loadItem(mcpRoot: string, name: string, raw: unknown,
   runtime: McpExtensionRuntime): Promise<InstalledMcpExtension> {
   const record = object(raw);
   if (record.integrity && object(record.integrity).ok !== true) throw Error("installed MCP integrity failed");
   if (typeof record.manifestSha256 !== "string" || !/^[a-f0-9]{64}$/.test(record.manifestSha256)) {
     throw Error("installed MCP manifest has no approved digest");
   }
-  const packageRoot = await contained(packagesRoot, join(packagesRoot, name));
+  const activeVersion = record.activeVersion;
+  if (typeof activeVersion !== "string" || activeVersion.length > 200 || !VERSION.test(activeVersion) ||
+      record.version !== activeVersion) throw Error("invalid active MCP version");
+  const nameRoot = await contained(mcpRoot, join(mcpRoot, name));
+  const packageRoot = await contained(nameRoot, join(nameRoot, activeVersion));
   const manifest = await readJson(packageRoot, join(packageRoot, "p1x.json"), MAX_METADATA_BYTES, record.manifestSha256);
   if (manifest.kind !== "mcp-server" || manifest.name !== name || record.name !== name ||
       manifest.id !== record.id || manifest.version !== record.version) throw Error("installed MCP record mismatch");
@@ -209,7 +220,7 @@ async function loadItem(packagesRoot: string, name: string, raw: unknown,
     definition = { name, scope: { kind: "installation" }, transport: { type: "http", url: url.toString(), headers: {} },
       trust: "untrusted", timeouts: { ...DEFAULT_TIMEOUTS } };
   } else definition = await localDefinition(name, manifest, packageRoot, runtime);
-  return { name, manifestSha256: record.manifestSha256, declaration: declared,
+  return { name, activeVersion, manifestSha256: record.manifestSha256, declaration: declared,
     ...(definition ? { definition } : { overlay: "needs-setup" as const }) };
 }
 
@@ -225,13 +236,13 @@ export async function installedMcpExtensions(home: string, runtime: McpExtension
   if (state.schemaVersion !== 1) throw Error("unsupported extension state version");
   const items = Object.entries(object(state.items));
   if (items.length > MAX_ITEMS) throw Error("too many installed MCP extensions");
-  const packagesRoot = await contained(root, join(root, "extensions", "packages"));
+  const mcpRoot = await contained(root, join(root, "mcp"));
   const result: InstalledMcpExtension[] = [];
   for (const [name, raw] of items) {
     const item = object(raw);
     if (item.kind !== "mcp-server" || item.removedByUser === true) continue;
     if (!NAME.test(name)) throw Error("invalid installed MCP extension name");
-    try { result.push(await loadItem(packagesRoot, name, item, runtime)); }
+    try { result.push(await loadItem(mcpRoot, name, item, runtime)); }
     catch { result.push({ name, overlay: "error" }); }
   }
   return result;

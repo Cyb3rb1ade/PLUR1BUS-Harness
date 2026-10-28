@@ -44,7 +44,7 @@ function registrationKey(name: string, raw: unknown): string {
 }
 
 function signature(raw: unknown, extension?: InstalledMcpExtension): string {
-  return JSON.stringify([raw, extension?.manifestSha256, extension?.declaration]);
+  return JSON.stringify([raw, extension?.activeVersion, extension?.manifestSha256, extension?.declaration]);
 }
 
 /** Serializes live reconciliation; disabling unregisters and stops the process rather than merely hiding tools. */

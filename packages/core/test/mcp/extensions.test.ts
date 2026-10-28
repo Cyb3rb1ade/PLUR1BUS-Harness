@@ -1,7 +1,7 @@
 /** M-A4: installed extension metadata becomes live, lazy MCP registrations without executing installation hooks. */
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -18,27 +18,37 @@ afterEach(async () => { await Promise.all(homes.splice(0).map(home => rm(home, {
 async function fixture(remote?: Record<string, unknown>) {
   const home = await mkdtemp(join(tmpdir(), "p1b-mcp-ext-"));
   homes.push(home);
-  const payload = join(home, "extensions", "packages", "reports", "payload");
+  let payload = join(home, "mcp", "reports", "1.0.0", "payload");
   await mkdir(payload, { recursive: true });
+  await mkdir(join(home, "extensions"), { recursive: true });
   const manifest = {
     name: "reports", kind: "mcp-server", id: "test/reports", version: "1.0.0",
     requires: { runtime: { type: remote ? "none" : "node", range: ">=24" } as {
       type: string; range: string; via?: string; lock?: string;
     } },
-    capabilities: { network: { mode: "none" }, tools: [{ name: "echo", effect: "read" }], secrets: [] },
+    capabilities: { network: { mode: "none" }, tools: [{ name: "echo", effect: "read" }],
+      secrets: [] as { slot: string; required: boolean }[] },
     files: {} as Record<string, { sha256: string; size: number }>,
     remote: remote ?? null,
   };
   const state = { schemaVersion: 1, items: { reports: { name: "reports", id: manifest.id, version: "1.0.0",
+    activeVersion: "1.0.0", previousVersion: null as string | null,
     kind: "mcp-server", removedByUser: false, requiredSecrets: [], capabilities: manifest.capabilities,
     manifestSha256: "" } } };
   const approveManifest = async () => {
+    const nextPayload = join(home, "mcp", "reports", manifest.version, "payload");
+    if (nextPayload !== payload) {
+      await cp(join(payload, ".."), join(nextPayload, ".."), { recursive: true });
+      state.items.reports.previousVersion = state.items.reports.activeVersion;
+      payload = nextPayload;
+    }
     const bytes = JSON.stringify(manifest);
     state.items.reports.manifestSha256 = createHash("sha256").update(bytes).digest("hex");
     state.items.reports.version = manifest.version;
+    state.items.reports.activeVersion = manifest.version;
     state.items.reports.capabilities = manifest.capabilities;
-    await writeFile(join(home, "extensions", "state.json"), JSON.stringify(state));
     await writeFile(join(payload, "..", "p1x.json"), bytes);
+    await writeFile(join(home, "extensions", "state.json"), JSON.stringify(state));
   };
   const approveMcpb = async (value: unknown) => {
     const bytes = JSON.stringify(value);
@@ -53,11 +63,11 @@ async function fixture(remote?: Record<string, unknown>) {
   await writeFile(join(payload, "server.mjs"), `import ${JSON.stringify(FIXTURE_STDIO)};`);
   const config = { providers: {}, mcp: { servers: { reports: { enabled: true, agents: "all" as "all" | string[] } } } };
   const registry = new McpRegistry({ logger: capturingLogger(), hostEnv: {} });
-  return { home, payload, manifest, config, registry, approveManifest, approveMcpb };
+  return { home, get payload() { return payload; }, manifest, config, registry, approveManifest, approveMcpb };
 }
 
 describe("M-A4 installed MCP composition", () => {
-  it("uses the running pinned Node, an absolute entry and payload cwd, then stops the live child on disable", async () => {
+  it("uses the running pinned Node, an absolute entry and active-version cwd, then stops the live child on disable", async () => {
     const f = await fixture();
     const reconciler = new McpExtensionReconciler({ home: f.home, config: () => f.config, registry: f.registry });
     try {
@@ -67,7 +77,7 @@ describe("M-A4 installed MCP composition", () => {
       assert.equal(definition.transport.type, "stdio");
       if (definition.transport.type !== "stdio") assert.fail("stdio definition expected");
       assert.equal(definition.transport.command, process.execPath);
-      assert.equal(definition.transport.cwd, f.payload);
+      assert.equal(definition.transport.cwd, join(f.home, "mcp", "reports", "1.0.0"));
       assert.deepEqual(definition.transport.args, [join(f.payload, "server.mjs")]);
       assert.deepEqual(definition.transport.env, {});
       assert.deepEqual(definition.transport.fromHost, []);
@@ -265,8 +275,8 @@ describe("M-A4 installed MCP composition", () => {
       const transport = reconciler.definition("reports")!.transport;
       assert.equal(transport.type, "stdio");
       if (transport.type !== "stdio") assert.fail("stdio expected");
-      assert.deepEqual(transport.args.slice(0, 6),
-        ["run", "--frozen", "--offline", "--no-python-downloads", "--python", process.execPath]);
+      assert.deepEqual(transport.args.slice(0, 8),
+        ["run", "--project", f.payload, "--frozen", "--offline", "--no-python-downloads", "--python", process.execPath]);
       assert.equal(f.registry.status("reports", "A").starts, 0);
     } finally { await reconciler.close(); await f.registry.shutdown(); }
   });
@@ -294,8 +304,37 @@ describe("M-A4 installed MCP composition", () => {
       f.manifest.version = "1.0.1";
       await f.approveManifest();
       await reconciler.refresh();
+      const previous = await readFile(join(f.home, "mcp", "reports", "1.0.0", "p1x.json"), "utf8");
+      assert.equal(JSON.parse(previous).version, "1.0.0", "the previous version remains available for recovery");
+      assert.equal(reconciler.status("reports")?.activeVersion, "1.0.1");
       assert.notEqual(reconciler.revision("reports", "A"), first,
         "an old turn cannot execute replacement code under the previous registration's policy snapshot");
     } finally { await reconciler.close(); await f.registry.shutdown(); }
   });
+
+  it("refuses a missing or mismatched active version without reading retained or legacy MCP trees", async () => {
+    const f = await fixture({ url: "https://approved.example.test/mcp", auth: "none" });
+    const statePath = join(f.home, "extensions", "state.json");
+    const state = JSON.parse(await readFile(statePath, "utf8")) as {
+      items: { reports: { version: string; activeVersion?: string } };
+    };
+    const reconciler = new McpExtensionReconciler({ home: f.home, config: () => f.config, registry: f.registry });
+    try {
+      delete state.items.reports.activeVersion;
+      await writeFile(statePath, JSON.stringify(state));
+      await reconciler.refresh();
+      assert.equal(reconciler.status("reports")?.overlay, "error");
+      state.items.reports.activeVersion = "1.0.1";
+      await writeFile(statePath, JSON.stringify(state));
+      await reconciler.refresh();
+      assert.equal(reconciler.status("reports")?.overlay, "error");
+      assert.deepEqual(reconciler.servers(), []);
+      state.items.reports.version = "../escape";
+      state.items.reports.activeVersion = "../escape";
+      await writeFile(statePath, JSON.stringify(state));
+      await reconciler.refresh();
+      assert.equal(reconciler.status("reports")?.overlay, "error");
+    } finally { await reconciler.close(); await f.registry.shutdown(); }
+  });
+
 });
