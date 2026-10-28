@@ -12,9 +12,10 @@ import {
   columnTitle,
   countActiveCardsByColumn,
   filterCards,
-  optimisticallyMoveCard,
+  withPendingMoves,
   wouldExceedWip,
   type BoardFilters,
+  type PendingMove,
 } from "./model.ts";
 import type {
   BoardCard,
@@ -34,13 +35,17 @@ const CardDrawer = lazySection<CardDrawerProps>(() =>
 export interface BoardViewProps {
   project: Project;
   columns: BoardColumn[];
+  /** The server's last answer. */
   cards: BoardCard[];
+  /** The board load generation `cards` come from (see `onRefresh`). */
+  cardsGen: number;
   globalRole: string | null;
   /** The signed-in human's id: names their project membership (an agent is matched by `agentId`). */
   userId?: string | null;
   agentId: string | null;
   isAgent: boolean;
-  onRefresh: () => void;
+  /** Starts a background refresh of the board; answers its load generation (a load started later has a higher one). */
+  onRefresh: () => number;
 }
 
 let activeDraggedCardId: string | null = null;
@@ -49,6 +54,7 @@ export function BoardView({
   project,
   columns,
   cards,
+  cardsGen,
   globalRole,
   userId = null,
   agentId,
@@ -67,14 +73,23 @@ export function BoardView({
   const [createCardColId, setCreateCardColId] = useState<string | undefined>(undefined);
   const [manageColumnsOpen, setManageColumnsOpen] = useState(false);
 
-  // Local optimistic state for cards; a new answer of the server (`cards`) replaces it in a layout effect, i.e. in the commit
-  // that draws the new props. A passive effect is still pending while the board is already visible, and a move made then
-  // re-renders the board, which makes Preact run the pending effect first: it used to put `cards` back over the optimistic
-  // move, so the card stayed in its old column for as long as the move was in flight.
+  // Local optimistic state for cards: the server's last answer with the moves made here that it may not show yet, in the order
+  // they were made. An answer from a refresh that started before a move settled does not know that move, so every answer is drawn
+  // with the moves still pending. A move that failed is dropped; one that succeeded stays until an answer from a refresh started
+  // after it is shown (`knownFrom`).
   const [localCards, setLocalCards] = useState<BoardCard[]>(cards);
+  const answer = useRef(cards);
+  const pendingMoves = useRef(new Set<PendingMove>());
+  const showBoard = () => setLocalCards(withPendingMoves(answer.current, pendingMoves.current));
+  // A layout effect, not a passive one: the board takes keys from its first draw on, and a passive effect runs after the paint,
+  // where it would draw the answer over a move made in between.
   useLayoutEffect(() => {
-    setLocalCards(cards);
-  }, [cards]);
+    answer.current = cards;
+    for (const move of pendingMoves.current) {
+      if (move.knownFrom !== undefined && cardsGen >= move.knownFrom) pendingMoves.current.delete(move);
+    }
+    showBoard();
+  }, [cards, cardsGen]);
 
   // Live region for a11y announcements
   const [announcement, setAnnouncement] = useState("");
@@ -147,13 +162,9 @@ export function BoardView({
     if (!targetCol) return;
 
     // Optimistic update
-    const updated = optimisticallyMoveCard(
-      localCards,
-      cardId,
-      targetColId,
-      targetPosition,
-    );
-    setLocalCards(updated);
+    const move: PendingMove = { cardId, columnId: targetColId, position: targetPosition };
+    pendingMoves.current.add(move);
+    showBoard();
     setErrorBanner(null);
 
     const cardMovedMsg = t("projects.a11y.cardMoved", {
@@ -174,13 +185,15 @@ export function BoardView({
         },
         { write: true },
       );
-      // Success: refresh in background
-      onRefresh();
+      // Success: refresh in background. Until that refresh's answer (or a later one) is shown, the move stays drawn over the
+      // answers: a refresh that started earlier may answer without it.
+      move.knownFrom = onRefresh();
     } catch (err: any) {
-      // Rollback on failure: put back only this card (moving it back to where it came from renumbers the columns it touched the same way
-      // the optimistic move did). A snapshot of the whole board would also undo moves of other cards that were made or confirmed meanwhile.
-      // The server's answer is the truth, so ask for it.
-      setLocalCards((current) => optimisticallyMoveCard(current, cardId, card.columnId, card.position));
+      // Rollback on failure: drop this move and draw the server's last answer with the moves still pending. That puts back only this
+      // card (a later move of it that is still pending still counts); a snapshot of the whole board would also undo moves of other
+      // cards that were made or confirmed meanwhile. The server's answer is the truth, so ask for it.
+      pendingMoves.current.delete(move);
+      showBoard();
       onRefresh();
       let errorMsg = t("projects.error.generic");
       if (err?.errorCode === "E_PROJECT_WIP_LIMIT") {
