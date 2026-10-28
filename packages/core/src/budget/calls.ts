@@ -2,6 +2,9 @@
 // Counts tokens, calls and media units (images, video seconds); no money dimension anywhere (owner decisions 2026-10-19).
 // Output tokens include reported reasoning tokens. The legacy `budget_call.cost` column stays in the store, unused (always NULL).
 import { randomUUID } from 'node:crypto';
+import {
+  CACHE_READS_SQL, DEFAULT_CACHE_READ_WEIGHT, countedTokens, storedCacheReadWeight,
+} from './cache-read-weight.ts';
 import { openBudgetDb, transaction, BudgetStoreError } from './store.ts';
 import { periodBounds, validateTimeZone, type CallPeriod } from './period.ts';
 import { BudgetInputError, METRICS, type Metric } from './service.ts';
@@ -82,6 +85,11 @@ type Amounts = Record<Metric, number>;
 /** The column each metric is counted in: on a `budget_call` reservation, and summed on the `usage_event` ledger. */
 const RESERVED: Record<Metric, string> = { tokens: 'tokens', images: 'images', videoSeconds: 'video_seconds' };
 const SETTLED: Record<Metric, string> = { tokens: 'input_tokens+output_tokens', images: 'images', videoSeconds: 'video_seconds' };
+/** The request id settlement gives a call's usage event: `budget-call:<reservation id>`. */
+const LEDGER_PREFIX = 'budget-call:';
+/** A settled `budget_call`'s cache reads (RE-D29), looked up in the usage event its settlement wrote. */
+const CALL_READS_SQL =
+  `(SELECT ${CACHE_READS_SQL} FROM usage_event WHERE request_id = '${LEDGER_PREFIX}' || budget_call.id)`;
 const amountsOf = (r: CallRow): Amounts => ({ tokens: Number(r.tokens), images: Number(r.images), videoSeconds: Number(r.video_seconds) });
 const media = (a: Amounts): MediaAmounts => ({ ...(a.images ? { images: a.images } : {}), ...(a.videoSeconds ? { videoSeconds: a.videoSeconds } : {}) });
 /** Token limits gate every call (as before); a media-unit limit gates only a call that uses that unit, so an image limit never stops a chat. */
@@ -163,14 +171,21 @@ export function createCallBudget(o: CallBudgetOptions) {
     // (an orphan nobody will settle) does a reservation stop counting.
     const unit = RESERVED[l.metric];
     const reserved = db.prepare(`SELECT COALESCE(SUM(${unit}),0) AS n FROM budget_call WHERE state='reserved' AND ts >= ?${filter}`).get(expiredBefore(), ...params) as { n: number };
-    let settled: { n: number };
-    if (l.scope === 'global' || l.scope === 'agent') {
+    // Settled tokens count cache reads with the weight (RE-D29), applied here; a pending reservation keeps its
+    // unweighted estimate. At full weight nothing is taken off, so the reads are not summed: for a settled call they
+    // are looked up one by one.
+    const weight = l.metric === 'tokens' ? storedCacheReadWeight(db) : DEFAULT_CACHE_READ_WEIGHT;
+    const ledger = l.scope === 'global' || l.scope === 'agent';
+    const reads = weight < DEFAULT_CACHE_READ_WEIGHT ? (ledger ? CACHE_READS_SQL : CALL_READS_SQL) : '0';
+    let settled: { n: number; r: number };
+    if (ledger) {
       const where = l.scope === 'agent' ? ' AND agent=?' : '';
-      settled = db.prepare(`SELECT COALESCE(SUM(${SETTLED[l.metric]}),0) AS n FROM usage_event WHERE ts>=? AND ts<?${where}`).get(b.start, b.end, ...(l.scope === 'agent' ? [l.id] : [])) as { n: number };
+      settled = db.prepare(`SELECT COALESCE(SUM(${SETTLED[l.metric]}),0) AS n, COALESCE(SUM(${reads}),0) AS r FROM usage_event WHERE ts>=? AND ts<?${where}`).get(b.start, b.end, ...(l.scope === 'agent' ? [l.id] : [])) as { n: number; r: number };
     } else {
-      settled = db.prepare(`SELECT COALESCE(SUM(${unit}),0) AS n FROM budget_call WHERE state='settled' AND ts>=? AND ts<?${filter}`).get(b.start, b.end, ...params) as { n: number };
+      settled = db.prepare(`SELECT COALESCE(SUM(${unit}),0) AS n, COALESCE(SUM(${reads}),0) AS r FROM budget_call WHERE state='settled' AND ts>=? AND ts<?${filter}`).get(b.start, b.end, ...params) as { n: number; r: number };
     }
-    return { used: count(Number(reserved.n) + Number(settled.n)), key: b.key, end: b.end };
+    const n = l.metric === 'tokens' ? countedTokens(Number(settled.n), Number(settled.r), weight) : Number(settled.n);
+    return { used: count(Number(reserved.n) + n), key: b.key, end: b.end };
   }
   /** `uses` decides which limits apply; `add` is what this check adds on top of the use (the request, or nothing at settlement). */
   function breaches(r: CallRow, uses: Amounts, add: Amounts | null, ts: number): CallRefusal[] {
@@ -231,7 +246,7 @@ export function createCallBudget(o: CallBudgetOptions) {
       const reservedAmounts = amountsOf(r), got: Amounts = { tokens, images: u.images, videoSeconds: u.videoSeconds };
       const uses: Amounts = { tokens, images: Math.max(reservedAmounts.images, got.images), videoSeconds: Math.max(reservedAmounts.videoSeconds, got.videoSeconds) };
       db.prepare("UPDATE budget_call SET state='settled',tokens=?,images=?,video_seconds=? WHERE id=?").run(tokens, u.images, u.videoSeconds, r.id);
-      db.prepare("INSERT INTO usage_event (ts,agent,provider,model,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,price_version,request_id,images,video_seconds) VALUES (?,?,?,?,?,?,?,?,'',?,?,?)").run(r.ts, r.agent, r.provider, r.model, u.inputTokens, u.outputTokens, u.cacheReadTokens, u.cacheWriteTokens, `budget-call:${r.id}`, u.images, u.videoSeconds);
+      db.prepare("INSERT INTO usage_event (ts,agent,provider,model,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,price_version,request_id,images,video_seconds) VALUES (?,?,?,?,?,?,?,?,'',?,?,?)").run(r.ts, r.agent, r.provider, r.model, u.inputTokens, u.outputTokens, u.cacheReadTokens, u.cacheWriteTokens, `${LEDGER_PREFIX}${r.id}`, u.images, u.videoSeconds);
       warnings(r, uses, null, r.ts, events);
       return { recorded: true, overages: breaches(r, uses, null, r.ts) };
     });

@@ -3,7 +3,7 @@
 // Budgets count tokens and media units: images and video seconds (owner decisions 2026-10-19: no money dimension anywhere;
 // price tables and cost limits were removed). The call port (`calls.ts`) enforces all three; `check`/`enforce` here are tokens only.
 import type { DatabaseSync } from "node:sqlite";
-import { storedCacheReadWeight, writeCacheReadWeight } from "./cache-read-weight.ts";
+import { CACHE_READS_SQL, countedTokens, storedCacheReadWeight, writeCacheReadWeight } from "./cache-read-weight.ts";
 import { periodBounds, validateTimeZone, type Period } from "./period.ts";
 import { openBudgetDb, transaction } from "./store.ts";
 
@@ -104,11 +104,13 @@ function closed(what: string, o: object, allowed: Set<string>): void {
   for (const k of Object.keys(o)) if (!allowed.has(k)) throw new BudgetInputError(`${what}: unknown property "${k}" (the budget store holds counts and ids only)`);
 }
 
-interface Row { n: number; i: number; o: number; cr: number; cw: number; im: number; vs: number }
+/** `ri`: the cache reads a token limit may weigh, each event's at most its own input (`CACHE_READS_SQL`). */
+interface Row { n: number; i: number; o: number; cr: number; cw: number; im: number; vs: number; ri: number }
 const ZERO: UsageTotals = { events: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, images: 0, videoSeconds: 0 };
 const totals = (r: Row): UsageTotals => ({ events: r.n, inputTokens: r.i, outputTokens: r.o, cacheReadTokens: r.cr, cacheWriteTokens: r.cw, images: r.im, videoSeconds: r.vs });
-const SUMS = "COUNT(*) AS n, COALESCE(SUM(input_tokens),0) AS i, COALESCE(SUM(output_tokens),0) AS o, COALESCE(SUM(cache_read_tokens),0) AS cr, COALESCE(SUM(cache_write_tokens),0) AS cw, COALESCE(SUM(images),0) AS im, COALESCE(SUM(video_seconds),0) AS vs";
-const USED: Record<Metric, (r: Row) => number> = { tokens: (r) => r.i + r.o, images: (r) => r.im, videoSeconds: (r) => r.vs };
+const SUMS = `COUNT(*) AS n, COALESCE(SUM(input_tokens),0) AS i, COALESCE(SUM(output_tokens),0) AS o, COALESCE(SUM(cache_read_tokens),0) AS cr, COALESCE(SUM(cache_write_tokens),0) AS cw, COALESCE(SUM(images),0) AS im, COALESCE(SUM(video_seconds),0) AS vs, COALESCE(SUM(${CACHE_READS_SQL}),0) AS ri`;
+/** The use a limit counts. Token limits weigh cache reads with the stored weight (RE-D29), applied at query time. */
+const USED: Record<Metric, (r: Row, cacheReadWeight: number) => number> = { tokens: (r, w) => countedTokens(r.i + r.o, r.ri, w), images: (r) => r.im, videoSeconds: (r) => r.vs };
 /**
  * The legacy money columns of `usage_event` (schema 1: the cost and the price-table version) stay in the store, unused:
  * new rows leave the cost NULL and write an empty price version.
@@ -153,10 +155,10 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
     (agent === undefined
       ? db.prepare(`SELECT ${SUMS} FROM usage_event WHERE ts >= ? AND ts < ?`).get(start, end)
       : db.prepare(`SELECT ${SUMS} FROM usage_event WHERE ts >= ? AND ts < ? AND agent = ?`).get(start, end, agent)) as unknown as Row;
-  const usedFor = (l: { scope: LimitScope; agent: string; period: Period; metric: Metric }, ts: number, tz: string) => {
+  const usedFor = (l: { scope: LimitScope; agent: string; period: Period; metric: Metric }, ts: number, tz: string, w: number) => {
     const b = periodBounds(ts, tz, l.period);
     const r = sums(b.start, b.end, l.scope === "agent" ? l.agent : undefined);
-    return { used: USED[l.metric](r), bounds: b };
+    return { used: USED[l.metric](r, w), bounds: b };
   };
 
   interface LimitRow { scope: LimitScope; agent: string; period: Period; metric: Metric; soft: number | null; hard: number | null }
@@ -179,12 +181,12 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
     closed("estimate", est, ESTIMATE_KEYS);
     count("estimate.inputTokens", est.inputTokens); count("estimate.outputTokens", est.outputTokens, true);
     if (est.provider !== undefined) ident("provider", est.provider);
-    const now = o.clock.now(), tz = getTz();
+    const now = o.clock.now(), tz = getTz(), weight = storedCacheReadWeight(db);
     const breaches: Breach[] = [], warnings: Warning[] = [];
     const estimate = est.inputTokens + (est.outputTokens ?? 0);
     const pending: { w: Warning; r: LimitRow; key: string; used: number }[] = [];
     for (const r of limitRows(agent)) {
-      const { used, bounds } = usedFor(r, now, tz);
+      const { used, bounds } = usedFor(r, now, tz, weight);
       const base = { scope: r.scope, ...(r.scope === "agent" ? { agentId: r.agent } : {}), period: r.period, metric: r.metric, used, estimate, periodKey: bounds.key };
       if (r.hard !== null) {
         if (used + estimate > r.hard) { breaches.push({ ...base, kind: "hard", limit: r.hard, resetsAt: bounds.end }); continue; }
@@ -227,7 +229,7 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
       const ts = e.ts === undefined ? o.clock.now() : count("ts", e.ts);
       if (ts > MAX_TS) throw new BudgetInputError("ts is outside the range of dates");
       if (!Number.isSafeInteger(u.inputTokens + u.outputTokens)) throw new BudgetInputError("the token count of this event exceeds the range the ledger can hold");
-      const tz = getTz();
+      const tz = getTz(), weight = storedCacheReadWeight(db);
       const out: BudgetEvent[] = [];
       const result = transaction(db, () => {
         const res = db.prepare(
@@ -237,7 +239,7 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
         const recorded = Number(res.changes) === 1;
         if (recorded) {
           for (const r of limitRows(agent)) {
-            const { used, bounds } = usedFor(r, ts, tz);
+            const { used, bounds } = usedFor(r, ts, tz, weight);
             if (r.hard !== null && used > r.hard) {
               // Past the hard limit the soft notice is moot: consume it silently so it is not announced late, after the hard one.
               if (r.soft !== null) firstNotice("soft", r, bounds.key, ts);
@@ -259,7 +261,7 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
     },
 
     status(opts = {}) {
-      const now = o.clock.now(), tz = getTz();
+      const now = o.clock.now(), tz = getTz(), weight = storedCacheReadWeight(db);
       if (opts.agentId !== undefined) ident("agentId", opts.agentId);
       const periods: StatusPeriod[] = PERIODS.map((period) => {
         const b = periodBounds(now, tz, period);
@@ -278,7 +280,7 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
         return { period, key: b.key, start: b.start, end: b.end, total, agents: [...agents.values()] };
       });
       const limits: StatusLimit[] = limitRows(opts.agentId, KNOWN_LIMITS).map((r) => {
-        const { used } = usedFor(r, now, tz);
+        const { used } = usedFor(r, now, tz, weight);
         return { ...toLimit(r), used, state: r.hard !== null && used >= r.hard ? "hard" : r.soft !== null && used >= r.soft ? "soft" : "ok" };
       });
       return { timeZone: tz, now, periods, limits };
