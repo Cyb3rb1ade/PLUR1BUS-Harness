@@ -46,10 +46,12 @@ fn rust_creates_the_same_tables_and_indexes() {
     ] {
         assert_eq!(recorded["ddl"][name].as_str().unwrap(), ddl);
     }
+    // The store refuses symlinked paths, and macOS temp directories sit under /var, a symlink to /private/var.
     let temp = tempfile::tempdir().unwrap();
-    let embedding = temp.path().join("embeddings.sqlite");
-    let llm = temp.path().join("llm_results.sqlite");
-    let speaker = temp.path().join("speaker_mappings.sqlite");
+    let dir = temp.path().canonicalize().unwrap();
+    let embedding = dir.join("embeddings.sqlite");
+    let llm = dir.join("llm_results.sqlite");
+    let speaker = dir.join("speaker_mappings.sqlite");
     drop(EmbeddingCache::open(&embedding).unwrap());
     drop(LlmResultCache::open(&llm).unwrap());
     drop(SpeakerMappings::open(&speaker).unwrap());
@@ -68,17 +70,18 @@ fn rust_creates_the_same_tables_and_indexes() {
 #[test]
 fn rust_reads_node_rows_and_node_reads_rust_rows() {
     let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path().canonicalize().unwrap();
     for name in ["embeddings", "llm_results", "speaker_mappings"] {
         fs::copy(
             fixtures().join(format!("{name}.sqlite")),
-            temp.path().join(format!("{name}.sqlite")),
+            dir.join(format!("{name}.sqlite")),
         )
         .unwrap();
     }
     let rows = metadata();
     let now = rows["now"].as_i64().unwrap();
     let expires = now + 300_000;
-    let embeddings = EmbeddingCache::open(&temp.path().join("embeddings.sqlite")).unwrap();
+    let embeddings = EmbeddingCache::open(&dir.join("embeddings.sqlite")).unwrap();
     for row in rows["embeddings"].as_array().unwrap() {
         let cache_key = key(row["text"].as_str().unwrap());
         assert_eq!(cache_key.key_hash(), row["keyHash"].as_str().unwrap());
@@ -90,7 +93,7 @@ fn rust_reads_node_rows_and_node_reads_rust_rows() {
         .put_at(&key("  ÄPFEL\u{feff}"), &[0.25, -0.5, 1.0], expires, now)
         .unwrap();
 
-    let llm = LlmResultCache::open(&temp.path().join("llm_results.sqlite")).unwrap();
+    let llm = LlmResultCache::open(&dir.join("llm_results.sqlite")).unwrap();
     let first = &rows["llm"][0];
     let llm_key = LlmResultKey {
         key_hash: first["keyHash"].as_str().unwrap().into(),
@@ -112,7 +115,7 @@ fn rust_reads_node_rows_and_node_reads_rust_rows() {
     )
     .unwrap();
 
-    let speakers = SpeakerMappings::open(&temp.path().join("speaker_mappings.sqlite")).unwrap();
+    let speakers = SpeakerMappings::open(&dir.join("speaker_mappings.sqlite")).unwrap();
     let mappings = speakers.list("a1").unwrap();
     assert_eq!(mappings.len(), 2);
     assert_eq!(mappings[0].speaker_label, "speaker-1");
@@ -131,7 +134,7 @@ fn rust_reads_node_rows_and_node_reads_rust_rows() {
     let output = Command::new("node")
         .arg(root.join("crates/plur1bus-engine/tests/node/roundtrip-check.mjs"))
         .arg("--sqlite")
-        .arg(temp.path())
+        .arg(&dir)
         .current_dir(root.join("packages/core"))
         .output()
         .unwrap();
@@ -157,7 +160,8 @@ fn rust_reads_node_rows_and_node_reads_rust_rows() {
 #[test]
 fn sweep_expired_removes_only_expired_rows() {
     let temp = tempfile::tempdir().unwrap();
-    let embeddings = EmbeddingCache::open(&temp.path().join("embeddings.sqlite")).unwrap();
+    let dir = temp.path().canonicalize().unwrap();
+    let embeddings = EmbeddingCache::open(&dir.join("embeddings.sqlite")).unwrap();
     for (text, expiry) in [("past", 99), ("boundary", 100), ("future", 101)] {
         embeddings
             .put_at(&key(text), &[1.0, 0.0, 0.0], expiry, 0)
@@ -166,7 +170,7 @@ fn sweep_expired_removes_only_expired_rows() {
     assert_eq!(embeddings.sweep_expired(100).unwrap(), 2);
     assert!(embeddings.get_at(&key("future"), 100).unwrap().is_some());
 
-    let llm = LlmResultCache::open(&temp.path().join("llm_results.sqlite")).unwrap();
+    let llm = LlmResultCache::open(&dir.join("llm_results.sqlite")).unwrap();
     let make_key = |hash: &str| LlmResultKey {
         key_hash: hash.into(),
         purpose: "capture-summary".into(),
@@ -193,7 +197,8 @@ fn sweep_expired_removes_only_expired_rows() {
 #[test]
 fn expired_reads_delete_the_row_and_embedding_blob_is_node_json() {
     let temp = tempfile::tempdir().unwrap();
-    let path = temp.path().join("embeddings.sqlite");
+    let dir = temp.path().canonicalize().unwrap();
+    let path = dir.join("embeddings.sqlite");
     let cache = EmbeddingCache::open(&path).unwrap();
     cache
         .put_at(&key("expired"), &[0.25, -0.5, 1.0], 10, 0)
