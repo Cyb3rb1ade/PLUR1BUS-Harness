@@ -12,6 +12,7 @@
 pub mod cache_profiles;
 pub mod config;
 pub mod contract;
+pub mod store;
 pub mod text;
 pub mod tokens;
 

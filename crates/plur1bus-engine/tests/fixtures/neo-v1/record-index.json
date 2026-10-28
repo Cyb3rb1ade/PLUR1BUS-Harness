@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "ids": {
+    "turns": [
+      "node-turn-0",
+      "node-turn-1",
+      "node-turn-2",
+      "node-turn-3"
+    ],
+    "candidates": [],
+    "candidateContent": [
+      "content:e40b9e6a8524f267411c",
+      "content:0695861a337ad7f01cb9",
+      "content:5095c476c45bba1a8534",
+      "content:6c12af1285f455b3590c"
+    ],
+    "reactions": [
+      "react_b361fa9566d9fec507f9"
+    ],
+    "behavior": [
+      "behavior_ac64618da1121ff274d5"
+    ]
+  },
+  "embeddingQueue": {
+    "statuses": {}
+  }
+}

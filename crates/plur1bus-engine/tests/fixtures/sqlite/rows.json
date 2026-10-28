@@ -1,0 +1,115 @@
+{
+  "engineCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "now": 4102444800000,
+  "ddl": {
+    "embeddings": "\n        CREATE TABLE IF NOT EXISTS embeddings (\n          key_hash TEXT PRIMARY KEY,\n          provider TEXT NOT NULL,\n          model TEXT NOT NULL,\n          dimensions INTEGER NOT NULL,\n          scope_id TEXT NOT NULL,\n          cache_version TEXT NOT NULL,\n          text_hash TEXT NOT NULL,\n          vector BLOB NOT NULL,\n          debug_text TEXT,\n          created_at INTEGER NOT NULL,\n          accessed_at INTEGER NOT NULL,\n          expires_at INTEGER NOT NULL\n        );\n        CREATE INDEX IF NOT EXISTS idx_embeddings_expires ON embeddings(expires_at);\n        CREATE INDEX IF NOT EXISTS idx_embeddings_accessed ON embeddings(accessed_at);\n      ",
+    "llm_results": "\n        CREATE TABLE IF NOT EXISTS llm_results (\n          key_hash TEXT PRIMARY KEY,\n          purpose TEXT NOT NULL,\n          model TEXT NOT NULL,\n          response_text TEXT,\n          input_tokens INTEGER,\n          output_tokens INTEGER,\n          provider_cached_input_tokens INTEGER,\n          created_at INTEGER NOT NULL,\n          accessed_at INTEGER NOT NULL,\n          expires_at INTEGER NOT NULL,\n          byte_size INTEGER NOT NULL\n        );\n        CREATE INDEX IF NOT EXISTS idx_llm_results_expires ON llm_results(expires_at);\n        CREATE INDEX IF NOT EXISTS idx_llm_results_accessed ON llm_results(accessed_at);\n      ",
+    "speaker_mappings": "\n    CREATE TABLE IF NOT EXISTS speaker_mappings (\n      agentId TEXT NOT NULL,\n      speakerLabel TEXT NOT NULL,\n      speakerDisplayName TEXT NOT NULL,\n      attributionSource TEXT NOT NULL,\n      confidence REAL,\n      confirmed INTEGER NOT NULL,\n      proposedAt INTEGER NOT NULL,\n      confirmedAt INTEGER,\n      contextHint TEXT,\n      PRIMARY KEY (agentId, speakerLabel)\n    );\n    CREATE INDEX IF NOT EXISTS idx_speaker_mappings_agent\n      ON speaker_mappings(agentId);\n  "
+  },
+  "embeddings": [
+    {
+      "text": "  ÄPFEL﻿",
+      "vector": [
+        1,
+        0,
+        0
+      ],
+      "keyHash": "7ba4a16356dffc432e7167f60e4c277dd765d4833810d5c0c34712d49d232a52",
+      "textHash": "30400a85b379233de217822d8692c48a6d6a6473275768f7ca5657937089bb68"
+    },
+    {
+      "text": "Straße 🚀",
+      "vector": [
+        0,
+        0.5,
+        -0.25
+      ],
+      "keyHash": "b671bcf9604746c8f8824f0bcdbe87322ad44b83ba57b8365557327ed1e82142",
+      "textHash": "8169bc39c92a27ef5340d9571ebe7c654f5753aa3105e521002cc465c8f6df9e"
+    }
+  ],
+  "llm": [
+    {
+      "request": {
+        "scopeId": "a1",
+        "purpose": "capture-summary",
+        "endpoint": "https://fixture.invalid/v1",
+        "credential": null,
+        "model": "fixture-llm",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Fixture question 0"
+          }
+        ],
+        "maxTokens": 128,
+        "temperature": 0,
+        "jsonMode": false,
+        "disableThinking": true,
+        "headers": {}
+      },
+      "value": {
+        "text": "Node answer 0",
+        "usage": {
+          "inputTokens": 10,
+          "outputTokens": 4,
+          "providerCachedInputTokens": 0
+        }
+      },
+      "keyHash": "a3e0ed67e49d53226957d827c38cc679386c9e087646c044f374c0a55dfdd475"
+    },
+    {
+      "request": {
+        "scopeId": "a1",
+        "purpose": "capture-summary",
+        "endpoint": "https://fixture.invalid/v1",
+        "credential": null,
+        "model": "fixture-llm",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Fixture question 1"
+          }
+        ],
+        "maxTokens": 128,
+        "temperature": 0,
+        "jsonMode": false,
+        "disableThinking": true,
+        "headers": {}
+      },
+      "value": {
+        "text": "Node answer 1",
+        "usage": {
+          "inputTokens": 11,
+          "outputTokens": 5,
+          "providerCachedInputTokens": 1
+        }
+      },
+      "keyHash": "9b59f5997039a7d42c7958209b2f0f89d8a2a0b62ed06ee79331ee67c1d6d56d"
+    }
+  ],
+  "speakers": [
+    {
+      "agentId": "a1",
+      "speakerLabel": "speaker-0",
+      "speakerDisplayName": "Node speaker 0",
+      "attributionSource": "contextual_proposal",
+      "confidence": 0.75,
+      "confirmed": 0,
+      "proposedAt": 4102444800000,
+      "confirmedAt": null,
+      "contextHint": "Café 🚀"
+    },
+    {
+      "agentId": "a1",
+      "speakerLabel": "speaker-1",
+      "speakerDisplayName": "Node speaker 1",
+      "attributionSource": "contextual_proposal",
+      "confidence": 0.875,
+      "confirmed": 1,
+      "proposedAt": 4102444800001,
+      "confirmedAt": 4102444800001,
+      "contextHint": null
+    }
+  ]
+}
