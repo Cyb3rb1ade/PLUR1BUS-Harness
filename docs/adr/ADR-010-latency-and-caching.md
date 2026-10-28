@@ -51,6 +51,21 @@ Concrete rules:
 - **R7 — TTL awareness.** Anthropic's 5-minute window starts at the request and **generation time counts against it** — a 4-minute response leaves ~1 minute. The scheduler tracks per-session cache age and, for sessions with slow turns, uses the 1-hour TTL (2.0× write) when projected reads ≥ 3. When mixing, 1-hour entries must precede 5-minute entries in the request.
 - **R8 — telemetry.** Every turn records `{cacheReadTokens, cacheCreationTokens, inputTokens, hitRatio, model, breakpointCount, zoneHashes}`. `total_input = cache_read + cache_creation + input`; `input_tokens` counts only what follows the last breakpoint. Published per session in the UI and in `doctor`.
 
+**N implementation note (2026-10-28, D69/D97/D103/D105).** The bounded, name-sorted skill catalogue and fixed working
+instructions belong in the system zone. Authored descriptions are stable for the admitted set; `applyAt: next-session`
+freezes that catalogue with the session, otherwise updates occur only at turn boundaries. Skill instructions enter
+conversation as `skill.load` calls/results after the user message and remain there. They no longer repeat in the
+volatile tail. The fixed read/discovery/memory tool core and retained session offers reduce tool-zone churn; search
+queues newly discovered tools for the next turn, subject to current visibility and the model-family cap.
+
+For R4, the owner-authorized tool-use mode is an explicit policy: default `prefer` forces only the first round with
+detected need, then returns to `auto`; `require-first` broadens that initial request and `auto` leaves choice to the
+model. Anthropic Extended Thinking and unverified local servers suppress forcing. Each attempt records the effective
+choice and cache usage alongside zone hashes. This does not establish provider cache economics: official OpenAI,
+Anthropic and Gemini documentation requests on 2026-10-28 were denied by the environment proxy (CONNECT 403), and no
+live credentialed before/after run was available. Sources, the verification limit and the stop condition for cache
+loss beyond message-prefix reuse are recorded in [tool-reliability.md](../tool-reliability.md#provider-cache-evidence-2026-10-28).
+
 ### 2. Embedding cache
 
 Key = **embedding identity ‖ content hash**, where identity is §6.2's full definition (model + revision/artifact hash + quantisation + dimension + prefix/task scheme + normalisation + token cap, plus the pinned upstream for aggregators). PLUR1BUS already has most of this: `key = provider \0 model \0 dimensions \0 scopeId \0 cacheVersion \0 textHash`, SQLite-backed, with per-scope byte caps and columns `key_hash, provider, model, dimensions, scope_id, cache_version, text_hash, vector, debug_text, created_at, accessed_at, expires_at` (`lib/embedding-cache.js:57-58, 67-71, 216, 485`; `plur1bus-crons-embedding-portability.md` §2). Two gaps to close, both already identified in ADR-002: the key carries `dimensions` but not the full identity fingerprint (two different models at the same width collide), and it has no per-identity `scopeId` for multi-identity recall. In-memory layer defaults today: 128 entries, 300 s TTL, coalescing on, persistence off (`lib/providers/embedding-openai.js:49-63`) — the harness turns persistence **on** by default, since the whole point is surviving a restart.
