@@ -22,6 +22,7 @@ import { createRedactor } from '../logs/redact.ts';
 import { AuthError } from '../auth/errors.ts';
 import type { SurfaceTrustLevel } from '../rbac/surface.ts';
 import { ToolRegistry } from '../tools/registry.ts';
+import { ruleSkills } from '../decision/skills.ts';
 import { enrichedSkillQuery, isSkillFollowup } from '../decision/skill-context.ts';
 import { skillHistoryMessages } from './skill-history.ts';
 import type { RestoredSessionSkills } from './session-skills.ts';
@@ -337,7 +338,11 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         .map(skill => ({ entry: skill.entry, score: 1, reasons: ['followup'] })) ?? [];
       const candidates = [...new Map([...pinned, ...retained, ...hits.filter(h => h.entry.kind === 'skill' && h.score > 0)].map(h => [h.entry.id, h])).values()];
       // Without a hook the rule shortlist (pins first) is injected as before; the hook returns the final ids in order and owns its fallbacks.
-      const picked = inherited ?? (o.selectSkills ? await o.selectSkills({ ...req, skillQuery },candidates.map(h=>({id:h.entry.id,name:h.entry.name,description:h.entry.description,confidence:h.score})),signal) : undefined);
+      const skillCandidates = candidates.map(h => ({ id: h.entry.id, name: h.entry.name,
+        description: h.entry.description, confidence: h.score }));
+      const picked = inherited ?? (o.selectSkills
+        ? await o.selectSkills({ ...req, skillQuery }, skillCandidates, signal)
+        : ruleSkills({ query: skillQuery, candidates: skillCandidates, ...o.skillsForAgent?.(req.agentId) }).map(skill => skill.id));
       const blocked = new Set(o.skillsForAgent?.(req.agentId)?.blocked ?? []);
       const byId = new Map(candidates.map(h=>[h.entry.id,h] as const));
       const skills = (picked ? picked.map(id=>byId.get(id)).filter((h): h is NonNullable<typeof h> => !!h) : candidates).filter(h=>!blocked.has(h.entry.name)).slice(0,3);
