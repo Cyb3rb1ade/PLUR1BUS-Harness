@@ -32,6 +32,8 @@ export interface SessionServiceDeps {
   /** Local resources owned by an archived session; observes committed archive/replacement only. */
   onSessionEnd?: (id: string) => void;
   approver?: SessionMethodDeps["approver"];
+  /** Final identifier-free turn observations shared by persistent and ephemeral session runners. */
+  onTurnTelemetry?: (telemetry: import("./turn-telemetry.ts").TurnTelemetry) => void;
 }
 
 export interface SessionService { ephemeral(): SessionService; forSession(id: string): SessionService; compactor: Compactor; pruner: ToolPruner; store: SessionStore; runner: TurnRunner; methods: Record<string, Handler>; recovered: number; close(budgetMs?: number): Promise<void> }
@@ -71,6 +73,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     workspace: id => d.agents.workspaceOf?.(id) ?? `agents/${id}/workspace`,
     store, compactor, ...(d.catalog ? { catalog: d.catalog } : {}), memory: d.memory, provider: d.provider, signal: d.signal,
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
+    ...(d.onTurnTelemetry ? { onTurnTelemetry: d.onTurnTelemetry } : {}),
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
   const methods = buildSessionMethods({ runtimeFor: id => { const r = service.forSession(id); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, ephemeral: () => { const r = service.ephemeral(); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, storeFor: id => service.forSession(id).store, modelProfiles: () => d.provider()?.modelProfiles?.() ?? [], defaultProfile: id => d.provider()?.defaultModelProfile?.(id), store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });

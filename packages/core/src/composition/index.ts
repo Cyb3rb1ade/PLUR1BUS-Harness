@@ -98,6 +98,8 @@ export interface CompositionDeps {
   notify: (method: string, params: object, opts: import("../rpc/server.ts").NotifyOptions) => void;
   approver?: import("../session/methods.ts").SessionMethodDeps["approver"];
   onStoredCapture?: (agentId: string) => void;
+  /** Final session-turn observations for the core's metrics aggregate. */
+  onTurnTelemetry?: (telemetry: import("../session/turn-telemetry.ts").TurnTelemetry) => void;
   provider?: ChatProvider; options?: CompositionOptions;
   /** Inbox notices for media-index events; absent: the events only reach the log. */
   inbox?: import('../inbox/service.ts').InboxPort;
@@ -360,7 +362,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         return;
       }
       void d.permissions.open().then(p => p.grants.endSession(id)).catch(err => d.logger.warn('grant session end failed', { err }));
-    }, ...(d.approver ? { approver: d.approver } : {}) });
+    }, ...(d.approver ? { approver: d.approver } : {}), ...(d.onTurnTelemetry ? { onTurnTelemetry: d.onTurnTelemetry } : {}) });
     const skillProposals = new UnavailableSkillProposals();
     const skillReview = new SkillReview(skillProposals, { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false });
     const mining = new SkillMining(sessions.store, async scope => {

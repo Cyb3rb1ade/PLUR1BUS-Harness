@@ -7,6 +7,8 @@ export type ChatChunk =
   /** With a tool dispatcher the loop executes the call and persists the envelope as `tool.result`; without one it persists a reported call/result and executes nothing. */
   | { type: "tool.call"; id: string; name: string; args?: unknown }
   | { type: "tool.result"; id: string; output: string }
+  /** A final additive observation; the provider still owns its existing success/failure behavior. */
+  | { type: "telemetry"; telemetry: import("./turn-telemetry.ts").TurnTelemetry }
   | { type: "usage"; inputTokens: number; outputTokens: number; model?: string; measurements?: UsageMeasurement[] };
 
 export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
