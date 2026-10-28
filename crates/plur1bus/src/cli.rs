@@ -1725,6 +1725,8 @@ pub enum ExtState {
 pub enum PluginKind {
     Module,
     Channel,
+    McpServer,
+    Bundle,
 }
 
 /// The install flags `skill install` and `plugin install` share.

@@ -34,7 +34,12 @@ impl Verb {
     fn kinds(self) -> Vec<String> {
         match self {
             Verb::Skill => vec!["skill".into()],
-            Verb::Plugin => vec!["module".into(), "channel".into()],
+            Verb::Plugin => vec![
+                "module".into(),
+                "channel".into(),
+                "mcp-server".into(),
+                "bundle".into(),
+            ],
         }
     }
     fn owns(self, kind: &str) -> bool {

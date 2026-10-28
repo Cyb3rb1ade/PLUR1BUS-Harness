@@ -622,6 +622,7 @@ mod tests {
             key_id: None,
             key_label: None,
             package_sha256: sha.clone(),
+            manifest_sha256: None,
             installed_at: "2026-10-01T00:00:00.000Z".into(),
             previous_version: None,
             files: Default::default(),

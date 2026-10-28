@@ -44,7 +44,8 @@ use super::list::{cached_meta, install_units};
 use super::overlays::{load_revocations, overlays_of};
 use super::paths::ExtPaths;
 use super::record::{
-    module_dir_kind, name_taken, now_ms, parse_iso_ms, skill_id_ok, state_invalid,
+    code_dir, config_key, config_section, module_dir_kind, name_taken, now_ms, parse_iso_ms,
+    skill_id_ok, state_invalid,
 };
 use super::state::{self, remove_dir_all_retrying, remove_retrying, rename_retrying, ItemRecord};
 use super::{now_iso, ExtError};
@@ -395,7 +396,8 @@ fn move_to_trash<'a>(
         None
     };
     let section = if o.purge && !is_skill {
-        cfg["modules"].get(name).cloned()
+        let section = config_section(&cfg, name, &t.kind);
+        (!section.is_null()).then_some(section)
     } else {
         None
     };
@@ -406,7 +408,7 @@ fn move_to_trash<'a>(
     let mut extra: Vec<(&str, Vec<u8>)> = Vec::new();
     if let Some(sec) = &section {
         let mut saved = serde_json::Map::new();
-        saved.insert(format!("modules.{name}"), sec.clone());
+        saved.insert(config_key(name, &t.kind), sec.clone());
         extra.push(("config.json", pretty(&Value::Object(saved))));
     }
     let sha = t.record.as_ref().map(|r| r.package_sha256.clone());
@@ -420,9 +422,14 @@ fn move_to_trash<'a>(
     ensure_dir(&paths.trash, "trash", rb)?;
     let (tid, tdir) = build_trash_entry(paths, name, version, &now, &body, &extra)?;
     {
-        let (entry, n, data) = (tdir.clone(), name.to_string(), layout.ext_data(name));
+        let (entry, n, data, kind) = (
+            tdir.clone(),
+            name.to_string(),
+            layout.ext_data(name),
+            t.kind.clone(),
+        );
         rb.push("trash", move |h| {
-            put_code_back(layout, h, is_skill, &n, &entry.join("code"))?;
+            put_code_back(layout, h, &kind, &n, &entry.join("code"))?;
             let moved = entry.join("data");
             if fs::symlink_metadata(&moved).is_ok() {
                 rename_retrying(&moved, &data).map_err(|e| {
@@ -439,8 +446,8 @@ fn move_to_trash<'a>(
 
     // code
     let code = tdir.join("code");
-    if is_skill {
-        let dir = layout.skills().join(name);
+    if is_skill || t.kind == "mcp-server" {
+        let dir = code_dir(layout, name, &t.kind);
         if fs::symlink_metadata(&dir).is_ok() {
             rename_retrying(&dir, &code)
                 .map_err(|e| io_err("cannot move to the trash", &dir, e))?;
@@ -495,8 +502,8 @@ fn move_to_trash<'a>(
             purge_lists(&host.config(), name)
         } else if let Some(sec) = &section {
             (
-                vec![(format!("modules.{name}"), Value::Null)],
-                vec![(format!("modules.{name}"), sec.clone())],
+                vec![(config_key(name, &t.kind), Value::Null)],
+                vec![(config_key(name, &t.kind), sec.clone())],
             )
         } else {
             (vec![], vec![])
@@ -541,6 +548,7 @@ fn hide_bundled(
         key_id: None,
         key_label: None,
         package_sha256: sha,
+        manifest_sha256: None,
         installed_at: now.clone(),
         previous_version: None,
         files: Default::default(),
@@ -609,6 +617,9 @@ fn check_free(layout: &Layout, st: &state::ExtState, name: &str) -> Result<(), E
     if fs::symlink_metadata(&m).is_ok() {
         return Err(name_taken(name, &module_dir_kind(&m), None));
     }
+    if fs::symlink_metadata(ExtPaths::of(layout).packages.join(name)).is_ok() {
+        return Err(name_taken(name, "mcp-server", None));
+    }
     Ok(())
 }
 
@@ -652,7 +663,7 @@ fn read_entry(tdir: &Path, id: &str, days: u32) -> Result<Trashed, ExtError> {
         .or_else(|| record.as_ref().map(|r| r.kind.as_str()))
         .unwrap_or("skill")
         .to_string();
-    if !matches!(kind.as_str(), "skill" | "module" | "channel")
+    if !matches!(kind.as_str(), "skill" | "module" | "channel" | "mcp-server")
         || record.as_ref().is_some_and(|r| r.name != name)
     {
         return Err(trash_expired(id));
@@ -778,12 +789,7 @@ fn restore_steps<'a>(
     let previous = if is_skill {
         None
     } else {
-        Some(
-            host.config()["modules"]
-                .get(name)
-                .cloned()
-                .unwrap_or(Value::Null),
-        )
+        Some(config_section(&host.config(), name, &t.kind))
     };
     let mut mark = json!({ "at": now });
     if let Some(prev) = &previous {
@@ -799,11 +805,8 @@ fn restore_steps<'a>(
     // config: a module comes back disabled, with its purged section if the entry holds one (only this item's own
     // section is taken from the entry). One write, first, so a kill after it never strands the section.
     if !is_skill {
-        let key = format!("modules.{name}");
-        let current = host.config()["modules"]
-            .get(name)
-            .cloned()
-            .unwrap_or(Value::Null);
+        let key = config_key(name, &t.kind);
+        let current = config_section(&host.config(), name, &t.kind);
         let saved = read_json(&tdir.join("config.json"))
             .and_then(|v| v.get(&key).cloned())
             .filter(Value::is_object);
@@ -846,9 +849,11 @@ fn restore_steps<'a>(
 
     // code
     let code = tdir.join("code");
-    if is_skill {
-        ensure_dir(&layout.skills(), "code", rb)?;
-        let dest = layout.skills().join(name);
+    if is_skill || t.kind == "mcp-server" {
+        let dest = code_dir(layout, name, &t.kind);
+        if let Some(parent) = dest.parent() {
+            ensure_dir(parent, "code", rb)?;
+        }
         rename_retrying(&code, &dest).map_err(|e| io_err("cannot restore", &code, e))?;
         let (from, to) = (dest.clone(), code.clone());
         rb.push("code", move |_| {
@@ -944,10 +949,10 @@ fn restore_steps<'a>(
 
 /// Sets `modules.<name>` in config.json to `section` (`null`: removes it), with no host: `ext::recover` runs before
 /// the supervisor serves config and while no offline command does. Unchanged config is not rewritten.
-fn restore_section(layout: &Layout, name: &str, section: Value) -> Result<(), String> {
+fn restore_section(layout: &Layout, name: &str, kind: &str, section: Value) -> Result<(), String> {
     let path = layout.config_path();
     let before = plur1bus_config::read(&path).map_err(|e| e.to_string())?;
-    let after = super::commit::apply_changes(&before, &[(format!("modules.{name}"), section)])
+    let after = super::commit::apply_changes(&before, &[(config_key(name, kind), section)])
         .map_err(|e| e.to_string())?;
     if after != before {
         plur1bus_config::write_atomic(&path, &after).map_err(|e| e.to_string())?;
@@ -1004,15 +1009,11 @@ pub(crate) fn reconcile_restores(layout: &Layout) -> Vec<String> {
             continue;
         };
         let kind = body["kind"].as_str().unwrap_or("skill").to_string();
-        if !matches!(kind.as_str(), "skill" | "module" | "channel") {
+        if !matches!(kind.as_str(), "skill" | "module" | "channel" | "mcp-server") {
             continue;
         }
         let is_skill = kind == "skill";
-        let dir = if is_skill {
-            layout.skills().join(&name)
-        } else {
-            layout.modules_dir().join(&name)
-        };
+        let dir = code_dir(layout, &name, &kind);
         let Ok(st) = state::read(&paths) else {
             continue;
         };
@@ -1076,7 +1077,7 @@ pub(crate) fn reconcile_restores(layout: &Layout) -> Vec<String> {
                 let prev = read_json(&entry.join(RESTORING))
                     .and_then(|m| m.get("previousSection").cloned());
                 if let Some(prev) = prev {
-                    if restore_section(layout, &name, prev).is_err() {
+                    if restore_section(layout, &name, &kind, prev).is_err() {
                         done.push(format!(
                             "could not put back the config section of {name}; {} stays marked",
                             entry.display()

@@ -4478,7 +4478,7 @@ Plugins (modules and channels) from packages: list, show, install, uninstall, re
 
 * `--kind <KIND>`
 
-  Possible values: `module`, `channel`
+  Possible values: `module`, `channel`, `mcp-server`, `bundle`
 
 * `--state <STATE>`
 

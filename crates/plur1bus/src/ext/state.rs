@@ -1,5 +1,5 @@
 //! `extensions/state.json`: one package record per installed extension (spec §6.2), schema-versioned, written
-//! atomically with mode 0600. `skills/index.json` and `modules.<name>.enabled` own the enabled flags; this file owns
+//! atomically with mode 0600. `skills/index.json`, `modules.<name>.enabled` and `mcp.servers.<name>.enabled` own the flags; this file owns
 //! everything else about where an item came from.
 use super::paths::ExtPaths;
 use plur1bus_ext::manifest::FileEntry;
@@ -42,6 +42,9 @@ pub struct ItemRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_label: Option<String>,
     pub package_sha256: String,
+    /// Exact verified package manifest bytes, required by new MCP installs before the Core trusts root metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_sha256: Option<String>,
     pub installed_at: String,
     #[serde(default)]
     pub previous_version: Option<String>,

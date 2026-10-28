@@ -84,6 +84,34 @@ pub(super) fn allow_unsigned_policy(layout: &Layout) -> Result<bool, ExtError> {
     ext_config(layout).map(|c| c.allow_unsigned)
 }
 
+/// Runs worker preparation with inspection's current limits and revocations, without exposing package parsing to
+/// supervisor-safe code.
+pub(super) fn with_current_policy<T>(
+    layout: &Layout,
+    action: impl FnOnce(&Policy<'_>) -> Result<T, ExtError>,
+) -> Result<T, ExtError> {
+    with_config_policy(layout, &ext_config(layout)?, action)
+}
+
+fn with_config_policy<T>(
+    layout: &Layout,
+    cfg: &ExtConfig,
+    action: impl FnOnce(&Policy<'_>) -> Result<T, ExtError>,
+) -> Result<T, ExtError> {
+    let store = trust_store();
+    let host = host_facts();
+    let revs = load_revocations(&ExtPaths::of(layout));
+    let is_revoked = |id: &str, version: &str| revoked(&revs, id, version);
+    action(&Policy {
+        limits: cfg.limits.clone(),
+        skill_bytes: cfg.skill_bytes,
+        store: &store,
+        host: &host,
+        reserved: reserved_names(),
+        revoked: &is_revoked,
+    })
+}
+
 /// The spool and record of one inspection, removed on drop unless kept.
 struct Pending {
     p1x: PathBuf,
@@ -348,19 +376,9 @@ pub(crate) fn inspect_with(
         std::process::abort();
     }
 
-    let store = trust_store();
-    let host = host_facts();
-    let revs = load_revocations(&paths);
-    let is_revoked = |id: &str, version: &str| revoked(&revs, id, version);
-    let policy = Policy {
-        limits: cfg.limits.clone(),
-        skill_bytes: cfg.skill_bytes,
-        store: &store,
-        host: &host,
-        reserved: reserved_names(),
-        revoked: &is_revoked,
-    };
-    let insp = inspect_file_kinds(&pending.p1x, &policy, &X2_RPC_KINDS)?;
+    let insp = with_config_policy(layout, &cfg, |policy| {
+        inspect_file_kinds(&pending.p1x, policy, &X2_RPC_KINDS).map_err(ExtError::from)
+    })?;
     let m = &insp.manifest;
     let tier = trust_json(&insp.trust)["tier"]
         .as_str()

@@ -64,9 +64,14 @@ Files: `crates/plur1bus/src/ext/{packages,stage,commit,record,paths,state,list,o
 
 Interfaces: existing `StagedItem`, `ModuleHost` and `PackageStore` preparation, rename, rollback and recovery. Store payload hashes below `extensions/packages/<name>/payload` and move complete trees through existing trash.
 
-- [ ] Test disabled install, list/show, failure rollback, crash recovery, uninstall and restore.
-- [ ] Connect the existing package store across the worker boundary and add explicit kind dispatch.
-- [ ] Run lifecycle/worker/store tests and hygiene; commit `M-A2`.
+- [x] Test disabled install, list/show, failure rollback, crash recovery, uninstall and restore.
+- [x] Connect the existing package store across the worker boundary and add explicit kind dispatch.
+- [x] Run lifecycle/worker/store tests and hygiene; commit `M-A2`.
+
+A2 depends on the A9 manifest parser, so A9 lands before A2. Worker preparation calls the existing `PackageStore`
+under inspection-owned staging; the supervisor moves its complete checked tree with the existing transaction stack.
+New MCP state records also bind the exact verified `p1x.json` bytes with optional `manifestSha256`, while legacy
+records remain readable. Bundle commit remains refused until A10.
 
 ### Task A3: MCP activation
 

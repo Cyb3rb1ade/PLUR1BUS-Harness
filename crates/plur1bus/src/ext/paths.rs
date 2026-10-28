@@ -14,6 +14,8 @@ pub struct ExtPaths {
     pub cache: PathBuf,
     /// `extensions/staging/`: created on demand, removed when a refusal leaves it empty.
     pub staging: PathBuf,
+    /// `extensions/packages/`: complete MCP package trees prepared by the package-store worker.
+    pub packages: PathBuf,
     /// `extensions/trash/<trashId>/` (X1-R19).
     pub trash: PathBuf,
     /// `extensions/catalog/revocations.json`: written only by X4 after signature checks; X1 never writes it (X1-R17).
@@ -29,6 +31,7 @@ impl ExtPaths {
             state: root.join("state.json"),
             cache: root.join("cache"),
             staging: root.join("staging"),
+            packages: root.join("packages"),
             trash: root.join("trash"),
             revocations: root.join("catalog").join("revocations.json"),
             inspect: layout.run().join("inspect"),

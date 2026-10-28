@@ -184,6 +184,380 @@ fn module_pkg(name: &str, key: Option<&TestKey>) -> Vec<u8> {
     module_pkg_v(name, "1.0.0", key)
 }
 
+fn mcp_pkg_v(name: &str, version: &str, local: bool, key: &TestKey) -> Vec<u8> {
+    let mut t = template(name, "mcp-server", version);
+    let files = if local {
+        t["capabilities"]["processes"]["spawn"] = json!(true);
+        let manifest = json!({
+            "manifest_version": "0.3", "name": name, "version": version,
+            "description": "Fixture MCP server", "author": {"name": "Demo"}, "license": "MIT",
+            "server": {"type": "node", "entry_point": "server/main.js",
+                "mcp_config": {"command": "node", "args": ["${__dirname}/server/main.js"]}}
+        });
+        vec![
+            f(
+                "manifest.json",
+                &serde_json::to_vec(&manifest).unwrap(),
+                false,
+            ),
+            f(
+                "server/main.js",
+                format!("// MCP fixture {version}\n").as_bytes(),
+                false,
+            ),
+        ]
+    } else {
+        t["requires"]["runtime"] = json!({"type": "none"});
+        t["remote"] = json!({"url": "https://mcp.example.org/v1", "auth": "none"});
+        t["capabilities"]["network"] = json!({"mode": "allowlist", "hosts": ["mcp.example.org"]});
+        vec![f(
+            "README.md",
+            format!("Remote MCP fixture {version}\n").as_bytes(),
+            false,
+        )]
+    };
+    build_package_from(&t, files, Some(key))
+}
+
+#[test]
+fn mcp_install_lists_shows_and_hashes_the_complete_package_store_tree() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for local in [false, true] {
+        let (d, l) = home();
+        populate(&l);
+        let pkg = mcp_pkg_v("docs", "1.0.0", local, &key);
+        let installed = install(d.path(), &l, "docs.p1x", &pkg, &opts(&[], None)).unwrap();
+        assert_eq!(
+            installed,
+            json!({"name": "docs", "version": "1.0.0", "kind": "mcp-server", "replaced": false, "state": "installed"})
+        );
+        let dir = l.extensions().join("packages/docs");
+        assert!(dir.join("p1x.json").is_file());
+        assert!(dir.join("record.json").is_file());
+        assert!(!l.modules_dir().join("docs").exists());
+        assert_eq!(config(&l)["mcp"]["servers"]["docs"]["enabled"], false);
+        let filtered = list_items(
+            &l,
+            &config(&l),
+            &ListFilter {
+                kind: Some(vec!["mcp-server".into()]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(filtered["items"].as_array().unwrap().len(), 1);
+        assert_eq!(filtered["items"][0]["kind"], "mcp-server");
+        let detail = show_item(&l, &config(&l), "docs").unwrap();
+        assert_eq!(detail["item"]["integrity"], "ok");
+        let state: Value =
+            serde_json::from_slice(&fs::read(l.extensions().join("state.json")).unwrap()).unwrap();
+        assert_eq!(
+            state["items"]["docs"]["manifestSha256"],
+            sha_hex(&fs::read(dir.join("p1x.json")).unwrap())
+        );
+        let mut manifest: Value =
+            serde_json::from_slice(&fs::read(dir.join("p1x.json")).unwrap()).unwrap();
+        manifest["capabilities"]["tools"] = json!([{"name": "erase", "effect": "read"}]);
+        fs::write(dir.join("p1x.json"), serde_json::to_vec(&manifest).unwrap()).unwrap();
+        let changed = show_item(&l, &config(&l), "docs").unwrap();
+        assert_eq!(changed["item"]["integrity"], "tampered");
+    }
+}
+
+#[test]
+fn mcp_uninstall_purge_and_restore_keep_the_existing_trash_contract() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for purge in [false, true] {
+        let (d, l) = home();
+        populate(&l);
+        install(
+            d.path(),
+            &l,
+            "docs.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        fs::write(l.ext_data("docs").join("state.txt"), "keep this data").unwrap();
+        write_config(&l, |cfg| {
+            cfg["mcp"]["servers"]["docs"]["agents"] = json!(["bernd"]);
+        });
+        let removed = ext::remove::uninstall(
+            &l,
+            &mut OfflineHost::new(&l),
+            "docs",
+            &ext::remove::RemoveOpts {
+                purge,
+                cascade: false,
+            },
+        )
+        .unwrap();
+        let tid = removed["trashId"].as_str().unwrap();
+        assert!(!l.extensions().join("packages/docs").exists());
+        assert!(l
+            .extensions()
+            .join("trash")
+            .join(tid)
+            .join("code/p1x.json")
+            .is_file());
+        assert_eq!(l.ext_data("docs").exists(), !purge);
+        assert_eq!(config(&l)["mcp"]["servers"].get("docs").is_some(), !purge);
+        let restored = ext::remove::restore(&l, &mut OfflineHost::new(&l), tid).unwrap();
+        assert_eq!(restored["state"], "installed");
+        assert_eq!(config(&l)["mcp"]["servers"]["docs"]["enabled"], false);
+        assert_eq!(
+            config(&l)["mcp"]["servers"]["docs"]["agents"],
+            json!(["bernd"])
+        );
+        assert_eq!(
+            fs::read_to_string(l.ext_data("docs").join("state.txt")).unwrap(),
+            "keep this data"
+        );
+        assert_eq!(
+            show_item(&l, &config(&l), "docs").unwrap()["item"]["integrity"],
+            "ok"
+        );
+    }
+}
+
+#[test]
+fn mcp_install_rolls_back_each_writing_step_and_recovers_killed_commits() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for replace in [false, true] {
+        for step in ["config", "code", "state", "cache"] {
+            let (d, l) = home();
+            populate(&l);
+            if replace {
+                install(
+                    d.path(),
+                    &l,
+                    "old.p1x",
+                    &mcp_pkg_v("docs", "1.0.0", false, &key),
+                    &opts(&[], None),
+                )
+                .unwrap();
+            }
+            let before = guarded(&l);
+            let pkg = mcp_pkg_v("docs", "1.1.0", false, &key);
+            let (rec, staged) = prepare(d.path(), &l, "new.p1x", &pkg);
+            std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", step);
+            let result = install_commit(
+                &l,
+                &mut OfflineHost::new(&l),
+                &rec,
+                staged,
+                &opts(&[], None),
+            );
+            std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+            assert!(result.is_err(), "{step} must fail");
+            assert_eq!(guarded(&l), before, "replace={replace}, step={step}");
+        }
+        for step in ["code", "state"] {
+            let (d, l) = home();
+            populate(&l);
+            if replace {
+                install(
+                    d.path(),
+                    &l,
+                    "old.p1x",
+                    &mcp_pkg_v("docs", "1.0.0", false, &key),
+                    &opts(&[], None),
+                )
+                .unwrap();
+            }
+            let pkg = mcp_pkg_v("docs", "1.1.0", false, &key);
+            let (rec, staged) = prepare(d.path(), &l, "new.p1x", &pkg);
+            std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", format!("kill:{step}"));
+            assert!(install_commit(
+                &l,
+                &mut OfflineHost::new(&l),
+                &rec,
+                staged,
+                &opts(&[], None)
+            )
+            .is_err());
+            std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+            ext::recover(&l);
+            let state = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+            let recorded = state.items.get("docs");
+            assert_eq!(
+                l.extensions().join("packages/docs").exists(),
+                recorded.is_some()
+            );
+            if step == "state" || replace {
+                let rec = recorded.unwrap();
+                assert_eq!(rec.version, if step == "state" { "1.1.0" } else { "1.0.0" });
+                assert!(ext::overlays::rehash(&l, rec).ok);
+            }
+            assert!(staging_empty(&l));
+        }
+    }
+}
+
+#[test]
+fn mcp_plugin_cli_keeps_the_raw_list_and_show_json_contracts() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    install(
+        d.path(),
+        &l,
+        "docs.p1x",
+        &mcp_pkg_v("docs", "1.0.0", false, &key),
+        &opts(&[], None),
+    )
+    .unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .args([
+            "--home",
+            l.home.to_str().unwrap(),
+            "plugin",
+            "list",
+            "--kind",
+            "mcp-server",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let list: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(list["schema"], "plugin.list/1");
+    assert_eq!(list["items"].as_array().unwrap().len(), 1);
+    assert_eq!(list["items"][0]["name"], "docs");
+    assert_eq!(list["items"][0]["kind"], "mcp-server");
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .args([
+            "--home",
+            l.home.to_str().unwrap(),
+            "plugin",
+            "show",
+            "docs",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let shown: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(shown["schema"], "plugin.show/1");
+    assert_eq!(
+        shown["manifest"]["remote"]["url"],
+        "https://mcp.example.org/v1"
+    );
+    assert_eq!(shown["item"]["integrity"], "ok");
+    assert!(shown["item"].get("manifestSha256").is_none());
+}
+
+#[test]
+fn mcp_preparation_never_acknowledges_an_unsigned_or_unknown_signer_install() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let unknown = test_key("unknown");
+    for (signer, acknowledgment) in [(None, "unsigned"), (Some(&unknown), "unknown-signer")] {
+        let (d, l) = home();
+        populate(&l);
+        let mut t = template("docs", "mcp-server", "1.0.0");
+        t["requires"]["runtime"] = json!({"type": "none"});
+        t["remote"] = json!({"url": "https://mcp.example.org/v1", "auth": "none"});
+        t["capabilities"]["network"] = json!({"mode": "allowlist", "hosts": ["mcp.example.org"]});
+        let pkg = build_package_from(&t, vec![f("README.md", b"Remote fixture\n", false)], signer);
+        let before = guarded(&l);
+        let error = install(d.path(), &l, "docs.p1x", &pkg, &opts(&[], None)).unwrap_err();
+        assert_eq!(error.code, "E_APPROVAL_REQUIRED");
+        assert_eq!(
+            error.reason.unwrap(),
+            format!("acknowledge-{acknowledgment}")
+        );
+        assert_eq!(guarded(&l), before);
+        let installed = install(
+            d.path(),
+            &l,
+            "docs.p1x",
+            &pkg,
+            &opts(&[acknowledgment], None),
+        )
+        .unwrap();
+        assert_eq!(installed["state"], "installed");
+    }
+}
+
+#[test]
+fn mcp_uninstall_and_restore_roll_back_each_own_writing_step() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for step in ["trash", "code", "state", "cache", "data", "config"] {
+        let (d, l) = home();
+        populate(&l);
+        install(
+            d.path(),
+            &l,
+            "docs.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        fs::write(l.ext_data("docs").join("state.txt"), "keep").unwrap();
+        let before = guarded(&l);
+        std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", format!("uninstall.{step}"));
+        let result = ext::remove::uninstall(
+            &l,
+            &mut OfflineHost::new(&l),
+            "docs",
+            &ext::remove::RemoveOpts {
+                purge: true,
+                cascade: false,
+            },
+        );
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        assert!(result.is_err(), "uninstall.{step}");
+        assert_eq!(guarded(&l), before, "uninstall.{step}");
+    }
+    for step in ["config", "code", "state", "data"] {
+        let (d, l) = home();
+        populate(&l);
+        install(
+            d.path(),
+            &l,
+            "docs.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        fs::write(l.ext_data("docs").join("state.txt"), "keep").unwrap();
+        let removed = ext::remove::uninstall(
+            &l,
+            &mut OfflineHost::new(&l),
+            "docs",
+            &ext::remove::RemoveOpts {
+                purge: true,
+                cascade: false,
+            },
+        )
+        .unwrap();
+        let before = guarded(&l);
+        std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", format!("restore.{step}"));
+        let result = ext::remove::restore(
+            &l,
+            &mut OfflineHost::new(&l),
+            removed["trashId"].as_str().unwrap(),
+        );
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        assert!(result.is_err(), "restore.{step}");
+        assert_eq!(guarded(&l), before, "restore.{step}");
+    }
+}
+
 fn sha_hex(b: &[u8]) -> String {
     Sha256::digest(b)
         .iter()

@@ -1,6 +1,7 @@
 //! The package store for the two inert extension kinds, `mcp-server` and `provider` (spec 2026-09-27 §5.2, §6.4, §8.4;
-//! X2 / D1). Not wired to RPC or the CLI yet: the first consumer is the later task that runs MCP servers and reads
-//! provider declarations; until then nothing here enables, starts or reads an installed package.
+//! X2 / D1). The MCP lifecycle prepares a complete checked tree here under its inspection's private staging store;
+//! the supervisor-safe commit owns the live rename, state, cache and trash transaction. Providers retain the inert
+//! library API. Nothing in this worker-side store enables or runs installed code.
 //!
 //! Each extension lives in its own directory, `<home>/extensions/packages/<name>/`: the package tree exactly as
 //! extracted (`p1x.json`, `p1x.json.minisig`, `payload/…`) plus `record.json` (id, version, kind, package SHA-256,

@@ -14,6 +14,8 @@ pub fn run(out: &Out, layout: &Layout, cmd: PluginCmd) {
             let kind = kind.map(|k| match k {
                 PluginKind::Module => "module",
                 PluginKind::Channel => "channel",
+                PluginKind::McpServer => "mcp-server",
+                PluginKind::Bundle => "bundle",
             });
             verbs::list(out, layout, v, kind, state, None, None)
         }

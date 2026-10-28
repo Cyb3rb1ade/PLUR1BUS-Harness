@@ -22,8 +22,9 @@ use super::lifecycle::{capabilities_acknowledged, enable_prechecks, skill_enable
 use super::overlays::{load_revocations, overlays_of, revoked};
 use super::paths::ExtPaths;
 use super::record::{
-    allow_internals, check_name, check_unsigned_policy, kind_name, record_path, spool_path,
-    staging_dir, state_invalid, valid_id, InspectionRecord, StagedItem,
+    allow_internals, check_name, check_unsigned_policy, code_dir, config_key, config_section,
+    kind_name, package_staging_dir, record_path, spool_path, staging_dir, state_invalid, valid_id,
+    InspectionRecord, StagedItem,
 };
 use super::state::{
     self, remove_dir_all_retrying, remove_retrying, rename_retrying, write_private_atomic,
@@ -464,7 +465,7 @@ fn acknowledgments(
 
 /// Whether an installed item is enabled now: a skill's index entry (an unindexed folder counts as enabled, X1-R12; an
 /// unreadable index counts as not enabled, X1-C29), a module's `modules.<name>.enabled` (absent means enabled) while
-/// its directory exists.
+/// its directory exists; an MCP server's explicit config flag while its checked package tree exists.
 pub(crate) fn enabled_now(layout: &Layout, cfg: &Value, name: &str, kind: &str) -> bool {
     let idx = if kind == "skill" {
         index::read_index(layout).ok()
@@ -490,6 +491,8 @@ pub(crate) fn enabled_in(
             Some(e) => e["enabled"] == true,
             None => layout.skills().join(name).is_dir(),
         }
+    } else if kind == "mcp-server" {
+        code_dir(layout, name, kind).is_dir() && cfg["mcp"]["servers"][name]["enabled"] == true
     } else {
         modinstall::installed_dir(layout, name).is_some()
             && cfg["modules"][name]["enabled"] != false
@@ -625,7 +628,10 @@ fn commit_locked(
     staged: StagedItem,
     opts: &InstallOpts,
 ) -> Result<Value, ExtError> {
-    if !matches!(staged.kind, Kind::Skill | Kind::Module | Kind::Channel) {
+    if !matches!(
+        staged.kind,
+        Kind::Skill | Kind::Module | Kind::Channel | Kind::McpServer
+    ) {
         return Err(ExtError::new(
             "E_NOT_AVAILABLE",
             "kind-unsupported",
@@ -641,7 +647,13 @@ fn commit_locked(
     }
     // The staged item's paths come from the worker's answer: they must be exactly the ones derived from the inspection
     // (`extensions/staging/<name>-<id>/payload`, `run/inspect/<id>.p1x`), else nothing is moved.
-    let derived = derived_staging(layout, rec).map(|d| d.join("payload"));
+    let derived = derived_staging(layout, rec).map(|d| {
+        if staged.kind == Kind::McpServer {
+            package_staging_dir(layout, &staged.name, &rec.inspection_id)
+        } else {
+            d.join("payload")
+        }
+    });
     if derived.as_deref() != Some(staged.dir.as_path())
         || staged.package != spool_path(layout, &rec.inspection_id)
     {
@@ -781,6 +793,7 @@ fn run_steps<'a>(
     let (layout, paths, staged) = (c.layout, c.paths, c.staged);
     let name = staged.name.clone();
     let is_skill = staged.kind == Kind::Skill;
+    let is_mcp = staged.kind == Kind::McpServer;
     let now = now_iso();
 
     // The record the steps write: a replacement keeps the acknowledged capability hash (a widened set needs a new
@@ -795,16 +808,17 @@ fn run_steps<'a>(
     };
     record.integrity = None;
 
-    // config: a fresh module is installed disabled. A replacement keeps its enable state (X1-C9).
+    // config: a fresh module or MCP server is installed disabled. A replacement keeps its enable state (X1-C9).
     if !is_skill {
         if c.prev.is_none() {
-            let section = c.cfg["modules"].get(&name).cloned().unwrap_or(Value::Null);
+            let section = config_section(c.cfg, &name, &record.kind);
+            let key = config_key(&name, &record.kind);
             if section.get("enabled") != Some(&json!(false)) {
                 config_change(
                     host,
                     "config",
-                    vec![(format!("modules.{name}.enabled"), json!(false))],
-                    vec![(format!("modules.{name}"), section)],
+                    vec![(format!("{key}.enabled"), json!(false))],
+                    vec![(key, section)],
                     rb,
                 )?;
             }
@@ -835,8 +849,8 @@ fn run_steps<'a>(
     if let Some(old) = c.prev {
         let tdir = new_trash_entry(c, old, &now, rb)?;
         let code = tdir.join("code");
-        if is_skill {
-            let dir = layout.skills().join(&name);
+        if is_skill || is_mcp {
+            let dir = code_dir(layout, &name, &record.kind);
             if fs::symlink_metadata(&dir).is_ok() {
                 rename_retrying(&dir, &code)
                     .map_err(|e| io_err("cannot move to the trash", &dir, e))?;
@@ -850,9 +864,12 @@ fn run_steps<'a>(
     }
     // From here a kill can leave the new code under its final name without its record: the mark tells
     // `ext::recover` to finish the install (the record is there) or to remove that code (it is not).
-    write_commit_mark(staged, &c.rec.inspection_id)?;
-    if is_skill {
-        let dest = layout.skills().join(&name);
+    write_commit_mark(layout, staged, &c.rec.inspection_id)?;
+    if is_skill || is_mcp {
+        let dest = code_dir(layout, &name, &record.kind);
+        if let Some(parent) = dest.parent() {
+            ensure_dir(parent, "code", rb)?;
+        }
         rename_retrying(&staged.dir, &dest)
             .map_err(|e| io_err("cannot move into place", &staged.dir, e))?;
         rb.push("code", move |_| {
@@ -958,10 +975,12 @@ pub(crate) struct CommitMark {
     pub inspection_id: String,
 }
 
-fn write_commit_mark(staged: &StagedItem, inspection_id: &str) -> Result<(), ExtError> {
-    let Some(dir) = staged.dir.parent() else {
-        return Ok(());
-    };
+fn write_commit_mark(
+    layout: &Layout,
+    staged: &StagedItem,
+    inspection_id: &str,
+) -> Result<(), ExtError> {
+    let dir = staging_dir(layout, &staged.name, inspection_id);
     let mark = CommitMark {
         name: staged.name.clone(),
         kind: kind_name(staged.kind).to_string(),
@@ -1025,6 +1044,7 @@ fn new_trash_entry<'a>(
     let (layout, paths) = (c.layout, c.paths);
     let name = old.name.clone();
     let is_skill = old.kind == "skill";
+    let kind = old.kind.clone();
     ensure_dir(&paths.trash, "code", rb)?;
     // The entry as it stood before this commit (the code step has already rewritten a skill's entry).
     let old_index = if is_skill { c.prev_index.clone() } else { None };
@@ -1035,7 +1055,7 @@ fn new_trash_entry<'a>(
     let (_, tdir) = build_trash_entry(paths, &name, &old.version, now, &body, &[])?;
     let t = tdir.clone();
     rb.push("code", move |h| {
-        put_code_back(layout, h, is_skill, &name, &t.join("code"))?;
+        put_code_back(layout, h, &kind, &name, &t.join("code"))?;
         remove_dir_all_retrying(&t).map_err(|e| format!("{}: {e}", t.display()))
     });
     Ok(tdir)
@@ -1047,7 +1067,7 @@ fn new_trash_entry<'a>(
 pub(crate) fn put_code_back(
     layout: &Layout,
     host: &mut dyn ModuleHost,
-    is_skill: bool,
+    kind: &str,
     name: &str,
     code: &Path,
 ) -> Result<(), String> {
@@ -1060,8 +1080,8 @@ pub(crate) fn put_code_back(
             code.display()
         )
     };
-    if is_skill {
-        let dir = layout.skills().join(name);
+    if matches!(kind, "skill" | "mcp-server") {
+        let dir = code_dir(layout, name, kind);
         rename_retrying(code, &dir).map_err(|e| stays(&e))
     } else {
         let s = modinstall::stage(layout, code).map_err(|e| stays(&e))?;
@@ -1104,12 +1124,13 @@ fn enable_now<'a>(
             config_change(host, "enable", changes, restore, rb)?;
         }
     } else {
-        let section = cfg["modules"].get(name).cloned().unwrap_or(Value::Null);
+        let section = config_section(&cfg, name, &record.kind);
+        let key = config_key(name, &record.kind);
         config_change(
             host,
             "enable",
-            vec![(format!("modules.{name}.enabled"), json!(true))],
-            vec![(format!("modules.{name}"), section)],
+            vec![(format!("{key}.enabled"), json!(true))],
+            vec![(key, section)],
             rb,
         )?;
     }

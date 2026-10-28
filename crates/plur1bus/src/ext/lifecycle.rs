@@ -211,7 +211,12 @@ pub(crate) fn resolve(
     name: &str,
 ) -> Result<Target, ExtError> {
     if let Some(rec) = st.items.get(name) {
-        if rec.removed_by_user || !matches!(rec.kind.as_str(), "skill" | "module" | "channel") {
+        if rec.removed_by_user
+            || !matches!(
+                rec.kind.as_str(),
+                "skill" | "module" | "channel" | "mcp-server"
+            )
+        {
             return Err(unknown(name));
         }
         return Ok(Target {
@@ -546,14 +551,15 @@ fn toggle_locked(
             }
         }
     } else {
-        let current = cfg["modules"][name]["enabled"] != false;
-        let section = cfg["modules"].get(name).cloned().unwrap_or(Value::Null);
+        let current = super::commit::enabled_now(layout, &cfg, name, &t.kind);
+        let section = super::record::config_section(&cfg, name, &t.kind);
+        let key = super::record::config_key(name, &t.kind);
         if current == on {
             (vec![], vec![], on)
         } else {
             (
-                vec![(format!("modules.{name}.enabled"), json!(on))],
-                vec![(format!("modules.{name}"), section)],
+                vec![(format!("{key}.enabled"), json!(on))],
+                vec![(key, section)],
                 on,
             )
         }

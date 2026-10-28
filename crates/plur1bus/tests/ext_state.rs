@@ -99,6 +99,7 @@ fn record(name: &str, kind: &str) -> ItemRecord {
         key_id: None,
         key_label: None,
         package_sha256: "ab".repeat(32),
+        manifest_sha256: None,
         installed_at: "2026-09-28T10:00:00.000Z".into(),
         previous_version: None,
         files: BTreeMap::new(),

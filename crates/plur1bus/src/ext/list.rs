@@ -172,7 +172,12 @@ fn collect(layout: &Layout, cfg: &Value) -> Result<Vec<Entry>, ExtError> {
 
     // Package records (a bundled item the person hid, X1-R18, is not listed).
     for rec in st.items.values() {
-        if rec.removed_by_user || !matches!(rec.kind.as_str(), "skill" | "module" | "channel") {
+        if rec.removed_by_user
+            || !matches!(
+                rec.kind.as_str(),
+                "skill" | "module" | "channel" | "mcp-server"
+            )
+        {
             continue;
         }
         out.insert(

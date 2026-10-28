@@ -318,6 +318,62 @@ fn x2_worker_refuses_provider_packages_before_installation() {
 }
 
 #[test]
+fn mcp_staging_checks_local_manifest_runtime_and_payload_shape() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    let manifest = json!({
+        "manifest_version": "0.3", "name": "docs", "version": "1.0.0",
+        "description": "Fixture MCP server", "author": {"name": "Demo"},
+        "server": {"type": "node", "entry_point": "server/main.js",
+            "mcp_config": {"command": "node", "args": ["${__dirname}/server/main.js"]}}
+    });
+    for variant in [
+        "valid",
+        "unknown-field",
+        "wrong-runtime",
+        "missing-entry",
+        "remote-code",
+    ] {
+        let mut t = template("docs", "mcp-server");
+        t["capabilities"]["processes"]["spawn"] = json!(true);
+        let mut m = manifest.clone();
+        if variant == "unknown-field" {
+            m["server"]["bogus"] = json!(true);
+        }
+        if variant == "wrong-runtime" {
+            t["requires"]["runtime"] = json!({"type": "binary"});
+        }
+        let mut files = vec![f("manifest.json", &serde_json::to_vec(&m).unwrap(), false)];
+        if variant != "missing-entry" {
+            files.push(f("server/main.js", b"// fixture\n", false));
+        }
+        if variant == "remote-code" {
+            t["requires"]["runtime"] = json!({"type": "none"});
+            t["capabilities"]["processes"]["spawn"] = json!(false);
+            t["remote"] = json!({"url": "https://mcp.example.org/v1", "auth": "none"});
+            t["capabilities"]["network"] =
+                json!({"mode": "allowlist", "hosts": ["mcp.example.org"]});
+        }
+        let pkg = build_package_from(&t, files, Some(&key));
+        let path = write_pkg(d.path(), &format!("{variant}.p1x"), &pkg);
+        let id = id();
+        inspect::inspect(&l, Source::Path(path), &id).unwrap();
+        let result = stage::stage(&l, &id);
+        if variant == "valid" {
+            assert!(result.is_ok(), "{variant}: {result:?}");
+        } else {
+            let error = result.unwrap_err();
+            assert_eq!(
+                reason(&error),
+                ("E_INVALID_PARAMS", "package-invalid"),
+                "{variant}"
+            );
+        }
+    }
+}
+
+#[test]
 fn inspect_writes_only_under_run_inspect() {
     let key = test_key("test");
     let _g = env_with(&key);
@@ -500,6 +556,7 @@ fn installed_record(id: &str, name: &str, kind: &str) -> ext::state::ItemRecord 
         key_id: None,
         key_label: None,
         package_sha256: "ab".repeat(32),
+        manifest_sha256: None,
         installed_at: "2026-09-28T10:00:00.000Z".into(),
         previous_version: None,
         files: Default::default(),
@@ -679,6 +736,7 @@ fn inspect_fills_replaces_for_an_installed_id() {
             key_id: None,
             key_label: None,
             package_sha256: "ab".repeat(32),
+            manifest_sha256: None,
             installed_at: "2026-09-28T10:00:00.000Z".into(),
             previous_version: None,
             files: Default::default(),

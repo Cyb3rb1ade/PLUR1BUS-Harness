@@ -21,6 +21,7 @@ use crate::install::archive;
 use crate::paths::Layout;
 use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::{parse_manifest, Kind, P1xManifest};
+use plur1bus_ext::mcpb::{check_mcpb_runtime, check_mcpb_tree, parse_mcpb_manifest};
 use plur1bus_ext::refusal::{reason, Refusal};
 use plur1bus_ext::skill::validate_skill_md;
 use plur1bus_ext::verify::X2_RPC_KINDS;
@@ -320,7 +321,27 @@ fn check_kind(payload: &Path, m: &P1xManifest) -> Result<(), ExtError> {
                 ));
             }
         }
-        Kind::McpServer | Kind::Bundle => {}
+        Kind::McpServer => {
+            if m.rest.get("remote").is_some_and(|r| !r.is_null()) {
+                if m.files.keys().any(|p| p != "payload/README.md") {
+                    return Err(invalid(
+                        reason::PACKAGE_INVALID,
+                        "a remote MCP package contains only an optional README.md",
+                    ));
+                }
+            } else {
+                let raw = read_payload_text(payload, "manifest.json")?;
+                let source = parse_mcpb_manifest(raw.as_bytes())?;
+                check_mcpb_runtime(&source, &m.requires)?;
+                let paths: Vec<&str> = m
+                    .files
+                    .keys()
+                    .filter_map(|p| p.strip_prefix("payload/"))
+                    .collect();
+                check_mcpb_tree(&source, &paths)?;
+            }
+        }
+        Kind::Bundle => {}
         Kind::Provider => {
             return Err(ExtError::new(
                 "E_NOT_AVAILABLE",
@@ -365,6 +386,7 @@ fn record_of(rec: &InspectionRecord, m: &P1xManifest) -> ItemRecord {
         key_id: rec.trust["keyId"].as_str().map(str::to_string),
         key_label: rec.trust["label"].as_str().map(str::to_string),
         package_sha256: rec.sha256.clone(),
+        manifest_sha256: None,
         installed_at: super::now_iso(),
         previous_version: rec
             .replaces
@@ -429,26 +451,72 @@ fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtE
     // A leftover of an earlier stage of this same inspection (its name carries the inspection id) is this stage's
     // own: it is replaced, never merged into.
     remove_leftover(&cleanup.dest)?;
-    archive::extract(&pkg, &cleanup.dest, 0).map_err(|e| {
-        let code = if e.reason() == "io" {
-            "E_INTERNAL"
-        } else {
-            "E_INVALID_PARAMS"
-        };
-        ExtError::new(code, e.reason(), e.to_string())
-    })?;
-    cleanup.dest_created = true;
+    let dir = if m.kind == Kind::McpServer {
+        // Preparation never exposes code: PackageStore writes only this inspection's private staging store.
+        // The supervisor commit checks the person's acknowledgments before any live tree changes.
+        std::fs::create_dir_all(&cleanup.dest)
+            .map_err(|e| io_error("cannot create", &cleanup.dest, e))?;
+        cleanup.dest_created = true;
+        let store = super::packages::PackageStore::at(cleanup.dest.join("store"));
+        inspect::with_current_policy(layout, |policy| {
+            store
+                .install(
+                    &pkg,
+                    policy,
+                    &super::packages::InstallOpts {
+                        allow_unsigned: true,
+                        allow_unknown_signer: true,
+                        allow_downgrade: true,
+                    },
+                )
+                .map(drop)
+        })?;
+        let prepared = store
+            .record(&m.name)?
+            .ok_or_else(|| invalid(reason::PACKAGE_INVALID, "prepared MCP record is missing"))?;
+        if prepared["packageSha256"] != rec.sha256 {
+            return Err(invalid(
+                reason::DIGEST,
+                "the MCP package changed during preparation",
+            ));
+        }
+        super::record::package_staging_dir(layout, &m.name, id)
+    } else {
+        archive::extract(&pkg, &cleanup.dest, 0).map_err(|e| {
+            let code = if e.reason() == "io" {
+                "E_INTERNAL"
+            } else {
+                "E_INVALID_PARAMS"
+            };
+            ExtError::new(code, e.reason(), e.to_string())
+        })?;
+        cleanup.dest_created = true;
+        cleanup.dest.join("payload")
+    };
     if crash {
         std::process::abort();
     }
-    check_tree(&cleanup.dest, &m)?;
-    let dir = cleanup.dest.join("payload");
-    check_kind(&dir, &m)?;
+    let payload = if m.kind == Kind::McpServer {
+        dir.join("payload")
+    } else {
+        dir.clone()
+    };
+    if m.kind != Kind::McpServer {
+        check_tree(&cleanup.dest, &m)?;
+    }
+    check_kind(&payload, &m)?;
+    let mut record = record_of(&rec, &m);
+    if m.kind == Kind::McpServer {
+        record.manifest_sha256 = Some(
+            archive::sha256_file(&dir.join("p1x.json"))
+                .map_err(|e| io_error("cannot hash", &dir, e))?,
+        );
+    }
     let item = StagedItem {
         name: m.name.clone(),
         kind: m.kind,
         dir,
-        record: record_of(&rec, &m),
+        record,
         package: pkg,
     };
     cleanup.armed = false;

@@ -209,7 +209,10 @@ fn reconcile_commits(
             continue;
         };
         if !record::skill_id_ok(&mark.name)
-            || !matches!(mark.kind.as_str(), "skill" | "module" | "channel")
+            || !matches!(
+                mark.kind.as_str(),
+                "skill" | "module" | "channel" | "mcp-server"
+            )
             || !record::valid_id(&mark.inspection_id)
         {
             continue;
@@ -284,7 +287,12 @@ fn restore_missing_code(layout: &Layout, p: &paths::ExtPaths) -> Vec<String> {
         return done;
     };
     for rec in st.items.values() {
-        if rec.removed_by_user || !matches!(rec.kind.as_str(), "skill" | "module" | "channel") {
+        if rec.removed_by_user
+            || !matches!(
+                rec.kind.as_str(),
+                "skill" | "module" | "channel" | "mcp-server"
+            )
+        {
             continue;
         }
         let dir = record::code_dir(layout, &rec.name, &rec.kind);

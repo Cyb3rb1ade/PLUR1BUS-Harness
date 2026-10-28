@@ -47,7 +47,7 @@ pub struct InspectionRecord {
 pub struct StagedItem {
     pub name: String,
     pub kind: Kind,
-    /// `extensions/staging/<name>-<id>/payload`.
+    /// A skill/module payload, or the complete checked MCP tree at `<staging>/<name>-<id>/store/<name>`.
     pub dir: PathBuf,
     /// The state record the commit writes (its `installedAt` is the staging time).
     pub record: state::ItemRecord,
@@ -69,13 +69,47 @@ pub(crate) fn skill_id_ok(n: &str) -> bool {
         })
 }
 
-/// The code directory of an item: `skills/<name>` or `modules/<name>`.
+/// The complete code tree moved through install, trash and recovery; MCP trees retain their verified root files.
 pub(crate) fn code_dir(layout: &Layout, name: &str, kind: &str) -> PathBuf {
-    if kind == "skill" {
-        layout.skills().join(name)
-    } else {
-        layout.modules_dir().join(name)
+    match kind {
+        "skill" => layout.skills().join(name),
+        "mcp-server" => ExtPaths::of(layout).packages.join(name),
+        _ => layout.modules_dir().join(name),
     }
+}
+
+/// Recorded file paths are payload-relative, including for a complete MCP package tree.
+pub(crate) fn payload_dir(layout: &Layout, name: &str, kind: &str) -> PathBuf {
+    let dir = code_dir(layout, name, kind);
+    if kind == "mcp-server" {
+        dir.join("payload")
+    } else {
+        dir
+    }
+}
+
+/// The sole activation config section; skill activation remains in the skills index and agent lists.
+pub(crate) fn config_key(name: &str, kind: &str) -> String {
+    if kind == "mcp-server" {
+        format!("mcp.servers.{name}")
+    } else {
+        format!("modules.{name}")
+    }
+}
+
+/// A configured activation section, absent as null for rollback/removal.
+pub(crate) fn config_section(cfg: &Value, name: &str, kind: &str) -> Value {
+    let map = if kind == "mcp-server" {
+        &cfg["mcp"]["servers"]
+    } else {
+        &cfg["modules"]
+    };
+    map.get(name).cloned().unwrap_or(Value::Null)
+}
+
+/// Whole package-store tree prepared beneath one inspection's private staging directory.
+pub(crate) fn package_staging_dir(layout: &Layout, name: &str, id: &str) -> PathBuf {
+    staging_dir(layout, name, id).join("store").join(name)
 }
 
 /// The strings of a JSON array (anything else: none).
@@ -223,6 +257,10 @@ pub(crate) fn check_name(
     let module = layout.modules_dir().join(name);
     if std::fs::symlink_metadata(&module).is_ok() {
         return Err(name_taken(name, &module_dir_kind(&module), None));
+    }
+    let package = ExtPaths::of(layout).packages.join(name);
+    if std::fs::symlink_metadata(&package).is_ok() {
+        return Err(name_taken(name, "mcp-server", None));
     }
     Ok(())
 }
