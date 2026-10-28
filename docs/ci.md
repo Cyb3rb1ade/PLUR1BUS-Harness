@@ -46,7 +46,7 @@ retain their existing path rules. Their checks are not folded into this workflow
 ### Required check and failures
 
 `ci-gate` is THE gate of `ci.yml`: the one check to wait for (and, once branch protection is configured, the one to
-require). It runs with `always()` after the required reliable jobs and the explicitly registered macOS browser advisory: `docs-hygiene`, `unit` (the
+require). It runs with `always()` after the required reliable jobs: `docs-hygiene`, `unit` (the
 `unit (ubuntu-24.04)` leg), P5 `core-unit-shard` and `core-unit` when TypeScript is selected, `wsl` and `web-browser` (itself the aggregate over `web-browser-build` and the four shards, and
 the exact-partition check). It requires `changes` to succeed and all category outputs to be literal `true` or `false`.
 Every selected required job must report `success`; `failure`, `cancelled`, `skipped`, an absent result or an unknown job in
@@ -54,7 +54,7 @@ Every selected required job must report `success`; `failure`, `cancelled`, `skip
 reports even when the plan selected nothing, which is why a skipped `unit` matrix (never reports `unit (ubuntu-24.04)`)
 is no reason to wait on a name.
 
-`web-browser-macos` is the sole explicit advisory dependency: the gate waits for its two-shard matrix outcome and accepts completed success, failure or skipped outcomes. Missing, cancelled or malformed results block. It is selected only when `proceed`, `web` and `macos` are all true.
+`web-browser-macos` was an advisory dependency of the gate until the owner decision of 2026-10-28: the gate waited for its two-shard matrix outcome, although it accepted a failure. With the macOS runner queue that held merges for hours, so the gate no longer waits for it. It still runs when `proceed`, `web` and `macos` are all true and reports its own check.
 
 Everything else in `ci.yml` is deliberately outside the gate and not in its `needs`, so it can neither fail nor delay it:
 `unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
@@ -198,7 +198,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `core-unit-shard`, `core-unit` | Gated. Three measured Ubuntu Core shards plus the exact-partition check; missing manifests, failure and cancellation block |
 | `unit-os` | Not gated; only under the full-platform policy. The same steps as `unit` on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)`: full offline TypeScript workspace tests on macOS, every package but Core on Windows |
 | `core-unit-shard-windows`, `core-unit-windows` | Not gated; only under the full-platform policy. Core on `windows-2025` in the three measured Ubuntu shards (`core unit shard i/3 (windows-2025)`) plus their exact-partition check |
-| `web-browser-macos` | Explicit advisory dependency: waits for the result, permits completed failure/skipped; selected only for proceed + web + macos |
+| `web-browser-macos` | Not gated (since 2026-10-28). Runs for proceed + web + macos and reports its own check |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
 | `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command); the macOS leg follows the full-platform policy |
 | `service` | Not gated. Service manager tests; existing systemd-unavailable handling remains documented in the workflow; the macOS and Windows legs follow the full-platform policy |
@@ -207,7 +207,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `release-scripts` | Not gated. Ubuntu-only offline release tests and local actionlint validation of all workflows |
 | `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners (the three non-Linux ones follow the full-platform policy); golden-set visual diff |
 | `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue; the macOS, Windows and Windows ARM legs follow the full-platform policy |
-| `ci-gate` | THE gate: required jobs above plus the explicitly registered macOS browser advisory |
+| `ci-gate` | THE gate: the required jobs above |
 | nightly `system-real-models` | Real model acceptance and full kill soak; may fetch model weights |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 
@@ -409,7 +409,7 @@ To collect file timings locally, set `TEST_TIMING_DIR` and `NODE_OPTIONS` to the
 
 The fix is an explicit, documented switch, not a removed browser path: `PLUR1BUS_WEB_BROWSER=off` makes every browser suite of `packages/web` report `skipped` with the reason `browser suites off (PLUR1BUS_WEB_BROWSER=off); they run in the web-browser job`. The `unit-os` job sets it on macOS only (the identical Linux `unit` steps leave it empty) (`runner.os == 'macOS'`); Linux and Windows are unchanged. Combined with `PLUR1BUS_WEB_E2E_REQUIRED=1` it is a startup failure, so required mode can never be switched off. The switch is tested in `packages/web/test/browser-required.test.ts`.
 
-The coverage moves to `web-browser (macos-15, i/2)` (job `web-browser-macos`): two round-robin shards (`PLUR1BUS_TEST_SHARD=i/2`), frozen dependencies, `pnpm gen && pnpm build`, lockfile-matched Playwright Chromium (`PLUR1BUS_WEB_E2E_REQUIRED=1`, cached in `~/Library/Caches/ms-playwright`). It runs only when `changes` reports `proceed`, `web` and `macos` all true (macOS policy: push to main, schedule, dispatch, label `ci:macos`, platform-sensitive paths). It is an explicit advisory dependency of `ci-gate`: the gate waits for its matrix outcome, accepts `success`, `failure` or `skipped`, and rejects missing, cancelled or malformed results. It is not part of the required Linux `web-browser` aggregate and writes no shard manifest. The served-stack tests (`real-transport`, `real-accounts`, `surfaces-e2e`) need the Rust CLI and stay with the Linux shards (they skip here with a reason).
+The coverage moves to `web-browser (macos-15, i/2)` (job `web-browser-macos`): two round-robin shards (`PLUR1BUS_TEST_SHARD=i/2`), frozen dependencies, `pnpm gen && pnpm build`, lockfile-matched Playwright Chromium (`PLUR1BUS_WEB_E2E_REQUIRED=1`, cached in `~/Library/Caches/ms-playwright`). It runs only when `changes` reports `proceed`, `web` and `macos` all true (macOS policy: push to main, schedule, dispatch, label `ci:macos`, platform-sensitive paths). It is not part of `ci-gate` (owner decision 2026-10-28; until then the gate waited for its outcome as an advisory dependency) and not part of the required Linux `web-browser` aggregate, and it writes no shard manifest. The served-stack tests (`real-transport`, `real-accounts`, `surfaces-e2e`) need the Rust CLI and stay with the Linux shards (they skip here with a reason).
 
 ## M3 web browser checks
 

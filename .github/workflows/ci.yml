@@ -1325,16 +1325,15 @@ jobs:
           node --test scripts/lint-hygiene.test.mjs scripts/check-doc-links.test.mjs scripts/check-docs-commands.test.mjs scripts/bundle-user-docs.test.mjs
           pnpm docs:check
 
-  # macOS browser is an explicit advisory dependency: wait for its outcome, accept completed failures/skips.
   # THE gate: the one check to wait for (docs/ci.md, CLAUDE.md). Its required set is (scripts/ci/gate.mjs:
   # docs-hygiene, `unit` = ubuntu-24.04, Core shards/partition, wsl, and the `web-browser` aggregate over the browser build and every shard). Slow,
-  # flaky or experimental jobs are deliberately not in `needs` (`unit-os`, system, service, python-host, sandbox, startup and
-  # budget advisories, ...): the gate would otherwise wait for them. A non-macOS label event is a no-op run (`changes` sets
+  # flaky or experimental jobs are deliberately not in `needs` (`unit-os`, the macOS browser shards, system, service,
+  # python-host, sandbox, startup and budget advisories, ...): the gate would otherwise wait for them. A non-macOS label event is a no-op run (`changes` sets
   # proceed=false); its gate is named differently so that it can never stand in for the `ci-gate` of the real run of the
   # same head commit, and the concurrency group above keeps it from cancelling that run.
   ci-gate:
     name: ${{ (github.event.action == 'labeled' && github.event.label.name != 'ci:macos') && 'ci-gate (label no-op)' || 'ci-gate' }}
-    needs: [changes, docs-hygiene, unit, core-unit-shard, core-unit, wsl, web-browser, web-browser-macos]
+    needs: [changes, docs-hygiene, unit, core-unit-shard, core-unit, wsl, web-browser]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
