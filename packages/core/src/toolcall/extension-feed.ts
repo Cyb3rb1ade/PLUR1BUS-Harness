@@ -6,7 +6,8 @@ export class ExtensionCapabilityFeed {
   #closed = false;
   readonly #home: string;
   readonly #connect: typeof connect;
-  constructor(home: string, connectPort: typeof connect = connect) { this.#home = home; this.#connect = connectPort; }
+  readonly #kinds: readonly string[];
+  constructor(home: string, connectPort: typeof connect = connect, kinds: readonly string[] = ['skill']) { this.#home = home; this.#connect = connectPort; this.#kinds = kinds; }
   #snapshotWork: Promise<ExtensionCapability[]> | undefined;
   snapshot(): Promise<ExtensionCapability[]> {
     this.#snapshotWork ??= this.#snapshot().finally(() => { this.#snapshotWork = undefined; });
@@ -19,14 +20,14 @@ export class ExtensionCapabilityFeed {
       const client = await this.#connect({ address: supervisorAddress(this.#home), token: readRunToken(this.#home, supervisorTokenPath(this.#home)), endpoint: 'supervisor', connectTimeoutMs: 1000, callTimeoutMs: 2000, ...(pid ? { expectedServerPid: pid } : {}) });
       if (this.#closed) { await client.close(); return []; }
       this.#client = client;
-      client.onClose(() => { if (this.#client === client) this.#client = undefined; });
+      client.onClose(() => { if (this.#client === client) { this.#client = undefined; if (!this.#closed) this.onChanged?.(); } });
       client.onNotification(method => { if (method === 'ext.changed') this.onChanged?.(); });
       try { await client.call('ext.watch', {}); } catch (e) { this.#client = undefined; await client.close(); throw e; }
     }
     // ext.list re-evaluates overlays and per-agent permissions, including revocations between notifications.
     const result = await this.#client.call<{ items: ExtensionCapability[] }>('ext.list', {});
     if (!Array.isArray(result.items)) throw Error('invalid extension catalogue');
-    return result.items.filter(item => item && typeof item.name === 'string' && item.kind === 'skill' && item.enabled === true && Array.isArray(item.overlays) && item.overlays.length === 0 && (item.agents === 'all' || Array.isArray(item.agents)));
+    return result.items.filter(item => item && typeof item.name === 'string' && this.#kinds.includes(item.kind) && item.enabled === true && Array.isArray(item.overlays) && item.overlays.length === 0 && (item.agents === 'all' || Array.isArray(item.agents)));
   }
   onChanged: (() => void) | undefined;
   async close(): Promise<void> { this.#closed = true; await this.#client?.close(); this.#client = undefined; }

@@ -44,6 +44,7 @@ import { createCallBudget, type CallBudget } from '../budget/index.ts';
 import { createPolicyAudit } from '../policy/audit.ts';
 import type { GrantSource } from '../policy/index.ts';
 import { createMcpRegistry } from '../mcp/index.ts';
+import { McpExtensionReconciler } from '../mcp/extensions.ts';
 import { composeMedia, type MediaDefinition } from './media.ts';
 import { composeAuth, type ProviderDefinition, type RefusedProvider } from './auth.ts';
 import { composeTools, type ToolCompositionOptions } from './tools.ts';
@@ -91,6 +92,8 @@ export interface CompositionDeps {
   voiceConfigSource?: import("../voice/v3.ts").VoiceV3Deps["set"];
   resolvePrincipal?: import("../rbac/guard.ts").PrincipalResolver;
   home: string; config: () => HarnessConfig; engine: Engine; agents: AgentRegistry; logger: HarnessLogger;
+  /** Live configuration events owned by the existing ConfigSource; no filesystem watcher or polling. */
+  configChanges?: (listener: () => void) => () => void;
   /** Already admitted turns retain memory access if the agent is paused while their reply is running. */
   memoryAgents?: AgentRegistry;
   secrets: SecretStore; egress: Egress; permissions: PermissionRuntime; audit: AuditSink; identity: IdentityService;
@@ -193,11 +196,16 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const mcpOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'mcp', version: '0.1.0' }, now: d.clock });
     disposers.push(d.secrets.redaction?.subscribe(value => mcpOutput.registerSecret(value)) ?? (() => {}), () => mcpOutput.close());
     const mcp = isolated('turn MCP', () => createMcpRegistry({ logger: d.logger, output: mcpOutput, secrets: d.secrets, egress: d.egress, policy: { allowedCommands: ((cfg.providers.mcp as { allowedCommands?: string[] } | undefined)?.allowedCommands ?? []) } }));
-    const servers: string[] = [];
+    let mcpExtensions: McpExtensionReconciler | undefined;
     if (mcp) {
       disposers.push(() => mcp.shutdown());
-      const definitions = (cfg.providers.mcp as { servers?: unknown[] } | undefined)?.servers ?? [];
-      for (const raw of definitions) { const registered = isolated('MCP server', () => mcp.register(raw)); if (registered) servers.push(registered.name); }
+      const feed = d.supervised ? new ExtensionCapabilityFeed(d.home, undefined, ['mcp-server']) : undefined;
+      if (feed) disposers.push(() => feed.close());
+      mcpExtensions = new McpExtensionReconciler({ home: d.home, config: d.config, registry: mcp,
+        ...(feed ? { feed } : {}), ...(d.configChanges ? { onConfigChange: d.configChanges } : {}),
+        degraded: reason => d.logger.warn('turn MCP unavailable', { reason }) });
+      disposers.push(() => mcpExtensions!.close());
+      await mcpExtensions.refresh();
     }
     const mediaConfig = cfg.providers.media as { adapters?: MediaDefinition[] } | undefined;
     let media = options.tools?.media ?? null;
@@ -259,7 +267,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       },
       principal: (request: ChatRequest) => { const id = request.approver?.person ?? request.authenticatedPerson; return id ? d.resolveCollaborationPerson?.(id) ?? null : null; },
       authority: { approvals: { get: (id: string) => d.permissions.current()?.stores.approvals.get(id) }, grants: { get: (id: string) => d.permissions.current()?.grants.get(id) }, now: d.clock, audit: (event: { reason: string; person: string; taskId: string }) => { d.audit.append({ at: d.clock(), actor: { user: event.person, host: 'core' }, action: 'collab.handoff.refused', target: event.taskId, detail: { reason: event.reason } }); } }
-    } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), secretNames: secretNamesPort(d), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp ? { mcp: { port: mcp, servers } } : {}) }, { ...req, principal: principal(req) });
+    } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), secretNames: secretNamesPort(d), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp && mcpExtensions ? { mcp: { port: mcp, servers: () => mcpExtensions.servers(), refresh: () => mcpExtensions.refresh() } } : {}) }, { ...req, principal: principal(req) });
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
     const families = options.providers?.family ?? auth?.families ?? {};
     const reasoningFor = (provider: string, model: string): ReasoningDescriptor => fitToWire(d.chatModels?.reasoning(provider, model) ?? NO_REASONING, families[provider] ?? 'openai-chat');

@@ -39,7 +39,7 @@ export interface ToolCompositionOptions {
   coding?: CodingCompletion;
   home: string; budget?: CallBudget; degraded?: (service: string, error: unknown) => void; roots: readonly PathRoot[]; deny?: readonly DenyEntry[];
   host?: HostContext; exec?: Partial<ExecConfig>; audit: AuditSink; grants: GrantSource;
-  mcp?: { port: McpToolPort; servers: readonly string[] };
+  mcp?: { port: McpToolPort; servers: readonly string[] | (() => readonly string[]); refresh?: () => Promise<void> };
   media?: { adapter: ImageAdapter; store: OutputStore };
   extra?: readonly ToolDef[];
   hostctl?: ReturnType<typeof createHostctlPool>;
@@ -194,7 +194,9 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     });
   }
   for (const tool of o.extra ?? []) registry.register(tool);
-  if (o.mcp) for (const server of o.mcp.servers) {
+  if (o.mcp) await o.mcp.refresh?.();
+  const mcpServers = typeof o.mcp?.servers === 'function' ? o.mcp.servers() : o.mcp?.servers ?? [];
+  if (o.mcp) for (const server of mcpServers) {
     req.signal.throwIfAborted();
     // MCP visibility is checked by its registry under the agent/principal passed here.
     try {

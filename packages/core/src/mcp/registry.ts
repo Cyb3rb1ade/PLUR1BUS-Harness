@@ -1,6 +1,7 @@
 // The MCP server registry (ADR-014 §1, §2): servers per scope, started lazily, stopped when idle, with the tool-schema
 // cache kept across the stop. Not wired into a turn loop yet (2c/D106); callers pass the agent and principal in.
 import type { Clock } from "./clock.ts";
+import { isAbsolute } from "node:path";
 import { systemClock } from "./clock.ts";
 import { validateDefinition } from "./config.ts";
 import { McpConnection, type McpConnectionState, type McpResource, type McpPrompt, type McpResourceTemplate, type ConnectionDeps } from "./connection.ts";
@@ -107,6 +108,14 @@ export class McpRegistry {
     });
     this.logger.info("mcp.server.registered", { server: def.name, scope: def.scope.kind, transport: def.transport.type, trust: def.trust });
     return def;
+  }
+
+  /** Add only a host-resolved absolute runtime or verified installed binary to the stdio command policy (M-A4). */
+  allowCommand(command: string): void {
+    if (!isAbsolute(command)) throw new McpClientError("not-allowed", "MCP runtime command must be absolute");
+    if (!this.policy.allowedCommands.includes(command)) {
+      this.policy.allowedCommands = [...this.policy.allowedCommands, command];
+    }
   }
 
   async unregister(name: string, scope: McpCallerScope): Promise<boolean> {
