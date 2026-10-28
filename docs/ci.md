@@ -203,8 +203,11 @@ The pieces are in `scripts/ci/macos-vm-runner/`:
 A job routed to the VM waits while the Mac sleeps or is off. Stop the orchestrator before a longer break
 (`launchctl bootout gui/$(id -u)/com.plur1bus.ci-runner`): new runs then go to GitHub-hosted runners again, and a job
 that was already queued for the VM needs a re-run. `prlctl exec` needs the Parallels guest tools, which stop
-answering when the VM is isolated, so `--isolate-vm` stays off; clipboard, shared folders, cloud, profile,
-application and SmartMount sharing are switched off one by one instead.
+answering when the VM is isolated, so `--isolate-vm` stays off. Instead the orchestrator closes every other channel on
+each stopped clone and checks the result before it boots: host and guest shared folders (including the home folder
+Parallels may share by default), the shared profile, cloud, clipboard, applications and SmartMount, automatic camera
+and smart card sharing, host location, and a host microphone on the sound device. A clone that fails the check never
+starts.
 
 To change the template (a new runner version, another toolchain), stop the orchestrator, start the template, run
 `guest-provision.sh` in it as its header describes, shut it down and run `install-host.sh` again. Never start the

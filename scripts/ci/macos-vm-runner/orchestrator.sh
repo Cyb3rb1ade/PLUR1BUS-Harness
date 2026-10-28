@@ -35,6 +35,27 @@ discard_clone() {
   ! "$PRLCTL" status "$CLONE" >/dev/null 2>&1
 }
 
+# Every channel between host and guest except `prlctl exec` and the network is closed on the stopped clone, and
+# checked, before it boots: deleting the clone cannot undo a write to a shared host folder, and a job has no business
+# with the host's camera, smart card or location. `--isolate-vm on` would close them all at once, but it also stops the
+# guest tools that `prlctl exec` needs.
+SEAL=(--shf-host off --shf-host-defined off --shf-host-automount off --shf-guest off --shf-guest-automount off
+  --shared-profile off --shared-cloud off --shared-clipboard off --sh-app-host-to-guest off --sh-app-guest-to-host off
+  --smart-mount off --auto-share-camera off --auto-share-smart-card off --share-host-location off)
+SEALED=('^Host Shared Folders: \(-\)' '^Host defined sharing: Off' '^Shared Profile: \(-\)' '^SmartMount: \(-\)'
+  '^ *Host-to-guest apps sharing: off' '^ *Guest-to-host apps sharing: off' '^ *Shared clipboard mode: off'
+  '^ *Shared cloud: off' '^ *Automatic sharing cameras: off' '^ *Automatic sharing smart cards: off'
+  '^ *Share host location: off')
+seal_clone() {
+  local i info pattern
+  for ((i = 0; i < ${#SEAL[@]}; i += 2)); do
+    "$PRLCTL" set "$CLONE" "${SEAL[i]}" "${SEAL[i + 1]}" >/dev/null 2>&1 || return 1
+  done
+  info=$("$PRLCTL" list -i "$CLONE" 2>/dev/null) || return 1
+  for pattern in "${SEALED[@]}"; do grep -Eq "$pattern" <<<"$info" || return 1; done
+  ! grep -Eq '^ *sound[0-9]+ .*input=' <<<"$info" # no host microphone
+}
+
 runner_id=
 forget_runner() { # an ephemeral runner removes itself after its job; this cleans up after one that never got one
   [ -n "$runner_id" ] && "$GH" api -X DELETE "repos/$REPO/actions/runners/$runner_id" >/dev/null 2>&1
@@ -75,6 +96,7 @@ log "orchestrator for $REPO started: template $TEMPLATE, clone $CLONE"
 while :; do
   if ! discard_clone; then fail "could not delete the previous clone $CLONE"; continue; fi
   if ! "$PRLCTL" clone "$TEMPLATE" --name "$CLONE" >/dev/null 2>&1; then fail "could not clone $TEMPLATE"; continue; fi
+  if ! seal_clone; then fail "could not close the sharing channels of $CLONE"; continue; fi
   if ! "$PRLCTL" start "$CLONE" >/dev/null 2>&1; then fail "could not start $CLONE"; continue; fi
 
   # The guest tools answer (they do not with `--isolate-vm on`) and the guest reaches GitHub through the pf rules.
