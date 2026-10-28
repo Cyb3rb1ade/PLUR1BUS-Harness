@@ -48,7 +48,7 @@ if (decision.kind === 'refuse') {
 
 `checkBeforeCall` checks **and reserves**, returning `allow { reservationId, estimatedTokens }` or `refuse { code, reason, scope, id, metric, limit, used, estimate, resetsAt }`. A reservation is an admission for one invocation only. Never reuse it for a retry. All matching agent, project, user and global limits apply; the tightest remaining capacity wins. IDs are canonical, trusted host identities; project/user cannot be inferred from old agent-only ledger entries.
 
-Token ceilings count input plus maximum output at admission and input plus actual output at settlement (output includes reported reasoning tokens; cache tokens are recorded but not counted). The metrics are `tokens`, `images` and `videoSeconds` (next section); a limit row with metric `cost` left by an older core is ignored, never enforced. Input and output caps are never mutated. `run(request, invoke)` performs admission, throws `CallBudgetExceededError` (`budget_exceeded`) before invocation on refusal, and settles successful usage.
+Token ceilings count input plus maximum output at admission and input plus actual output at settlement (output includes reported reasoning tokens; input is the whole prompt, cache reads and writes included, and settled cache reads count with the [cache-read weight](#cache-reads-re-d29)). The metrics are `tokens`, `images` and `videoSeconds` (next section); a limit row with metric `cost` left by an older core is ignored, never enforced. Input and output caps are never mutated. `run(request, invoke)` performs admission, throws `CallBudgetExceededError` (`budget_exceeded`) before invocation on refusal, and settles successful usage.
 
 The same SQLite database stores legacy usage/RPC limits and the lazily initialized version-1 call extension (`budget_call`, `budget_call_limit`, `budget_call_notice`, version in `settings`). Initialization, admission and settlement use `BEGIN IMMEDIATE`, serializing separate connections and processes. A future call-extension schema is refused. The unchanged legacy service can still open databases without initializing the extension. All persisted values are identifiers and numeric counts; no prompt/response payload is stored here. The legacy money columns (`usage_event`'s cost and price-table version, `budget_call.cost`) stay in the schema so no migration is needed and an older core can still open the store; new rows leave them NULL/empty.
 
@@ -72,6 +72,24 @@ Owner decision 2026-10-19: media is limited in its own units, not in tokens and 
 Live check (manual, never in CI): `OPENAI_API_KEY=... node scripts/live/media-budget-openai.mjs` sets a hard limit of 2 images in a throwaway home and asks the real OpenAI Images API for three images through the `media.generate` surface; the third must be refused without a network call. The script reads the key only from the environment, never prints it, and refuses any third provider request whatever happens; `packages/core/test/live/media-budget-openai-script.test.ts` dry-runs it against a loopback stub.
 
 Store schema 2 (additive migration): `budget_limit` is rebuilt with the widened metric check (every row kept, SQLite cannot widen a `CHECK` in place); `usage_event` and `budget_call` gain integer columns `images` and `video_seconds`, 0 on every older row; the call extension's version becomes 2. An older core refuses a schema-2 store (`newer-schema`) rather than misreading it.
+
+## Cache reads (RE-D29)
+
+Provider adapters report `inputTokens` as the whole prompt, cache reads and writes included, on every wire (`packages/providers`, `Usage`); the ledger keeps the read and written parts apart (`cache_read_tokens`, `cache_write_tokens`). A token limit counts
+
+```text
+input - cacheRead × (1 - w) + output
+```
+
+where `w` is the cache-read weight, a budget setting beside the time zone in the store's `settings` table: `BudgetService.cacheReadWeight()` and `setCacheReadWeight(w)`, a number from 0 to 1 kept in millionths (anything else, NaN included, is a `RangeError`). Weight 1, the default, counts every cache read in full and leaves every count as it was before the setting. Which default ships is an open owner decision (RE-D29). For example, a call of 1,000 input tokens, 900 of them cache reads, and 100 output tokens counts 1,000 - 900 + 90 + 100 = 290 tokens at weight 0.1 and 200 at weight 0. Cache writes always count in full.
+
+- **Applied at query time.** The weight is applied when usage is summed (`packages/core/src/budget/cache-read-weight.ts`) and never written into the ledger, so changing it re-rates every period at once, settled usage included. It applies to the advisory `check`/`enforce`, the `recordUsage` notices, the limits in `budget.status`, and every scope of the call port: global and agent limits sum the `usage_event` ledger; user, project, turn and session limits sum settled calls and take each call's cache reads from the usage event its settlement wrote (`budget-call:<reservation id>`).
+- **Reservations stay unweighted.** The reads are not known before the call, so admission reserves the estimated input plus maximum output, as before; settlement replaces the estimate with the actual use, which counts with the weight from then on. `estimatedTokens`, `check` estimates and the `reserve`/`settle` events stay unweighted.
+- **Arithmetic.** An event takes off at most its own input, even when a provider reports more cache reads than prompt tokens. The weighted share of a period's reads is rounded up to a whole token once per sum, in integer millionths (0.07 × 100 reads counts 7, not 8 from the binary 7.000000000000001).
+- **Fail closed.** A stored weight that cannot be parsed reads as 1.
+- **Load.** At weight 1 the reads are not summed at all, so admission does the work it did before. Below 1, global and agent limits sum the reads in the same pass over the ledger, while a user, project, turn or session limit looks up one usage event per settled call of its period, so its check grows with the number of those calls. No production path sets those four scopes today.
+
+The weight has no RPC or CLI surface yet; see [follow-up 6](#follow-ups-and-verification-boundaries).
 
 ## Periods and warnings
 
@@ -115,6 +133,7 @@ call. See [Media units](#media-units-images-and-video-seconds). There are no med
 3. **Web UI display:** expose hierarchy limits, pending reservations, warnings/refusals, resets, overages and result pointers through a separately reviewed integration; no new RPC methods in this change.
 4. **Media integration (ADR-017):** a limit in native media units (images, video seconds) would be a new metric; owner decision pending.
 5. **Retention/resume:** host-controlled pruning of call extension history must preserve user/project/lifetime totals; old `prune` only affects the legacy ledger. Do not prune either ledger while its periods/ceilings still need those records. Add recovery/retention policy with the host integration.
+6. **Cache-read weight surface (RE-14/P5, RE-D29):** `budget.set` takes `cacheReadWeight` (a number from 0 to 1) and both RPC results carry the weight in force; `budget.status` shows per period fresh input (`input - cacheRead - cacheWrite`), cache reads, cache writes, output and the sum counted at that weight; the CLI gains `plur1bus budget set --cache-read-weight <w>` and prints the split in `budget status`. The params and results of both methods are closed, so this needs an RPC schema change (`pnpm gen`, `pnpm docs:gen`). Until it lands the weight can only be set through the library and stays at 1.
 
 Tests use fake time, synthetic usage, temporary SQLite files, and local child processes; no model calls or network. Run from the repository root:
 
