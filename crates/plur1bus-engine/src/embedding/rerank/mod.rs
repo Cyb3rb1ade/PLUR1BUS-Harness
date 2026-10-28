@@ -172,6 +172,7 @@ impl From<crate::transport::TransportError> for ProviderError {
                     Self::http(status, &[])
                 }
             }
+            TransportError::Cancelled(_) => Self::simple(ProviderErrorKind::Aborted),
             TransportError::Timeout => Self::simple(ProviderErrorKind::Timeout),
             TransportError::ResponseTooLarge => Self::invalid_response(),
             TransportError::InvalidRequest | TransportError::Redirect => {
@@ -193,16 +194,19 @@ impl SecretStore<'_> {
         &self,
         name: &str,
         deadline: std::time::Instant,
+        cancel: &crate::contract::Cancel,
     ) -> Result<Option<crate::contract::SecretValue>, ProviderError> {
+        signal::check(cancel)?;
         let result = match self {
             Self::Borrowed(port) => port.get(name),
             Self::Owned(port) => {
                 let port = port.clone();
                 let name = name.to_owned();
-                crate::transport::guarded::bounded(deadline, move || port.get(&name))
+                crate::transport::guarded::bounded(deadline, cancel, move || port.get(&name))
                     .map_err(ProviderError::from)?
             }
         };
+        signal::check(cancel)?;
         budget_left(deadline)?;
         result.map_err(|_| ProviderError::simple(ProviderErrorKind::Auth))
     }
@@ -262,13 +266,16 @@ impl<'a> Credential<'a> {
     pub(crate) fn authorization(
         &self,
         deadline: std::time::Instant,
+        cancel: &crate::contract::Cancel,
     ) -> Result<Option<String>, ProviderError> {
+        signal::check(cancel)?;
         use std::sync::{atomic::Ordering, TryLockError};
         budget_left(deadline)?;
         let Some(name) = &self.name else {
             return Ok(None);
         };
         let mut cache = loop {
+            signal::check(cancel)?;
             match self.value.try_lock() {
                 Ok(cache) => break cache,
                 Err(TryLockError::Poisoned(error)) => break error.into_inner(),
@@ -285,11 +292,12 @@ impl<'a> Credential<'a> {
                 .store
                 .as_ref()
                 .ok_or_else(|| ProviderError::simple(ProviderErrorKind::Auth))?
-                .get(name, deadline)?
+                .get(name, deadline, cancel)?
                 .ok_or_else(|| ProviderError::simple(ProviderErrorKind::Auth))?;
             if value.expose().trim().is_empty() {
                 return Err(ProviderError::simple(ProviderErrorKind::Auth));
             }
+            signal::check(cancel)?;
             budget_left(deadline)?;
             if self.generation.load(Ordering::Acquire) != generation {
                 return Ok(Some(format!("Bearer {}", value.expose().trim())));
@@ -300,6 +308,7 @@ impl<'a> Credential<'a> {
                 value,
             });
         }
+        signal::check(cancel)?;
         budget_left(deadline)?;
         Ok(cache
             .as_ref()

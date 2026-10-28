@@ -1,13 +1,14 @@
 //! The engine's only HTTP client.
+use super::cancel::{CancelConnector, IoWatchdog};
 use super::target::{address_allowed, parse_url};
 use super::Resolver;
-use crate::contract::{Decision, EgressGate, Target};
+use crate::contract::{Cancel, CancelReason, Cancelled, Decision, EgressGate, Target};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 use ureq::unversioned::resolver::{ResolvedSocketAddrs, Resolver as UreqResolver};
-use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
+use ureq::unversioned::transport::{Connector, NextTimeout, RustlsConnector};
 use ureq::RequestExt;
 
 /// An HTTP request whose credential-bearing fields deliberately have no Debug implementation.
@@ -69,6 +70,8 @@ pub enum TransportError {
     Denied,
     /// At least one resolved address is forbidden.
     AddressDenied,
+    /// Explicit caller cancellation interrupted the request.
+    Cancelled(Cancelled),
     /// Absolute call deadline expired.
     Timeout,
     /// DNS or connection failure.
@@ -120,19 +123,24 @@ enum GatePort<'a> {
     Owned(Arc<dyn EgressGate>),
 }
 impl GatePort<'_> {
-    fn decide(&self, target: &Target, deadline: Instant) -> Result<Decision, TransportError> {
+    fn decide(
+        &self,
+        target: &Target,
+        deadline: Instant,
+        cancel: &Cancel,
+    ) -> Result<Decision, TransportError> {
         match self {
             Self::Borrowed(gate) => {
                 // A borrowed synchronous callback cannot outlive this call safely. Account its
                 // elapsed time; production uses the owned port for a hard waiting-time bound.
                 let decision = gate.decide(target);
-                remaining(deadline)?;
+                remaining_cancelled(deadline, cancel)?;
                 Ok(decision)
             }
             Self::Owned(gate) => {
                 let gate = gate.clone();
                 let target = target.clone();
-                bounded(deadline, move || gate.decide(&target))
+                bounded(deadline, cancel, move || gate.decide(&target))
             }
         }
     }
@@ -160,7 +168,7 @@ impl UreqResolver for PinnedResolver {
 impl<'a> GuardedClient<'a> {
     /// Construct a client with a borrowed synchronous gate, without I/O.
     /// Gate time consumes the deadline, but this compatibility path cannot interrupt
-    /// a blocking borrowed callback. Use new_owned for a hard waiting-time bound.
+    /// a blocking borrowed callback on cancellation or expiry. Use new_owned in production.
     pub fn new(gate: &'a dyn EgressGate, resolver: Box<dyn Resolver>) -> Self {
         Self {
             gate: GatePort::Borrowed(gate),
@@ -182,22 +190,35 @@ impl<'a> GuardedClient<'a> {
     /// Execute an HTTP request within one absolute deadline.
     pub fn request(
         &self,
-        mut req: HttpRequest,
+        req: HttpRequest,
         deadline: Instant,
     ) -> Result<HttpResponse, TransportError> {
+        self.request_cancelled(req, deadline, &Cancel::never())
+    }
+    /// Execute with caller cancellation during owned host callbacks and active socket I/O.
+    /// Borrowed synchronous gate callbacks cannot be interrupted safely; their elapsed
+    /// time counts and cancellation is checked immediately after they return.
+    pub fn request_cancelled(
+        &self,
+        mut req: HttpRequest,
+        deadline: Instant,
+        cancel: &Cancel,
+    ) -> Result<HttpResponse, TransportError> {
         for hop in 0..=10 {
-            remaining(deadline)?;
+            remaining_cancelled(deadline, cancel)?;
             let (url, target) = parse_url(&req.url)?;
-            let decision = self.decision(&target, deadline)?;
-            remaining(deadline)?;
+            let decision = self.decision(&target, deadline, cancel)?;
+            remaining_cancelled(deadline, cancel)?;
             let Decision::Allow { address_rules } = decision else {
                 return Err(TransportError::Denied);
             };
             let resolver = self.resolver.clone();
             let host = target.host.clone();
             let port = target.port;
-            let addresses = bounded(deadline, move || resolver.resolve(&host, port, deadline))??;
-            remaining(deadline)?;
+            let addresses = bounded(deadline, cancel, move || {
+                resolver.resolve(&host, port, deadline)
+            })??;
+            remaining_cancelled(deadline, cancel)?;
             if addresses
                 .iter()
                 .any(|address| !address_allowed(*address, address_rules))
@@ -207,15 +228,20 @@ impl<'a> GuardedClient<'a> {
             let address = addresses.first().ok_or(TransportError::Network)?;
             // A fresh agent prevents pooled sockets from surviving policy changes or a DNS check.
             // URI remains the original name: ureq uses it for both Host and rustls SNI/certificate checks.
+            let watchdog = IoWatchdog::new(cancel, deadline)?;
             let config = ureq::Agent::config_builder()
                 .proxy(None)
                 .max_redirects(0)
                 .http_status_as_error(false)
-                .timeout_global(Some(remaining(deadline)?))
+                .timeout_global(Some(remaining_cancelled(deadline, cancel)?))
                 .build();
             let agent = ureq::Agent::with_parts(
                 config,
-                DefaultConnector::default(),
+                CancelConnector {
+                    address: SocketAddr::new(*address, target.port),
+                    control: watchdog.control.clone(),
+                }
+                .chain(RustlsConnector::default()),
                 PinnedResolver(SocketAddr::new(*address, target.port)),
             );
             let mut builder = ureq::http::Request::builder()
@@ -236,16 +262,16 @@ impl<'a> GuardedClient<'a> {
             let mut response = request
                 .with_agent(&agent)
                 .configure()
-                .timeout_global(Some(remaining(deadline)?))
+                .timeout_global(Some(remaining_cancelled(deadline, cancel)?))
                 .run()
-                .map_err(map_error)?;
+                .map_err(|error| current_error(error, deadline, cancel))?;
             let status = response.status().as_u16();
             if matches!(status, 401 | 403) {
                 if let Some(generation) = &req.auth_rejection_counter {
                     generation.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
                 }
             }
-            remaining(deadline).map_err(|error| response_error(status, error))?;
+            remaining_cancelled(deadline, cancel).map_err(|error| response_error(status, error))?;
             if matches!(status, 301 | 302 | 303 | 307 | 308) {
                 if hop == 10 {
                     return Err(TransportError::Redirect);
@@ -303,9 +329,14 @@ impl<'a> GuardedClient<'a> {
             let body = match read {
                 Ok(body) => body,
                 Err(ureq::Error::BodyExceedsLimit(_)) if non_success => vec![],
-                Err(error) => return Err(response_error(status, map_error(error))),
+                Err(error) => {
+                    return Err(response_error(
+                        status,
+                        current_error(error, deadline, cancel),
+                    ))
+                }
             };
-            remaining(deadline).map_err(|error| response_error(status, error))?;
+            remaining_cancelled(deadline, cancel).map_err(|error| response_error(status, error))?;
             return Ok(HttpResponse {
                 status,
                 headers,
@@ -324,7 +355,12 @@ impl<'a> GuardedClient<'a> {
         cache.entries.clear();
     }
 
-    fn decision(&self, target: &Target, deadline: Instant) -> Result<Decision, TransportError> {
+    fn decision(
+        &self,
+        target: &Target,
+        deadline: Instant,
+        cancel: &Cancel,
+    ) -> Result<Decision, TransportError> {
         let generation = {
             let cache = self
                 .decisions
@@ -337,7 +373,7 @@ impl<'a> GuardedClient<'a> {
             }
             cache.generation
         };
-        let decision = self.gate.decide(target, deadline)?;
+        let decision = self.gate.decide(target, deadline, cancel)?;
         let mut cache = self
             .decisions
             .lock()
@@ -365,9 +401,10 @@ fn remaining(deadline: Instant) -> Result<Duration, TransportError> {
 
 pub(crate) fn bounded<T: Send + 'static>(
     deadline: Instant,
+    cancel: &Cancel,
     operation: impl FnOnce() -> T + Send + 'static,
 ) -> Result<T, TransportError> {
-    remaining(deadline)?;
+    remaining_cancelled(deadline, cancel)?;
     let (send, receive) = mpsc::sync_channel(1);
     std::thread::Builder::new()
         .name("engine-host-port".into())
@@ -375,18 +412,48 @@ pub(crate) fn bounded<T: Send + 'static>(
             let _ = send.send(operation());
         })
         .map_err(|_| TransportError::Network)?;
-    receive
-        .recv_timeout(remaining(deadline)?)
-        .map_err(|error| match error {
-            mpsc::RecvTimeoutError::Timeout => TransportError::Timeout,
-            mpsc::RecvTimeoutError::Disconnected => TransportError::Network,
-        })
+    loop {
+        let budget = remaining_cancelled(deadline, cancel)?;
+        match receive.recv_timeout(budget.min(Duration::from_millis(10))) {
+            Ok(result) => {
+                remaining_cancelled(deadline, cancel)?;
+                return Ok(result);
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => return Err(TransportError::Network),
+        }
+    }
+}
+
+pub(super) fn remaining_cancelled(
+    deadline: Instant,
+    cancel: &Cancel,
+) -> Result<Duration, TransportError> {
+    cancel.check().map_err(|error| match error.reason {
+        CancelReason::Caller => TransportError::Cancelled(error),
+        CancelReason::Deadline => TransportError::Timeout,
+    })?;
+    let budget = remaining(deadline)?;
+    Ok(cancel
+        .remaining()
+        .map_or(budget, |remaining| budget.min(remaining)))
+}
+
+fn current_error(error: ureq::Error, deadline: Instant, cancel: &Cancel) -> TransportError {
+    remaining_cancelled(deadline, cancel)
+        .err()
+        .unwrap_or_else(|| map_error(error))
 }
 fn map_error(error: ureq::Error) -> TransportError {
     match error {
         ureq::Error::Timeout(_) => TransportError::Timeout,
         ureq::Error::BodyExceedsLimit(_) => TransportError::ResponseTooLarge,
-        ureq::Error::Io(error) if matches!(error.kind(), std::io::ErrorKind::TimedOut) => {
+        ureq::Error::Io(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+            ) =>
+        {
             TransportError::Timeout
         }
         _ => TransportError::Network,
@@ -394,7 +461,7 @@ fn map_error(error: ureq::Error) -> TransportError {
 }
 
 fn response_error(status: u16, error: TransportError) -> TransportError {
-    if (200..300).contains(&status) {
+    if (200..300).contains(&status) || matches!(error, TransportError::Cancelled(_)) {
         return error;
     }
     TransportError::ResponseBody {
@@ -440,7 +507,11 @@ mod tests {
         let before = Instant::now();
         assert!(matches!(
             client
-                .decision(&target, Instant::now() + Duration::from_secs(1))
+                .decision(
+                    &target,
+                    Instant::now() + Duration::from_secs(1),
+                    &Cancel::never()
+                )
                 .unwrap(),
             Decision::Allow { .. }
         ));
@@ -453,7 +524,11 @@ mod tests {
         }
         assert!(matches!(
             client
-                .decision(&target, Instant::now() + Duration::from_secs(1))
+                .decision(
+                    &target,
+                    Instant::now() + Duration::from_secs(1),
+                    &Cancel::never()
+                )
                 .unwrap(),
             Decision::Deny { .. }
         ));

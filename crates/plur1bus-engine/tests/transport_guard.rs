@@ -533,3 +533,280 @@ fn rejected_credentials_are_invalidated_when_headers_arrive_before_the_body() {
         "the diagnostic body must still be pending when credentials invalidate"
     );
 }
+
+fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
+    use plur1bus_engine::contract::{Cancel, CancelReason, Cancelled};
+    use std::sync::mpsc;
+    let peer = http_stub::StalledPeer::new(send_headers);
+    let client = GuardedClient::new_owned(Arc::new(Gate::local()), local_lookup());
+    let mut request = HttpRequest::get(peer.stub.url("/cancel"));
+    request.method = "POST".into();
+    request.body = b"request-body-is-complete-before-cancel".to_vec();
+    let cancel = Cancel::never();
+    let caller = cancel.clone();
+    let expires = Instant::now()
+        + if explicit_cancel {
+            Duration::from_secs(2)
+        } else {
+            Duration::from_millis(150)
+        };
+    let (returned, receive) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        returned
+            .send(client.request_cancelled(request, expires, &cancel))
+            .unwrap();
+    });
+    peer.ready.recv_timeout(Duration::from_secs(1)).unwrap();
+    assert!(
+        peer.stub.requests.lock().unwrap()[0].ends_with("request-body-is-complete-before-cancel")
+    );
+    let response_by = if explicit_cancel {
+        caller.cancel();
+        Instant::now() + Duration::from_millis(250)
+    } else {
+        expires + Duration::from_millis(250)
+    };
+    let result = receive.recv_timeout(response_by.saturating_duration_since(Instant::now()));
+    let disconnected = peer
+        .closed
+        .recv_timeout(response_by.saturating_duration_since(Instant::now()));
+    // Dropping the peer stops its polling reads even when this regression fails.
+    drop(peer);
+    worker.join().unwrap();
+    assert_eq!(
+        result.unwrap(),
+        Err(if explicit_cancel {
+            TransportError::Cancelled(Cancelled {
+                reason: CancelReason::Caller,
+            })
+        } else {
+            TransportError::Timeout
+        })
+    );
+    assert_eq!(
+        disconnected.unwrap(),
+        Ok(()),
+        "the real peer must observe EOF/reset before the same response bound"
+    );
+}
+
+#[test]
+fn caller_cancel_closes_a_socket_waiting_for_response_headers() {
+    assert_pending_socket_is_closed(false, true);
+}
+
+#[test]
+fn caller_cancel_closes_a_socket_waiting_for_the_response_body() {
+    assert_pending_socket_is_closed(true, true);
+}
+
+#[test]
+fn an_absolute_deadline_closes_a_socket_waiting_for_response_headers() {
+    assert_pending_socket_is_closed(false, false);
+}
+
+#[test]
+fn an_absolute_deadline_closes_a_socket_waiting_for_the_response_body() {
+    assert_pending_socket_is_closed(true, false);
+}
+
+#[test]
+fn caller_cancel_stops_an_owned_gate_wait_and_discards_its_late_decision() {
+    use plur1bus_engine::contract::{Cancel, CancelReason, Cancelled};
+    use std::sync::{mpsc, Mutex};
+    struct BlockingGate {
+        started: mpsc::Sender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+        completed: mpsc::Sender<()>,
+        calls: AtomicUsize,
+    }
+    impl EgressGate for BlockingGate {
+        fn decide(&self, _: &Target) -> Decision {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                self.started.send(()).unwrap();
+                self.release.lock().unwrap().recv().unwrap();
+                self.completed.send(()).unwrap();
+                Decision::Allow {
+                    address_rules: AddressRules {
+                        allow_loopback: true,
+                        ..AddressRules::default()
+                    },
+                }
+            } else {
+                Decision::Deny {
+                    reason: "updated".into(),
+                }
+            }
+        }
+    }
+    let stub = Stub::new(200, "", "ok", Duration::ZERO);
+    let (started, observe) = mpsc::channel();
+    let (release, wait) = mpsc::channel();
+    let (completed, finished) = mpsc::channel();
+    let gate = Arc::new(BlockingGate {
+        started,
+        release: Mutex::new(wait),
+        completed,
+        calls: AtomicUsize::new(0),
+    });
+    let client = Arc::new(GuardedClient::new_owned(gate.clone(), local_lookup()));
+    let cancel = Cancel::never();
+    let caller = cancel.clone();
+    let request = HttpRequest::get(stub.url("/"));
+    let request_client = client.clone();
+    let (returned, receive) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        returned
+            .send(request_client.request_cancelled(request, deadline(), &cancel))
+            .unwrap();
+    });
+    observe.recv_timeout(Duration::from_secs(1)).unwrap();
+    caller.cancel();
+    let result = receive.recv_timeout(Duration::from_millis(250));
+    release.send(()).unwrap();
+    worker.join().unwrap();
+    finished.recv_timeout(Duration::from_secs(1)).unwrap();
+    assert_eq!(
+        result.unwrap(),
+        Err(TransportError::Cancelled(Cancelled {
+            reason: CancelReason::Caller
+        }))
+    );
+    assert_eq!(
+        client.request(HttpRequest::get(stub.url("/")), deadline()),
+        Err(TransportError::Denied)
+    );
+    assert_eq!(gate.calls.load(Ordering::SeqCst), 2);
+    assert!(stub.requests.lock().unwrap().is_empty());
+}
+
+#[test]
+fn caller_cancel_stops_a_dns_wait_and_never_dials_its_late_result() {
+    use plur1bus_engine::contract::{Cancel, CancelReason, Cancelled};
+    use std::sync::{mpsc, Mutex};
+    struct BlockingLookup {
+        started: mpsc::Sender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+        completed: mpsc::Sender<()>,
+    }
+    impl Resolver for BlockingLookup {
+        fn resolve(&self, _: &str, _: u16, _: Instant) -> Result<Vec<IpAddr>, TransportError> {
+            self.started.send(()).unwrap();
+            self.release.lock().unwrap().recv().unwrap();
+            self.completed.send(()).unwrap();
+            Ok(vec![IpAddr::V4(Ipv4Addr::LOCALHOST)])
+        }
+    }
+    let stub = Stub::new(200, "", "ok", Duration::ZERO);
+    let (started, observe) = mpsc::channel();
+    let (release, wait) = mpsc::channel();
+    let (completed, finished) = mpsc::channel();
+    let client = GuardedClient::new_owned(
+        Arc::new(Gate::local()),
+        Box::new(BlockingLookup {
+            started,
+            release: Mutex::new(wait),
+            completed,
+        }),
+    );
+    let cancel = Cancel::never();
+    let caller = cancel.clone();
+    let request = HttpRequest::get(stub.url("/"));
+    let (returned, receive) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        returned
+            .send(client.request_cancelled(request, deadline(), &cancel))
+            .unwrap();
+    });
+    observe.recv_timeout(Duration::from_secs(1)).unwrap();
+    caller.cancel();
+    let result = receive.recv_timeout(Duration::from_millis(250));
+    release.send(()).unwrap();
+    worker.join().unwrap();
+    finished.recv_timeout(Duration::from_secs(1)).unwrap();
+    assert_eq!(
+        result.unwrap(),
+        Err(TransportError::Cancelled(Cancelled {
+            reason: CancelReason::Caller
+        }))
+    );
+    assert!(stub.requests.lock().unwrap().is_empty());
+}
+
+#[test]
+fn cancellation_and_deadline_close_a_socket_during_the_rustls_handshake() {
+    use plur1bus_engine::contract::{Cancel, CancelReason, Cancelled};
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::sync::mpsc;
+    for explicit_cancel in [true, false] {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (ready, observe) = mpsc::channel();
+        let peer = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(1)))
+                .unwrap();
+            // Consume the actual TLS ClientHello, then leave the handshake pending.
+            let mut header = [0; 5];
+            socket.read_exact(&mut header).unwrap();
+            assert_eq!(header[0], 22);
+            let mut hello = vec![0; u16::from_be_bytes([header[3], header[4]]) as usize];
+            socket.read_exact(&mut hello).unwrap();
+            ready.send(()).unwrap();
+            let mut byte = [0];
+            match socket.read(&mut byte) {
+                Ok(0) => true,
+                Err(error) => matches!(
+                    error.kind(),
+                    std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::ConnectionAborted
+                ),
+                Ok(_) => false,
+            }
+        });
+        let client = GuardedClient::new_owned(Arc::new(Gate::local()), local_lookup());
+        let cancel = Cancel::never();
+        let caller = cancel.clone();
+        let expires = Instant::now()
+            + if explicit_cancel {
+                Duration::from_secs(2)
+            } else {
+                Duration::from_millis(150)
+            };
+        let (returned, receive) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            returned
+                .send(client.request_cancelled(
+                    HttpRequest::get(format!("https://provider.test:{port}/")),
+                    expires,
+                    &cancel,
+                ))
+                .unwrap();
+        });
+        observe.recv_timeout(Duration::from_secs(1)).unwrap();
+        let response_by = if explicit_cancel {
+            caller.cancel();
+            Instant::now() + Duration::from_millis(250)
+        } else {
+            expires + Duration::from_millis(250)
+        };
+        let result = receive.recv_timeout(response_by.saturating_duration_since(Instant::now()));
+        let closed = peer.join().unwrap();
+        worker.join().unwrap();
+        assert_eq!(
+            result.unwrap(),
+            Err(if explicit_cancel {
+                TransportError::Cancelled(Cancelled {
+                    reason: CancelReason::Caller,
+                })
+            } else {
+                TransportError::Timeout
+            })
+        );
+        assert!(
+            closed,
+            "the rustls handshake's actual TCP socket must close"
+        );
+    }
+}

@@ -926,3 +926,245 @@ fn an_auth_header_rotates_the_secret_even_when_its_body_exceeds_the_deadline() {
     );
     assert_eq!(secrets.0.lock().unwrap().len(), 2);
 }
+
+fn wait_for_post(stub: &Stub) {
+    let deadline = Instant::now() + Duration::from_secs(1);
+    loop {
+        if !stub.requests.lock().unwrap().is_empty() {
+            assert!(stub.requests.lock().unwrap()[0].starts_with("POST "));
+            return;
+        }
+        assert!(Instant::now() < deadline, "provider did not send the POST");
+        std::thread::sleep(Duration::from_millis(1));
+    }
+}
+
+#[test]
+fn an_owned_embedding_call_observes_caller_cancel_during_headers_and_body() {
+    use std::sync::mpsc;
+    for delay_body in [false, true] {
+        let handler = |_: &str| {
+            (
+                200,
+                String::new(),
+                r#"{"data":[{"embedding":[0.1,0.2]}]}"#.to_owned(),
+                Duration::from_secs(1),
+            )
+        };
+        let stub = if delay_body {
+            Stub::dynamic_body(handler)
+        } else {
+            Stub::dynamic(handler)
+        };
+        let provider = OpenAiEmbeddingProvider::new_owned(
+            &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+            identity(),
+            client(),
+            Some(Arc::new(Secrets(Mutex::new(vec![])))),
+        )
+        .unwrap();
+        let cancel = Cancel::never();
+        let caller = cancel.clone();
+        let (returned, receive) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            returned
+                .send(provider.embed_remote(&["doc".into()], &cancel))
+                .unwrap();
+        });
+        wait_for_post(&stub);
+        // In body mode the stub writes the headers immediately after recording the POST.
+        std::thread::sleep(Duration::from_millis(20));
+        caller.cancel();
+        let result = receive.recv_timeout(Duration::from_millis(250));
+        worker.join().unwrap();
+        assert_eq!(
+            result.unwrap().unwrap_err().kind,
+            ProviderErrorKind::Aborted,
+            "delayed body: {delay_body}"
+        );
+    }
+}
+
+#[test]
+fn an_owned_rerank_call_observes_caller_cancel_during_headers_and_body() {
+    use std::sync::mpsc;
+    for delay_body in [false, true] {
+        let handler = |_: &str| {
+            (
+                200,
+                String::new(),
+                r#"{"results":[{"index":0,"score":0.7}]}"#.to_owned(),
+                Duration::from_secs(1),
+            )
+        };
+        let stub = if delay_body {
+            Stub::dynamic_body(handler)
+        } else {
+            Stub::dynamic(handler)
+        };
+        let provider = RemoteReranker::new_owned(
+            &json!({"provider":"remote","baseUrl":stub.url("/")}),
+            client(),
+            None,
+        )
+        .unwrap();
+        let cancel = Cancel::never();
+        let caller = cancel.clone();
+        let (returned, receive) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            returned
+                .send(provider.rerank("q", &["doc".into()], 1, &cancel))
+                .unwrap();
+        });
+        wait_for_post(&stub);
+        std::thread::sleep(Duration::from_millis(20));
+        caller.cancel();
+        let result = receive.recv_timeout(Duration::from_millis(250));
+        worker.join().unwrap();
+        assert_eq!(
+            result.unwrap().unwrap_err(),
+            RerankError::Cancelled(plur1bus_engine::contract::Cancelled {
+                reason: plur1bus_engine::contract::CancelReason::Caller,
+            }),
+            "delayed body: {delay_body}"
+        );
+    }
+}
+
+#[test]
+fn a_cancelled_owned_secret_lookup_discards_its_late_credential() {
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        mpsc,
+    };
+    struct BlockingSecrets {
+        started: mpsc::Sender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+        completed: mpsc::Sender<()>,
+        calls: Arc<AtomicUsize>,
+    }
+    impl SecretPort for BlockingSecrets {
+        fn get(&self, _: &str) -> Result<Option<SecretValue>, HostError> {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                self.started.send(()).unwrap();
+                self.release.lock().unwrap().recv().unwrap();
+                self.completed.send(()).unwrap();
+                Ok(Some(SecretValue::new("test-only-late-secret")))
+            } else {
+                Ok(Some(SecretValue::new("test-only-current-secret")))
+            }
+        }
+    }
+    let stub = Stub::new(
+        200,
+        "",
+        r#"{"data":[{"embedding":[0.1,0.2]}]}"#,
+        Duration::ZERO,
+    );
+    let (started, observe) = mpsc::channel();
+    let (release, wait) = mpsc::channel();
+    let (completed, finished) = mpsc::channel();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let provider = Arc::new(
+        OpenAiEmbeddingProvider::new_owned(
+            &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+            identity(),
+            client(),
+            Some(Arc::new(BlockingSecrets {
+                started,
+                release: Mutex::new(wait),
+                completed,
+                calls: calls.clone(),
+            })),
+        )
+        .unwrap(),
+    );
+    let cancel = Cancel::never();
+    let caller = cancel.clone();
+    let request = provider.clone();
+    let (returned, receive) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        returned
+            .send(request.embed_remote(&["first".into()], &cancel))
+            .unwrap();
+    });
+    observe.recv_timeout(Duration::from_secs(1)).unwrap();
+    caller.cancel();
+    let result = receive.recv_timeout(Duration::from_millis(250));
+    // Release the host worker even on a regression so a failing test cannot leak it.
+    release.send(()).unwrap();
+    worker.join().unwrap();
+    finished.recv_timeout(Duration::from_secs(1)).unwrap();
+    assert_eq!(
+        result.unwrap().unwrap_err().kind,
+        ProviderErrorKind::Aborted
+    );
+    assert!(stub.requests.lock().unwrap().is_empty());
+    provider
+        .embed_remote(&["second".into()], &Cancel::never())
+        .unwrap();
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    let requests = stub.requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert!(requests[0].contains("Bearer test-only-current-secret"));
+    assert!(!requests[0].contains("test-only-late-secret"));
+}
+
+#[test]
+fn a_coalesced_secret_wait_observes_its_own_caller_cancel() {
+    use std::sync::mpsc;
+    struct BlockingSecrets {
+        started: mpsc::Sender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+    }
+    impl SecretPort for BlockingSecrets {
+        fn get(&self, _: &str) -> Result<Option<SecretValue>, HostError> {
+            self.started.send(()).unwrap();
+            self.release.lock().unwrap().recv().unwrap();
+            Ok(Some(SecretValue::new("test-only-secret")))
+        }
+    }
+    let stub = Stub::new(
+        200,
+        "",
+        r#"{"data":[{"embedding":[0.1,0.2]}]}"#,
+        Duration::ZERO,
+    );
+    let (started, observe) = mpsc::channel();
+    let (release, wait) = mpsc::channel();
+    let provider = Arc::new(
+        OpenAiEmbeddingProvider::new_owned(
+            &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+            identity(),
+            client(),
+            Some(Arc::new(BlockingSecrets {
+                started,
+                release: Mutex::new(wait),
+            })),
+        )
+        .unwrap(),
+    );
+    let first = provider.clone();
+    let owner = std::thread::spawn(move || first.embed_remote(&["first".into()], &Cancel::never()));
+    observe.recv_timeout(Duration::from_secs(1)).unwrap();
+    let cancel = Cancel::never();
+    let caller = cancel.clone();
+    let request = provider.clone();
+    let (returned, receive) = mpsc::channel();
+    let waiter = std::thread::spawn(move || {
+        returned
+            .send(request.embed_remote(&["second".into()], &cancel))
+            .unwrap();
+    });
+    std::thread::sleep(Duration::from_millis(20));
+    caller.cancel();
+    let result = receive.recv_timeout(Duration::from_millis(250));
+    release.send(()).unwrap();
+    waiter.join().unwrap();
+    owner.join().unwrap().unwrap();
+    assert_eq!(
+        result.unwrap().unwrap_err().kind,
+        ProviderErrorKind::Aborted
+    );
+    assert_eq!(stub.requests.lock().unwrap().len(), 1);
+}

@@ -1,5 +1,6 @@
 //! Guarded outbound HTTP with host policy and resolve-then-pin address checks.
 
+mod cancel;
 pub mod guarded;
 pub mod resolve;
 pub mod target;

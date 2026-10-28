@@ -56,6 +56,8 @@ log = { version = "0.4", features = ["max_level_debug"] }
 sha2 = "0.10"
 # One HTTP client policy in the workspace: the same version and features as crates/plur1bus (rustls, no native-tls).
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
+# Reuse the locked socket API for cancellation of ureq connections; this adds no HTTP/TLS stack.
+socket2 = "=0.6.5"
 
 # Keep these direct dependencies on the exact lines already resolved by lancedb 0.26.2.
 arrow-array = "=57.3.1"

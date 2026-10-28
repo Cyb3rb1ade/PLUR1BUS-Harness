@@ -89,13 +89,13 @@ impl<'a> RemoteReranker<'a> {
             ("Content-Type".into(), "application/json".into()),
             ("Accept".into(), "application/json".into()),
         ];
-        if let Some(value) = self.credential.authorization(deadline)? {
+        if let Some(value) = self.credential.authorization(deadline, cancel)? {
             request.headers.push(("Authorization".into(), value));
         }
         signal::check(cancel)?;
         let response = self
             .client
-            .request(request, deadline)
+            .request_cancelled(request, deadline, cancel)
             .map_err(ProviderError::from)?;
         signal::check(cancel)?;
         if !(200..300).contains(&response.status) {

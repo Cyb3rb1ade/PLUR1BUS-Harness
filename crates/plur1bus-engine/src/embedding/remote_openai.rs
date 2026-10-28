@@ -29,7 +29,7 @@ impl From<ProviderError> for RemoteEmbedError {
 }
 impl<'a> OpenAiEmbeddingProvider<'a> {
     /// Configure an endpoint, identity and secret-store name.
-    /// Borrowed synchronous secret callbacks account elapsed time but cannot be interrupted;
+    /// Borrowed synchronous secret callbacks account elapsed time but cannot be interrupted by cancellation or deadline;
     /// use new_owned to bound a blocking host callback by the call deadline.
     pub fn new(
         config: &Value,
@@ -160,13 +160,13 @@ impl<'a> OpenAiEmbeddingProvider<'a> {
             ("Content-Type".into(), "application/json".into()),
             ("Accept".into(), "application/json".into()),
         ];
-        if let Some(value) = self.credential.authorization(deadline)? {
+        if let Some(value) = self.credential.authorization(deadline, cancel)? {
             request.headers.push(("Authorization".into(), value));
         }
         signal::check(cancel)?;
         let response = self
             .client
-            .request(request, deadline)
+            .request_cancelled(request, deadline, cancel)
             .map_err(ProviderError::from)?;
         signal::check(cancel)?;
         if !(200..300).contains(&response.status) {
