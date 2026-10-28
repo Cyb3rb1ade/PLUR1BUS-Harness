@@ -108,9 +108,14 @@ export function modelToolError(
   const safe = mapStrings(redactor.value(output), text) as ToolFailure;
   const internalFailure = output.error.internalFailure;
   delete safe.error.internalFailure;
+  const typedFailure = safe.error.typedFailure;
+  delete safe.error.typedFailure;
   if (internalFailure !== undefined) {
     safe.error = { code: output.error.code, message: FIXED_MESSAGES[internalFailure] };
   } else {
+    if (typedFailure) {
+      safe.error = { ...typedFailure, code: output.error.code, sourceCode: typedFailure.code };
+    }
     const limit = output.error.code === "tool-failed" ? MAX_EXCEPTION_CHARS : MAX_STRING_CHARS;
     safe.error.message = clip(safe.error.message.split(/[\r\n\u2028\u2029]/, 1)[0] ?? "", limit);
     if (safe.error.sourceCode !== undefined && !SOURCE_CODE.test(safe.error.sourceCode)) delete safe.error.sourceCode;

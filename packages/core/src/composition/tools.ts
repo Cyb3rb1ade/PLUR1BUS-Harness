@@ -9,6 +9,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { CallBudgetExceededError, mediaCallUnits, type CallBudget } from '../budget/index.ts';
 import { homedir } from 'node:os';
 import { ToolRegistry, type ToolClassification, type ToolDef, type ToolProcessSandbox } from '../tools/registry.ts';
+import { ToolAdapterError } from '../tools/tool-adapter-error.ts';
+export { ToolAdapterError } from '../tools/tool-adapter-error.ts';
 import { createFsTools } from '../tools/fs/tools.ts';
 import { canonicalisePath, type PathRoot, type DenyEntry } from '../policy/paths-index.ts';
 import { CAPABILITIES } from '../policy/index.ts';
@@ -69,10 +71,6 @@ function unwrap(value: unknown): unknown {
     if ('value' in value) return value.value;
   }
   return value;
-}
-export class ToolAdapterError extends Error {
-  readonly code: string; readonly detail: unknown;
-  constructor(code: string, detail: unknown) { super(code); this.name = 'ToolAdapterError'; this.code = code; this.detail = detail; }
 }
 /** Registration is per turn for scoped MCP visibility. No executable tool escapes the dispatcher. */
 export async function composeTools(o: ToolCompositionOptions, req: ChatRequest): Promise<ToolRegistry> {

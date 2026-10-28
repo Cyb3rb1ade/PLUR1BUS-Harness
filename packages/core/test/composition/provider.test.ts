@@ -2,11 +2,19 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { TurnToolError, conversationItems, createTurnProvider, toolErrorDetail } from "../../src/composition/provider.ts";
 import { collect, readTool, scriptedAdapter, turnFixture, turnRequest, useTempDirs, type ScriptedRound } from "./helpers.ts";
+import type { ToolFailure } from "../../src/tools/dispatcher.ts";
 import type { ChatChunk } from "../../src/session/provider.ts";
 
 const tmp = useTempDirs("p1b-turn-comp-");
 const call = (id: string, name: string, args: Record<string, unknown> = { path: "x" }) => ({ id, name, args });
 type Wire = Awaited<ReturnType<typeof scriptedAdapter>["requests"]>[number]["messages"][number];
+const modelFailure = (messages: Wire[]): ToolFailure => {
+  const message = messages.find(m => m.role === "tool");
+  assert.ok(message && message.role === "tool");
+  const result = JSON.parse(message.content) as ToolFailure;
+  assert.equal(result.isError, true);
+  return result;
+};
 const toolCallsOf = (m: Wire) => ("toolCalls" in m && m.toolCalls ? m.toolCalls : []);
 const types = (chunks: ChatChunk[]) => chunks.map((c) => c.type === "tool.call" || c.type === "tool.result" ? `${c.type}:${c.id}` : c.type);
 async function setup(rounds: ScriptedRound[], extra: Parameters<typeof turnFixture>[1] = {}) {
@@ -116,11 +124,15 @@ describe("composition/provider createTurnProvider: admission of a turn", () => {
 });
 
 describe("composition/provider createTurnProvider: streaming", () => {
-  it("streams deltas as they come and finishes with a usage chunk", async () => {
+  it("streams deltas as they come, then emits usage before final telemetry", async () => {
     const { provider, close } = await setup([{ streamed: ["hel", "lo"], text: "hello", usage: { inputTokens: 7, outputTokens: 3 } }]);
     try {
       const chunks = await collect(provider);
-      assert.deepEqual(chunks, [{ type: "delta", text: "hel" }, { type: "delta", text: "lo" }, { type: "usage", inputTokens: 7, outputTokens: 3 }]);
+      assert.deepEqual(chunks.filter(c => c.type !== "telemetry"), [
+        { type: "delta", text: "hel" }, { type: "delta", text: "lo" },
+        { type: "usage", inputTokens: 7, outputTokens: 3 },
+      ]);
+      assert.equal(chunks.at(-1)?.type, "telemetry");
     } finally { close(); }
   });
 
@@ -241,59 +253,82 @@ describe("composition/provider createTurnProvider: tool calls", () => {
     } finally { close(); }
   });
 
-  it("a call to a tool that is not registered stops the turn and runs nothing", async () => {
+  it("a call to an unregistered tool returns offered tools and a search hint, then recovers without executing anything", async () => {
     let ran = 0;
-    const { provider, registry, close } = await setup([{ calls: [call("c1", "file.delete")] }]);
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "file.delete")] }, { text: "recovered" },
+    ]);
     registry.register(readTool("file.read", async () => { ran++; return "ok"; }));
     try {
-      await assert.rejects(() => collect(provider), (e) => e instanceof TurnToolError && e.code === "tool-unknown" && e.detail === "file.delete");
+      const chunks = await collect(provider);
       assert.equal(ran, 0);
+      assert.equal(requests.length, 2);
+      const result = modelFailure(requests[1]!.messages);
+      assert.equal(result.error.code, "tool-unknown");
+      assert.match(result.error.message, /file.read/);
+      assert.match(result.error.hint ?? "", /capabilities.search/);
+      assert.ok(chunks.some(c => c.type === "delta" && c.text === "recovered"));
     } finally { close(); }
   });
 
-  it("a registered tool outside this turn's tool view is treated as unknown and does not run", async () => {
+  it("a registered tool outside this turn's view returns an unknown-tool result and never runs", async () => {
     let ran = 0;
-    const { provider, registry, requests, close } = await setup([{ calls: [call("c1", "sys.secret")] }]);
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "sys.secret")] }, { text: "recovered" },
+    ]);
     registry.register(readTool("file.read", async () => "ok"));
     registry.register(readTool("sys.secret", async () => { ran++; return "leak"; }));
     try {
-      await assert.rejects(() => collect(provider, turnRequest({ toolView: ["file.read"] })), (e) => e instanceof TurnToolError && e.code === "tool-unknown");
+      await collect(provider, turnRequest({ toolView: ["file.read"] }));
+      assert.equal(modelFailure(requests[1]!.messages).error.code, "tool-unknown");
       assert.equal(ran, 0);
-      assert.deepEqual(requests[0]!.tools!.map((t) => t.name), ["file_read"], "the hidden tool is not even offered");
+      assert.deepEqual(requests[0]!.tools!.map(t => t.name), ["file_read"], "the hidden tool is not offered");
     } finally { close(); }
   });
 
-  it("an empty tool view (the default collaboration scope) offers and runs no tools at all", async () => {
+  it("an empty tool view offers and runs no tools while returning unknown-tool feedback", async () => {
     let ran = 0;
-    const { provider, registry, requests, close } = await setup([{ calls: [call("c1", "file.read")] }]);
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "file.read")] }, { text: "recovered" },
+    ]);
     registry.register(readTool("file.read", async () => { ran++; return "ok"; }));
     try {
-      await assert.rejects(() => collect(provider, turnRequest({ toolView: [] })), (e) => e instanceof TurnToolError && e.code === "tool-unknown");
+      await collect(provider, turnRequest({ toolView: [] }));
+      assert.equal(modelFailure(requests[1]!.messages).error.code, "tool-unknown");
       assert.equal(ran, 0);
       assert.deepEqual(requests[0]!.tools, []);
     } finally { close(); }
   });
 
-  it("a registered tool that the top-k selection did not offer cannot be run by naming it anyway", async () => {
+  it("a registered tool omitted by selection cannot run when named; the model receives unknown-tool feedback", async () => {
     let ran = 0;
-    const { provider, registry, requests, close } = await setup([{ calls: [call("c1", "ops.hidden")] }], { topK: 1 });
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "ops.hidden")] }, { text: "recovered" },
+    ], { topK: 1 });
     registry.register(readTool("file.read", async () => "ok"));
     for (let i = 0; i < 5; i++) registry.register(readTool(`ops.extra${i}`, async () => "x"));
     registry.register(readTool("ops.hidden", async () => { ran++; return "x"; }));
     try {
-      await assert.rejects(() => collect(provider, turnRequest({ messages: [{ role: "user", text: "read the file" }] })), (e) => e instanceof TurnToolError && e.code === "tool-unknown");
+      await collect(provider, turnRequest({ messages: [{ role: "user", text: "read the file" }] }));
+      assert.equal(modelFailure(requests[1]!.messages).error.code, "tool-unknown");
       assert.equal(requests[0]!.tools!.length, 1);
       assert.equal(ran, 0);
     } finally { close(); }
   });
 
-  it("an earlier tool in the same response has already run when a later call turns out to be unknown (no rollback)", async () => {
+  it("an unknown later call preserves an earlier successful effect and both result pairings", async () => {
     let ran = 0;
-    const { provider, registry, close } = await setup([{ calls: [call("c1", "file.read"), call("c2", "file.delete")] }]);
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "file.read"), call("c2", "file.delete")] }, { text: "recovered" },
+    ]);
     registry.register(readTool("file.read", async () => { ran++; return "ok"; }));
     try {
-      await assert.rejects(() => collect(provider), (e) => e instanceof TurnToolError && e.code === "tool-unknown");
+      await collect(provider);
       assert.equal(ran, 1);
+      const results = requests[1]!.messages.filter(m => m.role === "tool");
+      assert.deepEqual(results.map(m => m.toolCallId), ["c1", "c2"]);
+      assert.equal(JSON.parse(results[0]!.content).value, "ok");
+      assert.equal(JSON.parse(results[1]!.content).error.code, "tool-unknown");
     } finally { close(); }
   });
 
@@ -335,33 +370,48 @@ describe("composition/provider createTurnProvider: tool calls", () => {
     } finally { close(); }
   });
 
-  it("a failing tool ends the turn with the tool's own error code and the original envelope", async () => {
-    const { provider, registry, close } = await setup([{ calls: [call("c1", "file.read")] }, { text: "never" }]);
-    registry.register(readTool("file.read", async () => { throw Object.assign(new Error("disk gone"), { code: "disk_gone" }); }));
+  it("a failing tool returns its typed dispatcher code and source code before the model recovers", async () => {
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "file.read")] }, { text: "recovered" },
+    ]);
+    registry.register(readTool("file.read", async () => {
+      throw Object.assign(new Error("disk gone"), { code: "disk_gone" });
+    }));
     try {
-      await assert.rejects(() => collect(provider), (e) => e instanceof TurnToolError && e.code === "disk_gone" && (e.detail as { isError: boolean }).isError === true);
+      const chunks = await collect(provider);
+      const result = modelFailure(requests[1]!.messages);
+      assert.equal(result.error.code, "tool-failed");
+      assert.equal(result.error.sourceCode, "disk_gone");
+      assert.match(result.error.message, /disk gone/);
+      assert.ok(chunks.some(c => c.type === "delta" && c.text === "recovered"));
     } finally { close(); }
   });
 
-  // TurnToolError.detail is a copy of the error envelope whose text is redacted against the registered secrets (and the
-  // log redaction rules) and bounded, before any consumer stores or sends it. The text never reaches the model or the stream.
-  it("a tool's thrown message is redacted against registered secrets and bounded in TurnToolError.detail", async () => {
-    const { provider, registry, requests, close } = await setup([{ calls: [call("c1", "file.read")] }, { text: "never" }], { secrets: () => ["redact-probe-alpha"] });
-    registry.register(readTool("file.read", async () => { throw Object.assign(new Error(`upstream said redact-probe-alpha ${"x".repeat(5000)}`), { code: "disk_gone" }); }));
-    const chunks: ChatChunk[] = [];
+  // N1: failure envelopes enter the model and stream only through the same bounded redaction boundary.
+  it("a thrown message reaches the model and stream only as a bounded, redacted first line", async () => {
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "file.read")] }, { text: "recovered" },
+    ], { secrets: () => ["redact-probe-alpha"] });
+    registry.register(readTool("file.read", async () => {
+      throw Object.assign(new Error(
+        `upstream /home/alice/report.txt said redact-probe-alpha ${"!".repeat(5000)}\n    at privateStack`,
+      ), { code: "disk_gone" });
+    }));
     try {
-      await assert.rejects(async () => { for await (const c of provider.stream(turnRequest())) chunks.push(c); }, (e) => {
-        assert.ok(e instanceof TurnToolError);
-        assert.equal(e.code, "disk_gone");
-        const text = JSON.stringify(e.detail);
-        assert.equal(text.includes("redact-probe-alpha"), false, "the registered secret is gone");
-        assert.match(text, /\[REDACTED:secret\]/);
-        assert.ok(text.length <= 4096, `detail is bounded (${text.length})`);
-        assert.equal((e.detail as { isError: boolean }).isError, true);
-        return true;
-      });
-      assert.equal(JSON.stringify(chunks).includes("redact-probe-alpha"), false);
-      assert.equal(requests.length, 1, "no second model call carries the text");
+      const chunks = await collect(provider);
+      const result = modelFailure(requests[1]!.messages);
+      const text = JSON.stringify(result);
+      assert.equal(result.error.sourceCode, "disk_gone");
+      assert.equal(result.error.code, "tool-failed");
+      assert.doesNotMatch(text, /redact-probe-alpha|alice|privateStack/);
+      assert.match(text, /\[REDACTED:secret\]/);
+      assert.ok(text.length <= 4096, `detail is bounded (${text.length})`);
+      assert.ok(result.error.message.length <= 300);
+      assert.doesNotMatch(JSON.stringify(chunks), /redact-probe-alpha|alice|privateStack/);
+      assert.equal(requests.length, 2);
+      const streamed = chunks.find(c => c.type === "tool.result");
+      assert.ok(streamed && streamed.type === "tool.result");
+      assert.deepEqual(JSON.parse(streamed.output), result);
     } finally { close(); }
   });
 
@@ -376,22 +426,41 @@ describe("composition/provider createTurnProvider: tool calls", () => {
     assert.equal(envelope.error.hint.length, 20000, "the original envelope is not modified");
   });
 
-  it("invalid arguments are repaired at most once; a second invalid answer ends the turn with tool-call-invalid", async () => {
-    const { provider, registry, requests, close } = await setup([{ calls: [call("c1", "file.read", { path: 7 })] }, { calls: [call("c1", "file.read", { path: 9 })] }]);
-    let ran = 0; registry.register(readTool("file.read", async () => { ran++; return "ok"; }));
+  it("invalid arguments get one repair attempt, then structured model feedback and a recovery round", async () => {
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "file.read", { path: 7 })] },
+      { calls: [call("c1", "file.read", { path: 9 })] },
+      { text: "recovered" },
+    ]);
+    let ran = 0;
+    registry.register(readTool("file.read", async () => { ran++; return "ok"; }));
     try {
-      await assert.rejects(() => collect(provider), (e) => e instanceof TurnToolError && e.code === "tool-call-invalid");
+      await collect(provider);
       assert.equal(ran, 0);
-      assert.equal(requests.length, 2, "one original call plus exactly one repair call");
+      assert.equal(requests.length, 3, "one original call, one repair, then one recovery round");
+      assert.match(String(requests[1]!.messages[0]!.content), /arguments are invalid/);
+      const result = modelFailure(requests[2]!.messages);
+      assert.equal(result.error.code, "tool-call-invalid");
+      assert.equal(result.error.issues?.[0]?.path, "/path");
+      assert.match(result.error.hint ?? "", /schema/);
     } finally { close(); }
   });
 
-  it("extra arguments are rejected against the tool schema and the tool does not run", async () => {
-    const { provider, registry, close } = await setup([{ calls: [call("c1", "file.read", { path: "a", force: true })] }, { calls: [call("c1", "file.read", { path: "a", force: true })] }]);
-    let ran = 0; registry.register(readTool("file.read", async () => { ran++; return "ok"; }));
+  it("extra arguments are rejected against the schema and reported to the model without execution", async () => {
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "file.read", { path: "a", force: true })] },
+      { calls: [call("c1", "file.read", { path: "a", force: true })] },
+      { text: "recovered" },
+    ]);
+    let ran = 0;
+    registry.register(readTool("file.read", async () => { ran++; return "ok"; }));
     try {
-      await assert.rejects(() => collect(provider), (e) => e instanceof TurnToolError && e.code === "tool-call-invalid");
+      await collect(provider);
       assert.equal(ran, 0);
+      assert.equal(requests.length, 3);
+      const result = modelFailure(requests[2]!.messages);
+      assert.equal(result.error.code, "tool-call-invalid");
+      assert.equal(result.error.issues?.[0]?.path, "/force");
     } finally { close(); }
   });
 
@@ -446,11 +515,15 @@ describe("composition/provider createTurnProvider: tool results", () => {
     assert.equal((await run(32 * 1024 - envelope + 1)).truncated, true);
   });
 
-  it("a result above the tool's own byte limit is an error, not a reference (the default tool limit is 64 KiB)", async () => {
-    const { provider, registry, stored, close } = await setup([{ calls: [call("c1", "file.read")] }]);
+  it("a result above the tool's 64 KiB limit returns a recoverable error without storing the payload", async () => {
+    const { provider, registry, requests, stored, close } = await setup([
+      { calls: [call("c1", "file.read")] }, { text: "recovered" },
+    ]);
     registry.register(readTool("file.read", async () => big(100_000)));
     try {
-      await assert.rejects(() => collect(provider), (e) => e instanceof TurnToolError && e.code === "tool-result-too-large");
+      await collect(provider);
+      assert.equal(requests.length, 2);
+      assert.equal(modelFailure(requests[1]!.messages).error.code, "tool-result-too-large");
       assert.deepEqual(stored, [], "an oversized result is dropped rather than stored");
     } finally { close(); }
   });
@@ -501,5 +574,190 @@ describe("composition/provider createTurnProvider: options", () => {
     const s = scriptedAdapter([{ text: "x" }]);
     const f = turnFixture(s.adapter, {}, tmp.make());
     try { assert.equal(typeof createTurnProvider, "function"); assert.equal(s.requests.length, 0); } finally { f.close(); }
+  });
+});
+
+describe("N-B2 provider failure budgets and terminal refusals", () => {
+  const INTERNAL = [
+    ["classify", "tool-denied", "The tool call could not be classified safely."],
+    ["approval", "tool-not-approved", "The approval service is unavailable; the tool did not run."],
+    ["audit", "tool-denied", "The audit trail is unavailable; the tool did not run."],
+    ["internal", "tool-failed", "The tool call failed because of an internal error."],
+  ] as const;
+
+  for (const [source, code, message] of INTERNAL) {
+    it(`${source} failures expose fixed text and count toward the three-consecutive-failure limit`, async t => {
+      const diagnostic = "/home/alice/private-state.db\n    at privateStack";
+      const { provider, registry, requests, close } = await setup([{ calls: [call("c1", "file.read")] }], {
+        ...(source === "approval" ? {
+          approval: { async request() { throw new Error(diagnostic); } },
+        } : {}),
+        ...(source === "audit" ? { audit: { record() { throw new Error(diagnostic); } } } : {}),
+        ...(source === "internal" ? {
+          async beforeTools() {
+            t.mock.method(globalThis, "setTimeout", () => { throw new Error(diagnostic); });
+          },
+          onExecution() { t.mock.restoreAll(); },
+        } : {}),
+      });
+      registry.register(readTool("file.read", async () => "must not run", {
+        ...(source === "classify" ? { classify() { throw new Error(diagnostic); } } : {}),
+        ...(source === "approval" ? {
+          capability: "fs.write", effect: "local-write", risk: "medium",
+          classify: () => ({ flags: { outsideRoots: true } }),
+        } : {}),
+      }));
+      const chunks: ChatChunk[] = [];
+      try {
+        await assert.rejects(async () => {
+          for await (const chunk of provider.stream(turnRequest())) chunks.push(chunk);
+        }, error => error instanceof TurnToolError && error.code === "turn-tool-error-limit");
+        assert.equal(requests.length, 3);
+        const results = chunks.filter(c => c.type === "tool.result");
+        assert.equal(results.length, 3);
+        for (const result of results) {
+          const failure = JSON.parse(result.output) as ToolFailure;
+          assert.equal(failure.error.code, code);
+          assert.equal(failure.error.message, message);
+          assert.equal(failure.error.internalFailure, undefined);
+          assert.doesNotMatch(result.output, /alice|privateStack|private-state/);
+        }
+        assert.equal(modelFailure(requests[1]!.messages).error.message, message);
+        const telemetry = chunks.at(-1);
+        assert.ok(telemetry?.type === "telemetry");
+        assert.equal(telemetry.telemetry.errorsReturned, 3);
+        assert.equal(telemetry.telemetry.endReason, "error-limit");
+      } finally {
+        t.mock.restoreAll();
+        close();
+      }
+    });
+  }
+
+  it("a timed-out tool is abandoned and the model can recover after its typed result", async t => {
+    let aborted: AbortSignal | undefined;
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("timeout", "file.read")] }, { text: "recovered" },
+    ], {
+      async beforeTools() {
+        t.mock.method(globalThis, "setTimeout", ((callback: () => void) => {
+          queueMicrotask(() => queueMicrotask(callback));
+          return {} as ReturnType<typeof setTimeout>;
+        }) as typeof setTimeout);
+      },
+      onExecution() { t.mock.restoreAll(); },
+    });
+    registry.register(readTool("file.read", async () => new Promise(() => {}), {
+      execute: async (_args, ctx) => {
+        aborted = ctx.signal;
+        return new Promise(() => {});
+      },
+    }));
+    try {
+      const chunks = await collect(provider);
+      assert.equal(requests.length, 2);
+      assert.equal(modelFailure(requests[1]!.messages).error.code, "tool-timeout");
+      assert.equal(aborted?.aborted, true);
+      assert.ok(chunks.some(c => c.type === "delta" && c.text === "recovered"));
+    } finally {
+      t.mock.restoreAll();
+      close();
+    }
+  });
+
+  it("a successful tool resets the consecutive-error count", async () => {
+    let attempts = 0;
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("one", "file.read")] },
+      { calls: [call("two", "file.read")] },
+      { calls: [call("ok", "file.read")] },
+      { calls: [call("three", "file.read")] },
+      { text: "recovered" },
+    ]);
+    registry.register(readTool("file.read", async () => {
+      if (++attempts === 3) return "ok";
+      throw new Error("missing");
+    }));
+    try {
+      const chunks = await collect(provider);
+      assert.equal(requests.length, 5);
+      assert.equal(chunks.filter(c => c.type === "tool.result").length, 4);
+      assert.ok(chunks.some(c => c.type === "delta" && c.text === "recovered"));
+    } finally { close(); }
+  });
+
+  it("a non-person who needs approval terminates immediately after one safe refusal", async () => {
+    let ran = 0;
+    const { provider, registry, requests, close } = await setup([{ calls: [call("c1", "file.write")] }]);
+    registry.register(readTool("file.write", async () => { ran++; return "never"; }, {
+      capability: "fs.write", effect: "local-write", risk: "medium",
+      classify: () => ({ flags: { outsideRoots: true } }),
+    }));
+    const chunks: ChatChunk[] = [];
+    try {
+      await assert.rejects(async () => {
+        for await (const chunk of provider.stream(turnRequest({ approver: { person: null, surface: 0 } }))) {
+          chunks.push(chunk);
+        }
+      }, error => error instanceof TurnToolError && error.code === "approval-requires-person");
+      assert.equal(ran, 0);
+      assert.equal(requests.length, 1);
+      assert.equal(chunks.filter(c => c.type === "tool.result").length, 1);
+    } finally { close(); }
+  });
+
+  it("local-only admission refuses a cloud turn before any model request", async () => {
+    const { provider, requests, close } = await setup([{ text: "must not run" }], {
+      localOnly: () => true, isLocalProvider: () => false,
+    });
+    try {
+      await assert.rejects(() => collect(provider), error => error instanceof TurnToolError && error.code === "local-only");
+      assert.equal(requests.length, 0);
+    } finally { close(); }
+  });
+
+  it("enabling local-only after a tool failure prevents the next cloud model request", async () => {
+    let localOnly = false;
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "file.read")] }, { text: "must not run" },
+    ], { localOnly: () => localOnly, isLocalProvider: () => false });
+    registry.register(readTool("file.read", async () => {
+      localOnly = true;
+      throw new Error("missing");
+    }));
+    try {
+      await assert.rejects(() => collect(provider), error => error instanceof Error && /privacy.localOnly/.test(error.message));
+      assert.equal(requests.length, 1);
+    } finally { close(); }
+  });
+
+  it("a tool failure never bypasses the next model request's budget admission", async () => {
+    const { provider, registry, requests, budget, close } = await setup([
+      { calls: [call("c1", "file.read")] }, { text: "must not run" },
+    ]);
+    registry.register(readTool("file.read", async () => {
+      budget.checkBeforeCall = () => ({
+        kind: "refuse", code: "budget_exceeded", reason: "hard", scope: "global", id: "",
+        metric: "tokens", limit: 1, used: 1, estimate: 1, resetsAt: 0,
+      });
+      throw new Error("missing");
+    }));
+    try {
+      await assert.rejects(() => collect(provider), { code: "budget_exceeded" });
+      assert.equal(requests.length, 1);
+    } finally { close(); }
+  });
+
+  it("aborting after a failed tool prevents another model round", async () => {
+    const controller = new AbortController();
+    const reason = new Error("cancelled after failure");
+    const { provider, registry, requests, close } = await setup([
+      { calls: [call("c1", "file.read")] }, { text: "must not run" },
+    ], { onExecution() { controller.abort(reason); } });
+    registry.register(readTool("file.read", async () => { throw new Error("missing"); }));
+    try {
+      await assert.rejects(() => collect(provider, turnRequest({ signal: controller.signal })), error => error === reason);
+      assert.equal(requests.length, 1);
+    } finally { close(); }
   });
 });

@@ -8,6 +8,8 @@ import { headlessGate } from "../policy/headless.ts";
 import type { ApprovalAnswer, ApprovalAsk, ApprovalPort } from "./approval.ts";
 import { repairMessage, validateArgs, type RepairHook, type ValidationIssue } from "./repair.ts";
 import type { RegisteredTool, ToolClassification, ToolRegistry, ToolTrust } from "./registry.ts";
+import { ToolAdapterError } from "./tool-adapter-error.ts";
+import { FsFailure } from "./fs/failure.ts";
 
 /** Arguments are bounded before they are validated or hashed. */
 export const MAX_ARGS_BYTES = 256 * 1024;
@@ -46,6 +48,14 @@ export type ToolErrorCode =
 
 /** N1 diagnostic categories select fixed model text; the original message remains available to logs and audits. */
 export type InternalToolFailureCategory = "internal-error" | "classification-failure" | "approval-port-failure" | "audit-unavailable";
+/** Validated structured tool diagnostics retained additively until the model-only N1 boundary. */
+export interface TypedToolFailure {
+  code: string;
+  message: string;
+  hint?: string;
+  userAction?: string;
+  reason?: string;
+}
 export interface ToolError {
   code: ToolErrorCode;
   message: string;
@@ -54,6 +64,8 @@ export interface ToolError {
   sourceCode?: string;
   /** Selects fixed text at the N1 model boundary without altering stored diagnostic text. */
   internalFailure?: InternalToolFailureCategory;
+  /** The adapter's typed payload; existing message/sourceCode remain unchanged for logs. */
+  typedFailure?: TypedToolFailure;
 }
 export type ToolDecisionMeta = "none" | "allow" | "approved" | "deny" | "ask-refused";
 
@@ -224,7 +236,12 @@ export class ToolDispatcher {
       const ran = await this.#run(tool, args, ctx, classified);
       if (ran.kind === "timeout") return out(fail("tool-timeout", `${tool.name} exceeded its ${tool.limits.timeoutMs} ms limit`, via, {}, true));
       if (ran.kind === "aborted") return out(fail("aborted", `${tool.name} was aborted`, via, {}, true));
-      if (ran.kind === "failed") return out(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, ran.sourceCode ? { sourceCode: ran.sourceCode } : {}, true));
+      if (ran.kind === "failed") {
+        return out(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, {
+          ...(ran.sourceCode ? { sourceCode: ran.sourceCode } : {}),
+          ...(ran.typedFailure ? { typedFailure: ran.typedFailure } : {}),
+        }, true));
+      }
 
       // Central taint producer: trust comes from registration/classification, never result payload claims.
       if (tool.trust === 'untrusted' || /^(?:web\.|mcp\.|peer\.)/.test(tool.name) || (tool.capability === 'fs.read' && call.flags?.outsideRoots)) this.#taintedTurns.add(this.#turnKey(ctx));
@@ -358,7 +375,10 @@ export class ToolDispatcher {
     return r;
   }
 
-  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, classified?: ToolClassification): Promise<{ kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" } | { kind: "failed"; message: string; sourceCode?: string }> {
+  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, classified?: ToolClassification): Promise<
+    { kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" }
+    | { kind: "failed"; message: string; sourceCode?: string; typedFailure?: TypedToolFailure }
+  > {
     const timers = this.#d.timers ?? realTimers;
     const ac = new AbortController();
     return new Promise((resolve) => {
@@ -368,9 +388,44 @@ export class ToolDispatcher {
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
       Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
-        .then((value) => finish({ kind: "ok", value }), (e: unknown) => { const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string" && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined; finish({ kind: "failed", message: errMsg(e), ...(sourceCode ? { sourceCode } : {}) }); });
+        .then((value) => finish({ kind: "ok", value }), (e: unknown) => {
+          const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string"
+            && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined;
+          const typedFailure = typedFailureOf(e);
+          finish({ kind: "failed", message: errMsg(e), ...(sourceCode ? { sourceCode } : {}),
+            ...(typedFailure ? { typedFailure } : {}) });
+        });
     });
   }
+}
+
+function typedFailureOf(error: unknown): TypedToolFailure | undefined {
+  try {
+    return validatedTypedFailure(error);
+  } catch {
+    // A malformed tool exception must still finish through the original plain-failure path.
+    return undefined;
+  }
+}
+
+function validatedTypedFailure(error: unknown): TypedToolFailure | undefined {
+  const detail: unknown = error instanceof FsFailure ? error.toResult()
+    : error instanceof ToolAdapterError ? error.detail : undefined;
+  if (!detail || typeof detail !== "object" || !("isError" in detail) || detail.isError !== true
+    || !("error" in detail) || !detail.error || typeof detail.error !== "object") return undefined;
+  const value = detail.error;
+  if (!("code" in value) || typeof value.code !== "string" || !/^[a-z0-9_.-]{1,64}$/.test(value.code)
+    || !("message" in value) || typeof value.message !== "string") return undefined;
+  const fields = value as Record<string, unknown>;
+  for (const key of ["hint", "userAction", "reason"]) {
+    if (fields[key] !== undefined && typeof fields[key] !== "string") return undefined;
+  }
+  return {
+    code: value.code, message: value.message,
+    ...(typeof fields.hint === "string" ? { hint: fields.hint } : {}),
+    ...(typeof fields.userAction === "string" ? { userAction: fields.userAction } : {}),
+    ...(typeof fields.reason === "string" ? { reason: fields.reason } : {}),
+  };
 }
 
 function argsSize(args: unknown): number {
