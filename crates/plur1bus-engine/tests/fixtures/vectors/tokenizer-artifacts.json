@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "artifacts": [
+    {
+      "id": "embedding-e5-small",
+      "family": "embedding-e5-small",
+      "file": "tokenizer.json",
+      "repository": "intfloat/multilingual-e5-small",
+      "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/tokenizer.json",
+      "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
+      "license": "MIT",
+      "licenseStatus": "permissive"
+    },
+    {
+      "id": "embeddinggemma-2",
+      "family": "embeddinggemma-2",
+      "file": "tokenizer.json",
+      "repository": "onnx-community/embeddinggemma-2-ONNX",
+      "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+      "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/tokenizer.json",
+      "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
+      "license": "Apache-2.0",
+      "licenseStatus": "permissive"
+    }
+  ]
+}
