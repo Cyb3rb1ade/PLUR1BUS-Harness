@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import type { Page } from "playwright";
 import { expectAxeClean } from "./axe.ts";
-import { browserSkip, setup, signIn, teardown, withApp, type App } from "./harness.ts";
+import { browserSkip, setup, signIn, teardown, until, withApp, type App } from "./harness.ts";
 
 before(setup);
 after(teardown);
@@ -160,7 +160,7 @@ describe("palette entities: fan-out behaviour", opts, () => {
         new MutationObserver(() => { for (const o of Array.from(document.querySelectorAll("dialog.palette [role=option]"))) (window as unknown as { seen: string[] }).seen.push(o.textContent ?? ""); }).observe(document.body, { childList: true, subtree: true, characterData: true });
       });
       await combo(page).fill("al");
-      while (!calls(app, "session.list").some((c) => (c.params as { search: string }).search === "al")) await new Promise((r) => setTimeout(r, 10));
+      await until(() => calls(app, "session.list").some((c) => (c.params as { search: string }).search === "al"), "the session.list call for \"al\"");
       await combo(page).fill("alp");
       await opt(page, /Alp NEW answer/).waitFor();
       releaseOld();

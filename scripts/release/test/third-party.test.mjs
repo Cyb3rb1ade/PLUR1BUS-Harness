@@ -122,6 +122,33 @@ test("npm reuse refuses malformed inventories and dangling npm notice references
   });
 });
 
+test("LGPL-3.0 packages get the supplied GNU texts; sharp's libvips packages also the source directions", () => {
+  fixture(({ directory, calls }) => {
+    const bare = join(directory, "bare-package");
+    mkdirSync(bare);
+    const collect = (command) => {
+      calls.push({ command });
+      if (command === "pnpm") return {
+        "LGPL-3.0-or-later": [{ name: "@img/sharp-libvips-test-x64", versions: ["1.3.4"], paths: [bare], author: "" }],
+        "Apache-2.0 AND LGPL-3.0-or-later": [{ name: "@img/sharp-win32-test", versions: ["0.35.5"], paths: [bare], author: "" }],
+        "LGPL-3.0-only": [{ name: "other-lgpl", versions: ["2.0.0"], paths: [bare], author: "" }],
+        "MIT OR Apache-2.0 OR LGPL-2.1-or-later": [{ name: "r-efi-like", versions: ["5.3.0"], paths: [bare], author: "" }],
+      };
+      return { packages: [] };
+    };
+    const notices = generateNotices({ directory, collect })["THIRD_PARTY-LICENSES.txt"];
+    const supplied = (file) => readFileSync(new URL(`../licence-texts/${file}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
+    const block = (file, packages) => `SHA256 ${sha(supplied(file))}\n${packages.map((p) => `npm:${p}/${file} (supplied by the harness)`).join("\n")}\n\n${supplied(file)}`;
+    const lgpl = ["@img/sharp-libvips-test-x64@1.3.4", "@img/sharp-win32-test@0.35.5", "other-lgpl@2.0.0"];
+    assert.ok(notices.includes(block("GPL-3.0.txt", lgpl)));
+    assert.ok(notices.includes(block("LGPL-3.0.txt", lgpl)));
+    assert.ok(notices.includes(block("libvips-sources.txt", lgpl.slice(0, 2))));
+    assert.match(supplied("LGPL-3.0.txt"), /^\s+GNU LESSER GENERAL PUBLIC LICENSE\n\s+Version 3, 29 June 2007\n/);
+    assert.match(supplied("GPL-3.0.txt"), /^\s+GNU GENERAL PUBLIC LICENSE\n\s+Version 3, 29 June 2007\n/);
+    assert.doesNotMatch(notices, /r-efi-like/, "a package with a permissive alternative needs no LGPL text");
+  });
+});
+
 test("native generation still collects npm metadata and uses the current platform", () => {
   fixture(({ directory, generate, calls }) => {
     writeFileSync(join(directory, "THIRD_PARTY.md"), "invalid baseline ignored in native mode\n");

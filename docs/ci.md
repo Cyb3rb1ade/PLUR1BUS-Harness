@@ -46,7 +46,7 @@ retain their existing path rules. Their checks are not folded into this workflow
 ### Required check and failures
 
 `ci-gate` is THE gate of `ci.yml`: the one check to wait for (and, once branch protection is configured, the one to
-require). It runs with `always()` after the required reliable jobs and the explicitly registered macOS browser advisory: `docs-hygiene`, `unit` (the
+require). It runs with `always()` after the required reliable jobs: `docs-hygiene`, `unit` (the
 `unit (ubuntu-24.04)` leg), P5 `core-unit-shard` and `core-unit` when TypeScript is selected, `wsl` and `web-browser` (itself the aggregate over `web-browser-build` and the four shards, and
 the exact-partition check). It requires `changes` to succeed and all category outputs to be literal `true` or `false`.
 Every selected required job must report `success`; `failure`, `cancelled`, `skipped`, an absent result or an unknown job in
@@ -54,7 +54,7 @@ Every selected required job must report `success`; `failure`, `cancelled`, `skip
 reports even when the plan selected nothing, which is why a skipped `unit` matrix (never reports `unit (ubuntu-24.04)`)
 is no reason to wait on a name.
 
-`web-browser-macos` is the sole explicit advisory dependency: the gate waits for its two-shard matrix outcome and accepts completed success, failure or skipped outcomes. Missing, cancelled or malformed results block. It is selected only when `proceed`, `web` and `macos` are all true.
+`web-browser-macos` was an advisory dependency of the gate until the owner decision of 2026-10-28: the gate waited for its two-shard matrix outcome, although it accepted a failure. Merges then waited for hours on the macOS runner queue, so the gate no longer waits for it. It still runs when `proceed`, `web` and `macos` are all true and reports its own check.
 
 Everything else in `ci.yml` is deliberately outside the gate and not in its `needs`, so it can neither fail nor delay it:
 `unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
@@ -174,6 +174,45 @@ Platform-sensitive paths (the `SENSITIVE` list in the script; edit it there only
 `.github/workflows/**`. A trailing `*` is a prefix match. `desktop.yml` additionally gates its macOS leg on
 `apps/desktop/**` (`--extra`).
 
+## Self-hosted macOS runner
+
+Since the owner decision of 2026-10-28 the deciding macOS jobs, `quality` (`release-quality.yml`) and the macOS leg of
+`dependency-licenses`, can run on a macOS VM on the owner's Mac instead of waiting in GitHub's macOS queue. Their
+`runs-on` picks the label `plur1bus-macos-vm` only while the repository variable `MACOS_SELF_HOSTED` is `true`, and only
+for code from this repository: a push, a manual or scheduled run, or a pull request whose head branch is in this
+repository. A fork's pull request and a merge group always run on `macos-15`. `scripts/ci/macos-vm-runner.test.mjs`
+checks that no other job uses the label and that every route to it admits only those events.
+
+The pieces are in `scripts/ci/macos-vm-runner/`:
+
+- `guest-provision.sh` prepares the template, a stopped Parallels macOS VM: a hidden user `ghrunner` without admin
+  rights who runs every job, the Command Line Tools, the pinned runner (checked against its SHA-256), Rust 1.95 with
+  cargo-deny 0.20.2, no Spotlight, no automatic updates, no sleep, and a pf anchor that lets jobs reach the internet
+  but not the host, its LAN, a tailnet or link-local addresses. `plur1bus-runner-once`, the per-job entry point it
+  installs, refuses a job while that anchor is not loaded.
+- `orchestrator.sh` runs on the Mac as a LaunchAgent (`install-host.sh` installs it). For each job it clones the
+  template (an APFS clone: about a second and no disk space until the job writes), starts the clone, asks GitHub for a
+  single-use just-in-time runner configuration with the owner's `gh` login and passes it to the clone on stdin. The
+  runner takes exactly one job, then the clone is deleted, so no job sees what an earlier one left. The configuration
+  is never on a command line or in a log. Parallels' rollback mode (`--undo-disks`) is not used: it is accepted but has
+  no effect on a macOS guest.
+- The orchestrator sets `MACOS_SELF_HOSTED=true` once its first runner is registered, and `false` when it stops or
+  after three failed attempts in a row. While it runs on AC power it keeps the Mac from sleeping (`caffeinate -s`;
+  `PLUR1BUS_RUNNER_CAFFEINATE=0` turns that off).
+
+A job routed to the VM waits while the Mac sleeps or is off. Stop the orchestrator before a longer break
+(`launchctl bootout gui/$(id -u)/com.plur1bus.ci-runner`): new runs then go to GitHub-hosted runners again, and a job
+that was already queued for the VM needs a re-run. `prlctl exec` needs the Parallels guest tools, which stop
+answering when the VM is isolated, so `--isolate-vm` stays off. Instead the orchestrator closes every other channel on
+each stopped clone and checks the result before it boots: host and guest shared folders (including the home folder
+Parallels may share by default), the shared profile, cloud, clipboard, applications and SmartMount, automatic camera
+and smart card sharing, host location, and a host microphone on the sound device. A clone that fails the check never
+starts.
+
+To change the template (a new runner version, another toolchain), stop the orchestrator, start the template, run
+`guest-provision.sh` in it as its header describes, shut it down and run `install-host.sh` again. Never start the
+template while the orchestrator runs.
+
 ## Nightly
 
 `ci.yml`, `desktop.yml` and `hermes-host.yml` each have a `schedule:` trigger (full matrix); `nightly.yml` keeps the real-model
@@ -198,7 +237,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `core-unit-shard`, `core-unit` | Gated. Three measured Ubuntu Core shards plus the exact-partition check; missing manifests, failure and cancellation block |
 | `unit-os` | Not gated; only under the full-platform policy. The same steps as `unit` on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)`: full offline TypeScript workspace tests on macOS, every package but Core on Windows |
 | `core-unit-shard-windows`, `core-unit-windows` | Not gated; only under the full-platform policy. Core on `windows-2025` in the three measured Ubuntu shards (`core unit shard i/3 (windows-2025)`) plus their exact-partition check |
-| `web-browser-macos` | Explicit advisory dependency: waits for the result, permits completed failure/skipped; selected only for proceed + web + macos |
+| `web-browser-macos` | Not gated (since 2026-10-28). Runs for proceed + web + macos and reports its own check |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
 | `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command); the macOS leg follows the full-platform policy |
 | `service` | Not gated. Service manager tests; existing systemd-unavailable handling remains documented in the workflow; the macOS and Windows legs follow the full-platform policy |
@@ -207,11 +246,11 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `release-scripts` | Not gated. Ubuntu-only offline release tests and local actionlint validation of all workflows |
 | `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners (the three non-Linux ones follow the full-platform policy); golden-set visual diff |
 | `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue; the macOS, Windows and Windows ARM legs follow the full-platform policy |
-| `ci-gate` | THE gate: required jobs above plus the explicitly registered macOS browser advisory |
+| `ci-gate` | THE gate: the required jobs above |
 | nightly `system-real-models` | Real model acceptance and full kill soak; may fetch model weights |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 
-CI/nightly actions are pinned to full commit SHAs; comments record their versions. `node scripts/lint-hygiene.mjs` (rule HYG-016) rejects any workflow `uses:` that is not a full SHA, a local `./` action or a `docker://` image with a `@sha256:` digest. It also rejects known annotated tag-object SHAs from the small offline denylist in `scripts/workflow-pin-gate.mjs`. That list cannot establish the type of an arbitrary Git object: when updating a pin, verify it through the Git API or `git ls-remote <repository> 'refs/tags/<tag>' 'refs/tags/<tag>^{}'` and use the peeled commit, with a version comment. Add newly discovered tag objects to the list with verification evidence and a regression test. Workflow default is `contents: read`. PR concurrency cancels superseded runs. No new third-party retry action is introduced.
+CI/nightly actions are pinned to full commit SHAs; comments record their versions. `node scripts/lint-hygiene.mjs` (rule HYG-016) rejects any workflow `uses:` that is not a full SHA, a local `./` action or a `docker://` image with a `@sha256:` digest. It also rejects known annotated tag-object SHAs from the small offline denylist in `scripts/workflow-pin-gate.mjs`. That list cannot establish the type of an arbitrary Git object: when updating a pin, verify it through the Git API or `git ls-remote <repository> 'refs/tags/<tag>' 'refs/tags/<tag>^{}'` and use the peeled commit, with a version comment. Add newly discovered tag objects to the list with verification evidence and a regression test. Dependabot (`.github/dependabot.yml`) proposes action updates once a week in one group, and only releases that are at least 14 days old (`cooldown.default-days: 14`, owner decision 2026-10-28), so a compromised release has time to be noticed before it reaches a workflow that holds credentials. Workflow default is `contents: read`. PR concurrency cancels superseded runs. No new third-party retry action is introduced.
 
 ### Core sharding and job budgets (GP5 P5)
 
@@ -431,7 +470,7 @@ To collect file timings locally, set `TEST_TIMING_DIR` and `NODE_OPTIONS` to the
 
 The fix is an explicit, documented switch, not a removed browser path: `PLUR1BUS_WEB_BROWSER=off` makes every browser suite of `packages/web` report `skipped` with the reason `browser suites off (PLUR1BUS_WEB_BROWSER=off); they run in the web-browser job`. The `unit-os` job sets it on macOS only (the identical Linux `unit` steps leave it empty) (`runner.os == 'macOS'`); Linux and Windows are unchanged. Combined with `PLUR1BUS_WEB_E2E_REQUIRED=1` it is a startup failure, so required mode can never be switched off. The switch is tested in `packages/web/test/browser-required.test.ts`.
 
-The coverage moves to `web-browser (macos-15, i/2)` (job `web-browser-macos`): two round-robin shards (`PLUR1BUS_TEST_SHARD=i/2`), frozen dependencies, `pnpm gen && pnpm build`, lockfile-matched Playwright Chromium (`PLUR1BUS_WEB_E2E_REQUIRED=1`, cached in `~/Library/Caches/ms-playwright`). It runs only when `changes` reports `proceed`, `web` and `macos` all true (macOS policy: push to main, schedule, dispatch, label `ci:macos`, platform-sensitive paths). It is an explicit advisory dependency of `ci-gate`: the gate waits for its matrix outcome, accepts `success`, `failure` or `skipped`, and rejects missing, cancelled or malformed results. It is not part of the required Linux `web-browser` aggregate and writes no shard manifest. The served-stack tests (`real-transport`, `real-accounts`, `surfaces-e2e`) need the Rust CLI and stay with the Linux shards (they skip here with a reason).
+The coverage moves to `web-browser (macos-15, i/2)` (job `web-browser-macos`): two round-robin shards (`PLUR1BUS_TEST_SHARD=i/2`), frozen dependencies, `pnpm gen && pnpm build`, lockfile-matched Playwright Chromium (`PLUR1BUS_WEB_E2E_REQUIRED=1`, cached in `~/Library/Caches/ms-playwright`). It runs only when `changes` reports `proceed`, `web` and `macos` all true (macOS policy: push to main, schedule, dispatch, label `ci:macos`, platform-sensitive paths). It is not part of `ci-gate` (owner decision 2026-10-28; until then the gate waited for its outcome as an advisory dependency) and not part of the required Linux `web-browser` aggregate, and it writes no shard manifest. The served-stack tests (`real-transport`, `real-accounts`, `surfaces-e2e`) need the Rust CLI and stay with the Linux shards (they skip here with a reason).
 
 ## M3 web browser checks
 

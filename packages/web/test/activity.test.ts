@@ -1,7 +1,7 @@
 // Activity tab of /logs (K9): grouped feed from logs.query, audit.verify card, states, paging, roles, German. Mock /rpc.
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
+import { browserSkip, openRoute, setup, teardown, until, withApp, type App } from "./harness.ts";
 import { rpcError } from "./mock-rpc.ts";
 import { at, defaultActivity, diag, installActivity, NOW, type ActivityFx } from "./activity-fixtures.ts";
 
@@ -111,7 +111,7 @@ describe("activity: audit trail card", opts, () => {
       assert.ok(/Last checked .*2026/.test(text), "check time shown (the fixed browser clock is Oct 2026)");
       assert.equal(calls(app, "audit.verify").length, 1);
       await c.getByRole("button", { name: "Verify the audit trail again" }).click();
-      while (calls(app, "audit.verify").length < 2) await new Promise((r) => setTimeout(r, 10));
+      await until(() => calls(app, "audit.verify").length >= 2, "the second audit.verify call");
       await app.page.waitForFunction(() => document.querySelector('[data-verify="verified"]') !== null);
       assert.equal(calls(app, "audit.verify").length, 2);
     });
