@@ -201,6 +201,9 @@ fn start_milliseconds(pid: u32) -> io::Result<i64> {
 }
 
 #[cfg(target_os = "macos")]
+// libc deprecates its mach_timebase_info binding in favour of the mach2 crate; the Darwin API itself is current,
+// and a new dependency for this one conversion is not worth it.
+#[allow(deprecated)]
 fn start_milliseconds(pid: u32) -> io::Result<i64> {
     let native_pid = libc::c_int::try_from(pid).map_err(|_| invalid_process_data())?;
     // SAFETY: zeroed POD buffers passed to the APIs with their matching types/flavor.
