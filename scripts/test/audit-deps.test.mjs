@@ -268,6 +268,18 @@ describe("CLI on a fixture tree", () => {
     reset();
     assert.equal(main(["--root", root, "--only", "pnpm", "--allow-incomplete"], io(fakeRun({ pnpmFails: true }))), 0);
   });
+  it("names pnpm's own error when `pnpm licenses list --json` fails, not the last line of its JSON document", () => {
+    reset();
+    // pnpm 10 reports the failure as a pretty-printed {"error":{...}} on stdout and exits 1; its last line is "}".
+    const stdout = JSON.stringify({ error: {
+      code: "ERR_PNPM_MISSING_PACKAGE_INDEX_FILE",
+      message: "Failed to find package index file for engine@https://codeload.example/tar.gz/abc, please consider running 'pnpm install'",
+    } }, null, 2);
+    assert.equal(main(["--root", root, "--only", "pnpm", "--json"], io(() => ({ status: 1, stdout, stderr: "", error: null }))), 3);
+    const [incomplete] = JSON.parse(text()).incomplete;
+    assert.equal(incomplete.ecosystem, "pnpm");
+    assert.match(incomplete.reason, /: ERR_PNPM_MISSING_PACKAGE_INDEX_FILE: Failed to find package index file for engine@/);
+  });
   it("a violation outranks an incomplete ecosystem", () => {
     reset();
     assert.equal(main(["--root", root, "--only", "pnpm,cargo"], io(fakeRun({ pnpmFails: true, cargo: "AGPL-3.0-only" }))), 1);
