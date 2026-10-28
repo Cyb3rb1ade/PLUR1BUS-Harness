@@ -256,7 +256,7 @@ test('a PR without the platform policy still gets a passing gate when the gated 
   const outputs = Object.fromEntries(Object.entries({ proceed: true, macos: false, ...classify({ event: 'pull_request', files: ['packages/core/src/core.ts'] }) }).map(([k, v]) => [k, String(v)]));
   const needs = { changes: { result: 'success', outputs } };
   for (const [job, required] of Object.entries(selections(outputs))) needs[job] = { result: required ? 'success' : 'skipped' };
-  assert.equal(selections(outputs)['web-browser-macos'], false);
+  assert(!('web-browser-macos' in selections(outputs)), 'the macOS browser shards are outside the gate');
   assert.deepEqual(evaluateGate(needs), []);
   assert(!('unit-os' in needs), 'the gated non-Linux jobs are not part of the gate');
 });
