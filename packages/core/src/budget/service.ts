@@ -3,6 +3,7 @@
 // Budgets count tokens and media units: images and video seconds (owner decisions 2026-10-19: no money dimension anywhere;
 // price tables and cost limits were removed). The call port (`calls.ts`) enforces all three; `check`/`enforce` here are tokens only.
 import type { DatabaseSync } from "node:sqlite";
+import { storedCacheReadWeight, writeCacheReadWeight } from "./cache-read-weight.ts";
 import { periodBounds, validateTimeZone, type Period } from "./period.ts";
 import { openBudgetDb, transaction } from "./store.ts";
 
@@ -129,6 +130,10 @@ export interface BudgetService {
   setLimit(l: LimitKey & { soft?: number | null; hard?: number | null }): Limit | null;
   timeZone(): string;
   setTimeZone(tz: string): string;
+  /** Weight (0 to 1) of cache reads in token limits (RE-D29); 1, the default, counts them in full. */
+  cacheReadWeight(): number;
+  /** Stores a weight from 0 to 1, rounded to millionths, and returns it as stored; anything else is a RangeError. */
+  setCacheReadWeight(w: number): number;
   prune(beforeTs: number): number;
   close(): void;
 }
@@ -312,6 +317,8 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
       db.prepare("INSERT INTO settings (key, value) VALUES ('timezone', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(v);
       return v;
     },
+    cacheReadWeight: () => storedCacheReadWeight(db),
+    setCacheReadWeight: (w) => writeCacheReadWeight(db, w),
     prune: (beforeTs) => Number(db.prepare("DELETE FROM usage_event WHERE ts < ?").run(count("beforeTs", beforeTs)).changes),
     close: () => db.close(),
   };
