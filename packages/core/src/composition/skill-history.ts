@@ -17,6 +17,8 @@ export function skillHistoryMessages(req: ChatRequest, loaded: RestoredSessionSk
     for (const load of pending) {
       const anchor = load.turnId === undefined ? -1 : req.messages.findIndex(item =>
         item.role === "user" && item.turnId === load.turnId);
+      // A covered turn identity is authoritative after compaction; absent anchors must stay omitted.
+      if (load.turnId && anchor < 0 && req.messages.some(item => item.turnId !== undefined)) continue;
       if (index !== (anchor >= 0 ? anchor : fallback)) continue;
       const suffix = createHash("sha256").update(JSON.stringify([load.turnId, load.name, load.id])).digest("hex");
       let id = load.id;
