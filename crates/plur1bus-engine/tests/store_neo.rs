@@ -6,6 +6,7 @@ use plur1bus_engine::store::state_file::StateFile;
 use plur1bus_engine::text::json::{parse_json, write_json, TolerantJsonValue};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 
 // macOS exposes the system temp root through /var -> /private; exercise trusted paths
 // from its physical directory while the TempDir guard still owns cleanup.
@@ -382,6 +383,28 @@ fn an_empty_workspace_has_generation_zero_and_truncated_vectors_are_errors() {
     let generation = store.generation().unwrap();
     fs::write(directory.path().join(&generation.file), [0u8; 3]).unwrap();
     assert!(store.read_vectors(&generation).is_err());
+}
+
+#[test]
+fn an_append_keeps_a_line_another_descriptor_appends_afterwards() {
+    // Node appends to several ledgers with appendFileSync and no lock. A Rust append must write
+    // into the same file instead of replacing it, so a cooperating O_APPEND writer loses nothing.
+    let directory = TempDirectory::new();
+    let path = directory.path().join("conflict-log.jsonl");
+    let mut other = fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(&path)
+        .unwrap();
+    other.write_all(b"{\"count\":1}\n").unwrap();
+    let ledger = JsonlLedger::<Counter>::open(&path).unwrap();
+    ledger.append(&Counter { count: 2 }).unwrap();
+    other.write_all(b"{\"count\":3}\n").unwrap();
+    drop(other);
+    assert_eq!(
+        fs::read_to_string(&path).unwrap(),
+        "{\"count\":1}\n{\"count\":2}\n{\"count\":3}\n"
+    );
 }
 
 #[test]

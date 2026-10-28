@@ -16,7 +16,7 @@ reports legacy version `"0"`; an unreadable or unsupported marker is an error.
 | `vectors.<gen>.f32`, `vector-index.json` | `store::neo_files` | Little-endian Float32 vectors; the index names the generation and records byte offsets, lengths and dimensions. The index is the commit point. |
 | `turn-journal.jsonl`, `record-index.json` | `store::neo_files`, `store::ledger_types` | Actual Node turn records retain `content`; the reader does not invent a `statement` field. |
 | `conflict-log.jsonl`, `conflict-resolved.jsonl`, `memory-candidates.jsonl`, `destructive-ops.jsonl` | `store::ledger`, `store::ledger_types` | Typed records through tolerant JSON; a lone UTF-16 surrogate stays an escaped surrogate when serialized. |
-| `behavior-cards.jsonl`, `retrieval-ledger.jsonl`, `reply-outcomes.jsonl`, `reconsolidation-events.jsonl`, `reaction-ledger.jsonl` | `store::ledger`, `store::ledger_types` | Node JSONL record shapes; a caller holds the shared writer lock during append/read-modify-write. |
+| `behavior-cards.jsonl`, `retrieval-ledger.jsonl`, `reply-outcomes.jsonl`, `reconsolidation-events.jsonl`, `reaction-ledger.jsonl` | `store::ledger`, `store::ledger_types` | Node JSONL record shapes. |
 | `run-state.json`, `snapshot.json`, `.emotional-state.json`, `semantic-lens-index.json`, `hook-state.json`, re-embedding state | `store::state_file` | Tolerant JSON load and atomic replace. Invalid state remains a distinct failure; only an absent file returns no state. |
 | `.neo-write.lock/owner.json` | `store::lock` (private `neo_lock` implementation) | The existing Node directory-lock layout, with its own orphan grace and liveness rules below. |
 | Registry and job `.lock` files | `store::lock`, `plur1bus_rpc::process` | Exclusive creation and the Node nonce/process-incarnation ownership protocol described below. |
@@ -91,8 +91,10 @@ evicts only idle least-recently-used entries after its soft bound.
 
 The eleven ledger types expose fixture-derived known fields and nested shapes, including `JsString` for fields that
 can retain lone surrogates. Their tolerant codec preserves unknown fields, historical optional shapes, object order
-and unedited numeric lexemes. State and ledger IO primitives do not implement the downstream knowledge-curation,
-rebind, recall or capture workflows; the concrete fold boundaries are recorded in
+and unedited numeric lexemes. `JsonlLedger::append` is one `O_APPEND` write, like Node's `appendFileSync`, and never
+replaces the file: Node appends to several of these files without any lock, so Rust and Node appenders must keep each
+other's lines. Like Node's, the append is not fsynced. State and ledger IO primitives do not implement the downstream
+knowledge-curation, rebind, recall or capture workflows; the concrete fold boundaries are recorded in
 [`MODULE-MAP.md`](superpowers/plans/rust-engine/MODULE-MAP.md).
 
 Several assumptions in the brief/audit differ from the pinned writer. There is no `generation.json`: `generation()` and

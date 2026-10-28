@@ -1,18 +1,18 @@
 //! Typed, lossless Node JSONL ledgers.
 
-use std::fs;
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 use crate::contract::StoreError;
 use crate::text::json::{parse_json, write_json};
 
-use super::atomic_write::atomic_write;
 use super::paths::{assert_trusted_path, secure_dir};
 use super::state_file::{io_error, JsonRecord};
 
-/// One engine-owned JSONL file. Writers hold the corresponding shared process lock while
-/// appending, so a complete atomic replacement cannot lose another writer's update.
+/// One engine-owned JSONL file. Appends are single `O_APPEND` writes like the pinned Node
+/// writers' `appendFileSync`, so Rust and Node appenders keep each other's lines.
 pub struct JsonlLedger<T> {
     path: PathBuf,
     record: PhantomData<T>,
@@ -28,8 +28,10 @@ impl<T: JsonRecord> JsonlLedger<T> {
         })
     }
 
-    /// Append exactly one compact JSON line through the shared atomic writer.
-    /// The caller holds the ledger's writer lock for this read/replace transaction.
+    /// Append exactly one compact JSON line in a single write to the end of the file.
+    /// Node appends to some of these files without any lock, so replacing the file could drop a
+    /// line Node wrote in between. A final line without its newline is closed in the same write.
+    /// Like Node's append, it is not fsynced; a new file is private (`0600` on Unix).
     pub fn append(&self, value: &T) -> Result<(), StoreError> {
         assert_trusted_path(&self.path)?;
         if let Some(parent) = self
@@ -39,17 +41,15 @@ impl<T: JsonRecord> JsonlLedger<T> {
         {
             secure_dir(parent)?;
         }
-        let mut bytes = match fs::read(&self.path) {
-            Ok(bytes) => bytes,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-            Err(error) => return Err(io_error(error)),
-        };
-        if !bytes.is_empty() && bytes.last() != Some(&b'\n') {
-            bytes.push(b'\n');
+        let line = write_json(&value.to_json()?);
+        let mut file = open_for_append(&self.path).map_err(io_error)?;
+        let mut record = Vec::with_capacity(line.len() + 2);
+        if ends_without_newline(&mut file).map_err(io_error)? {
+            record.push(b'\n');
         }
-        bytes.extend_from_slice(write_json(&value.to_json()?).as_bytes());
-        bytes.push(b'\n');
-        atomic_write(&self.path, &bytes).map_err(io_error)
+        record.extend_from_slice(line.as_bytes());
+        record.push(b'\n');
+        file.write_all(&record).map_err(io_error)
     }
 
     /// Read a consistent snapshot. Empty lines are ignored, CRLF is accepted and malformed
@@ -73,11 +73,31 @@ impl<T: JsonRecord> JsonlLedger<T> {
         assert_trusted_path(&self.path)?;
         match fs::read_to_string(&self.path) {
             Ok(text) => Ok(text),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
-            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
-                Err(StoreError::Corrupt)
-            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(String::new()),
+            Err(error) if error.kind() == io::ErrorKind::InvalidData => Err(StoreError::Corrupt),
             Err(error) => Err(io_error(error)),
         }
     }
+}
+
+fn open_for_append(path: &Path) -> io::Result<File> {
+    #[allow(unused_mut)] // Unix alone sets the private file mode.
+    let mut options = OpenOptions::new();
+    options.read(true).append(true).create(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options.open(path)
+}
+
+fn ends_without_newline(file: &mut File) -> io::Result<bool> {
+    if file.metadata()?.len() == 0 {
+        return Ok(false);
+    }
+    file.seek(SeekFrom::End(-1))?;
+    let mut last = [0u8; 1];
+    file.read_exact(&mut last)?;
+    Ok(last[0] != b'\n')
 }
