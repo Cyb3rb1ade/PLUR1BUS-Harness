@@ -155,7 +155,8 @@ selected leg passed or no leg was selected.
 
 The legs run on `ubuntu-24.04`, `macos-15` and `windows-2025`, because pnpm installs different
 native packages on each platform. A main push runs only the Linux leg: the pull request that
-changed a dependency has already run all three.
+changed a dependency has already run all three. The macOS leg can run on the owner's macOS VM
+runner instead (`docs/ci.md`, "Self-hosted macOS runner"), same platform, same native packages.
 
 Each leg performs a frozen workspace install, then runs `node scripts/audit-deps.mjs --json`.
 Its `dependency-licenses-<os>` artifact retains `licenses.json`, `errors.txt` and `exit-code.txt` for

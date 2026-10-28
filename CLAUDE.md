@@ -37,6 +37,9 @@ Wait for these, they are the reliable signal:
   touches no dependency file skips the three legs on purpose, and the gate passes. Wait for the gate, not the legs.
 
 `build + smoke (amd64)` only runs for pull requests that touch the paths in `container.yml`; a check that is absent is not a red one.
+While the repository variable `MACOS_SELF_HOSTED` is `true`, `quality` and the macOS leg of `dependency-licenses` run on the
+owner's macOS VM runner (`docs/ci.md`, "Self-hosted macOS runner"). One that waits for that runner while the Mac is off is
+not red: report it.
 `ci-gate (label no-op)` is what a run for a label other than `ci:macos` reports: it is not the gate, ignore it.
 
 Do not wait for these, and do not treat them as blocking. They are slow, flaky or already

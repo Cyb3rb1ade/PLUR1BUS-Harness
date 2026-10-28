@@ -174,6 +174,45 @@ Platform-sensitive paths (the `SENSITIVE` list in the script; edit it there only
 `.github/workflows/**`. A trailing `*` is a prefix match. `desktop.yml` additionally gates its macOS leg on
 `apps/desktop/**` (`--extra`).
 
+## Self-hosted macOS runner
+
+Since the owner decision of 2026-10-28 the deciding macOS jobs, `quality` (`release-quality.yml`) and the macOS leg of
+`dependency-licenses`, can run on a macOS VM on the owner's Mac instead of waiting in GitHub's macOS queue. Their
+`runs-on` picks the label `plur1bus-macos-vm` only while the repository variable `MACOS_SELF_HOSTED` is `true`, and only
+for code from this repository: a push, a manual or scheduled run, or a pull request whose head branch is in this
+repository. A fork's pull request and a merge group always run on `macos-15`. `scripts/ci/macos-vm-runner.test.mjs`
+checks that no other job uses the label and that every route to it admits only those events.
+
+The pieces are in `scripts/ci/macos-vm-runner/`:
+
+- `guest-provision.sh` prepares the template, a stopped Parallels macOS VM: a hidden user `ghrunner` without admin
+  rights who runs every job, the Command Line Tools, the pinned runner (checked against its SHA-256), Rust 1.95 with
+  cargo-deny 0.20.2, no Spotlight, no automatic updates, no sleep, and a pf anchor that lets jobs reach the internet
+  but not the host, its LAN, a tailnet or link-local addresses. `plur1bus-runner-once`, the per-job entry point it
+  installs, refuses a job while that anchor is not loaded.
+- `orchestrator.sh` runs on the Mac as a LaunchAgent (`install-host.sh` installs it). For each job it clones the
+  template (an APFS clone: about a second and no disk space until the job writes), starts the clone, asks GitHub for a
+  single-use just-in-time runner configuration with the owner's `gh` login and passes it to the clone on stdin. The
+  runner takes exactly one job, then the clone is deleted, so no job sees what an earlier one left. The configuration
+  is never on a command line or in a log. Parallels' rollback mode (`--undo-disks`) is not used: it is accepted but has
+  no effect on a macOS guest.
+- The orchestrator sets `MACOS_SELF_HOSTED=true` once its first runner is registered, and `false` when it stops or
+  after three failed attempts in a row. While it runs on AC power it keeps the Mac from sleeping (`caffeinate -s`;
+  `PLUR1BUS_RUNNER_CAFFEINATE=0` turns that off).
+
+A job routed to the VM waits while the Mac sleeps or is off. Stop the orchestrator before a longer break
+(`launchctl bootout gui/$(id -u)/com.plur1bus.ci-runner`): new runs then go to GitHub-hosted runners again, and a job
+that was already queued for the VM needs a re-run. `prlctl exec` needs the Parallels guest tools, which stop
+answering when the VM is isolated, so `--isolate-vm` stays off. Instead the orchestrator closes every other channel on
+each stopped clone and checks the result before it boots: host and guest shared folders (including the home folder
+Parallels may share by default), the shared profile, cloud, clipboard, applications and SmartMount, automatic camera
+and smart card sharing, host location, and a host microphone on the sound device. A clone that fails the check never
+starts.
+
+To change the template (a new runner version, another toolchain), stop the orchestrator, start the template, run
+`guest-provision.sh` in it as its header describes, shut it down and run `install-host.sh` again. Never start the
+template while the orchestrator runs.
+
 ## Nightly
 
 `ci.yml`, `desktop.yml` and `hermes-host.yml` each have a `schedule:` trigger (full matrix); `nightly.yml` keeps the real-model

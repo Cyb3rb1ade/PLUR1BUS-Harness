@@ -44,7 +44,9 @@ jobs:
         os: [ubuntu-24.04, macos-15, windows-2025]
         # A main push repeats what its pull request already checked on every platform.
         exclude: ${{ fromJSON(github.event_name == 'push' && '[{"os":"macos-15"},{"os":"windows-2025"}]' || '[]') }}
-    runs-on: ${{ matrix.os }}
+    # The macOS leg runs on the owner's macOS VM runner while MACOS_SELF_HOSTED is true, but only for code from this
+    # repository: a fork's pull request and a merge group keep macos-15 (docs/ci.md, "Self-hosted macOS runner").
+    runs-on: ${{ (matrix.os == 'macos-15' && vars.MACOS_SELF_HOSTED == 'true' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","plur1bus-macos-vm"]') || matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
