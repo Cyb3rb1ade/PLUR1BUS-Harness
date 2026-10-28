@@ -32,6 +32,9 @@ Wait for these, they are the reliable signal:
   `unit (ubuntu-24.04)`, `ci-gate` always reports.
 - `quality` (workflow `release-quality`, macos-15): third-party notices, `pnpm lint`, the release checklist and the dependency audit policy
 - `build + smoke (amd64)` (workflow `container`)
+- `dependency-licenses-gate` (workflow `dependency-licenses`): the licence report of `scripts/audit-deps.mjs` on
+  `ubuntu-24.04`, `macos-15` and `windows-2025` (`docs/dependency-policy.md`). It reports on every pull request; one that
+  touches no dependency file skips the three legs on purpose, and the gate passes. Wait for the gate, not the legs.
 
 `build + smoke (amd64)` only runs for pull requests that touch the paths in `container.yml`; a check that is absent is not a red one.
 `ci-gate (label no-op)` is what a run for a label other than `ci:macos` reports: it is not the gate, ignore it.
