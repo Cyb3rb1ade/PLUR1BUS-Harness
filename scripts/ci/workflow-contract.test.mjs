@@ -164,7 +164,7 @@ test('a label run for another label cannot report a check named ci-gate', () => 
 test('docs-hygiene uses the verified pnpm v6 commit', () => {
   const yaml = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
   const block = yaml.split('  docs-hygiene:\n')[1].split(/\n  [a-z][\w-]*:\n/)[0];
-  assert.match(block, /pnpm\/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6/);
+  assert.match(block, /pnpm\/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6\.1\.0/);
 });
 
 // #621's added macOS browser job used a renamed planning dependency. Catch this even when YAML merges cleanly.
