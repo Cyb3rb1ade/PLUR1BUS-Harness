@@ -19,7 +19,7 @@ not commitments. Test references are `file > test name` relative to `packages/co
 | `provider.ts` | `createTurnProvider`: the turn loop (identity, triage, tool registry, capability routing, prompt, provider call, tool dispatch, result cap), repair of invalid tool arguments, budget tickets and retry budget, cross-billing refusal. |
 | `http.ts` | `providerFetch` (egress decision, pinned address, no redirects) and `anthropicBreakpoints` (cache markers for the Anthropic wire body). |
 | `media.ts` | `composeMedia`: the first configured image adapter, wrapped so that egress and the secret lease happen per operation; the output store under `<home>/media/outputs`. |
-| `tools.ts` | `composeTools`: file tools, host tools, `exec.run`, media tools, `web.search`, `secret_names` and MCP tools into a fresh registry per turn. |
+| `tools.ts` | `composeTools`: file tools, host tools, `exec.run`, media tools, `web.search`, `web.fetch`, `secret_names` and MCP tools into a fresh registry per turn. |
 | `inbox.ts` | `openInbox` (store, service, one-off copy of legacy break-glass notices) and `lateInboxPort`. |
 | `trace.ts` | `stage` (start/end/error records with trace and span ids) and `errorCode`. |
 | `legacy.ts`, `collaboration.ts` | `legacyAdapter` (a plain `ChatProvider` as a router adapter, test seam) and `composedAgentRunner` (collaboration runs through the same pipeline). |
@@ -67,23 +67,48 @@ Behaviour at the edges (tests in `provider.test.ts`):
   streamed and **starts with** it, the remainder is emitted as one extra `delta`; if the final text does not start with
   the streamed text, nothing extra is emitted and the streamed text stands. Test: `provider.test.ts > characterization: the unstreamed remainder of the final text is emitted once; a mismatching final text is not`.
 * Usage is accumulated over all rounds and each `usage` chunk carries the running total (`provider.test.ts > usage is accumulated over all rounds of a turn`).
-* A tool call for a name that is not among the selected tools ends the turn with `TurnToolError("tool-unknown")`. Invalid
-  arguments are repaired at most once; a second invalid answer ends the turn with `tool-call-invalid`. The round limit
-  (default 25, `maxRounds`) ends the turn with `turn-round-limit` and the limit as `detail`.
+* Unknown tools, invalid arguments after one repair, denied calls, timeouts and execution failures return typed
+  `isError` tool results to the model. An unknown-tool result lists the offered tools and points to
+  `capabilities.search`. The next model round can recover. Three consecutive failures end the turn with a clear
+  failure-limit reason; a successful tool call resets the count. The round limit remains 25 by default.
+  Approval requiring an authenticated person, local-only model refusal, budget refusal and cancellation still stop
+  immediately. Human denial reasons otherwise remain typed tool results.
 * **Duplicate tool-call ids in one response are made unique, never merged** (`uniqueToolCallIds`). The first call keeps its
   id; each later duplicate gets `<id>_<n>` with the smallest `n >= 2` that no call of the same response uses. The new id is
   used everywhere for that call: the `tool.call`/`tool.result` chunks (the web chat keys tool cards by id and shows both),
   the dispatcher, and the assistant `toolCalls` and `tool` messages sent back to the provider. The suffix stays inside the
   provider id grammars (Anthropic: letters, digits, `_`, `-`). Tests: `provider.test.ts > duplicate tool-call ids in one response are made unique deterministically; both run, nothing is merged`,
   `provider.test.ts > a renamed duplicate never takes an id another call of the same response already uses`.
-* **A failing tool ends the turn** with a `TurnToolError` whose `code` is the tool's own error code and whose `detail` is a
-  redacted, bounded copy of the error envelope (`toolErrorDetail`): every string is redacted against the secret values this
-  composition leased (provider credentials, media keys; `TurnProviderOptions.secrets`) and the log redaction rules, the
-  message is cut to 500 characters, and an envelope still over 4096 characters keeps only `callId`, `tool`, `isError` and
-  `error.code`/`message`/`sourceCode`. The text is **not** sent to the model (no second model call is made) and is not
-  part of the streamed chunks. Tests: `provider.test.ts > a failing tool ends the turn with the tool's own error code and the original envelope`,
-  `provider.test.ts > a tool's thrown message is redacted against registered secrets and bounded in TurnToolError.detail`,
-  `provider.test.ts > toolErrorDetail reduces a bulky envelope (long hint, many issues) to its identity, code and a bounded message`.
+* Failed dispatcher results cross a separate model-only boundary before they enter `tool.result` and the next model
+  request. Internal failures expose fixed sentences; tool exceptions expose only a sanitized first line, capped at
+  300 characters; typed failures retain their structured hints and issues when they fit. Every string passes the
+  existing secret redactor and the home-path sanitizer. Logs, audit output and successful values keep their existing
+  contracts. Details and regression tests: [tool-reliability.md](tool-reliability.md#what-the-model-sees-when-a-tool-fails).
+
+The cached system zone contains stable working instructions and the agent's sorted `Available skills` catalogue.
+Descriptions retain the author's text, capped at 1024 characters per skill and about 4000 tokens overall; overflow
+points to `capabilities.search`. Blocked skills and extension agent visibility are applied first. With
+`skills.applyAt: next-session` the catalogue freezes with the session; otherwise it refreshes at turn boundaries.
+`skill.load` returns instructions without frontmatter and a resource list; `skill.read` reads a bounded ordinary file
+inside that skill's directory. Neither executes scripts. Harness-selected skills use the same load/result path after
+the current user message, persist in conversation and are not loaded again in that session. Successful loads count as
+skill `used` events.
+
+Selection uses the current and previous user messages plus task summaries. Short followups retain the last completed
+`skills.selected` choice; multi-task turns route each task separately and append its checklist to the volatile tail.
+Uncertain selection leaves the catalogue visible without preloading unrelated skill text. Decision-model failure
+falls back to rule triage and rule selection; a `chat` verdict keeps the core tools and skill catalogue.
+
+`agents.<id>.toolUse.mode` is `prefer` by default: a detected need forces only the first model round, followed by
+`auto`. `auto` leaves the choice to the model; `require-first` requests an initial tool even without detected need.
+The per-candidate wrapper suppresses forcing for Anthropic Extended Thinking and unverified local servers. A single
+retry after an answer without a needed tool is available only where the answer was buffered; streamed answers are
+counted without a replacement retry.
+
+The tool offer keeps available file/web/skill/discovery and memory tools ahead of relevance additions. Tools already
+offered in a session remain offered within the model-family cap and current permissions. Search results queue newly
+discovered tools for the next **turn**; the tool-zone bytes do not change during the current turn. A model cap smaller
+than the available core is honored and reported as core overflow rather than silently exceeded.
 
 ## Error codes of a turn (`trace.ts`)
 

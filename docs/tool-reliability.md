@@ -1,6 +1,10 @@
-# Tool reliability libraries (M2)
+# Tool reliability and skill discovery
 
-D97/D103/D105 live in `packages/core/src/toolcall/` and `packages/core/src/triage/`. The 2026-10-16 Draft stack (#536 → #540 and its L11 follow-up) binds persistent capability discovery and one decision-role triage call to composition. The central dispatcher remains authoritative. M2 acceptance 14 is partial: the real-Core next-turn skill test and recorded triage gates pass, while live-model acceptance and the listed lifecycle/task-owner gaps remain open. No new RPC method is added by this stack.
+D69/D97/D103/D105 live in `packages/core/src/toolcall/` and `packages/core/src/triage/`, with their real turn path in
+`composition/provider.ts`. Agents see their admitted skill catalogue, load instructions through tools and recover
+from typed tool failures. The central dispatcher remains authoritative for execution, approval and policy. Config
+adds `agents.<id>.toolUse.mode`; no RPC method or existing `--json` value is changed non-additively. Fixture results
+below establish harness behavior; live model quality and cache hit rates require separate measured runs.
 
 ## Validation and one repair
 
@@ -37,15 +41,17 @@ The caller applies cancellation and provider deadlines to this port.
 Anthropic's `input_schema`, or Gemini's `parametersJsonSchema` declaration. It is
 pure and preserves the authored input. Independent JSON goldens cover each wire.
 Names are validated before calls (character set, maximum length); descriptions
-and catalogue lengths are bounded. Dotted internal names need a reversible wire
-alias supplied by the future adapter binding; they are refused here.
+and catalogue lengths are bounded. Composition reversibly aliases dotted internal
+names such as `file.read` to provider-safe names such as `file_read` before compilation.
 
 The family table in `quirks.ts` supplies strict/parallel support, catalogue budgets,
 name/description rules and known malformed argument forms. The repair driver uses the selected
-family repertoire and includes it in correction hints. `local-small` has a
-smaller catalogue; unknown families conservatively allow four tools and no
-parallel/strict calls (not yet enforced for a family name that is also an `Object.prototype` member such as `constructor` or `toString`: the inherited member is returned as the quirks object, so the limits do not apply and `prepareCall` throws a `TypeError`). These are conservative library defaults, not live vendor
-limits or certifications; deployments can maintain explicit model-family rows.
+family repertoire and includes it in correction hints. Hosted OpenAI families allow 128 offered tools;
+Anthropic and Gemini allow 64. The `local-small` recommendation and unknown-family fallback allow 16, with no
+parallel/strict calls or forced tool choice. N-F1/F3 replaces the previous local recommendations of eight/four so the
+mandatory read/discovery/memory core fits. This is a bounded harness recommendation, not a measured local-model
+accuracy claim or a vendor certification. Only own table keys select a profile; names such as `constructor` and
+`toString` use the same conservative fallback.
 
 OpenAI strict mode requires closed object schemas and makes every property
 required. Authored optional properties become nullable. The integration must
@@ -78,6 +84,39 @@ and across batches when reused. Supply a durable transactional port to prevent
 repeat effects across crashes; in-memory coalescing is not exactly-once execution.
 Failed operations are retained too, since an error may occur after a side effect.
 
+## What the model sees when a tool fails
+
+The dispatcher keeps its diagnostic envelope. Immediately before a failed result is serialized into the model
+conversation, `toolcall/model-tool-error.ts` makes a separate sanitized copy. Successful results and the existing
+log/audit output paths are unchanged. There are three cases:
+
+1. **Internal failures:** the dispatcher marks the category explicitly. The model receives one fixed sentence;
+   arbitrary exception text and stacks are omitted.
+
+   | Category | Model message |
+   |---|---|
+   | Internal error | The tool call failed because of an internal error. |
+   | Classification failure | The tool call could not be classified safely. |
+   | Approval-port failure | The approval service is unavailable; the tool did not run. |
+   | Audit unavailable | The audit trail is unavailable; the tool did not run. |
+
+2. **Exceptions thrown by tools:** only the first message line survives, after the existing secret redactor and the
+   model-only home-path step, capped at 300 characters. `sourceCode` survives only when it matches
+   `^[a-z0-9_.-]{1,64}$`.
+3. **Typed dispatcher/tool failures:** codes, issues, hints, policy rules and human denial reasons remain structured
+   when they fit the envelope limit. Every string passes both sanitizers. Typed `FsFailure` messages and hints stay
+   byte-identical when they contain nothing that requires sanitizing.
+
+The current process home and its real path become `~`. Other user-home prefixes use `<user>` across Linux/macOS,
+Windows drive paths, `\\?\` paths and `/mnt/<drive>/Users/<name>` paths. This step does not replace standalone
+username words or existing `<deny:ssh>/…#hash` placeholders. The serialized failure is bounded to 4096 characters.
+
+Unknown-tool results list the offered tools and recommend `capabilities.search`. Invalid calls after the one repair,
+denials, tool errors and timeouts return correlated `tool.result` events and cost another model round. Three
+consecutive failures stop the turn; successful execution resets that count, and fixed internal-error sentences also
+count toward it. A required human approver, local-only refusal, budget refusal or abort still ends immediately.
+Tests: `test/toolcall/model-tool-error.test.ts` and `test/composition/provider.test.ts`.
+
 ## Capability registration, search and routing
 
 `CapabilityIndex` accepts tools, skills, MCP tools, extensions, plugin commands and
@@ -93,7 +132,20 @@ future `capabilities.search`; no RPC schema is changed.
 
 Only the engine's already-ready, explicitly local embedding provider is used. The index does not start a model/download or admit a cloud provider. Missing/failed local embedding keeps FTS5 routing alive; Doctor exposes the current mode and last recheck. Plugin commands/channel actions may supply discovery metadata through the common registry, without new implementations owned by this stack. Generated fallback fields are marked; authored metadata wins. Model-generated summaries and full-source background snapshots remain open.
 
-`capabilities.search` is a dispatcher-only in-process tool, distinct from RPC methods. It searches the same agent view and can add discovered tools to the next model round. It uses an unweighted discovery index, so a negative usage prior cannot hide a tool. All calls continue through current policy/roots/approval checks; argument-dependent denials are determined only when arguments exist.
+`capabilities.search` is a dispatcher-only in-process tool, distinct from RPC methods. It discovers both tools and
+skills in the same admitted agent view, using local embedding scores when ready and lexical search otherwise.
+Results contain name, kind, description and `useWhen`; they never contain full skill instructions. Newly discovered
+tools queue for the next **turn**, not a model round within the current turn. The discovery index has no usage
+penalty that could hide a tool. All execution still traverses current policy/roots/approval checks.
+
+The sorted `Available skills` system block retains authored descriptions, each capped at 1024 characters, within
+about 4000 tokens using the prompt builder's chars/4 estimate. Overflow reads `N more: use capabilities.search`.
+`blocked` and effective extension visibility apply before rendering; valid pins get priority within the three-skill
+preload limit. `next-session` freezes the catalogue with the session; `next-turn` refreshes only at turn boundaries.
+`skill.load {name}` returns instructions without frontmatter and the resource file list, records `used` and retains
+the load/result pair in conversation. A previously loaded skill is not loaded again in that session. Additional
+files require `skill.read {name,path}`, confined to that skill directory with traversal, symlink and 64 KiB limits.
+Neither tool runs scripts; execution remains behind `exec.run` and its existing approval policy.
 
 The registered system job `capabilities.recheck` runs at 03:00 host-local time, removes orphaned skill rows and recalibrates usage priors. File defaults are in `toolcall/calibration.defaults.json`; `<home>/capability-calibration.json` overrides them and is reloaded at recheck. Owner-approved values: minimum 10 effective offers, per-agent statistics with same-name/kind/version global fallback, maximum +0.2 bonus / −0.2 penalty, 14-day half-life (hourly UTC buckets), reset on version change or removal. The current success target/weight are 0.8/0.5 and search-miss weight 0.1. Priors affect ranking only after visibility/policy filtering. Legacy counters without timestamps do not train decayed priors. Review these values after about four weeks of Nightly data. The fixed-clock calibration and policy-precedence tests are in `test/toolcall/live-index.test.ts`.
 
@@ -117,9 +169,18 @@ confidence, chosen class, effort and reasons. It does not split ordinary "and"
 inside a task. This baseline is intentionally limited; `triageWithClassifier`
 accepts an asynchronous LLM decision port and validates its structured result.
 Short yes/no/continue followups in an active task skip classification.
-The classifier now rejects missing/non-array task lists with the documented validation error and fractional offsets before routing. Its segmentation regex avoids quadratic whitespace backtracking; the existing long-input/generative assertions remain active. `MessageTriage` additionally checks runtime shape/task consistency, bounds decision time, and fails to the default/core-only path on invalid/unavailable/timeout responses while propagating caller cancellation.
+The classifier rejects missing/non-array task lists and fractional offsets before routing. `MessageTriage` checks
+runtime shape/task consistency and bounds decision time. Invalid, unavailable and timed-out model decisions use
+rule triage, preserving the same skills and core tools available without a decision model. Caller cancellation still
+propagates. Router-backed decision and skills budgets default to 2000 ms; explicit tighter budgets remain supported.
 
-Production composition uses `modelRoles.decision` once per message through the same auth/router/budget/privacy/usage path; context sizing does not classify again. The role sees only the current message as data and no tools or recalled/session text. `chat` and failures use the agent default plus the core discovery surface. Explicit internal task boundaries hold class, effort and the resolved profile; followups retain the preceding class. Absent boundary metadata, a new non-followup message is treated as a boundary. Multi-task turns currently use the highest recommended class serially. Provider reasoning effort has no normalized wire field yet and is recorded, not enforced at vendors.
+Production composition uses `modelRoles.decision` once per message through the same auth/router/budget/privacy/usage
+path; context sizing does not classify again. The role sees only the current message as data and no tools or
+recalled/session text. A `chat` verdict retains core tools and the skill catalogue. Selection queries combine the
+current user message, previous user message and task summaries. Short DE/EN followups restore the last completed
+`skills.selected` selection under the current session/agent/principal. Each task gets a skill-selection opportunity
+within three total slots; multi-task turns carry the task checklist in the volatile tail. Explicit task boundaries
+hold class, effort and profile; multi-task turns use the highest recommended initial model class serially.
 
 Class selection chooses the smallest class with above-class probability <= .2
 (balanced), .35 (economy) or .1 (quality); confidence below .5 raises it one class.
@@ -130,7 +191,72 @@ one class only when the caller's already-escalated flag is false; frontier is ca
 The caller persists that flag; no new verification/escalation owner is introduced here. `applyAtBoundary` changes the active class only at
 an explicit task boundary. Runtime profile mappings load from `<home>/model-class-profiles.json` at task boundaries, with live `decision.classProfiles` as fallback. Recommendations and file edits do not switch an active task.
 
-## Tool eval
+## Tool-use modes and stable offers
+
+`agents.<id>.toolUse.mode` is a live, advanced setting. Its default is `prefer`: URLs, paths, DE/EN time words,
+attachments, a selected skill's `allowed-tools`, or a confident task category with an available tool establish a tool
+need. The category gate uses task confidence multiplied by category probability, with a default threshold of 0.65.
+With detected need, the first model round requests `required`, or one unambiguous offered function. After a tool call
+the choice is `auto`. Without detected need it stays `auto`. Mode `auto` always leaves the choice to the model;
+`require-first` requests a tool on the first round even without detected need.
+
+The choice is resolved per actual provider candidate, after reasoning selection and wire aliases. OpenAI Chat and
+Responses use `required` or a function name; Anthropic uses `any`/`tool`; Gemini uses `ANY`. Anthropic Extended Thinking
+suppresses forcing and records the reason. Local OpenAI-compatible servers remain automatic unless an explicit
+model-family quirk supplies evidence of support; a generic OpenAI wire label is insufficient.
+
+A first answer without a needed tool may get one forced retry on buffered channel, scheduled, headless or delegated
+paths. Streamed answers are counted without replay. The caller owns that one-retry bound and the shared turn budget.
+
+The stable core is `file.read`, `file.list`, `file.stat`, `web.search`, `web.fetch`, `skill.load`, `skill.read`,
+`capabilities.search` and the admitted memory tools. Unavailable or policy-forbidden tools are excluded. Current core
+tools have priority, then prior session offers, then newly relevant tools, within the smallest applicable route
+candidate cap. Current permissions are rechecked at each turn boundary. Within that bound, the session offer grows
+as capabilities are offered or found; the current turn's tool zone stays unchanged. A core larger than the cap emits
+overflow evidence and retains discovery rather than exceeding the provider limit. Provider-native `allowed_tools`
+and Anthropic tool search are not used by this path.
+
+## Provider cache evidence (2026-10-28)
+
+The prompt builder records stable-zone hashes and prefix invalidations; provider usage records cache-read,
+cache-creation and input tokens. This can distinguish harness tool/system byte changes from provider cache effects.
+Forced tool choice applies only to the initial round of a turn with need (or the configured `require-first` mode);
+later rounds use automatic choice. Skill material lives in append-only conversation after loading, rather than being
+repeated in the volatile suffix. Search queues additions until the next turn.
+
+Current official documentation was requested on **2026-10-28** from the sources below. The environment proxy refused
+each HTTPS CONNECT with **403 Forbidden**, so no current provider cache claim was verified and no alternative access
+path was attempted.
+
+| Provider | Official cache/tool-choice sources | Verification result |
+|---|---|---|
+| OpenAI Chat and Responses | [Prompt caching](https://platform.openai.com/docs/guides/prompt-caching) | CONNECT 403; whether choice changes affect reuse beyond the message prefix remains unverified here. |
+| Anthropic | [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching), [tool use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/implement-tool-use) | CONNECT 403; ADR-010 R4's prior invalidation assumption needs current vendor confirmation. Extended Thinking rejection is covered by the local adapter contract. |
+| Gemini | [Context caching](https://ai.google.dev/gemini-api/docs/caching) | CONNECT 403; `toolConfig` cache effects remain unverified here. |
+
+No live model credentials were supplied for the before/after cache comparison. Scripted cache counters and stable
+prefix checks are harness evidence, not measured provider hit rates. The live comparison remains open: report each
+provider's cache-read share before and after forcing, along with tool/system prefix changes. A measured loss beyond
+the message prefix is the N stop condition and must be reported before continuing rollout.
+
+## Turn-path eval
+
+`toolcall/turn-eval.ts` runs through `createTurnProvider` with scripted adapters and independent DE/EN scenarios for
+tool need, ordinary chat, skill loading, followups, multiple tasks, failure and recovery. It checks reachability,
+visible/loaded skills, tool choice, error return, policy and prefix behavior. `test/toolcall/turn-eval.test.ts` runs
+in the normal Core suite. Run the regression report from the repository root:
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning \
+  scripts/eval/turn-eval.ts --regression --out artifacts/turn-eval/regression.json
+```
+
+The separate Nightly job `turn-eval-live` requires explicit model configuration and credentials and records actual
+provider reports. Its quality gates are needed-tool hit rate at least 95%, answers missing a needed tool at most 5%,
+skill-load hit rate at least 90% and zero policy violations. Unnecessary tool use and prefix invalidations are also
+reported. Live results never substitute scripted answers or fixtures when credentials are missing.
+
+## Library tool eval
 
 `EvalScenario` contains input, provider family, available tool/index rows, an
 independent golden for calls/arguments/outcomes and task spans/category/minimum
@@ -185,9 +311,8 @@ are written and no networking is performed by the fixture runner itself.
    placeholders before validation, apply provider cancellation/deadlines, use the
    recommended catalogue budget and parallel setting, resolve real allowed profiles.
 4. Index maintenance: full-source background lifecycle snapshots and summarize-role metadata generation remain; persistent FTS5/local-vector caches, skill rescans and bounded decaying priors are bound by the 2026-10-16 Draft stack.
-5. Nightly live eval: explicitly opt in, provide model ports/default-model profiles,
-   publish pass rates and label models below the 95% live gate as limited tool use.
-   A controller-owned CI change is needed; this PR adds no workflow.
+5. Nightly live eval: `turn-eval-live` runs the real turn path when its model configuration and credentials are supplied.
+   Live results remain separate from scripted harness evidence; model-picker quality labels are a follow-up.
 6. D109 effects: registration binds trusted capability/effect/risk metadata and
    excludes never/administrative capabilities; routing must never create grants
    or treat model classifications as authorization.
