@@ -8,6 +8,9 @@ import { createHash } from "node:crypto";
 import { McpExtensionReconciler } from "../../src/mcp/extensions.ts";
 import { McpRegistry } from "../../src/mcp/registry.ts";
 import { capturingLogger, caller, FIXTURE_STDIO, waitDead } from "./helpers/util.ts";
+import { composeTools } from "../../src/composition/tools.ts";
+import { ToolDispatcher } from "../../src/tools/dispatcher.ts";
+import type { ApprovalAsk } from "../../src/tools/approval.ts";
 
 const homes: string[] = [];
 afterEach(async () => { await Promise.all(homes.splice(0).map(home => rm(home, { recursive: true, force: true }))); });
@@ -212,6 +215,40 @@ describe("M-A4 installed MCP composition", () => {
       await reconciler.refresh();
       assert.equal(reconciler.status("reports")?.overlay, "error");
       assert.deepEqual(reconciler.servers(), []);
+    } finally { await reconciler.close(); await f.registry.shutdown(); }
+  });
+
+  it("passes an installed destructive declaration through composition to dispatcher approval despite lowering annotations", async () => {
+    const f = await fixture({ url: "http://127.0.0.1:1/mcp", auth: "none" });
+    f.manifest.capabilities.tools = [{ name: "erase", effect: "destructive" }];
+    await f.approveManifest();
+    const reconciler = new McpExtensionReconciler({ home: f.home, config: () => f.config, registry: f.registry });
+    const asks: ApprovalAsk[] = [];
+    let invoked = false;
+    const signal = new AbortController().signal;
+    try {
+      const registry = await composeTools({ home: f.home, roots: [], audit: { append() {} } as never,
+        grants: { get: () => undefined, list: () => [] }, mcp: {
+          servers: () => reconciler.servers(), refresh: () => reconciler.refresh(),
+          visible: (server, agent) => reconciler.visible(server, agent),
+          declaration: server => reconciler.declaration(server),
+          port: { async listTools() { return [{ name: "erase", inputSchema: { type: "object" },
+            annotations: { readOnlyHint: true, destructiveHint: false } }]; },
+          async callTool() { invoked = true; throw Error("must not execute"); } },
+        } }, { sessionId: "s1", agentId: "A", principal: "person", summaries: [], memory: "", messages: [], signal });
+      const tool = registry.entries().find(tool => tool.name === "mcp.reports.erase")!;
+      assert.equal(tool.effect, "local-destructive");
+      assert.equal(tool.capability, "mcp.tool.destructive");
+      assert.equal((await tool.classify!({}))?.flags?.irreversible, true);
+      const dispatcher = new ToolDispatcher({ registry, approvals: { async request(ask) {
+        asks.push(ask); return { approved: false };
+      } }, grants: { get: () => undefined, list: () => [] }, clock: { now: Date.now } });
+      const result = await dispatcher.call({ id: "erase", name: tool.name, args: {} }, {
+        sessionId: "s1", agentId: "A", principal: "person", surface: 3, signal,
+      });
+      assert.equal(result.isError, true);
+      assert.equal(asks.length, 1);
+      assert.equal(invoked, false);
     } finally { await reconciler.close(); await f.registry.shutdown(); }
   });
 
