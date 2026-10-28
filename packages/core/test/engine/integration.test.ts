@@ -52,10 +52,22 @@ test("the production Core binds engine completions to its own agent work and com
   const cfg = defaults(); cfg.agents.alpha = {}; cfg.agents.beta = {};
   cfg.engine = { implementation: "rust", neo: { enabled: false }, gc: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false } };
   writeFileSync(l.configPath, JSON.stringify(cfg));
-  let calls = 0;
+  let calls = 0, waitForAbort = false;
+  let started!: () => void, observedAbort!: () => void;
+  const providerStarted = new Promise<void>(resolve => { started = resolve; });
+  const providerAborted = new Promise<void>(resolve => { observedAbort = resolve; });
   const secret = "completion-input-secret-must-not-be-logged";
-  const core = createCore({ home, testInternals: flatTestInternals(), dreams: { scheduler: false }, discovery: { scheduler: false }, composition: { providers: { profiles: { default: [{ provider: "fixture", model: "m", adapter: { async *stream() {
-    calls++; yield { type: "done", result: { text: "completed", toolCalls: [], finishReason: "stop", usage: { inputTokens: 3, outputTokens: 1 }, meta: {} } } as never;
+  const core = createCore({ home, testInternals: flatTestInternals(), dreams: { scheduler: false }, discovery: { scheduler: false }, composition: { providers: { profiles: { default: [{ provider: "fixture", model: "m", adapter: { async *stream(_request, options) {
+    calls++;
+    if (waitForAbort) {
+      started();
+      await new Promise<void>((_resolve, reject) => {
+        const abort = () => { observedAbort(); reject(options!.signal!.reason); };
+        options!.signal!.addEventListener("abort", abort, { once: true });
+        if (options!.signal!.aborted) abort();
+      });
+    }
+    yield { type: "done", result: { text: "completed", toolCalls: [], finishReason: "stop", usage: { inputTokens: 3, outputTokens: 1 }, meta: {} } } as never;
   } } }] } } } });
   await core.start();
   t.after(() => core.stop());
@@ -72,6 +84,14 @@ test("the production Core binds engine completions to its own agent work and com
   assert.equal(calls, 1);
   await client.call("agent.close", { agentId: "alpha" });
   await assert.rejects(reverse.call("host.llm.complete", params), (e: any) => e.error === "E_DENIED" && e.reason === "engine-agent-required");
+  await client.call("agent.open", { agentId: "alpha" });
+  waitForAbort = true;
+  const pending = reverse.call("host.llm.complete", params);
+  const rejected = assert.rejects(pending);
+  await providerStarted;
+  await reverse.close();
+  await providerAborted;
+  await rejected;
   const audit = readFileSync(join(l.logs, "audit.log"), "utf8");
   assert.match(audit, /engine\.llm\.complete/);
   assert.match(audit, /engine:v1:alpha/);
