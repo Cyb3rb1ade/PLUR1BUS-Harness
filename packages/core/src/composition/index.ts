@@ -310,6 +310,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       },
     });
     const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, modelRouting,
+      toolUseMode: agent => d.config().agents[agent]?.toolUse?.mode ?? 'prefer',
       restoreSkills: request => restoreSessionSkills(sessions.forSession(request.sessionId).store, request),
       skillCatalogueSnapshot: (request, catalogue) => {
         const store = sessions.forSession(request.sessionId).store;

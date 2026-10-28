@@ -832,6 +832,22 @@
             "localOnly": {"description": "Only local models for this agent; overrides privacy.localOnly in both directions. The shared memory engine and media index stay local while the installation or any agent is local-only.", "type": "boolean", "x-restart": "live", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true}
           }},
           "persona": {"description": "Inline persona text for a new agent (also scaffolded into SOUL.md).", "type": "string", "maxLength": 4000, "x-restart": "live", "x-tier": "basic"},
+          "toolUse": {
+            "description": "Per-agent tool use. Prefer forces the first model round when the harness detects a tool need; auto leaves the choice to the model; require-first requests a tool on every first round when supported.",
+            "type": "object",
+            "additionalProperties": false,
+            "x-restart": "live",
+            "x-tier": "advanced",
+            "properties": {
+              "mode": {
+                "description": "How strongly the agent should request a tool in the first model round. Unsupported local servers and Anthropic Extended Thinking retain automatic choice.",
+                "enum": ["auto", "prefer", "require-first"],
+                "default": "prefer",
+                "x-restart": "live",
+                "x-tier": "advanced"
+              }
+            }
+          },
           "modelPolicy": {
             "description": "Per-agent model routing. Omitted preserves existing D105 routing; fixed uses the agent model; auto selects among ordered named profiles once per session unless perTurn is explicitly enabled. Explicit session model selection wins.",
             "type": "object",

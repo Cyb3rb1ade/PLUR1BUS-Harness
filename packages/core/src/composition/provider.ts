@@ -98,6 +98,7 @@ export type BillingClass = 'plan' | 'paid';
 export type TurnRouterEvent = RouterEvent
   | { type: 'provider.cross_billing_refused'; profile: string; from: Served & { billing: BillingClass }; to: Served & { billing: BillingClass } };
 export interface TurnProviderOptions {
+  toolUseMode?: (agentId: string) => import('../toolcall/tool-use.ts').ToolUseMode;
   modelRouting?: SessionModelRouting;
   restoreSkills?: (request: ChatRequest) => RestoredSessionSkills;
   skillCatalogueSnapshot?: (request: ChatRequest, catalogue: string) => string;

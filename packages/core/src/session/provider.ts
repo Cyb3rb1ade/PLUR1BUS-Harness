@@ -16,6 +16,11 @@ export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  /** Trusted per-turn override for scheduled, headless and delegated work; never an RPC parameter. */
+  toolUseMode?: import('../toolcall/tool-use.ts').ToolUseMode;
+  /** Buffered delivery permits one hidden first-answer retry; streamed answers cannot be retracted. */
+  buffered?: boolean;
+  hasAttachments?: boolean;
   /** Trusted discovery query assembled from current task and prior user context. */
   skillQuery?: string;
   /** Trusted scoped reviewer checkout. No transport accepts this field. */

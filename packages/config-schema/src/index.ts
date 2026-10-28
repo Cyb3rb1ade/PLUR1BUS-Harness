@@ -21,6 +21,8 @@ export interface MediaEmbeddingConfig {
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export interface ModelRoutingPolicy { mode: 'fixed' | 'auto'; tiers: string[]; perTurn: boolean }
+/** Sparse live per-agent override; an omitted mode uses prefer. */
+export interface ToolUsePolicy { mode?: 'auto' | 'prefer' | 'require-first' }
 
 export interface HarnessConfig {
   collaboration: { fanoutEnabled: boolean };
@@ -39,7 +41,7 @@ export interface HarnessConfig {
   supervisor: { graceMs: number; healthIntervalMs: number; maxCores: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean } }>;
+  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; toolUse?: ToolUsePolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean } }>;
   memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; reranker?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
   /** Installation-wide privacy switches (privacy.localOnly: no model call leaves the machine). */
   privacy: { localOnly: boolean; localEndpoints: string[] };
