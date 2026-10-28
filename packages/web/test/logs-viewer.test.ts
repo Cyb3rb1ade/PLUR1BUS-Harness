@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { after, before, describe, test } from "node:test";
 import type { Page } from "playwright";
-import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
+import { browserSkip, openRoute, setup, teardown, until, withApp, type App } from "./harness.ts";
 import { installLogsMocks, makeLines, makeRecord, type LogsMock } from "./logs-fixtures.ts";
 
 before(setup);
@@ -25,7 +25,7 @@ const loaded = (p: Page, n: number) => p.getByText(n === 1 ? "1 entry loaded" : 
 /** Waits until the viewer has asked n times and is no longer loading. */
 async function settled(app: App, m: LogsMock, n: number): Promise<void> {
   await app.page.waitForFunction(() => !document.querySelector('[data-state="loading"]'));
-  while (m.queries().length < n) await new Promise((r) => setTimeout(r, 10));
+  await until(() => m.queries().length >= n, `logs query ${n}`);
   await app.page.waitForFunction(() => !document.querySelector('[data-state="loading"]'));
 }
 const firstQuery = (m: LogsMock) => m.queries()[0]!;

@@ -1,0 +1,16 @@
+Prebuilt libvips binaries: where their source is
+
+The npm packages @img/sharp-libvips-<platform> contain prebuilt shared libraries of libvips and of the
+libraries it uses. The packages @img/sharp-win32-<arch> contain the same libraries for Windows, next to
+sharp's own binding.
+
+- @img/sharp-libvips-<platform> version X.Y.Z is published from the release tag vX.Y.Z of
+  https://github.com/lovell/sharp-libvips, whose build scripts compile the upstream sources.
+- @img/sharp-win32-<arch> version X.Y.Z is published from the release tag vX.Y.Z of
+  https://github.com/lovell/sharp.
+- In each of these packages, versions.json names the exact upstream version of every bundled library,
+  and README.md names the licence each library is used under.
+
+The libraries distributed under the GNU LGPL are used under LGPL-3.0-or-later. This file also contains
+the GNU Lesser General Public License version 3 and the GNU General Public License version 3, which the
+LGPL incorporates.

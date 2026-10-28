@@ -4,14 +4,14 @@ import { readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { selections, evaluateGate, ADVISORY, UNGATED } from "./gate.mjs";
+import { selections, evaluateGate, UNGATED } from "./gate.mjs";
 
 test("the CI workflow requests checks for merge groups", () => {
   const yaml = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
   assert.match(yaml.slice(0, yaml.indexOf("\njobs:")), /^  merge_group:\n    types: \[checks_requested\]$/m);
 });
 
-test("a merge group without PR metadata selects the full matrix with required and advisory outcomes", async () => {
+test("a merge group without PR metadata selects the full matrix and requires every selected job", async () => {
   const { spawnSync } = await import("node:child_process");
   const cwd = mkdtempSync(join(tmpdir(), "p1b-merge-group-"));
   try {
@@ -30,8 +30,7 @@ test("a merge group without PR metadata selects the full matrix with required an
     assert.deepEqual(evaluateGate(needs), []);
     for (const job of Object.keys(selected)) for (const status of ["failure", "cancelled", "skipped", undefined]) {
       const broken = { ...needs, [job]: status === undefined ? undefined : { result: status } };
-      const advisoryCompleted = ADVISORY.has(job) && ["failure", "skipped"].includes(status);
-      assert.equal(evaluateGate(broken).some(error => error.includes(job)), !advisoryCompleted, `${job}:${status}`);
+      assert(evaluateGate(broken).some(error => error.includes(job)), `${job}:${status}`);
     }
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
