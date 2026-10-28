@@ -44,11 +44,23 @@ export type ToolErrorCode =
   | "tool-unknown" | "tool-call-invalid" | "tool-denied" | "tool-not-approved" | "tool-timeout" | "tool-failed"
   | "tool-result-too-large" | "tool-result-invalid" | "aborted";
 
-export interface ToolError { code: ToolErrorCode; message: string; issues?: ValidationIssue[]; hint?: string; sourceCode?: string }
+/** N1 diagnostic categories select fixed model text; the original message remains available to logs and audits. */
+export type InternalToolFailureCategory = "internal-error" | "classification-failure" | "approval-port-failure" | "audit-unavailable";
+export interface ToolError {
+  code: ToolErrorCode;
+  message: string;
+  issues?: ValidationIssue[];
+  hint?: string;
+  sourceCode?: string;
+  /** Selects fixed text at the N1 model boundary without altering stored diagnostic text. */
+  internalFailure?: InternalToolFailureCategory;
+}
 export type ToolDecisionMeta = "none" | "allow" | "approved" | "deny" | "ask-refused";
 
 interface Common { callId: string; tool: string; provenance: ToolProvenance; meta: { decision: ToolDecisionMeta; durationMs: number; bytes: number } }
 export type ToolResult = Common & ({ isError: false; value: unknown } | { isError: true; error: ToolError });
+/** A failed dispatcher envelope, before or after the model-only N1 error boundary. */
+export type ToolFailure = Extract<ToolResult, { isError: true }>;
 
 /** The write side of grant use (the `GrantStore` provides it): standing grants record their use, `once` is consumed atomically at execution start. */
 export interface GrantUse {
@@ -144,7 +156,9 @@ export class ToolDispatcher {
         classified = built.classified;
       } catch (e) { // RULING: a tool whose classify() throws is refused, never allowed
         this.#auditSoft("policy.decision", { ...this.#who(ctx, undefined), tool: tool.name, capability: tool.capability, outcome: "never", rule: "classify-failed" });
-        return fail("tool-denied", `the call could not be classified: ${errMsg(e)}`, "deny");
+        return fail("tool-denied", `the call could not be classified: ${errMsg(e)}`, "deny", {
+          internalFailure: "classification-failure",
+        });
       }
       const { decision, context } = this.#decide(call, ctx);
       let via: ToolDecisionMeta = "allow";
@@ -162,17 +176,38 @@ export class ToolDispatcher {
         return fail("tool-denied", `refused by policy (${decision.reason}: ${decision.rule})`, "deny");
       }
       try { this.#d.audit?.record("policy.decision", decisionFields); }
-      catch { return fail("tool-denied", "the audit trail is unavailable; nothing runs unrecorded", "deny"); }
+      catch {
+        return fail("tool-denied", "the audit trail is unavailable; nothing runs unrecorded", "deny", {
+          internalFailure: "audit-unavailable",
+        });
+      }
       const out = (r: ToolResult): ToolResult => this.#outcome(base, r);
 
       if (decision.kind === "ask") {
         const asked = await this.#ask(tool, req, args, decision, ctx, context, call);
         if (asked === "aborted") return out(fail("aborted", "the call was aborted while waiting for approval", "none"));
-        if (!asked.answer.approved) return out(fail("tool-not-approved", asked.answer.reason ? `not approved: ${asked.answer.reason}` : "not approved", "ask-refused", ctx.recurring && asked.answer.parked ? { sourceCode: "approval-timeout" } : {}));
+        if ("portFailure" in asked) {
+          return fail("tool-failed", `internal error: ${asked.portFailure}`, "none", {
+            internalFailure: "approval-port-failure",
+          });
+        }
+        if (!asked.answer.approved) {
+          const message = asked.answer.reason ? `not approved: ${asked.answer.reason}` : "not approved";
+          return out(fail("tool-not-approved", message, "ask-refused", {
+            ...(ctx.recurring && asked.answer.parked ? { sourceCode: "approval-timeout" } : {}),
+            ...(asked.internalFailure ? { internalFailure: asked.internalFailure } : {}),
+          }));
+        }
         // Execution start of an approved answer: the approval (and its once grant) is consumed atomically, single use.
         let began = true;
-        try { began = this.#d.approvals.begin ? this.#d.approvals.begin(asked.answer, asked.ask) === true : true; } catch { began = false; }
-        if (!began) return out(fail("tool-not-approved", "not approved: the approval could not be used (already used, expired or bound to another action)", "ask-refused"));
+        let beginFailure: InternalToolFailureCategory | undefined;
+        try { began = this.#d.approvals.begin ? this.#d.approvals.begin(asked.answer, asked.ask) === true : true; }
+        catch { began = false; beginFailure = "approval-port-failure"; }
+        if (!began) {
+          return out(fail("tool-not-approved",
+            "not approved: the approval could not be used (already used, expired or bound to another action)",
+            "ask-refused", beginFailure ? { internalFailure: beginFailure } : {}));
+        }
         via = "approved";
       } else if (decision.via === "grant" && decision.grantId) {
         const refusal = this.#useGrant(decision.grantId);
@@ -204,7 +239,7 @@ export class ToolDispatcher {
         provenance: provenance(ctx, tool), meta: { decision: via, durationMs: Math.max(0, this.#d.clock.now() - started), bytes },
       });
     } catch (e) {
-      return fail("tool-failed", `internal error: ${errMsg(e)}`, "none"); // never a throw out of the dispatcher
+      return fail("tool-failed", `internal error: ${errMsg(e)}`, "none", { internalFailure: "internal-error" });
     }
   }
 
@@ -243,7 +278,13 @@ export class ToolDispatcher {
     }
   }
 
-  async #ask(tool: RegisteredTool, req: ToolCallRequest, args: unknown, d: Extract<Decision, { kind: "ask" }>, ctx: DispatchContext, context: Context, call: Call): Promise<{ answer: ApprovalAnswer; ask: ApprovalAsk } | "aborted"> {
+  async #ask(
+    tool: RegisteredTool, req: ToolCallRequest, args: unknown, d: Extract<Decision, { kind: "ask" }>,
+    ctx: DispatchContext, context: Context, call: Call,
+  ): Promise<
+    { answer: ApprovalAnswer; ask: ApprovalAsk; internalFailure?: "approval-port-failure" }
+    | { portFailure: string } | "aborted"
+  > {
     const request: ApprovalRequest = d.request;
     const ask: ApprovalAsk = {
       ...(ctx.recurring ? { recurring: ctx.recurring } : {}), request, callId: req.id, tool: tool.name, args, agentId: ctx.agentId, principal: ctx.principal,
@@ -253,13 +294,29 @@ export class ToolDispatcher {
       ...(call.targets ? { targets: call.targets } : {}), ...(call.access ? { access: call.access } : {}),
       ...(typeof req.reason === "string" ? { reason: req.reason } : {}), ...(typeof req.diff === "string" ? { diff: req.diff } : {}),
     };
-    const pending = this.#d.approvals.request(ask).then((a) => a, (e: unknown) => ({ approved: false, reason: `approval failed: ${errMsg(e)}` } as ApprovalAnswer));
+    let internalFailure: "approval-port-failure" | undefined;
+    let pending: Promise<ApprovalAnswer>;
+    try {
+      pending = this.#d.approvals.request(ask).then((a) => a, (e: unknown) => {
+        internalFailure = "approval-port-failure";
+        return { approved: false, reason: `approval failed: ${errMsg(e)}` };
+      });
+    } catch (e) {
+      return { portFailure: errMsg(e) };
+    }
     const r = await raceAbort(pending, ctx.signal);
     if (r === "aborted") return "aborted";
     // RULING: only a literal `approved: true` counts; any other shape is a refusal.
     if (!r || typeof r !== "object" || (r as { approved?: unknown }).approved !== true) {
       const reason = (r as { reason?: unknown } | undefined)?.reason;
-      return { answer: { approved: false, ...(ctx.recurring && (r as { parked?: unknown } | undefined)?.parked === true ? { parked: true } : {}), ...(typeof reason === "string" ? { reason: clip(reason) } : {}) }, ask };
+      return {
+        answer: {
+          approved: false,
+          ...(ctx.recurring && (r as { parked?: unknown } | undefined)?.parked === true ? { parked: true } : {}),
+          ...(typeof reason === "string" ? { reason: clip(reason) } : {}),
+        },
+        ask, ...(internalFailure ? { internalFailure } : {}),
+      };
     }
     return { answer: r, ask };
   }

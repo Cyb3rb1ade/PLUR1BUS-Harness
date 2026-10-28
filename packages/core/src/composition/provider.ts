@@ -21,7 +21,8 @@ import { ToolDispatcher, type GrantUse, type DispatchContext, type ToolResult } 
 import { createRedactor } from '../logs/redact.ts';
 import { AuthError } from '../auth/errors.ts';
 import type { SurfaceTrustLevel } from '../rbac/surface.ts';
-import type { ToolRegistry } from '../tools/registry.ts';
+import { ToolRegistry } from '../tools/registry.ts';
+import { modelToolError } from '../toolcall/model-tool-error.ts';
 import type { ApprovalPort } from '../tools/approval.ts';
 import type { Served } from '../../../providers/src/router/types.ts';
 import type { GrantSource, Context } from '../policy/index.ts';
@@ -474,6 +475,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       if (args !== undefined) repairs.set(input.tool, args);
       return args;
     } });
+    const unknownDispatcher = new ToolDispatcher({ registry: new ToolRegistry(), approvals, grants: o.grants, clock: { now: Date.now } });
+    let consecutiveErrors = 0;
     let totalInputTokens = 0, totalOutputTokens = 0, completed = false;
     try {
       for (let round = 0; round < (o.maxRounds ?? 25); round++) {
@@ -511,8 +514,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         for (const call of calls) {
           signal.throwIfAborted();
           const tool = selected.find(t => t.name === call.name) ?? (withheld.get(call.name)?.name === call.name ? withheld.get(call.name) : undefined);
-          if (!tool) throw new TurnToolError('tool-unknown', call.name);
-          const args = restoreStrictArguments(tool.inputSchema, call.arguments);
+          const args = tool ? restoreStrictArguments(tool.inputSchema, call.arguments) : call.arguments;
           if (call.name === 'capabilities.search') observation.metaCalls.search++;
           else if (call.name === 'skill.load') observation.metaCalls.skillLoad++;
           else if (call.name === 'skill.read') observation.metaCalls.skillRead++;
@@ -521,14 +523,32 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           if (req.turnProfile) await waitForVoiceConfirmation(req.turnProfile, signal);
           await o.beforeTools?.();
           signal.throwIfAborted();
-          const capabilityId = toolEntry(tool, JSON.stringify([req.agentId, principal])).id;
+          const capabilityId = tool ? toolEntry(tool, JSON.stringify([req.agentId, principal])).id : '';
           if (o.capabilities?.registry.hash(capabilityId)) o.capabilities.registry.record(capabilityId, req.agentId, 'used');
-          const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
-          try { o.onExecution?.({ owner: principal, agentId: req.agentId, sessionId: req.sessionId, turnId, callId: call.id, tool: tool.name, version: toolEntry(tool, JSON.stringify([req.agentId, principal])).version, success: !output.isError && !(output.value && typeof output.value === 'object' && 'isError' in output.value && output.value.isError === true) }); } catch { /* Missing evidence excludes the operation from mining; it never re-runs an effect. */ }
+          const output = await stage('tool-dispatch', signal, o.log, () => (tool ? dispatcher : unknownDispatcher).call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
+          try { if (tool) o.onExecution?.({ owner: principal, agentId: req.agentId, sessionId: req.sessionId, turnId, callId: call.id, tool: tool.name, version: toolEntry(tool, JSON.stringify([req.agentId, principal])).version, success: !output.isError && !(output.value && typeof output.value === 'object' && 'isError' in output.value && output.value.isError === true) }); } catch { /* Missing evidence excludes the operation from mining; it never re-runs an effect. */ }
           if (o.capabilities?.registry.hash(capabilityId) && !output.isError) o.capabilities.registry.record(capabilityId, req.agentId, 'succeeded');
           if (fatal) throw fatal;
-          if (output.isError && approvalNeedsPerson) throw new TurnToolError('approval-requires-person', toolErrorDetail(output, o.secrets?.() ?? []));
-          if (output.isError) throw new TurnToolError(output.error.sourceCode ?? output.error.code, toolErrorDetail(output, o.secrets?.() ?? []));
+          if (output.isError) {
+            if (!tool) {
+              output.error.message = `Unknown tool. Offered tools: ${selected.map(t => t.name).join(', ')}`;
+              output.error.hint = 'Use an offered tool or capabilities.search to find tools and skills.';
+            }
+            const safe = modelToolError(output, o.secrets?.() ?? []);
+            const text = JSON.stringify(safe);
+            observation.errorsReturned++;
+            consecutiveErrors++;
+            yield { type: 'tool.result', id: call.id, output: text };
+            messages.push({ role: 'tool', toolCallId: call.id, content: text });
+            if (approvalNeedsPerson) throw new TurnToolError('approval-requires-person', safe);
+            if (output.error.code === 'aborted') throw new TurnToolError('aborted', safe);
+            if (output.error.code === 'tool-not-approved' && !output.error.internalFailure) {
+              throw new TurnToolError('tool-not-approved', safe);
+            }
+            if (consecutiveErrors >= 3) throw new TurnToolError('turn-tool-error-limit', safe);
+            continue;
+          }
+          consecutiveErrors = 0;
           if (repairs.has(call.name)) {
             const assistant = messages.at(-1);
             if (assistant?.role === 'assistant') { const executed = assistant.toolCalls?.find(c => c.id === call.id); if (executed) executed.arguments = JSON.stringify(repairs.get(call.name)); }
