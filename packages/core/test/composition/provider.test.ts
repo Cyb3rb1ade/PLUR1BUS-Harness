@@ -100,16 +100,23 @@ describe("composition/provider createTurnProvider: admission of a turn", () => {
     } finally { close(); }
   });
 
-  it("profileForClass may route the turn to another configured profile; an unconfigured one fails closed", async () => {
+  it("profileForClass routes a task to another configured profile while plain chat keeps the agent default", async () => {
     const small = scriptedAdapter([{ text: "from-small" }]); const big = scriptedAdapter([{ text: "from-big" }]);
+    const routedClasses: string[] = [];
     const f = turnFixture(small.adapter, {
       profiles: { default: [{ provider: "p1", model: "gpt-4.1", adapter: small.adapter }], big: [{ provider: "p2", model: "gpt-4.1", adapter: big.adapter }] },
-      profileForClass: (cls) => cls === "small" ? "big" : undefined,
+      profileForClass: (cls) => { routedClasses.push(cls); return cls === "small" ? "big" : undefined; },
     }, tmp.make());
     try {
-      const chunks = await collect(f.provider, turnRequest({ messages: [{ role: "user", text: "hello" }] }));
+      const chunks = await collect(f.provider, turnRequest({ messages: [{ role: "user", text: "Read file ./x" }] }));
       assert.equal(chunks.find((c) => c.type === "delta")?.type, "delta");
       assert.equal(big.requests.length, 1); assert.equal(small.requests.length, 0);
+      assert.deepEqual(routedClasses, ["small"]);
+      assert.deepEqual(chunks.filter(c => c.type === "delta"), [{ type: "delta", text: "from-big" }]);
+      const chat = await collect(f.provider, turnRequest({ messages: [{ role: "user", text: "hello" }] }));
+      assert.equal(big.requests.length, 1); assert.equal(small.requests.length, 1);
+      assert.deepEqual(routedClasses, ["small"], "plain chat does not request a task-class profile");
+      assert.deepEqual(chat.filter(c => c.type === "delta"), [{ type: "delta", text: "from-small" }]);
     } finally { f.close(); }
   });
 

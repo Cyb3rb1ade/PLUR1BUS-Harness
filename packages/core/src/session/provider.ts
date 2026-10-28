@@ -16,6 +16,8 @@ export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  /** Session owner receives the final snapshot before persisting its authoritative outcome. */
+  onTurnTelemetry?: (telemetry: import("./turn-telemetry.ts").TurnTelemetry) => void;
   /** Trusted per-turn override for scheduled, headless and delegated work; never an RPC parameter. */
   toolUseMode?: import('../toolcall/tool-use.ts').ToolUseMode;
   /** Buffered delivery permits one hidden first-answer retry; streamed answers cannot be retracted. */

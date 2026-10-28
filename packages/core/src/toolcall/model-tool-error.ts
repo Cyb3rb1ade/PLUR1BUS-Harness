@@ -12,8 +12,9 @@ const MAX_EXCEPTION_CHARS = 300;
 const MAX_ID_CHARS = 128;
 const SOURCE_CODE = /^[a-z0-9_.-]{1,64}$/;
 const USER_HOME = new RegExp(
-  String.raw`(?<![A-Za-z0-9_./\\~-])(/(?:var/)?home|/Users|/mnt/[A-Za-z]/Users|(?:\\\\\?\\)?[A-Za-z]:[\\/]Users)` +
-  String.raw`([\\/])([^\\/\s"'<>|:;,()[\]{}]+)`, "gi",
+  String.raw`(?:(?<![A-Za-z0-9_./\\~-])|(?<=file://)|(?<=file:///))` +
+  String.raw`(/(?:var/)?home|/Users|/mnt/[A-Za-z]/Users|(?:\\\\\?\\)?[A-Za-z]:[\\/]Users)` +
+  String.raw`([\\/])([^\\/\r\n"'<>|:;,()[\]{}]+)`, "gi",
 );
 const FIXED_MESSAGES: Record<InternalToolFailureCategory, string> = {
   "internal-error": "The tool call failed because of an internal error.",
@@ -53,7 +54,8 @@ function homePatterns(options: ModelToolErrorOptions): RegExp[] {
       const prefix = /^[A-Za-z]:/.test(normal) ? String.raw`(?:\\\\\?\\)?` : "";
       const body = normal.split(/[\\/]/).map(escapePattern).join(String.raw`[\\/]`);
       return new RegExp(
-        String.raw`(?<![A-Za-z0-9_./\\~-])` + prefix + body + String.raw`(?=$|[\\/\s"'<>|:;,()[\]{}])`, flags,
+        String.raw`(?:(?<![A-Za-z0-9_./\\~-])|(?<=file://)|(?<=file:///))` + prefix + body
+          + String.raw`(?=$|[\\/\s"'<>|:;,()[\]{}])`, flags,
       );
     });
 }

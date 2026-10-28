@@ -53,6 +53,10 @@ async function dispatched(source: string, path: string): Promise<ToolFailure> {
 }
 
 const PATHS = [
+  ["file:///home/alice/project/report.txt", "file:///home/<user>/project/report.txt"],
+  ["file:///Users/alice/project/report.txt", "file:///Users/<user>/project/report.txt"],
+  ["file:///C:/Users/Alice Smith/project/report.txt", "file:///C:/Users/<user>/project/report.txt"],
+  [String.raw`C:\Users\Alice Smith\project\report.txt`, String.raw`C:\Users\<user>\project\report.txt`],
   ["/home/alice/project/report.txt", "/home/<user>/project/report.txt"],
   ["/var/home/alice/project/report.txt", "/var/home/<user>/project/report.txt"],
   ["/Users/alice/project/report.txt", "/Users/<user>/project/report.txt"],

@@ -137,6 +137,7 @@ export class TurnRunner {
       let reply = ""; let usage: { inputTokens: number; outputTokens: number; model?: string; measurements?: import("./provider.ts").UsageMeasurement[] } | null = null; let index = 0;
       telemetry.rounds = 1;
       for await (const chunk of provider.stream({
+        onTurnTelemetry: observation => { telemetry = structuredClone(observation); },
         buffered: !!recurring || !['cli', 'web', 'api', 'voice'].includes(caller.channel),
         ...(selectedProfile ? { modelProfile: selectedProfile } : {}), ...(reasoning ? { reasoning } : {}),
         sessionId: session.id, turnId, caller, incognito, ...(recurring ? { recurring } : {}), ...((authenticatedPerson ?? recurring?.runAs) ? { authenticatedPerson: authenticatedPerson ?? recurring!.runAs } : {}), ...(turnProfile ? { turnProfile } : {}), ...(approver ? { approver } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
@@ -153,6 +154,16 @@ export class TurnRunner {
       })) {
         // The generator may report its final observation while closing after cancellation.
         if (chunk.type === "telemetry") { telemetry = structuredClone(chunk.telemetry); continue; }
+        if (signal.aborted && chunk.type === "tool.result" && !this.#d.toolCalls && chunk.output.length <= 4096) {
+          let aborted = false;
+          try {
+            const result: unknown = JSON.parse(chunk.output);
+            aborted = !!result && typeof result === "object" && "isError" in result && result.isError === true
+              && "error" in result && !!result.error && typeof result.error === "object"
+              && "code" in result.error && result.error.code === "aborted";
+          } catch { /* Only a typed final aborted envelope survives cancellation. */ }
+          if (aborted) this.#event(turnId, "tool.result", { id: chunk.id, output: chunk.output, isError: true }, session);
+        }
         signal.throwIfAborted();
         if (chunk.type === "delta") { turnProfile?.onDelta?.(chunk.text); reply += chunk.text; this.#event(turnId, "delta", { index: index++, text: chunk.text }, session); }
         else if (chunk.type === "tool.call") {
@@ -166,8 +177,8 @@ export class TurnRunner {
           if (tc) {
             // The dispatcher never throws; its error envelopes are results like any other. Only an abort ends the turn.
             const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal });
-            signal.throwIfAborted();
             this.#event(turnId, "tool.result", { id: chunk.id, output: JSON.stringify(res), isError: res.isError }, session);
+            signal.throwIfAborted();
           }
         }
         // RULING: with a dispatcher the harness executes; a result the provider reports itself is ignored (it could forge provenance).

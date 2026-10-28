@@ -260,14 +260,13 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const registry = new ToolRegistry();
     for (const tool of sourceRegistry.entries()) registry.register(tool);
     let chosenSkills: import('../toolcall/live-index.ts').IndexedSkill[] = [];
+    let selectedSkillIds: readonly string[] = [];
     let skillCatalogue = '';
     let capabilityHint = '';
     let searchIndex: CapabilityIndex | undefined;
     let searchView: import('../toolcall/live-index.ts').CapabilityView | undefined;
     const restoredSkills = !req.role ? o.restoreSkills?.(req) : undefined;
-    if (!skillLoads.has(taskScope)) skillLoads.set(taskScope, new Map());
-    if (skillLoads.size > 1024) skillLoads.delete(skillLoads.keys().next().value!);
-    const loaded = skillLoads.get(taskScope)!;
+    const loaded = new Map(req.role || req.onTurnTelemetry ? undefined : skillLoads.get(taskScope));
     for (const item of restoredSkills?.loaded ?? []) loaded.set(item.name, item);
     if (!sessionOffers.has(taskScope)) sessionOffers.set(taskScope, new Set(o.toolOffers?.(req) ?? []));
     if (sessionOffers.size > 1024) sessionOffers.delete(sessionOffers.keys().next().value!);
@@ -379,8 +378,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const blocked = new Set(o.skillsForAgent?.(req.agentId)?.blocked ?? []);
       const current = new Set(view?.skills.filter(skill => !blocked.has(skill.entry.name)).map(skill => skill.entry.id));
       const skills = fairTaskSkills(taskPicks).filter(skill => current.has(skill.id));
-      lastSkillIds.set(taskScope, skills.map(skill => skill.id));
-      if (lastSkillIds.size > 1024) lastSkillIds.delete(lastSkillIds.keys().next().value!);
+      selectedSkillIds = skills.map(skill => skill.id);
       chosenSkills = skills.flatMap(hit => view?.skills.filter(skill => skill.entry.id === hit.id) ?? []);
       try { o.onSkillsSelected?.(req, skills); } catch { /* Metadata cannot alter admitted selection. */ }
       for (const hit of hits) o.capabilities?.registry.record(hit.entry.id, req.agentId, 'offered');
@@ -475,7 +473,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           const spec = dialect === 'openai-chat' ? wire.function as Record<string, unknown> : wire;
           return { name: spec.name, description: spec.description, parameters: spec.parameters ?? spec.input_schema ?? spec.parametersJsonSchema, ...(spec.strict === undefined ? {} : { strict: spec.strict }) } as ToolDefinition;
         }).sort((a, b) => Buffer.compare(Buffer.from(a.name), Buffer.from(b.name))); // The tool block is part of every cached prefix: same set, same bytes.
-        const mapped = request.messages.map(m => m.role === 'assistant' && m.toolCalls ? carryThinking(m, { ...m, toolCalls: m.toolCalls.map(t => ({ ...t, name: aliases.get(t.name) ?? t.name })) }) : m);
+        const mapped = request.messages.map(m => m.role === 'assistant' && m.toolCalls ? carryThinking(m, { ...m, toolCalls: m.toolCalls.map(t => ({ ...t, name: aliases.get(t.name) ?? withheld.get(t.name)?.name.replaceAll('.', '_') ?? t.name })) }) : m);
         const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(c.provider, c.model)) : undefined;
         const effectiveReasoning = directive ?? request.reasoning;
         const choice = toolChoiceForTurn({ mode: req.role ? 'auto' : mode, need, round: modelRound,
@@ -615,8 +613,10 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       observation.metaCalls.skillLoad++;
       observation.skills.injected++;
       yield { type: 'tool.call', id, name: 'skill.load', args };
+      await o.beforeTools?.();
+      signal.throwIfAborted();
       const output = await dispatcher.call({ id, name: 'skill.load', args }, {
-        agentId: req.agentId, principal, sessionId: req.sessionId, turnId, surface, signal,
+        agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal,
       });
       const value = output.isError ? modelToolError(output, o.secrets?.() ?? [])
         : await capResult(output.value, o.resultStore, 128 * 1024);
@@ -627,8 +627,16 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       messages.push({ role: 'tool', toolCallId: id, content: text });
       if (output.isError) {
         observation.errorsReturned++;
+        if (approvalNeedsPerson) throw new TurnToolError('approval-requires-person', value);
+        if (output.error.code === 'aborted') throw new TurnToolError('aborted', value);
+        if (output.error.code === 'tool-not-approved' && !output.error.internalFailure) {
+          throw new TurnToolError('tool-not-approved', value);
+        }
         if (++consecutiveErrors >= 3) throw new TurnToolError('turn-tool-error-limit', value);
-      } else loaded.set(skill.entry.name, { id, name: skill.entry.name, text, turnId });
+      } else {
+        consecutiveErrors = 0;
+        loaded.set(skill.entry.name, { id, name: skill.entry.name, text, turnId });
+      }
     }
       for (let round = 0; round < (o.maxRounds ?? 25); round++) {
         observation.rounds++;
@@ -646,7 +654,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         // Stage spans cover the stream lifetime, rather than only generator creation.
         const stream = invoke(request);
         // Each advance is bounded by the same signal; yielding deltas does not buffer the whole response.
-        while (true) {
+        try { while (true) {
           let next: Awaited<ReturnType<typeof stream.next>>;
           try { next = await stage('provider', signal, o.log, () => stream.next()); }
           catch (e) { await stream.return(undefined); throw fatal ?? e; }
@@ -654,7 +662,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           const e = next.value;
           if (e.type === 'text_delta') { roundText += e.text; if (!buffered) yield { type: 'delta', text: e.text }; }
           if (e.type === 'done') done = e.result;
-        }
+        } } finally { await stream.return(undefined); }
         if (fatal) throw fatal;
         if (!done) throw new ProviderError('unknown', 'provider stream ended without result');
         if (!buffered && done.text.startsWith(roundText) && done.text.length > roundText.length) yield { type: 'delta', text: done.text.slice(roundText.length) };
@@ -685,7 +693,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           signal.throwIfAborted();
           const capabilityId = tool ? toolEntry(tool, JSON.stringify([req.agentId, principal])).id : '';
           if (o.capabilities?.registry.hash(capabilityId)) o.capabilities.registry.record(capabilityId, req.agentId, 'used');
-          const output = await stage('tool-dispatch', signal, o.log, () => (tool ? dispatcher : unknownDispatcher).call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
+          const output = await stage('tool-dispatch', new AbortController().signal, o.log, () => (tool ? dispatcher : unknownDispatcher).call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
           try { if (tool) o.onExecution?.({ owner: principal, agentId: req.agentId, sessionId: req.sessionId, turnId, callId: call.id, tool: tool.name, version: toolEntry(tool, JSON.stringify([req.agentId, principal])).version, success: !output.isError && !(output.value && typeof output.value === 'object' && 'isError' in output.value && output.value.isError === true) }); } catch { /* Missing evidence excludes the operation from mining; it never re-runs an effect. */ }
           if (o.capabilities?.registry.hash(capabilityId) && !output.isError) o.capabilities.registry.record(capabilityId, req.agentId, 'succeeded');
           if (fatal) throw fatal;
@@ -725,15 +733,27 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         }
       }
       throw new TurnToolError('turn-round-limit', o.maxRounds ?? 25);
-    } finally { retryBudget.endTurn(turnId); selection?.finish(completed); }
+    } finally {
+      retryBudget.endTurn(turnId);
+      const succeeded = completed && !signal.aborted;
+      if (succeeded && !req.role && !req.onTurnTelemetry) {
+        skillLoads.set(taskScope, loaded);
+        lastSkillIds.set(taskScope, selectedSkillIds);
+        if (skillLoads.size > 1024) skillLoads.delete(skillLoads.keys().next().value!);
+        if (lastSkillIds.size > 1024) lastSkillIds.delete(lastSkillIds.keys().next().value!);
+      }
+      selection?.finish(succeeded);
+    }
   }
   return { id: 'composition', telemetry, async *stream(req) {
     const trace = currentTrace() ?? newTrace();
     const request = { ...req };
     const observation = createTurnTelemetry();
     const stream = run(request, observation);
-    try { while (true) { const next = await withTrace(trace, () => turnContext.run(request, () => stream.next())); if (next.done) break; yield next.value; } }
+    let finished = false, failed = false;
+    try { while (true) { const next = await withTrace(trace, () => turnContext.run(request, () => stream.next())); if (next.done) { finished = true; break; } yield next.value; } }
     catch (error) {
+      failed = true;
       const code = error instanceof TurnToolError ? error.code : '';
       observation.endReason = request.signal.aborted ? 'aborted'
         : error instanceof CallBudgetExceededError ? 'budget'
@@ -746,10 +766,14 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       throw error;
     } finally {
       await withTrace(trace, () => stream.return(undefined));
+      if (!finished && !failed) observation.endReason = request.signal.aborted ? 'aborted' : 'cancelled';
       if (!request.role) {
-        try { o.onTelemetry?.(request, structuredClone(observation)); } catch { /* Observers cannot fail a turn. */ }
+        try {
+          if (request.onTurnTelemetry) request.onTurnTelemetry(structuredClone(observation));
+          else o.onTelemetry?.(request, structuredClone(observation));
+        } catch { /* Observers cannot fail a turn. */ }
       }
-      yield { type: 'telemetry', telemetry: observation };
+      if (finished || failed) yield { type: 'telemetry', telemetry: observation };
     }
   } };
 }
