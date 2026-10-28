@@ -142,7 +142,7 @@ pub struct Service {
     identity: EmbeddingIdentity,
     identity_hash: String,
     width: usize,
-    cache: Cache,
+    cache: Arc<Cache>,
     options: ServiceOptions,
     embedding_probe: Arc<Probe<EmbeddingProbeResult>>,
     reranker_probe: Option<Arc<Probe<RerankAttempt>>>,
@@ -275,13 +275,13 @@ impl Service {
             reranker,
             identity,
             width,
-            cache: Cache::new(
+            cache: Arc::new(Cache::new(
                 cache,
                 options.cache_enabled,
                 options.cache_max_entries,
                 options.cache_ttl_ms,
                 options.scope_id.clone(),
-            ),
+            )),
             options,
             embedding_probe,
             reranker_probe,
@@ -362,12 +362,12 @@ impl EmbeddingService for Service {
         for batch in texts.chunks(self.options.embedding_batch_size) {
             cancel.check()?;
             vectors.extend(self.cache.embed(
-                self.provider.as_ref(),
+                self.provider.clone(),
                 batch,
                 kind,
                 &self.identity_hash,
                 self.width,
-                self.options.clock.as_ref(),
+                self.options.clock.clone(),
                 cancel,
             )?);
         }

@@ -1128,3 +1128,211 @@ fn a_foreign_cache_failure_is_not_hidden_behind_an_earlier_pending_key() {
         "C's completed provider error must not wait for pending B: {result:?}"
     );
 }
+
+fn cancelling_the_cache_owner_preserves_other_waiters(deadline: bool) {
+    use plur1bus_engine::contract::{CancelReason, EngineError};
+
+    struct Provider {
+        identity: VectorSpaceIdentity,
+        calls: Arc<AtomicUsize>,
+        started: std::sync::mpsc::Sender<()>,
+        release: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+    }
+    impl EmbeddingProvider for Provider {
+        fn identity(&self) -> &VectorSpaceIdentity {
+            &self.identity
+        }
+        fn embed(
+            &self,
+            texts: &[String],
+            _: EmbedKind,
+            cancel: &Cancel,
+        ) -> Result<Vec<Vec<f32>>, EmbedError> {
+            if texts[0] == "X" {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                self.started.send(()).unwrap();
+                self.release.lock().unwrap().recv().unwrap();
+            }
+            cancel.check().map_err(EmbedError::Cancelled)?;
+            Ok(vec![vec![1.0; 3]; texts.len()])
+        }
+    }
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let (started_tx, started_rx) = std::sync::mpsc::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let (lookup_tx, lookup_rx) = std::sync::mpsc::channel();
+    let service = Arc::new(
+        Service::new(
+            Box::new(Provider {
+                identity: space(3),
+                calls: calls.clone(),
+                started: started_tx,
+                release: std::sync::Mutex::new(release_rx),
+            }),
+            None,
+            identity(3),
+            None,
+            ServiceOptions {
+                clock: Arc::new(move || {
+                    if std::thread::current().name() == Some("surviving-cache-waiter") {
+                        lookup_tx.send(()).unwrap();
+                    }
+                    0
+                }),
+                ..ServiceOptions::default()
+            },
+        )
+        .unwrap(),
+    );
+    service
+        .embed(
+            &["warm".into()],
+            EmbedKind::Query,
+            &identity(3),
+            &Cancel::never(),
+        )
+        .unwrap();
+    let owner_cancel = Cancel::never();
+    let (result_tx, result_rx) = std::sync::mpsc::channel();
+    let owner = {
+        let service = service.clone();
+        let cancel = owner_cancel.clone();
+        std::thread::spawn(move || {
+            let cancel = if deadline {
+                Cancel::with_deadline(Instant::now() + Duration::from_millis(20))
+            } else {
+                cancel
+            };
+            result_tx
+                .send(service.embed(&["X".into()], EmbedKind::Query, &identity(3), &cancel))
+                .unwrap();
+        })
+    };
+    started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    let survivor = {
+        let service = service.clone();
+        std::thread::Builder::new()
+            .name("surviving-cache-waiter".into())
+            .spawn(move || {
+                service.embed(
+                    &["X".into()],
+                    EmbedKind::Query,
+                    &identity(3),
+                    &Cancel::with_deadline(Instant::now() + Duration::from_secs(2)),
+                )
+            })
+            .unwrap()
+    };
+    lookup_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    // The signal runs under the memory lock. This warm hit acquires that lock afterwards,
+    // ensuring the survivor has joined X before the owner is cancelled or the provider is released.
+    service
+        .embed(
+            &["warm".into()],
+            EmbedKind::Query,
+            &identity(3),
+            &Cancel::never(),
+        )
+        .unwrap();
+    if !deadline {
+        owner_cancel.cancel();
+    }
+    let owner_result = result_rx.recv_timeout(Duration::from_millis(200));
+    release_tx.send(()).unwrap();
+    owner.join().unwrap();
+    let survivor_result = survivor.join().unwrap();
+    assert!(
+        owner_result.is_ok(),
+        "the cancelled owner must return while shared computation is still blocked: {owner_result:?}; surviving waiter: {survivor_result:?}"
+    );
+    assert!(matches!(
+        owner_result.unwrap(),
+        Err(EngineError::Cancelled(cancelled))
+            if cancelled.reason == if deadline { CancelReason::Deadline } else { CancelReason::Caller }
+    ));
+    assert_eq!(survivor_result.unwrap(), vec![vec![1.0; 3]]);
+    assert_eq!(
+        service
+            .embed(
+                &["X".into()],
+                EmbedKind::Query,
+                &identity(3),
+                &Cancel::never(),
+            )
+            .unwrap(),
+        vec![vec![1.0; 3]]
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn cancelling_the_cache_owner_does_not_cancel_shared_computation() {
+    cancelling_the_cache_owner_preserves_other_waiters(false);
+}
+
+#[test]
+fn the_cache_owner_deadline_does_not_expire_shared_computation() {
+    cancelling_the_cache_owner_preserves_other_waiters(true);
+}
+
+#[test]
+fn a_panicking_shared_compute_returns_an_error_and_releases_every_claim_for_retry() {
+    struct Provider {
+        identity: VectorSpaceIdentity,
+        calls: Arc<AtomicUsize>,
+    }
+    impl EmbeddingProvider for Provider {
+        fn identity(&self) -> &VectorSpaceIdentity {
+            &self.identity
+        }
+        #[allow(clippy::panic)] // This test boundary deliberately panics to verify every claim is released.
+        fn embed(
+            &self,
+            texts: &[String],
+            _: EmbedKind,
+            _: &Cancel,
+        ) -> Result<Vec<Vec<f32>>, EmbedError> {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                panic!("synthetic provider panic");
+            }
+            Ok(vec![vec![1.0; 3]; texts.len()])
+        }
+    }
+    let calls = Arc::new(AtomicUsize::new(0));
+    let service = Service::new(
+        Box::new(Provider {
+            identity: space(3),
+            calls: calls.clone(),
+        }),
+        None,
+        identity(3),
+        None,
+        ServiceOptions::default(),
+    )
+    .unwrap();
+    let result = service.embed(
+        &["X".into(), "Y".into()],
+        EmbedKind::Query,
+        &identity(3),
+        &Cancel::with_deadline(Instant::now() + Duration::from_secs(1)),
+    );
+    assert!(matches!(
+        result,
+        Err(plur1bus_engine::contract::EngineError::Embedding(
+            EmbedError::ProviderFailed { status: None }
+        ))
+    ));
+    assert_eq!(
+        service
+            .embed(
+                &["Y".into(), "X".into()],
+                EmbedKind::Query,
+                &identity(3),
+                &Cancel::with_deadline(Instant::now() + Duration::from_secs(1)),
+            )
+            .unwrap(),
+        vec![vec![1.0; 3]; 2]
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}

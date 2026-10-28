@@ -9,7 +9,7 @@ use crate::{
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
-    sync::{Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
     time::Duration,
 };
 
@@ -100,11 +100,11 @@ struct Claim {
     hash: String,
     key: CacheKey,
     text: String,
-    flight: std::sync::Arc<Flight>,
+    flight: Arc<Flight>,
 }
 struct Memory {
     entries: HashMap<String, Entry>,
-    inflight: HashMap<String, std::sync::Arc<Flight>>,
+    inflight: HashMap<String, Arc<Flight>>,
     access: u64,
 }
 
@@ -118,16 +118,16 @@ pub(crate) struct Cache {
 }
 
 // A provider panic or an early return must never leave other callers waiting on abandoned claims.
-struct Publication<'a> {
-    cache: &'a Cache,
-    claims: &'a [Claim],
+struct Publication {
+    cache: Arc<Cache>,
+    claims: Vec<Claim>,
     finished: bool,
 }
-impl Drop for Publication<'_> {
+impl Drop for Publication {
     fn drop(&mut self) {
         if !self.finished {
             self.cache
-                .publish(self.claims, &Err(super::EmbedError::Unavailable), 0);
+                .publish(&self.claims, &Err(super::EmbedError::Unavailable), 0);
         }
     }
 }
@@ -200,6 +200,30 @@ impl Cache {
             .memory
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Ok(vectors) = computed {
+            for (claim, vector) in claims.iter().zip(vectors) {
+                self.remember(
+                    &mut memory,
+                    claim.hash.clone(),
+                    Cached {
+                        vector: vector.clone(),
+                        expires_at: completed_at.saturating_add(self.ttl_ms),
+                    },
+                );
+            }
+        }
+        drop(memory);
+        // Node exposes warm memory entries immediately, then settles the flight after its best-effort write.
+        if let (Some(cache), Ok(vectors)) = (&self.persistent, computed) {
+            let expires_at = completed_at.saturating_add(self.ttl_ms);
+            for (claim, vector) in claims.iter().zip(vectors) {
+                let _ = cache.put_at(&claim.key, vector, expires_at, completed_at);
+            }
+        }
+        let mut memory = self
+            .memory
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         for (index, claim) in claims.iter().enumerate() {
             let value = match computed {
                 Ok(vectors) => Ok(Cached {
@@ -208,14 +232,11 @@ impl Cache {
                 }),
                 Err(error) => Err(error.clone()),
             };
-            if let Ok(value) = &value {
-                self.remember(&mut memory, claim.hash.clone(), value.clone());
-            }
             claim.flight.complete(value);
             if memory
                 .inflight
                 .get(&claim.hash)
-                .is_some_and(|flight| std::sync::Arc::ptr_eq(flight, &claim.flight))
+                .is_some_and(|flight| Arc::ptr_eq(flight, &claim.flight))
             {
                 memory.inflight.remove(&claim.hash);
             }
@@ -224,24 +245,17 @@ impl Cache {
         for claim in claims {
             claim.flight.changed.notify_all();
         }
-        // Node's persistent cache is best effort. A broken SQLite tier cannot turn valid embeddings into failures.
-        if let (Some(cache), Ok(vectors)) = (&self.persistent, computed) {
-            let expires_at = completed_at.saturating_add(self.ttl_ms);
-            for (claim, vector) in claims.iter().zip(vectors) {
-                let _ = cache.put_at(&claim.key, vector, expires_at, completed_at);
-            }
-        }
     }
 
     #[allow(clippy::too_many_arguments)] // Caller identity, host clock and cancellation are explicit at this boundary.
     pub(crate) fn embed(
-        &self,
-        provider: &dyn EmbeddingProvider,
+        self: &Arc<Self>,
+        provider: Arc<dyn EmbeddingProvider>,
         texts: &[String],
         kind: EmbedKind,
         identity_hash: &str,
         width: usize,
-        clock: &dyn Fn() -> i64,
+        clock: Arc<dyn Fn() -> i64 + Send + Sync>,
         cancel: &Cancel,
     ) -> Result<Vec<Vec<f32>>, EngineError> {
         cancel.check()?;
@@ -314,7 +328,7 @@ impl Cache {
                 let flight = if let Some(flight) = memory.inflight.get(&hash) {
                     flight.clone()
                 } else {
-                    let flight = std::sync::Arc::new(Flight::new());
+                    let flight = Arc::new(Flight::new());
                     memory.inflight.insert(hash.clone(), flight.clone());
                     claims.push(Claim {
                         hash,
@@ -328,24 +342,36 @@ impl Cache {
             }
         }
         if !claims.is_empty() {
-            let mut publication = Publication {
-                cache: self,
-                claims: &claims,
+            // The computation belongs to the shared flight, not to whichever caller claimed it.
+            // Moving publication into the closure also cleans up claims if spawning fails.
+            let publication = Publication {
+                cache: self.clone(),
+                claims,
                 finished: false,
             };
-            let missing: Vec<_> = claims.iter().map(|claim| claim.text.clone()).collect();
-            let computed = provider.embed(&missing, kind, cancel).and_then(|vectors| {
-                validate_vectors(&vectors, missing.len(), width)?;
-                cancel.check().map_err(super::EmbedError::Cancelled)?;
-                Ok(vectors)
-            });
-            self.publish(&claims, &computed, clock());
-            publication.finished = true;
-            if let Err(error) = computed {
-                return Err(error.into());
-            }
+            std::thread::Builder::new()
+                .name("embedding-cache".into())
+                .spawn(move || {
+                    let mut publication = publication;
+                    let missing: Vec<_> = publication
+                        .claims
+                        .iter()
+                        .map(|claim| claim.text.clone())
+                        .collect();
+                    let computed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        let vectors = provider.embed(&missing, kind, &Cancel::never())?;
+                        validate_vectors(&vectors, missing.len(), width)?;
+                        Ok(vectors)
+                    }))
+                    .unwrap_or(Err(super::EmbedError::ProviderFailed { status: None }));
+                    publication
+                        .cache
+                        .publish(&publication.claims, &computed, clock());
+                    publication.finished = true;
+                })
+                .map_err(|_| super::EmbedError::Unavailable)?;
         }
-        // Publish our own batch before waiting on foreign claims: overlapping batches cannot form a wait cycle.
+        // Workers compute owned claims without waiting on foreign flights, so overlapping batches cannot form a cycle.
         // Observe every completed error on each bounded wait; an earlier pending key cannot mask a later failure.
         while !waiting.is_empty() {
             cancel.check()?;
