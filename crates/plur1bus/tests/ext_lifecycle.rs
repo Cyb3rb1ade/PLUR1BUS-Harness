@@ -334,7 +334,7 @@ fn mcp_unknown_agent_and_duplicate_selection_refuse_before_any_write() {
 }
 
 #[test]
-fn mcp_install_enable_uses_the_same_agent_selection_as_a_later_enable() {
+fn first_party_mcp_install_uses_all_and_later_enable_can_narrow() {
     let key = test_key("test");
     let _g = env_with(&key);
     let (d, l) = home();
@@ -353,8 +353,15 @@ fn mcp_install_enable_uses_the_same_agent_selection_as_a_later_enable() {
     assert_eq!(installed["state"], "enabled");
     assert_eq!(
         config(&l)["mcp"]["servers"]["docs"],
-        json!({"enabled": true, "agents": ["anna"]})
+        json!({"enabled": true, "agents": "all"})
     );
+    assert_eq!(item(&l, "docs")["agents"], "all");
+    on(
+        &l,
+        "docs",
+        &toggle(Some(Agents::Some(vec!["anna".into()])), true, false),
+    )
+    .unwrap();
     assert_eq!(item(&l, "docs")["agents"], json!(["anna"]));
 }
 
@@ -535,6 +542,15 @@ fn install(
     let rec = inspect::inspect(l, Source::Path(p), &id).unwrap();
     let staged = stage::stage(l, &id).unwrap();
     install_commit(l, &mut OfflineHost::new(l), &rec, staged, o)
+}
+
+// These activation tests deliberately use the lower-trust, initially disabled branch; Mv2 first-party defaults
+// are covered independently by ext_first_party.rs.
+fn lower_trust() -> InstallOpts {
+    InstallOpts {
+        acknowledge: vec!["unknown-signer".into()],
+        enable: None,
+    }
 }
 
 fn plain() -> InstallOpts {
@@ -816,6 +832,7 @@ fn an_unindexed_local_skill_gets_its_entry_at_the_first_toggle() {
 fn first_enable_needs_acknowledge_capabilities_with_the_disclosure_in_data() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     write_config(&l, |_| {});
     install(
@@ -823,7 +840,7 @@ fn first_enable_needs_acknowledge_capabilities_with_the_disclosure_in_data() {
         &l,
         "m.p1x",
         &module_pkg("fixture", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     install(
@@ -831,7 +848,7 @@ fn first_enable_needs_acknowledge_capabilities_with_the_disclosure_in_data() {
         &l,
         "s.p1x",
         &skill_pkg("demo-scripts", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     let before = guarded(&l);
@@ -887,6 +904,7 @@ fn first_enable_needs_acknowledge_capabilities_with_the_disclosure_in_data() {
 fn re_enable_after_disable_needs_no_new_acknowledgment_unless_capabilities_changed() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     write_config(&l, |_| {});
     install(
@@ -894,7 +912,7 @@ fn re_enable_after_disable_needs_no_new_acknowledgment_unless_capabilities_chang
         &l,
         "s1.p1x",
         &skill_pkg("demo-skill", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     on(&l, "demo-skill", &toggle(None, true, false)).unwrap();
@@ -908,7 +926,7 @@ fn re_enable_after_disable_needs_no_new_acknowledgment_unless_capabilities_chang
         &l,
         "s2.p1x",
         &skill_pkg_caps("demo-skill", "1.1.0", wide_caps(), &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     let before = guarded(&l);
@@ -1100,6 +1118,7 @@ fn disable_is_always_allowed_even_when_revoked() {
 fn dry_run_writes_nothing_and_returns_the_plan_with_dependents() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     two_agents(&l);
     install(
@@ -1107,7 +1126,7 @@ fn dry_run_writes_nothing_and_returns_the_plan_with_dependents() {
         &l,
         "m.p1x",
         &module_pkg("fixture", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     install(
@@ -1115,7 +1134,7 @@ fn dry_run_writes_nothing_and_returns_the_plan_with_dependents() {
         &l,
         "s.p1x",
         &skill_pkg("demo-skill", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     on(&l, "fixture", &toggle(None, true, false)).unwrap();
@@ -1336,6 +1355,7 @@ impl ModuleHost for FailingHost<'_> {
 fn a_failed_enable_rolls_back_what_it_wrote() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     two_agents(&l);
     install(
@@ -1343,7 +1363,7 @@ fn a_failed_enable_rolls_back_what_it_wrote() {
         &l,
         "s.p1x",
         &skill_pkg("demo-skill", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     install(
@@ -1351,7 +1371,7 @@ fn a_failed_enable_rolls_back_what_it_wrote() {
         &l,
         "m.p1x",
         &module_pkg("fixture", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     let before = guarded(&l);
@@ -1481,6 +1501,7 @@ fn agents_all_on_a_module_is_accepted() {
 fn a_dry_run_succeeds_while_another_mutation_holds_the_lock() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     write_config(&l, |_| {});
     install(
@@ -1488,7 +1509,7 @@ fn a_dry_run_succeeds_while_another_mutation_holds_the_lock() {
         &l,
         "m.p1x",
         &module_pkg("fixture", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     let guard = ext::try_mutation().unwrap();

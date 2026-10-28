@@ -125,7 +125,7 @@ fn main() {
             &layout,
             cli::PluginCmd::Install {
                 path,
-                enable: false,
+                enable: None,
                 flags,
             },
         ),

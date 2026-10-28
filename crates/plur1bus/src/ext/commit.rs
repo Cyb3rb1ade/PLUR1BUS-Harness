@@ -74,6 +74,9 @@ pub trait ModuleHost {
     fn notify(&mut self, change: Value);
     /// `"supervisor"` or `"offline"` (the audit line's `detail.via`, X1-R32).
     fn via(&self) -> &'static str;
+    /// Holds a packaged module before configuration reconciliation can start newly placed code. A7 resolves the
+    /// actual slot availability through fresh Core metadata; until then declared required slots fail closed.
+    fn hold_for_setup(&mut self, _name: &str) {}
     /// The raw bytes of `config.json` (`Some(None)`: no file) when this host can put them back exactly
     /// ([`ModuleHost::restore_config_bytes`], X1-C14); `None` when a rollback goes through [`ModuleHost::set_config`].
     fn config_bytes(&self) -> Option<Option<Vec<u8>>> {
@@ -745,9 +748,29 @@ fn commit_locked(
         && prev.as_ref().is_some_and(|p| {
             !capabilities_acknowledged(&staged.record.capabilities, p.capabilities_ack.as_deref())
         });
-    let acknowledged = acknowledgments(rec, &staged, prev.as_ref(), widened, opts)?;
+    let first_party = staged.record.trust == "first-party";
+    let mut effective = opts.clone();
+    if first_party {
+        // Mv2 decision 3: the trusted signing tier installs active for every agent. Capability widening and
+        // downgrades still require their existing explicit acknowledgments.
+        effective.enable = Some(Agents::All);
+        if !widened && !effective.acknowledge.iter().any(|a| a == "capabilities") {
+            effective.acknowledge.push("capabilities".into());
+        }
+    }
+    let acknowledged = acknowledgments(rec, &staged, prev.as_ref(), widened, &effective)?;
     if let Some(agents) = &opts.enable {
-        enable_prechecks(&name, kind, &staged.record.required_secrets, &cfg, agents)?;
+        let required = if first_party {
+            &[][..]
+        } else {
+            &staged.record.required_secrets
+        };
+        enable_prechecks(&name, kind, required, &cfg, agents)?;
+    }
+    if matches!(staged.kind, Kind::Module | Kind::Channel)
+        && !staged.record.required_secrets.is_empty()
+    {
+        host.hold_for_setup(&name);
     }
     // Every refusal and the no-op are behind us: the first write (X1-C16).
     super::remove::prune_for(layout, &cfg);
@@ -768,7 +791,7 @@ fn commit_locked(
         },
         st: &st,
         cfg: &cfg,
-        opts,
+        opts: &effective,
     };
     let (record, state_name) = match run_steps(&ctx, host, &mut rb) {
         Ok(x) => x,

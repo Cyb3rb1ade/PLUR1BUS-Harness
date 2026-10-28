@@ -46,7 +46,8 @@ pub fn overlay_reason(o: Overlay) -> Option<&'static str> {
         Overlay::Revoked => Some(super::state::STOPPED_EXT_REVOKED),
         Overlay::Tampered => Some(super::state::STOPPED_EXT_TAMPERED),
         Overlay::Incompatible => Some(super::state::STOPPED_EXT_INCOMPATIBLE),
-        Overlay::NeedsSetup | Overlay::Error => None,
+        Overlay::NeedsSetup => Some(super::state::STOPPED_EXT_NEEDS_SETUP),
+        Overlay::Error => None,
     }
 }
 
@@ -120,6 +121,13 @@ fn set_error(e: SetError) -> ExtError {
 }
 
 impl ModuleHost for SupervisorHost<'_> {
+    fn hold_for_setup(&mut self, name: &str) {
+        self.shared
+            .lock()
+            .ext_overlays
+            .entry(name.to_string())
+            .or_insert(Overlay::NeedsSetup);
+    }
     fn config(&self) -> Value {
         relock(&self.shared.config)
             .running
@@ -212,9 +220,14 @@ pub fn module_overlays(layout: &Layout) -> BTreeMap<String, Overlay> {
         let compat = cached_meta(&paths, &rec.package_sha256)
             .and_then(|m| m["manifest"].get("compat").cloned());
         let found = overlays_of(rec, &host, &revs, compat.as_ref());
-        let pick = [Overlay::Revoked, Overlay::Tampered, Overlay::Incompatible]
-            .into_iter()
-            .find(|o| found.contains(o));
+        let pick = [
+            Overlay::Revoked,
+            Overlay::Tampered,
+            Overlay::Incompatible,
+            Overlay::NeedsSetup,
+        ]
+        .into_iter()
+        .find(|o| found.contains(o));
         if let Some(o) = pick {
             out.insert(rec.name.clone(), o);
         }

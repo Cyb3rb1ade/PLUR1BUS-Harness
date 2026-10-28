@@ -4326,7 +4326,7 @@ Skills from packages, folders or archives: list, show, install, uninstall, resto
 
 * `list` — [experimental] List the installed skills: version, state, source, trust and the agents that have each
 * `show` — [experimental] Show one skill: its package, trust, capabilities, scripts, files and trash entries
-* `install` — [experimental] Install a skill from a `.p1x`, a `.skill`, a `.zip`, a folder or stdin (`-`), disabled
+* `install` — [experimental] Install a skill; first-party packages activate for all agents, other packages stay disabled
 * `uninstall` — [experimental] Uninstall a skill into the trash (a bundled skill is hidden instead)
 * `restore` — [experimental] Restore a skill from the trash (disabled)
 * `enable` — [experimental] Enable a skill, for every agent or only the listed ones (prints its capabilities first)
@@ -4365,9 +4365,9 @@ Skills from packages, folders or archives: list, show, install, uninstall, resto
 
 ## `plur1bus skill install`
 
-[experimental] Install a skill from a `.p1x`, a `.skill`, a `.zip`, a folder or stdin (`-`), disabled
+[experimental] Install a skill; first-party packages activate for all agents, other packages stay disabled
 
-Inspects the package first and prints the disclosure: trust tier and why, signer key, id, version, publisher, licence, every capability, every script with its size and first line, the runtime, the secrets and what it replaces. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. `--enable` enables it in the same step (for the listed agents only, with `--enable=bernd,anna`).
+Inspects the package first and prints the disclosure: trust tier and why, signer key, id, version, publisher, licence, every capability, every script with its size and first line, the runtime, the secrets and what it replaces. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. For other trust tiers, `--enable` activates it in the same step (for the listed agents only, with `--enable=bernd,anna`). First-party installations always activate for all agents; a later enable can narrow them.
 
 **Usage:** `plur1bus skill install [OPTIONS] <PATH>`
 
@@ -4460,7 +4460,7 @@ Plugins (modules and channels) from packages: list, show, install, uninstall, re
 
 * `list` — [experimental] List the installed modules and channels: version, state, source, trust and overlays
 * `show` — [experimental] Show one module or channel: its package, trust, capabilities, files, dependents and trash entries
-* `install` — [experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
+* `install` — [experimental] Install a module, channel or MCP server; first-party packages activate for all agents
 * `uninstall` — [experimental] Stop and uninstall a module or channel into the trash
 * `restore` — [experimental] Restore a module or channel from the trash (disabled)
 * `enable` — [experimental] Enable a plugin: MCP servers can be limited to selected agents
@@ -4501,9 +4501,9 @@ Plugins (modules and channels) from packages: list, show, install, uninstall, re
 
 ## `plur1bus plugin install`
 
-[experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
+[experimental] Install a module, channel or MCP server; first-party packages activate for all agents
 
-Inspects the package first and prints the disclosure (see `skill install`). A module runs with the full authority of a harness process. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package.
+Inspects the package first and prints the disclosure (see `skill install`). A module runs with the full authority of a harness process. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package. For other trust tiers, `--enable` activates it in the same step; `--enable=bernd,anna` limits an MCP server to those agents. First-party installations always activate for all agents; a later enable can narrow them.
 
 **Usage:** `plur1bus plugin install [OPTIONS] <PATH>`
 
@@ -4513,7 +4513,7 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ###### **Options:**
 
-* `--enable` — Enable it right away
+* `--enable <AGENT>` — Enable it right away, for every agent or (for MCP servers, with `=<agent,…>`) only for those
 * `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
 * `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
 * `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
@@ -4594,13 +4594,13 @@ MCP bundle compatibility commands
 
 ###### **Subcommands:**
 
-* `import` — [experimental] Alias for `plugin install`: inspect and install a bundle disabled
+* `import` — [experimental] Alias for `plugin install`: inspect and install an MCP bundle
 
 
 
 ## `plur1bus mcp import`
 
-[experimental] Alias for `plugin install`: inspect and install a bundle disabled
+[experimental] Alias for `plugin install`: inspect and install an MCP bundle
 
 **Usage:** `plur1bus mcp import [OPTIONS] <PATH>`
 

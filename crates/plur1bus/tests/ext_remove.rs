@@ -312,6 +312,11 @@ fn install(
     install_commit(l, &mut OfflineHost::new(l), &rec, staged, o)
 }
 
+fn lower_trust(mut opts: InstallOpts) -> InstallOpts {
+    opts.acknowledge.push("unknown-signer".into());
+    opts
+}
+
 fn plain() -> InstallOpts {
     InstallOpts::default()
 }
@@ -950,6 +955,8 @@ type Mutation = Box<dyn Fn(&Layout)>;
 fn every_mutation_prunes_the_expired_trash_first() {
     let key = test_key("test");
     let _g = env_with(&key);
+    // Exercise real disabled lower-trust fixtures after Mv2 auto-activation of first-party packages.
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     write_config(&l, |_| {});
     install(
@@ -957,7 +964,7 @@ fn every_mutation_prunes_the_expired_trash_first() {
         &l,
         "k.p1x",
         &skill_pkg("demo-keep", &key),
-        &plain(),
+        &lower_trust(plain()),
     )
     .unwrap();
     let mutations: Vec<(&str, Mutation)> = vec![
@@ -999,7 +1006,7 @@ fn every_mutation_prunes_the_expired_trash_first() {
             &l,
             "g.p1x",
             &skill_pkg("demo-gone", &key),
-            &plain(),
+            &lower_trust(plain()),
         )
         .unwrap();
         let tid = rm(&l, "demo-gone", false, false).unwrap()["trashId"]
@@ -1020,7 +1027,7 @@ fn every_mutation_prunes_the_expired_trash_first() {
         &l,
         "g.p1x",
         &skill_pkg("demo-gone", &key),
-        &plain(),
+        &lower_trust(plain()),
     )
     .unwrap();
     let tid = rm(&l, "demo-gone", false, false).unwrap()["trashId"]
@@ -1035,7 +1042,7 @@ fn every_mutation_prunes_the_expired_trash_first() {
         &l,
         "g.p1x",
         &skill_pkg("demo-gone", &key),
-        &plain(),
+        &lower_trust(plain()),
     )
     .unwrap();
     let tid = rm(&l, "demo-gone", false, false).unwrap()["trashId"]
@@ -1048,7 +1055,7 @@ fn every_mutation_prunes_the_expired_trash_first() {
         &l,
         "o.p1x",
         &skill_pkg("demo-other", &key),
-        &plain(),
+        &lower_trust(plain()),
     )
     .unwrap();
     assert!(!trash(&l).join(&tid).exists(), "install did not prune");
@@ -1289,14 +1296,16 @@ fn tid_of(v: &Value) -> String {
 fn refusals_and_no_ops_leave_an_expired_trash_entry() {
     let key = test_key("test");
     let _g = env_with(&key);
+    // Exercise real disabled lower-trust fixtures after Mv2 auto-activation of first-party packages.
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     write_config(&l, |_| {});
     // One build of the package, so a second install of it is the identical package (Review Focus 5).
     let taken_pkg = skill_pkg("demo-taken", &key);
     let taken = {
-        install(d.path(), &l, "t.p1x", &taken_pkg, &plain()).unwrap();
+        install(d.path(), &l, "t.p1x", &taken_pkg, &lower_trust(plain())).unwrap();
         let t = tid_of(&rm(&l, "demo-taken", false, false).unwrap());
-        install(d.path(), &l, "t.p1x", &taken_pkg, &plain()).unwrap();
+        install(d.path(), &l, "t.p1x", &taken_pkg, &lower_trust(plain())).unwrap();
         t
     };
     install(
@@ -1304,7 +1313,7 @@ fn refusals_and_no_ops_leave_an_expired_trash_entry() {
         &l,
         "m.p1x",
         &module_pkg("fixture", &key),
-        &plain(),
+        &lower_trust(plain()),
     )
     .unwrap();
     on(&l, "fixture", &toggle(None, true, false)).unwrap();
@@ -1348,7 +1357,7 @@ fn refusals_and_no_ops_leave_an_expired_trash_entry() {
     assert!(back(&l, "no-such-1.0.0-20260101T000000Z").is_err());
     alive("a trash-expired restore");
     // The identical package again: a no-op.
-    let v = install(d.path(), &l, "t.p1x", &taken_pkg, &plain()).unwrap();
+    let v = install(d.path(), &l, "t.p1x", &taken_pkg, &lower_trust(plain())).unwrap();
     assert_eq!(v["replaced"], false);
     alive("an identical-package install");
     // A lower version without the acknowledgment: refused.
@@ -1357,7 +1366,7 @@ fn refusals_and_no_ops_leave_an_expired_trash_entry() {
         &l,
         "old.p1x",
         &skill_pkg_caps("demo-taken", "0.9.0", base_caps(), &key),
-        &plain(),
+        &lower_trust(plain()),
     )
     .unwrap_err();
     assert_eq!(reason(&e), ("E_APPROVAL_REQUIRED", "acknowledge-downgrade"));

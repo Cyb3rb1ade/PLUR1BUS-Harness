@@ -293,6 +293,10 @@ fn caps() -> Value {
 /// A signed module package built from the fixture module: `module.json` names `name` and `version` and needs the core
 /// plus `needs`.
 fn module_pkg(h: &Home, name: &str, version: &str, needs: &[&str]) -> Vec<u8> {
+    module_pkg_with_key(name, version, needs, &h.key)
+}
+
+fn module_pkg_with_key(name: &str, version: &str, needs: &[&str], key: &TestKey) -> Vec<u8> {
     let src = fixture_dist();
     let mut files = Vec::new();
     for e in std::fs::read_dir(&src)
@@ -336,7 +340,7 @@ fn module_pkg(h: &Home, name: &str, version: &str, needs: &[&str]) -> Vec<u8> {
         "requires": { "runtime": { "type": "node", "range": ">=24" } },
         "capabilities": caps()
     });
-    build_package_from(&template, files, Some(&h.key))
+    build_package_from(&template, files, Some(key))
 }
 
 /// `ext.inspect` of `name`'s package (written beside the home): the result.
@@ -349,13 +353,19 @@ fn inspect(h: &Home, name: &str, needs: &[&str]) -> Value {
     )
 }
 
-/// Inspects and installs `name` (disabled).
-fn install(h: &Home, name: &str, needs: &[&str]) -> Value {
-    let insp = inspect(h, name, needs);
+/// Arranges an initially disabled lower-trust package for toggle, rollback and event tests. First-party defaults
+/// are exercised by the direct install and required-slot tests below.
+fn install_disabled(h: &Home, name: &str, needs: &[&str]) -> Value {
+    let key = test_key("unknown-fixture");
+    let path = h.write(
+        &format!("{name}.p1x"),
+        &module_pkg_with_key(name, "1.0.0", needs, &key),
+    );
+    let insp = ok(&h.home, "ext.inspect", json!({"source":{"path":path}}));
     ok(
         &h.home,
         "ext.install",
-        json!({ "inspectionId": insp["inspectionId"] }),
+        json!({"inspectionId":insp["inspectionId"],"acknowledge":["unknown-signer"]}),
     )
 }
 
@@ -379,11 +389,77 @@ fn entries(dir: &Path) -> Vec<String> {
     v
 }
 
+#[test]
+fn first_party_required_slots_hold_activation_before_the_config_reconcile_can_spawn() {
+    let h = Home::new();
+    let marker = h.dir.path().join("unexpected-spawn");
+    let mut capabilities = caps();
+    capabilities["secrets"] = json!([{"slot":"API_KEY","label":{"en":"API key"},"required":true}]);
+    let template = json!({
+        "$schema":"https://plur1bus.app/schema/p1x/1/p1x.schema.json","format":1,
+        "id":"demo/needs-secret","name":"needs-secret","version":"1.0.0","kind":"module",
+        "title":{"en":"Needs secret"},"summary":{"en":"Held until setup"},
+        "publisher":{"id":"demo","name":"Demo"},"licence":"MIT",
+        "compat":{"harness":">=0.0.0","moduleApi":["1"]},
+        "requires":{"runtime":{"type":"node","range":">=24"}},"capabilities":capabilities
+    });
+    let module = json!({"name":"needs-secret","version":"1.0.0","apiVersion":"1","entry":"index.js","scope":"installation","priority":500});
+    let source = h.write(
+        "needs-secret.p1x",
+        &build_package_from(
+            &template,
+            vec![
+                PayloadFile {
+                    rel: "module.json".into(),
+                    bytes: serde_json::to_vec(&module).unwrap(),
+                    exec: false,
+                },
+                PayloadFile {
+                    rel: "index.js".into(),
+                    bytes: format!(
+                        "require('node:fs').writeFileSync({}, 'spawned');\n",
+                        json!(marker)
+                    )
+                    .into_bytes(),
+                    exec: false,
+                },
+            ],
+            Some(&h.key),
+        ),
+    );
+    let mut supervisor = h.start_with_core(&[]);
+    let inspected = ok(&h.home, "ext.inspect", json!({"source":{"path":source}}));
+    let installed = ok(
+        &h.home,
+        "ext.install",
+        json!({"inspectionId":inspected["inspectionId"]}),
+    );
+    assert_eq!(installed["state"], "enabled");
+    assert_eq!(h.config()["modules"]["needs-secret"]["enabled"], true);
+    assert!(
+        !marker.exists(),
+        "the missing-slot module must never execute, including during config.set"
+    );
+    let held = wait_for(
+        &h.home,
+        "needs-secret",
+        "held until secret setup",
+        is("stopped", "ext-needs-setup"),
+    );
+    assert!(held["pid"].is_null());
+    let shown = ok(&h.home, "ext.show", json!({"name":"needs-secret"}));
+    assert!(shown["item"]["overlays"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("needs-setup")));
+    stop(&mut supervisor, &h.home);
+}
+
 // ---- tests ---------------------------------------------------------------------------------------------------------
 
-/// Spec §6.1, Q5: an install over RPC ends installed and disabled; nothing is spawned for it.
+/// Mv2 decision 3: a first-party install over RPC activates immediately.
 #[test]
-fn inspect_and_install_over_rpc_install_a_module_disabled_and_nothing_starts() {
+fn inspect_and_install_over_rpc_activate_a_first_party_module() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
     let insp = inspect(&h, "fixture", &[]);
@@ -407,14 +483,13 @@ fn inspect_and_install_over_rpc_install_a_module_disabled_and_nothing_starts() {
     common::assert_valid("methods/ext.install/result", &r);
     assert_eq!(
         r,
-        json!({ "name": "fixture", "version": "1.0.0", "kind": "module", "replaced": false, "state": "installed" })
+        json!({ "name": "fixture", "version": "1.0.0", "kind": "module", "replaced": false, "state": "enabled" })
     );
     assert!(h.home.join("modules/fixture/module.json").is_file());
-    assert_eq!(h.config()["modules"]["fixture"]["enabled"], false);
-    let c = wait_for(&h.home, "fixture", "held back", is("stopped", "disabled"));
-    assert_eq!(c["pid"], Value::Null, "{c}");
-    std::thread::sleep(Duration::from_millis(300));
-    assert!(!h.home.join("run/module-fixture.pid").exists());
+    assert_eq!(h.config()["modules"]["fixture"]["enabled"], true);
+    let c = wait_for(&h.home, "fixture", "ready", is("ready", ""));
+    assert!(c["pid"].is_u64(), "{c}");
+    assert!(h.home.join("run/module-fixture.pid").exists());
     let list = ok(&h.home, "ext.list", json!({}));
     common::assert_valid("methods/ext.list/result", &list);
     let item = list["items"]
@@ -424,7 +499,7 @@ fn inspect_and_install_over_rpc_install_a_module_disabled_and_nothing_starts() {
         .find(|i| i["name"] == "fixture")
         .cloned()
         .unwrap();
-    assert_eq!(item["state"], "installed", "{item}");
+    assert_eq!(item["state"], "enabled", "{item}");
     let shown = ok(&h.home, "ext.show", json!({ "name": "fixture" }));
     common::assert_valid("methods/ext.show/result", &shown);
     // The inspection was consumed.
@@ -446,8 +521,8 @@ fn inspect_and_install_over_rpc_install_a_module_disabled_and_nothing_starts() {
 fn enable_starts_the_module_and_disable_holds_back_its_dependent() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
-    install(&h, "fixture-b", &["fixture"]);
+    install_disabled(&h, "fixture", &[]);
+    install_disabled(&h, "fixture-b", &["fixture"]);
     // The first enable needs the capability acknowledgment (X1-R13), with the disclosure in error.data.ext.
     let (e, r, err) = refused(&h.home, "ext.enable", json!({ "name": "fixture" }));
     assert_eq!(
@@ -490,8 +565,8 @@ fn enable_starts_the_module_and_disable_holds_back_its_dependent() {
 fn dry_run_disable_names_the_dependent_before_applying() {
     let h = Home::new();
     let mut s = h.start_no_core(&[]);
-    install(&h, "fixture", &[]);
-    install(&h, "fixture-b", &["fixture"]);
+    install_disabled(&h, "fixture", &[]);
+    install_disabled(&h, "fixture-b", &["fixture"]);
     enable(&h, "fixture");
     enable(&h, "fixture-b");
     let before = std::fs::read(h.home.join("config.json")).unwrap();
@@ -546,7 +621,7 @@ fn ext_watch_receives_ext_changed_for_install_enable_uninstall() {
     common::assert_valid("methods/ext.watch/result", &reply["result"]);
     assert_eq!(reply["result"]["items"], json!([]));
 
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     let removed = ok(&h.home, "ext.uninstall", json!({ "name": "fixture" }));
     common::assert_valid("methods/ext.uninstall/result", &removed);
@@ -622,10 +697,7 @@ fn mcp_activation_persists_agent_config_and_broadcasts_over_the_real_supervisor(
         "ext.install",
         json!({"inspectionId": inspected["inspectionId"]}),
     );
-    assert_eq!(
-        rx.recv_timeout(WAIT).unwrap()["params"]["state"],
-        "installed"
-    );
+    assert_eq!(rx.recv_timeout(WAIT).unwrap()["params"]["state"], "enabled");
     ok(
         &h.home,
         "ext.enable",
@@ -694,8 +766,8 @@ fn daemon_status_text(h: &Home) -> String {
 fn a_revoked_installed_module_is_held_back_at_start() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
-    install(&h, "fixture-b", &["fixture"]);
+    install_disabled(&h, "fixture", &[]);
+    install_disabled(&h, "fixture-b", &["fixture"]);
     enable(&h, "fixture");
     enable(&h, "fixture-b");
     wait_for(&h.home, "fixture", "ready", is("ready", ""));
@@ -741,7 +813,7 @@ fn a_revoked_installed_module_is_held_back_at_start() {
 fn a_tampered_module_is_held_back_at_start() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     wait_for(&h.home, "fixture", "ready", is("ready", ""));
     stop(&mut s, &h.home);
@@ -816,7 +888,7 @@ fn the_supervisor_process_never_opens_the_package() {
     let r = ok(&h.home, "ext.install", json!({ "inspectionId": id }));
     done_tx.send(()).unwrap();
     let (samples, seen) = sampler.join().unwrap();
-    assert_eq!(r["state"], "installed");
+    assert_eq!(r["state"], "enabled");
     assert!(samples > 100, "only {samples} samples");
     assert!(seen.is_empty(), "the supervisor opened {seen:?}");
     // The spool moved into the cache.
@@ -881,7 +953,7 @@ fn a_worker_failure_is_worker_failed_and_the_supervisor_keeps_serving() {
 fn concurrent_install_and_enable_is_busy() {
     let h = Home::new();
     let mut s = h.start_no_core(&[("PLUR1BUS_TEST_EXT_WORKER_ARGS", "stage:--sleep-ms 2500")]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     let insp = inspect(&h, "fixture-b", &[]);
     let home = h.home.clone();
     let id = insp["inspectionId"].clone();
@@ -898,12 +970,13 @@ fn concurrent_install_and_enable_is_busy() {
     );
     assert_eq!((e.as_str(), r.as_str()), ("E_CONFLICT", "busy"));
     let done = installing.join().unwrap();
-    assert_eq!(done["result"]["state"], "installed", "{done}");
+    assert_eq!(done["result"]["state"], "enabled", "{done}");
     let after: Value =
         serde_json::from_slice(&std::fs::read(h.home.join("config.json")).unwrap()).unwrap();
     let before: Value = serde_json::from_slice(&config_before).unwrap();
     assert_eq!(after["modules"]["fixture"], before["modules"]["fixture"]);
     assert_eq!(after["modules"]["fixture"]["enabled"], false);
+    assert_eq!(after["modules"]["fixture-b"]["enabled"], true);
     stop(&mut s, &h.home);
 }
 
@@ -912,7 +985,7 @@ fn concurrent_install_and_enable_is_busy() {
 fn uninstall_over_rpc_moves_the_module_into_the_trash_and_restore_brings_it_back_disabled() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     let c = wait_for(&h.home, "fixture", "ready", is("ready", ""));
     assert!(c["pid"].is_u64());
@@ -1087,7 +1160,7 @@ fn overlays_are_refreshed_after_a_mutation() {
     let revs = h.write("revocations.json", b"{\"revocations\": []}");
     let revs_path = revs.to_string_lossy().into_owned();
     let mut s = h.start_with_core(&[("PLUR1BUS_TEST_EXT_REVOCATIONS", &revs_path)]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     wait_for(&h.home, "fixture", "ready", is("ready", ""));
 
@@ -1097,7 +1170,7 @@ fn overlays_are_refreshed_after_a_mutation() {
             .to_string(),
     )
     .unwrap();
-    install(&h, "fixture-c", &[]);
+    install_disabled(&h, "fixture-c", &[]);
     wait_for(&h.home, "fixture", "revoked", is("stopped", "ext-revoked"));
 
     std::fs::write(&revs, b"{\"revocations\": []}").unwrap();
@@ -1112,7 +1185,7 @@ fn overlays_are_refreshed_after_a_mutation() {
 fn an_unreadable_state_file_holds_packaged_modules_back_at_start() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     wait_for(&h.home, "fixture", "ready", is("ready", ""));
     stop(&mut s, &h.home);
@@ -1154,7 +1227,7 @@ fn a_relative_inspect_path_is_invalid_params() {
 fn an_unreadable_state_json_is_state_invalid_over_rpc() {
     let h = Home::new();
     let mut s = h.start_no_core(&[]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     std::fs::write(h.home.join("extensions/state.json"), b"{ broken").unwrap();
     for (method, params) in [
         ("ext.show", json!({ "name": "fixture" })),
@@ -1173,7 +1246,7 @@ fn an_unreadable_state_json_is_state_invalid_over_rpc() {
 }
 
 /// A `daemon.stop` while an install is committing waits for it (bounded), still running the module ops it queues: the
-/// install ends complete (code, record, config disabled), never as code without its record.
+/// install ends complete (code, record, first-party config enabled), never as code without its record.
 #[test]
 fn a_stop_during_a_commit_waits_for_it() {
     for point in ["config", "code"] {
@@ -1208,6 +1281,6 @@ fn a_stop_during_a_commit_waits_for_it() {
             "sleep:{point}: record {recorded}, code {code}; install answered {reply}; log: {}",
             std::fs::read_to_string(h.home.join("logs/supervisor.log")).unwrap_or_default()
         );
-        assert_eq!(h.config()["modules"]["fixture"]["enabled"], false);
+        assert_eq!(h.config()["modules"]["fixture"]["enabled"], true);
     }
 }

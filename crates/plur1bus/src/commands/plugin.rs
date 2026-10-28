@@ -24,7 +24,16 @@ pub fn run(out: &Out, layout: &Layout, cmd: PluginCmd) {
             path,
             enable,
             flags,
-        } => verbs::install(out, layout, v, &path, enable.then_some(Agents::All), &flags),
+        } => {
+            let agents = enable.map(|list| {
+                if list.is_empty() {
+                    Agents::All
+                } else {
+                    Agents::Some(list)
+                }
+            });
+            verbs::install(out, layout, v, &path, agents, &flags)
+        }
         PluginCmd::Uninstall {
             name,
             purge,

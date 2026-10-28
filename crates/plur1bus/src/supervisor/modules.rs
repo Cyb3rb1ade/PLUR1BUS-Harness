@@ -516,6 +516,7 @@ fn wants_start(slot: &Slot, has_monitor: bool, in_plan: bool) -> bool {
                     | state::STOPPED_EXT_REVOKED
                     | state::STOPPED_EXT_TAMPERED
                     | state::STOPPED_EXT_INCOMPATIBLE
+                    | state::STOPPED_EXT_NEEDS_SETUP
             )
         );
     let held_crash = !has_monitor

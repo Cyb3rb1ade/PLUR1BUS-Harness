@@ -1753,7 +1753,7 @@ pub struct InstallFlags {
 /// Compatibility entry point for importing an MCP bundle through plugin installation (M-A9).
 #[derive(Subcommand, Debug)]
 pub enum McpCmd {
-    /// [experimental] Alias for `plugin install`: inspect and install a bundle disabled
+    /// [experimental] Alias for `plugin install`: inspect and install an MCP bundle
     Import {
         /// `.mcpb`, `.dxt`, `.p1x`, or `-` for a `.p1x` on stdin
         path: String,
@@ -1778,13 +1778,14 @@ pub enum SkillCmd {
     },
     /// [experimental] Show one skill: its package, trust, capabilities, scripts, files and trash entries
     Show { name: String },
-    /// [experimental] Install a skill from a `.p1x`, a `.skill`, a `.zip`, a folder or stdin (`-`), disabled
+    /// [experimental] Install a skill; first-party packages activate for all agents, other packages stay disabled
     ///
     /// Inspects the package first and prints the disclosure: trust tier and why, signer key, id, version, publisher,
     /// licence, every capability, every script with its size and first line, the runtime, the secrets and what it
     /// replaces. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer
-    /// or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. `--enable` enables it in the
-    /// same step (for the listed agents only, with `--enable=bernd,anna`).
+    /// or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. For other trust tiers,
+    /// `--enable` activates it in the same step (for the listed agents only, with `--enable=bernd,anna`). First-party
+    /// installations always activate for all agents; a later enable can narrow them.
     Install {
         /// `.p1x`, `.skill`, `.zip`, a skill folder, or `-` for a `.p1x` on stdin
         path: String,
@@ -1846,17 +1847,19 @@ pub enum PluginCmd {
     },
     /// [experimental] Show one module or channel: its package, trust, capabilities, files, dependents and trash entries
     Show { name: String },
-    /// [experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
+    /// [experimental] Install a module, channel or MCP server; first-party packages activate for all agents
     ///
     /// Inspects the package first and prints the disclosure (see `skill install`). A module runs with the full
     /// authority of a harness process. A terminal asks once; with --yes the matching --allow-* flag acknowledges an
-    /// unsigned, unknown-signer or downgrade package.
+    /// unsigned, unknown-signer or downgrade package. For other trust tiers, `--enable` activates it in the same step;
+    /// `--enable=bernd,anna` limits an MCP server to those agents. First-party installations always activate for all
+    /// agents; a later enable can narrow them.
     Install {
         /// `.p1x`, or `-` for one on stdin
         path: String,
-        /// Enable it right away
-        #[arg(long)]
-        enable: bool,
+        /// Enable it right away, for every agent or (for MCP servers, with `=<agent,…>`) only for those
+        #[arg(long, num_args = 0..=1, require_equals = true, value_delimiter = ',', value_name = "AGENT")]
+        enable: Option<Vec<String>>,
         #[command(flatten)]
         flags: InstallFlags,
     },

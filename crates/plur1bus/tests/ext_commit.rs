@@ -436,13 +436,13 @@ fn mcp_install_lists_shows_and_hashes_the_complete_package_store_tree() {
         let installed = install(d.path(), &l, "docs.p1x", &pkg, &opts(&[], None)).unwrap();
         assert_eq!(
             installed,
-            json!({"name": "docs", "version": "1.0.0", "kind": "mcp-server", "replaced": false, "state": "installed"})
+            json!({"name": "docs", "version": "1.0.0", "kind": "mcp-server", "replaced": false, "state": "enabled"})
         );
         let dir = l.home.join("mcp/docs/1.0.0");
         assert!(dir.join("p1x.json").is_file());
         assert!(dir.join("record.json").is_file());
         assert!(!l.modules_dir().join("docs").exists());
-        assert_eq!(config(&l)["mcp"]["servers"]["docs"]["enabled"], false);
+        assert_eq!(config(&l)["mcp"]["servers"]["docs"]["enabled"], true);
         let filtered = list_items(
             &l,
             &config(&l),
@@ -966,7 +966,7 @@ fn long_lived_child() -> std::process::Child {
 // ---- install --------------------------------------------------------------------------------------------------------
 
 #[test]
-fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
+fn a_first_party_skill_installs_active_with_index_state_and_cache() {
     let key = test_key("test");
     let _g = env_with(&key);
     let (d, l) = home();
@@ -978,7 +978,7 @@ fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
     let v = install_commit(&l, &mut host, &rec, staged, &opts(&[], None)).unwrap();
     assert_eq!(
         v,
-        json!({"name": "demo-skill", "version": "1.0.0", "kind": "skill", "replaced": false, "state": "installed"})
+        json!({"name": "demo-skill", "version": "1.0.0", "kind": "skill", "replaced": false, "state": "enabled"})
     );
 
     // Code in place, staging and the consumed inspection gone.
@@ -1000,11 +1000,11 @@ fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
         .join(format!("{}.json", rec.inspection_id))
         .exists());
 
-    // The index entry passes the importer's reader rules (the same refusals, the same key order), disabled.
+    // The trusted package activates while keeping the importer index format.
     let idx = index::read_index(&l).unwrap();
     let e = idx.entry("demo-skill").unwrap();
     assert_eq!(e["source"], "file");
-    assert_eq!(e["enabled"], false);
+    assert_eq!(e["enabled"], true);
     assert_eq!(
         e["sourcePath"],
         d.path().join("s.p1x").to_string_lossy().as_ref()
@@ -1050,12 +1050,12 @@ fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
     assert_eq!(host.notified.len(), 1);
     assert_eq!(host.notified[0]["name"], "demo-skill");
 
-    // Listed installed, not enabled, for no agent.
+    // First-party installation is active for all agents (Mv2 decision 3).
     let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     let it = item(&list, "demo-skill");
-    assert_eq!(it["state"], "installed");
-    assert_eq!(it["enabled"], false);
-    assert_eq!(it["agents"], json!([]));
+    assert_eq!(it["state"], "enabled");
+    assert_eq!(it["enabled"], true);
+    assert_eq!(it["agents"], json!("all"));
     assert_eq!(it["trust"], "first-party");
     assert_eq!(it["source"], "file");
     let v = rpc_def("ExtItem");
@@ -1065,7 +1065,7 @@ fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
 }
 
 #[test]
-fn a_module_package_installs_disabled_and_config_says_so() {
+fn a_first_party_module_installs_active_and_config_says_so() {
     let key = test_key("test");
     let _g = env_with(&key);
     let (d, l) = home();
@@ -1079,11 +1079,11 @@ fn a_module_package_installs_disabled_and_config_says_so() {
     )
     .unwrap();
     assert_eq!(v["kind"], "module");
-    assert_eq!(v["state"], "installed");
+    assert_eq!(v["state"], "enabled");
     assert_eq!(v["replaced"], false);
     assert!(l.modules_dir().join("fixture/module.json").is_file());
     assert!(l.modules_dir().join("fixture/index.js").is_file());
-    assert_eq!(config(&l)["modules"]["fixture"]["enabled"], false);
+    assert_eq!(config(&l)["modules"]["fixture"]["enabled"], true);
     assert!(
         !l.skills().join("index.json").exists(),
         "no index for a module"
@@ -1103,8 +1103,8 @@ fn a_module_package_installs_disabled_and_config_says_so() {
         (&it["kind"], &it["state"], &it["enabled"], &it["agents"]),
         (
             &json!("module"),
-            &json!("installed"),
-            &json!(false),
+            &json!("enabled"),
+            &json!(true),
             &json!("all")
         )
     );
@@ -1187,14 +1187,14 @@ fn install_and_enable_needs_acknowledge_capabilities() {
     let (d, l) = home();
     populate(&l);
     let before = guarded(&l);
-    let pkg = skill_pkg("demo-skill", Some(&key));
+    let pkg = skill_pkg("demo-skill", None);
     let (rec, staged) = prepare(d.path(), &l, "s.p1x", &pkg);
     let e = install_commit(
         &l,
         &mut OfflineHost::new(&l),
         &rec,
         staged,
-        &opts(&[], Some(Agents::All)),
+        &opts(&["unsigned"], Some(Agents::All)),
     )
     .unwrap_err();
     assert_eq!(
@@ -1210,7 +1210,7 @@ fn install_and_enable_needs_acknowledge_capabilities() {
         &mut OfflineHost::new(&l),
         &rec,
         staged,
-        &opts(&["capabilities"], Some(Agents::All)),
+        &opts(&["unsigned", "capabilities"], Some(Agents::All)),
     )
     .unwrap();
     assert_eq!(v["state"], "enabled");
@@ -1227,7 +1227,7 @@ fn install_and_enable_needs_acknowledge_capabilities() {
         &l,
         "m.p1x",
         &module_pkg("fixture", Some(&key)),
-        &opts(&["capabilities"], Some(Agents::All)),
+        &opts(&["unsigned", "capabilities"], Some(Agents::All)),
     )
     .unwrap();
     assert_eq!(v["state"], "enabled");
@@ -1371,7 +1371,7 @@ fn installing_the_identical_package_twice_is_a_no_op() {
     let v = install_commit(&l, &mut host, &rec, staged, &opts(&[], None)).unwrap();
     assert_eq!(
         v,
-        json!({"name": "demo-skill", "version": "1.0.0", "kind": "skill", "replaced": false, "state": "installed"})
+        json!({"name": "demo-skill", "version": "1.0.0", "kind": "skill", "replaced": false, "state": "enabled"})
     );
     assert_eq!(guarded(&l), before, "writes nothing");
     assert_eq!(audit_lines(&l).len(), audit, "no audit line");
@@ -1659,8 +1659,8 @@ fn list_reports_per_agent_effective_sets() {
         d.path(),
         &l,
         "o.p1x",
-        &skill_pkg("demo-off", Some(&key)),
-        &opts(&[], None),
+        &skill_pkg("demo-off", None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
     let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
@@ -1896,16 +1896,16 @@ fn replacing_an_enabled_item_keeps_it_enabled() {
         d.path(),
         &l,
         "b1.p1x",
-        &module_pkg_v("fixture-b", "1.0.0", Some(&key)),
-        &opts(&[], None),
+        &module_pkg_v("fixture-b", "1.0.0", None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
     let v = install(
         d.path(),
         &l,
         "b2.p1x",
-        &module_pkg_v("fixture-b", "1.1.0", Some(&key)),
-        &opts(&[], None),
+        &module_pkg_v("fixture-b", "1.1.0", None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
     assert_eq!(v["state"], "installed");
@@ -1974,16 +1974,16 @@ fn replacing_an_enabled_item_with_other_capabilities_needs_acknowledge_capabilit
         d.path(),
         &l,
         "o1.p1x",
-        &skill_pkg_caps("demo-off", "1.0.0", base_caps(), Some(&key)),
-        &opts(&[], None),
+        &skill_pkg_caps("demo-off", "1.0.0", base_caps(), None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
     install(
         d.path(),
         &l,
         "o2.p1x",
-        &skill_pkg_caps("demo-off", "1.1.0", wide, Some(&key)),
-        &opts(&[], None),
+        &skill_pkg_caps("demo-off", "1.1.0", wide, None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
 }
@@ -2247,19 +2247,19 @@ fn commit_time_rechecks_refuse_and_write_nothing() {
     let mut caps = base_caps();
     caps["secrets"] =
         json!([{ "slot": "API_KEY", "label": { "en": "API key" }, "required": true }]);
-    let pkg = skill_pkg_caps("demo-skill", "1.0.0", caps, Some(&key));
+    let pkg = skill_pkg_caps("demo-skill", "1.0.0", caps, None);
     let (rec, staged) = prepare(d.path(), &l, "s.p1x", &pkg);
     let e = install_commit(
         &l,
         &mut OfflineHost::new(&l),
         &rec,
         staged,
-        &opts(&["capabilities"], Some(Agents::All)),
+        &opts(&["unsigned", "capabilities"], Some(Agents::All)),
     )
     .unwrap_err();
     assert_eq!(reason(&e), ("E_NOT_AVAILABLE", "needs-setup"));
     assert!(!written(&l));
-    install(d.path(), &l, "s.p1x", &pkg, &opts(&[], None)).unwrap();
+    install(d.path(), &l, "s.p1x", &pkg, &opts(&["unsigned"], None)).unwrap();
     let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     assert_eq!(
         item(&list, "demo-skill")["overlays"],
