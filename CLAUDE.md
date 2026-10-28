@@ -30,7 +30,9 @@ Wait for these, they are the reliable signal:
   that every `packages/web` test file ran in exactly one shard). A job the plan did not select (for example everything but
   `docs-hygiene` on a docs-only change) is skipped on purpose and counts as passed. Wait for `ci-gate`, not for the single jobs: a skipped matrix never reports
   `unit (ubuntu-24.04)`, `ci-gate` always reports.
-- `quality` (workflow `release-quality`, macos-15): third-party notices, `pnpm lint`, the release checklist and the dependency audit policy
+- `quality` (workflow `release-quality`, macos-15): third-party notices, `pnpm lint`, the release checklist and the dependency audit policy.
+  While the repository variable `MACOS_SELF_HOSTED` is `true` it runs on the owner's macOS VM runner instead (`docs/ci.md`,
+  "Self-hosted macOS runner"). A `quality` job that waits for that runner while the Mac is off is not red: report it.
 - `build + smoke (amd64)` (workflow `container`)
 
 `build + smoke (amd64)` only runs for pull requests that touch the paths in `container.yml`; a check that is absent is not a red one.
