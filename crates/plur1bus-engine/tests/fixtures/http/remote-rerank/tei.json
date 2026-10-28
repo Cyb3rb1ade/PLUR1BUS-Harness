@@ -1,0 +1,21 @@
+{
+  "request": {
+    "query": "query",
+    "texts": [
+      "first",
+      "second"
+    ],
+    "raw_scores": false,
+    "return_text": false
+  },
+  "response": [
+    {
+      "index": 0,
+      "score": 0.4
+    },
+    {
+      "index": 1,
+      "score": 0.9
+    }
+  ]
+}
