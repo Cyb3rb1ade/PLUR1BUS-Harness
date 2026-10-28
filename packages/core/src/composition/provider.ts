@@ -26,7 +26,7 @@ import { ruleSkills, type SkillPick } from '../decision/skills.ts';
 import { enrichedSkillQuery, isSkillFollowup, fairTaskSkills } from '../decision/skill-context.ts';
 import { skillHistoryMessages } from './skill-history.ts';
 import type { RestoredSessionSkills } from './session-skills.ts';
-import { detectToolNeed, type ToolNeed } from '../toolcall/tool-use.ts';
+import { detectToolNeed, toolChoiceForTurn, type ToolNeed } from '../toolcall/tool-use.ts';
 import { frontmatter } from '../import/yaml-lite.ts';
 import { TOOL_USE_INSTRUCTIONS } from '../prompt/instructions.ts';
 import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
@@ -438,6 +438,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const original = new Map([...aliases].map(([name, alias]) => [alias, name]));
     // A call to a tool withheld only by policy goes to the dispatcher, which refuses it (tool-denied, audited) as when it was offered.
     const withheld = new Map(registry.entries().filter(t => !selected.includes(t) && viewable(t) && policyDenied(t)).flatMap(t => [[t.name, t], [t.name.replaceAll('.', '_'), t]] as const));
+    let modelRound = 0, hasModelToolCall = false;
     const profiles = Object.fromEntries(Object.entries(routeProfiles).map(([name, candidates]) => [name, candidates.map(c => ({ ...c, adapter: {
       async *stream(request: WireRequest, options?: Parameters<typeof c.adapter.stream>[1]) {
         const attempt = routing.getStore()?.call.current;
@@ -455,11 +456,22 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         }).sort((a, b) => Buffer.compare(Buffer.from(a.name), Buffer.from(b.name))); // The tool block is part of every cached prefix: same set, same bytes.
         const mapped = request.messages.map(m => m.role === 'assistant' && m.toolCalls ? carryThinking(m, { ...m, toolCalls: m.toolCalls.map(t => ({ ...t, name: aliases.get(t.name) ?? t.name })) }) : m);
         const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(c.provider, c.model)) : undefined;
+        const effectiveReasoning = directive ?? request.reasoning;
+        const choice = toolChoiceForTurn({ mode: req.role ? 'auto' : mode, need, round: modelRound,
+          hasToolCall: hasModelToolCall, tools: selected.map(tool => tool.name), family: dialect,
+          local: isLocal(c.provider), thinking: effectiveReasoning?.adaptiveThinking === true
+            || (effectiveReasoning?.vendorParam === 'thinking.budget_tokens' && Number(effectiveReasoning.value) > 0) });
+        const toolChoice = typeof choice.choice === 'object'
+          ? { name: aliases.get(choice.choice.name) ?? choice.choice.name } : choice.choice;
+        if (choice.forced) {
+          observation.toolChoice.forced = true;
+          observation.toolChoice.status = typeof toolChoice === 'object' ? 'named' : 'required';
+        } else if (choice.suppressed && !observation.toolChoice.forced) observation.toolChoice.status = 'unsupported';
         const assertCurrentPrivacy = () => {
           if(localOnly() && !isLocal(c.provider)) throw new TurnToolError('local-only', {provider:c.provider,model:c.model,message:LOCAL_ONLY_HINT});
         };
         assertCurrentPrivacy();
-        const stream = c.adapter.stream({ ...request, messages: mapped, tools, ...(family(c.provider) === "anthropic" || directive?.vendorParam === "thinking.budget_tokens" || directive?.vendorParam === "output_config.effort" ? {maxTokens:request.maxTokens ?? o.maxTokens ?? 4096} : {}), ...(directive ? { reasoning: directive } : {}) }, options);
+        const stream = c.adapter.stream({ ...request, messages: mapped, tools, ...(tools.length ? { toolChoice } : {}), ...(family(c.provider) === "anthropic" || directive?.vendorParam === "thinking.budget_tokens" || directive?.vendorParam === "output_config.effort" ? {maxTokens:request.maxTokens ?? o.maxTokens ?? 4096} : {}), ...(directive ? { reasoning: directive } : {}) }, options);
         let began=false;
         try { while (true) {
           // An adapter may begin eagerly or only on its first next(). Once started, let that response finish.
@@ -599,6 +611,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     try {
       for (let round = 0; round < (o.maxRounds ?? 25); round++) {
         observation.rounds++;
+        modelRound = round;
         renderInput = { agentId: req.agentId, sessionId: req.sessionId, model: candidate.model, ...cacheFor(candidate.provider, candidate.model), tools: selected.map(t => ({ ...fromRegisteredTool(t) })), system: [...(o.system ?? [TOOL_USE_INSTRUCTIONS]), ...(skillCatalogue ? [skillCatalogue] : []), ...(req.recurring ? [`Automatically triggered by recurring task ${req.recurring.jobName} (${req.recurring.jobId}); runAs=${req.recurring.runAs}. This is a scheduled task, not a live message.`] : [])], memory: snapshot, conversation: conversationItems(messages.slice(summaryMessages.length)), volatile: { blocks: [...(capabilityHint ? [{ name: 'capability-hint', text: capabilityHint, chars: capabilityHint.length, droppable: false }] : []), ...(taskChecklist ? [{ name: 'task-checklist', text: taskChecklist, chars: taskChecklist.length, droppable: false }] : []), { name: 'recall', text: req.memory, chars: req.memory.length, droppable: false }] } };
         const enrich = async (signal: AbortSignal) => stage('prompt', signal, o.log, () => builder.render(renderInput!));
         rendered = req.turnProfile ? await req.turnProfile.run('promptEnrichment', enrich, undefined, signal) : await enrich(signal);
@@ -626,6 +639,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (done.text.startsWith(roundText) && done.text.length > roundText.length) yield { type: 'delta', text: done.text.slice(roundText.length) };
         if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens }; }
         if (!done.toolCalls.length) { completed = true; return; }
+        hasModelToolCall = true;
         const calls = uniqueToolCallIds(done.toolCalls);
         const toolCalls = calls.map(c => ({ id: c.id, name: c.name, arguments: c.argumentsRaw }));
         messages = [...messages, carryThinking(done, { role: 'assistant' as const, content: done.text || null, toolCalls })];
