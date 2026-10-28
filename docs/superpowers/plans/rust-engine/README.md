@@ -65,7 +65,7 @@ recommendation. If a decision changes, the briefs named in the last column chang
 | RE-D26 margin near minimums | assumed, open: every count carries `lower`/`upper`; markers and budgets use the side the profile requires | RE-14 |
 | RE-D27 calibration | assumed, open: an affine fit per route and family in the engine, fed by reported usage | RE-14 |
 | RE-D28 OpenRouter | assumed, open: a route-level profile per upstream, always `session_id`, documented marker forms only | RE-14 |
-| RE-D29 cache reads in the token budget | open, owner decision: full weight in Phase 1, reads and writes recorded separately; RE-14/P5 builds the setting (default 1.0) and the split view the decision needs. The owner said on 2026-10-28 to decide once that view shows real numbers | RE-14 |
+| RE-D29 cache reads in the token budget | open, owner decision: full weight in Phase 1, reads and writes recorded separately; RE-14/P5 built the setting (default 1.0, #800); the split view the decision needs follows with its RPC surface. The owner said on 2026-10-28 to decide once that view shows real numbers | RE-14 |
 
 ## How a brief is worked
 
@@ -128,4 +128,4 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | RE-11 | not started | — |
 | RE-12 | not started | — |
 | RE-13 | not started (Phase 2; decided 2026-10-24) | — |
-| RE-14 | P1–P4 and T1 merged 2026-10-26 (#781, #783, #784, #785, #786), T2a and T3 2026-10-27 (#788, #790); P5 (RE-D29 setting) in progress; T2b (exact Gemma 4, DeepSeek V4, Qwen 3.8, GLM counts) waits for the original files and their licences, and may add the Kimi K3, Grok-2 and Gemma 3 files RE-D25 approved; T4 with RE-08, T5 with RE-10 | — |
+| RE-14 | P1–P4 and T1 merged 2026-10-26 (#781, #783, #784, #785, #786), T2a and T3 2026-10-27 (#788, #790); P5 (RE-D29 setting, default 1.0) merged 2026-10-28 (#800), its RPC/CLI surface and the split view in `budget.status` follow after RE-08's schema change; T2b (exact Gemma 4, DeepSeek V4, Qwen 3.8, GLM counts) waits for the original files and their licences, and may add the Kimi K3, Grok-2 and Gemma 3 files RE-D25 approved; T4 with RE-08, T5 with RE-10 | — |
