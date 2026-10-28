@@ -286,6 +286,8 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus plugin restore`↴](#plur1bus-plugin-restore)
 * [`plur1bus plugin enable`↴](#plur1bus-plugin-enable)
 * [`plur1bus plugin disable`↴](#plur1bus-plugin-disable)
+* [`plur1bus mcp`↴](#plur1bus-mcp)
+* [`plur1bus mcp import`↴](#plur1bus-mcp-import)
 * [`plur1bus ext`↴](#plur1bus-ext)
 * [`plur1bus ext inspect`↴](#plur1bus-ext-inspect)
 * [`plur1bus ext pack`↴](#plur1bus-ext-pack)
@@ -342,6 +344,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `uninstall` — [experimental] Remove the installation (service, daemon, binary, runtime); the data stays unless --purge
 * `skill` — Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
 * `plugin` — Plugins (modules and channels) from packages: list, show, install, uninstall, restore, enable, disable
+* `mcp` — MCP bundle compatibility commands
 * `ext` — Extension packages (`.p1x`): inspect, pack, verify
 * `completions` — [experimental] Print a shell completion script to stdout
 
@@ -4578,6 +4581,38 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 ###### **Options:**
 
 * `--yes` — Do not ask (required outside a terminal)
+
+
+
+## `plur1bus mcp`
+
+MCP bundle compatibility commands
+
+**Usage:** `plur1bus mcp <COMMAND>`
+
+###### **Subcommands:**
+
+* `import` — [experimental] Alias for `plugin install`: inspect and install a bundle disabled
+
+
+
+## `plur1bus mcp import`
+
+[experimental] Alias for `plugin install`: inspect and install a bundle disabled
+
+**Usage:** `plur1bus mcp import [OPTIONS] <PATH>`
+
+###### **Arguments:**
+
+* `<PATH>` — `.mcpb`, `.dxt`, `.p1x`, or `-` for a `.p1x` on stdin
+
+###### **Options:**
+
+* `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
+* `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
+* `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
+* `--dry-run` — Only inspect: print the disclosure (`ext.inspect/1` with --json) and install nothing
+* `--yes` — Do not ask (required outside a terminal); acknowledges the capabilities, but never a trust tier or a downgrade: those need their --allow-* flag
 
 
 

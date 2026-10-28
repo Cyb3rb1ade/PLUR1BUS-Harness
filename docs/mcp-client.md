@@ -227,6 +227,17 @@ pnpm typecheck
 pnpm lint
 ```
 
+## Importing MCP bundles
+
+Use `plur1bus plugin install <bundle.mcpb>` or its compatibility alias
+`plur1bus mcp import <bundle.mcpb>`. The `.dxt` extension is accepted too.
+`--dry-run` shows the inspection; installation requires the unsigned-package
+acknowledgment and leaves the server disabled. MCPB 0.1–0.4 validation, path/config
+expansion, secret slots and signature limitations are described in
+[the extensions guide](extensions.md#8b-mcpb-and-dxt-inputs-m-a9).
+Appended signature framing is checked without a cryptographic verifier: inspection
+states **signature not checked**, and the normalized p1x remains **unsigned**.
+
 ## ADR differences and follow-ups
 
 ADR-014 stays **Proposed** and is unchanged. This owner-requested expansion differs

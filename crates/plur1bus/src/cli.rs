@@ -279,6 +279,11 @@ Examples:
         #[command(subcommand)]
         sub: PluginCmd,
     },
+    /// MCP bundle compatibility commands
+    Mcp {
+        #[command(subcommand)]
+        sub: McpCmd,
+    },
     /// Extension packages (`.p1x`): inspect, pack, verify
     Ext {
         #[command(subcommand)]
@@ -1741,6 +1746,18 @@ pub struct InstallFlags {
     /// those need their --allow-* flag
     #[arg(long)]
     pub yes: bool,
+}
+
+/// Compatibility entry point for importing an MCP bundle through plugin installation (M-A9).
+#[derive(Subcommand, Debug)]
+pub enum McpCmd {
+    /// [experimental] Alias for `plugin install`: inspect and install a bundle disabled
+    Import {
+        /// `.mcpb`, `.dxt`, `.p1x`, or `-` for a `.p1x` on stdin
+        path: String,
+        #[command(flatten)]
+        flags: InstallFlags,
+    },
 }
 
 /// `plur1bus skill` (spec §10.1).

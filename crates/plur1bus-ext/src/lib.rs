@@ -4,6 +4,7 @@ pub mod compat;
 pub mod folder_hash;
 pub mod kinds;
 pub mod manifest;
+pub mod mcpb;
 pub mod normalise;
 pub mod pack;
 pub mod refusal;

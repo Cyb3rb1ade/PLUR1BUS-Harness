@@ -18,7 +18,7 @@ payload/…           the item's files, and nothing else
 
 Manifest fields that matter to a person: `id` (`<publisher>/<name>`), `name` (the local name: a directory, a module name and a skill name at once, so it is unique across kinds), `version` (semver), `kind`, `title`, `summary`, `publisher`, `licence`, `compat` (`harness` range, `moduleApi`, `rpc`, `platforms`, `container`), `requires.runtime`, `capabilities` (`network`, `filesystem`, `processes`, `harness` are always present; `secrets`, `hostBridge`, `tools`, `mcpApps` optional) and `defaultEnabled` (honoured only for bundled items).
 
-**Kinds in X1:** `skill` (`payload/` is the skill folder, with `payload/SKILL.md`), `module` and `channel` (`payload/` is the module directory, with `payload/module.json`; the install is the D14 module install, module-guide §9). A `.p1x` of kind `mcp-server`, `provider` or `bundle` is refused by `ext.inspect` and `ext.install` (the first two have a package store since X2/D1, below, which nothing calls over RPC yet), and `.mcpb`, `.dxt` and Claude Code plugin inputs, are refused at inspection with `E_NOT_AVAILABLE reason=kind-unsupported` (`"<kind> packages arrive in X2"`).
+**Kinds in X1:** `skill` (`payload/` is the skill folder, with `payload/SKILL.md`), `module` and `channel` (`payload/` is the module directory, with `payload/module.json`; the install is the D14 module install, module-guide §9). The X1 release refused `mcp-server`, `provider`, `bundle`, `.mcpb`, `.dxt` and Claude Code plugin inputs with `E_NOT_AVAILABLE reason=kind-unsupported`. Current MCPB/DXT input support is described in §8b; the package-store building blocks are described in §8a.
 
 **Other inputs.** A skill folder with a `SKILL.md`, a `.zip` holding one and an Anthropic `.skill` are normalised in memory into an **unsigned** `.p1x` (id `local/<name>`, publisher `local`, trust `unsigned`) and then go through the same pipeline. The normalised manifest states what a skill without a manifest could do: with no scripts, `network: none`, no filesystem, no processes and no harness access; with scripts, network `any`, process spawning, read-write access to the agent workspace, and still no harness access. A module directory stays `plur1bus module install <dir>` (trust `dev`).
 
@@ -236,9 +236,43 @@ Not reachable over RPC or the CLI yet; the building blocks are `plur1bus_ext::ki
 
 **Package store** (`packages::PackageStore`, `<home>/extensions/packages/<name>/`). `install` reads the package once, into a private spool copy under `packages/.staging/` (capped at the policy's package size), and works only on that copy. It audits it (zip structure, `..`, symlinks, case collisions, caps from the caller's `Policy`: package bytes, entry bytes, entry count, ratio), verifies the signature, applies the kind rules and every file's SHA-256, applies `extensions.allowUnsigned` (`false` admits only packages signed by a trusted key: `E_DENIED policy-unsigned-disallowed`, before any acknowledgment is asked for), hashes the spool copy again against the audited SHA-256 (`digest-mismatch` if it changed), extracts with the one verified extractor into `packages/.staging/<name>-<nonce>/` (capped at the audited uncompressed size), checks the extracted tree against `files` once more and the two root files, `p1x.json` and `p1x.json.minisig`, against the audited manifest and signature bytes, writes `record.json` (id, version, kind, package SHA-256, trust, rights, the acknowledged capabilities including the endpoint URL, files) and renames the directory into place. A replace moves the old directory aside first. Any failure undoes every step; a refusal leaves `extensions/` as it was. Unsigned, unknown-signer and downgrade need the same acknowledgments as X1 (`E_APPROVAL_REQUIRED acknowledge-*`); the same name under another id is `E_CONFLICT name-taken`; the identical package is a no-op. `uninstall` renames the directory out of sight, then deletes it (`data/ext/<name>/` stays). `recover` finishes what a kill left. Nothing is enabled or run; there is no `state.json` record yet, so `ext.list` does not show these packages.
 
+## 8b. MCPB and DXT inputs (M-A9)
+
+`plur1bus plugin install <file.mcpb>` accepts MCPB bundles and their older `.dxt` name.
+`plur1bus mcp import <file.mcpb>` is a compatibility alias using the same inspection,
+acknowledgments and `plugin.install/1` JSON result. `--dry-run` returns `ext.inspect/1`.
+The alias leaves the package disabled and offers no `--enable` option.
+
+Normalization validates the closed manifests from `@anthropic-ai/mcpb@2.1.2`, versions
+0.1–0.4, including the deprecated `dxt_version` alias. Node, Python and binary servers
+retain their runtime requirements; 0.4 `uv` becomes Python through `uv`, requires root
+`pyproject.toml`, and rejects bundled `server/lib` or `server/venv`. The executable 0.4
+schema requires `mcp_config` for `uv`; this resolves its disagreement with upstream prose.
+The pinned schemas, checksums and MIT attribution are in
+`crates/plur1bus-ext/schema/mcpb/README.md`.
+
+An appended `MCPB_SIG_V1` / little-endian length / DER envelope / `MCPB_SIG_END` block
+is bounded and removed before the strict ZIP audit. Malformed framing, trailing bytes
+and ZIP corruption refuse inspection. No approved PKCS#7 verifier is installed:
+**signature not checked** appears in inspection warnings, and trust remains **unsigned**.
+Framing checks do not authenticate the source or detect a cryptographically invalid
+signature whose envelope remains structurally valid. `extensions.allowUnsigned: false`
+therefore refuses these bundles too.
+
+The resulting unsigned p1x lists every payload digest and retains the source manifest.
+Sensitive defaults are removed; sensitive configuration becomes secret slots, with
+arbitrary source keys mapped through hashed `.plur1bus/mcpb.json` metadata. Secret
+references in command or arguments are refused; leases populate environment slots only.
+Other string, number, boolean, file and directory declarations retain their types,
+multiple-value flags and numeric bounds. Missing referenced values require setup.
+Platform overrides replace command, args and environment independently; array values
+expand only as complete arguments. A caller supplies platform, system directories and
+configuration through an explicit context port. Raw templates remain in the payload
+so runtime expansion uses the authenticated installed directory.
+
 ## 9. What arrives in X2–X5
 
-- **X2:** (D1 above: the `mcp-server` and `provider` manifests, rights and package store; still to come:) `bundle` kind, the `ext.*` and CLI wiring of the package store, `.mcpb`/`.dxt` and Claude Code plugin inputs, `ctx.dataDir` and `P1X_DATA` for modules and scripts, per-agent MCP lists.
+- **X2:** D1 provides the `mcp-server` and `provider` manifests, rights and package store; M-A9 adds the MCPB/DXT normalization and compatibility alias described in §8b. The remaining X2 work covers `bundle`, lifecycle wiring, Claude Code plugin inputs, `ctx.dataDir` and `P1X_DATA` for modules and scripts, and per-agent MCP lists.
 - **X3:** web UI, the upload endpoint (`ext.inspect` `upload`), D1 `.p1x` file association, the WebMCP deny list work beyond the one-line defence in depth already in place.
 - **X4:** the signed catalogue and `ext.inspect` `catalog`, search, per-item updates with health gate and rollback, pin/skip, revocation lists and `--force-revoked`, the 24 h integrity timer and repair from the cache, key rotation.
 - **X5:** the pinned first-party keys, `ext lint`, the publishing repository and first packages. After X5 a signed package can be `first-party`.

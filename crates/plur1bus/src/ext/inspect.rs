@@ -21,6 +21,7 @@ use super::{iso8601, ExtError};
 use crate::paths::Layout;
 use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::Kind;
+use plur1bus_ext::mcpb::{normalise_mcpb_with_context, McpbContext};
 use plur1bus_ext::normalise::{normalise_skill, SkillInput};
 use plur1bus_ext::refusal::{reason, Refusal};
 use plur1bus_ext::verify::{inspect_file_kinds, Policy, X2_RPC_KINDS};
@@ -124,23 +125,78 @@ fn lower_ext(p: &Path) -> String {
         .to_ascii_lowercase()
 }
 
-/// Puts the package bytes at `to`. Returns whether the input was normalised.
-fn spool(src: &Source, to: &Path, cfg: &ExtConfig) -> Result<bool, ExtError> {
+/// Supplies the OS environment at the worker edge; the MCPB parser never reads process globals.
+fn mcpb_context(layout: &Layout, name: &str) -> Result<McpbContext, Refusal> {
+    let home = home::home_dir().ok_or_else(|| {
+        Refusal::invalid(
+            reason::PACKAGE_INVALID,
+            "cannot determine HOME for MCPB path variables",
+        )
+    })?;
+    let mut system_dirs = std::collections::BTreeMap::new();
+    system_dirs.insert("HOME".into(), home.to_string_lossy().into_owned());
+    for (key, directory) in [
+        ("DOCUMENTS", "Documents"),
+        ("DESKTOP", "Desktop"),
+        ("DOWNLOADS", "Downloads"),
+        ("PICTURES", "Pictures"),
+        ("MUSIC", "Music"),
+        ("VIDEOS", "Videos"),
+    ] {
+        system_dirs.insert(
+            key.into(),
+            home.join(directory).to_string_lossy().into_owned(),
+        );
+    }
+    for key in ["APPDATA", "LOCALAPPDATA", "TEMP", "TMP"] {
+        if let Some(path) = std::env::var_os(key) {
+            system_dirs.insert(key.into(), path.to_string_lossy().into_owned());
+        }
+    }
+    let extension_dir = std::path::absolute(
+        layout
+            .extensions()
+            .join("packages")
+            .join(name)
+            .join("payload"),
+    )
+    .map_err(|e| Refusal::io(&e))?;
+    Ok(McpbContext {
+        platform: match std::env::consts::OS {
+            "macos" => "darwin",
+            "windows" => "win32",
+            other => other,
+        }
+        .into(),
+        extension_dir: extension_dir.to_string_lossy().into_owned(),
+        path_separator: std::path::MAIN_SEPARATOR.to_string(),
+        system_dirs,
+        user_config: Default::default(),
+    })
+}
+
+/// Puts the package bytes at `to`, returning normalization state and source disclosures.
+fn spool(
+    layout: &Layout,
+    src: &Source,
+    to: &Path,
+    cfg: &ExtConfig,
+) -> Result<(bool, Vec<String>), ExtError> {
     let cap = cfg.limits.package_bytes;
     let path = match src {
         Source::Stdin => {
             spool_capped(&mut io::stdin().lock(), to, cap)?;
-            return Ok(false);
+            return Ok((false, Vec::new()));
         }
         Source::Path(p) => p,
     };
     let meta = std::fs::symlink_metadata(path).map_err(|e| io_error("cannot read", path, &e))?;
-    let normalise = |input: SkillInput| -> Result<bool, ExtError> {
+    let normalise = |input: SkillInput| -> Result<(bool, Vec<String>), ExtError> {
         let mut f = crate::audit::create_private(to, true)
             .map_err(|e| io_error("cannot create", to, &e))?;
         normalise_skill(&input, &super::now_iso(), &mut f)?;
         f.sync_all().map_err(|e| io_error("cannot write", to, &e))?;
-        Ok(true)
+        Ok((true, Vec::new()))
     };
     if meta.is_dir() {
         if !path.join("SKILL.md").exists() {
@@ -171,18 +227,28 @@ fn spool(src: &Source, to: &Path, cfg: &ExtConfig) -> Result<bool, ExtError> {
     }
     match lower_ext(path).as_str() {
         "zip" | "skill" => normalise(SkillInput::Zip(path.clone())),
-        e @ ("mcpb" | "dxt") => Err(ExtError::new(
-            "E_NOT_AVAILABLE",
-            reason::KIND_UNSUPPORTED,
-            format!(".{e} packages arrive in X2"),
-        )),
+        "mcpb" | "dxt" => {
+            let mut input = open_regular(path)?;
+            let mut out = crate::audit::create_private(to, true)
+                .map_err(|e| io_error("cannot create", to, &e))?;
+            let report = normalise_mcpb_with_context(
+                &mut input,
+                |name| mcpb_context(layout, name),
+                &cfg.limits,
+                &super::now_iso(),
+                &mut out,
+            )?;
+            out.sync_all()
+                .map_err(|e| io_error("cannot write", to, &e))?;
+            Ok((true, report.warnings))
+        }
         _ => {
             if meta.len() > cap {
                 return Err(too_large(meta.len(), cap));
             }
             let mut f = open_regular(path)?;
             spool_capped(&mut f, to, cap)?;
-            Ok(false)
+            Ok((false, Vec::new()))
         }
     }
 }
@@ -277,7 +343,7 @@ pub(crate) fn inspect_with(
         keep: false,
     };
     let cfg = ext_config(layout)?;
-    let normalised = spool(&src, &pending.p1x, &cfg)?;
+    let (normalised, warnings) = spool(layout, &src, &pending.p1x, &cfg)?;
     if crash {
         std::process::abort();
     }
@@ -326,6 +392,12 @@ pub(crate) fn inspect_with(
         })
         .collect();
     let ttl = inspect_ttl();
+    let mut checks = serde_json::to_value(&insp.checks).unwrap_or(Value::Null);
+    if let Some(rows) = checks.as_array_mut() {
+        for detail in warnings {
+            rows.push(json!({"id":"normalization", "status":"warn", "detail":detail}));
+        }
+    }
     let rec = InspectionRecord {
         inspection_id: id.to_string(),
         expires_at: iso8601(now_ms().saturating_add(ttl.as_millis() as u64)),
@@ -338,7 +410,7 @@ pub(crate) fn inspect_with(
         manifest: serde_json::from_slice(&insp.manifest_raw)
             .map_err(|e| invalid(reason::PACKAGE_INVALID, e.to_string()))?,
         trust: trust_json(&insp.trust),
-        checks: serde_json::to_value(&insp.checks).unwrap_or(Value::Null),
+        checks,
         capabilities: acknowledged_capabilities(m),
         scripts: Value::Array(scripts),
         requires: m.requires.clone(),
