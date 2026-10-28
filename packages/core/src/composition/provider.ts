@@ -22,6 +22,7 @@ import { createRedactor } from '../logs/redact.ts';
 import { AuthError } from '../auth/errors.ts';
 import type { SurfaceTrustLevel } from '../rbac/surface.ts';
 import { ToolRegistry } from '../tools/registry.ts';
+import { createSkillTools } from '../toolcall/skill-tools.ts';
 import { renderAvailableSkills } from '../prompt/skills.ts';
 import { modelToolError } from '../toolcall/model-tool-error.ts';
 import type { ApprovalPort } from '../tools/approval.ts';
@@ -231,7 +232,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     if (selection) profile = dynamic ? `decision-route-${randomUUID()}` : selection.profile;
     const routeProfiles: ProfileTable = dynamic ? { ...o.profiles, [profile]: selection!.candidates } : o.profiles;
     await o.capabilities?.syncExtensions();
-    const registry = o.toolsForTurn ? await stage('tool-registry', signal, o.log, () => o.toolsForTurn!(req)) : o.registry;
+    const sourceRegistry = o.toolsForTurn ? await stage('tool-registry', signal, o.log, () => o.toolsForTurn!(req)) : o.registry;
+    const registry = new ToolRegistry();
+    for (const tool of sourceRegistry.entries()) registry.register(tool);
     let skillText = '';
     let skillCatalogue = '';
     let searchIndex: CapabilityIndex | undefined;
@@ -275,7 +278,16 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     });
     const selected = await stage('capability-index', signal, o.log, async () => {
       const visible = registry.entries().filter(eligible);
-      const view = req.role ? undefined : o.capabilities?.view(JSON.stringify([req.agentId, principal]), visible, o.skillsForAgent?.(req.agentId), req.agentId);
+      let view = req.role ? undefined : o.capabilities?.view(JSON.stringify([req.agentId, principal]), visible, o.skillsForAgent?.(req.agentId), req.agentId);
+      if (view && o.capabilities) {
+        for (const tool of createSkillTools({ home: o.capabilities.home, skills: view.skills, onLoad: name => {
+          observation.skills.loaded++;
+          o.capabilities!.registry.record(`skill:${name}`, req.agentId, 'used');
+        } }).filter(tool => tool.name === 'skill.load')) {
+          if (!described(tool.name)) registry.register(tool);
+        }
+        view = o.capabilities.view(JSON.stringify([req.agentId, principal]), registry.entries().filter(eligible), o.skillsForAgent?.(req.agentId), req.agentId);
+      }
       skillCatalogue = renderAvailableSkills(view?.skills ?? []);
       const index = view && o.capabilities && !coreOnly ? await o.capabilities.prepare(req.messages.filter(m => m.role === 'user').at(-1)?.text ?? '', view, signal) : view?.index ?? new CapabilityIndex();
       searchIndex = view?.discovery ?? index; searchView = view;
@@ -557,7 +569,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             if (assistant?.role === 'assistant') { const executed = assistant.toolCalls?.find(c => c.id === call.id); if (executed) executed.arguments = JSON.stringify(repairs.get(call.name)); }
             repairs.delete(call.name);
           }
-          const capped = await stage('result-cap', signal, o.log, () => capResult(output.value, req.incognito ? { async put() { throw new Error("incognito-tool-result-too-large"); } } : o.resultStore));
+          const capped = await stage('result-cap', signal, o.log, () => capResult(output.value, req.incognito ? { async put() { throw new Error("incognito-tool-result-too-large"); } } : o.resultStore, call.name === 'skill.load' || call.name === 'skill.read' ? 128 * 1024 : 32 * 1024));
           const text = JSON.stringify(capped);
           yield { type: 'tool.result', id: call.id, output: text };
           messages.push({ role: 'tool', toolCallId: call.id, content: text });
