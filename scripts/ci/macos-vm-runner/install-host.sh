@@ -57,7 +57,13 @@ cat > "$plist" <<EOF
 </plist>
 EOF
 plutil -lint "$plist" >/dev/null
+# A running orchestrator needs a moment to delete its clone and reset the variable; bootstrapping before it is gone
+# fails with "Input/output error".
 launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+for _ in $(seq 90); do
+  launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1 || break
+  sleep 1
+done
 launchctl bootstrap "gui/$(id -u)" "$plist"
 echo "install-host: $label is running; log: $logfile"
 echo "install-host: stop it with: launchctl bootout gui/$(id -u)/$label"
