@@ -115,15 +115,21 @@ describe("readSourceFileSafe", () => {
     }
   });
 
-  for (const failure of ["size", "type", "identity", "stat", "read"] as const) {
+  for (const failure of ["size", "type", "identity", "identity-large-inode", "stat", "read"] as const) {
     it(`closes the fd on ${failure} refusal/failure`, { timeout }, (t) => {
       const path = join(tempDir("p1b-safe-"), "error.md");
       fs.writeFileSync(path, "abcd");
       const originalStat = fs.fstatSync;
       if (failure === "type") {
         t.mock.method(fs, "fstatSync", (fd: number) => ({ ...originalStat(fd), isFile: () => false }));
-      } else if (failure === "identity") {
-        t.mock.method(fs, "fstatSync", (fd: number) => ({ ...originalStat(fd), ino: originalStat(fd).ino + 1 }));
+      } else if (failure === "identity" || failure === "identity-large-inode") {
+        if (failure === "identity-large-inode") {
+          const originalLstat = fs.lstatSync;
+          t.mock.method(fs, "lstatSync", (path: fs.PathLike) => Object.assign(originalLstat(path), { ino: 2 ** 60 }));
+        }
+        // Windows file IDs can exceed Number.MAX_SAFE_INTEGER: adding one can preserve the same Number.
+        // Use a definitely different identity and retain Stats' prototype methods.
+        t.mock.method(fs, "fstatSync", (fd: number) => Object.assign(originalStat(fd), { ino: -1 }));
       } else if (failure === "stat" || failure === "read") {
         t.mock.method(fs, failure === "stat" ? "fstatSync" : "readSync", () => { throw new Error(CONTENT_MARKER); });
       }
@@ -131,7 +137,7 @@ describe("readSourceFileSafe", () => {
       syncBuiltinESMExports();
       try {
         const reason = failure === "size" ? "file-too-large" : failure === "type" ? "not-regular-file"
-          : failure === "identity" ? "unsafe-symlink" : "source-unreadable";
+          : failure.startsWith("identity") ? "unsafe-symlink" : "source-unreadable";
         assert.throws(() => readSourceFileSafe(path, failure === "size" ? 3 : 100), refused(reason));
         assert.equal(close.mock.callCount(), 1);
         assert.throws(() => originalStat(close.mock.calls[0]!.arguments[0]), { code: "EBADF" });

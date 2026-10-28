@@ -183,7 +183,7 @@ test("CI verifies pinned tokenizer caches before every workspace Cargo test with
     const job = jobs[name];
     assert.match(job, /^      PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"$/m, name);
     // A job's env has no `runner` context; referencing it there makes GitHub reject the whole workflow file, so no
-    // job runs at all. The directory is set on the two steps that use it.
+    // job runs at all. The directory is set on setup, Cargo build and Cargo execution steps.
     const jobEnv = /^    env:\n((?:(?: {6}.*)?\n)*)/m.exec(job.slice(0, job.indexOf("\n    steps:\n")))?.[1] ?? "";
     assert.doesNotMatch(jobEnv, /\$\{\{\s*runner\./, `${name}: no runner context in the job's env`);
     const steps = job.split(/(?=^      - )/m);
@@ -191,9 +191,13 @@ test("CI verifies pinned tokenizer caches before every workspace Cargo test with
     const setupStep = steps.find((step) => /node scripts\/tokens\/setup-tokenizers\.mjs/.test(step));
     assert.ok(setupStep, `${name}: explicit verified setup required`);
     assert.match(setupStep, directory, `${name}: setup writes the cache directory`);
-    assert.match(steps.find((step) => /run: cargo test --workspace/.test(step)) ?? "", directory, `${name}: tests read it`);
-    assert.match(setupStep, /if: needs\.changes\.outputs\.rust == 'true'/, name);
-    assert.ok(job.indexOf(setupStep) < job.indexOf("run: cargo test --workspace"), name);
+    const cargoSteps = steps.filter((step) => /run: cargo test --workspace/.test(step));
+    assert.equal(cargoSteps.length, 2, `${name}: separate build and execution`);
+    for (const step of cargoSteps) {
+      assert.match(step, directory, `${name}: every Cargo test step reads the verified cache`);
+      assert.ok(job.indexOf(setupStep) < job.indexOf(step), name);
+    }
+    assert.match(setupStep, /if: \$\{\{ !cancelled\(\) && needs\.changes\.outputs\.rust == 'true' \}\}/, name);
     const cacheStep = job.split(/(?=^      - )/m).find((step) => /path: \$\{\{ runner.temp \}\}\/plur1bus-tokenizers/.test(step));
     assert.ok(cacheStep, `${name}: cache tokenizer files outside the workspace`);
     assert.match(cacheStep, /actions\/cache@[a-f0-9]{40}/, name);

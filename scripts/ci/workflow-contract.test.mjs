@@ -78,6 +78,34 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
   assert.match(jobs['unit-os'], /^    name: unit \(\$\{\{ matrix\.os \}\}\)$/m);
 });
 
+test('unit checks continue after earlier failures, stop on cancellation and time Rust build separately', () => {
+  for (const name of ['unit', 'unit-os']) {
+    const block = jobBlocks(workflow())[name];
+    const independent = block.slice(block.indexOf('      # The vacuous-run guard'));
+    const steps = independent.split(/(?=^      - )/m).filter(step => /^      - /m.test(step));
+    assert.equal(steps.length, 10, `${name}: guard, release, installer, fmt, clippy, three tokenizer steps, build and run`);
+    for (const step of steps) {
+      const expression = /^ {6}(?:- |  )if: \$\{\{ (.*?) \}\}$/m.exec(step)?.[1];
+      assert.ok(expression?.includes('!cancelled()'), `${name}: explicit status guard for ${step}`);
+      for (const cancelled of [false, true]) for (const rust of [false, true]) {
+        const evaluate = status => expression.replace('!cancelled()', String(!cancelled))
+          .replace("needs.changes.outputs.rust == 'true'", String(rust))
+          .replace("runner.os == 'Windows'", String(status === 'Windows'));
+        for (const os of ['Windows', 'macOS', 'Linux']) {
+          assert.equal(Function(`return (${evaluate(os)});`)(),
+            !cancelled && (!expression.includes('outputs.rust') || rust) &&
+              (!expression.includes('runner.os') || os === 'Windows'));
+        }
+      }
+    }
+    const build = steps.find(step => /run: cargo test --workspace --no-run\n/.test(step));
+    const run = steps.find(step => /run: cargo test --workspace --no-fail-fast\n/.test(step));
+    assert.match(build, /timeout-minutes: 25/);
+    assert.match(run, /timeout-minutes: 30/);
+    assert.equal(steps.indexOf(build) + 1, steps.indexOf(run));
+  }
+});
+
 test('the Windows Core shards run the Ubuntu partition under the full-platform policy, outside the gate', () => {
   const jobs = jobBlocks(workflow());
   const ubuntu = jobs['core-unit-shard'], windows = jobs['core-unit-shard-windows'], check = jobs['core-unit-windows'];

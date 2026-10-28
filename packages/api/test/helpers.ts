@@ -81,7 +81,11 @@ export interface Res { status: number; headers: IncomingHttpHeaders; text: strin
 /** One request over a plain socket; the `Host` header is the server's own unless a test overrides it. */
 export function raw(h: Harness, o: { method?: string; path: string; headers?: Record<string, string>; body?: string | Buffer }): Promise<Res> {
   return new Promise((resolve, reject) => {
+    let responseStarted = false;
     const req = request({ host: "127.0.0.1", port: h.port, method: o.method ?? "GET", path: o.path, headers: { ...(o.body !== undefined && !Object.keys(o.headers ?? {}).some(k => ["content-length", "transfer-encoding"].includes(k.toLowerCase())) ? { "content-length": String(Buffer.byteLength(o.body)) } : {}), ...o.headers }, agent: false, timeout: 5000 }, (res) => {
+      responseStarted = true;
+      res.on("error", reject);
+      res.on("aborted", () => reject(new Error("test response aborted")));
       if (String(res.headers["content-type"]).startsWith("text/event-stream")) {
         res.once("data", (chunk: Buffer) => { resolve({ status: res.statusCode ?? 0, headers: res.headers, text: chunk.toString("utf8"), json: undefined }); res.destroy(); req.destroy(); });
         return;
@@ -91,7 +95,10 @@ export function raw(h: Harness, o: { method?: string; path: string; headers?: Re
       res.on("end", () => { const text = Buffer.concat(chunks).toString("utf8"); let json: any; try { json = JSON.parse(text); } catch { json = undefined; } resolve({ status: res.statusCode ?? 0, headers: res.headers, text, json }); });
     });
     req.on("timeout", () => req.destroy(new Error("test client timeout")));
-    req.on("error", reject);
+    req.on("error", (error: NodeJS.ErrnoException) => {
+      // An early refusal can close its upload on macOS; only a complete response below settles successfully.
+      if (!responseStarted || (error.code !== "ECONNRESET" && error.code !== "EPIPE")) reject(error);
+    });
     if (o.body !== undefined) req.write(o.body);
     req.end();
   });

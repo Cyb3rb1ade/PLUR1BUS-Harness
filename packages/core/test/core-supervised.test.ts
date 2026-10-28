@@ -165,50 +165,64 @@ describe("core supervised mode", () => {
 describe("core supervised mode during the journal replay (B2)", () => {
   const jline = (id: string) => ({ v: 1 as const, id, at: 1, agentId: "bernd", sessionKey: "s1", caller, messages: [{ role: "user" as const, content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant" as const, content: "Noted." }] as [any, any] });
 
-  // Generous: both tests need the replay to still be running after start() resolves, a connect, an adoption and a
-  // GRACE_MS sleep, each of which takes seconds on a loaded Windows runner. Neither test waits for the replay to end
-  // (stop() abandons it after min(5000, budgetMs / 2)), so a long replay costs only the stop's wait.
-  const REPLAY_MS = GRACE_MS * 8;
-
-  /** A core whose journal replay embeds one line for `replayMs`; start() resolves ready before it is replayed. */
-  function slowReplay(replayMs: number) {
+  /** A replay held in capture until the test releases it; independent of startup and runner speed. */
+  function heldReplay() {
     const home = newHome(); const l = layout(home); const lifeline = new PassThrough(); let expired = 0;
+    let release!: () => void;
+    const passageGate = new Promise<void>(resolve => { release = resolve; });
     appendJournalLine(l.journal, jline("11111111-1111-4111-8111-111111111111"));
-    const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => replayMs }), lifeline, onOrphanGraceExpired: () => { expired++; } });
+    const core = createCore({ home, testInternals: flatTestInternals({ passageGate }), lifeline, onOrphanGraceExpired: () => { expired++; } });
     const replaying = () => core.status().journalReplay?.state === "replaying";
-    return { home, core, lifeline, replaying, expired: () => expired };
+    return { home, core, lifeline, replaying, release, expired: () => expired };
   }
 
-  it("a lifeline lost before ready orphans the core at ready, and an adoption during the replay re-attaches it", async () => {
-    const s = slowReplay(REPLAY_MS);
+  it("a lifeline lost before ready orphans the core at ready, and an adoption during the replay re-attaches it", async (t) => {
+    // Grace must be unexpired at adoption. Freeze its timer across startup and socket handshakes, which have no
+    // elapsed-time bound on Windows; advance the actual scheduled callbacks only after adoption.
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const s = heldReplay();
+    const events: object[] = [];
+    const record = (event: string) => events.push({ event, atMs: performance.now(), state: s.core.status().process.state, expired: s.expired() });
     s.lifeline.end(); // supervisor A is gone before the core is ready
     let c: CoreClient | null = null;
     try {
       await s.core.start();
       const token = writeSupervisorToken(s.home);
+      record("ready-after-stdin-eof");
       assert.equal(s.core.status().process.state, "orphaned", "the lifeline lost before ready is applied at ready");
+      assert.equal(s.expired(), 0, "adoption occurs before grace expiry");
       assert.ok(s.replaying(), "the replay still runs");
       c = await connect({ address: s.core.address, token: s.core.token });
       await c.call("core.adopt", { nonce: token }); // supervisor B adopts
+      record("adopted-over-rpc");
       assert.equal(s.core.status().process.state, "ready", "B's connection is the lifeline, not A's dead stdin");
-      await sleep(GRACE_MS + 200);
+      t.mock.timers.tick(GRACE_MS + 200);
+      record("past-former-grace-deadline");
       assert.equal(s.core.status().process.state, "ready"); assert.equal(s.expired(), 0);
+      assert.ok(s.replaying(), "adoption did not wait for the replay");
+      t.mock.timers.reset();
       await c.close(); c = null;
       await until(() => s.core.status().process.state === "orphaned", 10_000);
-    } finally { await c?.close(); await s.core.stop({ budgetMs: 5000 }); }
+      record("adopting-connection-closed");
+    } finally {
+      t.diagnostic(JSON.stringify({ platform: process.platform, events }));
+      s.release(); t.mock.timers.reset(); await c?.close(); await s.core.stop({ budgetMs: 5000 });
+    }
   });
 
-  it("a lifeline lost before ready whose grace runs out during the replay stops the core once", async () => {
-    const s = slowReplay(REPLAY_MS);
+  it("a lifeline lost before ready whose grace runs out during the replay stops the core once", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const s = heldReplay();
     s.lifeline.end();
     try {
       await s.core.start();
       assert.equal(s.core.status().process.state, "orphaned");
       assert.equal(s.expired(), 0);
-      await until(() => s.expired() === 1, GRACE_MS * 2);
+      t.mock.timers.tick(GRACE_MS);
+      assert.equal(s.expired(), 1);
       assert.ok(s.replaying(), "the grace ran out while the journal replayed");
-      await sleep(GRACE_MS + 200); assert.equal(s.expired(), 1, "once");
-    } finally { await s.core.stop({ budgetMs: 5000 }); }
+      t.mock.timers.tick(GRACE_MS + 200); assert.equal(s.expired(), 1, "once");
+    } finally { s.release(); t.mock.timers.reset(); await s.core.stop({ budgetMs: 5000 }); }
   });
 });
 

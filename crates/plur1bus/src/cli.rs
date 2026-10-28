@@ -15,6 +15,7 @@ pub const STABLE_COMMANDS: &[&str] = &["memory add", "memory recall", "config ge
 #[derive(Parser, Debug)]
 #[command(
     name = "plur1bus",
+    bin_name = "plur1bus",
     version,
     about = "PLUR1BUS harness — self-hosted multi-agent memory harness",
     propagate_version = true
@@ -1955,6 +1956,32 @@ mod tests {
                 stable || experimental || stub,
                 "leaf `{path}` is neither stable, marked [experimental], nor a milestone stub (about: {about:?})"
             );
+        }
+    }
+
+    #[test]
+    fn help_uses_the_public_binary_name_even_when_argv_zero_has_an_exe_suffix() {
+        for path in [vec![], vec!["1staid"], vec!["agent", "create"]] {
+            let args: Vec<&str> = std::iter::once("plur1bus.exe")
+                .chain(path.iter().copied())
+                .chain(std::iter::once("--help"))
+                .collect();
+            let error = command().try_get_matches_from(args).unwrap_err();
+            assert_eq!(error.kind(), clap::error::ErrorKind::DisplayHelp);
+            let help = error.to_string();
+            let usage = help
+                .lines()
+                .find(|line| line.starts_with("Usage:"))
+                .unwrap();
+            let public_name = std::iter::once("plur1bus")
+                .chain(path.iter().copied())
+                .collect::<Vec<_>>()
+                .join(" ");
+            assert!(
+                usage.starts_with(&format!("Usage: {public_name}")),
+                "{usage}"
+            );
+            assert!(!help.contains("plur1bus.exe"), "{help}");
         }
     }
 

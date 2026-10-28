@@ -93,3 +93,16 @@ test("existing cache actions cannot opt into failed saves or expanded credential
     }
   }
 });
+
+
+test("unit Rust caches restore in PRs but only successful main runs can publish", () => {
+  const unitCaches = steps().filter(step => step.file === "ci.yml" && ["unit", "unit-os"].includes(step.job) &&
+    field(step, "uses")?.startsWith("Swatinem/rust-cache@"));
+  assert.equal(unitCaches.length, 2);
+  for (const step of unitCaches) {
+    assert.equal(field(step, "if"), undefined, "PR restore is not gated on the publishing policy");
+    assert.match(step.body, /^          save-if: \$\{\{ github.ref == 'refs\/heads\/main' \}\}$/m);
+    assert.match(step.body, /^          cache-on-failure: false$/m);
+    assert.doesNotMatch(step.body, /^          (?:key|shared-key|prefix-key):/m, "keep reviewed key isolation");
+  }
+});
