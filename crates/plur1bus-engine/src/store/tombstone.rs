@@ -14,7 +14,7 @@ use crate::{
     contract::{MemoryRow, StoreError},
     text::{
         js,
-        json::{parse_json, write_json, TolerantJsonValue},
+        json::{parse_json, write_json, TolerantJsonErrorKind, TolerantJsonValue},
     },
 };
 
@@ -237,8 +237,12 @@ fn classify(text: &str, agent: &str) -> Classified {
                 result.rows.corrupt_lines += 1;
                 result.rows.invalid += 1;
             }
-            Err(_)
-                if index + 1 == lines.len()
+            // Only a syntax error can be a torn append. A complete record beyond the depth
+            // limit parses in Node, so it stays a corrupt line that fails closed instead of
+            // being quarantined away.
+            Err(error)
+                if error.kind == TolerantJsonErrorKind::Syntax
+                    && index + 1 == lines.len()
                     && !ends_with_newline
                     && result.rows.corrupt_lines == 0 =>
             {
@@ -535,4 +539,25 @@ pub fn assert_patch_write_allowed(
             .unwrap_or(&existing.summary)
     };
     assert_write(base, existing, text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::classify;
+
+    #[test]
+    fn an_unterminated_final_record_beyond_the_depth_limit_is_corrupt_not_a_torn_tail() {
+        let deep = format!("{}{}", "[".repeat(129), "]".repeat(129));
+        let classified = classify(&deep, "a1");
+        assert!(classified.tail.is_none());
+        assert_eq!(classified.rows.corrupt_lines, 1);
+        assert_eq!(classified.rows.unparseable, 1);
+    }
+
+    #[test]
+    fn an_unterminated_final_record_cut_mid_json_is_still_a_torn_tail() {
+        let classified = classify("{\"schemaVersion\":", "a1");
+        assert!(classified.tail.is_some());
+        assert_eq!(classified.rows.corrupt_lines, 0);
+    }
 }
