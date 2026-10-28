@@ -149,8 +149,10 @@ fn a_group_writable_nonsticky_ancestor_is_refused() {
 #[cfg(target_os = "linux")]
 #[test]
 fn linux_lance_path_is_an_owned_descriptor_alias_and_closes_on_drop() {
+    use std::os::unix::fs::MetadataExt;
     let root = scratch();
     let path = directory(root.path(), "store", "original");
+    let held = fs::metadata(&path).unwrap();
     let guard = TrustedDirectory::open(&path).unwrap();
     assert_ne!(guard.lance_path(), guard.path());
     assert!(
@@ -160,7 +162,14 @@ fn linux_lance_path_is_an_owned_descriptor_alias_and_closes_on_drop() {
     let alias = guard.lance_path().to_owned();
     assert!(alias.join("marker").is_file());
     drop(guard);
-    assert!(fs::metadata(alias).is_err());
+    // Another test thread may reuse the descriptor number at once, so the alias can resolve
+    // again; it must never resolve to the held directory.
+    if let Ok(now) = fs::metadata(&alias) {
+        assert!(
+            (now.dev(), now.ino()) != (held.dev(), held.ino()),
+            "the descriptor is still open"
+        );
+    }
 }
 
 #[cfg(windows)]
