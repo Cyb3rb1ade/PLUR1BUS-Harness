@@ -74,7 +74,13 @@ test("ws: a peer that accepts the TCP connection but never answers the handshake
   try {
     const p = defaultWsFactory(`ws://127.0.0.1:${port}/x`, { provider: "t", timers: t.timers });
     const outcome = p.then(() => "resolved", (e) => e);
-    while (held.length === 0) await new Promise<void>((r) => setImmediate(r));
+    let settled: unknown; void outcome.then((o) => { settled = o; });
+    const end = Date.now() + 10_000;
+    while (held.length === 0) {
+      if (settled !== undefined) assert.fail(`the factory settled (${String(settled)}) before the peer accepted the connection`);
+      if (Date.now() > end) assert.fail("timed out after 10000 ms waiting for the peer to accept the connection");
+      await new Promise<void>((r) => setImmediate(r));
+    }
     assert.equal(t.pending(), 1, "the handshake deadline is armed");
     t.fireAll();
     const e = await outcome;

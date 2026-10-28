@@ -7,7 +7,8 @@ import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint } from "../../../src/tools/
 import { canonicalisePath } from "../../../src/policy/paths.ts";
 import { createPolicyAudit } from "../../../src/policy/audit.ts";
 import type { Grant } from "../../../src/policy/index.ts";
-import { rig as baseRig, tick, type Rig } from "../../approvals/service-helpers.ts";
+import { rig as baseRig, type Rig } from "../../approvals/service-helpers.ts";
+import { until } from "../../helpers/until.ts";
 import { FakePort, FakeTimers, tmpRoot } from "./helpers.ts";
 
 const T = { timeout: 20_000 };
@@ -83,7 +84,7 @@ describe("exec.run once-grant replay (D109 §9.3)", () => {
       const probe = await setup(root, new FakePort());
       let settled: Awaited<ReturnType<typeof probe.call>> | undefined;
       const p = probe.call(args).then((res) => { settled = res; return res; });
-      while (probe.r.service.list().length === 0 && settled === undefined) await tick();
+      await until(() => probe.r.service.list().length > 0 || settled !== undefined, "the call to ask or settle");
       const listed = probe.r.service.list()[0];
       if (!listed) throw new Error(`probe did not ask; result=${JSON.stringify(settled)}`);
       const h = listed.actionHash;
@@ -156,7 +157,7 @@ describe("exec.run once-grant replay (D109 §9.3)", () => {
     a.r.stores.grants.create(grantFor(false));
     let settled: Awaited<ReturnType<typeof a.call>> | undefined;
     const pa = a.call(args).then((res) => { settled = res; return res; });
-    while (a.r.service.list().length === 0 && settled === undefined) await tick();
+    await until(() => a.r.service.list().length > 0 || settled !== undefined, "the call to ask or settle");
     assert.equal(a.r.service.list().length, 1, "the path grant does not stand in for the sandbox: the call asks");
     assert.equal(portA.spawned.length, 0);
     a.r.service.dispose();
@@ -180,7 +181,7 @@ describe("exec.run once-grant replay (D109 §9.3)", () => {
       const probe = await setup(root, new FakePort());
       let settled: Awaited<ReturnType<typeof probe.call>> | undefined;
       const p = probe.call(args).then((res) => { settled = res; return res; });
-      while (probe.r.service.list().length === 0 && settled === undefined) await tick();
+      await until(() => probe.r.service.list().length > 0 || settled !== undefined, "the call to ask or settle");
       const listed = probe.r.service.list()[0];
       if (!listed) throw new Error(`probe did not ask; result=${JSON.stringify(settled)}`);
       const h = listed.actionHash;
@@ -199,7 +200,7 @@ describe("exec.run once-grant replay (D109 §9.3)", () => {
     const replay = s.call({ ...args, env: { PATH: "/tmp/other-bin" } });
     let settled: Awaited<ReturnType<typeof s.call>> | undefined;
     const p = replay.then((res) => { settled = res; return res; });
-    while (s.r.service.list().length === 0 && settled === undefined) await tick();
+    await until(() => s.r.service.list().length > 0 || settled !== undefined, "the call to ask or settle");
     assert.equal(s.r.service.list().length, 1, "a different env is a different action; the once grant does not cover it");
     s.r.service.dispose();
     const out = await p;

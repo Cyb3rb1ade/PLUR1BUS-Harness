@@ -10,6 +10,7 @@ import { TaskError, TaskStore } from "../../src/a2a/tasks.ts";
 import { createProviderTurnPort, type A2aTurnPort, type TurnChunk } from "../../src/a2a/turn-port.ts";
 import { DEFAULT_LIMITS, type A2aStreamEvent } from "../../src/a2a/types.ts";
 import { FakeChatProvider } from "../../src/session/provider.ts";
+import { until } from "../helpers/until.ts";
 import { AGENTS, KEY_A, KEY_B, ManualScheduler, TestClock, peers, rig, rpc, sendMsg } from "./helpers.ts";
 
 const never = (): Promise<never> => new Promise(() => {});
@@ -271,7 +272,7 @@ describe("b01: a turn reply and its event log are bounded (docs/a2a.md, Limits)"
     const { s } = store(port, { maxEventsPerTask: 24, maxReplyBytes: 1_000_000 });
     const t = s.start(sa());
     const collecting = drain(s, t.id);
-    for (let i = 0; i < 60; i++) { while (release.length === 0) await tick(); release.shift()!(); await tick(); }
+    for (let i = 0; i < 60; i++) { await until(() => release.length > 0, `the port to wait for chunk ${i}`, { run: collecting }); release.shift()!(); await tick(); }
     const evs = await collecting;
     assert.equal(streamed(evs), Array.from({ length: 60 }, (_, i) => `${i % 10}`).join(""));
   });
