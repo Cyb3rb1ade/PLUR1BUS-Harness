@@ -176,6 +176,15 @@ jobs:
         timeout-minutes: 10
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
+      - name: build Rust workspace library tests
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
+        shell: bash
+        run: |
+          mkdir -p rust-build-diagnostics
+          cargo test --workspace --lib --no-run --timings --verbose --message-format=json-render-diagnostics 2>&1 | tee rust-build-diagnostics/library-test-build.log
+        timeout-minutes: 25
+        env:
+          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
       - name: build Rust workspace tests
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         shell: bash
@@ -338,6 +347,15 @@ jobs:
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: node scripts/tokens/setup-tokenizers.mjs
         timeout-minutes: 10
+        env:
+          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
+      - name: build Rust workspace library tests
+        if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
+        shell: bash
+        run: |
+          mkdir -p rust-build-diagnostics
+          cargo test --workspace --lib --no-run --timings --verbose --message-format=json-render-diagnostics 2>&1 | tee rust-build-diagnostics/library-test-build.log
+        timeout-minutes: 25
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
       - name: build Rust workspace tests
