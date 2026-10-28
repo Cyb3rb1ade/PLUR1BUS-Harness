@@ -1,5 +1,5 @@
 import { h, type ComponentChildren } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge } from "../../components/card.ts";
 import { icon } from "../../icons.ts";
@@ -67,9 +67,12 @@ export function BoardView({
   const [createCardColId, setCreateCardColId] = useState<string | undefined>(undefined);
   const [manageColumnsOpen, setManageColumnsOpen] = useState(false);
 
-  // Local optimistic state for cards
+  // Local optimistic state for cards; a new answer of the server (`cards`) replaces it in a layout effect, i.e. in the commit
+  // that draws the new props. A passive effect is still pending while the board is already visible, and a move made then
+  // re-renders the board, which makes Preact run the pending effect first: it used to put `cards` back over the optimistic
+  // move, so the card stayed in its old column for as long as the move was in flight.
   const [localCards, setLocalCards] = useState<BoardCard[]>(cards);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setLocalCards(cards);
   }, [cards]);
 
