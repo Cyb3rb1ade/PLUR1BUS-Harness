@@ -54,7 +54,7 @@ Every selected required job must report `success`; `failure`, `cancelled`, `skip
 reports even when the plan selected nothing, which is why a skipped `unit` matrix (never reports `unit (ubuntu-24.04)`)
 is no reason to wait on a name.
 
-`web-browser-macos` was an advisory dependency of the gate until the owner decision of 2026-10-28: the gate waited for its two-shard matrix outcome, although it accepted a failure. With the macOS runner queue that held merges for hours, so the gate no longer waits for it. It still runs when `proceed`, `web` and `macos` are all true and reports its own check.
+`web-browser-macos` was an advisory dependency of the gate until the owner decision of 2026-10-28: the gate waited for its two-shard matrix outcome, although it accepted a failure. Merges then waited for hours on the macOS runner queue, so the gate no longer waits for it. It still runs when `proceed`, `web` and `macos` are all true and reports its own check.
 
 Everything else in `ci.yml` is deliberately outside the gate and not in its `needs`, so it can neither fail nor delay it:
 `unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
