@@ -244,6 +244,21 @@ after a lockfile change) measured the same, job 35 min 17 s, `cargo test` 16 min
 RE-R6 of the Rust-engine plan tracks the cost; the next measurement after RE-02, the first code that links Lance, decides whether the engine tests get
 their own job.
 
+I2's Windows test-build investigation observed the same missing Rust cache in
+[run 2495](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/40611343131/job/122564308560) and
+[run 2496](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/40622883348/job/122600917752):
+`v0-rust-unit-os-Windows_NT-x64-f929a91b-8bfbed45`. Clippy took 11m07s / 14m01s. Both `cargo test --no-run`
+steps exceeded 25 minutes; the following test step spent another 27.28s / 8m37s finishing the build before running
+tests. The existing logs identify compilation starts but do not establish whether code generation or linking
+accounts for the final silent interval.
+
+The unit jobs retain Cargo HTML timing reports and streamed phase logs in `rust-build-diagnostics-<os>` artifacts,
+also after a failed build or test step. The test-build log includes verbose compiler invocations and JSON artifact
+completion records, so the Actions log timestamps can locate starts and completions. A killed Cargo process may
+not finish its HTML report; its partial streamed log remains available. The test step records its own timing report
+to expose any remaining build work. The 25-minute build budget, 30-minute Rust test budget, test coverage and cache
+save conditions are unchanged. These diagnostics do not establish a fix or a hosted speedup.
+
 To run a weighted Core shard locally after preparation:
 
 ```bash
