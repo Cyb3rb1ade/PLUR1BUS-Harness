@@ -87,3 +87,13 @@ export async function openRoute(page: Page, hash: string, lang: "en" | "de" = "e
   await page.locator("main h1").first().waitFor();
   await page.evaluate((h) => { location.hash = h; }, hash);
 }
+
+/** Polls `cond` (a check on the mock server's records) until it holds; fails after `ms` with `what`. node:test does not stop
+ *  a failed test function, so a poll without this bound would keep the file's process, and the whole run, alive. */
+export async function until(cond: () => boolean, what: string, ms = 10_000): Promise<void> {
+  const end = Date.now() + ms;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error(`timed out after ${ms} ms waiting for ${what}`);
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}

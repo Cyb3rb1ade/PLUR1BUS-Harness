@@ -6,6 +6,7 @@ import { FakeChatProvider, type ChatProvider } from "../../src/session/provider.
 import { SessionStore } from "../../src/session/store.ts";
 import { NoProviderError, TurnRunner } from "../../src/session/turn-loop.ts";
 import type { EventRecord } from "../../src/session/types.ts";
+import { until } from "../helpers/until.ts";
 
 const CALLER = { channel: "cli" as const, accountId: "acc", userId: "u" };
 const OWNER = "user:v1:o";
@@ -152,7 +153,7 @@ describe("turn loop", () => {
     const r = rig({ provider: new FakeChatProvider({ chunkSize: 2, gate: async (_q, i) => { if (i === 2) await gate; } }) }); const s = r.session();
     assert.equal(r.runner.cancel(s.id), null, "nothing running");
     const h = r.runner.submit({ session: s, caller: CALLER, text: "hello world" });
-    while (r.events.filter((e) => e.type === "delta").length < 2) await new Promise((res) => setImmediate(res));
+    await until(() => r.events.filter((e) => e.type === "delta").length >= 2, "two deltas", { run: h.done });
     assert.equal(r.runner.cancel(s.id), h.turnId);
     release();
     const out = await h.done;
