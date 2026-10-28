@@ -703,3 +703,43 @@ describe("projects: overlapping moves", opts, () => {
     });
   });
 });
+
+describe("projects: a move in the draw that shows the board", opts, () => {
+  test("is shown in its new column at once and stays there while the move is in flight", async () => {
+    const place: Record<string, [string, number]> = { card_1: ["col_backlog", 0], card_2: ["col_progress", 0], card_3: ["col_done", 0] };
+    const cards: BoardCard[] = cardsFixture.map((c) => ({ ...c, columnId: place[c.id]![0], position: place[c.id]![1] }));
+    let finish: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => { finish = resolve; });
+    let arrived: ((params: unknown) => void) | undefined;
+    const moveArrived = new Promise<unknown>((resolve) => { arrived = resolve; });
+    await withApp({}, async (app) => {
+      seedProjectBoard(app.server.rpc, { cards });
+      app.server.rpc.handle("project.card.move", async (p: any) => {
+        arrived?.(p);
+        await held;
+        const moved = cards.find((c) => c.id === p.cardId)!;
+        moved.columnId = p.columnId;
+        moved.position = p.position ?? 0;
+        return moved;
+      });
+      // The key reaches card_1 in a MutationObserver callback: the microtask right after the draw that inserts the board, before
+      // any passive effect of that draw has run (those run after the next paint; a fast keyboard user, or a test driver on a slow
+      // runner, gets there first). An effect still pending then must not put the server's cards back over the move.
+      await app.page.evaluate(() => {
+        const mo = new MutationObserver(() => {
+          const card = document.querySelector<HTMLElement>('[data-card-id="card_1"]');
+          if (!card) return;
+          mo.disconnect();
+          card.focus();
+          card.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+        });
+        mo.observe(document, { childList: true, subtree: true });
+      });
+      await openRoute(app.page, "#/projects/prj_alpha");
+      await app.page.locator('[data-column-id="col_progress"] [data-card-id="card_1"]').waitFor();
+      assert.deepEqual(await moveArrived, { projectId: "prj_alpha", cardId: "card_1", columnId: "col_progress" });
+      assert.equal(await app.page.locator('[data-column-id="col_progress"] [data-card-id="card_1"]').count(), 1, "still shown there while the move is held");
+      finish?.();
+    });
+  });
+});

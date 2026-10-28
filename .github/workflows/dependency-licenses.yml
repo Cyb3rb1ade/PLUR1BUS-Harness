@@ -25,9 +25,17 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   dependency-licenses:
-    # Informational until the owner approves the outstanding licence decisions.
+    # Informational until all three legs have run green; then it becomes required (owner decision 2026-10-28,
+    # docs/dependency-policy.md).
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # pnpm installs different native packages on each platform.
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        # A main push repeats what its pull request already checked on every platform.
+        exclude: ${{ fromJSON(github.event_name == 'push' && '[{"os":"macos-15"},{"os":"windows-2025"}]' || '[]') }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -66,7 +74,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: dependency-licenses
+          name: dependency-licenses-${{ matrix.os }}
           path: ${{ runner.temp }}/dependency-licenses
           if-no-files-found: error
           retention-days: 14

@@ -1,4 +1,61 @@
 {
   "$schema": "./dependency-exceptions.schema.json",
-  "exceptions": []
+  "exceptions": [
+    {
+      "ecosystem": "pnpm",
+      "name": "@img/sharp-libvips-linux-x64",
+      "version": "1.3.4",
+      "license": "LGPL-3.0-or-later",
+      "reason": "Owner decision 2026-10-28 (docs/dependency-policy.md, \"Licence decisions of 2026-10-28\"): narrow, expiring exception for the prebuilt libvips library that sharp loads dynamically (sharp via @huggingface/transformers). THIRD_PARTY-LICENSES.txt carries the GNU LGPL and GPL texts and where the source is. Renew or replace at expiry; another version needs a new entry.",
+      "expires": "2027-04-28"
+    },
+    {
+      "ecosystem": "pnpm",
+      "name": "@img/sharp-libvips-linuxmusl-x64",
+      "version": "1.3.4",
+      "license": "LGPL-3.0-or-later",
+      "reason": "Owner decision 2026-10-28 (docs/dependency-policy.md, \"Licence decisions of 2026-10-28\"): narrow, expiring exception for the prebuilt libvips library that sharp loads dynamically (sharp via @huggingface/transformers). THIRD_PARTY-LICENSES.txt carries the GNU LGPL and GPL texts and where the source is. Renew or replace at expiry; another version needs a new entry.",
+      "expires": "2027-04-28"
+    },
+    {
+      "ecosystem": "pnpm",
+      "name": "@img/sharp-libvips-linux-arm64",
+      "version": "1.3.4",
+      "license": "LGPL-3.0-or-later",
+      "reason": "Owner decision 2026-10-28 (docs/dependency-policy.md, \"Licence decisions of 2026-10-28\"): narrow, expiring exception for the prebuilt libvips library that sharp loads dynamically (sharp via @huggingface/transformers). THIRD_PARTY-LICENSES.txt carries the GNU LGPL and GPL texts and where the source is. Renew or replace at expiry; another version needs a new entry.",
+      "expires": "2027-04-28"
+    },
+    {
+      "ecosystem": "pnpm",
+      "name": "@img/sharp-libvips-linuxmusl-arm64",
+      "version": "1.3.4",
+      "license": "LGPL-3.0-or-later",
+      "reason": "Owner decision 2026-10-28 (docs/dependency-policy.md, \"Licence decisions of 2026-10-28\"): narrow, expiring exception for the prebuilt libvips library that sharp loads dynamically (sharp via @huggingface/transformers). THIRD_PARTY-LICENSES.txt carries the GNU LGPL and GPL texts and where the source is. Renew or replace at expiry; another version needs a new entry.",
+      "expires": "2027-04-28"
+    },
+    {
+      "ecosystem": "pnpm",
+      "name": "@img/sharp-libvips-darwin-arm64",
+      "version": "1.3.4",
+      "license": "LGPL-3.0-or-later",
+      "reason": "Owner decision 2026-10-28 (docs/dependency-policy.md, \"Licence decisions of 2026-10-28\"): narrow, expiring exception for the prebuilt libvips library that sharp loads dynamically (sharp via @huggingface/transformers). THIRD_PARTY-LICENSES.txt carries the GNU LGPL and GPL texts and where the source is. Renew or replace at expiry; another version needs a new entry.",
+      "expires": "2027-04-28"
+    },
+    {
+      "ecosystem": "pnpm",
+      "name": "@img/sharp-win32-x64",
+      "version": "0.35.5",
+      "license": "Apache-2.0 AND LGPL-3.0-or-later",
+      "reason": "Owner decision 2026-10-28 (docs/dependency-policy.md, \"Licence decisions of 2026-10-28\"): narrow, expiring exception for prebuilt sharp on Windows, which bundles the libvips DLLs it loads dynamically (sharp via @huggingface/transformers). THIRD_PARTY-LICENSES.txt carries the GNU LGPL and GPL texts and where the source is. Renew or replace at expiry; another version needs a new entry.",
+      "expires": "2027-04-28"
+    },
+    {
+      "ecosystem": "pnpm",
+      "name": "@img/sharp-win32-arm64",
+      "version": "0.35.5",
+      "license": "Apache-2.0 AND LGPL-3.0-or-later",
+      "reason": "Owner decision 2026-10-28 (docs/dependency-policy.md, \"Licence decisions of 2026-10-28\"): narrow, expiring exception for prebuilt sharp on Windows, which bundles the libvips DLLs it loads dynamically (sharp via @huggingface/transformers). THIRD_PARTY-LICENSES.txt carries the GNU LGPL and GPL texts and where the source is. Renew or replace at expiry; another version needs a new entry.",
+      "expires": "2027-04-28"
+    }
+  ]
 }

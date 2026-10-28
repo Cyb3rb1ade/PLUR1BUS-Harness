@@ -17,6 +17,14 @@ pub enum StoreError {
     Corrupt,
     /// Another writer owns the store lock.
     Busy,
+    /// A mutation was requested through a read-only handle.
+    ReadOnly,
+    /// A typed store argument failed validation.
+    InvalidInput,
+    /// A store path fails the trusted-directory policy.
+    UntrustedPath,
+    /// A committed deletion fingerprint blocks a content write.
+    TombstoneBlocked,
     /// A filesystem operation failed with this bounded standard-library error kind.
     Io {
         /// The filesystem error category, without paths or operating-system messages.
@@ -31,6 +39,10 @@ impl fmt::Display for StoreError {
             Self::Unavailable => "store unavailable",
             Self::Corrupt => "invalid persisted metadata",
             Self::Busy => "store is busy",
+            Self::TombstoneBlocked => "content write is blocked by a tombstone",
+            Self::ReadOnly => "store is read-only",
+            Self::InvalidInput => "invalid store argument",
+            Self::UntrustedPath => "store path is not trusted",
             Self::Io { .. } => "filesystem operation failed",
         })
     }

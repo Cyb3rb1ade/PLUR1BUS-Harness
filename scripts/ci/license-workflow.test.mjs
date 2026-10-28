@@ -19,3 +19,13 @@ test("licence workflow is advisory, bounded and writes evidence even on a failed
   assert.match(workflow, /if-no-files-found: error/);
   assert.match(workflow, /retention-days: 14/);
 });
+
+test("licence workflow checks every platform's native packages, Linux alone on a main push", () => {
+  const workflow = readFileSync(new URL(".github/workflows/dependency-licenses.yml", root), "utf8");
+  assert.match(workflow, /fail-fast: false/);
+  assert.match(workflow, /os: \[ubuntu-24\.04, macos-15, windows-2025\]/);
+  assert.match(workflow, /runs-on: \$\{\{ matrix\.os \}\}/);
+  assert.ok(workflow.includes(`exclude: \${{ fromJSON(github.event_name == 'push' && '[{"os":"macos-15"},{"os":"windows-2025"}]' || '[]') }}`));
+  assert.match(workflow, /name: dependency-licenses-\$\{\{ matrix\.os \}\}/, "one artifact per leg");
+  for (const step of workflow.split(/\n(?=      - )/).filter((s) => /\brun: \|/.test(s))) assert.match(step, /shell: bash/, "bash on every OS");
+});
