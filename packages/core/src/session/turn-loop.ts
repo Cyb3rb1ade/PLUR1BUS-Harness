@@ -29,7 +29,9 @@ export interface TurnRunnerDeps {
   notify?: (e: EventRecord, session: SessionRecord) => void;
   logger?: TurnLoopLogger;
   /** One final observation after a persisted completion/failure; observer errors cannot change the turn outcome. */
-  onTurnTelemetry?: (telemetry: TurnTelemetry) => void;
+  onTurnTelemetry?: (
+    telemetry: TurnTelemetry, context: { sessionId: string; turnId: string; agentId: string },
+  ) => void;
   /** B1: when set, a provider `tool.call` is executed through the dispatcher (policy gate, limits, provenance). Absent: nothing executes. */
   toolCalls?: { dispatcher: ToolDispatcher; context: (a: { session: SessionRecord; caller: CallerIdentity }) => Omit<DispatchContext, "signal"> };
   /** The core's shutdown signal: aborts running turns, which then end `failed` (reason `aborted`). */
@@ -89,8 +91,8 @@ export class TurnRunner {
     this.#emit(this.#d.store.appendEvent(turnId, type, data), session);
   }
 
-  #observeTelemetry(telemetry: TurnTelemetry): void {
-    try { this.#d.onTurnTelemetry?.(telemetry); }
+  #observeTelemetry(telemetry: TurnTelemetry, session: SessionRecord, turnId: string): void {
+    try { this.#d.onTurnTelemetry?.(telemetry, { sessionId: session.id, turnId, agentId: session.agentId }); }
     catch (err) { this.#d.logger?.warn("turn telemetry observer failed", { err }); }
   }
 
@@ -110,7 +112,7 @@ export class TurnRunner {
         telemetry.endReason = "command";
         const done=store.completeTurn(turnId,{text:reply,tokens:estimateTokens(reply),data:{provider:'harness-command',telemetry}});
         if(!done)return {state:'failed',error:'turn-not-running'};
-        this.#observeTelemetry(telemetry);
+        this.#observeTelemetry(telemetry, session, turnId);
         this.#emit(done.event,session);return {state:'completed',assistantMessageId:done.message.id,reply};
       }
       if(!provider)throw new NoProviderError();
@@ -191,7 +193,7 @@ export class TurnRunner {
         if (!usage.measurements?.length || new Set(usage.measurements.map(m => m.model)).size === 1) store.recordMessageUsage(done.message.id, key, usage.outputTokens);
       }
       if (!done) return { state: "failed", error: "turn-not-running" };
-      this.#observeTelemetry(telemetry);
+      this.#observeTelemetry(telemetry, session, turnId);
       this.#emit(done.event, session);
       await this.#after(session, caller, turnId, text, reply, incognito, turnProfile, recurring, authenticatedPerson);
       return { state: "completed", assistantMessageId: done.message.id, reply };
@@ -200,7 +202,7 @@ export class TurnRunner {
       if (cancelled.aborted) telemetry.endReason = "cancelled";
       else if (signal.aborted) telemetry.endReason = "aborted";
       else if (telemetry.endReason === "completed") telemetry.endReason = "provider-error";
-      try { const ev = store.failTurn(turnId, error, { telemetry }); if (ev) { this.#observeTelemetry(telemetry); this.#emit(ev, session); } }
+      try { const ev = store.failTurn(turnId, error, { telemetry }); if (ev) { this.#observeTelemetry(telemetry, session, turnId); this.#emit(ev, session); } }
       catch (e2) { this.#d.logger?.warn("session turn could not be marked failed; recovery will at the next start", { sessionId: session.id, turnId, err: e2 }); }
       this.#d.logger?.warn("session turn failed", { sessionId: session.id, turnId, error });
       return { state: "failed", error };

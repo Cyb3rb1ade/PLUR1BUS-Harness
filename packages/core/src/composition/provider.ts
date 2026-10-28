@@ -142,6 +142,7 @@ export interface TurnProviderOptions {
   beforeTools?: () => Promise<void>;
   onPrompt?: (prompt: RenderedPrompt) => void;
   onUsage?: (record: CacheUsageRecord) => void;
+  onTelemetry?: (request: ChatRequest, telemetry: TurnTelemetry) => void;
   snapshot?: (request: ChatRequest, memory: string) => string;
   /** Reasoning descriptor of one candidate (fitted to its wire). With a chat's reasoning choice, every attempt sends the
    *  nearest level that candidate supports; a fallback model with other levels is mapped the same way. */
@@ -602,7 +603,11 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       return args;
     } });
     const unknownDispatcher = new ToolDispatcher({ registry: new ToolRegistry(), approvals, grants: o.grants, clock: { now: Date.now } });
+    const taskChecklist = decision.shape === 'multi'
+      ? `Task checklist:\n${decision.tasks.map(task => `- [ ] ${task.summary}`).join('\n')}` : '';
+    let totalInputTokens = 0, totalOutputTokens = 0, completed = false;
     let consecutiveErrors = 0;
+    try {
     for (const skill of chosenSkills) {
       if (loaded.has(skill.entry.name) || !selected.some(tool => tool.name === 'skill.load')) continue;
       const id = `skill-${randomUUID()}`;
@@ -625,10 +630,6 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (++consecutiveErrors >= 3) throw new TurnToolError('turn-tool-error-limit', value);
       } else loaded.set(skill.entry.name, { id, name: skill.entry.name, text, turnId });
     }
-    const taskChecklist = decision.shape === 'multi'
-      ? `Task checklist:\n${decision.tasks.map(task => `- [ ] ${task.summary}`).join('\n')}` : '';
-    let totalInputTokens = 0, totalOutputTokens = 0, completed = false;
-    try {
       for (let round = 0; round < (o.maxRounds ?? 25); round++) {
         observation.rounds++;
         modelRound = round;
@@ -736,6 +737,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const code = error instanceof TurnToolError ? error.code : '';
       observation.endReason = request.signal.aborted ? 'aborted'
         : error instanceof CallBudgetExceededError ? 'budget'
+        : code === 'aborted' ? 'aborted'
         : code === 'local-only' ? 'local-only'
         : code === 'approval-requires-person' || code === 'tool-not-approved' ? 'approval-required'
         : code === 'turn-tool-error-limit' ? 'error-limit'
@@ -744,6 +746,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       throw error;
     } finally {
       await withTrace(trace, () => stream.return(undefined));
+      if (!request.role) {
+        try { o.onTelemetry?.(request, structuredClone(observation)); } catch { /* Observers cannot fail a turn. */ }
+      }
       yield { type: 'telemetry', telemetry: observation };
     }
   } };

@@ -33,7 +33,10 @@ export interface SessionServiceDeps {
   onSessionEnd?: (id: string) => void;
   approver?: SessionMethodDeps["approver"];
   /** Final identifier-free turn observations shared by persistent and ephemeral session runners. */
-  onTurnTelemetry?: (telemetry: import("./turn-telemetry.ts").TurnTelemetry) => void;
+  onTurnTelemetry?: (
+    telemetry: import("./turn-telemetry.ts").TurnTelemetry,
+    context: { sessionId: string; turnId: string; agentId: string },
+  ) => void;
 }
 
 export interface SessionService { ephemeral(): SessionService; forSession(id: string): SessionService; compactor: Compactor; pruner: ToolPruner; store: SessionStore; runner: TurnRunner; methods: Record<string, Handler>; recovered: number; close(budgetMs?: number): Promise<void> }

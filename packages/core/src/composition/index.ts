@@ -1,3 +1,4 @@
+import { createTurnObserver } from './turn-observer.ts';
 import { createMemoryTools } from '../tools/memory.ts';
 import { createWebFetch } from '../tools/web/fetch.ts';
 import { restoreSessionSkills } from './session-skills.ts';
@@ -312,7 +313,10 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         }
       },
     });
+    const observeTurn = createTurnObserver(telemetry => d.onTurnTelemetry?.(telemetry));
     const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, modelRouting,
+      onTelemetry: (request, telemetry) => observeTurn(telemetry, { sessionId: request.sessionId,
+        turnId: request.turnId ?? request.sessionId, agentId: request.agentId }),
       toolUseMode: agent => d.config().agents[agent]?.toolUse?.mode ?? 'prefer',
       toolOffers: request => {
         const store = sessions.forSession(request.sessionId).store;
@@ -395,7 +399,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         return;
       }
       void d.permissions.open().then(p => p.grants.endSession(id)).catch(err => d.logger.warn('grant session end failed', { err }));
-    }, ...(d.approver ? { approver: d.approver } : {}), ...(d.onTurnTelemetry ? { onTurnTelemetry: d.onTurnTelemetry } : {}) });
+    }, ...(d.approver ? { approver: d.approver } : {}), onTurnTelemetry: observeTurn });
     const skillProposals = new UnavailableSkillProposals();
     const skillReview = new SkillReview(skillProposals, { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false });
     const mining = new SkillMining(sessions.store, async scope => {
