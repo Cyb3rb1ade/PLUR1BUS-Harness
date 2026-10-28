@@ -15,7 +15,7 @@ import { triage } from '../triage/index.ts';
 import { toolEntry, type LiveCapabilityIndex, type SkillSelection } from '../toolcall/live-index.ts';
 import { CapabilityIndex } from '../toolcall/capabilities.ts';
 import { compileDialect, fromRegisteredTool, restoreStrictArguments } from '../toolcall/dialects.ts';
-import type { ProviderFamily } from '../toolcall/quirks.ts';
+import { lookupQuirks, type ProviderFamily } from '../toolcall/quirks.ts';
 import { capResult, type FullResultPort } from '../toolcall/results.ts';
 import { ToolDispatcher, type GrantUse, type DispatchContext, type ToolResult } from '../tools/dispatcher.ts';
 import { createRedactor } from '../logs/redact.ts';
@@ -390,8 +390,11 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       }
       const search = described(searchName);
       if (search && eligible(search) && !tools.includes(search)) tools.push(search);
+      const maxTools = Math.min(128, ...(routeProfiles[profile] ?? []).map(candidate =>
+        lookupQuirks(o.isLocalProvider?.(candidate.provider) ? 'local-small'
+          : o.family?.[candidate.provider] ?? 'openai-chat').maxTools));
       const offer = stableToolOffer({ available: registry.entries().filter(eligible).map(tool => tool.name),
-        previous: [...remembered], relevant: tools.map(tool => tool.name), maxTools: 128 });
+        previous: [...remembered], relevant: tools.map(tool => tool.name), maxTools });
       remembered.clear();
       for (const name of offer.names) remembered.add(name);
       o.rememberTools?.(req, offer.names);

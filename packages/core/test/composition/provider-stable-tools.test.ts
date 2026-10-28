@@ -35,3 +35,19 @@ it("queues a discovered non-core tool for the next turn while keeping this turn'
     assert.equal(used, 1);
   } finally { live.close(); f.close(); }
 });
+
+it("enforces the local model family cap while keeping every available core tool", async () => {
+  const wire = scriptedAdapter([{ text: "done" }]);
+  const f = turnFixture(wire.adapter, { isLocalProvider: () => true, topK: 128 }, tmp.make());
+  const core = ["capabilities.search", "skill.load", "skill.read", "file.read", "file.list", "file.stat",
+    "web.search", "web.fetch", "memory.recall", "memory.capture"];
+  for (const name of [...core, ...Array.from({ length: 80 }, (_, i) => `ops.extra${i}`)]) {
+    f.registry.register(readTool(name, async () => "unused"));
+  }
+  try {
+    await collect(f.provider);
+    const offered = wire.requests[0]!.tools!.map(tool => tool.name);
+    assert.equal(offered.length, 16);
+    assert.ok(core.every(name => offered.includes(name.replaceAll(".", "_"))));
+  } finally { f.close(); }
+});
