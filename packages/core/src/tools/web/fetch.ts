@@ -1,5 +1,6 @@
 // web.fetch (D94): the pipeline from URL to a provenance-stamped, sectioned Markdown result. Every network hop goes
-// through `guardedRequest` (SSRF guard, pinned connect, size and time caps). Out of scope for this module and
+// through the configured transport (default `guardedRequest`: SSRF guard, pinned connect, size and time caps).
+// Composition supplies the live egress transport. Out of scope for this module and
 // reported as typed failures instead: PDF/Office/image content (`unsupported-type`), the headless render fallback
 // (`needs-render`). Pages that are only a wall (CAPTCHA, sign-in form, paywall prompt) are reported as such, with the
 // evidence taken from the page itself.
@@ -69,6 +70,8 @@ export interface TraceEvent {
 }
 
 export interface WebFetchConfig {
+  /** Trusted HTTP transport for page and robots requests; it owns redirect guards and pinned connections. */
+  request?: (url: string, options: HttpOptions) => Promise<HttpResponse>;
   resolver?: Resolver;
   /** Explicit per-installation CIDR allowlist for private ranges (D94). Default: none. */
   allowPrivate?: readonly string[];
@@ -255,6 +258,7 @@ function statusFailure(r: HttpResponse, now: number): WebFailure | null {
 // ------------------------------------------------------------ the tool
 
 export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
+  const request = cfg.request ?? guardedRequest;
   const now = cfg.now ?? Date.now;
   const policy = makeAddressPolicy(cfg.allowPrivate ?? []);
   const resolver = cfg.resolver ?? systemResolver;
@@ -272,7 +276,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
     if (hit && now() - hit.at < 24 * 3600_000) return hit.robots;
     let robots: Robots;
     try {
-      const r = await guardedRequest(`${url.origin}/robots.txt`, {
+      const r = await request(`${url.origin}/robots.txt`, {
         ...base(signal),
         maxBytes: 512 * 1024,
         timeoutMs: Math.min(cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS, 5000),
@@ -327,7 +331,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       }
       const crawl = args.crawl === true;
       if (crawl && target && (target.protocol === "http:" || target.protocol === "https:")) await crawlStation(target, deadline.signal, args.url);
-      return await guardedRequest(args.url, {
+      return await request(args.url, {
         ...base(deadline.signal),
         maxBytes: cfg.maxBytes ?? DEFAULT_MAX_BYTES,
         timeoutMs: Math.max(1, totalMs - (performance.now() - started)),

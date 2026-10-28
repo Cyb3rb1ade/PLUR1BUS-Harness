@@ -83,6 +83,7 @@ const SEARCH_TEXT = {
   inputs: "query, count?, freshness?, site?, lang?",
 };
 
+export const WEB_FETCH_DESCRIPTION = FETCH_TEXT.description;
 export const WEB_SEARCH_DESCRIPTION = SEARCH_TEXT.description;
 
 const version = (name: string, t: typeof FETCH_TEXT, schema: unknown): string =>

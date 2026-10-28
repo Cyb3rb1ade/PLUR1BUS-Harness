@@ -26,6 +26,7 @@ import { ruleSkills, type SkillPick } from '../decision/skills.ts';
 import { enrichedSkillQuery, isSkillFollowup, fairTaskSkills } from '../decision/skill-context.ts';
 import { skillHistoryMessages } from './skill-history.ts';
 import type { RestoredSessionSkills } from './session-skills.ts';
+import { CORE_TOOL_NAMES } from '../toolcall/stable-tools.ts';
 import { detectToolNeed, toolChoiceForTurn, type ToolNeed } from '../toolcall/tool-use.ts';
 import { frontmatter } from '../import/yaml-lite.ts';
 import { TOOL_USE_INSTRUCTIONS } from '../prompt/instructions.ts';
@@ -378,6 +379,10 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       try { o.onSkillsSelected?.(req, skills); } catch { /* Metadata cannot alter admitted selection. */ }
       for (const hit of hits) o.capabilities?.registry.record(hit.entry.id, req.agentId, 'offered');
       const tools = hits.filter(h => h.entry.kind !== 'skill').map(h => described(h.entry.name)).filter((t): t is NonNullable<typeof t> => !!t);
+      for (const name of [...CORE_TOOL_NAMES, ...registry.entries().filter(tool => tool.name.startsWith('memory.')).map(tool => tool.name)]) {
+        const core = described(name);
+        if (core && eligible(core) && !tools.includes(core)) tools.push(core);
+      }
       const search = described(searchName);
       if (search && eligible(search) && !tools.includes(search)) tools.push(search);
       return tools;

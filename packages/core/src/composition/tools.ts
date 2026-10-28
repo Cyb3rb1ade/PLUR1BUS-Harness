@@ -1,5 +1,5 @@
-import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
 import { classifyHostTool } from '../host-tools/classify.ts';
+import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
 import { createSandboxProcessPort, createSandboxHostExec, type SandboxOptions } from '../tools/sandbox/ports.ts';
 import { codingCompletionTool, type CodingCompletion } from '../collab/coding-surface.ts';
 import { collaborationTools, type CollaborationTools } from '../tools/collaboration.ts';
@@ -30,7 +30,8 @@ import { OutputStore, MediaError, requestedUnits, deliveredUnits, type ImageAdap
 import type { ChatRequest } from '../session/provider.ts';
 import { WebFailure } from '../tools/web/failure.ts';
 import type { WebSearch } from '../tools/web/search.ts';
-import { WEB_SEARCH_DESCRIPTION, WEB_SEARCH_SCHEMA } from '../tools/web/tools.ts';
+import type { WebFetch } from '../tools/web/fetch.ts';
+import { WEB_FETCH_DESCRIPTION, WEB_FETCH_SCHEMA, WEB_SEARCH_DESCRIPTION, WEB_SEARCH_SCHEMA } from '../tools/web/tools.ts';
 import { DOCUMENT_RENDER_DESCRIPTION, DOCUMENT_RENDER_SCHEMA, reviewDocument, type DocumentRenderArgs, type ReviewBrowser, type TemplateId } from '../../../documents/src/index.ts';
 
 /** hostctl routes that launch processes, native apps or OS services through the hostctl worker (no sandbox policy yet). */
@@ -48,6 +49,8 @@ export interface ToolCompositionOptions {
   hostctl?: ReturnType<typeof createHostctlPool>;
   /** web.search over the configured SearXNG sidecar. Absent, the tool is not offered. */
   webSearch?: WebSearch;
+  /** web.fetch through the installation's live egress transport. The registered tool refuses calls if absent. */
+  webFetch?: WebFetch;
   /** secret_names: this agent's secret names, scope and presence (never values). Absent, the tool is not offered. */
   secretNames?: SecretNamesPort;
   /** When set, exec.run child stdout/stderr are wrapped as untrusted `process.output.line` records. */
@@ -155,6 +158,18 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       return { id: manifest.id, files: manifest.files, metadata: manifest.metadata };
     } });
   }
+  register({ name: 'web.fetch', description: WEB_FETCH_DESCRIPTION, inputSchema: WEB_FETCH_SCHEMA,
+    capability: 'net.fetch', effect: CAPABILITIES.get('net.fetch')!.intrinsicEffect, risk: 'low', trust: 'first-party',
+    execute: async (args, ctx) => {
+      try {
+        if (!o.webFetch) throw new WebFailure('egress-denied', 'web fetch egress transport is unavailable');
+        return await o.webFetch.fetch(args as never, { signal: ctx.signal, agentId: ctx.agentId });
+      } catch (e) {
+        throw new ToolAdapterError('tool-failed',
+          (e instanceof WebFailure ? e : new WebFailure('internal-error', 'unexpected failure')).toResult());
+      }
+    },
+  });
   if (o.webSearch) {
     const webSearch = o.webSearch;
     // D109: a search is a network read (`net.fetch`). The sidecar is the only destination and it is fixed by configuration.
