@@ -5,7 +5,6 @@ use crate::commands::config::{call, route, Route};
 use crate::commands::module::try_offline_lock;
 use crate::ext;
 use crate::ext::commit::{install_commit, Agents, InstallOpts, OfflineHost};
-use crate::ext::inspect::Source;
 use crate::ext::lifecycle::{self, ToggleOpts};
 use crate::ext::list::{list_items, show_item, ListFilter};
 use crate::ext::remove::{self, RemoveOpts};
@@ -181,14 +180,32 @@ impl<'a> Backend<'a> {
                 r
             }
             Backend::Offline { layout, .. } => {
-                let src = match input {
-                    Input::Path(p) => Source::Path(p.clone()),
-                    Input::Stdin => Source::Stdin,
+                let (path, spool) = match input {
+                    Input::Path(p) => (p.clone(), None),
+                    Input::Stdin => {
+                        let s = spool_stdin(layout)?;
+                        (s.0.clone(), Some(s))
+                    }
                 };
                 let id = ext::worker::new_inspection_id();
-                ext::inspect::inspect(layout, src, &id)
-                    .map(|r| crate::supervisor::ext::inspection_result(&r))
-                    .map_err(Failure::from_ext)
+                let result = ext::worker::spawn_worker(
+                    layout,
+                    &["inspect", "--id", &id, "--path", &path.to_string_lossy()],
+                    ext::worker::deadline("inspect", ext::worker::INSPECT_DEADLINE),
+                )
+                .and_then(|value| {
+                    serde_json::from_value::<ext::record::InspectionRecord>(value).map_err(|_| {
+                        ext::ExtError::new(
+                            "E_INTERNAL",
+                            "worker-failed",
+                            "invalid inspection worker reply",
+                        )
+                    })
+                })
+                .map(|r| crate::supervisor::ext::inspection_result(&r))
+                .map_err(Failure::from_ext);
+                drop(spool);
+                result
             }
         }
     }

@@ -47,6 +47,15 @@ pub(crate) fn locate_core_js(layout: &Layout) -> PathBuf {
         .unwrap_or_else(|| layout.runtime().join("core").join("core.js"))
 }
 
+/// Credential-free extension downloads use the same runtime and installed Core payload as ordinary Core starts.
+pub(crate) fn extension_source_fetch(layout: &Layout) -> crate::ext::source_fetch::NodeSourceFetch {
+    crate::ext::source_fetch::NodeSourceFetch::new(
+        layout.home.clone(),
+        locate_node(layout),
+        locate_core_js(layout),
+    )
+}
+
 /// The native attestation helper (`plur1bus-attest`, issue #192) shipped beside this executable, as a canonical absolute path, or
 /// `None`. The core pins whatever it is given again (`PLUR1BUS_ATTEST_BIN`: absolute, regular file, not group/world-writable), so a
 /// path that fails there simply means "no attestation here"; nothing breaks. A value already in the environment wins, as it does for

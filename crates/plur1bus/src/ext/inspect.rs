@@ -19,6 +19,9 @@ use super::record::{
 use super::state::{self, write_private_atomic};
 use super::{iso8601, ExtError};
 use crate::paths::Layout;
+#[cfg(test)]
+use plur1bus_ext::claude::NoNetwork;
+use plur1bus_ext::claude::{normalise_claude, ClaudeInput, EgressFetch};
 use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::Kind;
 use plur1bus_ext::mcpb::{normalise_mcpb_with_context, McpbContext};
@@ -27,7 +30,8 @@ use plur1bus_ext::refusal::{reason, Refusal};
 use plur1bus_ext::verify::{inspect_file_kinds, Policy, X2_RPC_KINDS};
 use plur1bus_ext::zipaudit::Limits;
 use serde_json::{json, Value};
-use std::io::{self, Read};
+use sha2::{Digest, Sha256};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 /// Where the package comes from.
@@ -154,7 +158,7 @@ fn lower_ext(p: &Path) -> String {
 }
 
 /// Supplies the OS environment at the worker edge; the MCPB parser never reads process globals.
-fn mcpb_context(layout: &Layout, name: &str) -> Result<McpbContext, Refusal> {
+fn mcpb_context(_layout: &Layout, _name: &str) -> Result<McpbContext, Refusal> {
     let home = home::home_dir().ok_or_else(|| {
         Refusal::invalid(
             reason::PACKAGE_INVALID,
@@ -181,14 +185,6 @@ fn mcpb_context(layout: &Layout, name: &str) -> Result<McpbContext, Refusal> {
             system_dirs.insert(key.into(), path.to_string_lossy().into_owned());
         }
     }
-    let extension_dir = std::path::absolute(
-        layout
-            .extensions()
-            .join("packages")
-            .join(name)
-            .join("payload"),
-    )
-    .map_err(|e| Refusal::io(&e))?;
     Ok(McpbContext {
         platform: match std::env::consts::OS {
             "macos" => "darwin",
@@ -196,7 +192,8 @@ fn mcpb_context(layout: &Layout, name: &str) -> Result<McpbContext, Refusal> {
             other => other,
         }
         .into(),
-        extension_dir: extension_dir.to_string_lossy().into_owned(),
+        // The authenticated active version/payload path is bound by Core at each start, never by a preview spool.
+        extension_dir: "${__dirname}".into(),
         path_separator: std::path::MAIN_SEPARATOR.to_string(),
         system_dirs,
         user_config: Default::default(),
@@ -209,6 +206,7 @@ fn spool(
     src: &Source,
     to: &Path,
     cfg: &ExtConfig,
+    fetch: &mut impl EgressFetch,
 ) -> Result<(bool, Vec<String>), ExtError> {
     let cap = cfg.limits.package_bytes;
     let path = match src {
@@ -226,14 +224,48 @@ fn spool(
         f.sync_all().map_err(|e| io_error("cannot write", to, &e))?;
         Ok((true, Vec::new()))
     };
+    let claude = |input: ClaudeInput, fetch: &mut _| -> Result<(bool, Vec<String>), ExtError> {
+        let mut out = crate::audit::create_private(to, true)
+            .map_err(|e| io_error("cannot create", to, &e))?;
+        let report = normalise_claude(
+            &input,
+            |name| mcpb_context(layout, name),
+            fetch,
+            &cfg.limits,
+            &super::now_iso(),
+            &mut out,
+        )?;
+        out.sync_all()
+            .map_err(|e| io_error("cannot write", to, &e))?;
+        let mut warnings = report.warnings;
+        for skipped in report.skipped {
+            warnings.push(format!("Skipped {}: {}", skipped.name, skipped.reason));
+        }
+        for member in report.members {
+            warnings.push(format!(
+                "Member {} (unsigned, SHA256 {}): capabilities {}; runtime {}; scripts {}",
+                member.manifest.name,
+                member.sha256,
+                member.manifest.capabilities,
+                member.manifest.requires,
+                json!(member.manifest.scripts)
+            ));
+            warnings.extend(
+                member
+                    .warnings
+                    .into_iter()
+                    .map(|warning| format!("Member {}: {warning}", member.manifest.name)),
+            );
+        }
+        Ok((true, warnings))
+    };
     if meta.is_dir() {
         if !path.join("SKILL.md").exists() {
-            if path.join(".claude-plugin").exists() {
-                return Err(ExtError::new(
-                    "E_NOT_AVAILABLE",
-                    reason::KIND_UNSUPPORTED,
-                    "Claude Code plugins arrive in X2",
-                ));
+            if path.join(".claude-plugin").exists()
+                || path.join("skills").exists()
+                || path.join(".mcp.json").exists()
+            {
+                return claude(ClaudeInput::Dir(path.clone()), fetch);
             }
             if path.join("module.json").exists() {
                 return Err(invalid(
@@ -254,7 +286,41 @@ fn spool(
         ));
     }
     match lower_ext(path).as_str() {
-        "zip" | "skill" => normalise(SkillInput::Zip(path.clone())),
+        "zip" | "skill" => {
+            let mut input = open_regular(path)?;
+            let audited = plur1bus_ext::zipaudit::audit_zip(&mut input, &cfg.limits)?;
+            let skill = audited.entries.iter().any(|entry| entry.name == "SKILL.md")
+                || audited
+                    .entries
+                    .first()
+                    .and_then(|entry| entry.name.split_once('/'))
+                    .is_some_and(|(top, _)| {
+                        audited
+                            .entries
+                            .iter()
+                            .all(|entry| entry.name.starts_with(&format!("{top}/")))
+                            && audited
+                                .entries
+                                .iter()
+                                .any(|entry| entry.name == format!("{top}/SKILL.md"))
+                    });
+            let plugin = audited.entries.iter().any(|entry| {
+                let name = &entry.name;
+                name.starts_with(".claude-plugin/")
+                    || name.starts_with("skills/")
+                    || name == ".mcp.json"
+                    || name.split_once('/').is_some_and(|(_, rel)| {
+                        rel.starts_with(".claude-plugin/")
+                            || rel.starts_with("skills/")
+                            || rel == ".mcp.json"
+                    })
+            });
+            if plugin && !skill {
+                claude(ClaudeInput::Zip(path.clone()), fetch)
+            } else {
+                normalise(SkillInput::Zip(path.clone()))
+            }
+        }
         "mcpb" | "dxt" => {
             let mut input = open_regular(path)?;
             let mut out = crate::audit::create_private(to, true)
@@ -337,17 +403,73 @@ fn changed_keys(old: &Value, new: &Value) -> Vec<String> {
 
 /// Spools, verifies and checks a package (see the module documentation) and writes its record. `id` comes from
 /// [`super::worker::new_inspection_id`].
+#[cfg(test)]
 pub fn inspect(layout: &Layout, src: Source, id: &str) -> Result<InspectionRecord, ExtError> {
     inspect_with(layout, src, id, false)
 }
 
 /// [`inspect`], aborting the process right after the package is spooled when `crash` (the worker's `--crash` test
 /// seam: a parser that crashes leaves its spool behind).
+#[cfg(test)]
 pub(crate) fn inspect_with(
     layout: &Layout,
     src: Source,
     id: &str,
     crash: bool,
+) -> Result<InspectionRecord, ExtError> {
+    inspect_with_fetch(layout, src, id, crash, &mut NoNetwork)
+}
+
+/// Production workers inject the existing Core egress boundary; direct local normalizer callers remain offline.
+pub(crate) fn inspect_with_fetch(
+    layout: &Layout,
+    src: Source,
+    id: &str,
+    crash: bool,
+    fetch: &mut impl EgressFetch,
+) -> Result<InspectionRecord, ExtError> {
+    inspect_with_expected(layout, src, id, crash, fetch, None)
+}
+
+struct RawSource(PathBuf);
+impl Drop for RawSource { fn drop(&mut self) { let _ = std::fs::remove_file(&self.0); } }
+
+/// Read an upload once, without following its final component, and parse only the bounded verified snapshot.
+fn snapshot_source(layout: &Layout, source: &Source, id: &str, expected: (&str, u64), cap: u64) -> Result<RawSource, ExtError> {
+    let Source::Path(path) = source else { return Err(invalid(reason::PACKAGE_INVALID, "upload requires a file")); };
+    let (sha256, size) = expected;
+    let mismatch = || invalid(reason::DIGEST_MISMATCH, "the upload bytes no longer match their recorded digest and size");
+    if size == 0 || size > cap || sha256.len() != 64 || !sha256.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
+        return Err(mismatch());
+    }
+    let mut options = std::fs::OpenOptions::new(); options.read(true);
+    #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK); }
+    #[cfg(windows)] { use std::os::windows::fs::OpenOptionsExt; options.custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT); }
+    let mut input = options.open(path).map_err(|_| mismatch())?;
+    let info = input.metadata().map_err(|_| mismatch())?;
+    #[cfg(windows)] {
+        use std::os::windows::fs::MetadataExt;
+        if info.file_attributes() & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT != 0 { return Err(mismatch()); }
+    }
+    if !info.is_file() || info.len() != size { return Err(mismatch()); }
+    let raw = RawSource(ExtPaths::of(layout).inspect.join(format!("{id}.source")));
+    let mut output = crate::audit::create_private(&raw.0, true).map_err(|_| mismatch())?;
+    let mut hash = Sha256::new(); let mut count = 0u64; let mut buffer = [0u8; 32 * 1024];
+    loop {
+        let n = input.read(&mut buffer).map_err(|_| mismatch())?;
+        if n == 0 { break; }
+        count += n as u64; if count > size { return Err(mismatch()); }
+        hash.update(&buffer[..n]); output.write_all(&buffer[..n]).map_err(|_| mismatch())?;
+    }
+    if count != size || format!("{:x}", hash.finalize()) != sha256 { return Err(mismatch()); }
+    output.sync_all().map_err(|_| mismatch())?;
+    Ok(raw)
+}
+
+/// API uploads bind their raw source digest before any format detection or normalization runs.
+pub(crate) fn inspect_with_expected(
+    layout: &Layout, src: Source, id: &str, crash: bool, fetch: &mut impl EgressFetch,
+    expected: Option<(&str, u64)>,
 ) -> Result<InspectionRecord, ExtError> {
     if !valid_id(id) {
         return Err(ExtError::new(
@@ -371,7 +493,9 @@ pub(crate) fn inspect_with(
         keep: false,
     };
     let cfg = ext_config(layout)?;
-    let (normalised, warnings) = spool(layout, &src, &pending.p1x, &cfg)?;
+    let snapshot = expected.map(|expected| snapshot_source(layout, &src, id, expected, cfg.limits.package_bytes)).transpose()?;
+    let verified = snapshot.as_ref().map(|source| Source::Path(source.0.clone()));
+    let (normalised, warnings) = spool(layout, verified.as_ref().unwrap_or(&src), &pending.p1x, &cfg, fetch)?;
     if crash {
         std::process::abort();
     }
@@ -421,6 +545,7 @@ pub(crate) fn inspect_with(
         expires_at: iso8601(now_ms().saturating_add(ttl.as_millis() as u64)),
         sha256: insp.sha256.clone(),
         source_path: match &src {
+            _ if expected.is_some() => None,
             Source::Path(p) => Some(p.to_string_lossy().into_owned()),
             Source::Stdin => None,
         },
@@ -451,6 +576,30 @@ pub(crate) fn inspect_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_direct_local_caller_cannot_fetch_a_plugin_without_an_explicit_egress_port() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("plugin");
+        std::fs::create_dir_all(source.join(".claude-plugin")).unwrap();
+        std::fs::write(
+            source.join(".claude-plugin/plugin.json"),
+            br#"{"name":"demo-plugin","mcpServers":"https://example.invalid/demo.mcpb"}"#,
+        )
+        .unwrap();
+        let layout = Layout::new(dir.path().join("home"));
+        let error = inspect(
+            &layout,
+            Source::Path(source),
+            &super::super::worker::new_inspection_id(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            (error.code, error.reason),
+            ("E_NOT_AVAILABLE", Some("kind-unsupported"))
+        );
+        assert!(!layout.home.join("mcp").exists());
+    }
 
     #[test]
     fn changed_keys_are_the_differing_top_level_keys() {

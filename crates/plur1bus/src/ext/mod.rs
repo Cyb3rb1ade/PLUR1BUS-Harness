@@ -21,6 +21,7 @@ pub mod packages;
 pub mod paths;
 pub mod record;
 pub mod remove;
+pub mod source_fetch;
 pub mod stage;
 pub mod state;
 pub mod worker;

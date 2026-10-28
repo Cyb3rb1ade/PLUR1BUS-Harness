@@ -44,6 +44,11 @@ pub enum WorkerArgs {
         /// Read the package from stdin
         #[arg(long)]
         stdin: bool,
+        /// Digest and byte count supplied only by the private API upload claim.
+        #[arg(long, hide = true, requires = "expected_source_size", conflicts_with = "stdin")]
+        expected_source_sha256: Option<String>,
+        #[arg(long, hide = true, requires = "expected_source_sha256", conflicts_with = "stdin")]
+        expected_source_size: Option<u64>,
         /// Test seam: sleep first (needs PLUR1BUS_ALLOW_TEST_INTERNALS=1)
         #[arg(long, hide = true)]
         sleep_ms: Option<u64>,
@@ -548,7 +553,14 @@ fn to_json<T: Serialize>(what: &str, v: T) -> Result<Value, ExtError> {
 
 /// `plur1bus ext __worker …`: runs one operation and prints exactly one JSON line, `{"ok":true,"result":…}` (exit 0)
 /// or `{"ok":false,"error":{"code","reason","message","data"}}` (exit 1).
-pub fn worker_main(layout: &Layout, args: WorkerArgs) -> ! {
+pub fn worker_main(
+    layout: &Layout,
+    args: WorkerArgs,
+    fetch: &mut impl plur1bus_ext::claude::EgressFetch,
+) -> ! {
+    if super::worker::await_start_gate().is_err() {
+        std::process::exit(1);
+    }
     let sleep = |ms: Option<u64>| {
         if let (Some(ms), true) = (ms, allow_internals()) {
             std::thread::sleep(std::time::Duration::from_millis(ms));
@@ -559,6 +571,8 @@ pub fn worker_main(layout: &Layout, args: WorkerArgs) -> ! {
             id,
             path,
             stdin,
+            expected_source_sha256,
+            expected_source_size,
             sleep_ms,
             crash,
         } => {
@@ -567,7 +581,8 @@ pub fn worker_main(layout: &Layout, args: WorkerArgs) -> ! {
                 (false, Some(p)) => Source::Path(p),
                 _ => Source::Stdin,
             };
-            inspect::inspect_with(layout, src, &id, crash && allow_internals())
+            let expected = expected_source_sha256.as_deref().zip(expected_source_size);
+            inspect::inspect_with_expected(layout, src, &id, crash && allow_internals(), fetch, expected)
                 .and_then(|r| to_json("inspection", r))
         }
         WorkerArgs::Stage {

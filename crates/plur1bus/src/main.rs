@@ -110,7 +110,11 @@ fn main() {
         Cmd::Dreams { sub } => commands::dreams::run(&out, &layout, sub),
         Cmd::Ext {
             cmd: cli::ExtCmd::Worker { op },
-        } => ext::stage::worker_main(&layout, op),
+        } => ext::stage::worker_main(
+            &layout,
+            op,
+            &mut commands::core::extension_source_fetch(&layout),
+        ),
         Cmd::Ext { cmd } => commands::ext::run(&out, &layout, cmd),
         Cmd::Skill { sub } => commands::skill::run(&out, &layout, sub),
         Cmd::Plugin { sub } => commands::plugin::run(&out, &layout, sub),

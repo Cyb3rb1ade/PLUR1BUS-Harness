@@ -270,9 +270,39 @@ expand only as complete arguments. A caller supplies platform, system directorie
 configuration through an explicit context port. Raw templates remain in the payload
 so runtime expansion uses the authenticated installed directory.
 
+## 8c. Claude Code plugin inputs (M-A11)
+
+`plur1bus ext inspect <folder-or-zip>` and `plugin install --dry-run` normalize Claude Code
+plugins into unsigned bundles. `.claude-plugin/plugin.json` is optional; when present, only
+`name` is required. The default layout reads `skills/` and `.mcp.json`. Explicit skill paths,
+local MCPB/DXT references, HTTPS references and supported inline MCP configurations also work.
+The source formats follow the official Claude Code plugin manifest reference and the
+[`anthropics/claude-plugins-official`](https://github.com/anthropics/claude-plugins-official)
+examples; no upstream implementation code is included.
+
+The wrapper has no runtime or operational rights. Every nested package has an exact SHA-256
+in the wrapper's member table. Inspection warnings disclose each member's full capabilities,
+runtime, scripts and unsigned trust. Child secret slots remain scoped to the child. Source
+environment values and authorization headers are replaced with required secret declarations;
+credentials, publisher signatures and foreign trust claims are never carried into the bundle.
+
+Unsupported `commands`, `agents`, `hooks`, `lspServers`, `outputStyles`, `workflows`,
+`experimental.*`, `bin/`, `settings` and `channels` are reported by name and reason. Their
+configuration and code are skipped. No source hook or installer runs during normalization.
+Source paths stay inside the plugin root; ZIP audits, per-file limits and aggregate member
+and download budgets apply before a bundle is accepted.
+
+HTTPS references use the installed Core's `extension-source.js` helper and the existing
+egress service, including host, port, address and redirect checks. Readable valid target
+configuration is required. Requests carry no ambient credentials or custom headers. Bytes
+stream directly into the bounded native worker; its deadline terminates the complete fetch
+process tree. `cargo test -p plur1bus-ext` and `cargo test -p plur1bus --test ext_claude_cli
+--test ext_worker_tree` cover normalization, disclosure, policy refusal and cancellation.
+Bundle installation and atomic child lifecycle are implemented by M-A10.
+
 ## 9. What arrives in X2–X5
 
-- **X2:** D1 provides the `mcp-server` and `provider` manifests, rights and package store; M-A9 adds the MCPB/DXT normalization and compatibility alias described in §8b. The remaining X2 work covers `bundle`, lifecycle wiring, Claude Code plugin inputs, `ctx.dataDir` and `P1X_DATA` for modules and scripts, and per-agent MCP lists.
+- **X2:** D1 provides the `mcp-server` and `provider` manifests, rights and package store; M-A9 and M-A11 add the source normalization described in §8b–8c. The remaining X2 work covers atomic `bundle` lifecycle wiring, `ctx.dataDir` and `P1X_DATA` for modules and scripts, and per-agent MCP lists.
 - **X3:** web UI, the upload endpoint (`ext.inspect` `upload`), D1 `.p1x` file association, the WebMCP deny list work beyond the one-line defence in depth already in place.
 - **X4:** the signed catalogue and `ext.inspect` `catalog`, search, per-item updates with health gate and rollback, pin/skip, revocation lists and `--force-revoked`, the 24 h integrity timer and repair from the cache, key rotation.
 - **X5:** the pinned first-party keys, `ext lint`, the publishing repository and first packages. After X5 a signed package can be `first-party`.
