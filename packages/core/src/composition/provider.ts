@@ -283,7 +283,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         for (const tool of createSkillTools({ home: o.capabilities.home, skills: view.skills, onLoad: name => {
           observation.skills.loaded++;
           o.capabilities!.registry.record(`skill:${name}`, req.agentId, 'used');
-        } }).filter(tool => tool.name === 'skill.load')) {
+        } })) {
           if (!described(tool.name)) registry.register(tool);
         }
         view = o.capabilities.view(JSON.stringify([req.agentId, principal]), registry.entries().filter(eligible), o.skillsForAgent?.(req.agentId), req.agentId);

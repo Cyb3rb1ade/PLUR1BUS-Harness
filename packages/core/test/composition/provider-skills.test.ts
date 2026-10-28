@@ -32,3 +32,27 @@ it("keeps a sorted full-description catalogue in the system zone without blocked
     assert.equal(system[0], system[1]);
   } finally { live.close(); f.close(); }
 });
+
+it("offers skill.read and returns a listed resource through the real dispatcher", async () => {
+  const home = tmp.make();
+  mkdirSync(join(home, "state"));
+  mkdirSync(join(home, "skills", "reports"), { recursive: true });
+  writeFileSync(join(home, "skills", "reports", "SKILL.md"),
+    "---\nname: reports\ndescription: Create reports\n---\nRead guide.txt.");
+  writeFileSync(join(home, "skills", "reports", "guide.txt"), "RESOURCE GUIDE");
+  writeFileSync(join(home, "skills", "index.json"), JSON.stringify({ version: 1,
+    skills: [{ id: "reports", enabled: true }] }));
+  const live = new LiveCapabilityIndex(home);
+  const wire = scriptedAdapter([
+    { calls: [{ id: "resource", name: "skill.read", args: { name: "reports", path: "guide.txt" } }] },
+    { text: "done" },
+  ]);
+  const f = turnFixture(wire.adapter, { capabilities: live }, home);
+  try {
+    const chunks = await collect(f.provider);
+    const output = chunks.find(c => c.type === "tool.result" && c.id === "resource");
+    assert.ok(output && output.type === "tool.result");
+    assert.equal(JSON.parse(output.output).value.text, "RESOURCE GUIDE");
+    assert.ok(wire.requests[0]?.tools?.some(t => t.name === "skill_read"));
+  } finally { live.close(); f.close(); }
+});
