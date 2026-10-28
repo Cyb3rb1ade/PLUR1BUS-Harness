@@ -52,7 +52,7 @@ Each task follows write test → observe red → implementation → targeted gre
 - [ ] N-E5: candidate-specific support including Anthropic Thinking and conservative local flag.
 - [ ] N-E6: one buffered retry; streamed answers counted without retracting output.
 - [ ] N-E7: cache evidence and sourced provider behavior, explicit limits on unavailable live measurements.
-- [ ] N-E8: regenerate config fixtures and documentation.
+- [x] N-E8: regenerate config fixtures and documentation.
 - [ ] N-F1: stable first-party file/web/skill/search/memory core, policy-bound web.fetch registration.
 - [ ] N-F2: growing bounded session offers, discovered tools become offered only at next turn boundary.
 - [ ] N-F3: enforce candidate family tool cap with core priority and explicit small-family handling.
