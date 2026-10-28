@@ -24,6 +24,7 @@ import type { SurfaceTrustLevel } from '../rbac/surface.ts';
 import { ToolRegistry } from '../tools/registry.ts';
 import { skillHistoryMessages } from './skill-history.ts';
 import type { RestoredSessionSkills } from './session-skills.ts';
+import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
 import { createSkillTools } from '../toolcall/skill-tools.ts';
 import { renderAvailableSkills } from '../prompt/skills.ts';
 import { modelToolError } from '../toolcall/model-tool-error.ts';
@@ -269,7 +270,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     };
     const eligible = (t: import('../tools/registry.ts').RegisteredTool) => viewable(t) && !policyDenied(t);
     if (o.capabilities && !req.role && !described(searchName)) registry.register({
-      name: searchName, description: 'Find available tools and skills by query and optional category. Skill matches contain metadata; load instructions with skill.load.', capability: 'fs.read', effect: 'read', risk: 'low', trust: 'first-party',
+      name: searchName, discovery: firstPartyDiscovery(searchName)!, description: 'Find available tools and skills by query and optional category. Skill matches contain metadata; load instructions with skill.load.', capability: 'fs.read', effect: 'read', risk: 'low', trust: 'first-party',
       inputSchema: { type: 'object', additionalProperties: false, properties: { query: { type: 'string', minLength: 1, maxLength: 4096 }, category: { type: 'string', maxLength: 100 } }, required: ['query'] },
       classify: () => ({ flags: { outsideRoots: false, denyListHit: false } }),
       execute: async args => {

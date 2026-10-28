@@ -1,3 +1,4 @@
+import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
 import { classifyHostTool } from '../host-tools/classify.ts';
 import { createSandboxProcessPort, createSandboxHostExec, type SandboxOptions } from '../tools/sandbox/ports.ts';
 import { codingCompletionTool, type CodingCompletion } from '../collab/coding-surface.ts';
@@ -76,14 +77,18 @@ function unwrap(value: unknown): unknown {
 export async function composeTools(o: ToolCompositionOptions, req: ChatRequest): Promise<ToolRegistry> {
   if (req.readOnlyWorktree) o = { ...o, roots: [{ id: req.agentId, path: req.readOnlyWorktree }] };
   const registry = new ToolRegistry();
-  if (o.coding && o.collaboration) registry.register(codingCompletionTool(o.coding, req, () => o.collaboration!.principal(req)));
-  if (o.collaboration) for (const tool of collaborationTools(o.collaboration, req)) registry.register(tool);
+  const register = (tool: ToolDef) => {
+    const discovery = tool.discovery ?? (tool.trust === 'first-party' ? firstPartyDiscovery(tool.name) : undefined);
+    registry.register({ ...tool, ...(discovery ? { discovery } : {}) });
+  };
+  if (o.coding && o.collaboration) register(codingCompletionTool(o.coding, req, () => o.collaboration!.principal(req)));
+  if (o.collaboration) for (const tool of collaborationTools(o.collaboration, req)) register(tool);
   const platform = isHostPlatform(process.platform) ? process.platform : 'linux';
   const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, { path: join(o.home, 'config.json') }, { path: join(o.home, 'bin') }, { path: join(o.home, 'runtime') }, { path: join(o.home, 'secrets') }, ...(o.deny ?? [])];
   const fs = o.roots.length ? createFsTools({ roots: o.roots, deny }) : { tools: [] };
   for (const tool of fs.tools) {
     const run = tool.execute;
-    registry.register({ ...tool, capability: tool.effect === 'read' ? 'fs.read' : 'fs.write', risk: 'low', trust: 'first-party', limits: { maxResultBytes: 1024 * 1024 }, classify: async args => {
+    register({ ...tool, capability: tool.effect === 'read' ? 'fs.read' : 'fs.write', risk: 'low', trust: 'first-party', limits: { maxResultBytes: 1024 * 1024 }, classify: async args => {
     const raw = (args as { path: string }).path;
     const access = tool.effect === 'read' ? 'read' : 'write';
     const resolved = await canonicalisePath(raw, { roots: o.roots, deny, access, requireRoot: false, ...(o.roots[0] ? { cwd: o.roots[0].path } : {}) });
@@ -95,11 +100,11 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   const host = { ...(o.host ?? createNodeHostContext()), exec: createSandboxHostExec(sandboxOptions) };
   for (const tool of HOST_TOOLS) {
     const cap = CAPABILITIES.get(tool.capability)!;
-    registry.register({ name: tool.name, description: tool.description, inputSchema: tool.schema.input, capability: tool.capability, effect: cap.intrinsicEffect, risk: tool.riskClass, trust: 'first-party', classify: args => classifyHostTool(tool, args, { roots: o.roots, deny }), execute: async (args, ctx) => tool.run(args, { ...host, signal: ctx.signal }) });
+    register({ name: tool.name, description: tool.description, inputSchema: tool.schema.input, capability: tool.capability, effect: cap.intrinsicEffect, risk: tool.riskClass, trust: 'first-party', classify: args => classifyHostTool(tool, args, { roots: o.roots, deny }), execute: async (args, ctx) => tool.run(args, { ...host, signal: ctx.signal }) });
   }
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
-  registry.register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', classify: args => classifyExecRun(args, { roots: o.roots, deny, sandboxed: o.sandbox?.required !== false, ...(o.exec ? { exec: o.exec } : {}) }), execute: async (args, ctx) => {
+  register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', classify: args => classifyExecRun(args, { roots: o.roots, deny, sandboxed: o.sandbox?.required !== false, ...(o.exec ? { exec: o.exec } : {}) }), execute: async (args, ctx) => {
     if (ctx.classified) {
       const live = await classifyExecRun(args, { roots: o.roots, deny, sandboxed: o.sandbox?.required !== false, ...(o.exec ? { exec: o.exec } : {}) });
       if (ctx.classified.targets?.[0] !== live.targets?.[0] || ctx.classified.hashExtra !== live.hashExtra) {
@@ -114,7 +119,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     if (name.startsWith('media.') && !CAPABILITIES.has(name)) continue;
     const operation = name.endsWith('edit') ? 'edit' as const : 'generate' as const;
     if (!o.media.adapter.capabilities()[operation] && !(name.startsWith('media.') && o.media.adapter.capabilities().video?.videoToVideo)) continue;
-    registry.register({ name, description: `${operation} an image or video and return a durable output reference.`, inputSchema: { type: 'object', additionalProperties: false, properties: { kind: {enum:['image','video']}, durationSeconds:{type:'number',exclusiveMinimum:0,maximum:600}, resolution:{type:'string',maxLength:64}, fps:{type:'integer',minimum:1,maximum:120}, audio:{type:'boolean'}, aspect:{type:'string',maxLength:128}, embedMetadata:{type:'boolean'}, videoFormat:{enum:['mp4','mov','webm']}, referenceVideoId:{type:'string',pattern:'^[a-f0-9-]{36}$'}, referenceIds: { type: 'array', maxItems: 10, items: { type: 'string', pattern: '^[a-f0-9-]{36}$' } }, prompt: { type: 'string', minLength: 1, maxLength: 32000 }, n: { type: 'integer', minimum: 1, maximum: 10 }, format: { enum: ['png', 'jpeg', 'webp'] } }, required: ['prompt'] }, capability: name.startsWith('media.') ? `media.${operation}` : 'net.submit', effect: name.startsWith('media.') ? 'local-write' : 'money', classify: () => ({flags:{outsideRoots:false,denyListHit:false}}), risk: name.startsWith('media.') ? 'low' : 'high', trust: 'first-party', execute: async (args, ctx) => {
+    register({ name, description: `${operation} an image or video and return a durable output reference.`, inputSchema: { type: 'object', additionalProperties: false, properties: { kind: {enum:['image','video']}, durationSeconds:{type:'number',exclusiveMinimum:0,maximum:600}, resolution:{type:'string',maxLength:64}, fps:{type:'integer',minimum:1,maximum:120}, audio:{type:'boolean'}, aspect:{type:'string',maxLength:128}, embedMetadata:{type:'boolean'}, videoFormat:{enum:['mp4','mov','webm']}, referenceVideoId:{type:'string',pattern:'^[a-f0-9-]{36}$'}, referenceIds: { type: 'array', maxItems: 10, items: { type: 'string', pattern: '^[a-f0-9-]{36}$' } }, prompt: { type: 'string', minLength: 1, maxLength: 32000 }, n: { type: 'integer', minimum: 1, maximum: 10 }, format: { enum: ['png', 'jpeg', 'webp'] } }, required: ['prompt'] }, capability: name.startsWith('media.') ? `media.${operation}` : 'net.submit', effect: name.startsWith('media.') ? 'local-write' : 'money', classify: () => ({flags:{outsideRoots:false,denyListHit:false}}), risk: name.startsWith('media.') ? 'low' : 'high', trust: 'first-party', execute: async (args, ctx) => {
       if (name.startsWith('media.') && !o.budget) throw new MediaError('backend_unavailable');
       const { referenceIds, referenceVideoId, ...input } = args as ImageRequest & { referenceIds?: string[]; referenceVideoId?: string };
       const references: NonNullable<ImageRequest['referenceImages']> = [];
@@ -153,16 +158,16 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   if (o.webSearch) {
     const webSearch = o.webSearch;
     // D109: a search is a network read (`net.fetch`). The sidecar is the only destination and it is fixed by configuration.
-    registry.register({ name: 'web.search', description: WEB_SEARCH_DESCRIPTION, inputSchema: WEB_SEARCH_SCHEMA, capability: 'net.fetch', effect: CAPABILITIES.get('net.fetch')!.intrinsicEffect, risk: 'low', trust: 'first-party', execute: async (args, ctx) => {
+    register({ name: 'web.search', description: WEB_SEARCH_DESCRIPTION, inputSchema: WEB_SEARCH_SCHEMA, capability: 'net.fetch', effect: CAPABILITIES.get('net.fetch')!.intrinsicEffect, risk: 'low', trust: 'first-party', execute: async (args, ctx) => {
       try { return await webSearch.search(args as never, { signal: ctx.signal, agentId: ctx.agentId, sessionId: ctx.sessionId }); }
       catch (e) { throw new ToolAdapterError('tool-failed', (e instanceof WebFailure ? e : new WebFailure('internal-error', 'unexpected failure')).toResult()); }
     } });
   }
-  if (o.secretNames) registry.register(secretNamesTool(o.secretNames));
+  if (o.secretNames) register(secretNamesTool(o.secretNames));
   // D106: hostctl's worker launches processes the harness sandbox cannot confine. The dispatcher enforces processSandbox on
   // every call (refused while required; owner bypass audited before each launch), so the tool itself stays unwrapped.
   const hostctlProcessSandbox: ToolProcessSandbox = { required: o.sandbox?.required !== false, recordBypass: launch => o.audit.append({ at: Date.now(), actor: { user: launch.principal, host: 'local' }, action: 'sandbox.bypass', target: launch.tool, detail: { required: false, sandboxed: false } }) };
-  for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) registry.register(HOSTCTL_UNSANDBOXED.test(tool.name) ? { ...tool, processSandbox: hostctlProcessSandbox } : tool);
+  for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) register(HOSTCTL_UNSANDBOXED.test(tool.name) ? { ...tool, processSandbox: hostctlProcessSandbox } : tool);
   if (o.documents) {
     const browser = o.documents.browser;
     // Output is confined to the granted roots only: `requireRoot: true` refuses a path outside every root (no approval path).
@@ -171,7 +176,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       if (!resolved.ok) return { refusal: resolved.reason };
       return { canonical: resolved.canonical };
     };
-    registry.register({
+    register({
       name: 'document.render', description: DOCUMENT_RENDER_DESCRIPTION, inputSchema: DOCUMENT_RENDER_SCHEMA as Record<string, unknown>,
       capability: 'fs.write', effect: 'local-write', risk: 'low', trust: 'first-party',
       classify: async (args) => {
@@ -191,7 +196,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       },
     });
   }
-  for (const tool of o.extra ?? []) registry.register(tool);
+  for (const tool of o.extra ?? []) register(tool);
   if (o.mcp) for (const server of o.mcp.servers) {
     req.signal.throwIfAborted();
     // MCP visibility is checked by its registry under the agent/principal passed here.
@@ -200,7 +205,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       const scoped = scopedMcpPort(o.mcp.port, req.principal!);
       const bridge = await mcpToolDefs(scoped, server, { agentId: req.agentId, principal: req.principal! }, { signal: req.signal });
       for (const skipped of bridge.skipped) o.degraded?.(`mcp.${server}`, skipped);
-      for (const tool of bridge.tools) registry.register(tool);
+      for (const tool of bridge.tools) register(tool);
     } catch (e) { req.signal.throwIfAborted(); o.degraded?.(`mcp.${server}`, e); }
   }
   return registry;

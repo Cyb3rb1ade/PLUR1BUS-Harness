@@ -1,6 +1,8 @@
 ---
 name: document-design
 description: The PLUR1BUS document design system (D100) — typography, colour tokens with WCAG AA contrast, page layout, and the nine templates (report, essay, white paper, proposal, one-pager, letter, invoice, CV, slide deck). Use whenever you produce a designed PDF document for a person via the `document.render` tool, or when you need the shared type scale, colour palette and layout rules.
+category: docs.create
+useWhen: Create a designed PDF document with document.render or choose its typography, colour palette, layout and template.
 ---
 
 # document-design
