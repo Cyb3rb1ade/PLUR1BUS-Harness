@@ -1,0 +1,40 @@
+{
+  "params": {
+    "req": {
+      "agentId": "workspace:v1:test",
+      "importRunId": "workspace:v1:test"
+    },
+    "p": {
+      "agentId": "workspace:v1:test",
+      "workspace": "workspace:v1:test",
+      "channel": "workspace:v1:test",
+      "accountId": "workspace:v1:test",
+      "chat": {
+        "id": "workspace:v1:test",
+        "kind": "direct"
+      },
+      "trust": "proved"
+    },
+    "a": {
+      "origin": "user",
+      "background": false
+    }
+  },
+  "result": {
+    "agentId": "workspace:v1:test",
+    "importRunId": "workspace:v1:test",
+    "dryRun": false,
+    "selected": 0,
+    "unimported": 0,
+    "keptModified": 0,
+    "alreadyForgotten": 0,
+    "alreadyUnimported": 0,
+    "missing": 0,
+    "failed": 0,
+    "remaining": 0,
+    "cards": [],
+    "derived": {
+      "jobsSinceImport": []
+    }
+  }
+}

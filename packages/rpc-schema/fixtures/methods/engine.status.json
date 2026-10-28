@@ -1,0 +1,47 @@
+{
+  "params": {},
+  "result": {
+    "ready": false,
+    "degraded": {
+      "reason": "workspace:v1:test",
+      "capability": "workspace:v1:test"
+    },
+    "agents": 0,
+    "contract": "1.17.0",
+    "storeSchema": {
+      "current": "workspace:v1:test",
+      "expected": "workspace:v1:test"
+    },
+    "jobs": {
+      "ledger": "ok",
+      "agents": []
+    },
+    "models": {
+      "embedder": {
+        "state": "loading",
+        "warming": false,
+        "checkedAt": 0,
+        "identity": {
+          "fingerprintId": "workspace:v1:test",
+          "provider": "workspace:v1:test",
+          "model": "workspace:v1:test",
+          "dimensions": 0
+        }
+      },
+      "reranker": {
+        "state": "loading",
+        "warming": false,
+        "checkedAt": 0,
+        "provider": "workspace:v1:test"
+      }
+    },
+    "journal": {
+      "entries": 0,
+      "oldestAt": 0
+    },
+    "sharedMemory": {
+      "supported": false,
+      "mode": "fd-capability"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "params": {},
+  "result": {
+    "identity": {
+      "model": "workspace:v1:test",
+      "dimensions": 0,
+      "fingerprintId": "workspace:v1:test"
+    }
+  }
+}
