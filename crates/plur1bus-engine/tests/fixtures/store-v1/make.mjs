@@ -22,7 +22,9 @@ catch { throw new Error("run pnpm test:prep (the engine package is not installed
 const resolvedEngine = realpathSync(engineRoot);
 const relativeEngine = path.relative(realpathSync(path.join(repo, "node_modules")), resolvedEngine);
 assert.ok(!path.isAbsolute(relativeEngine) && !relativeEngine.startsWith(`..${path.sep}`) && relativeEngine.startsWith(`.pnpm${path.sep}`), "installed engine must come from the frozen workspace install, without a file/link override");
-assert.equal(readFileSync(path.join(repo, "node_modules/.pnpm/lock.yaml"), "utf8"), readFileSync(path.join(repo, "pnpm-lock.yaml"), "utf8"), "installed and committed lockfiles must agree");
+// A Windows checkout may convert the committed lockfile to CRLF; pnpm writes its install copy with LF.
+const lockfile = (file) => readFileSync(path.join(repo, file), "utf8").replace(/\r\n/g, "\n");
+assert.equal(lockfile("node_modules/.pnpm/lock.yaml"), lockfile("pnpm-lock.yaml"), "installed and committed lockfiles must agree");
 if (!process.version.startsWith("v24.21.")) throw new Error(`expected Node 24.21.x, got ${process.version}`);
 const engineImport = (file) => import(pathToFileURL(path.join(engineRoot, file)).href);
 const { MemoryDB } = await engineImport("engine/store/memory-db.js");

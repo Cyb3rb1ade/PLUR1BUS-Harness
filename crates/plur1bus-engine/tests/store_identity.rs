@@ -34,7 +34,9 @@ import {pathToFileURL} from 'node:url';
 const pin='9f34008c143c5da87b2194b5a28442b407ff8ba7';
 const repo=path.resolve(process.cwd(),'../..');
 assert.ok(JSON.parse(readFileSync('package.json')).dependencies['@cyb3rb1ade/plur1bus-memory'].endsWith(pin));
-assert.equal(readFileSync(path.join(repo,'node_modules/.pnpm/lock.yaml'),'utf8'),readFileSync(path.join(repo,'pnpm-lock.yaml'),'utf8'));
+// A Windows checkout may convert the committed lockfile to CRLF; pnpm writes its install copy with LF.
+const lf=(file)=>readFileSync(path.join(repo,file),'utf8').replace(/\r\n/g,'\n');
+assert.equal(lf('node_modules/.pnpm/lock.yaml'),lf('pnpm-lock.yaml'));
 const requireFromCore=createRequire(path.join(process.cwd(),'package.json'));
 let root;
 try{root=path.dirname(requireFromCore.resolve('@cyb3rb1ade/plur1bus-memory/package.json'));}

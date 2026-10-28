@@ -27,8 +27,10 @@ try {
 const relativeEngine = path.relative(realpathSync(path.join(root, "node_modules")), realpathSync(engineRoot));
 assert.ok(!path.isAbsolute(relativeEngine) && relativeEngine !== ".." && !relativeEngine.startsWith(`..${path.sep}`)
   && relativeEngine.startsWith(`.pnpm${path.sep}`), "installed engine must be inside the frozen workspace install, without a file/link override");
-assert.equal(readFileSync(path.join(root, "node_modules/.pnpm/lock.yaml"), "utf8"),
-  readFileSync(path.join(root, "pnpm-lock.yaml"), "utf8"), "installed lockfile must equal the committed frozen lockfile");
+// A Windows checkout may convert the committed lockfile to CRLF; pnpm writes its install copy with LF.
+const lockfile = (file) => readFileSync(path.join(root, file), "utf8").replace(/\r\n/g, "\n");
+assert.equal(lockfile("node_modules/.pnpm/lock.yaml"), lockfile("pnpm-lock.yaml"),
+  "installed lockfile must equal the committed frozen lockfile");
 const engineModule = async (relative) => import(pathToFileURL(path.join(engineRoot, relative)).href);
 const neo = await engineModule("lib/neo-arch.js");
 const { appendConflictLog } = await engineModule("engine/commands/command-helpers.js");
