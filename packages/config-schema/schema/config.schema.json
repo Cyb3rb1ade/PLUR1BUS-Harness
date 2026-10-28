@@ -919,11 +919,11 @@
           "createdAt": { "description": "Timestamp when the agent was created, in date-time format.", "type": "string", "maxLength": 64, "format": "date-time" },
           "displayName": { "description": "Optional human-readable name for the agent.", "type": "string", "maxLength": 128 },
           "skills": {
-            "description": "Per-agent skill selection (X1-R11): `blocked` names skills this agent does not get although they are enabled installation-wide; `pinned` is stored and shown, not interpreted before D69; `applyAt` says when a change reaches a running agent.",
+            "description": "Per-agent skill selection (X1-R11): `blocked` names skills this agent does not get although they are enabled installation-wide; `pinned` preloads enabled visible skills before relevance candidates, within the three-skill limit; `applyAt` says when a change reaches a running agent.",
             "type": "object", "additionalProperties": false, "x-restart": "live", "x-tier": "advanced",
             "properties": {
               "blocked": { "description": "Skill names this agent must not receive, even when enabled installation-wide.", "type": "array", "maxItems": 1024, "items": { "type": "string", "maxLength": 128 }, "default": [] },
-              "pinned": { "description": "Skill names pinned for this agent; currently stored and displayed but not interpreted.", "type": "array", "maxItems": 1024, "items": { "type": "string", "maxLength": 128 }, "default": [] },
+              "pinned": { "description": "Enabled visible skill names preloaded first for this agent; blocked names are excluded and at most three skills are selected.", "type": "array", "maxItems": 1024, "items": { "type": "string", "maxLength": 128 }, "default": [] },
               "applyAt": { "description": "When a changed skill selection takes effect for a running agent.", "enum": ["next-turn", "next-session"], "default": "next-turn" }
             }
           },

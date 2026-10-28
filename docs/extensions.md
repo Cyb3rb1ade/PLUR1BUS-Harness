@@ -94,7 +94,14 @@ A skill folder with no index entry (the setup-copied bundled skills) lists as en
 
 **Enable and capabilities.** The first enable of an item, and any later enable after its capabilities changed, needs the acknowledgment `capabilities`; without it `E_APPROVAL_REQUIRED reason=acknowledge-capabilities` carries the capabilities, scripts and authority in `error.data.ext` (`"full"` for every module and channel). The acknowledged capabilities' SHA-256 is recorded in `state.json`. For the kinds that carry an endpoint (`mcp-server` `remote.url`, `provider` `provider.baseUrl`) the hashed block also holds that URL under `endpoints` (`compat::acknowledged_capabilities`), so moving the URL needs a new acknowledgment; a manifest without an endpoint hashes exactly as before. Items with trust `release` or `dev` and no package record need none. Enable also re-hashes the installed files (a mismatch is `tampered`; a **missing folder is also reported as `tampered`**, with the paths, because RPC 1.4.0 has no other value).
 
-**Per-agent skills.** `enable`/`disable` on a skill take `agents`. Enable without agents (or `all`) sets the index flag and clears the name from every agent's `blocked`. Enable for a list sets the flag, unblocks it for those agents and blocks it for every other configured agent (an agent created later starts with the skill). Disable without agents clears the flag and leaves the lists; with agents it adds the name to their `blocked`. An unknown agent is `E_AGENT_UNKNOWN`. Modules and channels have no per-agent switch: `agents` is `E_INVALID_PARAMS reason=agents-not-supported`. `pinned` is stored and shown, not interpreted before D69. `applyAt` (`next-turn` or `next-session`) is stored and shown; the core reads the skill set on `ext.changed` from the 2c turn loop on, and until then every present consumer reads the effective per-agent set from `skill list --json` and `ext.list`.
+**Per-agent skills.** `enable`/`disable` on a skill take `agents`. Enable without agents (or `all`) sets the index flag and clears the name from every agent's `blocked`. Enable for a list sets the flag, unblocks it for those agents and blocks it for every other configured agent (an agent created later starts with the skill). Disable without agents clears the flag and leaves the lists; with agents it adds the name to their `blocked`. An unknown agent is `E_AGENT_UNKNOWN`. Modules and channels have no per-agent switch: `agents` is `E_INVALID_PARAMS reason=agents-not-supported`.
+
+`pinned` is interpreted by D69 selection: enabled, visible pins take priority within the three-skill preload limit;
+`blocked` wins over a pin. Every agent also sees its full admitted name/description catalogue and can request
+`skill.load` or `skill.read`. Instructions are loaded on demand, remain in session history and never grant tool
+permissions. `applyAt: next-turn` refreshes the visible catalogue at turn boundaries; `next-session` freezes it for
+that session, like the prompt memory snapshot. The effective extension state and per-agent visibility still come
+from `ext.list`; an unavailable supervisor feed fails closed.
 
 **Uninstall, purge, restore, trash.**
 

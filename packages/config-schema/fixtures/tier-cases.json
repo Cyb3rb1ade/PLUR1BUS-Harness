@@ -2245,7 +2245,7 @@
                 "maxLength": 128
               },
               "skills": {
-                "description": "Per-agent skill selection (X1-R11): `blocked` names skills this agent does not get although they are enabled installation-wide; `pinned` is stored and shown, not interpreted before D69; `applyAt` says when a change reaches a running agent.",
+                "description": "Per-agent skill selection (X1-R11): `blocked` names skills this agent does not get although they are enabled installation-wide; `pinned` preloads enabled visible skills before relevance candidates, within the three-skill limit; `applyAt` says when a change reaches a running agent.",
                 "type": "object",
                 "additionalProperties": false,
                 "x-restart": "live",
@@ -2262,7 +2262,7 @@
                     "default": []
                   },
                   "pinned": {
-                    "description": "Skill names pinned for this agent; currently stored and displayed but not interpreted.",
+                    "description": "Enabled visible skill names preloaded first for this agent; blocked names are excluded and at most three skills are selected.",
                     "type": "array",
                     "maxItems": 1024,
                     "items": {
