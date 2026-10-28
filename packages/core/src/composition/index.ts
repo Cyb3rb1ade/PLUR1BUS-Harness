@@ -314,6 +314,19 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     });
     const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, modelRouting,
       toolUseMode: agent => d.config().agents[agent]?.toolUse?.mode ?? 'prefer',
+      toolOffers: request => {
+        const store = sessions.forSession(request.sessionId).store;
+        const session = store.getSession(request.sessionId);
+        return session?.agentId === request.agentId && session.owner === request.principal
+          ? store.toolOffers(request.sessionId) : [];
+      },
+      rememberTools: (request, names) => {
+        const store = sessions.forSession(request.sessionId).store;
+        const session = store.getSession(request.sessionId);
+        if (session?.agentId === request.agentId && session.owner === request.principal) {
+          store.rememberToolOffers(request.sessionId, names);
+        }
+      },
       restoreSkills: request => restoreSessionSkills(sessions.forSession(request.sessionId).store, request),
       skillCatalogueSnapshot: (request, catalogue) => {
         const store = sessions.forSession(request.sessionId).store;

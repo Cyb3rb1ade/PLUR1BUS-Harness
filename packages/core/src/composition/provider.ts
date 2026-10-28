@@ -26,7 +26,7 @@ import { ruleSkills, type SkillPick } from '../decision/skills.ts';
 import { enrichedSkillQuery, isSkillFollowup, fairTaskSkills } from '../decision/skill-context.ts';
 import { skillHistoryMessages } from './skill-history.ts';
 import type { RestoredSessionSkills } from './session-skills.ts';
-import { CORE_TOOL_NAMES } from '../toolcall/stable-tools.ts';
+import { CORE_TOOL_NAMES, stableToolOffer } from '../toolcall/stable-tools.ts';
 import { detectToolNeed, toolChoiceForTurn, type ToolNeed } from '../toolcall/tool-use.ts';
 import { frontmatter } from '../import/yaml-lite.ts';
 import { TOOL_USE_INSTRUCTIONS } from '../prompt/instructions.ts';
@@ -102,6 +102,8 @@ export type TurnRouterEvent = RouterEvent
   | { type: 'provider.cross_billing_refused'; profile: string; from: Served & { billing: BillingClass }; to: Served & { billing: BillingClass } };
 export interface TurnProviderOptions {
   toolUseMode?: (agentId: string) => import('../toolcall/tool-use.ts').ToolUseMode;
+  toolOffers?: (request: ChatRequest) => readonly string[];
+  rememberTools?: (request: ChatRequest, names: readonly string[]) => void;
   modelRouting?: SessionModelRouting;
   restoreSkills?: (request: ChatRequest) => RestoredSessionSkills;
   skillCatalogueSnapshot?: (request: ChatRequest, catalogue: string) => string;
@@ -188,6 +190,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
   const snapshots = new Map<string, string>();
   const taskProfiles = new Map<string, string>();
   const skillLoads = new Map<string, Map<string, RestoredSessionSkills['loaded'][number]>>();
+  const sessionOffers = new Map<string, Set<string>>();
   const lastSkillIds = new Map<string, readonly string[]>();
   const skillCatalogues = new Map<string, string>();
   const retryBudget = new RetryBudget();
@@ -265,6 +268,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     if (skillLoads.size > 1024) skillLoads.delete(skillLoads.keys().next().value!);
     const loaded = skillLoads.get(taskScope)!;
     for (const item of restoredSkills?.loaded ?? []) loaded.set(item.name, item);
+    if (!sessionOffers.has(taskScope)) sessionOffers.set(taskScope, new Set(o.toolOffers?.(req) ?? []));
+    if (sessionOffers.size > 1024) sessionOffers.delete(sessionOffers.keys().next().value!);
+    const remembered = sessionOffers.get(taskScope)!;
     const searchName = 'capabilities.search';
     // Metadata lookup for the offer only; tools run solely through dispatcher.call (static guard in test/tools/call-paths.test.ts).
     const described = (name: string) => registry.entries().find(t => t.name === name);
@@ -284,7 +290,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     };
     const eligible = (t: import('../tools/registry.ts').RegisteredTool) => viewable(t) && !policyDenied(t);
     if (o.capabilities && !req.role && !described(searchName)) registry.register({
-      name: searchName, discovery: firstPartyDiscovery(searchName)!, description: 'Find available tools and skills by query and optional category. Skill matches contain metadata; load instructions with skill.load.', capability: 'fs.read', effect: 'read', risk: 'low', trust: 'first-party',
+      name: searchName, discovery: firstPartyDiscovery(searchName)!, description: 'Find available tools and skills by query and optional category. Skill matches contain metadata; load instructions with skill.load. New tool declarations are staged for the next turn.', capability: 'fs.read', effect: 'read', risk: 'low', trust: 'first-party',
       inputSchema: { type: 'object', additionalProperties: false, properties: { query: { type: 'string', minLength: 1, maxLength: 4096 }, category: { type: 'string', maxLength: 100 } }, required: ['query'] },
       classify: () => ({ flags: { outsideRoots: false, denyListHit: false } }),
       execute: async args => {
@@ -294,10 +300,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         for (const hit of hits) {
           if (o.capabilities?.registry.hash(hit.entry.id)) o.capabilities.registry.record(hit.entry.id, req.agentId, 'foundBySearch');
           const tool = described(hit.entry.name);
-          if (tool && eligible(tool) && !selected.some(t => t.name === tool.name)) {
-            const alias = tool.name.replaceAll('.', '_');
-            if (original.has(alias) && original.get(alias) !== tool.name) continue;
-            selected.push(tool); aliases.set(tool.name, alias); original.set(alias, tool.name);
+          if (tool && eligible(tool)) {
+            if (remembered.size < 128) remembered.add(tool.name);
+            o.rememberTools?.(req, [tool.name]);
           }
         }
         return hits.map(({ entry }) => ({ name: entry.name, kind: entry.kind,
@@ -385,7 +390,12 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       }
       const search = described(searchName);
       if (search && eligible(search) && !tools.includes(search)) tools.push(search);
-      return tools;
+      const offer = stableToolOffer({ available: registry.entries().filter(eligible).map(tool => tool.name),
+        previous: [...remembered], relevant: tools.map(tool => tool.name), maxTools: 128 });
+      remembered.clear();
+      for (const name of offer.names) remembered.add(name);
+      o.rememberTools?.(req, offer.names);
+      return offer.names.flatMap(name => { const tool = described(name); return tool ? [tool] : []; });
     });
     const allowedTools = chosenSkills.flatMap(skill => {
       const allowed = frontmatter(skill.text)?.['allowed-tools'];

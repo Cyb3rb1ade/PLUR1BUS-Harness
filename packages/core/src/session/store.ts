@@ -38,6 +38,9 @@ const DEFAULT_LIMIT = 50;
 const MAX_RESTORED_SKILLS = 4096;
 const MAX_RESTORED_SKILL_OUTPUT_BYTES = 512 * 1024;
 const MAX_RESTORED_SKILL_TEXT_BYTES = 64 * 1024;
+const MAX_SESSION_TOOL_OFFERS = 128;
+// The ToolRegistry's canonical spelling, including D106's one camel-case host-tool exception.
+const CANONICAL_TOOL_NAME = /^(?:[a-z][a-z0-9_.-]{0,63}|sys\.startupItems)$/;
 
 // Deduplication happens before the distinct-skill bound: repeated loads cannot evict another skill's older pair.
 const SKILL_EVENTS_SQL = `
@@ -157,6 +160,33 @@ export class SessionStore {
   skillEvents(sessionId: string): EventRecord[] {
     return this.#all(SKILL_EVENTS_SQL, sessionId, sessionId, MAX_RESTORED_SKILL_OUTPUT_BYTES, MAX_RESTORED_SKILL_TEXT_BYTES,
       MAX_RESTORED_SKILLS, sessionId).map(toEvent);
+  }
+
+  /** Admission order is stable; only names are retained. Incognito services keep this table in their RAM store. */
+  toolOffers(sessionId: string): string[] {
+    if (!this.getSession(sessionId)) throw new SessionError("not-found", "session not found");
+    return this.#all("SELECT name FROM session_tool_offers WHERE session_id=? ORDER BY ordinal", sessionId)
+      .map(row => row.name as string);
+  }
+
+  /** Record a pending union for the next turn boundary, retaining the earliest 128 distinct canonical names. */
+  rememberToolOffers(sessionId: string, names: readonly string[]): void {
+    if (!this.getSession(sessionId)) throw new SessionError("not-found", "session not found");
+    if (!Array.isArray(names) || names.some(name => typeof name !== "string" || !CANONICAL_TOOL_NAME.test(name))) {
+      throw new SessionError("invalid", "tool offers require canonical registered tool names", "tool-name");
+    }
+    this.#tx(() => {
+      const previous = this.toolOffers(sessionId);
+      const known = new Set(previous);
+      let ordinal = previous.length;
+      const insert = this.#db.prepare("INSERT INTO session_tool_offers(session_id,name,ordinal) VALUES (?,?,?)");
+      for (const name of names) {
+        if (known.has(name)) continue;
+        if (ordinal >= MAX_SESSION_TOOL_OFFERS) break;
+        insert.run(sessionId, name, ordinal++);
+        known.add(name);
+      }
+    });
   }
 
   modelProfile(sessionId: string): { profile: string | null; revision: number } {
