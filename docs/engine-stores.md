@@ -173,8 +173,10 @@ cargo test -p plur1bus-engine --features real-models --test embedding_parity e5_
 cargo test -p plur1bus-engine --features real-models --test embedding_parity gemma_vectors_match_the_node_engine -- --nocapture
 ```
 
-All jina vectors, token IDs, task IDs, prefix checks, padding cases, identities and reranker scores are recorded live
-into an explicitly named system-temporary directory outside the repository. Both `PLUR1BUS_ALLOW_TEST_INTERNALS=1`
+This work package records jina vectors, token IDs, task IDs, prefix checks, padding cases, identities and reranker
+scores live into an explicitly named system-temporary directory outside the repository. The RE-D19 owner decision
+of 2026-10-28 permits separately reviewed goldens with `NOTICE-jina.md`; the current package retains its explicit
+live-temporary scope and does not generate repository goldens. Both `PLUR1BUS_ALLOW_TEST_INTERNALS=1`
 and `PLUR1BUS_TEST_ACCEPT_NC_MODELS=1` must be deliberately set before `record.mjs --jina --output-dir <temp-dir>`
 or the jina parity test runs. The recorder refuses before any NC fetch when either is absent. These are explicit
 test consent gates, not production licence records. Production still requires the host's persisted model/revision
