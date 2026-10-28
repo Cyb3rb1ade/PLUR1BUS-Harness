@@ -79,6 +79,10 @@ const TABLE: readonly CapabilityDef[] = [
   def({ id: "clipboard.read", covers: "clipboard.read", intrinsicEffect: "read", base: same(P), ceiling: "session", minSurface: 1, baseRisk: "low" }),
   def({ id: "net.fetch", covers: "web.fetch, browser.navigate/read", intrinsicEffect: "read", base: same(A), ceiling: null, minSurface: null, baseRisk: "low" }),
   def({ id: "net.submit", covers: "form submission, downloads, external MCP tools, non-read-only webmcp", intrinsicEffect: "external", base: same(P), ceiling: "session", minSurface: 2, baseRisk: "medium", taintSensitive: true }),
+  // M-A6: installed declarations classify MCP tools without borrowing unrelated filesystem or shell grants.
+  def({ id: "mcp.tool.read", covers: "MCP tools declared read by an installed extension", intrinsicEffect: "read", base: same(A), ceiling: null, minSurface: null, baseRisk: "low" }),
+  def({ id: "mcp.tool.write", covers: "MCP tools declared local write by an installed extension", intrinsicEffect: "local-write", base: same(P), ceiling: "session", minSurface: 2, baseRisk: "medium" }),
+  def({ id: "mcp.tool.destructive", covers: "MCP tools declared destructive or raised by server annotations", intrinsicEffect: "local-destructive", base: same(P), ceiling: "once", minSurface: 2, baseRisk: "high" }),
   def({ id: "comm.send", covers: "mail/messages/posts as the person", intrinsicEffect: "external", base: same(P), ceiling: "session", minSurface: 2, baseRisk: "high", taintSensitive: true }),
   def({ id: "net.publish", covers: "tailnet / public publishing", intrinsicEffect: "external", base: same(P), ceiling: "always", minSurface: 2, baseRisk: "high", taintSensitive: true }),
   def({ id: "money.spend", covers: "purchases, paid top-ups, money tools", intrinsicEffect: "money", base: same(P), ceiling: "once", minSurface: 3, baseRisk: "critical" }),
