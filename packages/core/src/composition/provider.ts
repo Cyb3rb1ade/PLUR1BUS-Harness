@@ -26,6 +26,8 @@ import { ruleSkills, type SkillPick } from '../decision/skills.ts';
 import { enrichedSkillQuery, isSkillFollowup, fairTaskSkills } from '../decision/skill-context.ts';
 import { skillHistoryMessages } from './skill-history.ts';
 import type { RestoredSessionSkills } from './session-skills.ts';
+import { detectToolNeed, type ToolNeed } from '../toolcall/tool-use.ts';
+import { frontmatter } from '../import/yaml-lite.ts';
 import { TOOL_USE_INSTRUCTIONS } from '../prompt/instructions.ts';
 import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
 import { createSkillTools } from '../toolcall/skill-tools.ts';
@@ -380,6 +382,21 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       if (search && eligible(search) && !tools.includes(search)) tools.push(search);
       return tools;
     });
+    const allowedTools = chosenSkills.flatMap(skill => {
+      const allowed = frontmatter(skill.text)?.['allowed-tools'];
+      return Array.isArray(allowed) ? allowed.filter((value): value is string => typeof value === 'string')
+        : typeof allowed === 'string' ? allowed.split(/[\s,]+/u).filter(Boolean) : [];
+    });
+    const mode = req.toolUseMode ?? o.toolUseMode?.(req.agentId) ?? 'prefer';
+    const need: ToolNeed = req.role ? { needed: false, reasons: [] } : detectToolNeed({
+      message: currentUser, tasks: decision.tasks,
+      categoriesWithTools: registry.entries().filter(eligible).map(tool => toolEntry(tool, taskScope).category),
+      attachments: req.hasAttachments === true, allowedTools, offeredTools: selected.map(tool => tool.name),
+    });
+    const reasons = { category: 'triage', url: 'url', path: 'path', 'current-data': 'time',
+      attachment: 'attachment', 'skill-tools': 'skill' } as const;
+    observation.toolNeed = { detected: need.needed || mode === 'require-first',
+      reasons: [...need.reasons.map(reason => reasons[reason]), ...(mode === 'require-first' ? ['mode' as const] : [])] };
     const candidate = routeProfiles[profile]?.[0];
     if (!candidate) throw new TurnToolError('unknown_profile', profile);
     const localOnly = () => o.localOnly?.(req.agentId) === true;
