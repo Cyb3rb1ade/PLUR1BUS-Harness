@@ -159,7 +159,7 @@ fn sha256_of(path: &Path) -> std::io::Result<(String, u64)> {
 /// or channel, each recorded payload path. A file that is missing, not a regular file, or differs in size or digest is
 /// listed. Files the record does not name (a module's own state, say) are not looked at.
 pub fn rehash(layout: &Layout, rec: &ItemRecord) -> Integrity {
-    let dir = super::record::payload_dir(layout, &rec.name, &rec.kind);
+    let dir = super::record::payload_dir(layout, rec);
     let mut paths = Vec::new();
     for (rel, want) in &rec.files {
         let file = rel.split('/').fold(dir.clone(), |p, seg| p.join(seg));
@@ -171,7 +171,7 @@ pub fn rehash(layout: &Layout, rec: &ItemRecord) -> Integrity {
         }
     }
     if let Some(want) = &rec.manifest_sha256 {
-        let root = super::record::code_dir(layout, &rec.name, &rec.kind).join("p1x.json");
+        let root = super::record::active_code_dir(layout, rec).join("p1x.json");
         if !std::fs::symlink_metadata(&root).is_ok_and(|m| m.is_file())
             || !sha256_of(&root).is_ok_and(|(digest, _)| digest == *want)
         {

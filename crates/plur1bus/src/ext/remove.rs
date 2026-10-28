@@ -548,6 +548,9 @@ fn hide_bundled(
         key_id: None,
         key_label: None,
         package_sha256: sha,
+        active_version: None,
+        versions: std::collections::BTreeMap::new(),
+        per_agent_versions: std::collections::BTreeMap::new(),
         manifest_sha256: None,
         installed_at: now.clone(),
         previous_version: None,
@@ -617,7 +620,7 @@ fn check_free(layout: &Layout, st: &state::ExtState, name: &str) -> Result<(), E
     if fs::symlink_metadata(&m).is_ok() {
         return Err(name_taken(name, &module_dir_kind(&m), None));
     }
-    if fs::symlink_metadata(ExtPaths::of(layout).packages.join(name)).is_ok() {
+    if fs::symlink_metadata(ExtPaths::of(layout).mcp.join(name)).is_ok() {
         return Err(name_taken(name, "mcp-server", None));
     }
     Ok(())

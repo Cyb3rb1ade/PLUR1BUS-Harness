@@ -8,7 +8,7 @@ use super::commit::enabled_in;
 use super::index::{self, SkillIndex};
 use super::overlays::{load_revocations, overlays_of, rehash, Revocation};
 use super::paths::ExtPaths;
-use super::record::{code_dir, skill_id_ok, state_invalid, warn};
+use super::record::{skill_id_ok, state_invalid, warn};
 use super::state::{self, ItemRecord};
 use super::ExtError;
 use crate::paths::Layout;
@@ -195,7 +195,7 @@ fn collect(layout: &Layout, cfg: &Value) -> Result<Vec<Entry>, ExtError> {
             Entry {
                 item: record_item(layout, &paths, cfg, idx.as_ref(), rec, &host, &revs),
                 record: Some(rec.clone()),
-                dir: code_dir(layout, &rec.name, &rec.kind),
+                dir: super::record::active_code_dir(layout, rec),
             },
         );
     }

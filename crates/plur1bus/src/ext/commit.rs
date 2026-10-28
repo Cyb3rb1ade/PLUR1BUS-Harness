@@ -640,7 +640,13 @@ fn commit_locked(
             format!("{} packages arrive in X2", kind_name(staged.kind)),
         ));
     }
-    if staged.record.package_sha256 != rec.sha256 || rec.manifest["name"] != staged.name.as_str() {
+    if staged.record.package_sha256 != rec.sha256
+        || rec.manifest["name"] != staged.name.as_str()
+        || rec.manifest["version"] != staged.record.version.as_str()
+        || staged.record.kind != kind_name(staged.kind)
+        || (staged.kind == Kind::McpServer
+            && !super::packages::valid_version(&staged.record.version))
+    {
         return Err(ExtError::new(
             "E_INTERNAL",
             "worker-failed",
@@ -651,7 +657,12 @@ fn commit_locked(
     // (`extensions/staging/<name>-<id>/payload`, `run/inspect/<id>.p1x`), else nothing is moved.
     let derived = derived_staging(layout, rec).map(|d| {
         if staged.kind == Kind::McpServer {
-            package_staging_dir(layout, &staged.name, &rec.inspection_id)
+            package_staging_dir(
+                layout,
+                &staged.name,
+                &staged.record.version,
+                &rec.inspection_id,
+            )
         } else {
             d.join("payload")
         }
@@ -695,6 +706,39 @@ fn commit_locked(
     let st = state::read(paths).map_err(state_invalid)?;
     let prev = st.items.get(&name).cloned();
     recheck(layout, paths, &st, &staged, &cfg)?;
+    if staged.kind == Kind::McpServer {
+        for path in [&paths.mcp, &paths.mcp.join(&name)] {
+            if fs::symlink_metadata(path).is_ok_and(|m| !m.is_dir() || m.file_type().is_symlink()) {
+                return Err(ExtError::new(
+                    "E_CONFLICT",
+                    "version-conflict",
+                    "the MCP destination is not a plain directory",
+                ));
+            }
+        }
+        if let Some(version) = prev
+            .as_ref()
+            .and_then(|r| r.versions.get(&staged.record.version))
+        {
+            if version.package_sha256 != staged.record.package_sha256 {
+                return Err(ExtError::new("E_CONFLICT", "version-conflict", "this immutable MCP version already contains different package bytes; publish a new version"));
+            }
+            // Reactivating retained code never repairs it silently from the inspected package.
+            if !super::overlays::rehash(layout, &staged.record).ok {
+                return Err(ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "tampered",
+                    "the retained MCP version no longer matches its verified package",
+                ));
+            }
+        } else if super::record::active_code_dir(layout, &staged.record).exists() {
+            return Err(ExtError::new(
+                "E_CONFLICT",
+                "version-conflict",
+                "an unrecorded MCP version already occupies this destination",
+            ));
+        }
+    }
     let prev_enabled = prev.is_some() && enabled_now(layout, &cfg, &name, kind);
     // X1-C12, with the comparison `ext.enable` uses: the new capabilities against the acknowledged hash.
     let widened = prev_enabled
@@ -809,6 +853,14 @@ fn run_steps<'a>(
         c.prev.and_then(|p| p.capabilities_ack.clone())
     };
     record.integrity = None;
+    if is_mcp {
+        record.active_version = Some(record.version.clone());
+        record.versions = c.prev.map(|r| r.versions.clone()).unwrap_or_default();
+        record.versions.insert(
+            record.version.clone(),
+            state::McpVersionRecord::from(&record),
+        );
+    }
 
     // config: a fresh module or MCP server is installed disabled. A replacement keeps its enable state (X1-C9).
     if !is_skill {
@@ -848,7 +900,7 @@ fn run_steps<'a>(
     }
 
     // code: a replaced item's code goes into the trash first (X1-R19), then the new code into place.
-    if let Some(old) = c.prev {
+    if let Some(old) = c.prev.filter(|_| !is_mcp) {
         let tdir = new_trash_entry(c, old, &now, rb)?;
         let code = tdir.join("code");
         if is_skill || is_mcp {
@@ -867,7 +919,24 @@ fn run_steps<'a>(
     // From here a kill can leave the new code under its final name without its record: the mark tells
     // `ext::recover` to finish the install (the record is there) or to remove that code (it is not).
     write_commit_mark(layout, staged, &c.rec.inspection_id)?;
-    if is_skill || is_mcp {
+    if is_mcp {
+        let dest = super::record::active_code_dir(layout, &record);
+        if !dest.exists() {
+            ensure_dir(&paths.mcp, "code", rb)?;
+            ensure_dir(&paths.mcp.join(&name), "code", rb)?;
+            // Same whole-tree transaction primitive as worker preparation; activation is the later atomic state write.
+            let mut tx = super::packages::Txn::default();
+            tx.place(&staged.dir, &dest)?;
+            rb.push("code", move |_| {
+                let failures = tx.rollback();
+                if failures.is_empty() {
+                    Ok(())
+                } else {
+                    Err(failures.join("; "))
+                }
+            });
+        }
+    } else if is_skill {
         let dest = code_dir(layout, &name, &record.kind);
         if let Some(parent) = dest.parent() {
             ensure_dir(parent, "code", rb)?;
@@ -979,6 +1048,10 @@ pub(crate) struct CommitMark {
     pub kind: String,
     pub sha256: String,
     pub inspection_id: String,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub version_preexisting: bool,
 }
 
 fn write_commit_mark(
@@ -992,6 +1065,9 @@ fn write_commit_mark(
         kind: kind_name(staged.kind).to_string(),
         sha256: staged.record.package_sha256.clone(),
         inspection_id: inspection_id.to_string(),
+        version: (staged.kind == Kind::McpServer).then(|| staged.record.version.clone()),
+        version_preexisting: staged.kind == Kind::McpServer
+            && super::record::active_code_dir(layout, &staged.record).exists(),
     };
     let path = dir.join(COMMIT_MARK);
     let text = serde_json::to_vec(&mark).unwrap_or_default();

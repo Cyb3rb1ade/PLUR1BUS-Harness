@@ -220,6 +220,212 @@ fn mcp_pkg_v(name: &str, version: &str, local: bool, key: &TestKey) -> Vec<u8> {
 }
 
 #[test]
+fn mcp_versions_are_retained_and_the_active_state_switch_is_atomic() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let old = mcp_pkg_v("docs", "1.0.0", false, &key);
+    let new = mcp_pkg_v("docs", "2.0.0", false, &key);
+    install(d.path(), &l, "old.p1x", &old, &opts(&[], None)).unwrap();
+    let old_dir = l.home.join("mcp/docs/1.0.0");
+    assert!(old_dir.join("p1x.json").is_file());
+    let old_tree = tree_hash(&old_dir);
+    install(d.path(), &l, "new.p1x", &new, &opts(&[], None)).unwrap();
+    assert_eq!(
+        tree_hash(&old_dir),
+        old_tree,
+        "the fallback tree is immutable"
+    );
+    assert!(l.home.join("mcp/docs/2.0.0/p1x.json").is_file());
+    assert!(!l.extensions().join("packages/docs").exists());
+    let current: Value =
+        serde_json::from_slice(&fs::read(l.extensions().join("state.json")).unwrap()).unwrap();
+    let rec = &current["items"]["docs"];
+    assert_eq!(rec["activeVersion"], "2.0.0");
+    assert_eq!(rec["version"], rec["activeVersion"]);
+    assert_eq!(rec["previousVersion"], "1.0.0");
+    assert_eq!(rec["versions"]["1.0.0"]["packageSha256"], sha_hex(&old));
+    assert_eq!(rec["versions"]["2.0.0"]["packageSha256"], sha_hex(&new));
+    let back = install(
+        d.path(),
+        &l,
+        "old-again.p1x",
+        &old,
+        &opts(&["downgrade"], None),
+    )
+    .unwrap();
+    assert_eq!(back["version"], "1.0.0");
+    assert_eq!(tree_hash(&old_dir), old_tree);
+    assert!(l.home.join("mcp/docs/2.0.0/p1x.json").is_file());
+    assert_eq!(
+        show_item(&l, &config(&l), "docs").unwrap()["item"]["integrity"],
+        "ok"
+    );
+}
+
+#[test]
+fn mcp_same_version_different_bytes_are_refused_without_writes() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let old = mcp_pkg_v("docs", "1.0.0", false, &key);
+    install(d.path(), &l, "old.p1x", &old, &opts(&[], None)).unwrap();
+    let before = guarded(&l);
+    let mut changed = template("docs", "mcp-server", "1.0.0");
+    changed["requires"]["runtime"] = json!({"type": "none"});
+    changed["remote"] = json!({"url": "https://mcp.example.org/v1", "auth": "none"});
+    changed["capabilities"]["network"] = json!({"mode": "allowlist", "hosts": ["mcp.example.org"]});
+    let bytes = build_package_from(
+        &changed,
+        vec![f("README.md", b"changed bytes", false)],
+        Some(&key),
+    );
+    let refused = install(d.path(), &l, "changed.p1x", &bytes, &opts(&[], None)).unwrap_err();
+    assert_eq!(reason(&refused), ("E_CONFLICT", "version-conflict"));
+    assert_eq!(guarded(&l), before);
+}
+
+#[test]
+fn mcp_commit_rederives_the_version_from_the_inspection_before_touching_live_paths() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let before = guarded(&l);
+    let (rec, mut staged) = prepare(
+        d.path(),
+        &l,
+        "docs.p1x",
+        &mcp_pkg_v("docs", "1.0.0", false, &key),
+    );
+    staged.record.version = "../../outside".into();
+    staged.dir =
+        record::package_staging_dir(&l, "docs", &staged.record.version, &rec.inspection_id);
+    let refused = install_commit(
+        &l,
+        &mut OfflineHost::new(&l),
+        &rec,
+        staged,
+        &opts(&[], None),
+    )
+    .unwrap_err();
+    assert_eq!(reason(&refused), ("E_INTERNAL", "worker-failed"));
+    assert_eq!(guarded(&l), before);
+}
+
+#[test]
+fn mcp_state_refuses_an_active_version_that_disagrees_with_its_metadata() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    install(
+        d.path(),
+        &l,
+        "old.p1x",
+        &mcp_pkg_v("docs", "1.0.0", false, &key),
+        &opts(&[], None),
+    )
+    .unwrap();
+    let p = ext::paths::ExtPaths::of(&l);
+    let mut v: Value = serde_json::from_slice(&fs::read(&p.state).unwrap()).unwrap();
+    v["items"]["docs"]["activeVersion"] = json!("2.0.0");
+    fs::write(&p.state, serde_json::to_vec(&v).unwrap()).unwrap();
+    assert!(state::read(&p).unwrap_err().contains("activeVersion"));
+}
+
+#[test]
+fn mcp_recover_migrates_the_superseded_flat_store_without_losing_bytes() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for move_already_finished in [false, true] {
+        let (d, l) = home();
+        populate(&l);
+        install(
+            d.path(),
+            &l,
+            "old.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        let version = l.home.join("mcp/docs/1.0.0");
+        let expected = tree_hash(&version);
+        let legacy = l.extensions().join("packages/docs");
+        if !move_already_finished {
+            fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+            fs::rename(&version, &legacy).unwrap();
+            fs::remove_dir(version.parent().unwrap()).unwrap();
+            fs::remove_dir(l.home.join("mcp")).unwrap();
+        }
+        let p = ext::paths::ExtPaths::of(&l);
+        let mut old: Value = serde_json::from_slice(&fs::read(&p.state).unwrap()).unwrap();
+        old["items"]["docs"]
+            .as_object_mut()
+            .unwrap()
+            .remove("activeVersion");
+        old["items"]["docs"]
+            .as_object_mut()
+            .unwrap()
+            .remove("versions");
+        fs::write(&p.state, serde_json::to_vec(&old).unwrap()).unwrap();
+        ext::recover(&l);
+        assert_eq!(tree_hash(&version), expected);
+        assert!(!legacy.exists());
+        let current = state::read(&p).unwrap();
+        assert_eq!(
+            current.items["docs"].active_version.as_deref(),
+            Some("1.0.0")
+        );
+        assert!(ext::overlays::rehash(&l, &current.items["docs"]).ok);
+        let before = guarded(&l);
+        ext::recover(&l);
+        assert_eq!(guarded(&l), before, "migration recovery is idempotent");
+    }
+}
+
+#[test]
+fn mcp_recover_retained_version_activation_preserves_every_version() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for step in ["code", "state"] {
+        let (d, l) = home();
+        populate(&l);
+        let old = mcp_pkg_v("docs", "1.0.0", false, &key);
+        install(d.path(), &l, "old.p1x", &old, &opts(&[], None)).unwrap();
+        install(
+            d.path(),
+            &l,
+            "new.p1x",
+            &mcp_pkg_v("docs", "2.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        let trees = tree_hash(&l.home.join("mcp/docs"));
+        let (rec, staged) = prepare(d.path(), &l, "again.p1x", &old);
+        std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", format!("kill:{step}"));
+        assert!(install_commit(
+            &l,
+            &mut OfflineHost::new(&l),
+            &rec,
+            staged,
+            &opts(&["downgrade"], None)
+        )
+        .is_err());
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        ext::recover(&l);
+        assert_eq!(tree_hash(&l.home.join("mcp/docs")), trees);
+        let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+        assert_eq!(
+            st.items["docs"].version,
+            if step == "state" { "1.0.0" } else { "2.0.0" }
+        );
+    }
+}
+
+#[test]
 fn mcp_install_lists_shows_and_hashes_the_complete_package_store_tree() {
     let key = test_key("test");
     let _g = env_with(&key);
@@ -232,7 +438,7 @@ fn mcp_install_lists_shows_and_hashes_the_complete_package_store_tree() {
             installed,
             json!({"name": "docs", "version": "1.0.0", "kind": "mcp-server", "replaced": false, "state": "installed"})
         );
-        let dir = l.extensions().join("packages/docs");
+        let dir = l.home.join("mcp/docs/1.0.0");
         assert!(dir.join("p1x.json").is_file());
         assert!(dir.join("record.json").is_file());
         assert!(!l.modules_dir().join("docs").exists());
@@ -295,12 +501,12 @@ fn mcp_uninstall_purge_and_restore_keep_the_existing_trash_contract() {
         )
         .unwrap();
         let tid = removed["trashId"].as_str().unwrap();
-        assert!(!l.extensions().join("packages/docs").exists());
+        assert!(!l.home.join("mcp/docs").exists());
         assert!(l
             .extensions()
             .join("trash")
             .join(tid)
-            .join("code/p1x.json")
+            .join("code/1.0.0/p1x.json")
             .is_file());
         assert_eq!(l.ext_data("docs").exists(), !purge);
         assert_eq!(config(&l)["mcp"]["servers"].get("docs").is_some(), !purge);
@@ -383,10 +589,7 @@ fn mcp_install_rolls_back_each_writing_step_and_recovers_killed_commits() {
             ext::recover(&l);
             let state = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
             let recorded = state.items.get("docs");
-            assert_eq!(
-                l.extensions().join("packages/docs").exists(),
-                recorded.is_some()
-            );
+            assert_eq!(l.home.join("mcp/docs").exists(), recorded.is_some());
             if step == "state" || replace {
                 let rec = recorded.unwrap();
                 assert_eq!(rec.version, if step == "state" { "1.1.0" } else { "1.0.0" });
@@ -602,10 +805,17 @@ fn tree_hash(p: &Path) -> String {
 
 /// `skills/`, `modules/`, `extensions/`, `config.json` (acceptance 2's byte-identity set) and `data/`.
 fn guarded(l: &Layout) -> Vec<String> {
-    ["skills", "modules", "extensions", "config.json", "data"]
-        .iter()
-        .map(|n| format!("{n}: {}", tree_hash(&l.home.join(n))))
-        .collect()
+    [
+        "skills",
+        "modules",
+        "mcp",
+        "extensions",
+        "config.json",
+        "data",
+    ]
+    .iter()
+    .map(|n| format!("{n}: {}", tree_hash(&l.home.join(n))))
+    .collect()
 }
 
 /// Writes config.json the way the config service does (defaults filled, serialised by `plur1bus_config`), with

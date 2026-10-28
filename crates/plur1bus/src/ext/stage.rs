@@ -386,6 +386,9 @@ fn record_of(rec: &InspectionRecord, m: &P1xManifest) -> ItemRecord {
         key_id: rec.trust["keyId"].as_str().map(str::to_string),
         key_label: rec.trust["label"].as_str().map(str::to_string),
         package_sha256: rec.sha256.clone(),
+        active_version: None,
+        versions: std::collections::BTreeMap::new(),
+        per_agent_versions: std::collections::BTreeMap::new(),
         manifest_sha256: None,
         installed_at: super::now_iso(),
         previous_version: rec
@@ -457,7 +460,7 @@ fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtE
         std::fs::create_dir_all(&cleanup.dest)
             .map_err(|e| io_error("cannot create", &cleanup.dest, e))?;
         cleanup.dest_created = true;
-        let store = super::packages::PackageStore::at(cleanup.dest.join("store"));
+        let store = super::packages::PackageStore::versioned_at(cleanup.dest.join("store"));
         inspect::with_current_policy(layout, |policy| {
             store
                 .install(
@@ -480,7 +483,7 @@ fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtE
                 "the MCP package changed during preparation",
             ));
         }
-        super::record::package_staging_dir(layout, &m.name, id)
+        super::record::package_staging_dir(layout, &m.name, &m.version, id)
     } else {
         archive::extract(&pkg, &cleanup.dest, 0).map_err(|e| {
             let code = if e.reason() == "io" {

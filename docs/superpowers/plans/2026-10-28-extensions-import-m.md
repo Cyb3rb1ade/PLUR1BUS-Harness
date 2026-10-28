@@ -1,3 +1,5 @@
+> Superseded by [work package M v2](2026-10-28-extensions-import-m-v2.md), supplied by the owner during execution.
+
 # Extensions and graphical import — work package M
 
 > **For agentic workers:** execute the owner's task sequence A1–E3 with test-first changes and one commit per task. Read the task brief and its cited design before editing.

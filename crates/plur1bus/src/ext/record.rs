@@ -47,7 +47,7 @@ pub struct InspectionRecord {
 pub struct StagedItem {
     pub name: String,
     pub kind: Kind,
-    /// A skill/module payload, or the complete checked MCP tree at `<staging>/<name>-<id>/store/<name>`.
+    /// A skill/module payload, or the complete checked MCP tree at `<staging>/<name>-<id>/store/<name>/<version>`.
     pub dir: PathBuf,
     /// The state record the commit writes (its `installedAt` is the staging time).
     pub record: state::ItemRecord,
@@ -73,15 +73,24 @@ pub(crate) fn skill_id_ok(n: &str) -> bool {
 pub(crate) fn code_dir(layout: &Layout, name: &str, kind: &str) -> PathBuf {
     match kind {
         "skill" => layout.skills().join(name),
-        "mcp-server" => ExtPaths::of(layout).packages.join(name),
+        "mcp-server" => ExtPaths::of(layout).mcp.join(name),
         _ => layout.modules_dir().join(name),
     }
 }
 
 /// Recorded file paths are payload-relative, including for a complete MCP package tree.
-pub(crate) fn payload_dir(layout: &Layout, name: &str, kind: &str) -> PathBuf {
-    let dir = code_dir(layout, name, kind);
-    if kind == "mcp-server" {
+pub(crate) fn active_code_dir(layout: &Layout, rec: &state::ItemRecord) -> PathBuf {
+    let dir = code_dir(layout, &rec.name, &rec.kind);
+    if rec.kind == "mcp-server" {
+        dir.join(&rec.version)
+    } else {
+        dir
+    }
+}
+
+pub(crate) fn payload_dir(layout: &Layout, rec: &state::ItemRecord) -> PathBuf {
+    let dir = active_code_dir(layout, rec);
+    if rec.kind == "mcp-server" {
         dir.join("payload")
     } else {
         dir
@@ -108,8 +117,11 @@ pub(crate) fn config_section(cfg: &Value, name: &str, kind: &str) -> Value {
 }
 
 /// Whole package-store tree prepared beneath one inspection's private staging directory.
-pub(crate) fn package_staging_dir(layout: &Layout, name: &str, id: &str) -> PathBuf {
-    staging_dir(layout, name, id).join("store").join(name)
+pub(crate) fn package_staging_dir(layout: &Layout, name: &str, version: &str, id: &str) -> PathBuf {
+    staging_dir(layout, name, id)
+        .join("store")
+        .join(name)
+        .join(version)
 }
 
 /// The strings of a JSON array (anything else: none).
@@ -258,7 +270,7 @@ pub(crate) fn check_name(
     if std::fs::symlink_metadata(&module).is_ok() {
         return Err(name_taken(name, &module_dir_kind(&module), None));
     }
-    let package = ExtPaths::of(layout).packages.join(name);
+    let package = ExtPaths::of(layout).mcp.join(name);
     if std::fs::symlink_metadata(&package).is_ok() {
         return Err(name_taken(name, "mcp-server", None));
     }

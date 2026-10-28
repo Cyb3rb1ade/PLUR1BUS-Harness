@@ -14,6 +14,7 @@ pub mod inspect;
 pub mod lifecycle;
 pub mod list;
 pub mod overlays;
+pub mod package_worker;
 #[allow(dead_code)]
 // first consumer: the task that runs MCP servers and reads providers (X2 follow-up)
 pub mod packages;
@@ -117,9 +118,11 @@ fn dead_temp(name: &str) -> bool {
 /// finished when their record was written, else their new code removed). Returns what was done, for the log. Best effort: a failure is skipped.
 pub fn recover(layout: &Layout) -> Vec<String> {
     let p = paths::ExtPaths::of(layout);
+    let mut migrated = packages::migrate_legacy_mcp(layout);
     // The module staging directories of dead installs first (a copy moved aside goes back before anything reads
     // `modules/`).
     let mut done = crate::modules::install::recover(layout);
+    done.append(&mut migrated);
     // Commits killed after they began to move code into place (their mark), before the staging they name goes.
     let (reconciled, keep) = reconcile_commits(layout, &p);
     done.extend(reconciled);
@@ -224,7 +227,18 @@ fn reconcile_commits(
                 continue;
             }
         };
-        let code = record::code_dir(layout, &mark.name, &mark.kind);
+        let mut code = record::code_dir(layout, &mark.name, &mark.kind);
+        if mark.kind == "mcp-server" {
+            let Some(version) = mark
+                .version
+                .as_deref()
+                .filter(|v| packages::valid_version(v))
+            else {
+                keep.push(dir);
+                continue;
+            };
+            code = code.join(version);
+        }
         let finished = st
             .items
             .get(&mark.name)
@@ -261,7 +275,7 @@ fn reconcile_commits(
                 "finished the interrupted install of {} (its record was written)",
                 mark.name
             ));
-        } else if std::fs::symlink_metadata(&code).is_ok() {
+        } else if !mark.version_preexisting && std::fs::symlink_metadata(&code).is_ok() {
             if state::remove_dir_all_retrying(&code).is_ok() {
                 done.push(format!(
                     "removed {}: an interrupted install left it without its record",
@@ -270,6 +284,10 @@ fn reconcile_commits(
             } else {
                 keep.push(dir);
             }
+        }
+        if mark.kind == "mcp-server" {
+            let _ = state::remove_empty_dir_retrying(&p.mcp.join(&mark.name));
+            let _ = state::remove_empty_dir_retrying(&p.mcp);
         }
     }
     (done, keep)

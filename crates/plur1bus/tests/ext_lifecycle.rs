@@ -477,10 +477,17 @@ fn tree_hash(p: &Path) -> String {
 
 /// `skills/`, `modules/`, `extensions/`, `config.json`, `data/` and the audit log.
 fn guarded(l: &Layout) -> Vec<String> {
-    let mut v: Vec<String> = ["skills", "modules", "extensions", "config.json", "data"]
-        .iter()
-        .map(|n| format!("{n}: {}", tree_hash(&l.home.join(n))))
-        .collect();
+    let mut v: Vec<String> = [
+        "skills",
+        "modules",
+        "mcp",
+        "extensions",
+        "config.json",
+        "data",
+    ]
+    .iter()
+    .map(|n| format!("{n}: {}", tree_hash(&l.home.join(n))))
+    .collect();
     v.push(format!("audit: {}", tree_hash(&l.audit_log())));
     v
 }

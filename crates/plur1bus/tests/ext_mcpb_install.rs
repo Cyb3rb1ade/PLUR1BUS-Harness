@@ -27,6 +27,6 @@ fn mcp_import_install_uses_the_plugin_document_and_keeps_the_package_disabled() 
     assert_eq!(listed["items"].as_array().unwrap().len(), 1);
     assert_eq!(listed["items"][0]["enabled"], false);
     assert!(home
-        .join("extensions/packages/demo-server/payload/manifest.json")
+        .join("mcp/demo-server/1.0.0/payload/manifest.json")
         .is_file());
 }

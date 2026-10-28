@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://plur1bus.dev/schema/ext-state/1/ext-state.schema.json",
   "title": "PLUR1BUS extension state (<home>/extensions/state.json)",
-  "description": "The package record of every extension installed from a file (spec §6.2): id, version, kind, source, trust tier, signer, package digest, install time, previous version, the payload's file digests and the acknowledged capability hash. Written only by the supervisor or the offline ext commands, atomically, mode 0600. `skills/index.json` and `modules.<name>.enabled` stay the owners of the enabled flags.",
+  "description": "The package record of every extension installed from a file (spec §6.2): id, version, kind, source, trust tier, signer, package digest, install time, previous version, the payload's file digests and the acknowledged capability hash. Written only by the supervisor or the offline ext commands, atomically, mode 0600. `skills/index.json` and `modules.<name>.enabled` and `mcp.servers.<name>.enabled` stay the owners of the enabled flags.",
   "x-stability": "experimental",
   "type": "object",
   "additionalProperties": false,
@@ -17,6 +17,24 @@
   },
   "$defs": {
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "mcpVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packageSha256", "manifestSha256", "trust", "keyId", "keyLabel", "installedAt", "files", "capabilities", "capabilitiesAck", "scripts", "requiredSecrets"],
+      "properties": {
+        "packageSha256": {"$ref": "#/$defs/sha256"},
+        "manifestSha256": {"anyOf": [{"$ref": "#/$defs/sha256", "description": "SHA-256 of the exact verified p1x.json root bytes. Present for new MCP packages; omitted in older records."}, {"type": "null"}]},
+        "trust": {"enum": ["release", "first-party", "unknown-signer", "unsigned", "imported", "dev"]},
+        "keyId": {"type": ["string", "null"], "description": "The signing key id (16 upper-case hex digits), when the package is signed."},
+        "keyLabel": {"type": ["string", "null"], "description": "The label of the trusted key that verified the signature, when one did."},
+        "installedAt": {"type": "string", "minLength": 1, "description": "UTC, ISO 8601."},
+        "files": {"type": "object", "description": "Payload-relative path to digest, size and exec bit.", "additionalProperties": {"type": "object", "additionalProperties": false, "required": ["sha256", "size"], "properties": {"sha256": {"$ref": "#/$defs/sha256"}, "size": {"type": "integer", "minimum": 0}, "exec": {"type": "boolean"}}}},
+        "capabilities": {"type": "object", "description": "The manifest's capability block as installed."},
+        "capabilitiesAck": {"type": ["string", "null"], "description": "SHA-256 of the capability set a person acknowledged (X1-R13)."},
+        "scripts": {"type": "array", "items": {"type": "string"}},
+        "requiredSecrets": {"type": "array", "items": {"type": "string"}}
+      }
+    },
     "item": {
       "type": "object",
       "additionalProperties": false,
@@ -26,6 +44,9 @@
         "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
         "kind": { "enum": ["skill", "module", "channel", "mcp-server", "bundle"] },
         "version": { "type": "string", "minLength": 1 },
+        "activeVersion": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$", "maxLength": 64, "description": "Canonical MCP activation pointer. version mirrors this field."},
+        "versions": {"type": "object", "propertyNames": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$", "maxLength": 64}, "additionalProperties": {"$ref": "#/$defs/mcpVersion"}},
+        "perAgentVersions": {"type": "object", "description": "Reserved model for future per-agent versions; no selector is exposed.", "maxProperties": 0, "additionalProperties": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$", "maxLength": 64}},
         "source": { "enum": ["file", "catalog", "bundled", "local"], "description": "Where it came from; X1 writes `file`." },
         "trust": { "enum": ["release", "first-party", "unknown-signer", "unsigned", "imported", "dev"] },
         "keyId": { "type": ["string", "null"], "description": "The signing key id (16 upper-case hex digits), when the package is signed." },

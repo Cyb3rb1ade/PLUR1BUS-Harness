@@ -225,7 +225,7 @@ fn tree_hash(p: &Path) -> String {
 
 /// `skills/`, `modules/`, `extensions/` and `config.json` (acceptance 2's byte-identity set).
 fn guarded(l: &Layout) -> Vec<String> {
-    ["skills", "modules", "extensions", "config.json"]
+    ["skills", "modules", "mcp", "extensions", "config.json"]
         .iter()
         .map(|n| tree_hash(&l.home.join(n)))
         .collect()
@@ -556,6 +556,9 @@ fn installed_record(id: &str, name: &str, kind: &str) -> ext::state::ItemRecord 
         key_id: None,
         key_label: None,
         package_sha256: "ab".repeat(32),
+        active_version: None,
+        versions: std::collections::BTreeMap::new(),
+        per_agent_versions: std::collections::BTreeMap::new(),
         manifest_sha256: None,
         installed_at: "2026-09-28T10:00:00.000Z".into(),
         previous_version: None,
@@ -736,6 +739,9 @@ fn inspect_fills_replaces_for_an_installed_id() {
             key_id: None,
             key_label: None,
             package_sha256: "ab".repeat(32),
+            active_version: None,
+            versions: std::collections::BTreeMap::new(),
+            per_agent_versions: std::collections::BTreeMap::new(),
             manifest_sha256: None,
             installed_at: "2026-09-28T10:00:00.000Z".into(),
             previous_version: None,

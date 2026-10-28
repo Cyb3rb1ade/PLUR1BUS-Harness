@@ -497,7 +497,10 @@ pub(crate) fn disable_locked(
 /// a folder deleted by hand) cannot be enabled. The overlay vocabulary has no "missing" value; `tampered` (installed
 /// files no longer match what was installed) is the closest, and `data.paths` lists every recorded file.
 fn refuse_missing_code(layout: &Layout, t: &Target) -> Result<(), ExtError> {
-    let dir = code_dir(layout, &t.name, &t.kind);
+    let dir = t.record.as_ref().map_or_else(
+        || code_dir(layout, &t.name, &t.kind),
+        |r| super::record::active_code_dir(layout, r),
+    );
     if std::fs::symlink_metadata(&dir).is_ok_and(|m| m.is_dir()) {
         return Ok(());
     }
