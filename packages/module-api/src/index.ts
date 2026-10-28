@@ -8,6 +8,7 @@ export * from "./logger.ts";
 export * from "./rpc-error.ts";
 export * from "./rpc-server.ts";
 export * from "./secure-path.ts";
+export { createExtensionDataDir } from "./data-dir.ts";
 export * from "./orphan-watch.ts";
 export * from "./lock.ts";
 export * from "./adoption.ts";

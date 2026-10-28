@@ -157,7 +157,8 @@ pub fn module_spec(layout: &Layout, m: &Installed, instance_id: &str) -> Result<
         role: m.name.clone(),
         program: locate_node(layout),
         args,
-        env: Vec::new(),
+        // M-A12: cache only nonsecret path metadata; credentials are leased at spawn, never kept in ChildSpec.
+        env: vec![("P1X_DATA".into(), layout.ext_data(&m.name).into_os_string())],
         cwd: Some(m.dir.clone()),
     })
 }
@@ -1745,6 +1746,14 @@ mod tests {
         let spec = module_spec(&layout, &m, id).unwrap();
         assert_eq!(spec.role, "fixture");
         assert_eq!(spec.cwd.as_deref(), Some(dir.as_path()));
+        assert_eq!(
+            spec.env,
+            vec![(
+                OsString::from("P1X_DATA"),
+                home.join("data/ext/fixture").into_os_string()
+            )],
+            "cached module specs hold only canonical, nonsecret data metadata"
+        );
         let args: Vec<String> = spec
             .args
             .iter()
