@@ -216,13 +216,13 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       resolved = await messageTriage.decide(text, JSON.stringify([req.agentId, principal, req.sessionId]), (_message, signal) => {
         if (!o.classifyMessage) throw Error('decision role unavailable');
         return o.classifyMessage(req, signal);
-      }, { signal, timeoutMs: typeof o.triageTimeoutMs === 'function' ? o.triageTimeoutMs() : o.triageTimeoutMs ?? 200, ...(req.taskBoundary ? { task: req.taskBoundary } : {}), onFallback: () => { void stage('triage-fallback', signal, o.log, () => undefined); } });
+      }, { signal, timeoutMs: typeof o.triageTimeoutMs === 'function' ? o.triageTimeoutMs() : o.triageTimeoutMs ?? 2000, ...(req.taskBoundary ? { task: req.taskBoundary } : {}), onFallback: () => { void stage('triage-fallback', signal, o.log, () => undefined); } });
       try { o.onDecision?.(resolved); } catch { /* telemetry cannot invalidate an admitted decision */ } return resolved.decision;
     });
     const triageStarted = performance.now();
     const decision = req.turnProfile ? await req.turnProfile.run('decisionService', decisionWork, triage(''), signal) : await decisionWork(signal);
     observation.triageDurationMs = Math.max(0, performance.now() - triageStarted);
-    let coreOnly = !!req.role || resolved?.coreOnly === true || (o.requireTriage === true && !resolved);
+    const coreOnly = !!req.role;
     const classes = ['small', 'medium', 'large', 'frontier'];
     const modelClass = (req.collaborationTier ? { cheap: 'small', standard: 'medium', premium: 'large' }[req.collaborationTier] : undefined) ?? resolved?.modelClass ?? decision.tasks.reduce<string>((chosen, task) => classes.indexOf(task.chosenClass) > classes.indexOf(chosen) ? task.chosenClass : chosen, 'small');
     const defaultProfile = (!req.role ? o.profileForAgent?.(req.agentId) : undefined) ?? o.profile ?? 'default';
@@ -235,10 +235,10 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     let profile = defaultProfile;
     // A session-selected model profile (session.setModel) overrides the class choice; the decision role keeps its own model.
     if (req.modelProfile && req.role !== 'decision') profile = req.modelProfile;
-    else if (!coreOnly) {
+    else if (!coreOnly && decision.tasks.length > 0) {
       if (!atBoundary && taskProfiles.has(taskScope)) profile = taskProfiles.get(taskScope)!;
       else try { profile = o.profileForClass?.(modelClass) ?? defaultProfile; if (!o.profiles[profile]?.length) throw Error('class-profile-unavailable'); }
-      catch { coreOnly = true; profile = defaultProfile; await stage('triage-fallback', signal, o.log, () => undefined); }
+      catch { profile = defaultProfile; await stage('triage-fallback', signal, o.log, () => undefined); }
       if (!coreOnly) { taskProfiles.set(taskScope, profile); if (taskProfiles.size > 1024) taskProfiles.delete(taskProfiles.keys().next().value!); }
     }
     const selection = !req.role && o.modelRouting ? await stage('model-routing', signal, o.log, () => o.modelRouting!.select(req, o.profiles, defaultProfile, decision, name => !o.router?.unsupportedProfiles?.[name])) : undefined;

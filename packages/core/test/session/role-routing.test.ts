@@ -51,7 +51,12 @@ it('without summarize configuration foreground wire bodies and replies retain ex
   try {
     const req = request(); delete req.role;
     const collect = async (provider: { stream(req: ChatRequest): AsyncIterable<import('../../src/session/provider.ts').ChatChunk> }) => {
-      const chunks = []; for await (const c of provider.stream(req)) chunks.push(c.type === 'usage' ? { type: c.type, inputTokens: c.inputTokens, outputTokens: c.outputTokens } : c); return chunks;
+      const chunks = []; for await (const c of provider.stream(req)) {
+        if (c.type === 'telemetry') {
+          assert(typeof c.telemetry.triageDurationMs === 'number' && Number.isFinite(c.telemetry.triageDurationMs) && c.telemetry.triageDurationMs >= 0);
+          chunks.push({ ...c, telemetry: { ...c.telemetry, triageDurationMs: 0 } });
+        } else chunks.push(c.type === 'usage' ? { type: c.type, inputTokens: c.inputTokens, outputTokens: c.outputTokens } : c);
+      } return chunks;
     };
     assert.deepEqual(await collect(createSessionRoleProvider(createTurnProvider,wrapped.options,{},40)),await collect(createTurnProvider(plain.options)));
     assert.deepEqual(wrapped.calls,plain.calls); assert.equal(wrapped.approvals(),plain.approvals());

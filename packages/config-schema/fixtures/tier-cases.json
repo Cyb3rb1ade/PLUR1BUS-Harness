@@ -4272,7 +4272,7 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 60000,
-              "default": 200,
+              "default": 2000,
               "x-restart": "live",
               "x-tier": "advanced"
             },
@@ -4287,7 +4287,7 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 60000,
-                  "default": 200,
+                  "default": 2000,
                   "x-restart": "live",
                   "x-tier": "advanced"
                 },
@@ -4314,7 +4314,7 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 60000,
-                  "default": 100,
+                  "default": 2000,
                   "x-restart": "live",
                   "x-tier": "advanced"
                 },
