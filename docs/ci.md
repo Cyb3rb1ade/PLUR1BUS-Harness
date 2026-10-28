@@ -238,7 +238,7 @@ workspace build. `unit (ubuntu-24.04)` took 20 min 45 s on `main` (scheduled run
 36 min 08 s on the PR's first run with a cold cache for that closure (run 40060694169), within the 65-minute job
 ceiling (90 on Windows, unchanged). Its `cargo test --workspace --no-fail-fast` step took 16 min 26 s of its 20-minute
 budget on that cold run against 7 min 54 s on `main` (`cargo clippy` 7 min 39 s against 1 min 24 s), too thin a margin
-for a closure that only grows, so the step has 30 minutes in `unit` and `unit-os`. The PR's second run (40086339873,
+for a closure that only grows, so the test execution step has 30 minutes in `unit` and `unit-os`; their separate test-build step now has 25 minutes (see below). The PR's second run (40086339873,
 after a lockfile change) measured the same, job 35 min 17 s, `cargo test` 16 min 06 s, `cargo clippy` 7 min 25 s:
 `rust-cache` did not shorten the Rust steps, so these figures are the working assumption, not a cold-cache outlier.
 RE-R6 of the Rust-engine plan tracks the cost; the next measurement after RE-02, the first code that links Lance, decides whether the engine tests get
@@ -267,6 +267,34 @@ with `test-shards.mjs verify` and requires every Windows shard to succeed. The W
 pattern `core-unit-manifest-*` never sees them. Both jobs follow the full-platform policy like `unit-os` and stay
 outside `ci-gate`. Nothing is skipped: every Core file still runs on Windows, once.
 
+#### Independent Rust results and separate build timing (package I)
+
+In `unit` and `unit-os`, the empty-filter guard, release-script tests, Windows installer tests and every Rust/tokenizer
+step after the Node tests explicitly use `!cancelled()`. Rust steps also require `needs.changes.outputs.rust == 'true'`.
+A failed Node test, fmt or clippy step therefore cannot hide later Rust results; cancellation still stops work. Failures
+remain failures of the job. `ci-gate` and the existing job names/dependencies are unchanged.
+
+`cargo test --workspace --no-run` has a separate 25-minute build budget. The following
+`cargo test --workspace --no-fail-fast` retains its 30-minute execution budget. Run 2487 on Windows spent about
+20 minutes compiling and then 10 minutes testing before the former combined 30-minute step was killed. The 25-minute
+build budget covers that measured build; the existing 30-minute test budget now applies entirely to test execution.
+The 90-minute Windows / 65-minute macOS job ceilings remain. These ceilings are not promises that all step maxima can
+be consumed together: a complete hosted run is still required to establish the total, especially on macOS where Rust
+was previously skipped. A separate Rust job requires an owner decision if the measured total does not fit.
+
+Baseline: [main run 2487](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/40572184733), 2026-10-27.
+A dash means no completed measurement, not zero time or a pass.
+
+| System / run | Node tests | clippy | Rust test build | Rust test execution |
+| --- | --- | --- | --- | --- |
+| macOS 15 / 2487 | 20.8 min, failed | skipped | skipped | skipped |
+| Windows 2025 / 2487 | passed; duration unavailable | 14 min | about 20 min (inside combined step) | at least 10 min; combined step timed out |
+| macOS 15 / package I | pending hosted run | pending | pending | pending |
+| Windows 2025 / package I | pending hosted run | pending | pending | pending |
+
+The new steps expose actual build/execution durations separately. Local Linux timings and simulations cannot establish
+macOS or Windows completion; two consecutive hosted passes remain the acceptance criterion.
+
 A TAP reporter preserves the root runner's nonzero-test guard while recording the sum of top-level test/suite durations per file. Nested child durations are not counted twice. The `test-timings-<os>` artifact contains per-process JSON and `top-20.txt`; the top 20 are also printed after failure. A forcibly killed process may have no completed report, so timings after timeout can be partial. These are test/suite execution times, not profiler CPU time or package-install time.
 
 ### WSL infrastructure retry
@@ -292,6 +320,19 @@ key derived from the root `pnpm-lock.yaml`, runner OS and architecture. It saves
 The existing `Swatinem/rust-cache` key includes Cargo lockfiles/manifests, toolchain files, `rustc` identity, OS and
 architecture; its default failure-cache option is off. Keep these actions instead of adding overlapping caches.
 The pinned implementations and reviewed paths are recorded in the [GP5 P4 handoff](handoffs/2026-10-21-gp5-p4-ci-caches.md).
+
+For `unit` and `unit-os`, Rust cache writes are explicitly limited to successful `refs/heads/main` runs
+(`save-if`), while PRs still restore the compatible default-branch cache. `cache-on-failure` remains explicitly `false`;
+the existing cache-policy regression requires failed jobs not to publish caches. Run 2487 reported no restored cache on
+both Ubuntu and Windows. With the default failure-save setting, a consistently red job cannot seed its own cache.
+The reviewed pinned implementation includes the job, OS/architecture, toolchain and manifests in its key, with a
+lockfile-independent restore prefix; a different job's successful cache is therefore not evidence of a reusable unit
+cache. Main-only writes bound the producers without removing key dimensions or caching additional paths.
+
+The Actions cache inventory request on 2026-10-27 returned HTTP 403, so current cache bytes, hit age and repository
+quota usage could not be measured. Eviction at the 10-GB quota is a hypothesis, not a diagnosis; no cache was deleted
+and no quota/repository setting was changed. Confirm inventory and first successful main save/next restore before
+claiming a cache hit or speedup. The policy deliberately does not promise a cache for a still-failing main job.
 
 The Playwright cache key includes OS, architecture and the lockfile hash. Chromium installation still runs to
 install Linux libraries and download missing browser files. The combined cache action saves only on success.
