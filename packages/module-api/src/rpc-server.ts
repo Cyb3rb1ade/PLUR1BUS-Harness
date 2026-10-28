@@ -1,5 +1,6 @@
 import { bindClientContext } from "./client-principal.ts";
 import { bindApiPrincipal, verifyApiDelegation, type ApiPrincipal } from "./api-principal.ts";
+import { bindEnginePrincipal, verifyEngineDelegation } from "./engine-principal.ts";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
@@ -73,7 +74,7 @@ function warnIfDeprecated(logger: HarnessLogger, role: RpcServerRole, kind: "met
 }
 
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
-interface Conn { clientToken?: string; api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean; notifications: Promise<void>; pendingNotifications: number }
+interface Conn { engine?: boolean; clientToken?: string; api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean; notifications: Promise<void>; pendingNotifications: number }
 
 /** Endpoint, handshake, handlers, and lifecycle hooks for {@link createRpcServer}. */
 export interface RpcServerOptions {
@@ -82,6 +83,8 @@ export interface RpcServerOptions {
   server?: RpcServerRole;
   /** Credential registered for harness-api; regular endpoint tokens cannot delegate. */
   apiToken?: string;
+  /** Core-only reverse-RPC credential. Read on each handshake so a restarted engine can rotate its token. */
+  engineToken?: () => string | undefined;
   /** Scoped IPC client token. Revalidated on every call (revocation/expiry/rights are live). */
   authorizeClient?: (token: string, method: string, params: unknown) => Promise<ApiPrincipal>;
   apiPrincipalOf?: (principal: ApiPrincipal) => ApiPrincipal | null | Promise<ApiPrincipal | null>;
@@ -163,20 +166,35 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       const v = validateParams(method, params);
       if (!v.ok) { replyAndClose(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); return; }
-      if (!tokenMatches(params.token)) {
+      const hasEngine = role === "core" && Object.hasOwn(params, "engine");
+      if (c.authed && c.engine !== hasEngine) { replyAndClose(c, id, new RpcError("E_DENIED", "connection identity cannot change", { reason: "engine-identity-change" })); return; }
+      if (hasEngine) {
+        if (hasApi || c.api !== undefined || c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "engine credentials cannot delegate", { reason: "engine-delegation" })); return; }
+        try {
+          const engineToken = o.engineToken?.();
+          verifyEngineDelegation(params.engine, engineToken);
+          if (params.token !== params.engine.token) throw new RpcError("E_UNAUTHORIZED", "engine credential mismatch", { reason: "engine-delegation" });
+        } catch (e) { replyAndClose(c, id, e instanceof RpcError ? e : new RpcError("E_UNAUTHORIZED", "engine credential unavailable", { reason: "engine-delegation" })); return; }
+      } else if (!tokenMatches(params.token)) {
         if (hasApi || !o.authorizeClient || typeof params.token !== "string") { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "bad token", { reason: "bad-token" })); return; }
         try { await o.authorizeClient(params.token, method, params); c.clientToken = params.token; }
         catch { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "client not approved", { reason: "client-token" })); return; }
       } else if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       c.authed = true;
+      c.engine = hasEngine;
       if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
       if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
       let principal: ApiPrincipal | null = null;
       try { principal = hasApi && delegated ? await o.apiPrincipalOf?.(delegated) ?? null : null; }
       catch { return replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "API identity unavailable", { reason: "no-principal" })); }
-      return send(c, { jsonrpc: "2.0", id, result: { ...o.hello(), ...(hasApi ? { apiPrincipal: principal } : {}) } });
+      const hello = o.hello();
+      const features = (hello as { capabilities?: { features?: readonly string[] } }).capabilities?.features ?? [];
+      return send(c, { jsonrpc: "2.0", id, result: { ...hello, ...(hasEngine ? { capabilities: buildCapabilities([...features, "engine"], role) } : {}), ...(hasApi ? { apiPrincipal: principal } : {}) } });
     }
     if (!c.authed) return errorReply(c, id, new RpcError("E_UNAUTHORIZED", "authenticate first", { reason: "auth-required" }));
+    // The engine credential grants only host services and its policy-invalidation subscription, never local-owner RPC.
+    if (c.engine && !method.startsWith("host.") && !["events.subscribe", "events.unsubscribe"].includes(method))
+      return errorReply(c, id, new RpcError("E_DENIED", "engine connection cannot call this method", { reason: "engine-method" }));
     if (hasApi && c.api === undefined) return errorReply(c, id, new RpcError("E_UNAUTHORIZED", "delegate at handshake", { reason: "api-handshake-required" }));
     if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
     warnIfDeprecated(o.logger, role, "method", method);
@@ -184,8 +202,11 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     if (c.clientToken !== undefined && method.startsWith("events.")) return errorReply(c, id, new RpcError("E_DENIED", "scoped client subscriptions are unavailable"));
     if (method === "events.subscribe" && served.has(method)) {
       const v = validateParams(method, params); if (!v.ok) return errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") }));
+      if (c.engine && (params.agentId !== undefined || !Array.isArray(params.names) || params.names.some((name: string) => name !== "egress.changed")))
+        return errorReply(c, id, new RpcError("E_DENIED", "engine subscriptions are limited to egress policy changes", { reason: "engine-method" }));
       const ctx: CallContext = { requestId: String(id), connectionId: c.id, signal: new AbortController().signal };
       if (c.api !== undefined) bindApiPrincipal(ctx, c.api);
+      if (c.engine) bindEnginePrincipal(ctx);
       try {
         // The shared server owns subscriptions, but the process owns RBAC and audits.
         await o.methods["events.subscribe"]?.(params, ctx);
@@ -215,6 +236,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     try {
       const ctx = { requestId: String(id), connectionId: c.id, signal: ac.signal };
       if (c.api !== undefined) bindApiPrincipal(ctx, delegated ?? null);
+      if (c.engine) bindEnginePrincipal(ctx);
       if (c.clientToken !== undefined) { const principal = await o.authorizeClient!(c.clientToken, method, params); bindApiPrincipal(ctx, principal); bindClientContext(ctx); }
       const result = await handler(params, ctx);
       const rv = validateResult(method, result);

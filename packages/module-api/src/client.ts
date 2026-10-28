@@ -1,5 +1,6 @@
 import type { AudienceTarget } from "./rpc-server.ts";
 import type { ApiDelegation } from "./api-principal.ts";
+import type { EngineDelegation } from "./engine-principal.ts";
 import { createConnection, type Socket } from "node:net";
 import { LineDecoder, encodeLine } from "./framing.ts";
 import { checkAddress, type TrustOptions } from "./trust.ts";
@@ -55,7 +56,12 @@ export interface CoreClient {
 /** `endpoint` picks the handshake: `core.auth` (default), `supervisor.auth` (ruling S2) or `module.auth` (B9). */
 export interface ConnectOptions {
   api?: ApiDelegation;
-  address: string; token: string; endpoint?: "core" | "supervisor" | "module"; connectTimeoutMs?: number; callTimeoutMs?: number;
+  engine?: EngineDelegation;
+  /** Identity advertised to an engine endpoint; never an authorization credential. */
+  clientId?: string;
+  /** Cancels endpoint connection, handshake and pending calls, and closes the transport. */
+  signal?: AbortSignal;
+  address: string; token: string; endpoint?: "core" | "supervisor" | "module" | "engine"; connectTimeoutMs?: number; callTimeoutMs?: number;
   /** Separate bounded handshake for clients with long-running method calls. Defaults to callTimeoutMs. */
   handshakeTimeoutMs?: number;
   /** The pid that must serve `address`: the one in `run/core.pid` (core) or `run/supervisor.pid` (supervisor). On Windows,
@@ -97,7 +103,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
     `${actual === undefined ? "the OS does not name the server" : `served by pid ${actual}`}, expected pid ${opts.expectedServerPid}${late ? " (found after the token was sent)" : ""}`,
   );
   const sock = await new Promise<Socket>((resolve, reject) => {
-    const s = createConnection(opts.address);
+    const s = createConnection({ path: opts.address, ...(opts.signal ? { signal: opts.signal } : {}) });
     // A stalled loop dispatches an expired timer before the poll phase that carries `connect`/`error`, so the timer can win against a
     // socket that is already connected. Give up in the check phase instead (after that I/O has run), and only if still unsettled.
     const timer = setTimeout(() => setImmediate(() => {
@@ -155,7 +161,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
 
   let hello: Hello;
   try {
-    hello = await call<Hello>(`${opts.endpoint ?? "core"}.auth`, { token: opts.token }, opts.handshakeTimeoutMs ?? callTimeoutMs);
+    hello = await call<Hello>(`${opts.endpoint ?? "core"}.auth`, { token: opts.token, ...(opts.endpoint === "engine" ? { clientId: opts.clientId ?? "harness-core" } : {}), ...(opts.engine ? { engine: opts.engine } : {}) }, opts.handshakeTimeoutMs ?? callTimeoutMs);
     const major = Number(hello.rpc.split(".")[0]);
     if (major !== SUPPORTED_RPC_MAJOR) { sock.destroy(); throw new RpcCallError(-32000, "E_RPC_VERSION", `server rpc ${hello.rpc}, client supports ${SUPPORTED_RPC_MAJOR}.x`, "major-mismatch"); }
     // Without a native pid lookup the best a Node client can do on Windows: the server must at least claim the recorded pid.
