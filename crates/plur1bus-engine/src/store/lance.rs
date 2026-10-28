@@ -442,7 +442,7 @@ impl Store {
                         .and_then(|value| value.as_f64())
                         .ok_or(StoreError::Corrupt)? as f32;
                     rows.push(Scored {
-                        row: serde_json::from_value(value).map_err(|_| StoreError::Corrupt)?,
+                        row: row::decode_row(value)?,
                         distance,
                     });
                 }
@@ -531,22 +531,36 @@ impl Store {
         })
     }
 
-    /// Delete matching safe IDs and report how many committed rows matched.
+    /// Delete these IDs and report how many committed rows matched. As Node's `MemoryDB.delete`
+    /// throws for an ID that is not a UUID, any such ID refuses the call before anything is
+    /// deleted. Every ID is deleted, in lists of at most 100 like Node's SQL helper renders. Each
+    /// count is taken just before its delete, so a concurrent writer can make it differ.
     pub fn delete(&self, ids: &[&str]) -> Result<usize, StoreError> {
         self.writable()?;
-        let filter = RowFilter {
-            ids: Some(ids.iter().map(|id| (*id).to_owned()).collect()),
-            ..Default::default()
+        if !ids.iter().all(|id| super::filter::uuid(id)) {
+            return Err(StoreError::InvalidInput);
         }
-        .to_sql();
+        let filters = ids
+            .chunks(100)
+            .map(|chunk| {
+                RowFilter {
+                    ids: Some(chunk.iter().map(|id| (*id).to_owned()).collect()),
+                    ..Default::default()
+                }
+                .to_sql()
+            })
+            .collect::<Vec<_>>();
         let table = self.table.clone();
         self.executor.run(async move {
-            let count = table
-                .count_rows(Some(filter.clone()))
-                .await
-                .map_err(backend_error)?;
-            table.delete(&filter).await.map_err(backend_error)?;
-            Ok(count)
+            let mut deleted = 0;
+            for filter in filters {
+                deleted += table
+                    .count_rows(Some(filter.clone()))
+                    .await
+                    .map_err(backend_error)?;
+                table.delete(&filter).await.map_err(backend_error)?;
+            }
+            Ok(deleted)
         })
     }
 

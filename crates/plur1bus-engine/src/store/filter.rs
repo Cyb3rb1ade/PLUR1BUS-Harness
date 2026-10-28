@@ -40,7 +40,7 @@ pub struct RowFilter {
 pub fn sql_string(value: &str) -> String {
     format!("'{}'", value.replace('\\', "\\\\").replace('\'', "''"))
 }
-fn uuid(value: &str) -> bool {
+pub(super) fn uuid(value: &str) -> bool {
     value.len() == 36
         && value.bytes().enumerate().all(|(i, b)| {
             if [8, 13, 18, 23].contains(&i) {
@@ -66,7 +66,17 @@ impl RowFilter {
             ("emotionalDominant", &self.emotion),
         ] {
             if let Some(value) = value {
-                clauses.push(format!("{column} = {}", sql_string(value)));
+                clauses.push(match (column, value.as_str()) {
+                    // Node's scans count NULL and empty values as these defaults, which is also
+                    // what a NULL column decodes to.
+                    ("status", "active") => {
+                        "(status IS NULL OR status = 'active' OR status = '')".into()
+                    }
+                    ("memoryKind", "memory") => {
+                        "(memoryKind = 'memory' OR memoryKind IS NULL OR memoryKind = '')".into()
+                    }
+                    _ => format!("{column} = {}", sql_string(value)),
+                });
             }
         }
         if let Some(scope) = &self.scope {

@@ -466,6 +466,75 @@ fn a_promoted_large_utf8_column_remains_readable_and_writable() {
     );
 }
 #[test]
+fn a_node_row_with_null_columns_reads_with_the_node_defaults() {
+    // Every Lance column is nullable and Node treats NULL as the column's default. One such row
+    // must neither fail every read nor drop out of the active filter.
+    let temporary = copied_fixture("store-v1");
+    let active = RowFilter {
+        status: Some("active".into()),
+        memory_kind: Some("memory".into()),
+        ..Default::default()
+    };
+    let store = Store::open(temporary.path(), OpenMode::ReadOnly, None).unwrap();
+    let before = store.count(&active).unwrap();
+    let row = store.scan(&active, 1).unwrap().remove(0);
+    drop(store);
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        let connection = lancedb::connect(temporary.path().to_str().unwrap())
+            .execute()
+            .await
+            .unwrap();
+        let table = connection.open_table("memories").execute().await.unwrap();
+        let mut update = table.update().only_if(format!("id = '{}'", row.id));
+        for column in [
+            "importance",
+            "category",
+            "status",
+            "memoryKind",
+            "createdAt",
+            "confirmed",
+        ] {
+            update = update.column(column, "NULL");
+        }
+        update.execute().await.unwrap();
+    });
+    let store = Store::open(temporary.path(), OpenMode::ReadOnly, None).unwrap();
+    assert_eq!(store.scan(&RowFilter::default(), 100).unwrap().len(), 12);
+    let read = store.get(&row.id).unwrap().unwrap();
+    assert_eq!(read.importance.as_f64(), Some(0.5));
+    assert_eq!(read.category, "");
+    assert_eq!(read.status, "active");
+    assert_eq!(read.memory_kind, "memory");
+    assert_eq!(read.created_at.as_f64(), Some(0.0));
+    assert!(!read.confirmed);
+    assert_eq!(store.count(&active).unwrap(), before);
+    let found = store.search(&row.vector, 12, &active).unwrap();
+    assert!(found.iter().any(|scored| scored.row.id == row.id));
+}
+#[test]
+fn delete_refuses_a_non_uuid_and_deletes_more_than_one_hundred_ids() {
+    let (_temporary, store) = writable();
+    let prototype = store.scan(&RowFilter::default(), 1).unwrap().remove(0);
+    let rows = (0..150)
+        .map(|index| {
+            let mut row = prototype.clone();
+            row.id = format!("30000000-0000-4000-8000-{index:012}");
+            row.text = format!("Rust deletable fact {index}");
+            row
+        })
+        .collect::<Vec<_>>();
+    store.upsert(&rows).unwrap();
+    assert_eq!(store.count(&RowFilter::default()).unwrap(), 162);
+    let ids = rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>();
+    assert_eq!(
+        store.delete(&[ids[0], "not-a-uuid"]),
+        Err(plur1bus_engine::contract::StoreError::InvalidInput)
+    );
+    assert_eq!(store.count(&RowFilter::default()).unwrap(), 162);
+    assert_eq!(store.delete(&ids).unwrap(), 150);
+    assert_eq!(store.count(&RowFilter::default()).unwrap(), 12);
+}
+#[test]
 fn filter_dates_require_ascii_digits_and_source_and_origin_remain_independent() {
     for input in ["topic seit:2026-+1-01", "topic bis:2026-01-+1"] {
         let parsed = RowFilter::parse(input);

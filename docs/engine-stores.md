@@ -80,7 +80,12 @@ The shared location avoids a new crate or dependency line and keeps process iden
 
 ## APIs and scope
 
-`MemoryRow`, `RowPatch` and `RowFilter` preserve the persisted column names and the Node filter grammar. Updates use
+`MemoryRow`, `RowPatch` and `RowFilter` preserve the persisted column names and the Node filter grammar. A NULL
+column reads as the default of the pin's `normalizeEntryForTable`, or for `text`, `importance` and `category`, which
+have none there, as Node's common read fallbacks (`""`, `0.5`, `""`); `createdAt` reads as 0, Node's "unknown". Only a
+row without `id` or `vector` is corrupt. Like Node's scans, the filters `status = active` and `memoryKind = memory`
+also match NULL and empty values. `Store::delete` refuses an ID that is not a UUID before deleting anything, as Node's
+`MemoryDB.delete` throws for one, and deletes every ID, in lists of at most 100. Updates use
 native partial Lance updates, so concurrent changes to different columns do not overwrite each other. Content writes
 and content patches consult the actual tombstone registry; legacy rows with blank agent metadata use the physical
 namespace solely for this guard. Stored fields remain unchanged. Registry repair only quarantines and truncates an

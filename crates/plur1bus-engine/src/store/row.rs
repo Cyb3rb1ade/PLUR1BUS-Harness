@@ -214,9 +214,51 @@ pub(super) fn json_rows(batch: &RecordBatch) -> Result<Vec<serde_json::Value>, S
 pub(super) fn from_batches(batches: &[RecordBatch]) -> Result<Vec<MemoryRow>, StoreError> {
     batches.iter().try_fold(Vec::new(), |mut rows, batch| {
         for value in json_rows(batch)? {
-            rows.push(serde_json::from_value(value).map_err(|_| StoreError::Corrupt)?);
+            rows.push(decode_row(value)?);
         }
         Ok(rows)
+    })
+}
+
+/// Decode one Lance row. Every column is nullable, Node's readers treat NULL as the column's
+/// default, and Arrow JSON omits a NULL field, so a missing or NULL column takes that default
+/// instead of failing the whole read. Only `id` and `vector` have none: without them a row is
+/// corrupt.
+pub(super) fn decode_row(mut value: serde_json::Value) -> Result<MemoryRow, StoreError> {
+    let row = value.as_object_mut().ok_or(StoreError::Corrupt)?;
+    for (column, kind) in COLUMNS {
+        if row.get(*column).is_none_or(serde_json::Value::is_null) {
+            let default = null_default(column, kind).ok_or(StoreError::Corrupt)?;
+            row.insert((*column).to_owned(), default);
+        }
+    }
+    serde_json::from_value(value).map_err(|_| StoreError::Corrupt)
+}
+
+// The write defaults of the pin's `MemoryDB.normalizeEntryForTable`. It has none for `text`,
+// `importance` and `category`; those take Node's common read fallbacks. `createdAt` stays 0, the
+// "unknown" Node reports, instead of the insert time Node assigns when it writes a row.
+fn null_default(column: &str, kind: &str) -> Option<serde_json::Value> {
+    use serde_json::json;
+    Some(match column {
+        "id" | "vector" => return None,
+        "type" | "memoryKind" => json!("memory"),
+        "origin" => json!("dm"),
+        "mergedFrom" => json!("[]"),
+        "scope" => json!("agent-private"),
+        "emotionalDominant" => json!("neutral"),
+        "emotionStatus" | "importanceStatus" => json!("final"),
+        "memoryClass" => json!("standard"),
+        "status" => json!("active"),
+        "importance" => json!(0.5),
+        "memoryStrength" => json!(1.0),
+        "halfLifeDays" => json!(30),
+        "versionNumber" => json!(1),
+        _ => match kind {
+            "Utf8" => json!(""),
+            "Boolean" => json!(false),
+            _ => json!(0),
+        },
     })
 }
 
