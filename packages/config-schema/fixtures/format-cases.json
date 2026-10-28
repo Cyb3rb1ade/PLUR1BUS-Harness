@@ -141,6 +141,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -654,6 +657,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -1167,6 +1173,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -1680,6 +1689,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -2193,6 +2205,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -2706,6 +2721,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -3219,6 +3237,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -3732,6 +3753,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -4245,6 +4269,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -4758,6 +4785,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -5271,6 +5301,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -5784,6 +5817,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -6297,6 +6333,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -6810,6 +6849,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -7323,6 +7365,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -7836,6 +7881,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -8349,6 +8397,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -8862,6 +8913,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -9375,6 +9429,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -9888,6 +9945,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -10401,6 +10461,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -10914,6 +10977,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -11427,6 +11493,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -11940,6 +12009,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -12453,6 +12525,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -12966,6 +13041,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -13479,6 +13557,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -13992,6 +14073,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -14505,6 +14589,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -15015,6 +15102,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -15525,6 +15615,9 @@
         }
       },
       "engine": {},
+      "mcp": {
+        "servers": {}
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",

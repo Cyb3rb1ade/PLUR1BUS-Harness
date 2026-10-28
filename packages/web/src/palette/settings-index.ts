@@ -114,6 +114,8 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "engine.schicht15", type: "object", tier: "advanced", help: "Curated knowledge promotion settings passed to the Engine." },
   { key: "engine.schicht15.maxPromotionsPerRun", type: "integer", tier: "advanced", help: "Maximum memories promoted by one knowledge-update run; 0 means unlimited." },
   { key: "engine.baseDbPathOverride", type: "string", tier: "advanced", help: "Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default." },
+  { key: "mcp", type: "object", tier: "advanced", help: "Installed MCP extension activation and per-agent tool visibility (X2)." },
+  { key: "mcp.servers", type: "object", tier: "advanced", help: "Activation settings keyed by the installed MCP extension name." },
   { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration." },
   { key: "auth.requireSecondFactor", type: "string", tier: "advanced", help: "Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides." },
   { key: "auth.openai.loopbackTimeoutMs", type: "integer", tier: "advanced", help: "Loopback login deadline." },

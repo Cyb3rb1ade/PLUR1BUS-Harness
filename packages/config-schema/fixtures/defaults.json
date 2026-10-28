@@ -134,6 +134,9 @@
     }
   },
   "engine": {},
+  "mcp": {
+    "servers": {}
+  },
   "providers": {},
   "auth": {
     "requireSecondFactor": "remote",

@@ -3957,6 +3957,69 @@
           },
           "additionalProperties": true
         },
+        "mcp": {
+          "description": "Installed MCP extension activation and per-agent tool visibility (X2).",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-since": "1.7.0",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "properties": {
+            "servers": {
+              "description": "Activation settings keyed by the installed MCP extension name.",
+              "type": "object",
+              "default": {},
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "propertyNames": {
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+                "maxLength": 62
+              },
+              "additionalProperties": {
+                "description": "Activation and agent selection for one installed MCP extension.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "properties": {
+                  "enabled": {
+                    "description": "Allow this MCP extension to connect; newly installed servers stay disabled.",
+                    "type": "boolean",
+                    "default": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "agents": {
+                    "description": "All agents or the unique agent identifiers allowed to use this server's tools.",
+                    "default": "all",
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "oneOf": [
+                      {
+                        "const": "all"
+                      },
+                      {
+                        "type": "array",
+                        "maxItems": 256,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
         "auth": {
           "description": "Provider sign-in and credential lifecycle (D110): OAuth/PKCE login, federated tokens, refresh and the credential store.",
           "type": "object",

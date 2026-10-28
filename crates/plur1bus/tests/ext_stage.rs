@@ -259,6 +259,65 @@ fn inspect_dir(l: &Layout) -> PathBuf {
 // ---- inspect ------------------------------------------------------------------------------------------------------
 
 #[test]
+fn x2_worker_inspects_and_stages_mcp_and_bundle_without_installing_them() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    for (name, kind, want) in [
+        ("docs", "mcp-server", Kind::McpServer),
+        ("toolkit", "bundle", Kind::Bundle),
+    ] {
+        let mut t = template(name, kind);
+        t["requires"]["runtime"] = json!({ "type": "none" });
+        let files = if kind == "mcp-server" {
+            t["remote"] = json!({ "url": "https://mcp.example.org/v1", "auth": "none" });
+            t["capabilities"]["network"] =
+                json!({ "mode": "allowlist", "hosts": ["mcp.example.org"] });
+            vec![f("README.md", b"Remote documentation server\n", false)]
+        } else {
+            let member = skill_pkg("demo-skill", "demo-skill", None);
+            t["members"] = json!([{
+                "name": "demo-skill", "path": "payload/members/demo-skill.p1x",
+                "sha256": sha_hex(&member), "optional": false
+            }]);
+            vec![f("members/demo-skill.p1x", &member, false)]
+        };
+        let pkg = build_package_from(&t, files, Some(&key));
+        let path = write_pkg(d.path(), &format!("{name}.p1x"), &pkg);
+        let id = id();
+        let before = guarded(&l);
+        let rec = inspect::inspect(&l, Source::Path(path), &id).unwrap();
+        assert_eq!(rec.manifest["kind"], kind);
+        assert_eq!(guarded(&l), before, "inspection never installs {kind}");
+        let item = stage::stage(&l, &id).unwrap();
+        assert_eq!(item.kind, want);
+        assert_eq!(item.record.kind, kind);
+        assert!(item.dir.starts_with(l.extensions().join("staging")));
+        assert!(!l.extensions().join("state.json").exists());
+        assert!(!l.extensions().join("packages").join(name).exists());
+    }
+}
+
+#[test]
+fn x2_worker_refuses_provider_packages_before_installation() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let before = guarded(&l);
+    let mut t = template("acme", "provider");
+    t["requires"]["runtime"] = json!({ "type": "none" });
+    t["provider"] = json!({ "api": "chat_completions", "baseUrl": "https://api.acme.example/v1" });
+    t["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["api.acme.example"] });
+    let pkg = build_package_from(&t, vec![f("README.md", b"Provider\n", false)], Some(&key));
+    let path = write_pkg(d.path(), "acme.p1x", &pkg);
+    let error = inspect::inspect(&l, Source::Path(path), &id()).unwrap_err();
+    assert_eq!(reason(&error), ("E_NOT_AVAILABLE", "kind-unsupported"));
+    assert_eq!(guarded(&l), before);
+}
+
+#[test]
 fn inspect_writes_only_under_run_inspect() {
     let key = test_key("test");
     let _g = env_with(&key);

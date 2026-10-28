@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.6.0)
+# RPC reference (rpc 1.7.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -23087,13 +23087,15 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.4.0). The kind of an extension (X1). X2 extends the enum additively (mcp-server, bundle).",
+  "description": "Experimental (1.4.0). The kind of an extension: skill, module and channel since X1; mcp-server and bundle added in 1.7.0 (X2).",
   "x-stability": "experimental",
   "x-since": "1.4.0",
   "enum": [
     "skill",
     "module",
-    "channel"
+    "channel",
+    "mcp-server",
+    "bundle"
   ]
 }
 ```

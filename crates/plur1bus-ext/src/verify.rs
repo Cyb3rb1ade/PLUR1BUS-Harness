@@ -174,14 +174,24 @@ pub fn inspect_reader<R: Read + Seek>(r: &mut R, p: &Policy) -> Result<Inspectio
 /// The kinds `ext.install` handles since X1: everything a host-supervised lifecycle exists for.
 pub const X1_KINDS: [Kind; 3] = [Kind::Skill, Kind::Module, Kind::Channel];
 
-/// X1's kinds plus the two inert kinds the package store (`plur1bus::ext::packages`) installs (X2 / D1). `bundle`
-/// stays refused until its own task.
-pub const X2_KINDS: [Kind; 5] = [
+/// All X2 library kinds, including the provider package store API. Bundle member transaction validation belongs
+/// to the lifecycle worker; this set only selects the accepted manifest kinds.
+pub const X2_KINDS: [Kind; 6] = [
     Kind::Skill,
     Kind::Module,
     Kind::Channel,
     Kind::McpServer,
     Kind::Provider,
+    Kind::Bundle,
+];
+
+/// The X2 extension RPC lifecycle does not expose the library-only provider kind (work package M, A1).
+pub const X2_RPC_KINDS: [Kind; 5] = [
+    Kind::Skill,
+    Kind::Module,
+    Kind::Channel,
+    Kind::McpServer,
+    Kind::Bundle,
 ];
 
 /// [`inspect_reader`] for a chosen set of accepted kinds: any other kind is `E_NOT_AVAILABLE reason=kind-unsupported`

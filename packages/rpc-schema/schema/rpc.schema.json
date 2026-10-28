@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.6.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.6.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.7.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.7.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor or (methods only, since 1.3.0) module.",
-  "x-rpc-version": "1.6.0",
+  "x-rpc-version": "1.7.0",
   "$defs": {
     "MemoryCurationRecord": {"type": "object", "additionalProperties": false, "required": ["id", "status", "text", "category"], "properties": {"id": {"type": "string", "minLength": 1, "maxLength": 200}, "status": {"enum": ["candidate", "conflict", "stale"]}, "text": {"type": "string"}, "category": {"type": ["string", "null"]}}},
     "UserJob": {
@@ -1803,9 +1803,9 @@
     },
 
     "ExtKind": {
-      "description": "Experimental (1.4.0). The kind of an extension (X1). X2 extends the enum additively (mcp-server, bundle).",
+      "description": "Experimental (1.4.0). The kind of an extension: skill, module and channel since X1; mcp-server and bundle added in 1.7.0 (X2).",
       "x-stability": "experimental", "x-since": "1.4.0",
-      "enum": ["skill", "module", "channel"]
+      "enum": ["skill", "module", "channel", "mcp-server", "bundle"]
     },
     "ExtOverlay": {
       "description": "Experimental (1.4.0). A derived condition shown instead of the plain state; it never changes the configuration: `needs-setup` (a required secret slot is unfilled), `tampered` (installed files differ from state.json), `revoked` (a revocation matches), `incompatible` (compat no longer holds), `error` (an item in an error state, e.g. a module that gave up, spec 6.2).",

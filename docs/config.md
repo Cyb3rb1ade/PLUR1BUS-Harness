@@ -66,6 +66,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `memory.embedding.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport. |
 | `memory.reranker.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport. |
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
+| `mcp` | object | `{}` | live | Installed MCP extension activation and per-agent tool visibility (X2). |
 | `auth.requireSecondFactor` | string | `"remote"` | core | Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides. |
 | `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |
 | `auth.openai.httpTimeoutMs` | integer | `30000` | core | Bounded OpenAI HTTP deadline. |

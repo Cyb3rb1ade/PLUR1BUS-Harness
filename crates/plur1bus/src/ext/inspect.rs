@@ -2,8 +2,9 @@
 //!
 //! The package bytes are spooled to `run/inspect/<inspectionId>.p1x` (0600): stdin with the package cap enforced
 //! while reading, a `.p1x` file copied, a skill folder, `.zip` or `.skill` normalised into it (X1-R10). The spool then
-//! runs through `plur1bus_ext::verify::inspect_file` with this host's facts, trust store, reserved names, the
-//! `extensions.*` limits and `extensions.allowUnsigned` from `config.json`, and the revocation list. Then the name is
+//! runs through `plur1bus_ext::verify::inspect_file_kinds` with the X2 RPC kinds, this host's facts, trust store,
+//! reserved names, `extensions.*` limits and `extensions.allowUnsigned` from `config.json`, and the revocation list.
+//! Then the name is
 //! checked against what is installed (another id or kind → `E_CONFLICT name-taken`), a module's socket address is
 //! checked against this home (`socket-path-too-long`), and `replaces` is filled when the same id is installed. The
 //! record goes to `run/inspect/<inspectionId>.json`. Nothing outside `run/inspect/` is written; a refusal leaves
@@ -22,7 +23,7 @@ use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::Kind;
 use plur1bus_ext::normalise::{normalise_skill, SkillInput};
 use plur1bus_ext::refusal::{reason, Refusal};
-use plur1bus_ext::verify::{inspect_file, Policy};
+use plur1bus_ext::verify::{inspect_file_kinds, Policy, X2_RPC_KINDS};
 use plur1bus_ext::zipaudit::Limits;
 use serde_json::{json, Value};
 use std::io::{self, Read};
@@ -293,7 +294,7 @@ pub(crate) fn inspect_with(
         reserved: reserved_names(),
         revoked: &is_revoked,
     };
-    let insp = inspect_file(&pending.p1x, &policy)?;
+    let insp = inspect_file_kinds(&pending.p1x, &policy, &X2_RPC_KINDS)?;
     let m = &insp.manifest;
     let tier = trust_json(&insp.trust)["tier"]
         .as_str()

@@ -7,8 +7,8 @@ const EXT_METHODS = ["ext.disable", "ext.enable", "ext.inspect", "ext.install", 
 describe("rpc-schema", () => {
   const fx = loadFixtures();
 
-  it("declares rpc 1.6.0 and the closed error enum", () => {
-    assert.equal(RPC_VERSION, "1.6.0");
+  it("declares rpc 1.7.0 and the closed error enum", () => {
+    assert.equal(RPC_VERSION, "1.7.0");
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS",
       "E_AGENT_UNKNOWN", "E_AGENT_EXISTS", "E_AGENT_RIGHTS", "E_AGENT_SECRETS_MISSING", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",
@@ -122,7 +122,8 @@ describe("rpc-schema", () => {
       assert.equal(def.params.additionalProperties, false, `${m} params are closed`);
     }
     assert.equal(validateParams("ext.list", { kind: ["skill"], bogus: 1 }).ok, false);
-    assert.equal(validateParams("ext.list", { kind: ["mcp-server"] }).ok, false);
+    assert.deepEqual(validateParams("ext.list", { kind: ["mcp-server", "bundle"] }), { ok: true });
+    assert.equal(validateParams("ext.list", { kind: ["provider"] }).ok, false);
     assert.equal(validateParams("ext.list", { state: ["enabled"], agent: "bernd" }).ok, true);
     assert.equal(validateParams("ext.inspect", { source: { upload: "u" } }).ok, false);
     assert.equal(validateParams("ext.inspect", { source: { path: "/p", extra: 1 } }).ok, false);

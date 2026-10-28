@@ -23,6 +23,7 @@ use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::{parse_manifest, Kind, P1xManifest};
 use plur1bus_ext::refusal::{reason, Refusal};
 use plur1bus_ext::skill::validate_skill_md;
+use plur1bus_ext::verify::X2_RPC_KINDS;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -319,7 +320,8 @@ fn check_kind(payload: &Path, m: &P1xManifest) -> Result<(), ExtError> {
                 ));
             }
         }
-        Kind::McpServer | Kind::Provider | Kind::Bundle => {
+        Kind::McpServer | Kind::Bundle => {}
+        Kind::Provider => {
             return Err(ExtError::new(
                 "E_NOT_AVAILABLE",
                 reason::KIND_UNSUPPORTED,
@@ -404,6 +406,17 @@ fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtE
     }
     let raw = serde_json::to_vec(&rec.manifest).unwrap_or_default();
     let m = parse_manifest(&raw, super::host::reserved_names())?;
+    if !X2_RPC_KINDS.contains(&m.kind) {
+        return Err(ExtError::new(
+            "E_NOT_AVAILABLE",
+            reason::KIND_UNSUPPORTED,
+            format!(
+                "{} packages are not supported by the extension lifecycle",
+                kind_name(m.kind)
+            ),
+        ));
+    }
+    plur1bus_ext::kinds::check_kind(&m)?;
 
     let paths = ExtPaths::of(layout);
     let mut cleanup = Cleanup {
