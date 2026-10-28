@@ -225,6 +225,25 @@ contains no LICENSE file in its root or ONNX directory. That mismatch does not e
 receipt and does not authorize BGE-derived goldens. The local cache inventory found only RE-14's o200k tokenizer,
 with no pinned e5/Gemma tokenizer or ONNX payload to reuse.
 
+After the owner reported a Hugging Face allowlist update, actual pinned tokenizer GETs were repeated at
+2026-10-28 23:58:47 CET (Europe/Berlin) for
+`https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/tokenizer.json`
+and at 23:59:07 CET for
+`https://huggingface.co/ldwformat/jina-embeddings-v3-Q8-onnx/resolve/68ed94909d564380f954be27ae2e133214c1adc9/tokenizer.json`.
+Both still returned `curl: (56) CONNECT tunnel failed, response 403`, with the proxy's first response
+`HTTP/1.1 403 Forbidden` (`server: envoy`), before any Hugging Face redirect. No redirected download host was
+reached. Local Jina test consent remains granted; Jina parity remains open because artifact access still fails.
+
+### Release build measurement
+
+The [2026-10-28 release measurement](handoffs/2026-10-28-re03-release-measurement.md) compares fresh Cargo targets
+for baseline `f56f1bcf` and reviewed RE-03 `c2b2dd21`, with identical release flags and toolchain. Cargo reported
+29m 49s / 1,391,488 executable bytes versus 29m 26s / 1,391,120 bytes: observed differences of -23 s and -368 bytes.
+This single sample does not establish a speedup; source/OS caches were shared and compile-time variance remains.
+The unchanged placeholder entry point also allows unused inference code to be discarded. The report records
+binary digests, process evidence, monitoring limitations and why RE-00 dev timings cannot be used as release
+comparators. No binary or model payload is committed.
+
 ## Locks
 
 The public `Lock` type supports both existing Node layouts; callers select the appropriate acquisition API.
