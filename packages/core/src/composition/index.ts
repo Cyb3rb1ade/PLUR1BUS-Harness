@@ -1,3 +1,4 @@
+import { restoreSessionSkills } from './session-skills.ts';
 import { ruleSkills, selectDecisionSkills } from '../decision/skills.ts';
 import { SessionModelRouting } from './model-routing.ts';
 import { DecisionClient } from '../decision/client.ts';
@@ -308,7 +309,14 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         }
       },
     });
-    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, modelRouting, onModelRouting: (event, turn) => {
+    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, modelRouting,
+      restoreSkills: request => restoreSessionSkills(sessions.forSession(request.sessionId).store, request),
+      skillCatalogueSnapshot: (request, catalogue) => {
+        const store = sessions.forSession(request.sessionId).store;
+        const session = store.getSession(request.sessionId);
+        if (!session || session.agentId !== request.agentId || session.owner !== request.principal) return catalogue;
+        return store.freezeSkillCatalogue(request.sessionId, catalogue);
+      }, onModelRouting: (event, turn) => {
       const service = sessions.forSession(turn.sessionId), session = service.store.getSession(turn.sessionId);
       if (!session || session.agentId !== turn.agentId || session.owner !== turn.principal || service.store.getTurn(turn.turnId)?.sessionId !== session.id) return;
       const stored = service.store.appendEvent(turn.turnId, 'model.selected', { ...event });

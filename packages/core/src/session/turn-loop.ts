@@ -137,7 +137,15 @@ export class TurnRunner {
       for await (const chunk of provider.stream({
         ...(selectedProfile ? { modelProfile: selectedProfile } : {}), ...(reasoning ? { reasoning } : {}),
         sessionId: session.id, turnId, caller, incognito, ...(recurring ? { recurring } : {}), ...((authenticatedPerson ?? recurring?.runAs) ? { authenticatedPerson: authenticatedPerson ?? recurring!.runAs } : {}), ...(turnProfile ? { turnProfile } : {}), ...(approver ? { approver } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
-        messages: [...(recurring ? [{ role: "system" as const, text: `Automatically triggered by recurring task ${recurring.jobName} (${recurring.jobId}); runAs=${recurring.runAs}. This is a scheduled task, not a live message.` }] : []), ...view.messages.map((m) => ({ role: m.role, text: m.text }))], signal,
+        messages: [
+          ...(recurring ? [{
+            role: "system" as const,
+            text: `Automatically triggered by recurring task ${recurring.jobName} (${recurring.jobId}); `
+              + `runAs=${recurring.runAs}. This is a scheduled task, not a live message.`,
+          }] : []),
+          ...view.messages.map((m) => ({ role: m.role, text: m.text, ...(m.turnId ? { turnId: m.turnId } : {}) })),
+        ],
+        signal,
         ...(this.#d.toolCalls ? { tools: this.#d.toolCalls.dispatcher.describe() } : {}),
       })) {
         // The generator may report its final observation while closing after cancellation.

@@ -128,6 +128,13 @@ export const MIGRATIONS: readonly string[] = [
    ALTER TABLE tool_visibility ADD COLUMN confidence REAL;
    ALTER TABLE tool_visibility ADD COLUMN tokens_saved INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE tool_visibility ADD COLUMN refetches INTEGER NOT NULL DEFAULT 0;`,
+  // v7: applyAt=next-session freezes authored skill catalogue bytes independently of the memory snapshot.
+  `CREATE TABLE skill_catalogue_snapshots (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    catalogue TEXT NOT NULL
+  );
+  CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)
+    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load';`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
