@@ -30,15 +30,16 @@ Wait for these, they are the reliable signal:
   that every `packages/web` test file ran in exactly one shard). A job the plan did not select (for example everything but
   `docs-hygiene` on a docs-only change) is skipped on purpose and counts as passed. Wait for `ci-gate`, not for the single jobs: a skipped matrix never reports
   `unit (ubuntu-24.04)`, `ci-gate` always reports.
-- `quality` (workflow `release-quality`, macos-15): third-party notices, `pnpm lint`, the release checklist and the dependency audit policy.
-  While the repository variable `MACOS_SELF_HOSTED` is `true` it runs on the owner's macOS VM runner instead (`docs/ci.md`,
-  "Self-hosted macOS runner"). A `quality` job that waits for that runner while the Mac is off is not red: report it.
+- `quality` (workflow `release-quality`, macos-15): third-party notices, `pnpm lint`, the release checklist and the dependency audit policy
 - `build + smoke (amd64)` (workflow `container`)
 - `dependency-licenses-gate` (workflow `dependency-licenses`): the licence report of `scripts/audit-deps.mjs` on
   `ubuntu-24.04`, `macos-15` and `windows-2025` (`docs/dependency-policy.md`). It reports on every pull request; one that
   touches no dependency file skips the three legs on purpose, and the gate passes. Wait for the gate, not the legs.
 
 `build + smoke (amd64)` only runs for pull requests that touch the paths in `container.yml`; a check that is absent is not a red one.
+While the repository variable `MACOS_SELF_HOSTED` is `true`, `quality` and the macOS leg of `dependency-licenses` run on the
+owner's macOS VM runner (`docs/ci.md`, "Self-hosted macOS runner"). One that waits for that runner while the Mac is off is
+not red: report it.
 `ci-gate (label no-op)` is what a run for a label other than `ci:macos` reports: it is not the gate, ignore it.
 
 Do not wait for these, and do not treat them as blocking. They are slow, flaky or already

@@ -25,7 +25,7 @@ test("licence workflow checks every platform's native packages, Linux alone on a
   const workflow = readFileSync(new URL(".github/workflows/dependency-licenses.yml", root), "utf8");
   assert.match(workflow, /fail-fast: false/);
   assert.match(workflow, /os: \[ubuntu-24\.04, macos-15, windows-2025\]/);
-  assert.match(workflow, /runs-on: \$\{\{ matrix\.os \}\}/);
+  assert.match(workflow, /runs-on: \$\{\{ \(matrix\.os == 'macos-15' && vars\.MACOS_SELF_HOSTED == 'true' && .*\|\| matrix\.os \}\}$/m, "Linux and Windows on their hosted runner");
   assert.ok(workflow.includes(`exclude: \${{ fromJSON(github.event_name == 'push' && '[{"os":"macos-15"},{"os":"windows-2025"}]' || '[]') }}`));
   assert.match(workflow, /name: dependency-licenses-\$\{\{ matrix\.os \}\}/, "one artifact per leg");
   for (const step of workflow.split(/\n(?=      - )/).filter((s) => /\brun: \|/.test(s))) assert.match(step, /shell: bash/, "bash on every OS");

@@ -176,11 +176,12 @@ Platform-sensitive paths (the `SENSITIVE` list in the script; edit it there only
 
 ## Self-hosted macOS runner
 
-Since the owner decision of 2026-10-28 the deciding macOS job, `quality` (`release-quality.yml`), can run on a macOS VM
-on the owner's Mac instead of waiting in GitHub's macOS queue. Its `runs-on` picks the label `plur1bus-macos-vm` only
-while the repository variable `MACOS_SELF_HOSTED` is `true`, and only for code from this repository: a push, a manual
-run, or a pull request whose head branch is in this repository. A fork's pull request always runs on `macos-15`.
-No other job uses the label.
+Since the owner decision of 2026-10-28 the deciding macOS jobs, `quality` (`release-quality.yml`) and the macOS leg of
+`dependency-licenses`, can run on a macOS VM on the owner's Mac instead of waiting in GitHub's macOS queue. Their
+`runs-on` picks the label `plur1bus-macos-vm` only while the repository variable `MACOS_SELF_HOSTED` is `true`, and only
+for code from this repository: a push, a manual or scheduled run, or a pull request whose head branch is in this
+repository. A fork's pull request and a merge group always run on `macos-15`. `scripts/ci/macos-vm-runner.test.mjs`
+checks that no other job uses the label and that every route to it admits only those events.
 
 The pieces are in `scripts/ci/macos-vm-runner/`:
 
