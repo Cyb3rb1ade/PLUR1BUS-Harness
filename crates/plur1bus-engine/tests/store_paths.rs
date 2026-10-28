@@ -25,6 +25,47 @@ fn inspecting_a_missing_store_path_does_not_create_it() {
     assert_trusted_path(&path).unwrap();
     assert!(!path.exists());
 }
+#[cfg(windows)]
+#[test]
+fn canonical_windows_paths_are_checked_from_the_filesystem_root() {
+    use std::path::{Component, Prefix};
+
+    let root = scratch();
+    assert!(matches!(
+        root.path.components().next(),
+        Some(Component::Prefix(prefix))
+            if matches!(prefix.kind(), Prefix::VerbatimDisk(_) | Prefix::VerbatimUNC(_, _))
+    ));
+    let file = root.path.join("state.json");
+    std::fs::write(&file, b"{}").unwrap();
+    let missing = root.path.join("missing/agent");
+    for path in [
+        root.path.ancestors().last().unwrap(),
+        root.path.as_path(),
+        file.as_path(),
+        missing.as_path(),
+    ] {
+        assert_trusted_path(path).unwrap();
+    }
+    assert!(!missing.exists());
+    assert!(matches!(
+        assert_trusted_path(&file.join("child")),
+        Err(StoreError::UntrustedPath)
+    ));
+}
+#[cfg(windows)]
+#[test]
+fn drive_relative_windows_paths_and_bare_volumes_are_refused() {
+    for path in [r"C:", r"C:relative", r"\\?\C:"] {
+        assert!(
+            matches!(
+                assert_trusted_path(std::path::Path::new(path)),
+                Err(StoreError::InvalidInput)
+            ),
+            "accepted drive-relative path {path:?}"
+        );
+    }
+}
 #[test]
 fn new_private_directories_and_files_use_the_shared_protection_rule() {
     let root = scratch();

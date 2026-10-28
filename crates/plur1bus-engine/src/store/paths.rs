@@ -20,6 +20,12 @@ pub fn assert_trusted_path(path: &Path) -> Result<(), StoreError> {
             continue;
         }
         walked.push(component.as_os_str());
+        if matches!(component, Component::Prefix(_))
+            && matches!(absolute.components().nth(1), Some(Component::RootDir))
+        {
+            // Inspect the complete filesystem root instead of opening its drive/share prefix.
+            continue;
+        }
         match fs::symlink_metadata(&walked) {
             Ok(metadata) if metadata.file_type().is_symlink() => {
                 return Err(StoreError::UntrustedPath);
@@ -132,6 +138,16 @@ pub fn namespace_path(base: &Path, namespace: &str) -> Result<PathBuf, StoreErro
 
 fn absolute_path(path: &Path) -> Result<PathBuf, StoreError> {
     if path.as_os_str().is_empty() {
+        return Err(StoreError::InvalidInput);
+    }
+    #[cfg(windows)]
+    if matches!(
+        path.components().next(),
+        Some(Component::Prefix(prefix))
+            if matches!(prefix.kind(), std::path::Prefix::Disk(_) | std::path::Prefix::VerbatimDisk(_))
+    ) && !matches!(path.components().nth(1), Some(Component::RootDir))
+    {
+        // C:child replaces a joined base; a bare verbatim prefix names a volume, not its root.
         return Err(StoreError::InvalidInput);
     }
     if path.is_absolute() {
