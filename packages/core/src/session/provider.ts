@@ -36,7 +36,9 @@ export interface ChatRequest {
   recurring?: RecurringOrigin;
   turnProfile?: import("../voice/turn-profile.ts").TurnProfile;
   /** Internal background role: the same router/budget, with no tool execution. */
-  role?: "summarize" | "decision";
+  role?: "summarize" | "decision" | "engine";
+  /** Internal engine completion option; never read from session.submit parameters. */
+  temperature?: number;
   taskBoundary?: import("../triage/runtime.ts").TaskBoundary; maxOutputTokens?: number;
   modelProfile?: string;
   /** The chat's reasoning choice (a level of the harness scale); absent = provider default. Each attempt maps it onto the

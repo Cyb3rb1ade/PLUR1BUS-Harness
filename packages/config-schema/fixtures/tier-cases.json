@@ -3948,6 +3948,17 @@
           "x-restart": "core",
           "x-tier": "advanced",
           "properties": {
+            "implementation": {
+              "description": "Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable.",
+              "type": "string",
+              "enum": [
+                "node",
+                "rust"
+              ],
+              "default": "node",
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
             "schicht15": {
               "description": "Curated knowledge promotion settings passed to the Engine.",
               "type": "object",

@@ -346,9 +346,19 @@ function collectPython(root, run) {
   return { entries, notes };
 }
 
+/** `code: message` of pnpm's `--json` failure document (`{"error": {...}}` on stdout); null when stdout is not one. */
+function pnpmJsonError(stdout) {
+  let doc;
+  try { doc = JSON.parse(stdout); } catch { return null; }
+  const { code, message } = doc?.error ?? {};
+  const text = [code, message].filter((s) => typeof s === "string" && s.trim() !== "").join(": ");
+  return text === "" ? null : firstLine(text.replace(/\s+/g, " "));
+}
+
 function collectPnpm(root, run) {
   const r = run("pnpm", ["licenses", "list", "--json"], { cwd: root });
-  if (r.error || r.status !== 0) return { entries: [], incomplete: `pnpm licenses list failed (is \`pnpm install\` done?): ${firstLine(r.error ?? (r.stdout + r.stderr))}` };
+  // pnpm prints a failure as a pretty-printed JSON document; the last line of that is only "}".
+  if (r.error || r.status !== 0) return { entries: [], incomplete: `pnpm licenses list failed (is \`pnpm install\` done?): ${r.error ? firstLine(r.error) : pnpmJsonError(r.stdout) ?? firstLine(r.stdout + r.stderr)}` };
   let doc;
   try { doc = JSON.parse(r.stdout); } catch { return { entries: [], incomplete: "pnpm licenses list: output is not JSON" }; }
   if (doc.error) return { entries: [], incomplete: `pnpm licenses list: ${doc.error.code ?? "error"}` };

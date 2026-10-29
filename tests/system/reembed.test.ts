@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { REAL, cli, coreChild, home, reapHome, startCore, startDaemon, stopCore, waitFor, type RunningCore } from "./helpers.ts";
+import { CI_RECALL_HARD_MS, REAL, cli, coreChild, home, reapHome, startCore, startDaemon, stopCore, waitFor, type RunningCore } from "./helpers.ts";
 
 const E5 = "intfloat/multilingual-e5-small"; // the harness default: already the store's identity
 const JINA = "jinaai/jina-embeddings-v3";
@@ -146,6 +146,12 @@ describe("re-embedding a store with data through config set (engine 1.17.0 valid
     try {
       cli(h, ["agent", "create", "bernd"]);
       cli(h, ["config", "set", "engine.duplicateThreshold", "1.01", "--yes"]); // distinct facts with the flat embedder
+      // H3-R26: these homes are created independently of the two-session recall acceptance's configured home.
+      if (CI_RECALL_HARD_MS !== null) {
+        for (const key of ["core.recall.hardBudgetMs", "core.recall.softBudgetMs"]) {
+          cli(h, ["config", "set", key, String(CI_RECALL_HARD_MS), "--yes"]);
+        }
+      }
       startDaemon(h);
       const before = await readyCore(h, "a ready core");
       for (const f of FACTS) assert.equal(cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", f]).stored, 1);

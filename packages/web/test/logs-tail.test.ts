@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import type { Page } from "playwright";
-import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
+import { browserSkip, openRoute, setup, teardown, until, withApp, type App } from "./harness.ts";
 import { installLogsMocks, makeLines, makeRecord, type LogsMock } from "./logs-fixtures.ts";
 import { rpcError } from "./mock-rpc.ts";
 
@@ -34,7 +34,7 @@ describe("logs tail", opts, () => {
   test("anchors with a one-line call, then long-polls with the cursor, the filters and waitMs", async () => {
     await withApp({}, async (app) => {
       const m = await open(app);
-      while (m.tails().length < 2) await new Promise((r) => setTimeout(r, 20));
+      await until(() => m.tails().length >= 2, "the anchor and the first follow-up tail call");
       const [anchor, follow] = m.tails() as [Record<string, unknown>, Record<string, unknown>];
       assert.deepEqual(anchor, { stream: "diagnostic", limit: 1 });
       assert.equal(follow.cursor, "t30");
@@ -171,7 +171,7 @@ describe("logs tail", opts, () => {
       await f.getByLabel("Minimum level").selectOption("warn");
       await f.getByRole("button", { name: "Apply filters" }).click();
       await tailState(app.page).getByText("Live").waitFor();
-      while (!m.tails().some((c) => c.minLevel === "warn")) await new Promise((r) => setTimeout(r, 20));
+      await until(() => m.tails().some((c) => c.minLevel === "warn"), "a tail call with minLevel warn");
       const t = m.tails().find((c) => c.minLevel === "warn")!;
       assert.deepEqual(t, { stream: "diagnostic", minLevel: "warn", limit: 1 });
     });

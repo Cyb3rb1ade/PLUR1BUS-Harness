@@ -1,0 +1,8 @@
+{
+  "params": {
+    "query": "workspace:v1:test",
+    "docs": [],
+    "topN": 0
+  },
+  "result": []
+}

@@ -1,0 +1,9 @@
+{
+  "params": {
+    "id": "workspace:v1:test"
+  },
+  "result": {
+    "stored": 0,
+    "skipped": 0
+  }
+}

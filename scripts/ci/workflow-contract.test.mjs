@@ -83,7 +83,7 @@ test('unit checks continue after earlier failures, stop on cancellation and time
     const block = jobBlocks(workflow())[name];
     const independent = block.slice(block.indexOf('      # The vacuous-run guard'));
     const steps = independent.split(/(?=^      - )/m).filter(step => /^      - /m.test(step));
-    assert.equal(steps.length, 10, `${name}: guard, release, installer, fmt, clippy, three tokenizer steps, build and run`);
+    assert.equal(steps.length, 12, `${name}: guard, release, installer, fmt, clippy, three tokenizer steps, library build, full build, run and diagnostics`);
     for (const step of steps) {
       const expression = /^ {6}(?:- |  )if: \$\{\{ (.*?) \}\}$/m.exec(step)?.[1];
       assert.ok(expression?.includes('!cancelled()'), `${name}: explicit status guard for ${step}`);
@@ -98,11 +98,17 @@ test('unit checks continue after earlier failures, stop on cancellation and time
         }
       }
     }
-    const build = steps.find(step => /run: cargo test --workspace --no-run\n/.test(step));
-    const run = steps.find(step => /run: cargo test --workspace --no-fail-fast\n/.test(step));
+    const library = steps.find(step => /^          cargo test --workspace --lib --no-run(?: [^\n]*)?\n/m.test(step));
+    const build = steps.find(step => /^          cargo test --workspace --no-run(?: [^\n]*)?\n/m.test(step));
+    const run = steps.find(step => /^          cargo test --workspace --no-fail-fast(?: [^\n]*)?\n/m.test(step));
+    assert.match(library, /timeout-minutes: 25/);
     assert.match(build, /timeout-minutes: 25/);
     assert.match(run, /timeout-minutes: 30/);
+    assert.equal(steps.indexOf(library) + 1, steps.indexOf(build));
     assert.equal(steps.indexOf(build) + 1, steps.indexOf(run));
+    for (const phase of [library, build, run]) {
+      assert.doesNotMatch(phase, /--(?:exclude|skip|features|no-default-features|target-dir|release)\b/);
+    }
   }
 });
 
@@ -164,7 +170,7 @@ test('a label run for another label cannot report a check named ci-gate', () => 
 test('docs-hygiene uses the verified pnpm v6 commit', () => {
   const yaml = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
   const block = yaml.split('  docs-hygiene:\n')[1].split(/\n  [a-z][\w-]*:\n/)[0];
-  assert.match(block, /pnpm\/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6/);
+  assert.match(block, /pnpm\/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6\.1\.0/);
 });
 
 // #621's added macOS browser job used a renamed planning dependency. Catch this even when YAML merges cleanly.
@@ -256,7 +262,7 @@ test('a PR without the platform policy still gets a passing gate when the gated 
   const outputs = Object.fromEntries(Object.entries({ proceed: true, macos: false, ...classify({ event: 'pull_request', files: ['packages/core/src/core.ts'] }) }).map(([k, v]) => [k, String(v)]));
   const needs = { changes: { result: 'success', outputs } };
   for (const [job, required] of Object.entries(selections(outputs))) needs[job] = { result: required ? 'success' : 'skipped' };
-  assert.equal(selections(outputs)['web-browser-macos'], false);
+  assert(!('web-browser-macos' in selections(outputs)), 'the macOS browser shards are outside the gate');
   assert.deepEqual(evaluateGate(needs), []);
   assert(!('unit-os' in needs), 'the gated non-Linux jobs are not part of the gate');
 });

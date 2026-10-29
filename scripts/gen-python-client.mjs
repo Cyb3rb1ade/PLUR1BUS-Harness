@@ -1,8 +1,8 @@
 // Generator for the Python client (HM2-R3), run by `packages/rpc-schema`'s `gen` script:
 //  1. writes clients/python/plur1bus-memory-client/src/plur1bus_memory_client/_schema.py from rpc.schema.json
 //     (RPC_VERSION, SCHEMA_SHA256 of the LF-normalised schema bytes, METHODS = {name: (x-server, x-stability, x-since)});
-//  2. verifies the hand-committed tests/fixtures/address-vectors.json against module-api's coreAddress and fails on
-//     drift. The vectors are never written here (F22): their hashes were computed independently of every
+//  2. verifies the independently computed tests/fixtures/address-vectors.json against module-api's coreAddress and
+//     engineAddress and fails on drift. The vectors are never written here (F22): their hashes were computed independently of every
 //     implementation, and Python, Rust and TypeScript tests all read the same file.
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -46,9 +46,16 @@ const out = [
 ].join("\n");
 writeFileSync(outPath, out);
 
-const { coreAddress } = await import(pathToFileURL(join(root, "packages", "module-api", "src", "paths.ts")).href);
+const { coreAddress, engineAddress } = await import(pathToFileURL(join(root, "packages", "module-api", "src", "paths.ts")).href);
 const vectors = JSON.parse(readFileSync(vectorsPath, "utf8"));
-const drift = vectors.filter((v) => coreAddress(v.home, v.platform) !== v.address);
-for (const v of drift) console.error(`address-vectors.json: ${v.platform} ${JSON.stringify(v.home)}: coreAddress gives ${JSON.stringify(coreAddress(v.home, v.platform))}, vector says ${JSON.stringify(v.address)}`);
+const addresses = [
+  { name: "coreAddress", resolve: coreAddress, key: "address" },
+  { name: "engineAddress", resolve: engineAddress, key: "engineAddress" },
+];
+const drift = vectors.flatMap((v) => addresses.flatMap(({ name, resolve, key }) => {
+  const actual = resolve(v.home, v.platform);
+  return actual === v[key] ? [] : [{ ...v, name, actual, expected: v[key] }];
+}));
+for (const v of drift) console.error(`address-vectors.json: ${v.platform} ${JSON.stringify(v.home)}: ${v.name} gives ${JSON.stringify(v.actual)}, vector says ${JSON.stringify(v.expected)}`);
 if (drift.length) process.exit(1);
 console.log(`gen-python-client: _schema.py (rpc ${rpc}, ${rows.length} methods); ${vectors.length} address vectors agree`);

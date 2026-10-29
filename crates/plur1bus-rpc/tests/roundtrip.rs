@@ -74,12 +74,13 @@ where
     round_trip::<R>(result, &format!("{name} result"));
     assert_missing_required::<R>(result, result_schema, &format!("{name} result"));
     let mut result_with_unknown = result.clone();
-    result_with_unknown
-        .as_object_mut()
-        .expect("RPC results are objects")
-        .insert("unknownRoundtripField".into(), Value::Bool(true));
-    serde_json::from_value::<R>(result_with_unknown)
-        .unwrap_or_else(|e| panic!("{name} result: rejected an unknown field: {e}"));
+    // Engine operations also return scalars and arrays. Unknown-field compatibility
+    // applies to object results; every result still has the roundtrip above.
+    if let Some(properties) = result_with_unknown.as_object_mut() {
+        properties.insert("unknownRoundtripField".into(), Value::Bool(true));
+        serde_json::from_value::<R>(result_with_unknown)
+            .unwrap_or_else(|e| panic!("{name} result: rejected an unknown field: {e}"));
+    }
 }
 
 #[test]
@@ -103,6 +104,305 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "engine.agent.close" => check_pair::<
+                types::EngineAgentCloseParams,
+                types::EngineAgentCloseResult,
+            >(name, fixture, &root_schema),
+            "host.journalBacklog" => check_pair::<
+                types::HostJournalBacklogParams,
+                types::HostJournalBacklogResult,
+            >(name, fixture, &root_schema),
+            "host.event" => check_pair::<types::HostEventParams, types::HostEventResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "host.workspaceDir" => check_pair::<
+                types::HostWorkspaceDirParams,
+                types::HostWorkspaceDirResult,
+            >(name, fixture, &root_schema),
+            "host.secret.get" => {
+                check_pair::<types::HostSecretGetParams, types::HostSecretGetResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "host.egress.decide" => check_pair::<
+                types::HostEgressDecideParams,
+                types::HostEgressDecideResult,
+            >(name, fixture, &root_schema),
+            "host.llm.complete" => check_pair::<
+                types::HostLlmCompleteParams,
+                types::HostLlmCompleteResult,
+            >(name, fixture, &root_schema),
+            "engine.tombstones.reapply" => check_pair::<
+                types::EngineTombstonesReapplyParams,
+                types::EngineTombstonesReapplyResult,
+            >(name, fixture, &root_schema),
+            "engine.snapshot.verify" => check_pair::<
+                types::EngineSnapshotVerifyParams,
+                types::EngineSnapshotVerifyResult,
+            >(name, fixture, &root_schema),
+            "engine.snapshot.create" => check_pair::<
+                types::EngineSnapshotCreateParams,
+                types::EngineSnapshotCreateResult,
+            >(name, fixture, &root_schema),
+            "engine.stores.adopt" => check_pair::<
+                types::EngineStoresAdoptParams,
+                types::EngineStoresAdoptResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.obsidian.confirm" => check_pair::<
+                types::EngineAdminObsidianConfirmParams,
+                types::EngineAdminObsidianConfirmResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.obsidian.prepare" => check_pair::<
+                types::EngineAdminObsidianPrepareParams,
+                types::EngineAdminObsidianPrepareResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.obsidian.detect" => check_pair::<
+                types::EngineAdminObsidianDetectParams,
+                types::EngineAdminObsidianDetectResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.migrate" => check_pair::<
+                types::EngineAdminMigrateParams,
+                types::EngineAdminMigrateResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.workspacePolicy.set" => check_pair::<
+                types::EngineAdminWorkspacePolicySetParams,
+                types::EngineAdminWorkspacePolicySetResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.workspacePolicy.list" => check_pair::<
+                types::EngineAdminWorkspacePolicyListParams,
+                types::EngineAdminWorkspacePolicyListResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.workspacePolicy.get" => check_pair::<
+                types::EngineAdminWorkspacePolicyGetParams,
+                types::EngineAdminWorkspacePolicyGetResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.reembedding.switch" => check_pair::<
+                types::EngineAdminReembeddingSwitchParams,
+                types::EngineAdminReembeddingSwitchResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.reembedding.status" => check_pair::<
+                types::EngineAdminReembeddingStatusParams,
+                types::EngineAdminReembeddingStatusResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.reembedding.rollback" => check_pair::<
+                types::EngineAdminReembeddingRollbackParams,
+                types::EngineAdminReembeddingRollbackResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.reembedding.validate" => check_pair::<
+                types::EngineAdminReembeddingValidateParams,
+                types::EngineAdminReembeddingValidateResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.reembedding.resume" => check_pair::<
+                types::EngineAdminReembeddingResumeParams,
+                types::EngineAdminReembeddingResumeResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.reembedding.apply" => check_pair::<
+                types::EngineAdminReembeddingApplyParams,
+                types::EngineAdminReembeddingApplyResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.reembedding.plan" => check_pair::<
+                types::EngineAdminReembeddingPlanParams,
+                types::EngineAdminReembeddingPlanResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.forget" => check_pair::<
+                types::EngineAdminForgetParams,
+                types::EngineAdminForgetResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.share" => check_pair::<
+                types::EngineAdminShareParams,
+                types::EngineAdminShareResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.curation.drop" => check_pair::<
+                types::EngineMemoryCurationDropParams,
+                types::EngineMemoryCurationDropResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.curation.keep" => check_pair::<
+                types::EngineMemoryCurationKeepParams,
+                types::EngineMemoryCurationKeepResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.link" => check_pair::<
+                types::EngineMemoryLinkParams,
+                types::EngineMemoryLinkResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.unimport" => check_pair::<
+                types::EngineMemoryUnimportParams,
+                types::EngineMemoryUnimportResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.unbind" => check_pair::<
+                types::EngineMemoryUnbindParams,
+                types::EngineMemoryUnbindResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.rebind" => check_pair::<
+                types::EngineMemoryRebindParams,
+                types::EngineMemoryRebindResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.import" => check_pair::<
+                types::EngineMemoryImportParams,
+                types::EngineMemoryImportResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.proposals.reject" => check_pair::<
+                types::EngineMemoryProposalsRejectParams,
+                types::EngineMemoryProposalsRejectResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.proposals.accept" => check_pair::<
+                types::EngineMemoryProposalsAcceptParams,
+                types::EngineMemoryProposalsAcceptResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.proposals.list" => check_pair::<
+                types::EngineMemoryProposalsListParams,
+                types::EngineMemoryProposalsListResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.propose" => check_pair::<
+                types::EngineMemoryProposeParams,
+                types::EngineMemoryProposeResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.state" => check_pair::<
+                types::EngineMemoryStateParams,
+                types::EngineMemoryStateResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.share" => check_pair::<
+                types::EngineMemoryShareParams,
+                types::EngineMemoryShareResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.correct" => check_pair::<
+                types::EngineMemoryCorrectParams,
+                types::EngineMemoryCorrectResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.forget" => check_pair::<
+                types::EngineMemoryForgetParams,
+                types::EngineMemoryForgetResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.show" => check_pair::<
+                types::EngineMemoryShowParams,
+                types::EngineMemoryShowResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.list" => check_pair::<
+                types::EngineMemoryListParams,
+                types::EngineMemoryListResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.curation.resolve" => check_pair::<
+                types::EngineMemoryCurationResolveParams,
+                types::EngineMemoryCurationResolveResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.curation.list" => check_pair::<
+                types::EngineMemoryCurationListParams,
+                types::EngineMemoryCurationListResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.promote" => check_pair::<
+                types::EngineMemoryPromoteParams,
+                types::EngineMemoryPromoteResult,
+            >(name, fixture, &root_schema),
+            "engine.memory.stats" => check_pair::<
+                types::EngineMemoryStatsParams,
+                types::EngineMemoryStatsResult,
+            >(name, fixture, &root_schema),
+            "engine.models" => check_pair::<types::EngineModelsParams, types::EngineModelsResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "engine.models.warm" => check_pair::<
+                types::EngineModelsWarmParams,
+                types::EngineModelsWarmResult,
+            >(name, fixture, &root_schema),
+            "engine.models.status" => check_pair::<
+                types::EngineModelsStatusParams,
+                types::EngineModelsStatusResult,
+            >(name, fixture, &root_schema),
+            "engine.config.normalizeEmbedding" => check_pair::<
+                types::EngineConfigNormalizeEmbeddingParams,
+                types::EngineConfigNormalizeEmbeddingResult,
+            >(name, fixture, &root_schema),
+            "engine.embedding.fingerprint" => check_pair::<
+                types::EngineEmbeddingFingerprintParams,
+                types::EngineEmbeddingFingerprintResult,
+            >(name, fixture, &root_schema),
+            "engine.embedding.serve" => check_pair::<
+                types::EngineEmbeddingServeParams,
+                types::EngineEmbeddingServeResult,
+            >(name, fixture, &root_schema),
+            "engine.embedding.identities" => check_pair::<
+                types::EngineEmbeddingIdentitiesParams,
+                types::EngineEmbeddingIdentitiesResult,
+            >(name, fixture, &root_schema),
+            "engine.embedding.probe" => check_pair::<
+                types::EngineEmbeddingProbeParams,
+                types::EngineEmbeddingProbeResult,
+            >(name, fixture, &root_schema),
+            "engine.embedding.rerank" => check_pair::<
+                types::EngineEmbeddingRerankParams,
+                types::EngineEmbeddingRerankResult,
+            >(name, fixture, &root_schema),
+            "engine.embedding.embed" => check_pair::<
+                types::EngineEmbeddingEmbedParams,
+                types::EngineEmbeddingEmbedResult,
+            >(name, fixture, &root_schema),
+            "engine.jobs.history" => check_pair::<
+                types::EngineJobsHistoryParams,
+                types::EngineJobsHistoryResult,
+            >(name, fixture, &root_schema),
+            "engine.jobs.run" => {
+                check_pair::<types::EngineJobsRunParams, types::EngineJobsRunResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "engine.jobs.list" => check_pair::<
+                types::EngineJobsListParams,
+                types::EngineJobsListResult,
+            >(name, fixture, &root_schema),
+            "engine.systemSupplement" => check_pair::<
+                types::EngineSystemSupplementParams,
+                types::EngineSystemSupplementResult,
+            >(name, fixture, &root_schema),
+            "engine.checkpoint" => check_pair::<
+                types::EngineCheckpointParams,
+                types::EngineCheckpointResult,
+            >(name, fixture, &root_schema),
+            "engine.capture.abort" => check_pair::<
+                types::EngineCaptureAbortParams,
+                types::EngineCaptureAbortResult,
+            >(name, fixture, &root_schema),
+            "engine.capture.wait" => check_pair::<
+                types::EngineCaptureWaitParams,
+                types::EngineCaptureWaitResult,
+            >(name, fixture, &root_schema),
+            "engine.capture" => {
+                check_pair::<types::EngineCaptureParams, types::EngineCaptureResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "engine.recall" => check_pair::<types::EngineRecallParams, types::EngineRecallResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "engine.shutdown" => check_pair::<
+                types::EngineShutdownParams,
+                types::EngineShutdownResult,
+            >(name, fixture, &root_schema),
+            "engine.status" => check_pair::<types::EngineStatusParams, types::EngineStatusResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "engine.open" => check_pair::<types::EngineOpenParams, types::EngineOpenResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "engine.auth" => check_pair::<types::EngineAuthParams, types::EngineAuthResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "chat.create" => check_pair::<types::ChatCreateParams, types::ChatCreateResult>(
                 name,
                 fixture,

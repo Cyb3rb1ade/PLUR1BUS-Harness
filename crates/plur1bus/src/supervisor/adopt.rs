@@ -387,11 +387,9 @@ impl Peer {
         }
         #[cfg(unix)]
         {
-            // SAFETY: signal 0 only checks that the pid exists.
-            let r = unsafe { libc::kill(self.pid as libc::pid_t, 0) };
-            let exists =
-                r == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM);
-            exists && !is_zombie(self.pid)
+            // The supervisor asks whether a process exists, including a foreign user's process.
+            // Private-home locks intentionally interpret OtherUser differently.
+            plur1bus_rpc::process::alive(self.pid) != plur1bus_rpc::process::Liveness::Gone
         }
         #[cfg(windows)]
         {
@@ -553,48 +551,6 @@ impl Drop for Peer {
             unsafe { windows_sys::Win32::Foundation::CloseHandle(self.handle as _) };
         }
     }
-}
-
-/// A zombie has exited but is not reaped yet (its parent may not be a reaper): `/proc/<pid>/stat` state `Z`.
-#[cfg(target_os = "linux")]
-fn is_zombie(pid: u32) -> bool {
-    std::fs::read_to_string(format!("/proc/{pid}/stat"))
-        .ok()
-        .and_then(|s| {
-            let rest = &s[s.rfind(')')? + 1..];
-            rest.trim_start().chars().next()
-        })
-        == Some('Z')
-}
-
-/// macOS: `proc_pidinfo(PROC_PIDTBSDINFO)` with a non-zero `arg` also finds a zombie (`proc_find_zombref`), and its
-/// `pbi_status` is then `SZOMB`. `kill(pid, 0)` succeeds on a zombie, so without this an exited but unreaped process
-/// (a child of the caller, as in `1staid repair`'s tests) would count as alive for as long as it stays unreaped, and
-/// its socket, closed at exit, would make every later signal look like a lost pin.
-#[cfg(target_os = "macos")]
-fn is_zombie(pid: u32) -> bool {
-    let Ok(pid) = libc::c_int::try_from(pid) else {
-        return false;
-    };
-    // SAFETY: zeroed plain-old-data, filled by proc_pidinfo up to `size` bytes.
-    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
-    let size = std::mem::size_of::<libc::proc_bsdinfo>() as libc::c_int;
-    // SAFETY: the buffer is a live local of `size` bytes.
-    let n = unsafe {
-        libc::proc_pidinfo(
-            pid,
-            libc::PROC_PIDTBSDINFO,
-            1,
-            (&mut info as *mut libc::proc_bsdinfo).cast(),
-            size,
-        )
-    };
-    n == size && info.pbi_status == libc::SZOMB
-}
-
-#[cfg(all(unix, not(any(target_os = "linux", target_os = "macos"))))]
-fn is_zombie(_pid: u32) -> bool {
-    false
 }
 
 /// Terminates a hung or foreign child found at start (S6, S8): `core.shutdown` (`role`'s own `shutdown`) on a fresh

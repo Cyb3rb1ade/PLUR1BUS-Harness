@@ -10,6 +10,7 @@ import { createLogger, type HarnessLogger } from "../src/logger.ts";
 import { layout } from "../src/paths.ts";
 import { startJournalReplay, type JournalReplayStatus } from "../src/replay.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
+import { until } from "./helpers/until.ts";
 
 const caller = { channel: "cli" as const, accountId: "h", userId: "u" };
 const line = (n: number): JournalLine => ({ v: 1, id: `${String(n).padStart(8, "0")}-1111-4111-8111-111111111111`, at: 1, agentId: "bernd", sessionKey: "s1", caller, messages: [{ role: "user", content: `line ${n}` }] });
@@ -43,7 +44,7 @@ describe("startJournalReplay", () => {
     let t = 10; let seen: JournalReplayStatus | null = null;
     const r = startJournalReplay({ dir: l.journal, agents, engine, logger, clock: () => t, signal: new AbortController().signal, onDone: (s) => { seen = s; } });
     assert.equal(r.status().state, "replaying"); assert.equal(r.status().startedAt, 10); assert.equal(r.status().finishedAt, null);
-    while (calls < 2) await new Promise((res) => setImmediate(res));
+    await until(() => calls >= 2, "the second capture", { run: r.done });
     assert.equal(r.status().replayed, 1, "a replayed line counts before the pass ends");
     assert.equal(r.status().pendingRemoval, 1, "and stays in the replaying file until the file is finished");
     t = 20; release(); await r.done;
@@ -86,7 +87,7 @@ describe("startJournalReplay", () => {
     const engine = { capture: () => { calls += 1; return calls === 2 ? { ...ok(), done: gate.then(() => ({ stored: 1, skipped: 0 })) } : ok(); } } as any;
     let onDone = 0;
     const r = startJournalReplay({ dir: l.journal, agents, engine, logger, clock: () => 5, signal: ac.signal, onDone: () => { onDone += 1; } });
-    while (calls < 2) await new Promise((res) => setImmediate(res));
+    await until(() => calls >= 2, "the second capture", { run: r.done });
     const files = readdirSync(l.journal); assert.equal(files.length, 1); assert.match(files[0]!, /^bernd\.jsonl\.replaying-\d+$/);
     const content = readFileSync(join(l.journal, files[0]!), "utf8");
     ac.abort(); r.abandon();

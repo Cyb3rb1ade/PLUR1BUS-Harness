@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "endian": "LE",
+  "file": "vectors.0.f32",
+  "entries": {
+    "node-turn-0": {
+      "offset": 0,
+      "length": 12,
+      "dims": 3
+    },
+    "node-turn-1": {
+      "offset": 12,
+      "length": 12,
+      "dims": 3
+    },
+    "node-turn-2": {
+      "offset": 24,
+      "length": 12,
+      "dims": 3
+    }
+  }
+}

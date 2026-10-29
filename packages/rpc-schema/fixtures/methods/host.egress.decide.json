@@ -1,0 +1,14 @@
+{
+  "params": {
+    "scheme": "http",
+    "host": "workspace:v1:test",
+    "port": 1
+  },
+  "result": {
+    "allowed": true,
+    "host": "workspace:v1:test",
+    "port": 1,
+    "address": "workspace:v1:test",
+    "family": 4
+  }
+}

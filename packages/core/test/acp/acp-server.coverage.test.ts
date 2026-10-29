@@ -41,7 +41,13 @@ function rig(o: { maxLineBytes?: number; agentInfo?: { name: string; title: stri
   const waiters: (() => void)[] = [];
   if (output instanceof PassThrough) output.on("data", (c: Buffer) => { buf += c.toString("utf8"); let i; while ((i = buf.indexOf("\n")) >= 0) { out.push(JSON.parse(buf.slice(0, i))); buf = buf.slice(i + 1); } waiters.splice(0).forEach((w) => w()); });
   const send = (m: unknown) => input.write(`${JSON.stringify(m)}\n`);
-  const until = async (pred: () => boolean) => { while (!pred()) await new Promise<void>((r) => { waiters.push(r); setImmediate(r); }); };
+  const until = async (pred: () => boolean, ms = 10_000) => {
+    const end = Date.now() + ms;
+    while (!pred()) {
+      if (Date.now() > end) assert.fail(`timed out after ${ms} ms waiting for ${pred}; output so far: ${JSON.stringify(out)}`);
+      await new Promise<void>((r) => { waiters.push(r); setImmediate(r); });
+    }
+  };
   const response = async (id: number | string | null) => { await until(() => out.some((m) => m.id === id && !m.method)); return out.find((m) => m.id === id && !m.method)!; };
   const end = async () => { input.end(); await done; };
   return { fake, input, out, logs, send, response, until, end, done };

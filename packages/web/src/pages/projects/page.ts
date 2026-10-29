@@ -62,6 +62,8 @@ export function ProjectsPage({ sub }: PageProps): View {
   // Selected project board data
   const [columns, setColumns] = useState<BoardColumn[]>([]);
   const [cards, setCards] = useState<BoardCard[]>([]);
+  // The load generation (boardGen below) the shown columns and cards come from.
+  const [cardsGen, setCardsGen] = useState(0);
   const [loadingBoard, setLoadingBoard] = useState(false);
   const [boardFailure, setBoardFailure] = useState<any>(null);
 
@@ -105,10 +107,15 @@ export function ProjectsPage({ sub }: PageProps): View {
   // `background` refreshes (after a card move etc.) keep the mounted board in
   // place; swapping it for the loading state would unmount BoardView and wipe
   // its aria-live region (and focus) before assistive tech can announce it.
+  // Answers the load's generation: a load started later has a higher one.
   const boardGen = useRef(0);
-  const loadBoard = async (projId: string, background = false) => {
+  const loadBoard = (projId: string, background = false): number => {
     // Only the newest request may apply its answer (switching projects, live updates arriving while one is in flight).
     const gen = ++boardGen.current;
+    void fetchBoard(projId, gen, background);
+    return gen;
+  };
+  const fetchBoard = async (projId: string, gen: number, background: boolean) => {
     try {
       if (!background) setLoadingBoard(true);
       setBoardFailure(null);
@@ -138,6 +145,7 @@ export function ProjectsPage({ sub }: PageProps): View {
       if (gen !== boardGen.current) return;
       setColumns(cols);
       setCards(crds);
+      setCardsGen(gen);
 
       // Also update stats for this project
       setProjectStats((prev) => {
@@ -396,11 +404,12 @@ export function ProjectsPage({ sub }: PageProps): View {
       project: selectedProj,
       columns,
       cards,
+      cardsGen,
       globalRole: role ?? null,
       userId: userId ?? null,
       agentId: null,
       isAgent: false,
-      onRefresh: () => void loadBoard(selectedProjectId, true),
+      onRefresh: () => loadBoard(selectedProjectId, true),
     });
   } else {
     detailContent = h(PageState, {

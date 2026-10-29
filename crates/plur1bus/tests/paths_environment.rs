@@ -154,8 +154,9 @@ fn a_home_with_spaces_and_umlauts_works_for_create_list_and_remove() {
             &["--home", h, "--json", "agent", "create", "bernd"],
             &[],
         );
-        if cfg!(windows) && name.contains('"') {
-            // Windows forbids `"` in a path component; this case must fail cleanly without creating state.
+        if cfg!(windows) && (name.contains('"') || name.ends_with(' ')) {
+            // Windows forbids `"` and normalizes trailing spaces in a path component; neither spelling can
+            // represent this exact home. Keep both cases and require a clean refusal without creating state.
             assert_eq!(created.status.code(), Some(1), "{name}");
             let error = json(&created);
             assert_eq!(error["schema"], "error/1", "{name}: {error}");

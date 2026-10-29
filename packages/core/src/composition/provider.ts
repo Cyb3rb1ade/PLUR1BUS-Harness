@@ -649,7 +649,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         o.onPrompt?.(rendered);
         const prefix: ChatMessage[] = rendered.segments.filter(s => s.zone === 'system' || s.zone === 'memory').map(s => ({ role: 'system', content: s.text }));
         const tail: ChatMessage[] = rendered.segments.filter(s => s.zone === 'volatile').map(s => ({ role: 'user', content: s.text }));
-        const request: WireRequest = { model: candidate.model, messages: [...prefix, ...messages, ...tail], tools: selected.map(t => fromRegisteredTool(t)), ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }) };
+        const request: WireRequest = { model: candidate.model, ...(req.temperature === undefined ? {} : { temperature: req.temperature }), messages: [...prefix, ...messages, ...tail], tools: selected.map(t => fromRegisteredTool(t)), ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }) };
         let done: ChatResult | undefined; let roundText = '';
         // Stage spans cover the stream lifetime, rather than only generator creation.
         const stream = invoke(request);
@@ -675,6 +675,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         }
         if (buffered && (done.text || roundText)) yield { type: 'delta', text: done.text || roundText };
         if (!done.toolCalls.length) { completed = true; return; }
+        // Engine maintenance is a background role with no permission to execute model-proposed tools.
+        if (req.role === 'engine') throw new TurnToolError('engine-tools-forbidden', null);
         hasModelToolCall = true;
         const calls = uniqueToolCallIds(done.toolCalls);
         const toolCalls = calls.map(c => ({ id: c.id, name: c.name, arguments: c.argumentsRaw }));

@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Only releases at least 14 days old (docs/ci.md): a compromised release has time to be noticed before it reaches a
+    # workflow that holds credentials.
+    cooldown:
+      default-days: 14
     groups:
       github-actions:
         patterns:

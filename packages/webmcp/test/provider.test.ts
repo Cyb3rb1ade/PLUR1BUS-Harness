@@ -72,6 +72,26 @@ describe("tool naming and selection", () => {
     for (const m of include) assert.equal(byName(tools, m), undefined, m);
   });
 
+  it("engine and host methods are never offered, even with the engine feature and explicit inclusion", () => {
+    const methods = [...new Set([
+      ...Object.keys((SCHEMA as any).$defs.methods).filter((m) => m.startsWith("engine.") || m.startsWith("host.")),
+      "engine.recall", "engine.capture", "engine.future.op", "host.secret.get", "host.llm.complete", "host.future.op",
+    ])];
+    const fakeCaps = { ...buildCapabilities(["engine"]), methods: { ...caps.methods } as Record<string, any> };
+    const fakeSchema = structuredClone(SCHEMA) as any;
+    for (const method of methods) {
+      assert.ok(isForbiddenMethod(method), method);
+      // Core-served and stable deliberately: rejection must not depend on role or stability filtering.
+      fakeCaps.methods[method] = { stability: "stable", since: "1.7.0", server: "core" };
+      fakeSchema.$defs.methods[method] = {
+        "x-stability": "stable", "x-since": "1.7.0", "x-server": "core",
+        params: { type: "object", additionalProperties: false, properties: {} },
+      };
+    }
+    const tools = buildWebMcpTools({ capabilities: fakeCaps, schema: fakeSchema, call: fakeCall(), include: methods });
+    for (const method of methods) assert.equal(byName(tools, method), undefined, method);
+  });
+
   it("secret methods are never offered as WebMCP tools, real or hypothetical (M2)", () => {
     const secret = (Object.keys(caps.methods)).filter((m) => m.startsWith("secret."));
     assert.equal(secret.length, 7, `the core advertises the secret.* methods: ${secret.join(", ")}`);

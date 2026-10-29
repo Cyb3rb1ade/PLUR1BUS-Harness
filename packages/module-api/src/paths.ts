@@ -13,7 +13,7 @@ export function runDir(home: string): string {
   return path.join(home, "run");
 }
 
-/** The RPC address of `role` (`core`, `supervisor`, `module-<name>`) in `home`. */
+/** The RPC address of `role` (`core`, `engine`, `supervisor`, `module-<name>`) in `home`. */
 export function unitAddress(home: string, role: string, platform: NodeJS.Platform = process.platform): string {
   // Built with '/' explicitly, and a trailing '/' trimmed, exactly as paths.rs does.
   return platform === "win32" ? pipeName(home, role) : `${home.replace(/\/+$/, "")}/run/${role}.sock`;
@@ -42,6 +42,16 @@ export function supervisorPidPath(home: string): string {
 /** The core's RPC address. */
 export function coreAddress(home: string, platform: NodeJS.Platform = process.platform): string {
   return unitAddress(home, "core", platform);
+}
+
+/** The engine's RPC address, reserved independently of the supervisor's engine slot. */
+export function engineAddress(home: string, platform: NodeJS.Platform = process.platform): string {
+  return unitAddress(home, "engine", platform);
+}
+
+/** The engine's delegation token and `<pid> <instanceId>` file, beside its endpoint. */
+export function engineRunFiles(home: string): { token: string; pid: string } {
+  return { token: path.join(runDir(home), "engine.token"), pid: path.join(runDir(home), "engine.pid") };
 }
 
 /** `run/core.token`: the core's RPC token, rewritten by every core start. */

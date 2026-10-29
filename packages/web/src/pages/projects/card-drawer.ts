@@ -100,8 +100,10 @@ export function CardDrawer({
     return () => { if (opener?.isConnected) opener.focus(); };
   }, []);
 
-  // Handle ESC key to close drawer
-  useEffect(() => {
+  // Esc closes the drawer. The listener is attached in a layout effect, i.e. in the commit that shows the drawer and moves the
+  // focus into it (above): a passive `useEffect` runs after the next paint, so an Esc pressed right after opening (a fast
+  // keyboard user, a test driver) used to reach no listener and the drawer stayed open.
+  useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();

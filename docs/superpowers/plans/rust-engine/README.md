@@ -27,7 +27,7 @@ the work. Read the plan's §1 (starting point) and §2 (target architecture) onc
 
 ## Working assumptions
 
-The plan lists owner decisions RE-D1…RE-D29 (plan §6). RE-D15…RE-D19 are the tokenization and text-analysis decisions of plan §2.5, RE-D20…RE-D29 the token-counting and provider prompt-caching decisions of plan §2.6; RE-D20 was decided (a) on 2026-10-26, the others are open. RE-D11…RE-D13 are the three behaviours of plan §1.6 that Phase 1
+The plan lists owner decisions RE-D1…RE-D29 (plan §6). RE-D15…RE-D19 are the tokenization and text-analysis decisions of plan §2.5, RE-D20…RE-D29 the token-counting and provider prompt-caching decisions of plan §2.6; RE-D20 was decided (a) on 2026-10-26, the jina part of RE-D19 and RE-D25 on 2026-10-28, RE-D29 waits for real numbers, the others are open. RE-D11…RE-D13 are the three behaviours of plan §1.6 that Phase 1
 keeps at parity on purpose; the owner decided on 2026-10-24 that all three are fixed in Phase 2, on the same day that
 the three dropped adapter functions of plan §1.7 get harness surfaces (RE-13), and, also on 2026-10-24, that an advisory
 inside the pinned Lance closure is answered with a fork at the pinned tag carrying only the fix, not with an allow-list
@@ -55,17 +55,17 @@ recommendation. If a decision changes, the briefs named in the last column chang
 | RE-D16 legacy text helpers | assumed, open: ported as they are in Phase 1, moved onto the analyzer in RE-10 T10 | RE-04, RE-05, RE-06, RE-10 |
 | RE-D17 JS string behaviours | assumed, open: a slice cut inside a surrogate pair stays a `JsString`, written as Node writes it per target (the JSON escape in JSON text and JSON-built hashes, U+FFFD at UTF-8 boundaries); Node-written JSON read with a tolerant reader; the collator locale recorded from Node 24.21 under the CI locale | RE-02, RE-03, RE-04, RE-05, RE-06 |
 | RE-D18 own tokenizer | assumed, open: no subword tokenizer; a German decompounding lexicon only behind the gate (RE-10 T11); a future own model adopts a permissive vocabulary | RE-10 |
-| RE-D19 `tokenizers` | assumed, open: `=0.23.2`, regex backend chosen by RE-03 T0's token-id goldens; jina goldens in RE-09 T3's real-model leg unless the owner allows committing them | RE-03, RE-09 |
+| RE-D19 `tokenizers` | assumed, open: `=0.23.2`, regex backend chosen by RE-03 T0's token-id goldens. Decided 2026-10-28: the jina goldens are committed, with `NOTICE-jina.md` beside them; normal CI checks their token ids against jina tokenizer files fetched by SHA-256 pin and never committed; vectors and scores stay in the `real-models` target | RE-03, RE-09 |
 | RE-D20 token counting | decided 2026-10-26: (a), one Rust counter in the engine (`src/tokens/`), served to the core over `engine.tokens.*`; exact tokenizer files where public, calibrated estimates elsewhere; the core keeps chars/4 until Phase 2 | RE-14, RE-08, RE-10 |
 | RE-D21 cache-profile table | assumed, open: one versioned JSON table in `packages/providers`, read by the core and by the engine (`include_str!`, parity vectors) | RE-14 |
 | RE-D22 cache markers | assumed, open: only the core writes markers, TTLs and affinity keys, through one emitter; the engine states segments, boundaries and a reuse class | RE-01, RE-06, RE-08, RE-14 |
 | RE-D23 engine budgets | assumed, open: byte-identical in Phase 1 (words, characters, chars/3 and chars/4 heuristics) | RE-04, RE-05, RE-06 |
 | RE-D24 job prompt order | assumed, open: byte-identical in Phase 1; reordered for caching in Phase 2 only for `Batch` and `Session` purposes | RE-06, RE-10 |
-| RE-D25 tokenizer files | assumed, open: fetched on first use through RE-03's catalogue after a licence decision, never bundled | RE-03, RE-14 |
+| RE-D25 tokenizer files | decided 2026-10-28: fetched on first use through RE-03's catalogue, never bundled; of the files under a conditional licence the owner approved Kimi K3 (keep the notice), Grok-2 (xAI Community License) and Gemma 3 (Gemma Terms) | RE-03, RE-14 |
 | RE-D26 margin near minimums | assumed, open: every count carries `lower`/`upper`; markers and budgets use the side the profile requires | RE-14 |
 | RE-D27 calibration | assumed, open: an affine fit per route and family in the engine, fed by reported usage | RE-14 |
 | RE-D28 OpenRouter | assumed, open: a route-level profile per upstream, always `session_id`, documented marker forms only | RE-14 |
-| RE-D29 cache reads in the token budget | open, owner decision: full weight in Phase 1, reads and writes recorded separately; RE-14/P5 builds the setting (default 1.0) and the split view the decision needs | RE-14 |
+| RE-D29 cache reads in the token budget | open, owner decision: full weight in Phase 1, reads and writes recorded separately; RE-14/P5 built the setting (default 1.0, #800); the split view the decision needs follows with its RPC surface. The owner said on 2026-10-28 to decide once that view shows real numbers | RE-14 |
 
 ## How a brief is worked
 
@@ -116,16 +116,16 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 |---|---|---|
 | RE-00 | merged 2026-10-24 (T1–T4 in one PR, merge commit 76b54e9d); MSVC `protoc` follow-up #769 merged 2026-10-25 | [#759](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/759), [#769](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/769) |
 | RE-01 | merged 2026-10-27 (T1–T4 in one PR); the A1 members carry `x-since: a1-pending` until the engine numbers them | [#793](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/793) |
-| RE-02 | not started; can start, RE-01 and RE-04 T0 are merged | — |
-| RE-03 | not started | — |
-| RE-04 | T0 merged 2026-10-27; T1 onwards waits for RE-02 and RE-03 | [#792](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/792) |
+| RE-02 | merged 2026-10-28 (T1–T7 in one PR, with the Windows root follow-up and the review fixes) | [#795](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/795) |
+| RE-03 | can start: RE-01 and RE-02 are merged; the jina goldens per RE-D19 as decided on 2026-10-28 | — |
+| RE-04 | T0 merged 2026-10-27; T1 onwards waits for RE-03 | [#792](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/792) |
 | RE-05 | not started | — |
 | RE-06 | not started (go/no-go pending) | — |
 | RE-07 | not started | — |
-| RE-08 | not started | — |
+| RE-08 | T1 and T3 in progress | — |
 | RE-09 | not started | — |
 | RE-10 | not started | — |
 | RE-11 | not started | — |
 | RE-12 | not started | — |
 | RE-13 | not started (Phase 2; decided 2026-10-24) | — |
-| RE-14 | P1–P4 and T1 merged 2026-10-26 (#781, #783, #784, #785, #786), T2a and T3 2026-10-27 (#788, #790); P5 (RE-D29 setting) can start; T2b (exact Gemma 4, DeepSeek V4, Qwen 3.8, GLM counts) waits for the original files and their licences; T4 with RE-08, T5 with RE-10 | — |
+| RE-14 | P1–P4 and T1 merged 2026-10-26 (#781, #783, #784, #785, #786), T2a and T3 2026-10-27 (#788, #790); P5 (RE-D29 setting, default 1.0) merged 2026-10-28 (#800), its RPC/CLI surface and the split view in `budget.status` follow after RE-08's schema change; T2b (exact Gemma 4, DeepSeek V4, Qwen 3.8, GLM counts) waits for the original files and their licences, and may add the Kimi K3, Grok-2 and Gemma 3 files RE-D25 approved; T4 with RE-08, T5 with RE-10 | — |

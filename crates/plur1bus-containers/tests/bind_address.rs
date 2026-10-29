@@ -168,10 +168,13 @@ mod docker {
                         thread::sleep(Duration::from_millis(2));
                         continue;
                     };
-                    // The wake-up connection from `Drop` may already be closed; macOS then refuses the timeout.
-                    if socket
-                        .set_read_timeout(Some(Duration::from_secs(2)))
-                        .is_err()
+                    // macOS hands out accepted sockets with the listener's non-blocking flag (Linux does not); a read
+                    // that would block then ends the request early. The wake-up connection from `Drop` may already be
+                    // closed; macOS then refuses the timeout.
+                    if socket.set_nonblocking(false).is_err()
+                        || socket
+                            .set_read_timeout(Some(Duration::from_secs(2)))
+                            .is_err()
                     {
                         continue;
                     }

@@ -110,6 +110,31 @@ describe("projects: robustness", opts, () => {
     });
   });
 
+  test("an Esc pressed in the draw that shows the card drawer closes it", async () => {
+    await withApp({}, async (app) => {
+      seed(app.server.rpc, [proj("p1", "One")], () => ({ cards: [card("c1")], nextCursor: null }));
+      await openRoute(app.page, "#/projects/p1");
+      // Esc reaches the focused element in a MutationObserver callback: the microtask right after the draw that inserts the
+      // drawer, before any passive effect of that draw has run (those run after the next paint; a fast keyboard user, or a
+      // test driver on a slow runner, gets there first).
+      await app.page.evaluate(() => {
+        const mo = new MutationObserver(() => {
+          const drawer = document.querySelector(".card-drawer");
+          if (!drawer) return;
+          mo.disconnect();
+          (document.activeElement ?? drawer).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          document.documentElement.dataset.escSent = "1";
+        });
+        mo.observe(document, { childList: true, subtree: true });
+      });
+      await app.page.locator('[data-card-id="c1"]').focus();
+      await app.page.keyboard.press("Enter");
+      await app.page.locator("html[data-esc-sent]").waitFor({ state: "attached" });
+      await app.page.locator(".card-drawer").waitFor({ state: "detached" });
+      await app.page.waitForFunction(() => document.activeElement?.getAttribute("data-card-id") === "c1");
+    });
+  });
+
   test("submitting the new-project form twice in one task creates one project", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc, [proj("p1", "One")], () => ({ cards: [], nextCursor: null }));

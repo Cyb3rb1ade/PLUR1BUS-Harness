@@ -9,7 +9,7 @@ import { createFsOps } from '../../core/src/tools/fs/ops.ts';
 import { denyEntriesFor, isHostPlatform } from '../../core/src/host-tools/index.ts';
 import { fail, string, integer } from './errors.ts';
 import type { HostctlConfig } from './config.ts';
-const SEARCH_BATCH_FILES = 32, SEARCH_BATCH_CHARS = 8 << 20;
+const SEARCH_BATCH_FILES = 32, SEARCH_BATCH_CHARS = 8 << 20, LIST_VERIFY_CONCURRENCY = 16;
 export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[], config: HostctlConfig, trash: (path: string, signal: AbortSignal) => Promise<void>, home = homedir(), env: NodeJS.ProcessEnv = process.env, afterStage?: () => Promise<void>) {
   const cwd = roots[0]?.path;
   const deny = [...denyEntriesFor(home, env, isHostPlatform(process.platform) ? process.platform : 'linux'), { name: '.env' }, { name: 'api-owner.token' }, { name: 'core.token' }, { name: 'supervisor.token' }, ...extraDeny];
@@ -41,24 +41,33 @@ export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[
   };
   // The listing is produced lazily, so a caller that stops early (a search whose results are full) pays only for the entries it consumed:
   // every entry costs one canonicalisation, which resolves the deny-list and the roots again.
-  const scan = (input: string, depth: number, limit: number, signal: AbortSignal) => {
+  const scan = (input: string, depth: number, limit: number, signal: AbortSignal, verifyConcurrency = 1) => {
     const state = { truncated: false, count: 0, scanned: 0 };
     async function* visit(dir: string, prefix: string, remaining: number): AsyncGenerator<{ path: string; type: string }> {
       signal.throwIfAborted(); if (++state.scanned > 1000) { state.truncated = true; return; }
       await canon(dir, 'read');
       const result = await fs.list({ path: dir, maxEntries: 1000 }, { signal }); state.truncated ||= result.truncated;
-      for (const item of result.entries) {
+      for (let offset = 0; offset < result.entries.length;) {
         if (state.count >= limit) { state.truncated = true; return; }
-        const full = path.join(dir, item.name); const relative = prefix + item.name;
-        try { await canon(full, 'read'); } catch { continue; }
-        state.count++; yield { path: relative, type: item.type };
-        if (remaining > 0 && item.type === 'directory') yield* visit(full, relative + '/', remaining - 1);
+        const batchSize = Math.min(verifyConcurrency, limit - state.count);
+        const batch = result.entries.slice(offset, offset + batchSize); offset += batch.length;
+        // Every entry still gets a fresh policy check. Overlap independent listing I/O without caching roots or
+        // deny identities; retain the sorted traversal order. Searches keep one-at-a-time, lazy verification.
+        const checked = await Promise.all(batch.map(item => canon(path.join(dir, item.name), 'read').then(() => item, () => null)));
+        signal.throwIfAborted();
+        for (const item of checked) {
+          if (state.count >= limit) { state.truncated = true; return; }
+          if (item === null) continue;
+          const relative = prefix + item.name;
+          state.count++; yield { path: relative, type: item.type };
+          if (remaining > 0 && item.type === 'directory') yield* visit(path.join(dir, item.name), relative + '/', remaining - 1);
+        }
       }
     }
     return { state, entries: visit(input, '', depth) };
   };
   const walk = async (input: string, depth: number, limit: number, signal: AbortSignal) => {
-    const listing = scan(input, depth, limit, signal); const entries: { path: string; type: string }[] = [];
+    const listing = scan(input, depth, limit, signal, LIST_VERIFY_CONCURRENCY); const entries: { path: string; type: string }[] = [];
     for await (const entry of listing.entries) entries.push(entry);
     return { entries, truncated: listing.state.truncated };
   };

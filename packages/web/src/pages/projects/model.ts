@@ -172,6 +172,30 @@ export function optimisticallyMoveCard(
   return next;
 }
 
+/** A card move the board has made that the server's answers may not show yet. */
+export interface PendingMove {
+  cardId: string;
+  columnId: string;
+  position: number | undefined;
+  /** Set once the move succeeded: the generation of the board load started after it. Answers from that load on know the move. */
+  knownFrom?: number;
+}
+
+/**
+ * The board to show: the server's answer with the moves it may not know yet made again, in the order they were made (so a later
+ * move of the same card wins).
+ */
+export function withPendingMoves(
+  cards: readonly BoardCard[],
+  pending: Iterable<PendingMove>,
+): BoardCard[] {
+  let next = [...cards];
+  for (const move of pending) {
+    next = optimisticallyMoveCard(next, move.cardId, move.columnId, move.position);
+  }
+  return next;
+}
+
 /** Calculates project card stats (open cards and overdue cards). */
 export function calculateProjectStats(cards: readonly BoardCard[], now = Date.now()): {
   openCount: number;

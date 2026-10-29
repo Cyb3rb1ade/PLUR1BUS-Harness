@@ -259,6 +259,34 @@ function seedProjectBoard(
   });
 }
 
+/** card_1 in Backlog, card_2 in In Progress, card_3 archived in Done. Earlier tests move the shared fixture cards around. */
+function cardsAtStart(): BoardCard[] {
+  const place: Record<string, [string, number]> = { card_1: ["col_backlog", 0], card_2: ["col_progress", 0], card_3: ["col_done", 0] };
+  return cardsFixture.map((c) => ({ ...c, columnId: place[c.id]![0], position: place[c.id]![1] }));
+}
+
+/**
+ * Serves project.card.list from `cards`, the server's cards when a call is answered. The function it returns holds the next call:
+ * `asked` resolves once the server has that call, and `answer()` answers it.
+ */
+function holdableCardList(rpc: MockRpc, cards: BoardCard[]): () => { asked: Promise<void>; answer: () => void } {
+  let held: { asked: () => void; answered: Promise<void> } | undefined;
+  rpc.handle("project.card.list", async () => {
+    const call = held;
+    held = undefined;
+    if (call) { call.asked(); await call.answered; }
+    return { cards, nextCursor: null };
+  }, { write: false });
+  return () => {
+    const asked = Promise.withResolvers<void>();
+    const answered = Promise.withResolvers<void>();
+    held = { asked: asked.resolve, answered: answered.promise };
+    return { asked: asked.promise, answer: () => answered.resolve() };
+  };
+}
+
+const cardIn = (app: App, cardId: string, columnId: string) => app.page.locator(`[data-column-id="${columnId}"] [data-card-id="${cardId}"]`);
+
 describe("projects: board render & sidebar", opts, () => {
   test("renders sidebar with projects, open/due badges, and selects a project", async () => {
     await withApp({}, async (app) => {
@@ -537,9 +565,7 @@ describe("projects: card links", opts, () => {
 
 describe("projects: overlapping moves", opts, () => {
   test("a failed move puts back only its own card; a move that succeeded meanwhile stays where it went", async () => {
-    // Earlier tests move the shared fixture cards around: start from explicit places.
-    const place: Record<string, [string, number]> = { card_1: ["col_backlog", 0], card_2: ["col_progress", 0], card_3: ["col_done", 0] };
-    const cards: BoardCard[] = cardsFixture.map((c) => ({ ...c, columnId: place[c.id]![0], position: place[c.id]![1] }));
+    const cards = cardsAtStart();
     let failFirst: (() => void) | undefined;
     const gate = new Promise<void>((resolve) => { failFirst = resolve; });
     await withApp({}, async (app) => {
@@ -568,6 +594,152 @@ describe("projects: overlapping moves", opts, () => {
       assert.equal(await app.page.locator('[data-column-id="col_review"] [data-card-id="card_2"]').count(), 1, "card_2 stays in review");
       assert.equal(await app.page.locator('[data-column-id="col_progress"] [data-card-id="card_2"]').count(), 0, "card_2 is not put back into in progress");
       assert.equal(await app.page.locator('[data-card-id="card_1"]').count(), 1);
+    });
+  });
+
+  // Move 1 (card_1, backlog -> in progress) is held while move 2 (card_2, in progress -> review) succeeds. The refresh after move 2 is
+  // drawn before move 1 settles, and that answer does not know move 1 yet: card_1 must stay where it was moved, not jump back.
+  for (const outcome of ["succeeds", "fails"] as const) {
+    test(`a refresh drawn while a move is in flight keeps that card where it was moved; then the move ${outcome}`, async () => {
+      const cards = cardsAtStart();
+      const move1 = Promise.withResolvers<void>();
+      await withApp({}, async (app) => {
+        seedProjectBoard(app.server.rpc, { cards });
+        app.server.rpc.handle("project.card.move", async (p: any) => {
+          if (p.cardId === "card_1") {
+            await move1.promise;
+            if (outcome === "fails") throw rpcError("E_INTERNAL", "backend down");
+          }
+          const moved = cards.find((c) => c.id === p.cardId)!;
+          moved.columnId = p.columnId;
+          moved.position = p.position ?? 0;
+          return moved;
+        });
+        const holdNextList = holdableCardList(app.server.rpc, cards);
+        await openRoute(app.page, "#/projects/prj_alpha");
+
+        await app.page.locator('[data-card-id="card_1"]').focus();
+        await app.page.keyboard.press("ArrowRight");
+        await cardIn(app, "card_1", "col_progress").waitFor();
+
+        // Meanwhile a teammate adds a card. Only the server's answers have it: it shows once the refresh after move 2 has been drawn.
+        cards.push({ ...cardsFixture[2]!, id: "card_4", title: "Teammate card", columnId: "col_done", position: 1, archived: false });
+        const refreshAfterMove2 = holdNextList();
+        await app.page.locator('[data-card-id="card_2"]').focus();
+        await app.page.keyboard.press("ArrowRight");
+        await refreshAfterMove2.asked;
+        refreshAfterMove2.answer();
+        await cardIn(app, "card_4", "col_done").waitFor();
+        assert.equal(await cardIn(app, "card_1", "col_progress").count(), 1, "card_1 is still shown in In Progress while its move is in flight");
+        assert.equal(await cardIn(app, "card_1", "col_backlog").count(), 0, "card_1 does not jump back to Backlog");
+        assert.equal(await cardIn(app, "card_2", "col_review").count(), 1);
+
+        const refreshAfterMove1 = holdNextList();
+        move1.resolve();
+        await refreshAfterMove1.asked;
+        if (outcome === "succeeds") {
+          // Until an answer that knows the move has been drawn, card_1 stays where it went. That answer is the truth again: here a
+          // teammate has moved card_1 on to Review meanwhile, and the board follows it.
+          assert.equal(await cardIn(app, "card_1", "col_progress").count(), 1, "card_1 stays in In Progress until the refresh after its move is drawn");
+          Object.assign(cards.find((c) => c.id === "card_1")!, { columnId: "col_review", position: 1 });
+          refreshAfterMove1.answer();
+          await cardIn(app, "card_1", "col_review").waitFor();
+          assert.equal(await cardIn(app, "card_1", "col_progress").count(), 0);
+          assert.equal(await cardIn(app, "card_2", "col_review").count(), 1);
+          assert.equal(await app.page.locator(".board-alert").count(), 0);
+        } else {
+          // The failure puts card_1 back at once. The refresh after it changes nothing else (a teammate's rename shows it was drawn).
+          await app.page.locator(".board-alert").waitFor();
+          assert.equal(await cardIn(app, "card_1", "col_backlog").count(), 1, "the failed move puts card_1 back to Backlog at once");
+          cards.find((c) => c.id === "card_4")!.title = "Teammate card, renamed";
+          refreshAfterMove1.answer();
+          await cardIn(app, "card_4", "col_done").filter({ hasText: "renamed" }).waitFor();
+          assert.equal(await cardIn(app, "card_1", "col_backlog").count(), 1);
+          assert.equal(await cardIn(app, "card_1", "col_progress").count(), 0);
+          assert.equal(await cardIn(app, "card_2", "col_review").count(), 1);
+        }
+      });
+    });
+  }
+
+  // card_1 is moved twice: move 1 (backlog -> in progress) succeeds, then move 2 (in progress -> review) fails before an answer that
+  // knows move 1 has been drawn. Dropping move 2 leaves card_1 where move 1 put it, not where the last answer drawn had it.
+  test("a later move of a card that fails leaves it where an earlier move that succeeded put it", async () => {
+    const cards = cardsAtStart();
+    const move2 = Promise.withResolvers<void>();
+    await withApp({}, async (app) => {
+      seedProjectBoard(app.server.rpc, { cards });
+      app.server.rpc.handle("project.card.move", async (p: any) => {
+        if (p.columnId === "col_review") { await move2.promise; throw rpcError("E_INTERNAL", "backend down"); }
+        const moved = cards.find((c) => c.id === p.cardId)!;
+        moved.columnId = p.columnId;
+        moved.position = p.position ?? 0;
+        return moved;
+      });
+      const holdNextList = holdableCardList(app.server.rpc, cards);
+      await openRoute(app.page, "#/projects/prj_alpha");
+
+      await app.page.locator('[data-card-id="card_1"]').focus();
+      const refreshAfterMove1 = holdNextList();
+      await app.page.keyboard.press("ArrowRight");
+      await refreshAfterMove1.asked;
+      await app.page.locator('[data-card-id="card_1"]').focus();
+      await app.page.keyboard.press("ArrowRight");
+      await cardIn(app, "card_1", "col_review").waitFor();
+
+      const refreshAfterMove2 = holdNextList();
+      move2.resolve();
+      await refreshAfterMove2.asked;
+      await app.page.locator(".board-alert").waitFor();
+      assert.equal(await cardIn(app, "card_1", "col_progress").count(), 1, "card_1 is back where move 1 put it");
+      assert.equal(await cardIn(app, "card_1", "col_backlog").count(), 0);
+
+      // Once an answer that knows move 1 is drawn (a teammate's card shows that), the board is the server's again.
+      cards.push({ ...cardsFixture[2]!, id: "card_4", title: "Teammate card", columnId: "col_done", position: 1, archived: false });
+      refreshAfterMove1.answer();
+      refreshAfterMove2.answer();
+      await cardIn(app, "card_4", "col_done").waitFor();
+      assert.equal(await cardIn(app, "card_1", "col_progress").count(), 1);
+    });
+  });
+});
+
+describe("projects: a move in the draw that shows the board", opts, () => {
+  test("is shown in its new column at once and stays there while the move is in flight", async () => {
+    const place: Record<string, [string, number]> = { card_1: ["col_backlog", 0], card_2: ["col_progress", 0], card_3: ["col_done", 0] };
+    const cards: BoardCard[] = cardsFixture.map((c) => ({ ...c, columnId: place[c.id]![0], position: place[c.id]![1] }));
+    let finish: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => { finish = resolve; });
+    let arrived: ((params: unknown) => void) | undefined;
+    const moveArrived = new Promise<unknown>((resolve) => { arrived = resolve; });
+    await withApp({}, async (app) => {
+      seedProjectBoard(app.server.rpc, { cards });
+      app.server.rpc.handle("project.card.move", async (p: any) => {
+        arrived?.(p);
+        await held;
+        const moved = cards.find((c) => c.id === p.cardId)!;
+        moved.columnId = p.columnId;
+        moved.position = p.position ?? 0;
+        return moved;
+      });
+      // The key reaches card_1 in a MutationObserver callback: the microtask right after the draw that inserts the board, before
+      // any passive effect of that draw has run (those run after the next paint; a fast keyboard user, or a test driver on a slow
+      // runner, gets there first). An effect still pending then must not put the server's cards back over the move.
+      await app.page.evaluate(() => {
+        const mo = new MutationObserver(() => {
+          const card = document.querySelector<HTMLElement>('[data-card-id="card_1"]');
+          if (!card) return;
+          mo.disconnect();
+          card.focus();
+          card.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+        });
+        mo.observe(document, { childList: true, subtree: true });
+      });
+      await openRoute(app.page, "#/projects/prj_alpha");
+      await app.page.locator('[data-column-id="col_progress"] [data-card-id="card_1"]').waitFor();
+      assert.deepEqual(await moveArrived, { projectId: "prj_alpha", cardId: "card_1", columnId: "col_progress" });
+      assert.equal(await app.page.locator('[data-column-id="col_progress"] [data-card-id="card_1"]').count(), 1, "still shown there while the move is held");
+      finish?.();
     });
   });
 });

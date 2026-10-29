@@ -1,0 +1,1 @@
+{"original":{"timestamp":"2027-01-13T08:00:00.000Z","topic":"fixture","newMemoryId":"new-memory","existingMemoryId":"old-memory","newText":"neue Aussage","existingText":"alte Aussage","pending":true},"resolution":"keep_a","confidence":0.95,"reason":"recorded fixture decision","recommendation":"apply_via_safe_reconsolidation","resolvedAt":"2027-01-15T08:00:00.000Z","dryRun":false}
