@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { SOURCE_CATALOG } from "../../core/src/import/types.ts";
-import { openRoute, setup, teardown, withApp, type App } from "./harness.ts";
+import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
 import { expectAxeClean } from "./axe.ts";
 import type { MockHarnessServer } from "./mock-server.ts";
 import type { ImportRun } from "../../rpc-schema/generated/types.ts";
@@ -146,7 +146,7 @@ function seed(
   return run;
 }
 
-test("source summary, selected agents and immutable preview precede explicit downtime consent; cancellation waits for restoration", async () => {
+test("source summary, selected agents and immutable preview precede explicit downtime consent; cancellation waits for restoration", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     seed(app.server);
     await openRoute(app.page, "#/import");
@@ -172,7 +172,7 @@ test("source summary, selected agents and immutable preview precede explicit dow
   });
 });
 
-test("Member invokes no import metadata/RPC; remote Admin cannot choose a free host path", async () => {
+test("Member invokes no import metadata/RPC; remote Admin cannot choose a free host path", { skip: browserSkip }, async () => {
   await withApp({ server: { role: "member" } }, async (app) => {
     seed(app.server);
     await openRoute(app.page, "#/import");
@@ -190,7 +190,7 @@ test("Member invokes no import metadata/RPC; remote Admin cannot choose a free h
   });
 });
 
-test("discovery is a source choice and cannot be mistaken for an inspected source or import plan", async () => {
+test("discovery is a source choice and cannot be mistaken for an inspected source or import plan", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     const run = seed(app.server),
       source = { kind: "snapshot", family: run.sourceType, snapshotId: "S".repeat(43) };
@@ -229,7 +229,7 @@ test("discovery is a source choice and cannot be mistaken for an inspected sourc
   });
 });
 
-test("an authorized apply survives reload when its first status request is interrupted", async () => {
+test("an authorized apply survives reload when its first status request is interrupted", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     const run = seed(app.server);
     let unavailable = true;
@@ -266,7 +266,7 @@ test("an authorized apply survives reload when its first status request is inter
 
 for (const lang of ["en", "de"] as const)
   for (const state of ["loading", "empty", "error", "forbidden", "unavailable"] as const) {
-    test(`import axe: ${state}, ${lang}`, async () => {
+    test(`import axe: ${state}, ${lang}`, { skip: browserSkip }, async () => {
       await withApp({ locale: lang === "de" ? "de-DE" : "en-US" }, async (app) => {
         let release: (() => void) | undefined;
         app.server.extensions.push((_req, res, path) => {
@@ -305,7 +305,7 @@ for (const lang of ["en", "de"] as const)
     });
   }
 
-test("Owner SSH setup requires exact endpoint policy consent and independent host-key verification; Admin invokes no Owner setup methods", async () => {
+test("Owner SSH setup requires exact endpoint policy consent and independent host-key verification; Admin invokes no Owner setup methods", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     seed(app.server);
     const connection = {
@@ -443,7 +443,7 @@ test("Owner SSH setup requires exact endpoint policy consent and independent hos
   });
 });
 
-test("standalone discovered store requires a source and an explicit original-path assignment, including remote Admin", async () => {
+test("standalone discovered store requires a source and an explicit original-path assignment, including remote Admin", { skip: browserSkip }, async () => {
   await withApp({ server: { role: "admin" } }, async (app) => {
     const run = seed(app.server, { sources: SOURCE_CATALOG, hostPathsAllowed: false });
     const candidateId = "12345678-1234-4123-8123-123456789021";
@@ -541,7 +541,7 @@ test("standalone discovered store requires a source and an explicit original-pat
   });
 });
 
-test("a changed saved SSH endpoint cannot be mislabeled by an older connection card", async () => {
+test("a changed saved SSH endpoint cannot be mislabeled by an older connection card", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     seed(app.server);
     const saved = {
@@ -594,7 +594,7 @@ test("a changed saved SSH endpoint cannot be mislabeled by an older connection c
   });
 });
 
-test("container host metadata proposes a Docker endpoint without approving egress, private access or a connection", async () => {
+test("container host metadata proposes a Docker endpoint without approving egress, private access or a connection", { skip: browserSkip }, async () => {
   for (const container of [false, true])
     await withApp({}, async (app) => {
       seed(app.server, {
@@ -651,7 +651,7 @@ test("container host metadata proposes a Docker endpoint without approving egres
     });
 });
 
-test("source and actual target NC models require separate canonical ledger confirmations and preserve the separate settings decision", async () => {
+test("source and actual target NC models require separate canonical ledger confirmations and preserve the separate settings decision", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     const run = seed(app.server);
     const models = MODEL_CHOICES.filter((c) => c.kind === "embedding" && c.nc),
@@ -775,7 +775,7 @@ test("source and actual target NC models require separate canonical ledger confi
   });
 });
 
-test("a declined cancellation refreshes actual status without displaying a pending cancellation", async () => {
+test("a declined cancellation refreshes actual status without displaying a pending cancellation", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     seed(app.server);
     app.server.rpc.handle("admin.import.abort", () => ({ runId, accepted: false, state: "restarting-core" }));

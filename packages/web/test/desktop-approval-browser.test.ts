@@ -2,12 +2,12 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { expectAxeClean } from "./axe.ts";
-import { openRoute, setup, teardown, withApp } from "./harness.ts";
+import { browserSkip, openRoute, setup, teardown, withApp } from "./harness.ts";
 
 before(setup);
 after(teardown);
 
-test("desktop approval reviews a public request before the human explicitly approves it with session CSRF", async () => {
+test("desktop approval reviews a public request before the human explicitly approves it with session CSRF", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     const userCode = "ABCD-EFGH";
     let decisions = 0;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { openRoute, setup, teardown, withApp } from "./harness.ts";
+import { browserSkip, openRoute, setup, teardown, withApp } from "./harness.ts";
 import { expectAxeClean } from "./axe.ts";
 import { seedExtensions } from "./surfaces-fixtures.ts";
 import type { ExtInspection } from "../src/pages/common/surfaces-rpc.ts";
@@ -55,7 +55,7 @@ function seed(server: MockHarnessServer, inspected = inspection()): void {
   });
 }
 
-describe("extension installation through real browser HTTP", () => {
+describe("extension installation through real browser HTTP", { skip: browserSkip }, () => {
   test("bundle confirmation discloses each child, fixes required selection and resets consent when an optional child is included", async () => {
     await withApp({}, async (app) => {
       const inspected = inspection("release");
@@ -246,7 +246,7 @@ describe("extension installation through real browser HTTP", () => {
 
 for (const lang of ["en", "de"] as const)
   for (const state of ["loading", "empty", "error", "forbidden", "unavailable"] as const) {
-    test(`extensions axe: ${state}, ${lang}`, async () => {
+    test(`extensions axe: ${state}, ${lang}`, { skip: browserSkip }, async () => {
       await withApp({ locale: lang === "de" ? "de-DE" : "en-US" }, async (app) => {
         seed(app.server);
         let release: (() => void) | undefined;
