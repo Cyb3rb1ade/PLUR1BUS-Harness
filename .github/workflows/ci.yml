@@ -1044,7 +1044,8 @@ jobs:
           node -e '
           const fs = require("node:fs"), fsp = fs.promises, { promisify } = require("node:util");
           const base = String.raw`\\wsl.localhost\Ubuntu-24.04\root`;
-          const paths = [base, base + String.raw`\.openclaw`, base + String.raw`\.openclaw\openclaw.json`,
+          const share = String.raw`\\wsl.localhost\Ubuntu-24.04`;
+          const paths = [share, share + "\\", base, base + String.raw`\.openclaw`, base + String.raw`\.openclaw\openclaw.json`,
             base + String.raw`\.openclaw\ws-wsl\skills\notes`, base + String.raw`\.openclaw\ws-wsl\skills\notes\leaked_key`];
           const show = async (label, run) => { try { const v = await run(); console.log(label, "ok", typeof v === "object" ? JSON.stringify(v) : v); }
             catch (e) { console.log(label, "ERR", e.code, e.syscall); } };
@@ -1055,6 +1056,7 @@ jobs:
             await show("stat", async () => kind(await fsp.stat(p)));
             await show("realpath.native", () => fsp.realpath(p));
             await show("realpath.walk", () => promisify(fs.realpath)(p));
+            await show("realpathSync.walk", async () => fs.realpathSync(p));
             await show("readdir", async () => (await fsp.readdir(p, { withFileTypes: true })).map(d => [d.name, d.isDirectory(), d.isFile(), d.isSymbolicLink()]));
           } })();'
       - name: synthetic WSL source and import detect
