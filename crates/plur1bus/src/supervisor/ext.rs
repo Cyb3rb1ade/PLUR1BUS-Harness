@@ -229,6 +229,12 @@ fn module_overlays_with(
     presence: &mut ext::runtime::OperationPresence,
 ) -> BTreeMap<String, Overlay> {
     let paths = ExtPaths::of(layout);
+    if ext::bundle_transaction::pending(layout) {
+        return cached_modules(&paths)
+            .into_iter()
+            .map(|name| (name, Overlay::Tampered))
+            .collect();
+    }
     let st = match state::read(&paths) {
         Ok(st) => st,
         Err(_) => {
@@ -375,7 +381,8 @@ pub fn spawn_hold_recovery(shared: &Arc<Shared>, layout: &Layout) -> std::io::Re
             if shared2.lock().stopping.is_some() {
                 return;
             }
-            if ext::runtime::recovery_needed(&layout) {
+            if ext::runtime::recovery_needed(&layout) && !ext::bundle_transaction::pending(&layout)
+            {
                 if let Ok(_guard) = ext::try_mutation() {
                     match ext::runtime::settle(&layout) {
                         Ok(()) => warned = false,
@@ -475,6 +482,9 @@ pub fn inspection_result(rec: &InspectionRecord) -> Value {
         "scripts": rec.scripts,
         "requires": rec.requires,
     });
+    if !rec.members.is_empty() {
+        v["members"] = json!(rec.members);
+    }
     if let Some(r) = &rec.replaces {
         v["replaces"] = json!({
             "version": r["version"],
@@ -534,7 +544,15 @@ fn clean_after_worker(layout: &Layout, id: &str, root_existed: bool) {
     if let Ok(entries) = std::fs::read_dir(&p.staging) {
         let suffix = format!("-{id}");
         for e in entries.flatten() {
-            if e.file_name().to_string_lossy().ends_with(&suffix) {
+            let name = e.file_name();
+            let text = name.to_string_lossy();
+            let belongs = text.rsplit_once(&suffix).is_some_and(|(_, tail)| {
+                tail.is_empty()
+                    || tail.strip_prefix('-').is_some_and(|index| {
+                        !index.is_empty() && index.bytes().all(|b| b.is_ascii_digit())
+                    })
+            });
+            if belongs {
                 let path = e.path();
                 let _ = match std::fs::symlink_metadata(&path) {
                     Ok(m) if m.is_dir() => state::remove_dir_all_retrying(&path),
@@ -631,6 +649,7 @@ fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
 pub fn install(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
     let opts = InstallOpts {
         acknowledge: strings(&params["acknowledge"]),
+        members: params.get("members").map(strings),
         enable: match params.get("enable") {
             None => None,
             Some(e) => Some(agents(e.get("agents"))?.unwrap_or(Agents::All)),
@@ -655,6 +674,7 @@ fn toggle_opts(params: &Value) -> Result<ToggleOpts, ExtError> {
         agents: agents(params.get("agents"))?,
         acknowledge: strings(&params["acknowledge"]),
         dry_run: params["dryRun"].as_bool().unwrap_or(false),
+        expected_consent_sha256: params["expectedConsentSha256"].as_str().map(str::to_owned),
     })
 }
 
@@ -784,6 +804,7 @@ mod tests {
             scripts: json!([{ "path": "payload/run.sh", "size": 3 }]),
             requires: json!({}),
             replaces,
+            members: Vec::new(),
         }
     }
 

@@ -104,6 +104,7 @@ fn record(name: &str, kind: &str) -> ItemRecord {
         active_version: None,
         versions: std::collections::BTreeMap::new(),
         per_agent_versions: std::collections::BTreeMap::new(),
+        members: Vec::new(),
         manifest_sha256: None,
         installed_at: "2026-09-28T10:00:00.000Z".into(),
         previous_version: None,

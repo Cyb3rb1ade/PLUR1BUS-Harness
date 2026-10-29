@@ -625,6 +625,7 @@ mod tests {
             active_version: None,
             versions: std::collections::BTreeMap::new(),
             per_agent_versions: std::collections::BTreeMap::new(),
+            members: Vec::new(),
             manifest_sha256: None,
             installed_at: "2026-10-01T00:00:00.000Z".into(),
             previous_version: None,

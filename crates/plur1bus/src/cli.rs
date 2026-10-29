@@ -1735,6 +1735,9 @@ pub enum PluginKind {
 /// The install flags `skill install` and `plugin install` share.
 #[derive(Args, Debug, Clone)]
 pub struct InstallFlags {
+    /// Select a bundle member (repeatable); every nonoptional member is required. Omit to install all members
+    #[arg(long = "member", value_name = "NAME")]
+    pub members: Vec<String>,
     /// Acknowledge that the package is not signed (with --yes; a terminal asks instead)
     #[arg(long)]
     pub allow_unsigned: bool,

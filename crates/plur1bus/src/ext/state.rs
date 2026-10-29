@@ -40,6 +40,9 @@ pub struct ItemRecord {
     pub versions: BTreeMap<String, McpVersionRecord>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub per_agent_versions: BTreeMap<String, String>,
+    /// Selected installed bundle children. Child ownership is derived solely from these parent records.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<BundleMemberRecord>,
     /// `file` in X1.
     pub source: String,
     /// A `plur1bus_ext::trust::Tier` in kebab case.
@@ -66,6 +69,17 @@ pub struct ItemRecord {
     pub removed_by_user: bool,
     #[serde(default)]
     pub integrity: Option<Integrity>,
+}
+
+/// Exact selected child package, without executable settings or copied secret authority on the wrapper.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BundleMemberRecord {
+    pub name: String,
+    pub kind: String,
+    pub version: String,
+    pub sha256: String,
+    pub optional: bool,
 }
 
 /// Metadata bound to one immutable MCP version. Activation still has one default for every agent.
@@ -166,6 +180,23 @@ pub(super) fn read_metadata(p: &ExtPaths) -> Result<ExtState, String> {
 
 pub fn read(p: &ExtPaths) -> Result<ExtState, String> {
     let st = read_metadata(p)?;
+    let mut owners = std::collections::BTreeSet::new();
+    for parent in st.items.values() {
+        if parent.kind != "bundle" && !parent.members.is_empty() {
+            return Err(format!(
+                "{}: a non-bundle has member records",
+                p.state.display()
+            ));
+        }
+        for member in &parent.members {
+            if member.name == parent.name || !owners.insert(member.name.clone()) {
+                return Err(format!(
+                    "{}: bundle child ownership is ambiguous",
+                    p.state.display()
+                ));
+            }
+        }
+    }
     for r in st.items.values().filter(|r| r.kind == "mcp-server") {
         if r.active_version.as_deref() != Some(&r.version)
             || !super::packages::valid_version(&r.version)

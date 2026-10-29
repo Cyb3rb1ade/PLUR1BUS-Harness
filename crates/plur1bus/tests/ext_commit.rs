@@ -867,6 +867,7 @@ fn opts(ack: &[&str], enable: Option<Agents>) -> InstallOpts {
     InstallOpts {
         acknowledge: ack.iter().map(|s| s.to_string()).collect(),
         enable,
+        members: None,
     }
 }
 
@@ -2307,6 +2308,7 @@ fn a_module_whose_socket_no_longer_fits_is_refused_at_commit() {
     let dir = format!("fixture-{id}");
     fs::rename(from.staging.join(&dir), to.staging.join(&dir)).unwrap();
     let staged = StagedItem {
+        members: Vec::new(),
         dir: to.staging.join(&dir).join("payload"),
         package: to.inspect.join(format!("{id}.p1x")),
         ..staged
@@ -2731,4 +2733,463 @@ fn mcp_commit_holds_before_writes_and_releases_after_commit_or_rollback() {
             }
         }
     }
+}
+
+// M-A10: bundle children are verified and committed under one approval and one rollback scope.
+fn bundle_pkg(version: &str, children: &[(&str, bool, Vec<u8>)], key: Option<&TestKey>) -> Vec<u8> {
+    let mut manifest = template("demo-pack", "skill", version);
+    manifest["kind"] = json!("bundle");
+    manifest["members"] = json!(children
+        .iter()
+        .map(|(name, optional, bytes)| json!({
+            "name":name,"optional":optional,"path":format!("payload/members/{name}.p1x"),
+            "sha256":format!("{:x}", Sha256::digest(bytes))
+        }))
+        .collect::<Vec<_>>());
+    let files = children
+        .iter()
+        .map(|(name, _, bytes)| f(&format!("members/{name}.p1x"), bytes, false))
+        .collect();
+    build_package_from(&manifest, files, key)
+}
+
+#[test]
+fn bundle_inspection_discloses_every_child_and_install_is_disabled_as_a_group() {
+    let key = test_key("bundle");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    let pkg = bundle_pkg(
+        "1.0.0",
+        &[
+            ("required", false, skill_pkg("required", None)),
+            ("optional", true, skill_pkg("optional", Some(&key))),
+        ],
+        None,
+    );
+    let p = d.path().join("bundle.p1x");
+    fs::write(&p, pkg).unwrap();
+    let rec = inspect::inspect(&l, Source::Path(p), "bundle-inspect").unwrap();
+    let disclosure = serde_json::to_value(&rec).unwrap();
+    assert_eq!(disclosure["members"].as_array().map(Vec::len), Some(2));
+    assert_eq!(disclosure["members"][0]["trust"]["tier"], "unsigned");
+    let staged = stage::stage(&l, &rec.inspection_id).unwrap();
+    let mut host = OfflineHost::new(&l);
+    let result = install_commit(&l, &mut host, &rec, staged, &opts(&["unsigned"], None)).unwrap();
+    assert_eq!(result["state"], "installed");
+    let state = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(state.items.len(), 3);
+    assert!(l.skills().join("required/SKILL.md").is_file());
+    assert!(l.skills().join("optional/SKILL.md").is_file());
+    let items = list_items(&l, &host.config(), &ListFilter::default()).unwrap();
+    for item in items["items"].as_array().unwrap() {
+        assert_eq!(
+            item["enabled"], false,
+            "unsigned parent must not promote its first-party child: {item}"
+        );
+    }
+}
+
+#[test]
+fn bundle_rolls_back_every_touched_tree_after_each_member_and_after_an_interruption() {
+    let key = test_key("bundle-atomic");
+    let _e = env_with(&key);
+    for killed in [false, true] {
+        for point in [
+            "code",
+            "state",
+            "cache",
+            "bundle.member.docs",
+            "bundle.member.guide",
+            "bundle.publish",
+        ] {
+            let (d, l) = home();
+            populate(&l);
+            let old = bundle_pkg(
+                "1.0.0",
+                &[
+                    ("docs", false, mcp_pkg_v("docs", "1.0.0", false, &key)),
+                    ("guide", false, skill_pkg_v("guide", "1.0.0", None)),
+                ],
+                None,
+            );
+            install(d.path(), &l, "old.p1x", &old, &opts(&["unsigned"], None)).unwrap();
+            let before = guarded(&l);
+            let next = bundle_pkg(
+                "2.0.0",
+                &[
+                    ("docs", false, mcp_pkg_v("docs", "2.0.0", false, &key)),
+                    ("guide", false, skill_pkg_v("guide", "2.0.0", None)),
+                ],
+                None,
+            );
+            let (rec, staged) = prepare(d.path(), &l, "next.p1x", &next);
+            std::env::set_var(
+                "PLUR1BUS_TEST_EXT_FAIL_AT",
+                if killed {
+                    format!("kill:{point}")
+                } else {
+                    point.to_string()
+                },
+            );
+            let result = install_commit(
+                &l,
+                &mut OfflineHost::new(&l),
+                &rec,
+                staged,
+                &opts(&["unsigned"], None),
+            );
+            std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+            assert!(result.is_err(), "{killed} {point}");
+            if killed {
+                ext::recover(&l);
+            }
+            assert_eq!(
+                guarded(&l),
+                before,
+                "whole bundle rollback at killed={killed}, {point}"
+            );
+            assert!(!l.home.join("mcp/docs/2.0.0").exists());
+            assert!(l.home.join("mcp/docs/1.0.0/p1x.json").is_file());
+        }
+    }
+}
+
+#[test]
+fn bundle_selection_and_staged_child_substitution_refuse_before_any_live_write() {
+    let key = test_key("bundle-selection");
+    let _e = env_with(&key);
+    for selection in [vec![], vec!["unknown"], vec!["required", "required"]] {
+        let (d, l) = home();
+        populate(&l);
+        let before = guarded(&l);
+        let bytes = bundle_pkg(
+            "1.0.0",
+            &[
+                ("required", false, skill_pkg("required", None)),
+                ("optional", true, skill_pkg("optional", None)),
+            ],
+            None,
+        );
+        let (rec, staged) = prepare(d.path(), &l, "pack.p1x", &bytes);
+        let mut install = opts(&["unsigned"], None);
+        install.members = Some(selection.into_iter().map(str::to_string).collect());
+        assert!(install_commit(&l, &mut OfflineHost::new(&l), &rec, staged, &install).is_err());
+        assert_eq!(guarded(&l), before);
+    }
+    let (d, l) = home();
+    populate(&l);
+    let before = guarded(&l);
+    let bytes = bundle_pkg(
+        "1.0.0",
+        &[("required", false, skill_pkg("required", None))],
+        None,
+    );
+    let (rec, mut staged) = prepare(d.path(), &l, "pack.p1x", &bytes);
+    staged.members[0].item.dir = l.home.join("stolen");
+    assert!(install_commit(
+        &l,
+        &mut OfflineHost::new(&l),
+        &rec,
+        staged,
+        &opts(&["unsigned"], None)
+    )
+    .is_err());
+    assert_eq!(guarded(&l), before);
+}
+
+#[test]
+fn plugin_cli_explicit_bundle_subset_installs_required_only_and_discloses_child_rights() {
+    let key = test_key("bundle-cli");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    let path = d.path().join("pack.p1x");
+    fs::write(
+        &path,
+        bundle_pkg(
+            "1.0.0",
+            &[
+                ("required", false, skill_pkg("required", None)),
+                ("optional", true, skill_pkg("optional", None)),
+            ],
+            None,
+        ),
+    )
+    .unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .args([
+            "--home",
+            l.home.to_str().unwrap(),
+            "plugin",
+            "install",
+            path.to_str().unwrap(),
+            "--member",
+            "required",
+            "--allow-unsigned",
+            "--yes",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(st.items.len(), 2);
+    assert!(l.skills().join("required/SKILL.md").is_file());
+    assert!(!l.skills().join("optional").exists());
+    let enable = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .args([
+            "--home",
+            l.home.to_str().unwrap(),
+            "plugin",
+            "enable",
+            "demo-pack",
+            "--yes",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        enable.status.success(),
+        "{}",
+        String::from_utf8_lossy(&enable.stderr)
+    );
+    assert_eq!(
+        item(
+            &list_items(&l, &OfflineHost::new(&l).config(), &ListFilter::default()).unwrap(),
+            "required"
+        )["enabled"],
+        true
+    );
+}
+
+#[test]
+fn bundle_identical_selection_is_a_noop_and_changed_optional_subset_is_atomic() {
+    let key = test_key("bundle-subsets");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let bytes = bundle_pkg(
+        "1.0.0",
+        &[
+            ("required", false, skill_pkg("required", None)),
+            ("optional", true, skill_pkg("optional", None)),
+        ],
+        None,
+    );
+    let mut selected = opts(&["unsigned"], None);
+    selected.members = Some(vec!["required".into()]);
+    install(d.path(), &l, "first.p1x", &bytes, &selected).unwrap();
+    let before = guarded(&l);
+    let same = InstallOpts {
+        members: Some(vec!["required".into()]),
+        ..Default::default()
+    };
+    install(d.path(), &l, "same.p1x", &bytes, &same).unwrap();
+    assert_eq!(guarded(&l), before);
+    install(d.path(), &l, "all.p1x", &bytes, &opts(&["unsigned"], None)).unwrap();
+    let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(st.items.len(), 3);
+    assert_eq!(st.items["demo-pack"].members.len(), 2);
+    let shown = show_item(&l, &config(&l), "demo-pack").unwrap();
+    assert_eq!(shown["memberInspections"].as_array().map(Vec::len), Some(2));
+    install(d.path(), &l, "required.p1x", &bytes, &selected).unwrap();
+    let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(st.items.len(), 2);
+    assert!(!l.skills().join("optional").exists());
+}
+
+#[test]
+fn bundle_update_preserves_prior_activation_and_trusted_widening_still_requires_consent() {
+    let key = test_key("bundle-update");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let old = bundle_pkg(
+        "1.0.0",
+        &[("guide", false, skill_pkg_v("guide", "1.0.0", None))],
+        None,
+    );
+    install(
+        d.path(),
+        &l,
+        "old.p1x",
+        &old,
+        &opts(&["unsigned", "capabilities"], Some(Agents::All)),
+    )
+    .unwrap();
+    let next = bundle_pkg(
+        "2.0.0",
+        &[("guide", false, skill_pkg_v("guide", "2.0.0", None))],
+        None,
+    );
+    let changed = install(
+        d.path(),
+        &l,
+        "next.p1x",
+        &next,
+        &opts(&["unsigned", "capabilities"], None),
+    )
+    .unwrap();
+    assert_eq!(changed["state"], "enabled");
+    assert_eq!(
+        item(
+            &list_items(&l, &config(&l), &ListFilter::default()).unwrap(),
+            "guide"
+        )["enabled"],
+        true
+    );
+    let (d, l) = home();
+    populate(&l);
+    let old = bundle_pkg(
+        "1.0.0",
+        &[("guide", false, skill_pkg_v("guide", "1.0.0", Some(&key)))],
+        Some(&key),
+    );
+    install(d.path(), &l, "trusted.p1x", &old, &InstallOpts::default()).unwrap();
+    let mut manifest = template("guide", "skill", "2.0.0");
+    manifest["capabilities"]["network"] = json!({"mode":"any"});
+    let child = build_package_from(
+        &manifest,
+        vec![f("SKILL.md", &skill_md("guide"), false)],
+        Some(&key),
+    );
+    let next = bundle_pkg("2.0.0", &[("guide", false, child)], Some(&key));
+    let before = guarded(&l);
+    let error = install(d.path(), &l, "widened.p1x", &next, &InstallOpts::default()).unwrap_err();
+    assert_eq!(
+        reason(&error),
+        ("E_APPROVAL_REQUIRED", "acknowledge-capabilities")
+    );
+    assert_eq!(guarded(&l), before);
+}
+
+#[test]
+fn bundle_update_keeps_mcp_agent_scope_optional_off_and_prechecks_new_required_members() {
+    let key = test_key("bundle-scopes");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    write_config(
+        &l,
+        |cfg| cfg["agents"] = json!({"anna":{"createdAt":"2026-09-28T10:00:00.000Z"},"bernd":{"createdAt":"2026-09-28T10:00:00.000Z"}}),
+    );
+    let bytes = bundle_pkg(
+        "1.0.0",
+        &[
+            ("docs", false, mcp_pkg_v("docs", "1.0.0", false, &key)),
+            ("guide", true, skill_pkg_v("guide", "1.0.0", None)),
+        ],
+        None,
+    );
+    install(
+        d.path(),
+        &l,
+        "one.p1x",
+        &bytes,
+        &opts(
+            &["unsigned", "capabilities"],
+            Some(Agents::Some(vec!["anna".into()])),
+        ),
+    )
+    .unwrap();
+    ext::lifecycle::disable(
+        &l,
+        &mut OfflineHost::new(&l),
+        "guide",
+        &ext::lifecycle::ToggleOpts::default(),
+    )
+    .unwrap();
+    let bytes = bundle_pkg(
+        "2.0.0",
+        &[
+            ("docs", false, mcp_pkg_v("docs", "2.0.0", false, &key)),
+            ("guide", true, skill_pkg_v("guide", "2.0.0", None)),
+        ],
+        None,
+    );
+    install(
+        d.path(),
+        &l,
+        "two.p1x",
+        &bytes,
+        &opts(&["unsigned", "capabilities"], None),
+    )
+    .unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled":true,"agents":["anna"]})
+    );
+    let items = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
+    assert_eq!(item(&items, "guide")["enabled"], false);
+    assert_eq!(item(&items, "demo-pack")["partial"], true);
+    let shown = show_item(&l, &config(&l), "demo-pack").unwrap();
+    let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(
+        st.items["demo-pack"].capabilities_ack.as_deref(),
+        shown["consentSha256"].as_str()
+    );
+    let mut locked = template("locked", "mcp-server", "1.0.0");
+    locked["requires"]["runtime"] = json!({"type":"none"});
+    locked["remote"] = json!({"url":"https://mcp.example.org/v1","auth":"header"});
+    locked["capabilities"]["network"] = json!({"mode":"allowlist","hosts":["mcp.example.org"]});
+    locked["capabilities"]["secrets"] =
+        json!([{"slot":"apiKey","label":{"en":"Key"},"required":true}]);
+    let locked = build_package_from(
+        &locked,
+        vec![f("README.md", b"Requires setup", false)],
+        None,
+    );
+    for (name, extra, wanted) in [
+        ("worker", module_pkg("worker", None), "agents-not-supported"),
+        ("locked", locked, "needs-setup"),
+    ] {
+        let before = guarded(&l);
+        let bytes = bundle_pkg(
+            "3.0.0",
+            &[
+                ("docs", false, mcp_pkg_v("docs", "3.0.0", false, &key)),
+                ("guide", true, skill_pkg_v("guide", "2.0.0", None)),
+                (name, false, extra),
+            ],
+            None,
+        );
+        let error = install(
+            d.path(),
+            &l,
+            &format!("{name}.p1x"),
+            &bytes,
+            &opts(&["unsigned", "capabilities"], None),
+        )
+        .unwrap_err();
+        assert_eq!(error.reason, Some(wanted));
+        assert_eq!(
+            guarded(&l),
+            before,
+            "refused newrequiredmember {name} after touching code"
+        );
+    }
+    let bytes = bundle_pkg(
+        "3.0.0",
+        &[
+            ("docs", false, mcp_pkg_v("docs", "3.0.0", false, &key)),
+            ("guide", true, skill_pkg_v("guide", "2.0.0", None)),
+            ("newdoc", false, skill_pkg("newdoc", None)),
+        ],
+        None,
+    );
+    install(
+        d.path(),
+        &l,
+        "three.p1x",
+        &bytes,
+        &opts(&["unsigned", "capabilities"], None),
+    )
+    .unwrap();
+    let items = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
+    assert_eq!(item(&items, "newdoc")["agents"], json!(["anna"]));
+    assert_eq!(item(&items, "docs")["agents"], json!(["anna"]));
+    assert_eq!(item(&items, "guide")["enabled"], false);
 }

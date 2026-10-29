@@ -573,6 +573,7 @@ fn toggle(agents: Option<Agents>, ack: bool, dry_run: bool) -> ToggleOpts {
             vec![]
         },
         dry_run,
+        expected_consent_sha256: None,
     }
 }
 

@@ -35,6 +35,16 @@
         "requiredSecrets": {"type": "array", "items": {"type": "string"}}
       }
     },
+    "bundleMember": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "kind", "version", "sha256", "optional"],
+      "properties": {
+        "name": {"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,63}$"},
+        "kind": {"enum":["skill","module","channel","mcp-server"]},
+        "version": {"type":"string","minLength":1,"maxLength":64},
+        "sha256": {"$ref":"#/$defs/sha256"}, "optional":{"type":"boolean"}
+      }
+    },
     "item": {
       "type": "object",
       "additionalProperties": false,
@@ -47,6 +57,7 @@
         "activeVersion": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$", "maxLength": 64, "description": "Canonical MCP activation pointer. version mirrors this field."},
         "versions": {"type": "object", "propertyNames": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$", "maxLength": 64}, "additionalProperties": {"$ref": "#/$defs/mcpVersion"}},
         "perAgentVersions": {"type": "object", "description": "Reserved model for future per-agent versions; no selector is exposed.", "maxProperties": 0, "additionalProperties": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$", "maxLength": 64}},
+        "members": {"type":"array","maxItems":256,"items":{"$ref":"#/$defs/bundleMember"}},
         "source": { "enum": ["file", "catalog", "bundled", "local"], "description": "Where it came from; X1 writes `file`." },
         "trust": { "enum": ["release", "first-party", "unknown-signer", "unsigned", "imported", "dev"] },
         "keyId": { "type": ["string", "null"], "description": "The signing key id (16 upper-case hex digits), when the package is signed." },

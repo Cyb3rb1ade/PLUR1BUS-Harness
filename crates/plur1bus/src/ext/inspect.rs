@@ -401,6 +401,26 @@ fn changed_keys(old: &Value, new: &Value) -> Vec<String> {
     keys
 }
 
+/// Public verified child metadata, including replacement consent from the current state.
+pub(crate) fn member_disclosure(
+    child: &plur1bus_ext::verify::BundleMemberInspection,
+    st: &state::ExtState,
+) -> Value {
+    let i = &child.inspection;
+    let m = &i.manifest;
+    let mut out = json!({
+        "name": m.name, "kind": kind_name(m.kind), "version": m.version,
+        "sha256": i.sha256, "optional": child.optional,
+        "manifest": serde_json::from_slice::<Value>(&i.manifest_raw).unwrap_or(Value::Null),
+        "trust": trust_json(&i.trust), "checks": i.checks, "scripts": i.scripts,
+        "capabilities": acknowledged_capabilities(m), "requires": m.requires,
+    });
+    if let Some(old) = st.items.get(&m.name).filter(|old| old.id == m.id) {
+        out["replaces"] = json!({"version":old.version,"capabilityDiff":{"changed":changed_keys(&old.capabilities,&acknowledged_capabilities(m))}});
+    }
+    out
+}
+
 /// Spools, verifies and checks a package (see the module documentation) and writes its record. `id` comes from
 /// [`super::worker::new_inspection_id`].
 #[cfg(test)]
@@ -433,43 +453,97 @@ pub(crate) fn inspect_with_fetch(
 }
 
 struct RawSource(PathBuf);
-impl Drop for RawSource { fn drop(&mut self) { let _ = std::fs::remove_file(&self.0); } }
+impl Drop for RawSource {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
 
 /// Read an upload once, without following its final component, and parse only the bounded verified snapshot.
-fn snapshot_source(layout: &Layout, source: &Source, id: &str, expected: (&str, u64), cap: u64) -> Result<RawSource, ExtError> {
-    let Source::Path(path) = source else { return Err(invalid(reason::PACKAGE_INVALID, "upload requires a file")); };
+fn snapshot_source(
+    layout: &Layout,
+    source: &Source,
+    id: &str,
+    expected: (&str, u64),
+    cap: u64,
+) -> Result<RawSource, ExtError> {
+    let Source::Path(path) = source else {
+        return Err(invalid(reason::PACKAGE_INVALID, "upload requires a file"));
+    };
     let (sha256, size) = expected;
-    let mismatch = || invalid(reason::DIGEST, "the upload bytes no longer match their recorded digest and size");
-    if size == 0 || size > cap || sha256.len() != 64 || !sha256.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
+    let mismatch = || {
+        invalid(
+            reason::DIGEST,
+            "the upload bytes no longer match their recorded digest and size",
+        )
+    };
+    if size == 0
+        || size > cap
+        || sha256.len() != 64
+        || !sha256
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
         return Err(mismatch());
     }
-    let mut options = std::fs::OpenOptions::new(); options.read(true);
-    #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK); }
-    #[cfg(windows)] { use std::os::windows::fs::OpenOptionsExt; options.custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT); }
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        options.custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT);
+    }
     let mut input = options.open(path).map_err(|_| mismatch())?;
     let info = input.metadata().map_err(|_| mismatch())?;
-    #[cfg(windows)] {
+    #[cfg(windows)]
+    {
         use std::os::windows::fs::MetadataExt;
-        if info.file_attributes() & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT != 0 { return Err(mismatch()); }
+        if info.file_attributes()
+            & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT
+            != 0
+        {
+            return Err(mismatch());
+        }
     }
-    if !info.is_file() || info.len() != size { return Err(mismatch()); }
+    if !info.is_file() || info.len() != size {
+        return Err(mismatch());
+    }
     let raw = RawSource(ExtPaths::of(layout).inspect.join(format!("{id}.source")));
     let mut output = crate::audit::create_private(&raw.0, true).map_err(|_| mismatch())?;
-    let mut hash = Sha256::new(); let mut count = 0u64; let mut buffer = [0u8; 32 * 1024];
+    let mut hash = Sha256::new();
+    let mut count = 0u64;
+    let mut buffer = [0u8; 32 * 1024];
     loop {
         let n = input.read(&mut buffer).map_err(|_| mismatch())?;
-        if n == 0 { break; }
-        count += n as u64; if count > size { return Err(mismatch()); }
-        hash.update(&buffer[..n]); output.write_all(&buffer[..n]).map_err(|_| mismatch())?;
+        if n == 0 {
+            break;
+        }
+        count += n as u64;
+        if count > size {
+            return Err(mismatch());
+        }
+        hash.update(&buffer[..n]);
+        output.write_all(&buffer[..n]).map_err(|_| mismatch())?;
     }
-    if count != size || format!("{:x}", hash.finalize()) != sha256 { return Err(mismatch()); }
+    if count != size || format!("{:x}", hash.finalize()) != sha256 {
+        return Err(mismatch());
+    }
     output.sync_all().map_err(|_| mismatch())?;
     Ok(raw)
 }
 
 /// API uploads bind their raw source digest before any format detection or normalization runs.
 pub(crate) fn inspect_with_expected(
-    layout: &Layout, src: Source, id: &str, crash: bool, fetch: &mut impl EgressFetch,
+    layout: &Layout,
+    src: Source,
+    id: &str,
+    crash: bool,
+    fetch: &mut impl EgressFetch,
     expected: Option<(&str, u64)>,
 ) -> Result<InspectionRecord, ExtError> {
     if !valid_id(id) {
@@ -494,9 +568,19 @@ pub(crate) fn inspect_with_expected(
         keep: false,
     };
     let cfg = ext_config(layout)?;
-    let snapshot = expected.map(|expected| snapshot_source(layout, &src, id, expected, cfg.limits.package_bytes)).transpose()?;
-    let verified = snapshot.as_ref().map(|source| Source::Path(source.0.clone()));
-    let (normalised, warnings) = spool(layout, verified.as_ref().unwrap_or(&src), &pending.p1x, &cfg, fetch)?;
+    let snapshot = expected
+        .map(|expected| snapshot_source(layout, &src, id, expected, cfg.limits.package_bytes))
+        .transpose()?;
+    let verified = snapshot
+        .as_ref()
+        .map(|source| Source::Path(source.0.clone()));
+    let (normalised, warnings) = spool(
+        layout,
+        verified.as_ref().unwrap_or(&src),
+        &pending.p1x,
+        &cfg,
+        fetch,
+    )?;
     if crash {
         std::process::abort();
     }
@@ -541,6 +625,17 @@ pub(crate) fn inspect_with_expected(
             rows.push(json!({"id":"normalization", "status":"warn", "detail":detail}));
         }
     }
+    let mut members = Vec::new();
+    for child in &insp.members {
+        let m = &child.inspection.manifest;
+        let tier = trust_json(&child.inspection.trust)["tier"]
+            .as_str()
+            .unwrap_or("unsigned")
+            .to_string();
+        check_unsigned_policy(cfg.allow_unsigned, &tier, &m.id, &m.version)?;
+        check_name(layout, &st, &m.name, &m.id, kind_name(m.kind))?;
+        members.push(member_disclosure(child, &st));
+    }
     let rec = InspectionRecord {
         inspection_id: id.to_string(),
         expires_at: iso8601(now_ms().saturating_add(ttl.as_millis() as u64)),
@@ -559,6 +654,7 @@ pub(crate) fn inspect_with_expected(
         scripts: Value::Array(scripts),
         requires: m.requires.clone(),
         replaces,
+        members,
     };
     let mut text = serde_json::to_string_pretty(&rec).map_err(|e| {
         ExtError::new(

@@ -215,6 +215,7 @@ impl<'a> Backend<'a> {
         id: &str,
         acknowledge: &[String],
         enable: Option<&Agents>,
+        members: Option<&[String]>,
     ) -> Result<Value, Failure> {
         match self {
             Backend::Online { client: c, .. } => {
@@ -225,12 +226,16 @@ impl<'a> Backend<'a> {
                 if let Some(a) = enable {
                     params["enable"] = json!({ "agents": agents_json(a) });
                 }
+                if let Some(members) = members {
+                    params["members"] = json!(members);
+                }
                 Self::rpc(c, "ext.install", params)
             }
             Backend::Offline { layout, .. } => {
                 let opts = InstallOpts {
                     acknowledge: acknowledge.to_vec(),
                     enable: enable.cloned(),
+                    members: members.map(<[String]>::to_vec),
                 };
                 ext::record::load(layout, id)
                     .and_then(|rec| {
@@ -249,6 +254,7 @@ impl<'a> Backend<'a> {
         agents: Option<&Agents>,
         acknowledge: &[String],
         dry_run: bool,
+        expected_consent: Option<&str>,
     ) -> Result<Value, Failure> {
         check_name(name)?;
         match self {
@@ -263,6 +269,11 @@ impl<'a> Backend<'a> {
                 if dry_run {
                     params["dryRun"] = json!(true);
                 }
+                if on {
+                    if let Some(digest) = expected_consent {
+                        params["expectedConsentSha256"] = json!(digest);
+                    }
+                }
                 Self::rpc(c, if on { "ext.enable" } else { "ext.disable" }, params)
             }
             Backend::Offline { layout, .. } => {
@@ -270,6 +281,7 @@ impl<'a> Backend<'a> {
                     agents: agents.cloned(),
                     acknowledge: acknowledge.to_vec(),
                     dry_run,
+                    expected_consent_sha256: expected_consent.map(str::to_string),
                 };
                 let mut host = OfflineHost::new(layout);
                 if on {

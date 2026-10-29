@@ -41,6 +41,8 @@ pub struct ToggleOpts {
     pub agents: Option<Agents>,
     pub acknowledge: Vec<String>,
     pub dry_run: bool,
+    /// Exact displayed bundle composition; runtime enable flags are excluded from this digest.
+    pub expected_consent_sha256: Option<String>,
 }
 
 /// X1-R13: the capabilities `caps` are covered by the acknowledged hash `ack`. `ext.enable` checks an item's current
@@ -51,7 +53,12 @@ pub(crate) fn capabilities_acknowledged(caps: &Value, ack: Option<&str>) -> bool
 
 /// The agent checks an enable or disable makes before any write (X1-R11): agents on a module or channel, an agent that
 /// is not configured.
-fn check_agents(name: &str, kind: &str, cfg: &Value, agents: &Agents) -> Result<(), ExtError> {
+pub(crate) fn check_agents(
+    name: &str,
+    kind: &str,
+    cfg: &Value,
+    agents: &Agents,
+) -> Result<(), ExtError> {
     let Agents::Some(list) = agents else {
         return Ok(());
     };
@@ -213,7 +220,11 @@ pub(crate) fn mcp_activation_changes(
 }
 
 /// A skill disable for some agents: the name is added to their lists only.
-fn skill_disable_changes(cfg: &Value, name: &str, agents: &[String]) -> (Changes, Changes) {
+pub(crate) fn skill_disable_changes(
+    cfg: &Value,
+    name: &str,
+    agents: &[String],
+) -> (Changes, Changes) {
     block_changes(cfg, name, |id| {
         agents.iter().any(|x| x == id).then_some(false)
     })
@@ -338,7 +349,7 @@ fn overlays(paths: &ExtPaths, rec: Option<&ItemRecord>) -> Vec<Overlay> {
 
 /// Enable's overlay refusals (X1-R17; Q9: revoked is refused and locked), first match in the overlay order with
 /// `revoked` first.
-fn refuse_overlays(
+pub(crate) fn refuse_overlays(
     paths: &ExtPaths,
     rec: &ItemRecord,
     found: &[Overlay],
@@ -391,7 +402,11 @@ fn refuse_overlays(
 
 /// X1-R13: the first enable of a packaged item, or an enable after its capabilities changed, needs `capabilities`.
 /// Items without a package record (bundled, local, imported) never reach this check, so they need none.
-fn check_acknowledged(paths: &ExtPaths, rec: &ItemRecord, o: &ToggleOpts) -> Result<(), ExtError> {
+pub(crate) fn check_acknowledged(
+    paths: &ExtPaths,
+    rec: &ItemRecord,
+    o: &ToggleOpts,
+) -> Result<(), ExtError> {
     if capabilities_acknowledged(&rec.capabilities, rec.capabilities_ack.as_deref())
         || o.acknowledge.iter().any(|a| a == "capabilities")
     {
@@ -466,6 +481,7 @@ fn toggle(
     o: &ToggleOpts,
     on: bool,
 ) -> Result<Value, ExtError> {
+    super::bundle_lifecycle::require_settled(layout)?;
     // A plan writes nothing, so it does not wait for (or block) a mutation.
     if o.dry_run {
         return toggle_locked(layout, host, name, o, on);
@@ -484,6 +500,7 @@ pub fn toggle_held(
     on: bool,
     _held: &super::MutationGuard,
 ) -> Result<Value, ExtError> {
+    super::bundle_lifecycle::require_settled(layout)?;
     toggle_locked(layout, host, name, o, on)
 }
 
@@ -501,7 +518,7 @@ pub(crate) fn disable_locked(
 /// X1-C15: an item whose code folder is missing (a kill between steps that `ext::recover` has not reconciled yet, or
 /// a folder deleted by hand) cannot be enabled. The overlay vocabulary has no "missing" value; `tampered` (installed
 /// files no longer match what was installed) is the closest, and `data.paths` lists every recorded file.
-fn refuse_missing_code(layout: &Layout, t: &Target) -> Result<(), ExtError> {
+pub(crate) fn refuse_missing_code(layout: &Layout, t: &Target) -> Result<(), ExtError> {
     let dir = t.record.as_ref().map_or_else(
         || code_dir(layout, &t.name, &t.kind),
         |r| super::record::active_code_dir(layout, r),
@@ -532,6 +549,10 @@ fn toggle_locked(
     let paths = ExtPaths::of(layout);
     let st = state::read(&paths).map_err(state_invalid)?;
     let cfg = host.config();
+    super::bundle_lifecycle::check_independent_toggle(&st, name)?;
+    if st.items.get(name).is_some_and(|r| r.kind == "bundle") {
+        return super::bundle_lifecycle::toggle_held(layout, host, name, o, on);
+    }
     let t = resolve(layout, &st, name)?;
     let agents = o.agents.clone().unwrap_or(Agents::All);
     check_agents(name, &t.kind, &cfg, &agents)?;

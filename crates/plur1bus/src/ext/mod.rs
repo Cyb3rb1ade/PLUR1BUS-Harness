@@ -7,6 +7,12 @@
 //! The supervisor never parses package bytes (X1-R2): the files of this module that it can reach must not name the
 //! parser, verifier, packer or extractor (`scripts/lint-hygiene.mjs`). `inspect.rs` and `stage.rs` run in the worker.
 
+pub mod bundle_commit;
+pub mod bundle_lifecycle;
+pub mod bundle_members;
+pub mod bundle_restore;
+pub mod bundle_transaction;
+pub mod bundle_update;
 pub mod commit;
 pub mod host;
 pub mod index;
@@ -125,6 +131,13 @@ pub fn recover(layout: &Layout) -> Vec<String> {
     // `modules/`).
     let mut done = crate::modules::install::recover(layout);
     done.append(&mut migrated);
+    match bundle_transaction::recover(layout) {
+        Ok(recovered) => done.extend(recovered),
+        Err(error) => {
+            done.push(format!("bundle recovery remains pending: {error}"));
+            return done;
+        }
+    }
     // Commits killed after they began to move code into place (their mark), before the staging they name goes.
     let (reconciled, keep) = reconcile_commits(layout, &p);
     done.extend(reconciled);
@@ -216,7 +229,7 @@ fn reconcile_commits(
         if !record::skill_id_ok(&mark.name)
             || !matches!(
                 mark.kind.as_str(),
-                "skill" | "module" | "channel" | "mcp-server"
+                "skill" | "module" | "channel" | "mcp-server" | "bundle"
             )
             || !record::valid_id(&mark.inspection_id)
         {
@@ -310,7 +323,7 @@ fn restore_missing_code(layout: &Layout, p: &paths::ExtPaths) -> Vec<String> {
         if rec.removed_by_user
             || !matches!(
                 rec.kind.as_str(),
-                "skill" | "module" | "channel" | "mcp-server"
+                "skill" | "module" | "channel" | "mcp-server" | "bundle"
             )
         {
             continue;

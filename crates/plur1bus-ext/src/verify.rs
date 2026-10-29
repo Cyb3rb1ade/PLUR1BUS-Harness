@@ -22,7 +22,7 @@ use crate::trust::{check_names, check_signature, Tier, Trust, TrustStore};
 use crate::zipaudit::{audit_zip, hash_entry_head, read_entry, Entry, Limits};
 use serde::Serialize;
 use std::collections::BTreeSet;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::Path;
 
 /// How far into a script the inspection reads for its first line: 120 characters of up to 4 bytes each, and a
@@ -72,6 +72,16 @@ pub struct Inspection {
     /// The derived script set (not the manifest's claim), sorted by path.
     pub scripts: Vec<ScriptInfo>,
     pub entries: Vec<Entry>,
+    /// Fully checked direct children. Nested bundles are refused before reading their members.
+    pub members: Vec<BundleMemberInspection>,
+}
+
+#[derive(Clone, Debug)]
+pub struct BundleMemberInspection {
+    pub name: String,
+    pub path: String,
+    pub optional: bool,
+    pub inspection: Inspection,
 }
 
 /// What a package is checked against.
@@ -174,8 +184,7 @@ pub fn inspect_reader<R: Read + Seek>(r: &mut R, p: &Policy) -> Result<Inspectio
 /// The kinds `ext.install` handles since X1: everything a host-supervised lifecycle exists for.
 pub const X1_KINDS: [Kind; 3] = [Kind::Skill, Kind::Module, Kind::Channel];
 
-/// All X2 library kinds, including the provider package store API. Bundle member transaction validation belongs
-/// to the lifecycle worker; this set only selects the accepted manifest kinds.
+/// All X2 library kinds, including the provider package store API. Bundle children use the same policy.
 pub const X2_KINDS: [Kind; 6] = [
     Kind::Skill,
     Kind::Module,
@@ -201,7 +210,16 @@ pub fn inspect_reader_kinds<R: Read + Seek>(
     p: &Policy,
     kinds: &[Kind],
 ) -> Result<Inspection, Refusal> {
-    let mut checks = Vec::with_capacity(8);
+    inspect_reader_at_depth(r, p, kinds, 0)
+}
+
+fn inspect_reader_at_depth<R: Read + Seek>(
+    r: &mut R,
+    p: &Policy,
+    kinds: &[Kind],
+    depth: usize,
+) -> Result<Inspection, Refusal> {
+    let mut checks = Vec::with_capacity(9);
 
     // 1. Size.
     let size = r.seek(SeekFrom::End(0)).map_err(|e| Refusal::io(&e))?;
@@ -270,6 +288,9 @@ pub fn inspect_reader_kinds<R: Read + Seek>(
             reason: reason::KIND_UNSUPPORTED,
             detail: format!("{} packages arrive in X2", kind_name(m.kind)),
         });
+    }
+    if m.kind == Kind::Bundle && depth != 0 {
+        return Err(package_invalid("members: nested bundles are not supported"));
     }
     check_kind(&m)?;
     let payload_bytes: u64 = payload.iter().map(|e| e.uncompressed).sum();
@@ -376,6 +397,52 @@ pub fn inspect_reader_kinds<R: Read + Seek>(
     }
     checks.push(row("revocation", Status::Pass, "not revoked"));
 
+    let mut members = Vec::new();
+    if m.kind == Kind::Bundle {
+        let declared = m.rest["members"]
+            .as_array()
+            .expect("checked bundle members");
+        let mut expanded_bytes: u64 = audited.entries.iter().map(|e| e.uncompressed).sum();
+        let mut expanded_entries = audited.entries.len();
+        for member in declared {
+            let path = member["path"].as_str().expect("schema checked member path");
+            let entry = payload
+                .iter()
+                .find(|e| e.name == path)
+                .expect("checked file set");
+            let bytes = read_entry(r, entry, p.limits.entry_bytes)?;
+            let child = inspect_reader_at_depth(&mut Cursor::new(bytes), p, kinds, depth + 1)?;
+            if child.manifest.name != member["name"].as_str().unwrap_or("")
+                || child.sha256 != member["sha256"].as_str().unwrap_or("")
+            {
+                return Err(package_invalid(
+                    "members: the child name and exact package digest must match the declaration",
+                ));
+            }
+            expanded_bytes = expanded_bytes
+                .checked_add(child.entries.iter().map(|e| e.uncompressed).sum())
+                .ok_or_else(|| size_refusal(u64::MAX, p.limits.package_bytes))?;
+            expanded_entries = expanded_entries.saturating_add(child.entries.len());
+            if expanded_bytes > p.limits.package_bytes || expanded_entries > p.limits.max_entries {
+                return Err(Refusal::invalid(
+                    reason::TOO_LARGE,
+                    "the bundle's complete expanded member set exceeds the package limits",
+                ));
+            }
+            members.push(BundleMemberInspection {
+                name: child.manifest.name.clone(),
+                path: path.to_string(),
+                optional: member["optional"].as_bool().unwrap_or(false),
+                inspection: child,
+            });
+        }
+        checks.push(row(
+            "members",
+            Status::Pass,
+            format!("{} complete member packages verified", members.len()),
+        ));
+    }
+
     Ok(Inspection {
         sha256: audited.sha256,
         size: audited.size,
@@ -386,6 +453,7 @@ pub fn inspect_reader_kinds<R: Read + Seek>(
         checks,
         scripts: derived,
         entries: audited.entries,
+        members,
     })
 }
 

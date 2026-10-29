@@ -37,6 +37,9 @@ pub struct InspectionRecord {
     pub requires: Value,
     /// `{ version, capabilityDiff: { changed: [key] } }` when the same id is installed.
     pub replaces: Option<Value>,
+    /// Direct, fully verified member disclosures. No child inspection ids or private paths are public.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<Value>,
 }
 
 /// A package extracted and checked in staging, ready for the commit (Task 7): the worker's `stage` answer. Defined here,
@@ -53,6 +56,16 @@ pub struct StagedItem {
     pub record: state::ItemRecord,
     /// `run/inspect/<id>.p1x`: the verified package bytes, for the cache.
     pub package: PathBuf,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<StagedMember>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StagedMember {
+    pub optional: bool,
+    pub inspection: InspectionRecord,
+    pub item: StagedItem,
 }
 
 // ---- small helpers the ext files share (X1-C11) ---------------------------------------------------------------
@@ -74,6 +87,7 @@ pub(crate) fn code_dir(layout: &Layout, name: &str, kind: &str) -> PathBuf {
     match kind {
         "skill" => layout.skills().join(name),
         "mcp-server" => ExtPaths::of(layout).mcp.join(name),
+        "bundle" => ExtPaths::of(layout).root.join("bundles").join(name),
         _ => layout.modules_dir().join(name),
     }
 }
@@ -273,6 +287,9 @@ pub(crate) fn check_name(
     let package = ExtPaths::of(layout).mcp.join(name);
     if std::fs::symlink_metadata(&package).is_ok() {
         return Err(name_taken(name, "mcp-server", None));
+    }
+    if std::fs::symlink_metadata(code_dir(layout, name, "bundle")).is_ok() {
+        return Err(name_taken(name, "bundle", None));
     }
     Ok(())
 }

@@ -64,7 +64,7 @@ pub(crate) fn install_units(layout: &Layout, key: &str) -> BTreeMap<String, (Str
 
 /// `"all"` or the agents a skill is effective for (X1-R11): none when it is disabled, else every configured agent that
 /// does not block it, and `"all"` when none does. Modules and channels: `"all"`.
-fn agents_of(cfg: &Value, name: &str, kind: &str, enabled: bool) -> Value {
+pub(crate) fn agents_of(cfg: &Value, name: &str, kind: &str, enabled: bool) -> Value {
     if kind == "mcp-server" {
         return if enabled {
             cfg["mcp"]["servers"][name]
@@ -137,12 +137,30 @@ fn record_item(
     revs: &[Revocation],
     missing: &[String],
 ) -> Value {
-    let enabled = enabled_in(layout, idx, cfg, &rec.name, &rec.kind);
+    let (enabled, partial, member_overlays) = if rec.kind == "bundle" {
+        super::bundle_lifecycle::summary(layout, cfg, rec)
+    } else {
+        (
+            enabled_in(layout, idx, cfg, &rec.name, &rec.kind),
+            false,
+            vec![],
+        )
+    };
     let meta = cached_meta(paths, &rec.package_sha256);
     let compat = meta
         .as_ref()
         .and_then(|m| m["manifest"].get("compat").cloned());
     let mut overlays = overlays_with_missing(rec, host, revs, compat.as_ref(), missing);
+    for overlay in member_overlays {
+        if !overlays.contains(&overlay) {
+            overlays.push(overlay);
+        }
+    }
+    if super::bundle_transaction::pending(layout)
+        && !overlays.contains(&super::overlays::Overlay::Tampered)
+    {
+        overlays.push(super::overlays::Overlay::Tampered);
+    }
     if rec.kind == "mcp-server" {
         if let Some(runtime) = super::runtime::status(layout, &rec.name) {
             if !overlays.contains(&runtime) {
@@ -166,6 +184,10 @@ fn record_item(
         Some(i) if i.ok => "ok",
         Some(_) => "tampered",
     });
+    if rec.kind == "bundle" {
+        item["partial"] = json!(partial);
+        item["members"] = json!(rec.members);
+    }
     item
 }
 
@@ -198,7 +220,7 @@ fn collect(
         if rec.removed_by_user
             || !matches!(
                 rec.kind.as_str(),
-                "skill" | "module" | "channel" | "mcp-server"
+                "skill" | "module" | "channel" | "mcp-server" | "bundle"
             )
         {
             continue;
@@ -518,7 +540,7 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
     } else {
         json!({})
     };
-    Ok(json!({
+    let mut result = json!({
         "item": item,
         "manifest": manifest,
         "capabilities": capabilities,
@@ -527,5 +549,11 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
         "files": { "count": rec.files.len(), "bytes": rec.files.values().map(|f| f.size).sum::<u64>() },
         "dependents": if rec.kind == "skill" { vec![] } else { super::lifecycle::dependents(layout, cfg, name) },
         "trash": trash_of(&paths, name),
-    }))
+    });
+    if rec.kind == "bundle" {
+        let members = super::bundle_lifecycle::member_inspections(layout, &rec)?;
+        result["consentSha256"] = json!(super::bundle_lifecycle::consent_sha256(&rec, &members));
+        result["memberInspections"] = json!(members);
+    }
+    Ok(result)
 }

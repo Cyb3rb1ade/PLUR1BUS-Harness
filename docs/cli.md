@@ -4378,6 +4378,7 @@ Inspects the package first and prints the disclosure: trust tier and why, signer
 ###### **Options:**
 
 * `--enable <AGENT>` — Enable it right away, for every agent or (with `=<agent,…>`) only for those
+* `--member <NAME>` — Select a bundle member (repeatable); every nonoptional member is required. Omit to install all members
 * `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
 * `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
 * `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
@@ -4514,6 +4515,7 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 ###### **Options:**
 
 * `--enable <AGENT>` — Enable it right away, for every agent or (for MCP servers, with `=<agent,…>`) only for those
+* `--member <NAME>` — Select a bundle member (repeatable); every nonoptional member is required. Omit to install all members
 * `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
 * `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
 * `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
@@ -4610,6 +4612,7 @@ MCP bundle compatibility commands
 
 ###### **Options:**
 
+* `--member <NAME>` — Select a bundle member (repeatable); every nonoptional member is required. Omit to install all members
 * `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
 * `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
 * `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)

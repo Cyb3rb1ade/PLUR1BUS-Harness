@@ -125,6 +125,8 @@ pub enum Agents {
 pub struct InstallOpts {
     pub acknowledge: Vec<String>,
     pub enable: Option<Agents>,
+    /// Explicit selected bundle member names; omission selects every declared member.
+    pub members: Option<Vec<String>>,
 }
 
 pub(crate) use super::record::io_err;
@@ -397,7 +399,7 @@ pub(crate) fn copy_atomic(from: &Path, to: &Path) -> Result<(), ExtError> {
 }
 
 /// The re-checks at commit time (the inspection can be up to ten minutes old).
-fn recheck(
+pub(crate) fn recheck(
     layout: &Layout,
     paths: &ExtPaths,
     st: &state::ExtState,
@@ -438,7 +440,7 @@ fn lower(new: &str, old: &str) -> bool {
 /// replaced by one with other capabilities (`widened`). The first missing one is `E_APPROVAL_REQUIRED
 /// acknowledge-<x>` with the inspection in `data` (plus `authority` for the capability disclosure). Returns the
 /// acknowledgments given, deduplicated, for the audit line.
-fn acknowledgments(
+pub(crate) fn acknowledgments(
     rec: &InspectionRecord,
     staged: &StagedItem,
     prev: Option<&ItemRecord>,
@@ -641,8 +643,18 @@ fn commit_and_clean(
     let paths = ExtPaths::of(layout);
     // Derived from the inspection, never from the staged item's own paths (the worker's answer).
     let staging = derived_staging(layout, rec);
+    let children: Vec<PathBuf> = staged
+        .members
+        .iter()
+        .filter_map(|m| derived_staging(layout, &m.inspection))
+        .collect();
     KILLED.store(false, Ordering::SeqCst);
     let result = match locked {
+        Ok(()) if super::bundle_transaction::pending(layout) => Err(ExtError::new(
+            "E_STORAGE",
+            "state-invalid",
+            "an interrupted bundle transaction requires recovery before another extension change",
+        )),
         Ok(()) => commit_locked(layout, &paths, host, rec, staged, opts),
         Err(e) => Err(e.clone()),
     };
@@ -651,6 +663,9 @@ fn commit_and_clean(
         return result;
     }
     // The staging directory is spent whichever way it went (a refusal must leave `extensions/` as it was).
+    for child in children {
+        let _ = remove_dir_all_retrying(&child);
+    }
     if let Some(d) = staging {
         let _ = remove_dir_all_retrying(&d);
         let _ = fs::remove_dir(&paths.staging);
@@ -664,17 +679,16 @@ fn commit_and_clean(
     result
 }
 
-fn commit_locked(
+/// The worker's answer is bound to a known inspection and derived staging tree before anything is moved.
+pub(crate) fn validate_staged(
     layout: &Layout,
-    paths: &ExtPaths,
-    host: &mut dyn ModuleHost,
     rec: &InspectionRecord,
-    staged: StagedItem,
-    opts: &InstallOpts,
-) -> Result<Value, ExtError> {
+    staged: &StagedItem,
+    expected_package: &Path,
+) -> Result<(), ExtError> {
     if !matches!(
         staged.kind,
-        Kind::Skill | Kind::Module | Kind::Channel | Kind::McpServer
+        Kind::Skill | Kind::Module | Kind::Channel | Kind::McpServer | Kind::Bundle
     ) {
         return Err(ExtError::new(
             "E_NOT_AVAILABLE",
@@ -682,7 +696,31 @@ fn commit_locked(
             format!("{} packages arrive in X2", kind_name(staged.kind)),
         ));
     }
-    if staged.record.package_sha256 != rec.sha256
+    let required: Vec<String> = rec.capabilities["secrets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|slot| slot["required"] == true)
+        .filter_map(|slot| slot["slot"].as_str().map(str::to_string))
+        .collect();
+    let files_match = rec.manifest["files"].as_object().is_some_and(|files| {
+        files.len() == staged.record.files.len()
+            && staged.record.files.iter().all(|(path, file)| {
+                let declared = &rec.manifest["files"][format!("payload/{path}")];
+                declared["sha256"].as_str() == Some(file.sha256.as_str())
+                    && declared["size"].as_u64() == Some(file.size)
+                    && declared["exec"].as_bool().unwrap_or(false) == file.exec
+            })
+    });
+    if staged.record.name != staged.name
+        || staged.record.kind != rec.manifest["kind"].as_str().unwrap_or("")
+        || !files_match
+        || staged.record.id != rec.manifest["id"].as_str().unwrap_or("")
+        || staged.record.capabilities != rec.capabilities
+        || staged.record.required_secrets != required
+        || staged.record.trust != rec.trust["tier"].as_str().unwrap_or("unsigned")
+        || staged.record.key_id.as_deref() != rec.trust["keyId"].as_str()
+        || staged.record.package_sha256 != rec.sha256
         || rec.manifest["name"] != staged.name.as_str()
         || rec.manifest["version"] != staged.record.version.as_str()
         || staged.record.kind != kind_name(staged.kind)
@@ -709,15 +747,41 @@ fn commit_locked(
             d.join("payload")
         }
     });
-    if derived.as_deref() != Some(staged.dir.as_path())
-        || staged.package != spool_path(layout, &rec.inspection_id)
-    {
+    if derived.as_deref() != Some(staged.dir.as_path()) || staged.package != expected_package {
         return Err(ExtError::new(
             "E_INTERNAL",
             "worker-failed",
             "the staged item names paths other than this inspection's staging directory and package",
         ));
     }
+    Ok(())
+}
+
+fn commit_locked(
+    layout: &Layout,
+    paths: &ExtPaths,
+    host: &mut dyn ModuleHost,
+    rec: &InspectionRecord,
+    staged: StagedItem,
+    opts: &InstallOpts,
+) -> Result<Value, ExtError> {
+    validate_staged(
+        layout,
+        rec,
+        &staged,
+        &spool_path(layout, &rec.inspection_id),
+    )?;
+    if staged.kind == Kind::Bundle {
+        return super::bundle_commit::install(layout, host, rec, staged, opts);
+    }
+    if opts.members.is_some() {
+        return Err(ExtError::new(
+            "E_INVALID_PARAMS",
+            "package-invalid",
+            "member selection applies only to a bundle",
+        ));
+    }
+    super::bundle_lifecycle::check_independent_update(layout, &staged.name)?;
     let name = staged.name.clone();
     let kind = kind_name(staged.kind);
     let cfg = host.config();
@@ -749,37 +813,7 @@ fn commit_locked(
     let prev = st.items.get(&name).cloned();
     recheck(layout, paths, &st, &staged, &cfg)?;
     if staged.kind == Kind::McpServer {
-        for path in [&paths.mcp, &paths.mcp.join(&name)] {
-            if fs::symlink_metadata(path).is_ok_and(|m| !m.is_dir() || m.file_type().is_symlink()) {
-                return Err(ExtError::new(
-                    "E_CONFLICT",
-                    "version-conflict",
-                    "the MCP destination is not a plain directory",
-                ));
-            }
-        }
-        if let Some(version) = prev
-            .as_ref()
-            .and_then(|r| r.versions.get(&staged.record.version))
-        {
-            if version.package_sha256 != staged.record.package_sha256 {
-                return Err(ExtError::new("E_CONFLICT", "version-conflict", "this immutable MCP version already contains different package bytes; publish a new version"));
-            }
-            // Reactivating retained code never repairs it silently from the inspected package.
-            if !super::overlays::rehash(layout, &staged.record).ok {
-                return Err(ExtError::new(
-                    "E_NOT_AVAILABLE",
-                    "tampered",
-                    "the retained MCP version no longer matches its verified package",
-                ));
-            }
-        } else if super::record::active_code_dir(layout, &staged.record).exists() {
-            return Err(ExtError::new(
-                "E_CONFLICT",
-                "version-conflict",
-                "an unrecorded MCP version already occupies this destination",
-            ));
-        }
+        check_mcp_destination(layout, paths, prev.as_ref(), &staged.record)?;
     }
     let prev_enabled = prev.is_some() && enabled_now(layout, &cfg, &name, kind);
     // X1-C12, with the comparison `ext.enable` uses: the new capabilities against the acknowledged hash.
@@ -874,34 +908,72 @@ fn commit_locked(
     })
 }
 
+pub(crate) fn check_mcp_destination(
+    layout: &Layout,
+    paths: &ExtPaths,
+    prev: Option<&ItemRecord>,
+    record: &ItemRecord,
+) -> Result<(), ExtError> {
+    for path in [&paths.mcp, &paths.mcp.join(&record.name)] {
+        if fs::symlink_metadata(path).is_ok_and(|m| !m.is_dir() || m.file_type().is_symlink()) {
+            return Err(ExtError::new(
+                "E_CONFLICT",
+                "version-conflict",
+                "the MCP destination is not a plain directory",
+            ));
+        }
+    }
+    if let Some(version) = prev.as_ref().and_then(|r| r.versions.get(&record.version)) {
+        if version.package_sha256 != record.package_sha256 {
+            return Err(ExtError::new("E_CONFLICT", "version-conflict", "this immutable MCP version already contains different package bytes; publish a new version"));
+        }
+        // Reactivating retained code never repairs it silently from the inspected package.
+        if !super::overlays::rehash(layout, record).ok {
+            return Err(ExtError::new(
+                "E_NOT_AVAILABLE",
+                "tampered",
+                "the retained MCP version no longer matches its verified package",
+            ));
+        }
+    } else if super::record::active_code_dir(layout, record).exists() {
+        return Err(ExtError::new(
+            "E_CONFLICT",
+            "version-conflict",
+            "an unrecorded MCP version already occupies this destination",
+        ));
+    }
+    Ok(())
+}
+
 /// What the steps read.
-struct Ctx<'c> {
-    layout: &'c Layout,
-    paths: &'c ExtPaths,
-    rec: &'c InspectionRecord,
-    staged: &'c StagedItem,
-    prev: Option<&'c ItemRecord>,
+pub(crate) struct Ctx<'c> {
+    pub(crate) layout: &'c Layout,
+    pub(crate) paths: &'c ExtPaths,
+    pub(crate) rec: &'c InspectionRecord,
+    pub(crate) staged: &'c StagedItem,
+    pub(crate) prev: Option<&'c ItemRecord>,
     /// The replaced item is enabled now (X1-C9 keeps it so).
-    prev_enabled: bool,
+    pub(crate) prev_enabled: bool,
     /// ... and its capabilities change, which the person acknowledged (X1-C12).
-    widened: bool,
+    pub(crate) widened: bool,
     /// The skill's index entry as it was when the commit started (for the trash's `record.json`).
-    prev_index: Option<Value>,
-    st: &'c state::ExtState,
-    cfg: &'c Value,
-    opts: &'c InstallOpts,
+    pub(crate) prev_index: Option<Value>,
+    pub(crate) st: &'c state::ExtState,
+    pub(crate) cfg: &'c Value,
+    pub(crate) opts: &'c InstallOpts,
 }
 
 /// The steps of [`COMMIT_STEPS`], each registering its undo in `rb`. Returns the written record and the final state.
-fn run_steps<'a>(
-    c: &Ctx<'a>,
+pub(crate) fn run_steps(
+    c: &Ctx<'_>,
     host: &mut dyn ModuleHost,
-    rb: &mut Rollback<'a>,
+    rb: &mut Rollback<'_>,
 ) -> Result<(ItemRecord, &'static str), ExtError> {
     let (layout, paths, staged) = (c.layout, c.paths, c.staged);
     let name = staged.name.clone();
     let is_skill = staged.kind == Kind::Skill;
     let is_mcp = staged.kind == Kind::McpServer;
+    let is_bundle = staged.kind == Kind::Bundle;
     let now = now_iso();
 
     // The record the steps write: a replacement keeps the acknowledged capability hash (a widened set needs a new
@@ -925,7 +997,7 @@ fn run_steps<'a>(
     }
 
     // config: a fresh module or MCP server is installed disabled. A replacement keeps its enable state (X1-C9).
-    if !is_skill {
+    if !is_skill && !is_bundle {
         if c.prev.is_none() {
             let section = config_section(c.cfg, &name, &record.kind);
             let key = config_key(&name, &record.kind);
@@ -965,7 +1037,7 @@ fn run_steps<'a>(
     if let Some(old) = c.prev.filter(|_| !is_mcp) {
         let tdir = new_trash_entry(c, old, &now, rb)?;
         let code = tdir.join("code");
-        if is_skill || is_mcp {
+        if is_skill || is_mcp || is_bundle {
             let dir = code_dir(layout, &name, &record.kind);
             if fs::symlink_metadata(&dir).is_ok() {
                 rename_retrying(&dir, &code)
@@ -998,7 +1070,7 @@ fn run_steps<'a>(
                 }
             });
         }
-    } else if is_skill {
+    } else if is_skill || is_bundle {
         let dest = code_dir(layout, &name, &record.kind);
         if let Some(parent) = dest.parent() {
             ensure_dir(parent, "code", rb)?;
@@ -1051,7 +1123,10 @@ fn run_steps<'a>(
     }
     let meta = paths.cached_meta(&c.rec.sha256);
     if !meta.is_file() {
-        let body = json!({ "manifest": c.rec.manifest, "scripts": c.rec.scripts });
+        let mut body = json!({ "manifest": c.rec.manifest, "scripts": c.rec.scripts });
+        if is_bundle {
+            body["members"] = json!(c.rec.members);
+        }
         let mut text = serde_json::to_string_pretty(&body).unwrap_or_default();
         text.push('\n');
         write_private_atomic(&meta, text.as_bytes())
@@ -1179,11 +1254,11 @@ pub(crate) fn build_trash_entry(
 /// Builds the trash entry of a replaced item ([`build_trash_entry`]) and registers its one undo: put `code/` back
 /// where it came from if it is there, and remove the entry only once that worked. A failed restore keeps the entry, so
 /// no code is lost. The caller then moves the old code to `<trashId>/code`.
-fn new_trash_entry<'a>(
-    c: &Ctx<'a>,
+fn new_trash_entry(
+    c: &Ctx<'_>,
     old: &ItemRecord,
     now: &str,
-    rb: &mut Rollback<'a>,
+    rb: &mut Rollback<'_>,
 ) -> Result<PathBuf, ExtError> {
     let (layout, paths) = (c.layout, c.paths);
     let name = old.name.clone();
@@ -1198,8 +1273,9 @@ fn new_trash_entry<'a>(
     });
     let (_, tdir) = build_trash_entry(paths, &name, &old.version, now, &body, &[])?;
     let t = tdir.clone();
+    let layout = layout.clone();
     rb.push("code", move |h| {
-        put_code_back(layout, h, &kind, &name, &t.join("code"))?;
+        put_code_back(&layout, h, &kind, &name, &t.join("code"))?;
         remove_dir_all_retrying(&t).map_err(|e| format!("{}: {e}", t.display()))
     });
     Ok(tdir)
@@ -1224,7 +1300,7 @@ pub(crate) fn put_code_back(
             code.display()
         )
     };
-    if matches!(kind, "skill" | "mcp-server") {
+    if matches!(kind, "skill" | "mcp-server" | "bundle") {
         let dir = code_dir(layout, name, kind);
         rename_retrying(code, &dir).map_err(|e| stays(&e))
     } else {
@@ -1237,12 +1313,12 @@ pub(crate) fn put_code_back(
 /// and every agent's `blocked` list, a module's `modules.<name>.enabled` (the order of `ext.enable`: a kill in between
 /// leaves an acknowledged item disabled, never an enabled one without its acknowledgment). Task 8's `ext.enable` owns
 /// the same semantics for installed items.
-fn enable_now<'a>(
-    c: &Ctx<'a>,
+fn enable_now(
+    c: &Ctx<'_>,
     host: &mut dyn ModuleHost,
     agents: &Agents,
     record: &mut ItemRecord,
-    rb: &mut Rollback<'a>,
+    rb: &mut Rollback<'_>,
 ) -> Result<(), ExtError> {
     let (layout, paths) = (c.layout, c.paths);
     let name = c.staged.name.as_str();
