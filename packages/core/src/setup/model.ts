@@ -9,7 +9,7 @@ export const SETUP_STEPS = [
   { id: 'switchboard', skippable: true, unavailable: true },
   { id: 'voice', skippable: true, unavailable: false },
   { id: 'backup', skippable: true, unavailable: false },
-  { id: 'import', skippable: true, unavailable: true },
+  { id: 'import', skippable: true, unavailable: false },
 ] as const;
 export const setupStepsFor = (bundled: boolean) => SETUP_STEPS.filter(step => !bundled || step.id !== 'account');
 /** The Sprache step uses the canonical language RPC; a research model always needs the person's explicit selection. */
