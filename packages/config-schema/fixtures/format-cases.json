@@ -151,6 +151,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -673,6 +676,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -1197,6 +1203,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -1719,6 +1728,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -2243,6 +2255,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -2765,6 +2780,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -3289,6 +3307,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -3811,6 +3832,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -4335,6 +4359,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -4857,6 +4884,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -5381,6 +5411,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -5903,6 +5936,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -6427,6 +6463,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -6949,6 +6988,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -7473,6 +7515,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -7995,6 +8040,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -8519,6 +8567,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -9041,6 +9092,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -9565,6 +9619,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -10087,6 +10144,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -10611,6 +10671,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -11133,6 +11196,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -11657,6 +11723,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -12179,6 +12248,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -12703,6 +12775,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -13225,6 +13300,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -13749,6 +13827,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -14271,6 +14352,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {
@@ -14795,6 +14879,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -15315,6 +15402,9 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -15834,6 +15924,9 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
       },
       "providers": {},
       "auth": {

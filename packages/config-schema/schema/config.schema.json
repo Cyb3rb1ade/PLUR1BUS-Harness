@@ -1062,7 +1062,40 @@
               }},
               "backfill": {"description": "Whether existing media are indexed automatically in the background (auto) or only on request (manual).", "type": "string", "enum": ["auto", "manual"], "x-restart": "core", "x-tier": "advanced"}
             }}
-          }}
+          }},
+          "mcpServer": {
+            "description": "MCP server exposure and tool group selection for this agent.",
+            "type": "object",
+            "additionalProperties": false,
+            "default": {},
+            "x-restart": "live",
+            "x-tier": "advanced",
+            "x-write-roles": ["owner", "admin"],
+            "x-audit": true,
+            "properties": {
+              "exposed": {
+                "description": "Whether this agent is exposed on the harness MCP server.",
+                "type": "boolean",
+                "default": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": ["owner", "admin"],
+                "x-audit": true
+              },
+              "groups": {
+                "description": "Tool groups exposed for this agent on the harness MCP server.",
+                "type": "array",
+                "maxItems": 32,
+                "uniqueItems": true,
+                "items": { "type": "string", "maxLength": 64, "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+                "default": ["memory", "agent", "skills"],
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": ["owner", "admin"],
+                "x-audit": true
+              }
+            }
+          }
         }
       }
     },
@@ -1168,6 +1201,28 @@
               }
             }
           }
+        }
+      }
+    },
+    "mcpServer": {
+      "description": "Harness MCP server for foreign hosts (M6-A): exposes harness functions, memory and skills behind agent-bound tokens.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "x-since": "1.8.0",
+      "x-write-roles": ["owner", "admin"],
+      "x-audit": true,
+      "properties": {
+        "enabled": {
+          "description": "Allow foreign MCP hosts to connect to the harness MCP server.",
+          "type": "boolean",
+          "default": false,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": ["owner", "admin"],
+          "x-audit": true
         }
       }
     },

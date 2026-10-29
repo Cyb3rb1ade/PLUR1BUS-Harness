@@ -144,6 +144,9 @@
   "mcp": {
     "servers": {}
   },
+  "mcpServer": {
+    "enabled": false
+  },
   "providers": {},
   "auth": {
     "requireSecondFactor": "remote",
