@@ -72,6 +72,8 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   // M v2 decision 2: extension inventory and changes are human Owner/Admin operations.
   humanOnly(spec("extensions.read", "system", OA)),
   humanOnly(spec("extensions.manage", "system", OA)),
+  humanOnly(spec("imports.read", "system", OA)),
+  humanOnly(spec("imports.manage", "system", OA)),
 
   // Users & roles, break-glass, ownership.
   spec("users.read", "system", OA),

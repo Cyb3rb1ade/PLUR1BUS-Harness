@@ -27,6 +27,7 @@ import type { SecretStore } from "../secrets/store.ts";
 import type { Egress } from "../egress/service.ts";
 import type { HarnessLogger } from "../logger.ts";
 import type { LogWriter } from "../logs/writer.ts";
+import { deferMaintenanceStart, type CompositionMaintenance } from "./maintenance.ts";
 
 /** One host-owned truth source supplies both OAuth readiness and the resource-bound provider. */
 export interface ExtensionMcpAuth {
@@ -38,6 +39,7 @@ export interface ExtensionMcpAuth {
 
 /** Trusted Core ports. Connection principals and surface attestations come from the actual Core resolver. */
 export interface ExtensionCompositionOptions {
+  maintenance?: CompositionMaintenance;
   home: string;
   config(): HarnessConfig;
   secrets: SecretStore;
@@ -58,6 +60,8 @@ export async function composeExtensions(options: ExtensionCompositionOptions) {
   const secrets = createExtensionSecrets({ home: options.home, store: options.secrets,
     definition: name => installedExtensionSecretDefinition(options.home, name) });
   let controller: McpExtensionReconciler | undefined;
+  let active = !options.maintenance?.held();
+  let closed = false;
   const ownedAuth = options.auth ? undefined : new McpAuthSessions({
     binding: name => {
       const remote = controller?.status(name)?.remote;
@@ -75,6 +79,9 @@ export async function composeExtensions(options: ExtensionCompositionOptions) {
   const auth = options.auth ?? ownedAuth!;
   const registry = createMcpRegistry({ logger: options.logger, output: options.output, secrets: options.secrets,
     egress: options.egress,
+    admitStart: () => {
+      if (!active) throw new McpClientError("not-allowed", "MCP startup awaits maintenance release");
+    },
     policy: { allowedCommands: (options.config().providers.mcp as { allowedCommands?: string[] } | undefined)
       ?.allowedCommands ?? [] },
     onEvent: event => controller?.runtimeEvent(event),
@@ -115,15 +122,25 @@ export async function composeExtensions(options: ExtensionCompositionOptions) {
   const runtime: McpExtensionRuntime = { ...options.runtime,
     oauthReady: name => auth.ready(name) && auth.provider(name) !== undefined };
   controller = new McpExtensionReconciler({ home: options.home, config: options.config, registry, runtime,
+    active: () => active,
     availableSecretNames: () => secrets.availableSecretNames(),
     ...(feed ? { feed } : {}), ...(options.configChanges ? { onConfigChange: options.configChanges } : {}),
     degraded: reason => options.logger.warn("turn MCP unavailable", { reason }) });
-  await controller.refresh();
   const runtimeController = controller;
-  const changes = watchExtensionSecretChanges({ store: options.secrets, mcp: name => runtimeController.retry(name),
-    deferred: name => options.logger.warn("extension reconciliation deferred", { name, reason: "runtime-unavailable" }),
-    ...(options.supervised ? { native: (name: string) => reconcileNativeExtension(options.home, name) } : {}) });
-  const unwatchPending = options.configChanges?.(() => changes.retryPending());
+  let changes: ReturnType<typeof watchExtensionSecretChanges> | undefined;
+  let unwatchPending: (() => void) | undefined;
+  const start = async () => {
+    if (closed) return;
+    active = true;
+    await runtimeController.refresh();
+    if (closed) return;
+    changes ??= watchExtensionSecretChanges({ store: options.secrets, mcp: name => runtimeController.retry(name),
+      deferred: name => options.logger.warn("extension reconciliation deferred", { name, reason: "runtime-unavailable" }),
+      ...(options.supervised ? { native: (name: string) => reconcileNativeExtension(options.home, name) } : {}) });
+    unwatchPending ??= options.configChanges?.(() => changes?.retryPending());
+  };
+  const unwatchStart = deferMaintenanceStart(options.maintenance, start);
+  if (!unwatchStart) await start();
 
   const principalOf = async (ctx: CallContext, method: ExtensionSetupMethod,
     params: unknown): Promise<ExtensionSetupPrincipal> => {
@@ -170,9 +187,12 @@ export async function composeExtensions(options: ExtensionCompositionOptions) {
     },
     ...(ownedAuth ? buildMcpAuthSessionMethods(ownedAuth, options.resolvePrincipal ?? (() => null)) : options.auth?.methods),
   };
-  return { registry, controller: runtimeController, methods, retryPending: () => changes.retryPending(), async close() {
+  return { registry, controller: runtimeController, methods, retryPending: () => changes?.retryPending(), async close() {
+    closed = true;
+    active = false;
+    unwatchStart?.();
     unwatchPending?.();
-    changes.close();
+    changes?.close();
     let failure: unknown;
     for (const close of [() => runtimeController.close(), () => feed?.close(),
       () => registry.shutdown(), () => auth.close?.()]) {

@@ -29,6 +29,8 @@ export interface McpExtensionOptions {
   availableSecretNames?: () => Promise<ReadonlySet<string> | undefined>;
   onConfigChange?: (listener: () => void) => () => void;
   degraded?: (reason: string) => void;
+  /** The host opens this only while admitting deferred startup after maintenance. */
+  active?: () => boolean;
 }
 
 interface Registration {
@@ -73,7 +75,7 @@ export class McpExtensionReconciler {
 
   /** Wait for the latest config and overlay snapshot before discovering the next turn's tool descriptors. */
   refresh(): Promise<void> {
-    if (this.#closed) return this.#work;
+    if (this.#closed || this.#options.active?.() === false) return this.#work;
     const config = this.#options.config();
     const revoked = this.#remove([...this.#registrations].filter(([, entry]) =>
       this.#holds.has(entry.definition.name) || (entry.extension &&
@@ -130,7 +132,7 @@ export class McpExtensionReconciler {
 
   /** A setup/auth change explicitly permits a fresh attempt; changing a secret never changes an enable flag. */
   retry(name: string): Promise<void> {
-    if (this.#closed) return this.#work;
+    if (this.#closed || this.#options.active?.() === false) return this.#work;
     this.#runtimeErrors.delete(name);
     const removed = this.#remove([...this.#registrations].filter(([, entry]) =>
       entry.extension && entry.definition.name === name).map(([key]) => key));
@@ -157,7 +159,7 @@ export class McpExtensionReconciler {
 
   /** Live authorization is checked again at execution, independently of the earlier descriptor snapshot (M-A5). */
   visible(name: string, agentId: string): boolean {
-    if (this.#closed || this.#holds.has(name) || this.#runtimeErrors.has(name)) return false;
+    if (this.#closed || this.#options.active?.() === false || this.#holds.has(name) || this.#runtimeErrors.has(name)) return false;
     const registration = this.#registrations.get(`agent:${agentId}:${name}`) ??
       this.#registrations.get(`installation:${name}`);
     if (!registration) return false;

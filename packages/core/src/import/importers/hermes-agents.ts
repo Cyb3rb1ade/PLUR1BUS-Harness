@@ -1,3 +1,4 @@
+import { SourceReader } from "../source-reader.ts";
 // Hermes agents & workspace migration (docs/import.md §3.1, M7 Batch 3).
 // Migrates persona files (SOUL.md) and USER.md into l.workspaceDir(agentId).
 // Scaffolds template files for new agents and records idempotent mutations to the ledger.
@@ -20,7 +21,6 @@ import {
   type ImportLedger,
 } from "../ledger.ts";
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
-import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 import {
   validateAgentId,
@@ -80,18 +80,21 @@ function generateRenameTarget(fileName: string, wsTarget: string, usedNames?: Se
   return { name: fallback, path: join(wsTarget, fallback) };
 }
 
-export function planAndMigrateHermesAgent(
+export async function planAndMigrateHermesAgent(
   agentId: string,
   profileDir: string,
   hermesRoot: string,
   l: Layout,
   existingAgentIds: Set<string>,
   apply: boolean,
-  onConflict: ConflictStrategy = "skip",
+  defaultConflict: ConflictStrategy = "skip",
   ledger?: ImportLedger,
   replacedBackupDir?: string,
   userBound = false,
-): { report: AgentImportReport; isNewAgent: boolean } {
+  sourceReader?: SourceReader,
+  chooseConflict?: (targetFile: string) => ConflictStrategy,
+): Promise<{ report: AgentImportReport; isNewAgent: boolean }> {
+  const reader = sourceReader ?? await SourceReader.local();
   // Validate agentId
   const validation = validateAgentId(agentId);
   if (!validation.ok) {
@@ -121,7 +124,8 @@ export function planAndMigrateHermesAgent(
   const fileReports: ImportedFileReport[] = [];
   const usedTargetNames = new Set<string>();
 
-  const processFile = (src: string, initialTargetFileName: string) => {
+  const processFile = async (src: string, initialTargetFileName: string) => {
+    const onConflict = chooseConflict?.(initialTargetFileName) ?? defaultConflict;
     let targetFileName = initialTargetFileName;
 
     if (usedTargetNames.has(targetFileName)) {
@@ -139,8 +143,9 @@ export function planAndMigrateHermesAgent(
 
     let srcBuffer: Buffer;
     try {
-      srcBuffer = readSourceFileSafe(src, MAX_FILE_BYTES);
+      srcBuffer = await reader.read(src, MAX_FILE_BYTES);
     } catch (error) {
+      SourceReader.refuseFatal(error);
       fileReports.push({
         sourceFile: src,
         targetFile: targetFileName,
@@ -342,17 +347,17 @@ export function planAndMigrateHermesAgent(
 
   // 1. Process SOUL.md if present
   // existsNoFollow, not isFile: a symlink or FIFO is reported, never skipped silently.
-  const soulPath = join(profileDir, "SOUL.md");
-  if (existsNoFollow(soulPath)) {
-    processFile(soulPath, "SOUL.md");
+  const soulPath = reader.paths.join(profileDir, "SOUL.md");
+  if (await reader.exists(soulPath)) {
+    await processFile(soulPath, "SOUL.md");
   }
 
   // 2. A profile-root USER.md is user-scoped content (ADR-007 Q4): copied only with an unambiguous user binding.
   // Without one it is reported and not copied, exactly like the memories/USER.md cards (unresolved-user-scope).
-  const rootUserPath = join(profileDir, "USER.md");
-  if (existsNoFollow(rootUserPath)) {
+  const rootUserPath = reader.paths.join(profileDir, "USER.md");
+  if (await reader.exists(rootUserPath)) {
     if (userBound) {
-      processFile(rootUserPath, "USER.md");
+      await processFile(rootUserPath, "USER.md");
     } else {
       fileReports.push({
         sourceFile: rootUserPath,

@@ -1,3 +1,4 @@
+import { SourceReader } from "../source-reader.ts";
 // OpenClaw agents & workspace migration (docs/import.md §1, §2.2, M7 Batch 2 & Batch 4).
 // Migrates persona files (SOUL.md), curated workspace files, and daily notes
 // into `l.workspaceDir(agentId)` (agents/<id>/workspace/).
@@ -17,7 +18,7 @@ import { assertKnowledgeTarget, formatImportedKnowledge, writeImportedKnowledge 
 import { KNOWLEDGE_RELATIVE_PATH } from "../../paths.ts";
 import type { Layout } from "../../paths.ts";
 import { isDir } from "../readonly.ts";
-import { readSourceFileSafe, decodeSourceText } from "../fs-safe.ts";
+import { decodeSourceText } from "../fs-safe.ts";
 import {
   agentIdempotencyKey,
   fileIdempotencyKey,
@@ -81,9 +82,9 @@ interface CuratedCandidate {
   sourceCandidates: string[];
 }
 
-function findFirstFile(candidates: string[]): string | null {
+async function findFirstFile(candidates: string[], reader: SourceReader): Promise<string | null> {
   for (const c of candidates) {
-    try { lstatSync(c); return c; } catch { /* missing candidate */ }
+    try { if (await reader.exists(c)) return c; } catch (error) { SourceReader.refuseFatal(error); /* missing candidate */ }
   }
   return null;
 }
@@ -139,16 +140,20 @@ function generateRenameTarget(fileName: string, wsTarget: string, usedNames?: Se
   return { name: fallback, path: join(wsTarget, fallback) };
 }
 
-export function planAndMigrateAgent(
+export async function planAndMigrateAgent(
   agent: AgentInfo,
   sourceRoot: string,
   l: Layout,
   existingAgentIds: Set<string>,
   apply: boolean,
-  onConflict: ConflictStrategy = "skip",
+  defaultConflict: ConflictStrategy = "skip",
   ledger?: ImportLedger,
   replacedBackupDir?: string,
-): { report: AgentImportReport; isNewAgent: boolean } {
+  sourceReader?: SourceReader,
+  chooseConflict?: (targetFile: string) => ConflictStrategy,
+): Promise<{ report: AgentImportReport; isNewAgent: boolean }> {
+  const reader = sourceReader ?? await SourceReader.local();
+  const S = reader.paths;
   const agentId = agent.agentId;
 
   // C3: Validate untrusted agentId before any path or config use
@@ -182,7 +187,8 @@ export function planAndMigrateAgent(
   const fileReports: ImportedFileReport[] = [];
   const usedTargetNames = new Set<string>();
 
-  const processFile = (src: string, initialTargetFileName: string, additionalSources: string[] = []) => {
+  const processFile = async (src: string, initialTargetFileName: string, additionalSources: string[] = []) => {
+    const onConflict = chooseConflict?.(initialTargetFileName) ?? defaultConflict;
     let targetFileName = initialTargetFileName;
     const canonicalKnowledge = initialTargetFileName === KNOWLEDGE_RELATIVE_PATH;
     if (canonicalKnowledge) assertKnowledgeTarget(wsTarget, l.home);
@@ -206,27 +212,28 @@ export function planAndMigrateAgent(
       const buffers: Buffer[] = [];
       for (const source of [src, ...additionalSources]) {
         // O_NOFOLLOW only protects the leaf; reject linked directories within the source tree too.
-        const root = resolve([sourceRoot, agent.workspace, agent.agentDir].find((candidate) => {
+        const root = S.resolve([sourceRoot, agent.workspace, agent.agentDir].find((candidate) => {
           if (!candidate) return false;
-          const rel = relative(candidate, source);
-          return !isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`);
-        }) ?? dirname(source));
-        for (let dir = resolve(dirname(source)); ; dir = dirname(dir)) {
-          if (lstatSync(dir).isSymbolicLink()) {
+          const rel = S.relative(candidate, source);
+          return !S.isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${S.sep}`);
+        }) ?? S.dirname(source));
+        for (let dir = S.resolve(S.dirname(source)); ; dir = S.dirname(dir)) {
+          if ((await reader.stat(dir, false))?.type === "symlink") {
             throw new ImportError("E_IMPORT_FAILED", "unsafe-symlink", `${relative(root, dir) || "."}: unsafe-symlink`);
           }
-          if (dir === root || dirname(dir) === dir) break;
+          if (dir === root || S.dirname(dir) === dir) break;
         }
-        buffers.push(readSourceFileSafe(source, MAX_FILE_BYTES));
+        buffers.push(await reader.read(source, MAX_FILE_BYTES));
       }
       srcBuffer = buffers.length === 1 ? buffers[0]! : Buffer.from(buffers.map(decodeSourceText).join("\n\n"));
       if (canonicalKnowledge) srcBuffer = Buffer.from(formatImportedKnowledge(decodeSourceText(srcBuffer), "agent-curated-import"));
       if (srcBuffer.length > MAX_FILE_BYTES) throw new ImportError("E_IMPORT_FAILED", "file-too-large", "Combined knowledge exceeds the file size limit");
     } catch (error) {
+      SourceReader.refuseFatal(error);
       let reason = error instanceof ImportError ? error.reason : "source-unreadable";
       if (reason === "unsafe-symlink") {
         try {
-          if (!isInsideDir(realpathSync(sourceRoot), realpathSync(src))) reason = "symlink-escape";
+          if (!reader.contains(await reader.fs.realpath(sourceRoot), await reader.fs.realpath(src))) reason = "symlink-escape";
         } catch { /* dangling or changing symlink: keep unsafe-symlink */ }
       }
       fileReports.push({
@@ -339,57 +346,58 @@ export function planAndMigrateAgent(
 
   // Curated files from workspace (D15)
   const srcWs = agent.workspace;
-  if (srcWs && isDir(srcWs)) {
+  if (srcWs && await reader.isDir(srcWs)) {
     const candidates: CuratedCandidate[] = [
       {
         targetFileName: "SOUL.md",
         sourceCandidates: [
-          join(srcWs, "SOUL.md"),
-          join(srcWs, "soul.md"),
-          ...(agent.agentDir ? [join(agent.agentDir, "SOUL.md")] : []),
+          S.join(srcWs, "SOUL.md"),
+          S.join(srcWs, "soul.md"),
+          ...(agent.agentDir ? [S.join(agent.agentDir, "SOUL.md")] : []),
         ],
       },
       {
         targetFileName: "USER.md",
-        sourceCandidates: [join(srcWs, "USER.md"), join(srcWs, "user.md")],
+        sourceCandidates: [S.join(srcWs, "USER.md"), S.join(srcWs, "user.md")],
       },
       {
         targetFileName: "DREAMS.md",
-        sourceCandidates: [join(srcWs, "DREAMS.md"), join(srcWs, "dreams.md")],
+        sourceCandidates: [S.join(srcWs, "DREAMS.md"), S.join(srcWs, "dreams.md")],
       },
     ];
 
     // Both curated sources share one canonical target and one conflict decision.
     // Read every selected source through the same source-tree/symlink checks.
-    const memorySource = findFirstFile([join(srcWs, "MEMORY.md"), join(srcWs, "memory.md")]);
-    const knowledgeSource = findFirstFile([
-      join(srcWs, "memory", "KNOWLEDGE.md"), join(srcWs, "KNOWLEDGE.md"), join(srcWs, "knowledge.md"),
-      join(sourceRoot, "KNOWLEDGE.md"), join(sourceRoot, "knowledge.md"),
-    ]);
+    const memorySource = await findFirstFile([S.join(srcWs, "MEMORY.md"), S.join(srcWs, "memory.md")], reader);
+    const knowledgeSource = await findFirstFile([
+      S.join(srcWs, "memory", "KNOWLEDGE.md"), S.join(srcWs, "KNOWLEDGE.md"), S.join(srcWs, "knowledge.md"),
+      S.join(sourceRoot, "KNOWLEDGE.md"), S.join(sourceRoot, "knowledge.md"),
+    ], reader);
     const curatedSources = [...new Set([memorySource, knowledgeSource].filter((s): s is string => s !== null))];
-    if (curatedSources.length > 0) processFile(curatedSources[0]!, "memory/KNOWLEDGE.md", curatedSources.slice(1));
+    if (curatedSources.length > 0) await processFile(curatedSources[0]!, "memory/KNOWLEDGE.md", curatedSources.slice(1));
 
     for (const c of candidates) {
-      const src = findFirstFile(c.sourceCandidates);
+      const src = await findFirstFile(c.sourceCandidates, reader);
       if (!src) continue;
-      processFile(src, c.targetFileName);
+      await processFile(src, c.targetFileName);
     }
 
     // Daily notes in ws/memory/
-    const memoryDir = join(srcWs, "memory");
-    if (isDir(memoryDir)) {
+    const memoryDir = S.join(srcWs, "memory");
+    if (await reader.isDir(memoryDir)) {
       try {
-        const entries = readdirSync(memoryDir).sort();
+        const entries = await reader.names(memoryDir);
         for (const entry of entries) {
           if (!entry.endsWith(".md") || entry.toLowerCase() === "knowledge.md") continue;
-          const srcPath = join(memoryDir, entry);
+          const srcPath = S.join(memoryDir, entry);
           const match = entry.match(/^(\d{4}-\d{2}-\d{2})(?:_(\d{6}))?\.md$/);
           const targetName = match
             ? `DailyNote_${match[1]}_${match[2] ?? "000000"}.md`
             : (entry.startsWith("DailyNote_") ? entry : `DailyNote_${entry}`);
-          processFile(srcPath, targetName);
+          await processFile(srcPath, targetName);
         }
-      } catch {
+      } catch (error) {
+        SourceReader.refuseFatal(error);
         // Unreadable memory dir ignored
       }
     }

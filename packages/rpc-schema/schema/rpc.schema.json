@@ -2918,6 +2918,8 @@
             }
           }
         },
+        "stores": {"type": "array", "maxItems": 10000, "items": {"type": "object", "additionalProperties": false, "required": ["id", "displayName", "kind"], "properties": {"id": {"type": "string", "minLength": 1, "maxLength": 256}, "displayName": {"type": "string", "minLength": 1, "maxLength": 256}, "kind": {"enum": ["agent", "shared"]}, "agentId": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "rows": {"type": "integer", "minimum": 0}, "sourceModelCandidate": {"type": "object", "additionalProperties": false, "required": ["model", "dimensions", "revision", "licence", "nonCommercial"], "properties": {"model": {"type": "string", "minLength": 1, "maxLength": 256}, "dimensions": {"type": "integer", "minimum": 1, "maximum": 16384}, "revision": {"type": "string", "pattern": "^[a-f0-9]{40}$"}, "licence": {"type": "string", "minLength": 1, "maxLength": 64}, "nonCommercial": {"type": "boolean"}}}}}},
+        "portability": {"type": "object", "additionalProperties": false, "required": ["unmapped"], "properties": {"unmapped": {"type": "array", "maxItems": 256, "items": {"type": "object", "additionalProperties": false, "required": ["path", "kind", "reason"], "properties": {"path": {"type": "string", "minLength": 1, "maxLength": 4096}, "kind": {"enum": ["workspace", "store", "skills"]}, "reason": {"enum": ["env-var", "foreign-path", "drive-relative", "home-unknown", "outside-source-root"]}, "agentId": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}}}},
         "unsupported": {
           "type": "array",
           "maxItems": 2,
@@ -2979,6 +2981,7 @@
             }
           }
         },
+        "stores": {"type": "array", "maxItems": 256, "items": {"type": "object", "additionalProperties": false, "required": ["id", "displayName", "path"], "properties": {"id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f-]{36}$"}, "displayName": {"type": "string", "minLength": 1, "maxLength": 256}, "path": {"type": "string", "minLength": 1, "maxLength": 4096}, "candidateId": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f-]{36}$"}}}},
         "warnings": {
           "type": "array",
           "maxItems": 10000,

@@ -6,6 +6,9 @@ import { DeviceError, type DeviceStore, type DeviceAudit } from "../../../remote
 
 /** Initial desktop scope pending Owner confirmation. Neither role inheritance nor a browser request can widen it. */
 export const DESKTOP_SCOPES = Object.freeze(["chat:read", "chat:write", "chat:delete", "agent.list", "agent.read", "agent.use", "sessions.read", "admin.sessions.read", "admin.sessions.write", "admin.sessions.transcript", "models.read", "activity.read", "device.list"]);
+/** Owner-approved opt-in; only a privileged CLI pairing grant can add these actions. */
+export const DESKTOP_EXTENSION_SCOPES = Object.freeze(["extensions.read", "extensions.manage"]);
+export const DESKTOP_IMPORT_SCOPES = Object.freeze(["imports.read", "imports.manage"]);
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const secret = () => randomBytes(32).toString("base64url");
 export interface DesktopAttachOptions {
@@ -25,8 +28,14 @@ export class DesktopAttach {
     this.#db.exec(`PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS codes (hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,kind TEXT NOT NULL,person_version INTEGER NOT NULL,expires_at INTEGER NOT NULL) STRICT;
       CREATE TABLE IF NOT EXISTS credentials (hash TEXT PRIMARY KEY,device_id TEXT NOT NULL UNIQUE,person_version INTEGER NOT NULL,expires_at INTEGER NOT NULL) STRICT;`);
+    if (!this.#db.prepare("PRAGMA table_info(codes)").all().some(row => row.name === "extensions")) {
+      this.#db.exec("ALTER TABLE codes ADD COLUMN extensions INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!this.#db.prepare("PRAGMA table_info(codes)").all().some(row => row.name === "imports")) {
+      this.#db.exec("ALTER TABLE codes ADD COLUMN imports INTEGER NOT NULL DEFAULT 0");
+    }
   }
-  issue(userId: string, kind: string) {
+  issue(userId: string, kind: string, extensions = false, imports = false) {
     if (kind !== "desktop" || !userId) throw new DeviceError("invalid");
     const version = this.#version(userId);
     const now = this.#o.now();
@@ -34,15 +43,15 @@ export class DesktopAttach {
     if (Number(this.#db.prepare("SELECT COUNT(*) AS n FROM codes").get()?.n) >= 256) throw new DeviceError("denied");
     const code = secret(), expiresAt = now + 600_000;
     this.#audit("device.attach.opened", userId);
-    this.#db.prepare("INSERT INTO codes VALUES (?,?,?,?,?)").run(digest(code),userId,kind,version,expiresAt);
-    return { code, kind: "desktop" as const, expiresAt, scopes: [...DESKTOP_SCOPES] };
+    this.#db.prepare("INSERT INTO codes(hash,user_id,kind,person_version,expires_at,extensions,imports) VALUES (?,?,?,?,?,?,?)").run(digest(code),userId,kind,version,expiresAt,extensions ? 1 : 0,imports ? 1 : 0);
+    return { code, kind: "desktop" as const, expiresAt, scopes: this.#scopes(extensions,imports) };
   }
   redeem(code: string, kind: string, name: string, publicKey: string) {
     if (typeof code !== "string" || code.length !== 43 || kind !== "desktop") throw new DeviceError("denied");
     // DELETE RETURNING spends the code atomically, including across process connections. A failed enrolment needs a new code.
-    const row = this.#db.prepare("DELETE FROM codes WHERE hash=? AND kind=? AND expires_at>? RETURNING user_id,person_version").get(digest(code),kind,this.#o.now());
+    const row = this.#db.prepare("DELETE FROM codes WHERE hash=? AND kind=? AND expires_at>? RETURNING user_id,person_version,extensions,imports").get(digest(code),kind,this.#o.now());
     if (!row || this.#version(row.user_id as string) !== row.person_version) throw new DeviceError("denied");
-    const device = this.#o.devices.recordPairing({ name, platform:kind,publicKey,pairedBy:row.user_id as string,scope:[...DESKTOP_SCOPES] });
+    const device = this.#o.devices.recordPairing({ name, platform:kind,publicKey,pairedBy:row.user_id as string,scope:this.#scopes(row.extensions === 1,row.imports === 1) });
     const token = secret(), expiresAt = this.#o.now() + 30 * 86400_000;
     this.#audit("device.attach.redeemed",device.pairedBy,device.id);
     this.#db.prepare("INSERT INTO credentials VALUES (?,?,?,?)").run(digest(token),device.id,row.person_version as number,expiresAt);
@@ -58,8 +67,10 @@ export class DesktopAttach {
     const row = this.#db.prepare("SELECT expires_at,person_version FROM credentials WHERE device_id=? AND expires_at>?").get(deviceId,this.#o.now());
     const d = this.#o.devices.get(deviceId);
     if (!row || d.revoked || d.platform !== "desktop" || this.#version(d.pairedBy) !== row.person_version) throw new DeviceError("denied");
-    return { deviceId:d.id,userId:d.pairedBy,scopes:DESKTOP_SCOPES.filter(s=>d.scope.includes(s)),expiresAt:Number(row.expires_at) };
+    return { deviceId:d.id,userId:d.pairedBy,scopes:this.#scopes(true,true).filter(s=>d.scope.includes(s)),expiresAt:Number(row.expires_at) };
   }
+  #scopes(extensions: boolean, imports = false): string[] { return [...DESKTOP_SCOPES,
+    ...(extensions ? DESKTOP_EXTENSION_SCOPES : []), ...(imports ? DESKTOP_IMPORT_SCOPES : [])]; }
   #version(id: string): number { const v = this.#o.personVersion ? this.#o.personVersion(id) : 0; if (v === null) throw new DeviceError("denied"); return v; }
   /** The person and the device are hashed as the identity audit hashes its ids (plain SHA-256 hex); "desktop" and the host are fixed labels, not identifiers. */
   #audit(action: string,user: string,device?: string) { this.#o.audit.append({at:this.#o.now(),actor:{user:digest(user),host:"desktop-attach"},action,target:device===undefined?"desktop":digest(device),detail:{}}); }

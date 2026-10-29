@@ -1,3 +1,5 @@
+import { SourceReader } from "../source-reader.ts";
+import type { ImportStoreProbe } from "../execution.ts";
 import { importEnginePorts } from "../engine-ports.ts";
 // Store take-over for Hermes and existing PLUR1BUS stores (docs/import.md §2.3, M7 Batch 3).
 // Evaluates store schema and embedding identity via Engine.stores.adopt.
@@ -23,11 +25,9 @@ import {
 import { dirname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import type { Layout } from "../../paths.ts";
-import { isDir } from "../readonly.ts";
 import { storeIdempotencyKey, type ImportLedger, type ConflictStrategy } from "../ledger.ts";
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
 import { renameRetry } from "../fs-retry.ts";
-import { readSourceFileSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
 import { defaults } from "@plur1bus/config-schema";
@@ -71,36 +71,25 @@ export function createTempHost(stateDir: string, workspaceDir: (id: string) => P
   } as unknown as HostServices;
 }
 
-export function copyStoreDirectorySafe(src: string, dst: string): void {
-  const normSrc = resolve(src);
+export async function copyStoreDirectorySafe(src: string, dst: string, sourceReader?: SourceReader): Promise<void> {
+  const reader = sourceReader ?? await SourceReader.local();
+  const normSrc = reader.paths.resolve(src);
   const normDst = resolve(dst);
-
-  if (normSrc === normDst || isInsideDir(normDst, normSrc) || isInsideDir(normSrc, normDst)) {
+  if (!reader.remote && (normSrc === normDst || isInsideDir(normDst, normSrc) || isInsideDir(normSrc, normDst))) {
     throw new ImportError("E_STORE_INCOMPATIBLE", "overlapping-store-paths", "source and destination store paths overlap");
   }
-
   mkdirSync(dst, { recursive: true, mode: 0o700 });
-  const entries = readdirSync(src, { withFileTypes: true });
-  for (const ent of entries) {
-    const srcPath = join(src, ent.name);
-    const dstPath = join(dst, ent.name);
-    const st = lstatSync(srcPath);
-
-    if (st.isSymbolicLink()) {
-      throw new ImportError("E_STORE_INCOMPATIBLE", "unsafe-store-entry", `store contains symlink: ${ent.name}`);
-    }
-    if (ent.isDirectory()) {
-      copyStoreDirectorySafe(srcPath, dstPath);
-    } else if (ent.isFile()) {
-      const buf = readSourceFileSafe(srcPath, Number.MAX_SAFE_INTEGER);
-      writeAtomicSync(dstPath, buf, 0o600);
-    } else {
-      throw new ImportError("E_STORE_INCOMPATIBLE", "unsafe-store-entry", `store contains non-regular entry: ${ent.name}`);
-    }
+  for (const name of await reader.names(src)) {
+    const srcPath = reader.paths.join(src, name), dstPath = join(dst, name);
+    const st = await reader.stat(srcPath, false);
+    if (st?.type === "directory") await copyStoreDirectorySafe(srcPath, dstPath, reader);
+    else if (st?.type === "file") writeAtomicSync(dstPath, await reader.read(srcPath, Number.MAX_SAFE_INTEGER), 0o600);
+    else throw new ImportError("E_STORE_INCOMPATIBLE", "unsafe-store-entry", "store contains a nonregular or linked entry");
   }
 }
 
 export async function inspectStoreAdopt(opts: {
+  probe?: ImportStoreProbe;
   storePath: string;
   expectedIdentity?: any;
   /** Target harness config: the identity a copied store must match is the TARGET engine's identity. */
@@ -114,6 +103,7 @@ export async function inspectStoreAdopt(opts: {
   schemaVersion?: string | undefined;
 }> {
   const { storePath, expectedIdentity, targetConfig, testInternals } = opts;
+  if (opts.probe) return opts.probe(storePath, expectedIdentity);
   const tmpDir = mkdtempSync(join(tmpdir(), "p1b-adopt-probe-"));
   const tmpL = layout(tmpDir);
 
@@ -166,6 +156,8 @@ export interface PreparedStoreAdopt {
  * Never touches an existing state/lancedb.
  */
 export async function prepareStoreAdopt(opts: {
+  probe?: ImportStoreProbe;
+  reader?: SourceReader;
   sourceStorePath: string;
   l: Layout;
   isApply: boolean;
@@ -179,7 +171,8 @@ export async function prepareStoreAdopt(opts: {
   resumeLedgerText?: string | undefined;
 }): Promise<PreparedStoreAdopt> {
   const { sourceStorePath, l, isApply, runId, onConflict = "skip", expectedIdentity, targetConfig, testInternals, adoptStrategy, resumeLedgerText } = opts;
-  const resolvedSource = resolve(sourceStorePath);
+  const reader = opts.reader ?? await SourceReader.local();
+  const resolvedSource = reader.paths.resolve(sourceStorePath);
   const targetStore = l.lancedb;
   const alreadyAdoptedInRun = typeof resumeLedgerText === "string"
     && resumeLedgerText.split("\n").some((line) => {
@@ -190,7 +183,7 @@ export async function prepareStoreAdopt(opts: {
         return false;
       }
     });
-  if (!existsSync(resolvedSource) || !isDir(resolvedSource)) {
+  if (!await reader.isDir(resolvedSource)) {
     throw new ImportError("E_SOURCE_NOT_FOUND", "path-unreadable", `store path not found: ${resolvedSource}`);
   }
   if (resolvedSource === resolve(targetStore) || isInsideDir(resolve(targetStore), resolvedSource) || isInsideDir(resolvedSource, resolve(targetStore))) {
@@ -218,7 +211,8 @@ export async function prepareStoreAdopt(opts: {
   }
 
   if (!isApply) {
-    const check = await inspectStoreAdopt({ storePath: resolvedSource, expectedIdentity, targetConfig, targetHome: l.home, testInternals });
+    const check = await inspectStoreAdopt({ storePath: resolvedSource, expectedIdentity, targetConfig, targetHome: l.home, testInternals,
+      ...(opts.probe ? { probe: opts.probe } : {}) });
     if (check.verdict === "ok") {
       return {
         report: { ...base, verdict: "ok", action: "preview-ok", identitySource: check.identitySource, schemaVersion: check.schemaVersion },
@@ -246,7 +240,7 @@ export async function prepareStoreAdopt(opts: {
   const stagingDir = join(l.state, `lancedb.adopt-${runId}`);
   rmSync(stagingDir, { recursive: true, force: true });
   try {
-    copyStoreDirectorySafe(resolvedSource, stagingDir);
+    await copyStoreDirectorySafe(resolvedSource, stagingDir, reader);
   } catch (err: any) {
     rmSync(stagingDir, { recursive: true, force: true });
     if (err instanceof ImportError) throw err;
@@ -255,7 +249,8 @@ export async function prepareStoreAdopt(opts: {
 
   let check: Awaited<ReturnType<typeof inspectStoreAdopt>>;
   try {
-    check = await inspectStoreAdopt({ storePath: stagingDir, expectedIdentity, targetConfig, targetHome: l.home, testInternals });
+    check = await inspectStoreAdopt({ storePath: stagingDir, expectedIdentity, targetConfig, targetHome: l.home, testInternals,
+      ...(opts.probe ? { probe: opts.probe } : {}) });
   } catch (err) {
     rmSync(stagingDir, { recursive: true, force: true });
     throw err;

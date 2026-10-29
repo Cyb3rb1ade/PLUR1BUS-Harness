@@ -67,6 +67,20 @@ async function fixture(remote?: Record<string, unknown>) {
 }
 
 describe("M-A4 installed MCP composition", () => {
+  it("holds an imported local placeholder at needs-setup even when an enable flag is supplied", async () => {
+    const f = await fixture();
+    const file = join(f.home, "extensions", "state.json");
+    const state = JSON.parse(await readFile(file, "utf8"));
+    state.items.reports.trust = "imported";
+    await writeFile(file, JSON.stringify(state));
+    const reconciler = new McpExtensionReconciler({ home: f.home, config: () => f.config, registry: f.registry });
+    try {
+      await reconciler.refresh();
+      assert.equal(reconciler.status("reports")?.overlay, "needs-setup");
+      assert.deepEqual(reconciler.servers(), [], "an enabled imported placeholder must never reach the process registry");
+      assert.equal(reconciler.definition("reports"), undefined);
+    } finally { await reconciler.close(); await f.registry.shutdown(); }
+  });
   it("uses the running pinned Node, an absolute entry and active-version cwd, then stops the live child on disable", async () => {
     const f = await fixture();
     const reconciler = new McpExtensionReconciler({ home: f.home, config: () => f.config, registry: f.registry });

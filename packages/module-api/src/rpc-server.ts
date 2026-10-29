@@ -1,5 +1,5 @@
 import { bindClientContext } from "./client-principal.ts";
-import { bindApiPrincipal, verifyApiDelegation, type ApiPrincipal } from "./api-principal.ts";
+import { bindApiPrincipal, verifyApiDelegation, type ApiPrincipal, type ApiTransport } from "./api-principal.ts";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
@@ -73,7 +73,7 @@ function warnIfDeprecated(logger: HarnessLogger, role: RpcServerRole, kind: "met
 }
 
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
-interface Conn { clientToken?: string; api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean; notifications: Promise<void>; pendingNotifications: number }
+interface Conn { clientToken?: string; api?: ApiPrincipal | null; apiTransport?: ApiTransport; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean; notifications: Promise<void>; pendingNotifications: number }
 
 /** Endpoint, handshake, handlers, and lifecycle hooks for {@link createRpcServer}. */
 export interface RpcServerOptions {
@@ -144,16 +144,18 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
 
   async function dispatch(c: Conn, msg: any): Promise<void> {
     let delegated: ApiPrincipal | null | undefined;
+    let transport: ApiTransport | undefined;
     const authDelegation = msg?.method === authMethod ? msg?.params?.api : undefined;
     if (c.clientToken !== undefined && (msg?.api !== undefined || msg?.params?.api !== undefined)) return errorReply(c, msg?.id, new RpcError("E_DENIED", "scoped clients cannot delegate"));
     const hasApi = msg && typeof msg === "object" && (Object.hasOwn(msg, "api") || authDelegation !== undefined);
     if (hasApi) {
-      try { delegated = verifyApiDelegation(msg.api ?? authDelegation, o.apiToken); }
+      try { const delegation = msg.api ?? authDelegation; delegated = verifyApiDelegation(delegation, o.apiToken); transport = delegation.transport; }
       catch (e) { return errorReply(c, msg?.id, e as RpcError); }
       msg = { ...msg }; delete msg.api;
     } else if (c.api !== undefined) return errorReply(c, msg?.id, new RpcError("E_UNAUTHORIZED", "API principal required", { reason: "api-principal-required" }));
     if (c.api !== undefined && (c.api?.userId !== delegated?.userId || c.api?.kind !== delegated?.kind))
       return errorReply(c, msg?.id, new RpcError("E_UNAUTHORIZED", "API connection identity cannot change", { reason: "api-identity-change" }));
+    if (c.api !== undefined && c.apiTransport !== transport) return errorReply(c, msg?.id, new RpcError("E_UNAUTHORIZED", "API transport cannot change", { reason: "api-transport-change" }));
     const req = validateRequest(msg);
     if (!req.ok) return errorReply(c, msg?.id, new RpcError("E_INVALID_PARAMS", "invalid request", { reason: "invalid-request", detail: req.errors.join("; "), jsonrpcCode: -32600 }));
     const { id, method, params = {} } = msg;
@@ -169,7 +171,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
         catch { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "client not approved", { reason: "client-token" })); return; }
       } else if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       c.authed = true;
-      if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
+      if (hasApi) { c.api = delegated ?? null; if (transport === undefined) delete c.apiTransport; else c.apiTransport = transport; o.onApiAuthenticated?.(c.id, c.api); }
       if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
       let principal: ApiPrincipal | null = null;
       try { principal = hasApi && delegated ? await o.apiPrincipalOf?.(delegated) ?? null : null; }
@@ -185,7 +187,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     if (method === "events.subscribe" && served.has(method)) {
       const v = validateParams(method, params); if (!v.ok) return errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") }));
       const ctx: CallContext = { requestId: String(id), connectionId: c.id, signal: new AbortController().signal };
-      if (c.api !== undefined) bindApiPrincipal(ctx, c.api);
+      if (c.api !== undefined) bindApiPrincipal(ctx, c.api, c.apiTransport);
       try {
         // The shared server owns subscriptions, but the process owns RBAC and audits.
         await o.methods["events.subscribe"]?.(params, ctx);
@@ -214,7 +216,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     let outcome = "E_INTERNAL";
     try {
       const ctx = { requestId: String(id), connectionId: c.id, signal: ac.signal };
-      if (c.api !== undefined) bindApiPrincipal(ctx, delegated ?? null);
+      if (c.api !== undefined) bindApiPrincipal(ctx, delegated ?? null, c.apiTransport);
       if (c.clientToken !== undefined) { const principal = await o.authorizeClient!(c.clientToken, method, params); bindApiPrincipal(ctx, principal); bindClientContext(ctx); }
       const result = await handler(params, ctx);
       const rv = validateResult(method, result);
@@ -236,7 +238,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
   async function canRead(c: Conn, agentId: string): Promise<boolean> {
     if (!o.canReadAgent) return c.api === undefined; // standalone local IPC remains owner-only
     const ctx: CallContext = { requestId: "event-audience", connectionId: c.id, signal: new AbortController().signal };
-    if (c.api !== undefined) bindApiPrincipal(ctx, c.api);
+    if (c.api !== undefined) bindApiPrincipal(ctx, c.api, c.apiTransport);
     try { return await o.canReadAgent(ctx, agentId); } catch { return false; }
   }
 

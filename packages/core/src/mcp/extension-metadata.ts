@@ -290,6 +290,8 @@ async function loadItem(mcpRoot: string, name: string, raw: unknown,
   const slots = secretSlots(manifest.capabilities);
   const base = { name, activeVersion, manifestSha256: record.manifestSha256, declaration: declared };
   const setup: ExtensionSecretDefinition = { name, slots };
+  // A13 imports no local code or command. Its inert placeholder stays held even after an explicit enable request.
+  if (record.trust === "imported" && manifest.remote == null) return { ...base, setup, overlay: "needs-setup" };
   const missing = slots.some(item => item.required && !availableSecrets?.has(extensionSecretName(name, item.slot)));
   let definition: McpServerDefinition | undefined;
   if (manifest.remote !== null && manifest.remote !== undefined) {

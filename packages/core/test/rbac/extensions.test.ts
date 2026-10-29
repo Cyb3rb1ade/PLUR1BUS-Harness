@@ -1,4 +1,3 @@
-/** Extension setup and sign-in authority belongs to authenticated humans, narrowed by token scopes. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { authorize } from "../../src/rbac/authorize.ts";
@@ -7,7 +6,7 @@ import type { Role } from "../../src/rbac/types.ts";
 
 const roles: Role[] = ["owner", "admin", "operator", "member", "viewer"];
 test("extensions read and manage belong only to human Owner/Admin, including scoped devices", () => {
-  for (const action of ["extensions.read", "extensions.manage"]) for (const role of roles) {
+  for (const action of ["extensions.read", "extensions.manage", "imports.read", "imports.manage"]) for (const role of roles) {
     const p = { userId: role, role, kind: "person" as const };
     assert.equal(authorize(p, action, { kind: "system" }).effect, ["owner", "admin"].includes(role) ? "allow" : "deny", `${role}:${action}`);
     assert.equal(authorize({ ...p, kind: "agent", tokenScopes: [action] }, action, { kind: "system" }).effect, "deny", `agent:${role}:${action}`);

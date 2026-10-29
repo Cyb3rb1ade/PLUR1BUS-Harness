@@ -9,12 +9,19 @@ export interface ApiPrincipal {
   projectRights?: Readonly<Record<string, "member" | "lead">>;
   tokenScopes?: readonly string[];
 }
-export interface ApiDelegation { clientId: "harness-api"; token: string; principal?: ApiPrincipal }
+export type ApiTransport = "loopback" | "remote";
+export interface ApiDelegation { clientId: "harness-api"; token: string; principal?: ApiPrincipal; transport?: ApiTransport }
 const roles = new Set(["owner", "admin", "operator", "member", "viewer"]);
 const identities = new WeakMap<CallContext, ApiPrincipal | null>();
+const transports = new WeakMap<CallContext, ApiTransport>();
 /** Only the shared server registers a context after checking the API credential. */
-export function bindApiPrincipal(ctx: CallContext, p: ApiPrincipal | null): void { identities.set(ctx, p); }
+export function bindApiPrincipal(ctx: CallContext, p: ApiPrincipal | null, transport?: ApiTransport): void {
+  identities.set(ctx, p);
+  if (p && transport !== undefined) transports.set(ctx, transport); else transports.delete(ctx);
+}
 export function apiPrincipal(ctx: CallContext): ApiPrincipal | null | undefined { return identities.get(ctx); }
+/** Verified API request locality; plain context fields, RPC params and principal snapshots cannot grant it. */
+export function apiTransport(ctx: CallContext): ApiTransport | undefined { return transports.get(ctx); }
 export function validApiPrincipal(v: unknown): v is ApiPrincipal {
   if (!v || typeof v !== "object" || Array.isArray(v)) return false;
   const p = v as Record<string, unknown>;
@@ -30,7 +37,7 @@ export function verifyApiDelegation(v: unknown, token: string | undefined): ApiP
   const deny = (): never => { throw new RpcError("E_UNAUTHORIZED", "API delegation refused", { reason: "api-delegation" }); };
   if (!token || !v || typeof v !== "object" || Array.isArray(v)) return deny();
   const d = v as Record<string, unknown>;
-  if (Object.keys(d).some(k => !["clientId", "token", "principal"].includes(k)) || d.clientId !== "harness-api" || typeof d.token !== "string") return deny();
+  if (Object.keys(d).some(k => !["clientId", "token", "principal", "transport"].includes(k)) || d.clientId !== "harness-api" || typeof d.token !== "string" || d.transport !== undefined && d.transport !== "loopback" && d.transport !== "remote") return deny();
   const got = Buffer.from(d.token), want = Buffer.from(token);
   if (got.length !== want.length || !timingSafeEqual(got, want)) return deny();
   if (d.principal === undefined) return null;

@@ -1,12 +1,18 @@
 // Shared importer types (docs/import.md §8, §9).
 import type { Mount, PortabilityReport } from "./paths.ts";
 import type { Comparison, Identity, RerankerComparison, RerankerInfo, TargetIdentity } from "./identity.ts";
+import sourceCatalog from "./source-catalog.json" with { type: "json" };
 
-export type SourceType = "openclaw" | "hermes";
+export type SourceType = keyof typeof sourceCatalog;
+
+/** Display metadata for host source pickers; runtime membership remains owned by this import boundary. */
+export const SOURCE_CATALOG: readonly { readonly id: SourceType; readonly displayName: string }[] = Object.freeze(
+  Object.entries(sourceCatalog).map(([id, metadata]) => Object.freeze({ id: id as SourceType, displayName: metadata.displayName })),
+);
 
 /** Validate an importer source family without duplicating foreign format names in host applications. */
 export function isSourceType(value: unknown): value is SourceType {
-  return value === "openclaw" || value === "hermes";
+  return typeof value === "string" && Object.hasOwn(sourceCatalog, value);
 }
 
 /** A refusal or failure the CLI reports as an `error/1` document with this code, reason and exit code. */
@@ -16,6 +22,8 @@ export class ImportError extends Error {
 }
 
 export interface SourceCtx {
+  /** All live source reads use this run-scoped six-operation port. */
+  reader?: import("./source-reader.ts").SourceReader | undefined;
   sourceType: SourceType;
   /** Internal A13 tap for decoded source facts. Values can contain credentials: never serialize or retain them. */
   onSourceConfig?: ((config: unknown, profile: string | null) => void) | undefined;

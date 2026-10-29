@@ -33,6 +33,8 @@ export interface RegistryOptions {
   secrets?: Pick<SecretStore, "lease" | "revokeLease">;
   /** Trusted packaged-server hook. Leases never become part of a definition, cache, status or event. */
   launchEnvironment?: McpLaunchEnvironment;
+  /** Host startup admission before either transport, authentication or spawn can cause external effects. */
+  admitStart?: () => void;
   egress?: Pick<Egress, "decide">;
   onEvent?: (event: { server: string; state?: McpConnectionState; method?: string; params?: Record<string, unknown> }) => void;
 }
@@ -264,6 +266,7 @@ export class McpRegistry {
   }
 
   private ensure(e: Entry): Promise<McpConnection> {
+    this.options.admitStart?.();
     this.clearReconnect(e);
     if (e.conn && !e.conn.isClosed) return Promise.resolve(e.conn);
     if (e.starting) return e.starting;

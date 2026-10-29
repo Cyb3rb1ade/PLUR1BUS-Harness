@@ -1,3 +1,5 @@
+import { SourceReader } from "../source-reader.ts";
+import { importCheckpoint, type ImportExecutionOptions } from "../execution.ts";
 // OpenClaw memory cards migration via Engine.memory.import (docs/import.md §1, §2.2, M7).
 // Reads agent MEMORY.md and USER.md from agent workspaces.
 // Delimited by \n§\n or treated as single trimmed card if § is absent.
@@ -27,7 +29,6 @@ import {
   type ImportLedger,
 } from "../ledger.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
-import { existsNoFollow, readSourceFileSafe, readSourceTextSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { createCardLinker, recordParkedCard, type CardLink, type LinkCandidate, type OwnStoreCardMode } from "./card-links.ts";
@@ -56,8 +57,9 @@ function importErrorCode(err: any): string {
 }
 
 /** Whether the workspace holds a card file (MEMORY.md / USER.md, any case the importer reads). */
-export function hasOpenclawCardFiles(workspaceDir: string): boolean {
-  return ["MEMORY.md", "memory.md", "USER.md", "user.md"].some((n) => existsNoFollow(join(workspaceDir, n)));
+export async function hasOpenclawCardFiles(workspaceDir: string, sourceReader?: SourceReader): Promise<boolean> {
+  const reader = sourceReader ?? await SourceReader.local();
+  return (await Promise.all(["MEMORY.md", "memory.md", "USER.md", "user.md"].map(name => reader.exists(reader.paths.join(workspaceDir, name))))).some(Boolean);
 }
 
 export interface OpenclawMemoryImportResult {
@@ -85,6 +87,7 @@ export interface OpenclawMemoryImportResult {
 }
 
 export async function importOpenclawMemories(opts: {
+  reader?: SourceReader;
   workspaceDir: string;
   agentId: string;
   l: Layout;
@@ -96,7 +99,10 @@ export async function importOpenclawMemories(opts: {
   replacedBackupDir?: string | undefined;
   /** Set for an agent that has a memory store of its own (see OwnStoreCardMode). */
   ownStore?: OwnStoreCardMode | undefined;
-}): Promise<OpenclawMemoryImportResult> {
+} & Pick<ImportExecutionOptions, "runId" | "signal" | "onProgress">): Promise<OpenclawMemoryImportResult> {
+  const reader = opts.reader ?? await SourceReader.local();
+  let completedBatches = 0;
+  const checkpoint = () => importCheckpoint(opts, opts.runId ?? opts.ledger?.runId ?? "legacy", "memory", completedBatches++);
   const {
     workspaceDir,
     agentId,
@@ -168,12 +174,14 @@ export async function importOpenclawMemories(opts: {
     const park = opts.ownStore;
     const { outcome: parkOutcome, reason: parkReason } = park;
     for (const [names, file] of [[["MEMORY.md", "memory.md"], "MEMORY.md"], [["USER.md", "user.md"], "USER.md"]] as const) {
-      const found = names.map((n) => join(workspaceDir, n)).find((cand) => existsNoFollow(cand));
+      let found: string | undefined;
+      for (const name of names) { const candidate = reader.paths.join(workspaceDir, name); if (await reader.exists(candidate)) { found = candidate; break; } }
       if (found === undefined) continue;
       let content: string;
       try {
-        content = readSourceTextSafe(found, MAX_MEMORY_FILE_BYTES);
+        content = await reader.text(found, MAX_MEMORY_FILE_BYTES);
       } catch (error) {
+      SourceReader.refuseFatal(error);
         errors.push({ sourceRef: `${agentId}:${file}`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
         continue;
       }
@@ -234,8 +242,8 @@ export async function importOpenclawMemories(opts: {
 
   // 1. Process MEMORY.md / memory.md (agent-scoped)
   let memoryMdPath: string | null = null;
-  for (const cand of [join(workspaceDir, "MEMORY.md"), join(workspaceDir, "memory.md")]) {
-    if (existsNoFollow(cand)) {
+  for (const cand of [reader.paths.join(workspaceDir, "MEMORY.md"), reader.paths.join(workspaceDir, "memory.md")]) {
+    if (await reader.exists(cand)) {
       memoryMdPath = cand;
       break;
     }
@@ -244,8 +252,9 @@ export async function importOpenclawMemories(opts: {
   if (memoryMdPath !== null) {
     let content: string | null = null;
     try {
-      content = readSourceTextSafe(memoryMdPath, MAX_MEMORY_FILE_BYTES);
+      content = await reader.text(memoryMdPath, MAX_MEMORY_FILE_BYTES);
     } catch (error) {
+      SourceReader.refuseFatal(error);
       errors.push({ sourceRef: `${agentId}:MEMORY.md`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
     }
     if (content !== null) {
@@ -299,6 +308,7 @@ export async function importOpenclawMemories(opts: {
       } else if (engine) {
         // Chunk into batches of at most 500 cards
         for (let b = 0; b < cardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
+          await checkpoint();
           const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
           const fullBatch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
           const linked = await linkDuplicates(fullBatch, principal, "MEMORY.md");
@@ -397,8 +407,8 @@ export async function importOpenclawMemories(opts: {
 
   // 2. Process USER.md / user.md (user-scoped)
   let userMdPath: string | null = null;
-  for (const cand of [join(workspaceDir, "USER.md"), join(workspaceDir, "user.md")]) {
-    if (existsNoFollow(cand)) {
+  for (const cand of [reader.paths.join(workspaceDir, "USER.md"), reader.paths.join(workspaceDir, "user.md")]) {
+    if (await reader.exists(cand)) {
       userMdPath = cand;
       break;
     }
@@ -407,8 +417,9 @@ export async function importOpenclawMemories(opts: {
   if (userMdPath !== null) {
     let content: string | null = null;
     try {
-      content = readSourceTextSafe(userMdPath, MAX_MEMORY_FILE_BYTES);
+      content = await reader.text(userMdPath, MAX_MEMORY_FILE_BYTES);
     } catch (error) {
+      SourceReader.refuseFatal(error);
       errors.push({ sourceRef: `${agentId}:USER.md`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
     }
     if (content !== null) {
@@ -452,6 +463,7 @@ export async function importOpenclawMemories(opts: {
           }
         } else if (engine) {
           for (let b = 0; b < userCardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
+            await checkpoint();
             const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
             const fullBatch = userCardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
             const linked = await linkDuplicates(fullBatch, userScopePrincipal, "USER.md");

@@ -1,3 +1,5 @@
+import { SourceReader } from "../source-reader.ts";
+import type { ImportStoreProbe } from "../execution.ts";
 // OpenClaw PLUR1BUS store take-over and routing (docs/import.md §2.3, §2.3.1, M7 acceptance 2 and 5).
 // The OpenClaw source holds one LanceDB partition per agent and per shared pool. Each partition is decided on its own:
 //   - identity matches the harness (the engine's sample cosine probe agrees, same dimension, same schema) -> its copy is
@@ -16,7 +18,6 @@ import { dirname, join, resolve } from "node:path";
 import type { Layout } from "../../paths.ts";
 import type { Identity } from "../identity.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
-import { readSourceFileSafe } from "../fs-safe.ts";
 import { storeIdempotencyKey, type ConflictStrategy, type ImportLedger } from "../ledger.ts";
 import { ImportError, type StoreReport } from "../types.ts";
 import {
@@ -56,6 +57,10 @@ export interface PreparedOpenclawStores {
 }
 
 export interface PrepareOpenclawStoresOptions {
+  /** A trusted supervised source-model configuration may probe incomplete legacy identity evidence. */
+  probeSourceStoreId?: string;
+  probe?: ImportStoreProbe;
+  reader?: SourceReader;
   stores: StoreReport[];
   /** `SourceReport.plur1bus.storeRoot`: where the source's store root is. */
   storeRoot: Record<string, unknown> | null;
@@ -104,18 +109,19 @@ function sha256File(path: string): string {
 }
 
 /** Every file of `src` exists in `dst` with the same content (dst may hold more: LanceDB only appends versions). */
-function partitionContained(src: string, dst: string): boolean {
+async function partitionContained(src: string, dst: string, reader: SourceReader): Promise<boolean> {
   const dstStat = lstatSync(dst, { throwIfNoEntry: false });
   if (!dstStat || !dstStat.isDirectory() || dstStat.isSymbolicLink()) return false;
-  for (const ent of readdirSync(src, { withFileTypes: true })) {
-    const s = join(src, ent.name);
-    const d = join(dst, ent.name);
-    if (ent.isSymbolicLink()) return false;
-    if (ent.isDirectory()) {
-      if (!partitionContained(s, d)) return false;
-    } else if (ent.isFile()) {
-      const dst1 = lstatSync(d, { throwIfNoEntry: false });
-      if (!dst1 || !dst1.isFile() || dst1.size !== lstatSync(s).size || sha256File(s) !== sha256File(d)) return false;
+  for (const name of await reader.names(src)) {
+    const source = reader.paths.join(src, name), target = join(dst, name);
+    const info = await reader.stat(source, false);
+    if (info?.type === "directory") {
+      if (!await partitionContained(source, target, reader)) return false;
+    } else if (info?.type === "file") {
+      const existing = lstatSync(target, { throwIfNoEntry: false });
+      if (!existing?.isFile() || existing.size !== info.size) return false;
+      const bytes = await reader.read(source, Number.MAX_SAFE_INTEGER);
+      if (createHash("sha256").update(bytes).digest("hex") !== sha256File(target)) return false;
     } else return false;
   }
   return true;
@@ -161,8 +167,9 @@ function carriedFromLedger(text: string | undefined, key: string): Map<string, {
 }
 
 export async function prepareOpenclawStores(o: PrepareOpenclawStoresOptions): Promise<PreparedOpenclawStores> {
+  const reader = o.reader ?? await SourceReader.local();
   const out: PreparedOpenclawStores = { stores: [], adopt: undefined, adoptReport: undefined, errors: [] };
-  const base = typeof o.storeRoot?.baseDbPath === "string" ? resolve(o.storeRoot.baseDbPath) : null;
+  const base = typeof o.storeRoot?.baseDbPath === "string" ? reader.paths.resolve(o.storeRoot.baseDbPath) : null;
   const make = (s: StoreReport, action: OpenclawStoreAction, reasons: string[], nextStep: string | null, identitySource?: "manifest" | "probe"): OpenclawStoreReport => ({
     storeId: s.storeId, kind: s.kind, agentId: s.agentId, rows: s.rows, plannedAction: s.identity.plannedAction, action, reasons, identitySource, nextStep,
   });
@@ -171,7 +178,7 @@ export async function prepareOpenclawStores(o: PrepareOpenclawStoresOptions): Pr
 
   const candidates: { s: StoreReport; rel: string }[] = [];
   for (const s of o.stores) {
-    if (s.identity.plannedAction === "re-embedding-migration") {
+    if (s.identity.plannedAction === "re-embedding-migration" && o.probeSourceStoreId !== s.storeId) {
       set(make(s, "re-embedding-migration", s.identity.reasons, routeNextStep(s, o.targetEmbedding, false)));
       continue;
     }
@@ -202,14 +209,19 @@ export async function prepareOpenclawStores(o: PrepareOpenclawStoresOptions): Pr
   }
 
   const targetExists = existsSync(o.l.lancedb);
+  const existingMatches = new Set<string>();
   let pending = candidates;
   // The harness already has a store: it is never merged into. Without --conflict replace nothing is staged, but every
   // candidate is still probed, so a foreign-vector store is reported as such rather than as a mere conflict.
   let blocked: string | null = null;
   if (targetExists) {
-    const matched = candidates.filter(({ s, rel }) => partitionContained(s.path, join(o.l.lancedb, ...rel.split("/"))));
-    for (const { s } of matched) set(make(s, "matched-existing", [], null));
-    pending = candidates.filter((c) => !matched.includes(c));
+    const matched: typeof candidates = [];
+    for (const candidate of candidates) if (await partitionContained(candidate.s.path, join(o.l.lancedb, ...candidate.rel.split("/")), reader)) matched.push(candidate);
+    for (const { s } of matched) {
+      existingMatches.add(s.storeId);
+      if (o.probeSourceStoreId !== s.storeId) set(make(s, "matched-existing", [], null));
+    }
+    pending = candidates.filter((c) => !matched.includes(c) || o.probeSourceStoreId === c.s.storeId);
     if (pending.length > 0 && o.onConflict === "replace") pending = candidates; // swapped whole: stage the matching ones again too
     else if (pending.length > 0) blocked = o.onConflict === "rename" ? "store-rename-unsupported" : "store-exists-skipped";
   }
@@ -217,9 +229,9 @@ export async function prepareOpenclawStores(o: PrepareOpenclawStoresOptions): Pr
 
   const stagingDir = join(o.l.state, `lancedb.adopt-${o.runId}`);
   const probeBase = o.isApply ? join(o.l.state, `lancedb.adopt-${o.runId}.probe`) : mkdtempSync(join(tmpdir(), "p1b-oc-probe-"));
-  const markerSrc = join(base, SCHEMA_MARKER);
+  const markerSrc = reader.paths.join(base, SCHEMA_MARKER);
   let marker: Buffer | null = null;
-  try { marker = readSourceFileSafe(markerSrc, 1024 * 1024); } catch { marker = null; }
+  try { marker = await reader.read(markerSrc, 1024 * 1024); } catch (error) { SourceReader.refuseFatal(error); marker = null; }
   let staged = 0;
   let identitySource: "manifest" | "probe" | undefined;
   try {
@@ -235,7 +247,7 @@ export async function prepareOpenclawStores(o: PrepareOpenclawStoresOptions): Pr
       mkdirSync(root, { recursive: true, mode: 0o700 });
       if (marker) writeAtomicSync(join(root, SCHEMA_MARKER), marker, 0o600);
       try {
-        copyStoreDirectorySafe(s.path, join(root, "probe"));
+        await copyStoreDirectorySafe(s.path, join(root, "probe"), reader);
       } catch (err) {
         const reason = err instanceof ImportError ? err.reason : "copy-failed";
         out.errors.push({ sourceRef: s.storeId, reason });
@@ -245,7 +257,8 @@ export async function prepareOpenclawStores(o: PrepareOpenclawStoresOptions): Pr
       }
       let check: Awaited<ReturnType<typeof inspectStoreAdopt>>;
       try {
-        check = await inspectStoreAdopt({ storePath: root, targetConfig: o.targetConfig, targetHome: o.l.home, testInternals: o.testInternals });
+        check = await inspectStoreAdopt({ storePath: root, targetConfig: o.targetConfig, targetHome: o.l.home, testInternals: o.testInternals,
+          ...(o.probe ? { probe: o.probe } : {}) });
       } catch (err) {
         // The probe engine could not even start (e.g. an engine setting in config.json it rejects): nothing is vouched for.
         const code = (err as { code?: unknown } | null)?.code;
@@ -259,6 +272,11 @@ export async function prepareOpenclawStores(o: PrepareOpenclawStoresOptions): Pr
         const reason = check.reason ?? "identity-unverifiable";
         if (ROUTED_REASONS.has(reason)) set(make(s, "re-embedding-migration", [reason], routeNextStep(s, o.targetEmbedding, s.identity.plannedAction === "take-over"), check.identitySource));
         else set(make(s, "skipped", [reason], reason.startsWith("schema-") ? schemaNextStep(reason) : "Not copied: the engine's store check refused it. The source is left as it is."));
+        rmSync(root, { recursive: true, force: true });
+        continue;
+      }
+      if (existingMatches.has(s.storeId) && o.onConflict !== "replace") {
+        set(make(s, "matched-existing", [], null, check.identitySource));
         rmSync(root, { recursive: true, force: true });
         continue;
       }

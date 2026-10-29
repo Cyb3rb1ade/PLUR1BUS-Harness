@@ -1,7 +1,7 @@
+import { SourceReader } from "../source-reader.ts";
 // Reading user-authored cron jobs from OpenClaw state database (docs/import.md §2.2, §2.2.1).
 // Excludes managed dreaming and feature cron jobs. Zero prompt content, job names, delivery targets or secret values are reported.
-import { join } from "node:path";
-import { isFile, openSqliteReadOnly, sqliteTables } from "../readonly.ts";
+import { sqliteTables } from "../readonly.ts";
 
 export interface OpenclawCronJob {
   id: string;
@@ -37,11 +37,11 @@ export function isManagedCron(id: string, name: string): boolean {
   return false;
 }
 
-export function readOpenclawCronJobs(root: string): { userJobs: OpenclawCronJob[]; excludedCount: number } {
-  const p = join(root, "state", "openclaw.sqlite");
-  if (!isFile(p)) return { userJobs: [], excludedCount: 0 };
-  const h = openSqliteReadOnly(p);
-  try {
+export async function readOpenclawCronJobs(root: string, sourceReader?: SourceReader): Promise<{ userJobs: OpenclawCronJob[]; excludedCount: number }> {
+  const reader = sourceReader ?? await SourceReader.local();
+  const p = reader.paths.join(root, "state", "openclaw.sqlite");
+  if (!await reader.isFile(p)) return { userJobs: [], excludedCount: 0 };
+  return reader.sqlite(p, h => {
     const tables = sqliteTables(h.db);
     if (!tables.includes("cron_jobs")) return { userJobs: [], excludedCount: 0 };
     const rows = h.db.prepare("SELECT * FROM cron_jobs").all() as Record<string, unknown>[];
@@ -65,7 +65,5 @@ export function readOpenclawCronJobs(root: string): { userJobs: OpenclawCronJob[
     }
     userJobs.sort((a, b) => a.id.localeCompare(b.id));
     return { userJobs, excludedCount };
-  } finally {
-    h.close();
-  }
+  });
 }

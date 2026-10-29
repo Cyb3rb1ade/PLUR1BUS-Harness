@@ -1,8 +1,11 @@
+import { assertNoPendingMaintenance } from "../pending-maintenance.ts";
+import { SourceReader, type SourceReaderOptions } from "../source-reader.ts";
 // OpenClaw importer pipeline (docs/import.md §1, §2, §5, M7 Batch 2 & Batch 4).
 // Migrates agents, persona (SOUL.md), D15 curated files into `l.workspaceDir(id)`,
 // extracts channel allowlists, reports cron as deferred (zero disk writes),
 // reports secrets by key name only, enforces single-writer lock withTargetLock,
 // writes pre-apply snapshot for rollback, records atomic ledger.jsonl, and supports conflict strategies.
+import { checkImportAbort, executionRunId, importCheckpoint, writeImportConfig, type ImportExecutionOptions } from "../execution.ts";
 import { importedProfile } from "../../openai-auth/profiles.ts";
 import { createHash } from "node:crypto";
 import {
@@ -21,7 +24,6 @@ import {
   recordCreatedConfig,
   type ConflictStrategy,
 } from "../ledger.ts";
-import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
 import { createTargetSnapshot } from "../snapshot-target.ts";
 import { detectOpenclaw } from "../sources/openclaw.ts";
 import { newRunId } from "../skills-import.ts";
@@ -44,7 +46,8 @@ import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { hasOpenclawCardFiles, importOpenclawMemories, type OpenclawMemoryImportResult } from "./openclaw-memories.ts";
 import { PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreCardMode, type PriorCardLink } from "./card-links.ts";
 
-export interface OpenclawImportOptions {
+export interface OpenclawImportOptions extends ImportExecutionOptions {
+  reader?: SourceReaderOptions | undefined;
   home: string;
   /** Native package-store injection; extension receipts are kept outside the legacy report. */
   extensionPort?: ImportedExtensionPort | undefined;
@@ -152,10 +155,12 @@ function engineTargetConfig(configPath: string) {
 }
 
 export async function importOpenclaw(opts: OpenclawImportOptions): Promise<OpenclawImportReport> {
+  assertNoPendingMaintenance(opts.home, opts.maintenanceRunId);
   const env = opts.env ?? process.env;
   const homedir = opts.homedir ?? (process.platform === "win32" ? env.USERPROFILE ?? "" : env.HOME ?? "");
   const platform = opts.platform ?? process.platform;
-  const l = layout(opts.home);
+  const canonicalLayout = layout(opts.home);
+  const l = opts.targetStoreRoot ? { ...canonicalLayout, lancedb: opts.targetStoreRoot } : canonicalLayout;
   const startDate = opts.now ? opts.now() : new Date();
 
   const startedAt = startDate.toISOString();
@@ -195,14 +200,16 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `run ${runId} snapshot manifest is unreadable or corrupt: ${err.message}`);
       }
     } else {
-      runId = newRunId(startDate);
+      runId = executionRunId(opts.runId, newRunId(startDate));
     }
 
     const repDir = join(l.home, "imports", runId);
 
     // Detect OpenClaw source
     const extensionDiscovery = createSourceDiscovery("openclaw");
+    const reader = opts.reader ? new SourceReader({ ...opts.reader, ...(opts.signal ? { signal: opts.signal } : {}) }) : await SourceReader.local(undefined, opts.signal);
     const ctx: SourceCtx = {
+      reader,
       onSourceConfig: opts.extensionPort ? extensionDiscovery.capture : undefined,
       sourceType: "openclaw",
       source: opts.source,
@@ -211,10 +218,15 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       platform,
       home: opts.home,
       target: targetIdentity(opts.home),
+      maps: opts.maps,
       probeWsl: opts.probeWsl,
       allowLiveCopy: opts.allowLiveCopy,
     };
     const sourceReport = await detectOpenclaw(ctx);
+    if (opts.sourceAgentIds) sourceReport.agents = sourceReport.agents.filter(agent => opts.sourceAgentIds!.includes(agent.agentId));
+    if (opts.sourceStoreIds) sourceReport.plur1bus.stores = sourceReport.plur1bus.stores.filter(store => opts.sourceStoreIds!.includes(store.storeId));
+    else if (opts.sourceAgentIds) sourceReport.plur1bus.stores = sourceReport.plur1bus.stores
+      .filter(store => store.kind !== "agent" || !!store.agentId && opts.sourceAgentIds!.includes(store.agentId));
 
     const touchedAgentIds = sourceReport.agents.map((a) => a.agentId);
 
@@ -248,8 +260,14 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     }
 
     // Read target config.json if present, else defaults
+    checkImportAbort(opts.signal);
+    let configRevision = "";
     let rawConfig: any;
-    if (existsSync(l.configPath)) {
+    if (opts.configPort) {
+      const current = await opts.configPort.get();
+      rawConfig = structuredClone(current.config);
+      configRevision = current.revision;
+    } else if (existsSync(l.configPath)) {
       try {
         rawConfig = JSON.parse(readFileSync(l.configPath, "utf8"));
       } catch (e: any) {
@@ -259,21 +277,25 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       rawConfig = defaults();
     }
 
+    const originalConfig = structuredClone(rawConfig);
     rawConfig.agents = rawConfig.agents ?? {};
     const existingAgentIds = new Set(Object.keys(rawConfig.agents));
 
     // PLUR1BUS stores: each partition is taken over (identity matches, no re-embedding) or routed to the guided
     // re-embedding migration. Staged and verified on a COPY, swapped in under the lock, before anything else is written.
     preparedStores = await prepareOpenclawStores({
+      reader,
       stores: sourceReport.plur1bus.stores,
       storeRoot: sourceReport.plur1bus.storeRoot,
       l,
       isApply,
       runId,
-      onConflict,
+      onConflict: opts.storeConflict ?? onConflict,
       targetConfig: engineTargetConfig(l.configPath),
       targetEmbedding: ctx.target.embedding,
+      ...(opts.probeSourceStoreId ? { probeSourceStoreId: opts.probeSourceStoreId } : {}),
       testInternals: opts.testInternals,
+      ...(opts.storeProbe ? { probe: opts.storeProbe } : {}),
       resumeLedgerText: opts.resume && ledgerPath && existsSync(ledgerPath) ? readFileSync(ledgerPath, "utf8") : undefined,
     });
     if (opts.failAfterStep === "store-staged") throw new Error("failAfterStep: store-staged");
@@ -350,6 +372,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? []), ...preparedStores.errors];
 
       for (const agent of sourceReport.agents) {
+        checkImportAbort(opts.signal);
         const normId = typeof agent.agentId === "string" ? agent.agentId.toLowerCase() : "";
         if (seenSourceAgentIds.has(normId)) {
           // C3: Duplicate agent IDs in source rejected
@@ -373,7 +396,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         }
         seenSourceAgentIds.add(normId);
 
-        const { report, isNewAgent } = planAndMigrateAgent(
+        const { report, isNewAgent } = await planAndMigrateAgent(
           agent,
           sourceReport.source.root,
           l,
@@ -382,9 +405,11 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
           onConflict,
           ledger,
           replacedBackupDir,
+          reader,
+          opts.fileConflict ? path => opts.fileConflict!(agent.agentId, path) : undefined,
         );
 
-        if (report.action !== "rejected" && isNewAgent && isApply) {
+        if (report.action !== "rejected" && isNewAgent && (isApply || opts.configPort)) {
           rawConfig.agents[agent.agentId] = { createdAt: startDate.toISOString() };
           configChanged = true;
         }
@@ -393,8 +418,10 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         if (report.action !== "rejected") {
           const agentWs = agent.workspace ?? sourceReport.source.root;
           const ownStore = ownStoreModes.get(normId);
-          if (ownStore?.kind !== "park" && hasOpenclawCardFiles(agentWs)) ensureEngine();
+          if (ownStore?.kind !== "park" && await hasOpenclawCardFiles(agentWs, reader)) ensureEngine();
           memoryRes = await importOpenclawMemories({
+            ...(opts.signal ? { signal: opts.signal } : {}), ...(opts.onProgress ? { onProgress: opts.onProgress } : {}), runId,
+            reader,
             workspaceDir: agentWs,
             agentId: agent.agentId,
             l,
@@ -422,15 +449,16 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
           ...report,
           ...(memoryRes ? { memory: memoryRes } : {}),
         });
+        await importCheckpoint(opts, runId, "agent", agentReports.length, sourceReport.agents.length);
       }
 
     // Read channels from openclaw.json
     let channelReports: ChannelAllowlistReport[] = [];
     let disabledAuthProfiles: ReturnType<typeof importedProfile>[] = [];
-    if (sourceReport.source.configPath && existsNoFollow(sourceReport.source.configPath)) {
+    if (sourceReport.source.configPath && await reader.exists(sourceReport.source.configPath)) {
       let cfgText: string | null = null;
       try {
-        cfgText = readSourceTextSafe(sourceReport.source.configPath, 16 * 1024 * 1024);
+        cfgText = await reader.text(sourceReport.source.configPath, 16 * 1024 * 1024);
       } catch (error) {
         errors.push({
           sourceRef: "openclaw.json",
@@ -466,7 +494,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     }
 
     // Read user cron jobs from state/openclaw.sqlite (P5: deferred, zero writes)
-    const { userJobs, excludedCount: cronExcludedCount } = readOpenclawCronJobs(sourceReport.source.root);
+    const { userJobs, excludedCount: cronExcludedCount } = await readOpenclawCronJobs(sourceReport.source.root, reader);
     if (isApply && ledger) {
       for (const job of userJobs) {
         ledger.record({
@@ -493,7 +521,9 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     const unmigratedSecrets = [...secretKeySet].sort();
 
     // C4 & B2: If applying and config changed, validate schema and write target config.json atomically
-    if (isApply && (configChanged || !existsSync(l.configPath))) {
+    if (opts.configPort) {
+      await writeImportConfig(opts.configPort, originalConfig, rawConfig, isApply, configRevision);
+    } else if (isApply && (configChanged || !existsSync(l.configPath))) {
       const check = validate(rawConfig);
       if (!check.ok) {
         throw new ImportError("E_CONFIG_INVALID", "config-invalid", check.errors.join("; "));
@@ -623,7 +653,8 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
 
   // C1: Single-writer lock held across the entire apply pipeline (reads, writes, report)
   if (opts.apply) {
-    return await withTargetLock(l, async () => {
+    const gate = opts.targetLock ?? (<T>(run: () => Promise<T>) => withTargetLock(l, run));
+    return await gate(async () => {
       try {
         return await executeImport(true);
       } finally {

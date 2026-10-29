@@ -5,13 +5,14 @@ import type { Egress } from '../egress/service.ts';
 import { join } from 'node:path';
 import { isLocalEndpoint, localOnlyDenied } from '../privacy/local-only.ts';
 import { turnContext } from './context.ts';
+import { deferMaintenanceStart, type CompositionMaintenance } from './maintenance.ts';
 
 /** privacy.localOnly for media generation: read at operation time, per agent when the call runs inside a turn. */
 export interface MediaPrivacy { localOnly: (agentId?: string) => boolean; localEndpoints: () => readonly string[] }
 
 export type MediaDefinition = AdapterConfig & { secretRef?: string };
 /** Credentials are leased at operation time; config contains references only. Native media transport retains its host/redirect checks. */
-export async function composeMedia(home: string, configs: readonly MediaDefinition[], secrets: SecretStore, egress: Egress, registerSecret?: (value: string) => void, privacy?: MediaPrivacy) {
+export async function composeMedia(home: string, configs: readonly MediaDefinition[], secrets: SecretStore, egress: Egress, registerSecret?: (value: string) => void, privacy?: MediaPrivacy, maintenance?: CompositionMaintenance) {
   if (!configs.length) return null;
   const definition = configs[0]!;
   if ('apiKey' in definition) throw new MediaError('unsupported_parameter');
@@ -41,6 +42,7 @@ export async function composeMedia(home: string, configs: readonly MediaDefiniti
   };
   const adapter: ImageAdapter = { id: config.id, model: config.model, capabilities: () => capabilities, generate: (request, context) => run('generate', request, context), edit: (request, context) => run('edit', request, context) };
   const store = new OutputStore(join(home, 'media', 'outputs'));
-  await store.recoverStaging();
-  return { adapter, store, local };
+  const unwatch = deferMaintenanceStart(maintenance, () => store.recoverStaging());
+  if (!unwatch) await store.recoverStaging();
+  return { adapter, store, local, close: () => unwatch?.() };
 }

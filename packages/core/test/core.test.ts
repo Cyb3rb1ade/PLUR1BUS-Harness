@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { type CoreClient } from "@plur1bus/module-api";
 import { connect } from "./helpers/connect.ts";
 import { defaults } from "@plur1bus/config-schema";
+import { RPC_VERSION } from "@plur1bus/rpc-schema";
 import { CORE_FEATURES } from "../src/capabilities.ts";
 import { createCore, type Core } from "../src/core.ts";
 import { assertEngineContract } from "../src/engine.ts";
@@ -96,7 +97,7 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, c.hello.contract); assertEngineContract({ contract: s.contract }); assert.equal(s.rpc, "1.6.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, c.hello.contract); assertEngineContract({ contract: s.contract }); assert.equal(s.rpc, RPC_VERSION);
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
   });
 

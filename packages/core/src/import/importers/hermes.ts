@@ -1,3 +1,6 @@
+import { assertNoPendingMaintenance } from "../pending-maintenance.ts";
+import { SourceReader, type SourceReaderOptions } from "../source-reader.ts";
+import { checkImportAbort, executionRunId, importCheckpoint, writeImportConfig, type ImportExecutionOptions } from "../execution.ts";
 // Hermes importer pipeline (docs/import.md §3, §5, M7 Batch 3).
 // Migrates profiles to agents, persona (SOUL.md) and USER.md into `l.workspaceDir(id)`,
 // ingests memory cards via Engine.memory.import (batch size <= 500),
@@ -26,6 +29,7 @@ import { withTargetLock } from "../single-writer.ts";
 import { targetIdentity } from "../identity.ts";
 import { ImportError, type SourceCtx } from "../types.ts";
 import { createSourceDiscovery } from "../source-discovery.ts";
+import { discoveryLabel } from "../discovery-identity.ts";
 import { importExtensions, type ImportedExtensionPort } from "../extensions-import.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
 import { RUN_ID_RE } from "../rollback.ts";
@@ -120,7 +124,8 @@ function createImportHost(stateDir: string, workspaceDir: (id: string) => Promis
   return createTempHost(stateDir, workspaceDir);
 }
 
-export interface HermesImportOptions {
+export interface HermesImportOptions extends ImportExecutionOptions {
+  reader?: SourceReaderOptions | undefined;
   home: string;
   /** Native package-store injection; extension receipts are kept outside the legacy report. */
   extensionPort?: ImportedExtensionPort | undefined;
@@ -221,6 +226,7 @@ export interface HermesImportReport {
 }
 
 export async function importHermes(opts: HermesImportOptions): Promise<HermesImportReport> {
+  assertNoPendingMaintenance(opts.home, opts.maintenanceRunId);
   const env = opts.env ?? process.env;
   const homedir = opts.homedir ?? (process.platform === "win32" ? env.USERPROFILE ?? "" : env.HOME ?? "");
   const platform = opts.platform ?? process.platform;
@@ -261,14 +267,16 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `run ${runId} snapshot manifest is unreadable or corrupt: ${err.message}`);
       }
     } else {
-      runId = newRunId(startDate);
+      runId = executionRunId(opts.runId, newRunId(startDate));
     }
 
     const repDir = join(l.home, "imports", runId);
 
     // Detect Hermes source
     const extensionDiscovery = createSourceDiscovery("hermes");
+    const reader = opts.reader ? new SourceReader({ ...opts.reader, ...(opts.signal ? { signal: opts.signal } : {}) }) : await SourceReader.local(undefined, opts.signal);
     const ctx: SourceCtx = {
+      reader,
       onSourceConfig: opts.extensionPort ? extensionDiscovery.capture : undefined,
       sourceType: "hermes",
       source: opts.source,
@@ -278,16 +286,25 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
       platform,
       home: opts.home,
       target: targetIdentity(opts.home),
+      maps: opts.maps,
       probeWsl: opts.probeWsl,
       allowLiveCopy: opts.allowLiveCopy,
     };
     const sourceReport = await detectHermes(ctx);
+    if (opts.sourceAgentIds) sourceReport.agents = sourceReport.agents.filter(agent => opts.sourceAgentIds!.includes(agent.agentId));
+    if (opts.sourceStoreIds) sourceReport.plur1bus.stores = sourceReport.plur1bus.stores.filter(store => opts.sourceStoreIds!.includes(store.storeId));
 
     const touchedAgentIds = sourceReport.agents.map((a) => a.agentId);
 
     // Read target config.json if present, else defaults
+    checkImportAbort(opts.signal);
+    let configRevision = "";
     let rawConfig: any;
-    if (existsSync(l.configPath)) {
+    if (opts.configPort) {
+      const current = await opts.configPort.get();
+      rawConfig = structuredClone(current.config);
+      configRevision = current.revision;
+    } else if (existsSync(l.configPath)) {
       try {
         rawConfig = JSON.parse(readFileSync(l.configPath, "utf8"));
       } catch (e: any) {
@@ -297,6 +314,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
       rawConfig = defaults();
     }
 
+    const originalConfig = structuredClone(rawConfig);
     rawConfig.agents = rawConfig.agents ?? {};
     const existingAgentIds = new Set(Object.keys(rawConfig.agents));
 
@@ -344,6 +362,8 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         );
       }
       preparedAdopt = await prepareStoreAdopt({
+        ...(opts.storeProbe ? { probe: opts.storeProbe } : {}),
+        reader,
         sourceStorePath: opts.adoptStore,
         l,
         isApply,
@@ -465,6 +485,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         let totalCardsDeferred = 0;
 
         for (const agent of sourceReport.agents) {
+          checkImportAbort(opts.signal);
           const sourceProfile = agent.agentId;
           const targetAgentId = mapProfiles[sourceProfile] ?? sourceProfile;
           const normId = targetAgentId.toLowerCase();
@@ -495,7 +516,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
           const userBindingActive = opts.userPrincipal !== undefined && opts.userPrincipal !== null && opts.userPrincipal.agentId === targetAgentId;
 
           // Migrate agent persona and files
-          const { report: agentReport, isNewAgent } = planAndMigrateHermesAgent(
+          const { report: agentReport, isNewAgent } = await planAndMigrateHermesAgent(
             targetAgentId,
             agentWorkspace,
             sourceReport.source.root,
@@ -506,6 +527,8 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
             ledger,
             replacedBackupDir,
             userBindingActive,
+            reader,
+            opts.fileConflict ? path => opts.fileConflict!(sourceProfile, path) : undefined,
           );
           // A refused source file (symlink, FIFO, oversized, unreadable) is an error, not a quiet skip.
           for (const f of agentReport.files) {
@@ -514,15 +537,17 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
             }
           }
 
-          if (agentReport.action !== "rejected" && isNewAgent && isApply) {
+          if (agentReport.action !== "rejected" && isNewAgent && (isApply || opts.configPort)) {
             rawConfig.agents[targetAgentId] = { createdAt: startDate.toISOString() };
             configChanged = true;
           }
 
           // Migrate memory cards (the engine is opened only for a profile with cards to write, never for parked ones)
           const userPrincipal = userBindingActive ? opts.userPrincipal : undefined;
-          if (cardMode?.kind !== "park" && hasHermesCardFiles(agentWorkspace, userPrincipal !== undefined)) ensureEngine();
+          if (cardMode?.kind !== "park" && await hasHermesCardFiles(agentWorkspace, userPrincipal !== undefined, reader)) ensureEngine();
           const memoryRes: HermesMemoryImportResult = await importHermesMemories({
+            ...(opts.signal ? { signal: opts.signal } : {}), ...(opts.onProgress ? { onProgress: opts.onProgress } : {}), runId,
+            reader,
             profileDir: agentWorkspace,
             profileName: sourceProfile,
             agentId: targetAgentId,
@@ -557,6 +582,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
             ...(alreadySeen ? { action: "merged" as any } : {}),
             memory: memoryRes,
           });
+          await importCheckpoint(opts, runId, "agent", profileReports.length, sourceReport.agents.length);
         }
 
         // 3. Read pairing allowlists
@@ -567,7 +593,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
             ),
           ),
         ];
-        const channelReports = readHermesPairings(searchDirs, errors);
+        const channelReports = await readHermesPairings(searchDirs, errors, reader);
         if (isApply && ledger) {
           for (const ch of channelReports) {
             ledger.record({
@@ -584,7 +610,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         const cronProfiles = sourceReport.agents
           .filter((a): a is typeof a & { workspace: string } => typeof a.workspace === "string" && a.workspace.length > 0)
           .map((a) => ({ agentId: a.agentId, dir: a.workspace }));
-        const { userJobs, excludedCount: cronExcludedCount } = readHermesCronJobs(cronProfiles, errors);
+        const { userJobs, excludedCount: cronExcludedCount } = await readHermesCronJobs(cronProfiles, errors, reader);
         if (isApply && ledger) {
           for (const job of userJobs) {
             ledger.record({
@@ -611,7 +637,9 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         const unmigratedSecrets = [...secretKeySet].sort();
 
         // If applying and config changed, validate schema and write target config.json
-        if (isApply && (configChanged || !existsSync(l.configPath))) {
+        if (opts.configPort) {
+          await writeImportConfig(opts.configPort, originalConfig, rawConfig, isApply, configRevision);
+        } else if (isApply && (configChanged || !existsSync(l.configPath))) {
           const check = validate(rawConfig);
           if (!check.ok) {
             throw new ImportError("E_CONFIG_INVALID", "config-invalid", check.errors.join("; "));
@@ -724,7 +752,9 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         }
 
         await importExtensions({ home: l.home, runId, apply: isApply,
-          candidates: extensionDiscovery.discovery.mcpCandidates, port: opts.extensionPort });
+          candidates: extensionDiscovery.discovery.mcpCandidates.filter(candidate => candidate.profile === null
+            || !opts.sourceAgentIds || opts.sourceAgentIds.some(id => discoveryLabel(id) === candidate.profile)),
+          port: opts.extensionPort });
         return resultReport;
       } finally {
         if (createdEngineLocally && engine) {
@@ -738,7 +768,8 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
   };
 
   if (opts.apply) {
-    return await withTargetLock(l, async () => {
+    const gate = opts.targetLock ?? (<T>(run: () => Promise<T>) => withTargetLock(l, run));
+    return await gate(async () => {
       return await executeImport(true);
     });
   }

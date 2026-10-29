@@ -1,5 +1,4 @@
 // `import <source> --detect` (docs/import.md §8): the read-only report, `import.detect/1`.
-import { existsSync } from "node:fs";
 import type { TargetIdentity } from "./identity.ts";
 import { targetIdentity } from "./identity.ts";
 import { readSource, type SourceOptions } from "./source.ts";
@@ -49,7 +48,7 @@ export async function detect(o: SourceOptions): Promise<DetectReport> {
       ];
     }
   }
-  let reportResult: { report: SourceReport; target: TargetIdentity; skills: ScannedSkill[] };
+  let reportResult: Awaited<ReturnType<typeof readSource>>;
   try {
     reportResult = await readSource(o);
   } catch (err) {
@@ -89,7 +88,7 @@ export async function detect(o: SourceOptions): Promise<DetectReport> {
     }
     throw err;
   }
-  const { report, target, skills } = reportResult;
+  const { report, target, skills, reader } = reportResult;
   const planned = planSkills(skills, o.home, o.sourceType, "skip");
   const detectSkills: DetectSkill[] = planned.map(({ skill: s, action, targetId, reason, harness }) => ({
     id: s.id, name: s.name, description: s.description, path: s.path, tier: s.tier, agentId: s.agentId,
@@ -114,7 +113,8 @@ export async function detect(o: SourceOptions): Promise<DetectReport> {
     ...report,
     warnings: [...report.warnings, ...wslWarnings],
     target: { home: target.home, configSource: target.configSource, embedding: target.embedding, reranker: target.reranker, warnings: target.warnings },
-    skillRoots: report.skillRoots.map((r) => ({ dir: r.dir, tier: r.tier, agentId: r.agentId, exists: existsSync(r.dir) })),
+    skillRoots: await Promise.all(report.skillRoots.map(async r => ({ dir: r.dir, tier: r.tier, agentId: r.agentId,
+      exists: await reader.exists(r.dir) }))),
     skills: detectSkills,
     counts,
     ...(candidates ? { candidates } : {}),

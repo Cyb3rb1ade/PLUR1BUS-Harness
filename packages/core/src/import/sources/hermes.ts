@@ -2,13 +2,13 @@
 // resolution and home markers (hermes_constants.py), config version (hermes_cli/config_defaults.py `_config_version`),
 // sessions schema (hermes_state_common.py SCHEMA_VERSION), skill dirs (get_skills_dir, skills.external_dirs,
 // HERMES_OPTIONAL_SKILLS). Read-only throughout; each profile is its own agent (§3.3).
-import { verifySourceSnapshot } from "../snapshot-source.ts";
-import { join, resolve } from "node:path";
+import { verifySourceSnapshotAsync } from "../snapshot-source.ts";
+import { SourceReader } from "../source-reader.ts";
 import { envGet, expandTilde, expandUser, expandVars, locateSource, pathFor, portabilityOf, SourcePathMapper, userHome } from "../paths.ts";
-import { envKeyNames, isDir, isFile, openSqliteReadOnly, sqliteTables, sqliteWarning } from "../readonly.ts";
-import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
+import { sqliteTables, sqliteWarning } from "../readonly.ts";
+
 import { caseCollisions, caseInsensitiveTarget, unportableName } from "../skills-scan.ts";
-import { subdirs } from "../store-scan.ts";
+
 import { readYaml } from "../yaml-lite.ts";
 import { ImportError, secretConfigKeys, type AgentInfo, type SecretsReport, type SkillRoot, type SourceCtx, type SourceReport } from "../types.ts";
 
@@ -35,7 +35,7 @@ export function resolveHermesRoot(o: { source?: string | undefined; env: NodeJS.
   const P = pathFor(platform);
   if (o.source) {
     if (o.source.startsWith("wsl:")) {
-      const loc = locateSource({ accessRoot: o.source, platform, env: o.env, home: o.homedir });
+      const loc = locateSource({ skipSnapshotCheck: true, accessRoot: o.source, platform, env: o.env, home: o.homedir });
       return { root: loc.accessRoot, resolvedFrom: "flag:--source", profile: null };
     }
     return { root: P.resolve(expandTilde(o.source, o.homedir, platform)), resolvedFrom: "flag:--source", profile: null };
@@ -53,12 +53,13 @@ export function resolveHermesRoot(o: { source?: string | undefined; env: NodeJS.
 
 interface ProfileFacts { agentId: string; dir: string; config: Record<string, any>; configVersion: number | null; unsupported: string[] }
 
-function readProfile(agentId: string, dir: string): ProfileFacts {
+async function readProfile(agentId: string, dir: string, reader: SourceReader): Promise<ProfileFacts> {
+  const { join } = reader.paths;
   const configPath = join(dir, "config.yaml");
-  if (!existsNoFollow(configPath)) return { agentId, dir, config: {}, configVersion: null, unsupported: [] };
+  if (!await reader.exists(configPath)) return { agentId, dir, config: {}, configVersion: null, unsupported: [] };
   let text: string;
   try {
-    text = readSourceTextSafe(configPath, 4 * 1024 * 1024);
+    text = await reader.text(configPath, 4 * 1024 * 1024);
   } catch (error) {
     const reason = error instanceof ImportError ? error.reason : "source-unreadable";
     throw new ImportError("E_SOURCE_UNSUPPORTED", reason, `${configPath}: ${reason}`);
@@ -72,45 +73,48 @@ function readProfile(agentId: string, dir: string): ProfileFacts {
   return { agentId, dir, config, configVersion: Number.isSafeInteger(v) ? (v as number) : null, unsupported };
 }
 
-function sessionsSchema(dir: string, warnings: string[]): number | null {
+async function sessionsSchema(dir: string, warnings: string[], reader: SourceReader): Promise<number | null> {
+  const { join } = reader.paths;
   const p = join(dir, "state.db");
-  if (!isFile(p)) return null;
+  if (!await reader.isFile(p)) return null;
   try {
-    const h = openSqliteReadOnly(p);
-    try {
+    return await reader.sqlite(p, h => {
       if (!sqliteTables(h.db).includes("schema_version")) return null;
       const row = h.db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version?: unknown } | undefined;
       const w = sqliteWarning(h, "state.db"); if (w) warnings.push(w);
       return Number.isSafeInteger(Number(row?.version)) && row?.version !== null ? Number(row!.version) : null;
-    } finally { h.close(); }
+    });
   } catch (e) {
+    SourceReader.refuseFatal(e);
     warnings.push(`state.db unreadable (${(e as Error).message})`);
     return null;
   }
 }
 
 export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
-  const { root, resolvedFrom, profile: envProfile } = resolveHermesRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: ctx.platform });
+  const reader = ctx.reader ?? await SourceReader.local();
+  const { join, resolve } = reader.paths;
+  const { root, resolvedFrom, profile: envProfile } = resolveHermesRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: reader.remote ? "linux" : ctx.platform });
   const warnings: string[] = [];
-  const snapshot = verifySourceSnapshot(root, ctx.home);
+  const snapshot = await verifySourceSnapshotAsync(root, ctx.home, reader);
   if (envProfile !== null && ctx.profile !== undefined && ctx.profile !== envProfile) {
     throw new ImportError("E_INVALID_PARAMS", "profile-conflict", `HERMES_HOME selects profile ${JSON.stringify(envProfile)} but --profile says ${JSON.stringify(ctx.profile)}`);
   }
   ctx = envProfile !== null ? { ...ctx, profile: envProfile } : ctx;
-  if (!isDir(root)) throw new ImportError("E_SOURCE_NOT_FOUND", "source-missing", `no directory at ${root}`);
-  if (!ROOT_MARKERS.some((m) => isFile(join(root, m)))) throw new ImportError("E_SOURCE_NOT_FOUND", "not-a-hermes-home", `${root} has none of ${ROOT_MARKERS.join(", ")}`);
-  if (ctx.profile !== undefined && (!PROFILE_RE.test(ctx.profile) || !isDir(join(root, "profiles", ctx.profile)))) {
+  if (!await reader.isDir(root)) throw new ImportError("E_SOURCE_NOT_FOUND", "source-missing", `no directory at ${root}`);
+  if (!(await Promise.all(ROOT_MARKERS.map(m => reader.isFile(join(root, m))))).some(Boolean)) throw new ImportError("E_SOURCE_NOT_FOUND", "not-a-hermes-home", `${root} has none of ${ROOT_MARKERS.join(", ")}`);
+  if (ctx.profile !== undefined && (!PROFILE_RE.test(ctx.profile) || !await reader.isDir(join(root, "profiles", ctx.profile)))) {
     throw new ImportError("E_SOURCE_NOT_FOUND", "profile-missing", `no profile ${JSON.stringify(ctx.profile)} under ${join(root, "profiles")}`);
   }
-  const rootFacts = readProfile("default", root);
+  const rootFacts = await readProfile("default", root, reader);
   if (rootFacts.configVersion === null) {
     throw new ImportError("E_SOURCE_UNSUPPORTED", "config-version-unreadable", `${join(root, "config.yaml")}: _config_version is missing or not an integer`);
   }
-  const names = ctx.profile !== undefined ? [ctx.profile] : subdirs(join(root, "profiles")).filter((n) => PROFILE_RE.test(n) && !n.startsWith("."));
+  const names = ctx.profile !== undefined ? [ctx.profile] : (await reader.subdirs(join(root, "profiles"))).filter((n) => PROFILE_RE.test(n) && !n.startsWith("."));
   const profiles: ProfileFacts[] = ctx.profile !== undefined ? [] : [rootFacts];
   const errors: Array<{ sourceRef: string; reason: string }> = snapshot?.skippedFiles.map(file => ({ sourceRef: file.path, reason: file.reason })) ?? [];
   for (const n of names) {
-    try { profiles.push(readProfile(n, join(root, "profiles", n))); }
+    try { profiles.push(await readProfile(n, join(root, "profiles", n), reader)); }
     catch (error) {
       const reason = error instanceof ImportError ? error.reason : "config-unparseable";
       errors.push({ sourceRef: `profiles/${n}/config.yaml`, reason });
@@ -122,12 +126,12 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
 
   const versionWarnings: string[] = [];
   if (rootFacts.configVersion > TESTED_CONFIG_VERSION) versionWarnings.push(`config version ${rootFacts.configVersion} is newer than the tested ${TESTED_CONFIG_VERSION}`);
-  const sessions = sessionsSchema(root, warnings);
+  const sessions = await sessionsSchema(root, warnings, reader);
   if (sessions !== null && sessions !== TESTED_SESSIONS_SCHEMA) versionWarnings.push(`sessions schema ${sessions} differs from the tested ${TESTED_SESSIONS_SCHEMA} (sessions are not imported yet)`);
 
   const agents: AgentInfo[] = profiles.map((p) => ({ agentId: p.agentId, workspace: p.dir, workspaceSource: p.agentId === "default" ? "root" : "profile", agentDir: p.dir, foundIn: [p.agentId === "default" ? "root" : "profiles"] }));
 
-  const loc = locateSource({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir, harnessHome: ctx.home });
+  const loc = await reader.location({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir, harnessHome: ctx.home });
   const SP = pathFor(loc.flavour);
   const base = SP.basename(loc.sourceRoot);
   const mapper = new SourcePathMapper(loc, { maps: ctx.maps, rootNames: base === ".hermes" || base === "hermes" ? [".hermes", "hermes"] : [], env: loc.origin === "native" && !loc.snapshot ? ctx.env : undefined });
@@ -156,20 +160,22 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
   const secrets: SecretsReport = { files: [], envKeys: [], configKeys: [] };
   for (const p of profiles) {
     const rel = p.agentId === "default" ? "" : `profiles/${p.agentId}/`;
-    if (isFile(join(p.dir, ".env"))) { secrets.files.push({ path: `${rel}.env`, kind: "dotenv", present: true }); secrets.envKeys.push({ file: `${rel}.env`, keys: envKeyNames(join(p.dir, ".env")) }); }
-    if (isFile(join(p.dir, "auth.json"))) secrets.files.push({ path: `${rel}auth.json`, kind: "auth-store", present: true });
+    if (await reader.isFile(join(p.dir, ".env"))) { secrets.files.push({ path: `${rel}.env`, kind: "dotenv", present: true }); secrets.envKeys.push({ file: `${rel}.env`, keys: await reader.envKeys(join(p.dir, ".env")) }); }
+    if (await reader.isFile(join(p.dir, "auth.json"))) secrets.files.push({ path: `${rel}auth.json`, kind: "auth-store", present: true });
     for (const k of secretConfigKeys(p.config)) secrets.configKeys.push({ ...k, path: `${rel}config.yaml:${k.path}` });
   }
 
   const memProvider = rootFacts.config.memory?.provider;
+  const has = async (name: string) => (await Promise.all(profiles.map(profile => reader.isFile(join(profile.dir, name))))).filter(Boolean).length;
   const other = {
-    soul: profiles.filter((p) => isFile(join(p.dir, "SOUL.md"))).length,
-    memoryFiles: profiles.reduce((n, p) => n + (isFile(join(p.dir, "memories", "MEMORY.md")) ? 1 : 0) + (isFile(join(p.dir, "memories", "USER.md")) ? 1 : 0), 0),
-    cronFiles: profiles.filter((p) => isFile(join(p.dir, "cron", "jobs.json"))).length,
-    sessionsDb: isFile(join(root, "state.db")),
+    soul: await has("SOUL.md"),
+    memoryFiles: await has("memories/MEMORY.md") + await has("memories/USER.md"),
+    cronFiles: await has("cron/jobs.json"),
+    sessionsDb: await reader.isFile(join(root, "state.db")),
     note: "presence only; imported by M7",
   };
   if (snapshot) {
+    for (const entry of snapshot.configKeys ?? []) if (!secrets.configKeys.some(existing => existing.path === entry.path && existing.form === entry.form)) secrets.configKeys.push(entry);
     for (const path of snapshot.omittedCredentials) secrets.files.push({ path, kind: "found-not-imported", present: true });
     for (const [file, keys] of Object.entries(snapshot.envKeys)) secrets.envKeys.push({ file, keys });
   }
