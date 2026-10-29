@@ -150,28 +150,29 @@ for (const mode of ["standalone", "harness"] as const) {
 
   test(`${mode}: a late key lease is released and erased after acquisition times out`, async t => {
     const host = await fixture(mode);
+    t.after(async () => { t.mock.timers.reset(); await host.close(); });
     let resolveLease!: (lease: PrivateKeyLease) => void;
     let started!: () => void;
     const entered = new Promise<void>(resolve => { started = resolve; });
     const late = new Promise<PrivateKeyLease>(resolve => { resolveLease = resolve; });
     let released = 0;
     let signal!: AbortSignal;
-    try {
-      t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.now() });
-      const pending = createSftpFs({ ...host.options, limits: { timeoutMs: 60_000 }, leaseKey: async stop => {
-        signal = stop; started(); return late;
-      } });
-      await entered;
-      const rejection = assert.rejects(pending, { reason: "timeout" });
-      t.mock.timers.tick(60_000);
-      await rejection;
-      const key = Buffer.from(host.privateKey);
-      resolveLease({ key, release() { released++; } });
-      await turn();
-      assert.equal(signal.aborted, true);
-      assert.equal(released, 1);
-      assert.ok(key.every(byte => byte === 0));
-    } finally { t.mock.timers.reset(); await host.close(); }
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.now() });
+    const pending = createSftpFs({ ...host.options, limits: { timeoutMs: 60_000 }, leaseKey: async stop => {
+      signal = stop; started(); return late;
+    } });
+    await entered;
+    const rejection = assert.rejects(pending, { reason: "timeout" });
+    t.mock.timers.tick(60_000);
+    // Native process exit remains asynchronous; its bounded cleanup must not wait on an unadvanced fake timer.
+    t.mock.timers.reset();
+    await rejection;
+    const key = Buffer.from(host.privateKey);
+    resolveLease({ key, release() { released++; } });
+    await turn();
+    assert.equal(signal.aborted, true);
+    assert.equal(released, 1);
+    assert.ok(key.every(byte => byte === 0));
   });
 
   test(`${mode}: invalid native limits cannot leave a worker running`, async () => {
