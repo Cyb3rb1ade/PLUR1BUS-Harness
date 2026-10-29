@@ -346,7 +346,12 @@ pub(super) fn spool_stdin(layout: &Layout) -> Result<Spool, Failure> {
     let io = |what: &str, e: std::io::Error| {
         Failure::new("E_INTERNAL", "io", format!("{what} {}: {e}", dir.display()))
     };
-    std::fs::create_dir_all(&dir).map_err(|e| io("cannot create", e))?;
+    // A directory created here with the default mode would make the supervisor refuse every later inspection.
+    if let Some(run) = dir.parent() {
+        std::fs::create_dir_all(run).map_err(|e| io("cannot create", e))?;
+    }
+    crate::supervisor::extension_uploads::create_private_dir(&dir)
+        .map_err(|e| io("cannot create", e))?;
     let cap = offline_config(layout)["extensions"]["limits"]["packageBytes"]
         .as_u64()
         .unwrap_or(268_435_456);
