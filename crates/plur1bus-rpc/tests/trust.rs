@@ -29,6 +29,10 @@ fn nothing_received(listener: &UnixListener) -> bool {
     let until = Instant::now() + Duration::from_millis(300);
     while Instant::now() < until {
         if let Ok((mut s, _)) = listener.accept() {
+            // macOS hands out accepted sockets with the listener's non-blocking flag (Linux does not), so the read
+            // would return at once instead of waiting out the window. macOS also refuses the timeout once the peer
+            // has closed; the unwrap then fails the test instead of skipping a stream that may still hold the token.
+            s.set_nonblocking(false).unwrap();
             s.set_read_timeout(Some(Duration::from_millis(200)))
                 .unwrap();
             let mut b = [0u8; 1];
