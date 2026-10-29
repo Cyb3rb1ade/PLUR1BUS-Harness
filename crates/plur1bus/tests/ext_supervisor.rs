@@ -1287,6 +1287,12 @@ fn a_stop_during_a_commit_waits_for_it() {
 
 fn secret_core_call(home: &Path, method: &str, params: Value) -> Value {
     use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
+    wait_for(
+        home,
+        "core",
+        "ready before private Core RPC",
+        is("ready", ""),
+    );
     let supervisor = common::address(home);
     let address = if cfg!(windows) {
         format!("{}-core", supervisor.strip_suffix("-supervisor").unwrap())
@@ -1309,6 +1315,25 @@ fn secret_core_call(home: &Path, method: &str, params: Value) -> Value {
     )
     .unwrap();
     core.call(method, params).unwrap()
+}
+
+/// The Supervisor can answer and hold a missing-slot module before Core has bound its private endpoint.
+#[test]
+fn secret_core_calls_wait_until_the_core_is_ready() {
+    let h = Home::new();
+    let mut supervisor = h.start_with_core(&[("FAKE_CORE_MODE", "listen-on-signal")]);
+    let signal = h.home.join("state/fake-core-listen");
+    let releasing = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(250));
+        std::fs::create_dir_all(signal.parent().unwrap()).unwrap();
+        std::fs::write(signal, b"listen").unwrap();
+    });
+    assert_eq!(
+        secret_core_call(&h.home, "secret.status", json!({})),
+        json!({"backend":"none"})
+    );
+    releasing.join().unwrap();
+    stop(&mut supervisor, &h.home);
 }
 
 #[test]

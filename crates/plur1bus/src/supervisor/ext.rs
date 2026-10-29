@@ -12,8 +12,9 @@
 //!   for the whole install. Config changes go through `config::set_removing_nulls` (its restart plan restarts or holds
 //!   back modules), module work through the main thread's op queue (`ModuleVerb::Install`, `ModuleVerb::Uninstall`).
 //! - **Overlays.** A packaged module (or channel) that is revoked, whose installed files no longer match the package,
-//!   or whose manifest `compat` no longer fits is held back (`stopped` with reason `ext-revoked`, `ext-tampered` or
-//!   `ext-incompatible`), after the `disabled` check, so its dependents are held back as `needs-unavailable`. The
+//!   whose manifest `compat` no longer fits, or whose required secret slots are unavailable is held back (`stopped`
+//!   with reason `ext-revoked`, `ext-tampered`, `ext-incompatible` or `ext-needs-setup`), after the `disabled` check,
+//!   so its dependents are held back as `needs-unavailable`. The
 //!   overlays are computed at start, after `ext::recover` (which re-hashes every enabled packaged module), and again
 //!   after every ext mutation; a module whose overlay changed is reconciled.
 use super::config::SetError;
@@ -41,8 +42,7 @@ use std::time::Duration;
 /// any notification sent after the listing.
 static WATCH: Mutex<()> = Mutex::new(());
 
-/// The held-back reason of a module with overlay `o` (X1-R17); `None` for the overlays that do not hold a module back
-/// (`needs-setup` refuses the enable instead; `error` is a kind this build does not know).
+/// The held-back reason of a module with overlay `o` (X1-R17); `None` for `error`, a kind this build does not know.
 pub fn overlay_reason(o: Overlay) -> Option<&'static str> {
     match o {
         Overlay::Revoked => Some(super::state::STOPPED_EXT_REVOKED),
@@ -227,7 +227,8 @@ impl ModuleHost for SupervisorHost<'_> {
 // ---- overlays and start --------------------------------------------------------------------------------------------
 
 /// The held-back overlay of every packaged module and channel (X1-R17): `revoked` first, then `tampered` (the record's
-/// last integrity result), then `incompatible` (the cached manifest's `compat`). When `extensions/state.json` cannot be
+/// last integrity result), then `incompatible` (the cached manifest's `compat`), then `needs-setup` (fresh required-slot
+/// availability). When `extensions/state.json` cannot be
 /// read, the check fails closed (X1-C23): every module a cached package names (`extensions/cache/<sha256>.json`, kind
 /// `module` or `channel`) is held back as `tampered`.
 pub fn module_overlays(layout: &Layout) -> BTreeMap<String, Overlay> {
@@ -951,7 +952,7 @@ mod tests {
             overlay_reason(Overlay::Incompatible),
             Some("ext-incompatible")
         );
-        assert_eq!(overlay_reason(Overlay::NeedsSetup), None);
+        assert_eq!(overlay_reason(Overlay::NeedsSetup), Some("ext-needs-setup"));
         assert_eq!(overlay_reason(Overlay::Error), None);
     }
 
