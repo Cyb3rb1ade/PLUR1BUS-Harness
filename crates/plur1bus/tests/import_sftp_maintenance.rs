@@ -6,7 +6,8 @@ use std::{path::Path, process::Command, time::Duration};
 
 fn run_source(selector: &str) {
     let temp = tempfile::tempdir().unwrap();
-    let home = temp.path().join("h");
+    let directory = temp.path().canonicalize().unwrap();
+    let home = directory.join("h");
     std::fs::create_dir(&home).unwrap();
     let mut config = serde_json::to_value(plur1bus_config::defaults()).unwrap();
     config["engine"] =
@@ -20,7 +21,7 @@ fn run_source(selector: &str) {
     let core = repo.join("packages/core/dist/core.js");
     let _supervisor = common::start_with_core(
         &home,
-        &temp.path().join("events.jsonl"),
+        &directory.join("events.jsonl"),
         "0.2",
         &[
             ("PLUR1BUS_CORE_JS", core.to_str().unwrap()),
@@ -54,7 +55,7 @@ fn run_source(selector: &str) {
         ])
         .arg(repo.join("packages/api/test/fixtures/import-maintenance-ssh-stack.mjs"))
         .arg(&home)
-        .arg(temp.path().join("remote"))
+        .arg(directory.join("remote"))
         .arg(selector)
         .arg(server)
         .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")

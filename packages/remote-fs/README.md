@@ -4,6 +4,8 @@ Read-only filesystem access for source discovery and private import snapshots. T
 
 `createLocalFs({root, limits, signal})` returns a frozen object with `stat`, `lstat`, `readdir`, `readFile(path, maxBytes)`, `realpath` and `readlink`. Paths are relative to the selected root or absolute paths within it. Escaping symlinks are refused; internal links may be read. Devices and sockets cannot be read as files.
 
+`createNativeSourceFs({limits, signal})` provides the same read operations for native CLI discovery across local volumes, including Windows drives and UNC paths. It has one cumulative budget across those volumes. Configured local and remote sources use their root-confined ports; a source selection compares the canonical root and canonical selected path.
+
 Every run has a deadline, maximum file and cumulative read bytes, directory depth and cumulative entries. Repeated reads count again. Defaults are 60 seconds, 32 MiB per file, 512 MiB total, depth 32 and 16,384 directory entries. Callers may provide explicit finite limits. Failures use fixed `RemoteFsError.reason` values and omit backend messages and file contents.
 
 `createSftpFs({worker, endpoint, root, leaseKey, limits, signal})` returns `{fs, close}`. `fs` has the same six methods. The trusted host supplies a worker descriptor `{path, sha256, mode}` from its verified installation and an egress-vetted numeric `{ip, port, username, hostKeySha256}` endpoint. `mode` is `harness` or `standalone`; each has fixed arguments. The transport never resolves a hostname or accepts a shell command. It checks the worker digest, plus Unix ownership and permissions, before spawning and confirms the exact host key on the same SSH connection before calling `leaseKey(signal)`.

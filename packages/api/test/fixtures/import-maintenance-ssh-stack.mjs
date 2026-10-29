@@ -260,7 +260,11 @@ try {
     if (["completed", "failed", "aborted"].includes(run.state)) break;
     await delay(500);
   }
-  assert.equal(run?.state, "completed", "real SSH snapshot reaches completed native maintenance");
+  assert.equal(
+    run?.state,
+    "completed",
+    `real SSH snapshot reaches completed native maintenance: ${JSON.stringify(run)}`,
+  );
   assert.equal(offlineStatus, true, "fresh HTTP status succeeds while the Core credential file is absent");
   const after = await rpc(cookie, "core.status");
   assert.ok(Number.isInteger(before.pid) && Number.isInteger(after.pid) && before.pid !== after.pid);

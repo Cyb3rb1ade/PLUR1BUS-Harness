@@ -554,7 +554,7 @@ try {
       const validOtherCsrf = await csrfToken(otherCookie);
       await rpc(cookie, "admin.import.rollback", { runId: started.runId, preflightId: rollbackCheck.preflightId });
       const rollback = await waitForRun(cookie, otherCookie, validOtherCsrf, started.runId);
-      assert.equal(rollback.run.state, "completed", `manual rollback completes: ${JSON.stringify(rollback.run)}`);
+      assert.equal(rollback.run.state, "completed", `native rollback terminal state: ${JSON.stringify(rollback.run)}`);
       assert.equal(rollback.run.restored, true);
       const restored = await rpc(cookie, "core.status");
       assert.notEqual(restored.pid, after.pid, "manual rollback genuinely restarts the Core again");

@@ -29,6 +29,20 @@ describe("rpc-schema", () => {
     assert.deepEqual([...coveredMethods].sort(), [...METHODS].sort(), "every method has a fixture");
   });
 
+  it("advertises the current RPC version in status and process handshake fixtures", () => {
+    // core.auth is the historical 1.0 baseline fixture; these fixtures describe current process status.
+    for (const name of ["core.status", "module.auth", "supervisor.auth"]) {
+      const result = fx.methods[name]?.result;
+      assert.ok(result && typeof result === "object" && "rpc" in result, name);
+      assert.equal(result.rpc, RPC_VERSION, name);
+    }
+    const adopted = fx.methods["core.adopt"]?.result;
+    assert.ok(adopted && typeof adopted === "object" && "status" in adopted);
+    const status = adopted.status;
+    assert.ok(status && typeof status === "object" && "rpc" in status);
+    assert.equal(status.rpc, RPC_VERSION, "core.adopt.status");
+  });
+
   it("has one fixture per error code and one per notification", () => {
     assert.deepEqual(Object.keys(fx.errors).sort(), [...ERROR_CODES].sort());
     for (const [code, f] of Object.entries(fx.errors)) {

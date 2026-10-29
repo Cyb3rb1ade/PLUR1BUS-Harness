@@ -214,16 +214,12 @@ fn kill_worker(pid: u32) {
 fn aborted_native_import_resumes_the_same_plan_only_after_a_fresh_preflight_and_completes_attempt_two(
 ) {
     let directory = tempfile::tempdir().unwrap();
-    let home = directory.path().join("h");
+    let root = directory.path().canonicalize().unwrap();
+    let home = root.join("h");
     prepare(&home);
-    let _supervisor = start(&home, &directory.path().join("events.jsonl"));
+    let _supervisor = start(&home, &root.join("events.jsonl"));
     ready(&home);
-    let fixture = HttpFixture::start(
-        &home,
-        &directory.path().join("source"),
-        "resume",
-        directory.path().join("http.log"),
-    );
+    let fixture = HttpFixture::start(&home, &root.join("source"), "resume", root.join("http.log"));
     fixture.finish(&[
         "aborted",
         "baselineExact",
@@ -245,17 +241,14 @@ fn killed_supervisor_and_cold_copy_worker_recover_every_root_before_a_new_core_o
         libc::prctl(libc::PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0);
     }
     let directory = tempfile::tempdir().unwrap();
-    let home = directory.path().join("h");
+    let root = directory.path().canonicalize().unwrap();
+    let home = root.join("h");
     prepare(&home);
-    let events = directory.path().join("events.jsonl");
+    let events = root.join("events.jsonl");
     let mut supervisor = start(&home, &events);
     ready(&home);
-    let mut fixture = HttpFixture::start(
-        &home,
-        &directory.path().join("source"),
-        "crash",
-        directory.path().join("http.log"),
-    );
+    let mut fixture =
+        HttpFixture::start(&home, &root.join("source"), "crash", root.join("http.log"));
     let checkpoint = fixture.next();
     assert_eq!(checkpoint["phase"], "dirty-cold-copy", "{checkpoint}");
     let run_id = checkpoint["runId"].as_str().unwrap();

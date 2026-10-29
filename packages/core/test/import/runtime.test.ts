@@ -2,13 +2,16 @@
 import { it } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import promises from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { bindApiPrincipal, bindClientContext } from "@plur1bus/module-api";
 import { createImportRecords } from "../../src/import/maintenance-records.ts";
 import { useTempDirs } from "./helpers.ts";
 import type { Principal } from "../../src/rbac/types.ts";
 import { openMaintenanceJournal } from "../../src/import/maintenance-journal.ts";
 import { fingerprintImportTarget } from "../../src/import/maintenance-worker.ts";
+import { writeAtomicSync } from "../../src/import/fs-atomic.ts";
 
 const temp = useTempDirs();
 const OWNER = { userId: "owner", kind: "person" as const, role: "owner" as const };
@@ -138,6 +141,46 @@ it("fails closed when asynchronous preparation fails and leaves the prior rollba
     assert.equal(f.releases(), 0);
   } finally { await f.methods.close(); }
 });
+
+for (const changedJob of [false, true]) {
+  it(`rechecks the exact held job after an atomic native ${changedJob ? "plan" : "progress"} replacement`, async t => {
+    let replace = false;
+    let replacements = 0;
+    const f = await fixture(false, false, false, { prepareTarget: async () => { replace = true; } });
+    const nativePath = join(f.home, "imports", f.plan.runId, "maintenance-run.json");
+    const open = promises.open;
+    t.mock.method(promises, "open", async (path: Parameters<typeof open>[0], flags: Parameters<typeof open>[1],
+      mode?: Parameters<typeof open>[2]) => {
+      if (path === nativePath && replace) {
+        replace = false;
+        replacements++;
+        const native = JSON.parse(readFileSync(nativePath, "utf8"));
+        native.run.progress = { runId: f.plan.runId, phase: "verify", entity: "memory", completed: 0 };
+        if (changedJob) native.job.planSha256 = "f".repeat(64);
+        // Native publishes its first held-runtime progress between this reader's lstat and open.
+        writeAtomicSync(nativePath, JSON.stringify(native));
+      }
+      return open(path, flags, mode);
+    });
+    syncBuiltinESMExports();
+    try {
+      if (changedJob) {
+        await assert.rejects(complete(f));
+        await assert.rejects(f.methods.methods["admin.import.runtime.release"]!(f.control, ctx));
+        assert.equal(f.releases(), 0, "a changed immutable job never releases the held target");
+      } else {
+        assert.equal((await complete(f)).state, "completed");
+        await f.methods.methods["admin.import.runtime.release"]!(f.control, ctx);
+        assert.equal(f.releases(), 1);
+      }
+      assert.equal(replacements, 1, "the actual native metadata replacement races the verified read");
+    } finally {
+      t.mock.restoreAll();
+      syncBuiltinESMExports();
+      await f.methods.close();
+    }
+  });
+}
 
 it("refuses to finalize if the journal leaves the exact committed snapshot while preparation is pending", async () => {
   let begin!: () => void;

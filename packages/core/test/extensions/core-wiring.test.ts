@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { createConnection } from "node:net";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { defaults } from "@plur1bus/config-schema";
 import { unitAddress } from "@plur1bus/module-api";
 import { createCore } from "../../src/core.ts";
@@ -62,7 +63,7 @@ async function installed(home: string) {
   const mcpb = JSON.stringify({ server: { type: "node", entry_point: "main.mjs",
     mcp_config: { command: "node", args: ["${__dirname}/main.mjs"] } } });
   await writeFile(join(payload, "manifest.json"), mcpb);
-  const entry = `import ${JSON.stringify(FIXTURE_STDIO)};`;
+  const entry = `import ${JSON.stringify(pathToFileURL(FIXTURE_STDIO).href)};`;
   await writeFile(join(payload, "main.mjs"), entry);
   const manifest = { id: "test/reports", name: "reports", version: "1.0.0", kind: "mcp-server",
     requires: { runtime: { type: "node", range: ">=24" } },

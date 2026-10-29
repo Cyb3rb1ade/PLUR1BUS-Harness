@@ -446,6 +446,19 @@ fn execute(
     input.close();
     tree.kill();
     let _ = child.wait();
+    // Only protocol-allowlisted reasons or static native codes may leave the private worker boundary.
+    // Raw stderr and error messages can contain source content or credentials and remain discarded.
+    let failure = match &operation {
+        Ok(result) if result["ok"] != true => Some(json!({"error":result["error"]["code"],
+            "reason":result["error"]["reason"]})),
+        Err(error) => Some(json!({"error":error.code,"reason":error.reason})),
+        _ => None,
+    };
+    if let Some(mut fields) = failure {
+        fields["runId"] = json!(job.run_id);
+        fields["mode"] = json!(job.mode);
+        shared.log.warn("import worker failed", fields);
+    }
     operation
 }
 

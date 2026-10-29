@@ -13,6 +13,7 @@ import { readColdBytes } from "./maintenance-files.ts";
 import { writeAtomicSync } from "./fs-atomic.ts";
 import { openMaintenanceJournal } from "./maintenance-journal.ts";
 import { fingerprintImportTarget } from "./target-fingerprint.ts";
+import { ImportError } from "./types.ts";
 
 export interface ImportRunControl { runId: string; planId: string; planSha256: string }
 export interface ImportRuntimeStatus {
@@ -50,8 +51,25 @@ interface RuntimeOptions {
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\s\S])/;
 const HASH = /^[a-f0-9]{64}$(?![\s\S])/;
+const NATIVE_JOB_READ_ATTEMPTS = 3;
 const denied = () => new RpcError("E_DENIED", "Import runtime control is unavailable", { reason: "local-core-only" });
 const unavailable = () => new RpcError("E_CONFLICT", "Import runtime job changed", { reason: "import-job-changed" });
+
+async function readNativeJob(path: string): Promise<Buffer> {
+  for (let attempt = 0; ; attempt++) {
+    const before = await lstat(path);
+    try {
+      return await readColdBytes(path, 256 * 1024);
+    } catch (error) {
+      const after = await lstat(path);
+      // Native progress atomically replaces this file while the held finalizer authenticates the same job.
+      // Retry only a regular-file replacement; each attempt retains the full safe-open and size checks.
+      if (attempt + 1 >= NATIVE_JOB_READ_ATTEMPTS || !(error instanceof ImportError)
+        || error.reason !== "cold-snapshot-unavailable" || !before.isFile() || before.isSymbolicLink()
+        || !after.isFile() || after.isSymbolicLink() || before.dev === after.dev && before.ino === after.ino) throw error;
+    }
+  }
+}
 
 export function createImportRuntime(options: RuntimeOptions) {
   const records = createImportRecords(options.home);
@@ -90,8 +108,8 @@ export function createImportRuntime(options: RuntimeOptions) {
     const raw = input as Record<string, unknown>;
     if (typeof raw.runId !== "string" || !UUID.test(raw.runId) || raw.runId !== options.heldRunId()
       || Object.keys(raw).some(key => !(full ? ["runId", "planId", "planSha256"] : ["runId"]).includes(key))) throw unavailable();
-    const native = JSON.parse((await readColdBytes(join(options.home, "imports", raw.runId, "maintenance-run.json"),
-      256 * 1024)).toString("utf8")) as { version?: number; job?: Record<string, unknown>; run?: { state?: string } };
+    const native = JSON.parse((await readNativeJob(join(options.home, "imports", raw.runId, "maintenance-run.json")))
+      .toString("utf8")) as { version?: number; job?: Record<string, unknown>; run?: { state?: string } };
     const job = native.job;
     if (native.version !== 1 || !job || job.runId !== raw.runId || native.run?.state !== "restarting-core"
       || typeof job.planId !== "string" || !UUID.test(job.planId)

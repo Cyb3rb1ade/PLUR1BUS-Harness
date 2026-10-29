@@ -220,28 +220,6 @@ pub fn claim(layout: &Layout, id: &str, caller: Caller<'_>) -> Result<Claim, Ext
     Ok(claimed)
 }
 
-/// Creates `dir` readable and writable only by this user (0700, or the run-directory DACL on Windows) unless it exists.
-/// Every writer of `run/inspect/` uses this, so whoever comes first leaves a directory [`bind_inspection`] accepts.
-pub(crate) fn create_private_dir(dir: &Path) -> io::Result<()> {
-    match fs::create_dir(dir) {
-        Ok(()) => {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
-            }
-            #[cfg(windows)]
-            {
-                let user = plur1bus_rpc::win::user_sid()?;
-                plur1bus_rpc::win::set_path_dacl(dir, &plur1bus_rpc::acl::run_dir_sddl(&user))?;
-            }
-            Ok(())
-        }
-        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => Ok(()),
-        Err(error) => Err(error),
-    }
-}
-
 fn owner_path(layout: &Layout, id: &str) -> PathBuf {
     layout
         .run()
@@ -255,7 +233,25 @@ pub fn bind_inspection(layout: &Layout, id: &str, caller: Caller<'_>) -> Result<
         return Err(record::expired());
     }
     private_path(&layout.run(), true).map_err(|_| record::expired())?;
-    create_private_dir(&layout.run().join("inspect")).map_err(|_| record::expired())?;
+    let dir = layout.run().join("inspect");
+    match fs::create_dir(&dir) {
+        Ok(()) => {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&dir, fs::Permissions::from_mode(0o700))
+                    .map_err(|_| record::expired())?;
+            }
+            #[cfg(windows)]
+            {
+                let user = plur1bus_rpc::win::user_sid().map_err(|_| record::expired())?;
+                plur1bus_rpc::win::set_path_dacl(&dir, &plur1bus_rpc::acl::run_dir_sddl(&user))
+                    .map_err(|_| record::expired())?;
+            }
+        }
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+        Err(_) => return Err(record::expired()),
+    }
     directory(layout, "inspect").map_err(|_| record::expired())?;
     let owner = InspectionOwner {
         version: 1,

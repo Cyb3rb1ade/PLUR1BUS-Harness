@@ -4,10 +4,9 @@ import { mkdtemp, mkdir, writeFile, symlink, rm, realpath } from "node:fs/promis
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
-import { createLocalFs } from "../src/local.ts";
+import { createLocalFs, createNativeSourceFs } from "../src/local.ts";
 
 async function fixture(run: (root: string, outside: string) => Promise<void>): Promise<void> {
-  // Canonical, so paths compare equal where the temporary directory is itself an alias (macOS `/var`, Windows `RUNNER~1`).
   const base = await realpath(await mkdtemp(join(tmpdir(), "p1-remote-fs-")));
   const root = join(base, "source");
   const outside = join(base, "outside");
@@ -38,6 +37,16 @@ test("the per-file and per-run budgets count actual repeated file bytes", async 
   assert.equal((await fs.readFile("card.md", 11)).length, 11);
   await assert.rejects(fs.readFile("card.md", 11), { reason: "total-limit" });
   assert.equal((await fs.stat("card.md")).type, "file");
+}));
+
+test("native discovery reads explicit paths with one cumulative byte budget and rejects invalid path input", async () => fixture(async (root, outside) => {
+  const fs = await createNativeSourceFs({ limits: { maxFileBytes: 64, maxTotalBytes: 20 } });
+  assert.deepEqual(Object.keys(fs).sort(), ["lstat", "readFile", "readdir", "readlink", "realpath", "stat"]);
+  assert.ok(Object.isFrozen(fs));
+  assert.equal((await fs.readFile(join(root, "card.md"), 64)).toString(), "public-card");
+  await assert.rejects(fs.readFile(outside, 64), { reason: "total-limit" });
+  await assert.rejects(fs.stat("invalid\0path"), { reason: "path-denied" });
+  assert.equal((await fs.stat(outside)).type, "file");
 }));
 
 test("lexical escapes and escaped symlinks cannot return external data or metadata", async () => fixture(async (root, outside) => {

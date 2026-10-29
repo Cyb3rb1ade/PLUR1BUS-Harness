@@ -239,7 +239,13 @@ fn rearm_core(shared: &Shared) {
 
 /// Makes `new` the running configuration and tells the subscribers. Called with the config lock held, so
 /// notifications go out in revision order.
-fn install(shared: &Shared, st: &mut ConfigState, new: Value, source: &str) {
+fn install(
+    shared: &Shared,
+    st: &mut ConfigState,
+    new: Value,
+    source: &str,
+    idle: Option<&super::imports::Idle<'_>>,
+) {
     let previous = st.revision.clone();
     let was_invalid = st.running.is_none() || st.rejected.is_some();
     let before = st.running.take().unwrap_or_else(|| json!({}));
@@ -279,7 +285,10 @@ fn install(shared: &Shared, st: &mut ConfigState, new: Value, source: &str) {
             modules: plan.restart.modules.clone(),
             ..Default::default()
         };
-        drop(super::push_restart(shared, modules));
+        // Private maintenance writes have no idle token; their scheduler retains all restart authority.
+        if let Some(idle) = idle {
+            drop(super::push_restart_under_gate(idle, modules));
+        }
     }
 }
 
@@ -405,7 +414,7 @@ pub(crate) fn restore_maintenance(
     }
     state.applied_hash = bytes.map(sha256);
     state.stamp = file_stamp(&layout.config_path());
-    install(shared, &mut state, config, "maintenance-restore");
+    install(shared, &mut state, config, "maintenance-restore", None);
     Ok(json!({"revision":state.revision}))
 }
 
@@ -446,13 +455,17 @@ fn set_inner(
     // Serialised by the config mutex. It is released at the end of this block: a later step that waits for a
     // restart job (Task 5) must wait without it, because the restarted core's own `config.watch` needs it (H3B-R6).
     let (applied, changed, restart, revision, job, chain_unavailable) = {
+        // Match private runtime writes: maintenance -> config -> supervisor state. Keep admission fenced through
+        // restart enqueue, then drop both guards before any child/RPC readiness wait.
+        let idle = if defer_restart {
+            None
+        } else {
+            Some(super::imports::idle(shared).map_err(|_| SetError::MaintenanceBusy)?)
+        };
         let mut st = relock(&shared.config);
-        if !defer_restart && super::imports::busy(shared) {
-            return Err(SetError::MaintenanceBusy);
-        }
         // I1: a hand edit the watcher has not seen yet is applied (or rejected) first, under this lock, so the set
         // builds on it: never overwritten unseen, and a stale `ifRevision` is a conflict.
-        poll_locked(shared, layout, &mut st);
+        poll_locked(shared, layout, &mut st, idle.as_ref());
         let Some(running) = st.running.clone() else {
             return Err(SetError::Unavailable);
         };
@@ -546,13 +559,14 @@ fn set_inner(
             st.applied_hash = Some(sha256(cfg::serialize(&plan.after).as_bytes()));
             // The temp file's stamp, taken before the rename: a write that lands after it always differs.
             st.stamp = meta.modified().ok().map(|m| (m, meta.len()));
-            install(shared, &mut st, plan.after, "set");
+            install(shared, &mut st, plan.after, "set", idle.as_ref());
             let revision = st.revision.clone().unwrap_or_default();
             // Queued before the config lock is released, so the job precedes any the restarted core's own
             // `restartPending` could cause. A module key restarts its module (B13), `enabled` stops or starts it.
-            let job = (!defer_restart && (plan.restart.core || !plan.restart.modules.is_empty()))
-                .then(|| super::push_restart(shared, plan.restart.clone()))
-                .flatten();
+            let job = idle
+                .as_ref()
+                .filter(|_| plan.restart.core || !plan.restart.modules.is_empty())
+                .and_then(|idle| super::push_restart_under_gate(idle, plan.restart.clone()));
             (
                 true,
                 plan.changed,
@@ -653,8 +667,11 @@ fn wait_ready(shared: &Shared, unit: &str, deadline: Instant) -> bool {
 
 /// One watcher tick (B4): see [`poll_locked`].
 pub fn poll_file(shared: &Arc<Shared>, layout: &Layout) {
+    let Ok(idle) = super::imports::idle(shared) else {
+        return;
+    };
     let mut st = relock(&shared.config);
-    poll_locked(shared, layout, &mut st);
+    poll_locked(shared, layout, &mut st, Some(&idle));
 }
 
 /// Looks at config.json with the config lock held (the watcher's tick, and the start of every `config.set`, I1).
@@ -662,7 +679,12 @@ pub fn poll_file(shared: &Arc<Shared>, layout: &Layout) {
 /// coarse mtime tick is still seen), it is read: bytes the supervisor applied or wrote itself are ignored; a valid,
 /// different file is applied like a set (`source: "file"`); an invalid one leaves the running configuration alone
 /// and is recorded in `rejected`. The file is never rewritten here.
-fn poll_locked(shared: &Shared, layout: &Layout, st: &mut ConfigState) {
+fn poll_locked(
+    shared: &Shared,
+    layout: &Layout,
+    st: &mut ConfigState,
+    idle: Option<&super::imports::Idle<'_>>,
+) {
     let path = layout.config_path();
     let stamp = file_stamp(&path);
     if stamp == st.stamp && st.rejected.is_none() {
@@ -747,7 +769,7 @@ fn poll_locked(shared: &Shared, layout: &Layout, st: &mut ConfigState) {
                 return;
             }
             st.applied_hash = Some(hash);
-            install(shared, st, new, "file");
+            install(shared, st, new, "file", idle);
         }
     }
 }
@@ -758,9 +780,7 @@ pub fn spawn_watcher(shared: &Arc<Shared>, layout: &Layout, scale: f64) -> std::
     let (s, l) = (shared.clone(), layout.clone());
     super::spawn_guarded(shared, "config-watch", move || loop {
         std::thread::sleep(tick);
-        if !super::imports::busy(&s) {
-            poll_file(&s, &l);
-        }
+        poll_file(&s, &l);
     })
 }
 

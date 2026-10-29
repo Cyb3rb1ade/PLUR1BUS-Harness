@@ -16,6 +16,7 @@ const iterator=lines[Symbol.asyncIterator]();
 const first=await iterator.next();
 const job=JSON.parse(first.value), scenario=JSON.parse(readFileSync(join(job.home,'scenario.json'))).scenario;
 const out=value=>process.stdout.write(JSON.stringify({v:1,runId:job.runId,...value})+'\n');
+process.stderr.write('PRIVATE_WORKER_BODY_MUST_NOT_ESCAPE\n');
 if(process.argv.length!==3||process.argv[2]!=='--supervised')process.exit(12);
 if(scenario==='raw'){process.stdout.write('PRIVATE_WORKER_BODY_MUST_NOT_ESCAPE\n');process.exit(0);}
 if(scenario==='oversized'){process.stdout.write('x'.repeat(65537)+'\n');process.exit(0);}
@@ -58,7 +59,7 @@ struct Fixture {
 impl Fixture {
     fn new(scenario: &str) -> Self {
         let home = tempfile::tempdir().unwrap();
-        let layout = Layout::new(home.path().into());
+        let layout = Layout::new(home.path().canonicalize().unwrap());
         records::directory(&layout, &["logs"]).unwrap();
         let shared = Arc::new(Shared {
             maintenance: Default::default(),
@@ -291,6 +292,30 @@ fn a_real_nonzero_worker_exit_keeps_the_independently_proven_restored_result() {
         .expect("exit1 with durable restoration must keep the bounded result");
     assert_eq!(result["restored"], true);
     assert_eq!(result["error"]["reason"], "apply-failed");
+    let log = fs::read_to_string(fixture.layout.logs().join("supervisor.log")).unwrap();
+    let failure: Value = log
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .find(|entry| entry["msg"] == "import worker failed")
+        .expect("worker failures retain their bounded reason in the private supervisor log");
+    assert_eq!(failure["runId"], fixture.job.run_id);
+    assert_eq!(failure["reason"], "apply-failed");
+    assert_eq!(failure["error"], "E_IMPORT_FAILED");
+    fixture.private_output(&Ok(result));
+}
+
+#[test]
+fn worker_failure_logs_never_include_unrecognized_error_codes_or_reasons() {
+    let fixture = Fixture::new("result");
+    fixture.checkpoint("restored");
+    fixture.result(&json!({"ok":false,"status":"failed","restored":true,"resumable":true,
+        "error":{"code":"PRIVATE_WORKER_BODY_MUST_NOT_ESCAPE","reason":"PRIVATE_WORKER_BODY_MUST_NOT_ESCAPE"}}));
+    let result = fixture
+        .run(Duration::from_secs(5))
+        .expect("a restored failure retains only protocol-allowlisted metadata");
+    assert_eq!(result["error"]["code"], "E_IMPORT_FAILED");
+    assert_eq!(result["error"]["reason"], "worker-failed");
+    fixture.private_output(&Ok(result));
 }
 
 #[test]

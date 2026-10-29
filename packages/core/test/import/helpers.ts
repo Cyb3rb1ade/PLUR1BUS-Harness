@@ -21,9 +21,7 @@ export function mulberry32(seed: number): () => number {
 export function useTempDirs(): () => string {
   const made: string[] = [];
   afterEach(() => { for (const d of made.splice(0)) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); });
-  // Canonical, so a path the importer resolves equals the one the test built where the temporary directory is itself
-  // an alias (macOS `/var` is `/private/var`, a Windows runner's `RUNNER~1` is `runneradmin`).
-  return () => { const d = realpathSync.native(mkdtempSync(path.join(tmpdir(), "p1b-import-new-"))); made.push(d); return d; };
+  return () => { const d = realpathSync(mkdtempSync(path.join(tmpdir(), "p1b-import-new-"))); made.push(d); return d; };
 }
 
 /** Names of all own properties of the shared prototypes, to prove a parse did not add or change any. */

@@ -35,7 +35,7 @@ describe("extension consent", { skip: browserSkip }, () => {
       await app.page.getByRole("button", { name: /test-bundle/i }).click();
       await app.page.getByRole("button", { name: /^Enable$/ }).click();
       const dialog = app.page.getByRole("dialog");
-      await dialog.getByText("child-key", { exact: true }).waitFor();
+      assert.equal(await dialog.getByText("Signing key ID", { exact: true }).locator("+ dd").innerText(), "child-key");
       assert.ok((await dialog.innerText()).includes("#!/bin/sh"));
       await dialog.getByRole("checkbox").check();
       detail.memberInspections![0]!.capabilities = { processes: { spawn: true, commands: ["danger"] } };

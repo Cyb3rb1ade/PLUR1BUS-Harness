@@ -1,6 +1,7 @@
 /** Packaged MCP launch leases are ephemeral, redacted, and isolated from ambient process credentials (M-A7). */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { PassThrough } from "node:stream";
 import { BoundedStdioTransport } from "../../src/mcp/stdio.ts";
 import { McpRegistry } from "../../src/mcp/registry.ts";
 import { FakeClock } from "./helpers/fake-clock.ts";
@@ -15,6 +16,14 @@ async function promptly<T>(work: Promise<T>): Promise<T> {
       timer = setTimeout(() => reject(new Error("MCP cancellation waited for an unavailable backend")), 2000);
     })]);
   } finally { clearTimeout(timer); }
+}
+
+function environmentOutput(transport: BoundedStdioTransport): Promise<unknown> {
+  return new Promise(resolve => {
+    transport.onmessage = message => resolve("params" in message ? message.params : undefined);
+    transport.onerror = resolve;
+    transport.onclose = () => resolve(new Error("MCP environment fixture closed before reporting its environment"));
+  });
 }
 
 describe("leased MCP launch environment", { timeout: 30_000 }, () => {
@@ -56,18 +65,37 @@ describe("leased MCP launch environment", { timeout: 30_000 }, () => {
         },
         redact: value => redacted.push(value),
       });
-    const output = new Promise<unknown>(resolve => {
-      transport.onmessage = message => resolve("params" in message ? message.params : undefined);
-    });
+    const output = environmentOutput(transport);
     assert.equal(acquired, 0);
     try {
       await transport.start();
       assert.equal(acquired, 1);
       assert.equal(released, 1, "lease must be released before protocol traffic");
-      assert.deepEqual(await output, { present: true, data: "/fixture/data/ext/example" });
+      const environment = await output;
+      if (environment instanceof Error) throw environment;
+      assert.deepEqual(environment, { present: true, data: "/fixture/data/ext/example" });
       assert.ok(redacted.includes(MARKER));
     } finally { await transport.close(); }
     assert.equal(released, 1);
+  });
+
+  it("reports an early transport close or error before an environment notification without waiting for the suite timeout", async () => {
+    for (const mode of ["close", "error"]) {
+      const input = new PassThrough();
+      const output = new PassThrough();
+      const transport = new BoundedStdioTransport({ input, output }, 1024, 50);
+      const report = environmentOutput(transport);
+      try {
+        await transport.start();
+        if (mode === "close") await transport.close();
+        else output.write("{invalid}\n");
+        const error = await promptly(report);
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, mode === "close"
+          ? "MCP environment fixture closed before reporting its environment"
+          : "MCP malformed JSON-RPC frame");
+      } finally { await transport.close(); }
+    }
   });
 
   it("releases a lease on spawn failure and on an abort while acquiring it", async () => {

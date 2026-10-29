@@ -101,14 +101,18 @@ fn push_op(
     budget: Duration,
     ext: bool,
 ) -> Result<OpHandle, OpError> {
+    let _idle = if ext {
+        None
+    } else {
+        Some(super::imports::idle(shared).map_err(|_| {
+            OpError::new(
+                "E_CONFLICT",
+                "import maintenance is in progress",
+                Some("busy"),
+            )
+        })?)
+    };
     let mut st = shared.lock();
-    if !ext && super::imports::busy(shared) {
-        return Err(OpError::new(
-            "E_CONFLICT",
-            "import maintenance is in progress",
-            Some("busy"),
-        ));
-    }
     if st.stopping.is_some() && !(ext && st.ext_draining) {
         return Err(OpError::new(
             "E_NOT_AVAILABLE",

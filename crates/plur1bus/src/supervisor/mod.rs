@@ -1031,8 +1031,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     );
     // The slots are the core, then the modules in start order: stopped in reverse, the core last, all inside one
     // budget plus one grace (M3, H3B-R25). A module is asked to finish by the end of the budget and killed there; the
-    // grace is the core's reserve: it is asked for what is left of the budget, at least half the grace, and killed at
-    // the end of the grace, so a hung module never costs the core its clean stop.
+    // grace is the core's reserve: after other children it gets what is left of the budget, at least half the grace,
+    // and otherwise its full RPC allowance. It is killed at the fixed grace deadline in either case.
     let order: Vec<(String, RoleKind)> = shared
         .lock()
         .slots
@@ -1041,15 +1041,13 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         .map(|s| (s.role.name.clone(), s.role.kind))
         .collect();
     let grace = child::stop_grace(time_scale);
-    let budget_end = stop.requested_at + stop.budget;
-    let deadline = budget_end + grace;
+    let mut stopped_children = 0;
     for (name, kind) in order {
         if let Some(m) = monitors.get_mut(&name) {
-            let left = budget_end.saturating_duration_since(Instant::now());
-            match kind {
-                RoleKind::Api | RoleKind::Module => m.stop_until(left, budget_end),
-                RoleKind::Core => m.stop_until(left.max(grace / 2), deadline),
-            }
+            let (budget, deadline) =
+                child_stop_timing(stop, kind, grace, stopped_children, Instant::now());
+            m.stop_until(budget, deadline);
+            stopped_children += 1;
         }
     }
     // The last log line comes before the run files go: `daemon stop` returns once `run/supervisor.pid` is gone, and a
@@ -1059,6 +1057,31 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     remove_run_files(layout);
     drop(lock);
     0
+}
+
+/// The child's RPC allowance and fixed stop deadline; prior children spend one shared budget (H3B-R25).
+fn child_stop_timing(
+    stop: StopRequest,
+    kind: RoleKind,
+    grace: Duration,
+    stopped_children: usize,
+    now: Instant,
+) -> (Duration, Instant) {
+    let budget_end = stop.requested_at + stop.budget;
+    let left = budget_end.saturating_duration_since(now);
+    match kind {
+        RoleKind::Api | RoleKind::Module => (left, budget_end),
+        RoleKind::Core => {
+            // ADR-012 §10.12: without an earlier child, Core keeps its full nominal RPC budget. Scheduling or
+            // import cleanup never renews the acceptance-anchored hard deadline enforced by stop_until.
+            let allowance = if stopped_children == 0 {
+                stop.budget
+            } else {
+                left
+            };
+            (allowance.max(grace / 2), budget_end + grace)
+        }
+    }
 }
 
 /// What the scheduler runs next.
@@ -1213,9 +1236,16 @@ pub fn push_restart(
     shared: &Shared,
     plan: plur1bus_config::Restart,
 ) -> Option<std::sync::mpsc::Receiver<Vec<String>>> {
-    if imports::busy(shared) {
-        return None;
-    }
+    let idle = imports::idle(shared).ok()?;
+    push_restart_under_gate(&idle, plan)
+}
+
+/// Enqueues while the caller's idle admission guard fences import reservation, without recursively locking it.
+fn push_restart_under_gate(
+    idle: &imports::Idle<'_>,
+    plan: plur1bus_config::Restart,
+) -> Option<std::sync::mpsc::Receiver<Vec<String>>> {
+    let shared = idle.shared();
     let mut st = shared.lock();
     if st.stopping.is_some() || (st.no_core && plan.modules.is_empty()) {
         return None;
@@ -1464,6 +1494,50 @@ pub(crate) fn test_state() -> SupervisorState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_first_core_keeps_its_full_rpc_allowance_without_renewing_the_stop_deadline() {
+        let stop = StopRequest {
+            budget: Duration::from_millis(2000),
+            source: StopSource::Rpc,
+            requested_at: Instant::now(),
+        };
+        let grace = Duration::from_millis(100);
+        for elapsed in [Duration::from_millis(3), Duration::from_millis(2500)] {
+            let now = stop.requested_at + elapsed;
+            let (budget, deadline) = child_stop_timing(stop, RoleKind::Core, grace, 0, now);
+            assert_eq!(budget, stop.budget);
+            assert_eq!(deadline, stop.requested_at + stop.budget + grace);
+        }
+    }
+
+    #[test]
+    fn prior_children_share_the_remaining_stop_budget_and_the_core_keeps_its_grace() {
+        let stop = StopRequest {
+            budget: Duration::from_millis(2000),
+            source: StopSource::Rpc,
+            requested_at: Instant::now(),
+        };
+        let grace = Duration::from_millis(100);
+        let now = stop.requested_at + Duration::from_millis(500);
+        for kind in [RoleKind::Api, RoleKind::Module] {
+            assert_eq!(
+                child_stop_timing(stop, kind, grace, 0, now),
+                (Duration::from_millis(1500), stop.requested_at + stop.budget)
+            );
+        }
+        assert_eq!(
+            child_stop_timing(stop, RoleKind::Core, grace, 1, now),
+            (
+                Duration::from_millis(1500),
+                stop.requested_at + stop.budget + grace
+            )
+        );
+        assert_eq!(
+            child_stop_timing(stop, RoleKind::Core, grace, 1, now + stop.budget),
+            (grace / 2, stop.requested_at + stop.budget + grace)
+        );
+    }
 
     #[cfg(unix)]
     #[test]

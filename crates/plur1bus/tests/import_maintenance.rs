@@ -91,8 +91,9 @@ fn malformed_maintenance_identifiers_are_refused_without_filesystem_effects() {
 
 fn real_stack(mode: &str) {
     let dir = tempfile::tempdir().unwrap();
-    let home = dir.path().join("h");
-    let source = dir.path().join("source");
+    let directory = dir.path().canonicalize().unwrap();
+    let home = directory.join("h");
+    let source = directory.join("source");
     std::fs::create_dir(&home).unwrap();
     let mut config = serde_json::to_value(plur1bus_config::defaults()).unwrap();
     config["engine"] =
@@ -106,7 +107,7 @@ fn real_stack(mode: &str) {
     let core_entry = root.join("packages/core/dist/core.js");
     let _supervisor = common::start_with_core(
         &home,
-        &dir.path().join("events.jsonl"),
+        &directory.join("events.jsonl"),
         "0.2",
         &[
             ("PLUR1BUS_CORE_JS", core_entry.to_str().unwrap()),

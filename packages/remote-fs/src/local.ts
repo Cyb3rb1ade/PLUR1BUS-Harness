@@ -1,8 +1,9 @@
-/** Root-confined local source reads; all open handles close even if a deadline wins the caller's race. */
+/** Local source reads with explicit confined or native authority; handles close even when a deadline wins. */
 import { constants, type Stats } from "node:fs";
 import { open, opendir, realpath, readlink, stat, lstat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { FsBudget } from "./budget.ts";
+import { localSourceRelativePath } from "./local-paths.ts";
 import { RemoteFsError, type FsLimits, type FsStat, type ReadonlyFs } from "./types.ts";
 
 /** The selected source root is the only filesystem authority held by the returned object. */
@@ -27,21 +28,30 @@ export async function createLocalFs(options: LocalFsOptions): Promise<ReadonlyFs
   const selectedRoot = resolve(options.root);
   const root = await budget.operation(() => realpath(options.root));
   if (!(await budget.operation(() => stat(root))).isDirectory()) throw new RemoteFsError("unsupported-type");
+  return localFs(budget, { root, selectedRoot });
+}
+
+/** Native CLI discovery can read all local volumes; configured sources must use createLocalFs for confinement. */
+export async function createNativeSourceFs(options: Omit<LocalFsOptions, "root"> = {}): Promise<ReadonlyFs> {
+  return localFs(new FsBudget(options.limits, options.signal));
+}
+
+function localFs(budget: FsBudget, authority?: { root: string; selectedRoot: string }): ReadonlyFs {
+  const root = authority?.root;
   const within = (path: string): string => {
-    const rel = relative(root, path);
-    if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new RemoteFsError("path-denied");
+    const rel = localSourceRelativePath(path, root);
     budget.depth(rel ? rel.split(sep).length : 0);
     return path;
   };
   const lexical = (path: string): string => {
     budget.check();
     if (typeof path !== "string" || path.includes("\0") || path.length > 8192) throw new RemoteFsError("path-denied");
-    const full = resolve(root, path);
-    if (isAbsolute(path) && selectedRoot !== root) {
-      const selected = relative(selectedRoot, full);
+    const full = root === undefined ? resolve(path) : resolve(root, path);
+    if (authority && isAbsolute(path) && authority.selectedRoot !== root) {
+      const selected = relative(authority.selectedRoot, full);
       if (selected !== ".." && !selected.startsWith(`..${sep}`) && !isAbsolute(selected)) {
         // The explicitly selected alias is translated to the authority pinned at creation, never followed again.
-        return within(resolve(root, selected));
+        return within(resolve(authority.root, selected));
       }
     }
     return within(full);
