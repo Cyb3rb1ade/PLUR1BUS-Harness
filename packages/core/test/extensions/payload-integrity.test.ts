@@ -2,9 +2,10 @@
 import { it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { defaults } from "@plur1bus/config-schema";
 import { composeExtensions } from "../../src/composition/extensions.ts";
 import { createSecretStore } from "../../src/secrets/store.ts";
@@ -15,14 +16,14 @@ import { createWriter } from "../../src/logs/writer.ts";
 import { caller, capturingLogger, FIXTURE_STDIO, waitDead } from "../mcp/helpers/util.ts";
 
 async function rig(withSecret = false) {
-  const home = await mkdtemp(join(tmpdir(), "p1b-mcp-integrity-"));
+  const home = await realpath(await mkdtemp(join(tmpdir(), "p1b-mcp-integrity-")));
   const payload = join(home, "mcp", "reports", "1.0.0", "payload");
   await mkdir(join(payload, "lib"), { recursive: true });
   await mkdir(join(home, "extensions"));
   const files: Record<string, { sha256: string; size: number; exec: boolean }> = {};
   for (const [path, content] of Object.entries({
     "manifest.json": JSON.stringify({ server: { type: "node", entry_point: "main.mjs" } }),
-    "main.mjs": `await import(${JSON.stringify(FIXTURE_STDIO)});`,
+    "main.mjs": `await import(${JSON.stringify(pathToFileURL(FIXTURE_STDIO).href)});`,
     "lib/data.txt": "approved supporting payload".repeat(8000),
   })) {
     await writeFile(join(payload, path), content, { mode: 0o600 });
@@ -57,7 +58,9 @@ async function rig(withSecret = false) {
     egress: createEgress({ config: () => cfg.egress }), logger: logger as never, output, clock: Date.now });
   const marker = join(home, "unapproved-code-started");
   const tamper = () => writeFile(join(payload, "main.mjs"),
-    `import {writeFileSync} from 'node:fs';writeFileSync(${JSON.stringify(marker)},'executed');await import(${JSON.stringify(FIXTURE_STDIO)});`);
+    "import {writeFileSync} from 'node:fs';" +
+    `writeFileSync(${JSON.stringify(marker)},'executed');` +
+    `await import(${JSON.stringify(pathToFileURL(FIXTURE_STDIO).href)});`);
   return { home, payload, composition, logger, marker, tamper, store,
     onSecretRead(callback: () => Promise<void> | void) { onRead = callback; }, async close() {
     await composition.close(); output.close(); await rm(home, { recursive: true, force: true });

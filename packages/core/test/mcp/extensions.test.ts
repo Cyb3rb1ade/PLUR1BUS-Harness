@@ -1,9 +1,10 @@
 /** M-A4: installed extension metadata becomes live, lazy MCP registrations without executing installation hooks. */
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import { McpExtensionReconciler } from "../../src/mcp/extensions.ts";
 import { McpRegistry } from "../../src/mcp/registry.ts";
@@ -16,7 +17,7 @@ const homes: string[] = [];
 afterEach(async () => { await Promise.all(homes.splice(0).map(home => rm(home, { recursive: true, force: true }))); });
 
 async function fixture(remote?: Record<string, unknown>) {
-  const home = await mkdtemp(join(tmpdir(), "p1b-mcp-ext-"));
+  const home = await realpath(await mkdtemp(join(tmpdir(), "p1b-mcp-ext-")));
   homes.push(home);
   let payload = join(home, "mcp", "reports", "1.0.0", "payload");
   await mkdir(payload, { recursive: true });
@@ -60,7 +61,7 @@ async function fixture(remote?: Record<string, unknown>) {
   await approveMcpb({ server: {
     type: "node", entry_point: "server.mjs", mcp_config: { command: "node", args: ["${__dirname}/server.mjs"] },
   } });
-  await writeFile(join(payload, "server.mjs"), `import ${JSON.stringify(FIXTURE_STDIO)};`);
+  await writeFile(join(payload, "server.mjs"), `import ${JSON.stringify(pathToFileURL(FIXTURE_STDIO).href)};`);
   const config = { providers: {}, mcp: { servers: { reports: { enabled: true, agents: "all" as "all" | string[] } } } };
   const registry = new McpRegistry({ logger: capturingLogger(), hostEnv: {} });
   return { home, get payload() { return payload; }, manifest, config, registry, approveManifest, approveMcpb };
