@@ -10,6 +10,7 @@ import {
   createLogger,
   coreAddress,
   supervisorAddress,
+  supervisorPidPath,
   supervisorTokenPath,
 } from "@plur1bus/module-api";
 import { createCoreLink } from "../src/core-link.ts";
@@ -35,6 +36,8 @@ test(
       ownerToken = randomBytes(32).toString("hex");
     writeFileSync(join(home, "run", "api-delegation.token"), apiToken, { mode: 0o600 });
     writeFileSync(supervisorTokenPath(home), token, { mode: 0o600 });
+    // On Windows the client refuses a pipe whose server pid is unknown; this process serves the fake supervisor.
+    writeFileSync(supervisorPidPath(home), `${process.pid}\n`, { mode: 0o600 });
     const logger = createLogger({ file: join(home, "core.log"), role: "core", level: "error" });
     const common = {
       token,
